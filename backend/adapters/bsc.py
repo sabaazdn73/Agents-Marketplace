@@ -56,57 +56,72 @@ def get_chain_config(use_mainnet: bool = False) -> dict:
 
 
 async def list_bsc_agents(
-    api_key: str | None = None,
+    api_key: str,
     use_mainnet: bool = False,
-    page: int = 1,
+    offset: int = 0,
     limit: int = 20,
-) -> list[dict]:
-    """CONFIRMED against 8004scan's real, published OpenAPI spec
-    (8004scan.io/api/v1/public/docs/openapi.json, fetched 8 Aug 2026),
-    not a guess like the rest of this file. Filters to BSC only via
-    chainId, per this hackathon's explicit eligibility rule ("agents
-    surfaced on your marketplace must be live on BSC"), even though
-    8004scan itself indexes 45+ chains.
+    max_retries: int = 4,
+) -> tuple[list[dict], int]:
+    """REBUILT 8 Aug 2026 against a real, different, richer endpoint
+    discovered live: 8004scan.io/api/v1/agents (NOT /api/v1/public/agents,
+    a genuinely different endpoint, requires a real API key, uses
+    offset/limit pagination and an {items, total, limit, offset}
+    envelope, confirmed directly from a real response: total=714397
+    agents across all chains as of 8 Aug 2026).
 
-    No API key required for basic use: anonymous tier gets 10 req/min,
-    100/day, plenty for building and testing. Pass api_key once you
-    have one for higher limits (free_api tier: 30/min, 1000/day).
+    Real fields now available that the old /public/ endpoint didn't
+    have: is_verified, x402_supported, health_score, rank,
+    network_rank, average_score, and critically cross_chain_versions
+    (the real mechanism for "same agent identity across chains").
+
+    Still filters to BSC only client-side (chain_id == 56 or 97),
+    same discipline as before: server-side chainId filtering was
+    never verified reliable for this endpoint either, don't assume it
+    works just because the parameter name matches.
+
+    Returns (agents, total_reported_by_server) so callers can decide
+    how far to paginate.
     """
     import httpx
+    import asyncio
 
     chain_id = MAINNET_CHAIN_ID if use_mainnet else TESTNET_CHAIN_ID
-    headers = {"X-API-Key": api_key} if api_key else {}
+    headers = {"X-API-Key": api_key}
 
-    async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(
-            "https://8004scan.io/api/v1/public/agents",
-            params={"chainId": chain_id, "page": page, "limit": limit, "sortBy": "total_score", "sortOrder": "desc"},
-            headers=headers,
-        )
-        resp.raise_for_status()
-        body = resp.json()
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(
+                    "https://8004scan.io/api/v1/agents",
+                    params={"chainId": chain_id, "offset": offset, "limit": limit},
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                body = resp.json()
+            break
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                wait_seconds = 8 * (2 ** attempt)
+                print(f"[list_bsc_agents] 429 at offset {offset} (chain {chain_id}), "
+                      f"attempt {attempt + 1}/{max_retries}, waiting {wait_seconds}s")
+                last_error = e
+                await asyncio.sleep(wait_seconds)
+                continue
+            raise
+    else:
+        raise last_error
 
-    if not body.get("success"):
-        raise RuntimeError(f"8004scan API error: {body.get('error')}")
+    all_results = body.get("items", [])
+    total = body.get("total", 0)
 
-    all_results = body["data"]
-
-    # SAFETY FILTER, confirmed necessary 8 Aug 2026: a live test call with
-    # chainId=56 (exactly the documented parameter) still returned agents
-    # with chain_id 1, 8453, etc mixed in, the server-side filter is not
-    # reliable. Filtering client-side here instead of trusting it, the
-    # same verify-then-trust discipline used throughout this project.
-    # If you ever see this filter removing zero agents, the server-side
-    # filter may have been fixed, but don't remove this without checking
-    # a live call again first.
     bsc_only = [a for a in all_results if a.get("chain_id") == chain_id]
     if len(bsc_only) != len(all_results):
         print(f"[list_bsc_agents] Server returned {len(all_results)} agents for "
-              f"chainId={chain_id}, only {len(bsc_only)} actually matched, "
-              f"client-side filter caught {len(all_results) - len(bsc_only)} "
-              f"wrong-chain results.")
+              f"chainId={chain_id} at offset {offset}, only {len(bsc_only)} actually "
+              f"matched, client-side filter caught the rest.")
 
-    return bsc_only
+    return bsc_only, total
 
 
 async def fetch_bsc_agents_layered(api_key: str | None = None, use_mainnet: bool = False) -> tuple[list[dict], str]:

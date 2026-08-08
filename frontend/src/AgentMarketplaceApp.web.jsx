@@ -1,8 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
-  LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight, Loader2, AlertTriangle
+  LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
+  Loader2, AlertTriangle, Wallet, ScanFace, LogOut
 } from 'lucide-react';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useDisconnect } from 'wagmi';
+import { usePrivy } from '@privy-io/react-auth';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 
@@ -118,6 +122,63 @@ function AuthorityLedger({ session, darkMode, onRevoke }) {
   );
 }
 
+function HybridWalletConnect({ darkMode, border }) {
+  // Two independent identity sources, a person is connected via
+  // EITHER wagmi/RainbowKit (crypto-native wallet) OR Privy
+  // (Face ID/email, embedded wallet), never both stacked, this
+  // mirrors the hybrid architecture discussed for this project:
+  // one connect surface, two real paths underneath.
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { ready, authenticated, user, login, logout } = usePrivy();
+
+  const privyConnected = ready && authenticated;
+  const privyAddress = user?.wallet?.address;
+
+  const isConnected = wagmiConnected || privyConnected;
+  const activeAddress = wagmiConnected ? wagmiAddress : privyAddress;
+  const shortAddress = activeAddress ? `${activeAddress.slice(0, 6)}...${activeAddress.slice(-4)}` : null;
+
+  if (isConnected) {
+    return (
+      <div className={`flex items-center gap-2 font-mono text-[10px] px-2 py-2 border-2 ${border} ${darkMode ? 'bg-gray-900' : 'bg-[#F4F3EE]'}`}>
+        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+        <span className="flex-1 truncate">{shortAddress}</span>
+        <button
+          onClick={() => (wagmiConnected ? wagmiDisconnect() : logout())}
+          title="Disconnect"
+          className="shrink-0 opacity-60 hover:opacity-100"
+        >
+          <LogOut size={12} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Crypto-native path: RainbowKit's own button handles its full modal */}
+      <ConnectButton.Custom>
+        {({ openConnectModal }) => (
+          <button
+            onClick={openConnectModal}
+            className={`w-full flex items-center justify-center gap-2 p-2 border-2 font-mono text-[11px] font-bold ${border} ${darkMode ? 'bg-gray-800' : 'bg-white'}`}
+          >
+            <Wallet size={13} /> Connect Wallet
+          </button>
+        )}
+      </ConnectButton.Custom>
+      {/* Face ID / email path via Privy */}
+      <button
+        onClick={login}
+        className={`w-full flex items-center justify-center gap-2 p-2 border-2 font-mono text-[11px] font-bold ${border} ${darkMode ? 'bg-white text-black' : 'bg-black text-white'}`}
+      >
+        <ScanFace size={13} /> Face ID / Email
+      </button>
+    </div>
+  );
+}
+
 function SortHeader({ label, sortKey, sortState, onSort, border }) {
   const active = sortState.key === sortKey;
   return (
@@ -198,9 +259,7 @@ export default function AgentMarketplaceApp() {
           })}
         </nav>
         <div className={`p-3 border-t-2 ${border}`}>
-          <div className={`flex items-center gap-2 font-mono text-[10px] px-2 py-2 border-2 ${border} ${darkMode ? 'bg-gray-900' : 'bg-[#F4F3EE]'}`}>
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> 0x7a2...9d41
-          </div>
+          <HybridWalletConnect darkMode={darkMode} border={border} />
           <button onClick={() => setDarkMode(!darkMode)} className={`w-full mt-2 p-2 border-2 flex items-center justify-center gap-2 font-mono text-xs ${border} ${darkMode ? 'bg-gray-800 text-yellow-400' : 'bg-white text-black'}`}>
             {darkMode ? <><Sun size={14} /> Light</> : <><Moon size={14} /> Dark</>}
           </button>

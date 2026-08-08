@@ -43,14 +43,18 @@ async def agents(force_refresh: bool = False):
     now = time.time()
     is_stale = (now - _cache["fetched_at"]) > _CACHE_TTL_SECONDS
     if _cache["data"] is None or is_stale or force_refresh:
+        api_key = os.environ.get("SCAN_8004_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=500,
+                detail="SCAN_8004_API_KEY is not set. The /api/v1/agents endpoint "
+                       "requires a real key, get one at 8004scan.io/developers.",
+            )
         try:
-            api_key = os.environ.get("SCAN_8004_API_KEY") or None
             _cache["data"] = await get_marketplace_agents_as_dicts(api_key=api_key)
             _cache["fetched_at"] = now
         except Exception as e:
             if _cache["data"] is not None:
-                # Real API hiccup, but we still have a valid (if slightly
-                # stale) cache, serve that rather than a hard failure.
                 print(f"[server] Refresh failed, serving stale cache: {e}")
             else:
                 raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")

@@ -29,6 +29,10 @@ class MarketplaceAgent:
     star_count: int | None
     total_feedbacks: int | None
     created_at: str | None
+    is_verified: bool
+    x402_supported: bool
+    health_score: float | None
+    cross_chain_versions: list | None  # real mechanism for "same agent identity, other chains"
 
     # From categorize.py, deterministic keyword classification
     category: str | None  # one of the 4 required, or None if unclassified
@@ -42,8 +46,9 @@ class MarketplaceAgent:
 
 
 async def get_marketplace_agents(
-    api_key: str | None = None,
-    max_pages: int = 10,
+    api_key: str,
+    max_offset: int = 200,
+    page_size: int = 20,
 ) -> list[MarketplaceAgent]:
     """The real entry point for the frontend. Fetches, cross-references,
     and classifies, doesn't fabricate anything it can't source.
@@ -56,22 +61,24 @@ async def get_marketplace_agents(
     broadly and acting narrowly are two different risk profiles, not
     a contradiction.
 
-    Paginates across up to max_pages (20 agents/page) PER chain rather
-    than just page 1, confirmed necessary 8 Aug 2026: a real
-    single-page fetch (top 20 by total_score) returned zero category
-    matches, the live BSC agent population is large (tens of
-    thousands under ERC-8004) and the highest-reputation agents
-    aren't necessarily the ones describing themselves in our 4 target
-    categories, searching deeper is a real, not cosmetic, improvement.
+    Paginates via offset (0, 20, 40, ... up to max_offset) PER chain,
+    matching the real /api/v1/agents endpoint's pagination style
+    (confirmed 8 Aug 2026, total=714397 across all chains). Stops
+    early if a page comes back short (fewer than page_size results),
+    the real signal that pagination has reached the end for that chain.
     """
 
     raw_agents = []
     for use_mainnet in (False, True):  # testnet first (primary dev target), then mainnet
-        for page in range(1, max_pages + 1):
-            page_agents = await list_bsc_agents(api_key=api_key, use_mainnet=use_mainnet, page=page)
-            if not page_agents:
-                break  # ran out of real pages for this chain, stop rather than requesting empty ones
+        offset = 0
+        while offset < max_offset:
+            page_agents, total = await list_bsc_agents(
+                api_key=api_key, use_mainnet=use_mainnet, offset=offset, limit=page_size
+            )
             raw_agents.extend(page_agents)
+            offset += page_size
+            if len(page_agents) < page_size:
+                break  # short page = no more real results for this chain
 
     try:
         defillama_protocols = await fetch_bsc_ai_agent_protocols()
@@ -100,6 +107,10 @@ async def get_marketplace_agents(
             star_count=agent.get("star_count"),
             total_feedbacks=agent.get("total_feedbacks"),
             created_at=agent.get("created_at"),
+            is_verified=bool(agent.get("is_verified")),
+            x402_supported=bool(agent.get("x402_supported")),
+            health_score=agent.get("health_score"),
+            cross_chain_versions=agent.get("cross_chain_versions"),
             category=classification.category,
             category_matched_keywords=classification.matched_keywords,
             financial_data_available=matched_protocol is not None,
