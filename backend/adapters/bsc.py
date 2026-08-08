@@ -55,14 +55,107 @@ def get_chain_config(use_mainnet: bool = False) -> dict:
     return {"chain_id": chain_id, **CONTRACTS[chain_id]}
 
 
+async def list_bsc_agents(
+    api_key: str | None = None,
+    use_mainnet: bool = False,
+    page: int = 1,
+    limit: int = 20,
+) -> list[dict]:
+    """CONFIRMED against 8004scan's real, published OpenAPI spec
+    (8004scan.io/api/v1/public/docs/openapi.json, fetched 8 Aug 2026),
+    not a guess like the rest of this file. Filters to BSC only via
+    chainId, per this hackathon's explicit eligibility rule ("agents
+    surfaced on your marketplace must be live on BSC"), even though
+    8004scan itself indexes 45+ chains.
+
+    No API key required for basic use: anonymous tier gets 10 req/min,
+    100/day, plenty for building and testing. Pass api_key once you
+    have one for higher limits (free_api tier: 30/min, 1000/day).
+    """
+    import httpx
+
+    chain_id = MAINNET_CHAIN_ID if use_mainnet else TESTNET_CHAIN_ID
+    headers = {"X-API-Key": api_key} if api_key else {}
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            "https://8004scan.io/api/v1/public/agents",
+            params={"chainId": chain_id, "page": page, "limit": limit, "sortBy": "total_score", "sortOrder": "desc"},
+            headers=headers,
+        )
+        resp.raise_for_status()
+        body = resp.json()
+
+    if not body.get("success"):
+        raise RuntimeError(f"8004scan API error: {body.get('error')}")
+
+    all_results = body["data"]
+
+    # SAFETY FILTER, confirmed necessary 8 Aug 2026: a live test call with
+    # chainId=56 (exactly the documented parameter) still returned agents
+    # with chain_id 1, 8453, etc mixed in, the server-side filter is not
+    # reliable. Filtering client-side here instead of trusting it, the
+    # same verify-then-trust discipline used throughout this project.
+    # If you ever see this filter removing zero agents, the server-side
+    # filter may have been fixed, but don't remove this without checking
+    # a live call again first.
+    bsc_only = [a for a in all_results if a.get("chain_id") == chain_id]
+    if len(bsc_only) != len(all_results):
+        print(f"[list_bsc_agents] Server returned {len(all_results)} agents for "
+              f"chainId={chain_id}, only {len(bsc_only)} actually matched, "
+              f"client-side filter caught {len(all_results) - len(bsc_only)} "
+              f"wrong-chain results.")
+
+    return bsc_only
+
+
+async def fetch_bsc_agents_layered(api_key: str | None = None, use_mainnet: bool = False) -> tuple[list[dict], str]:
+    """The real entry point: layered fallback across data sources,
+    returns (agents, source_used) so callers/UI can show provenance.
+
+    Layer 1: 8004scan (confirmed working via list_bsc_agents above,
+    real OpenAPI spec verified 8 Aug 2026, officially AltLayer-built
+    and BNB-Chain-endorsed).
+
+    Layer 2: 8k4 Protocol (documented in the ERC-8004 ecosystem list as
+    covering 44,020 BSC agents, more than 8004scan showed in a live
+    test, but 8k4's exact REST endpoint schema is NOT published
+    anywhere findable as of 8 Aug 2026, don't guess it, this layer
+    stays a documented TODO until its real API docs are found, e.g.
+    by asking in the ERC-8004 Telegram (t.me/ERC8004) or 8k4's own
+    channels).
+
+    Layer 3: direct on-chain read via the Identity Registry's
+    confirmed ABI (register/ownerOf/getMetadata, from the official
+    erc-8004-contracts repo), the ultimate ground truth, independent
+    of any third-party indexer's completeness or uptime. Not yet
+    built, real next step if layers 1-2 prove insufficient.
+    """
+    try:
+        agents = await list_bsc_agents(api_key=api_key, use_mainnet=use_mainnet)
+        if agents:
+            return agents, "8004scan"
+    except Exception as e:
+        print(f"[fetch_bsc_agents_layered] 8004scan failed: {e}")
+
+    # Layer 2 (8k4) intentionally not called yet, real endpoint schema
+    # unconfirmed, see docstring. Raising here rather than silently
+    # returning an empty list, an empty marketplace should look like
+    # an error, not a legitimate "no agents" state.
+    raise RuntimeError(
+        "8004scan returned no agents and no other verified data source "
+        "is wired in yet. Layer 2 (8k4 Protocol) and Layer 3 (direct "
+        "on-chain read) are documented but not implemented, see this "
+        "function's docstring for what's needed to build each one."
+    )
+
+
 async def list_registered_agents(rpc_url: str, use_mainnet: bool = False) -> list[OnChainAgent]:
-    """Reads the Identity Registry for registered agents. NOT YET
-    VERIFIED against a live RPC connection, first thing to check once
-    you have a real testnet RPC URL: does bnbagent-sdk expose a
-    direct 'list all agents' call, or does this need to be built from
-    raw event logs (AgentRegistered events) via a normal web3 call
-    instead? Don't assume the SDK has this exact method until
-    confirmed."""
+    """Superseded by list_bsc_agents() above, which reads from
+    8004scan's confirmed public API instead of guessing at a direct
+    SDK/RPC call. Kept here in case a DIRECT on-chain read (bypassing
+    8004scan entirely) is ever needed, still unverified, still needs
+    a live RPC connection to confirm."""
     try:
         from bnbagent import ERC8004Agent
     except ImportError as e:
@@ -72,10 +165,9 @@ async def list_registered_agents(rpc_url: str, use_mainnet: bool = False) -> lis
 
     config = get_chain_config(use_mainnet)
     raise NotImplementedError(
-        "Real call not yet built, this needs a live testnet RPC to verify "
-        "the actual SDK method name and response shape first (the same "
-        "verify-before-code discipline used throughout this project). "
-        "See debug_bnbagent_sdk.py (build once a testnet wallet exists)."
+        "Only needed if you want to bypass 8004scan and read the "
+        "Identity Registry directly, use list_bsc_agents() instead "
+        "for the normal case, that one is confirmed working."
     )
 
 
