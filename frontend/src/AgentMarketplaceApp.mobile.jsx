@@ -1,42 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Sun, Moon, ShieldAlert, ChevronLeft, ScanFace,
-  CheckCircle2, Loader2, X, TrendingUp, TrendingDown,
-  Sliders, FileBarChart, LayoutGrid
+  Menu, X, Globe, Settings, ChevronDown, ChevronRight, Loader2, AlertTriangle,
+  Wallet, ScanFace, LogOut, BadgeCheck, Zap, Star, Hammer, FileBarChart,
+  GraduationCap, Store, Sliders, CheckCircle2, XCircle, Sparkles, Link2, Boxes,
 } from 'lucide-react';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useDisconnect } from 'wagmi';
+import { usePrivy } from '@privy-io/react-auth';
 
-const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring'];
+const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const CHAIN_LABELS = { 56: 'BNB Smart Chain', 97: 'BNB Testnet' };
 
-const AGENTS = [
-  {
-    id: 'RB-01', name: 'RangeKeeper', category: 'Rebalancing', status: 'active',
-    winRate: '91.4%', drawdown: '-2.1%', tvl: '$2.8M',
-    strategy: 'Resets PancakeSwap V3 LP ranges when price exits the band.',
-    pancakeswapBenefit: 'Keeps LP capital in-range on PancakeSwap V3, improving pool depth.',
-    session: { key: '0x8f3c...4a21', spendUtilized: 14500, spendCap: 50000, expiry: '14h 22m' },
-  },
-  {
-    id: 'GT-02', name: 'TrustCycle-Grid-V3', category: 'Grid Trading', status: 'idle',
-    winRate: '88.7%', drawdown: '-4.5%', tvl: '$1.1M',
-    strategy: 'High-frequency localized arbitrage on fragmented PancakeSwap pairs.',
-    pancakeswapBenefit: 'Narrows spread on thin PancakeSwap pairs via continuous grid orders.',
-    session: null,
-  },
-  {
-    id: 'YR-03', name: 'DIVG-Yield-Router', category: 'Yield Optimisation', status: 'active',
-    winRate: '94.2%', drawdown: '-1.2%', tvl: '$4.2M',
-    strategy: 'Routes idle capital to the highest verified APR across venues.',
-    pancakeswapBenefit: 'Routes capital into PancakeSwap pools when their real APR leads.',
-    session: { key: '0x1a9b...7f88', spendUtilized: 0, spendCap: 100000, expiry: '48h 00m' },
-  },
-  {
-    id: 'HF-04', name: 'HCS-Health-Monitor', category: 'Health Factor Monitoring', status: 'active',
-    winRate: '99.9%', drawdown: '0.0%', tvl: '$12.4M',
-    strategy: 'Pre-emptive collateral swapping and liquidation defense.',
-    pancakeswapBenefit: 'Executes defensive swaps through PancakeSwap on best-priced routes.',
-    session: { key: '0x2c7e...9d10', spendUtilized: 3200, spendCap: 100000, expiry: '48h 00m' },
-  },
-];
+// Real data hook, identical mapping to the web version, one source of
+// truth for both, no separate mock arrays to drift out of sync.
+function useMarketplaceAgents() {
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch(`${API_BASE_URL}/api/agents`)
+      .then((res) => { if (!res.ok) throw new Error(`Backend returned ${res.status}`); return res.json(); })
+      .then((data) => {
+        if (cancelled) return;
+        const mapped = (data.agents || []).map((a) => ({
+          id: a.id, name: a.name || 'Unnamed agent', category: a.category || 'Unclassified',
+          network: a.network, chainId: a.chain_id, totalScore: a.total_score,
+          starCount: a.star_count, totalFeedbacks: a.total_feedbacks, isVerified: a.is_verified,
+          x402Supported: a.x402_supported, supportedProtocols: a.supported_protocols || [],
+          ownerAddress: a.owner_address, ownerEns: a.owner_ens, ownerUsername: a.owner_username,
+          imageUrl: a.image_url, strategy: a.description || 'No description provided.',
+          financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
+          defillamaUrl: a.defillama_url, session: null,
+        }));
+        setAgents(mapped); setLoading(false);
+      })
+      .catch((err) => { if (cancelled) return; setError(err.message); setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { agents, setAgents, loading, error };
+}
 
 const ADVANTAGE_REPORT = [
   { task: 'Rebalance $50k LP after a 6% move', category: 'Trading', with: { time: '38s', cost: '$0.41' }, without: { time: '22 min', cost: 'missed fees' } },
@@ -44,135 +51,210 @@ const ADVANTAGE_REPORT = [
   { task: 'Route idle USDC to best APR', category: 'Yield', with: { time: '11s', cost: '$0.09' }, without: { time: '15 min', cost: 'stale data' } },
 ];
 
-// Mobile is deliberately a different pattern from the desktop grid: a
-// dense, scannable ticker list (closer to a trading app's watchlist) with
-// swipe-to-reveal actions and a full-screen detail sheet on tap, rather
-// than a card grid shrunk to one column.
-function TickerRow({ agent, darkMode, onOpen }) {
-  const isUp = !agent.drawdown.startsWith('-') || agent.drawdown === '0.0%';
+const LEARN_TOPICS = [
+  { h: 'Rebalancing', p: 'Keeps a liquidity position in-range, re-centering automatically.' },
+  { h: 'Grid Trading', p: 'A ladder of buy/sell orders profiting from volatility.' },
+  { h: 'Yield Optimisation', p: 'Moves idle capital to whichever venue pays the most, right now.' },
+  { h: 'Health Factor Monitoring', p: 'Acts before a lending position crosses into liquidation.' },
+  { h: 'Session key', p: 'A scoped, revocable permission, never your main wallet.' },
+  { h: 'Spend cap', p: 'A hard on-chain ceiling, not a UI promise.' },
+];
+
+const BUILD_STEPS = [
+  { h: '1. Describe it in plain English', p: "No code. Cursor + BNB Chain's bnbagent-studio write the real thing." },
+  { h: '2. Set limits first', p: 'Spend cap and expiry, before it can touch anything.' },
+  { h: '3. Real, permanent ID', p: 'Registers on-chain under ERC-8004.' },
+  { h: '4. One ID, every chain', p: 'The identity format works everywhere. Bringing it to a new chain is one real transaction per chain, not automatic.' },
+];
+
+function HybridWalletConnect({ accent, compact }) {
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  const { ready, authenticated, user, login, logout } = usePrivy();
+  const privyConnected = ready && authenticated;
+  const activeAddress = wagmiConnected ? wagmiAddress : user?.wallet?.address;
+  const isConnected = wagmiConnected || privyConnected;
+  const shortAddress = activeAddress ? `${activeAddress.slice(0, 5)}...${activeAddress.slice(-3)}` : null;
+
+  if (isConnected) {
+    return (
+      <button onClick={() => (wagmiConnected ? wagmiDisconnect() : logout())} className="px-3 py-2 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-white/5 border border-white/10">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> {shortAddress} <LogOut size={11} className="opacity-50" />
+      </button>
+    );
+  }
   return (
-    <button
-      onClick={() => onOpen(agent)}
-      className={`w-full flex items-center gap-3 p-3 border-b active:bg-black/5 ${darkMode ? 'border-gray-800' : 'border-gray-200'}`}
-    >
-      <span className={`w-2 h-2 rounded-full shrink-0 ${agent.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+    <ConnectButton.Custom>
+      {({ openConnectModal }) => (
+        <button onClick={openConnectModal} className="px-4 py-2 rounded-full text-xs font-bold text-white" style={{ background: accent }}>
+          Connect
+        </button>
+      )}
+    </ConnectButton.Custom>
+  );
+}
+
+// Hyperliquid-pattern: dense ticker rows, not cards, for fast scanning
+function TickerRow({ agent, accent, onOpen }) {
+  return (
+    <button onClick={() => onOpen(agent)} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-white/5 active:bg-white/[0.03]">
+      {agent.imageUrl ? (
+        <img src={agent.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" onError={(e) => { e.target.style.display = 'none'; }} />
+      ) : (
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold text-white shrink-0" style={{ background: accent }}>
+          {agent.name.slice(0, 1).toUpperCase()}
+        </div>
+      )}
       <div className="flex-1 text-left min-w-0">
-        <div className="font-mono text-sm font-bold truncate">{agent.name}</div>
-        <div className="font-mono text-[10px] opacity-50 truncate">{agent.category}</div>
+        <div className="text-sm font-semibold truncate flex items-center gap-1">
+          {agent.name}
+          {agent.isVerified && <BadgeCheck size={12} style={{ color: accent }} />}
+        </div>
+        <div className="text-[10px] opacity-40 truncate">{agent.category}</div>
       </div>
       <div className="text-right shrink-0">
-        <div className={`font-mono text-sm font-bold flex items-center gap-1 justify-end ${isUp ? 'text-green-500' : 'text-red-500'}`}>
-          {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-          {agent.winRate}
-        </div>
-        <div className="font-mono text-[10px] opacity-50">{agent.tvl}</div>
+        <div className="text-sm font-bold">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</div>
+        <div className="text-[9px] opacity-40">{agent.starCount ?? 0} ★</div>
       </div>
     </button>
   );
 }
 
+const TABS = [
+  { id: 'market', label: 'Market', icon: Store },
+  { id: 'build', label: 'Build', icon: Hammer },
+  { id: 'account', label: 'Account', icon: Wallet },
+];
+
 export default function AgentMarketplaceMobileApp() {
-  const [darkMode, setDarkMode] = useState(false);
-  const [tab, setTab] = useState('market'); // market | report
+  const [tab, setTab] = useState('market');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState('All');
-  const [openAgent, setOpenAgent] = useState(null); // full-screen detail sheet
-  const [hireStep, setHireStep] = useState(null); // null | 'configure' | 'auth' | 'done'
+  const [showUnclassified, setShowUnclassified] = useState(true);
+  const [openAgent, setOpenAgent] = useState(null);
+  const [hireStep, setHireStep] = useState(null);
   const [spendCap, setSpendCap] = useState(50000);
   const [stopLoss, setStopLoss] = useState(5000);
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [agents, setAgents] = useState(AGENTS);
+  const { agents, setAgents, loading, error } = useMarketplaceAgents();
 
-  const chrome = darkMode ? 'bg-[#0F172A] text-[#F9FAFB]' : 'bg-white text-[#111827]';
-  const border = darkMode ? 'border-gray-800' : 'border-gray-200';
+  const { isConnected: wagmiConnected } = useAccount();
+  const { ready, authenticated, user, login } = usePrivy();
+  const walletConnected = wagmiConnected || (ready && authenticated);
 
-  const handleRevoke = (agentId) => {
-    setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, status: 'idle', session: null } : a)));
-    setOpenAgent((prev) => (prev ? { ...prev, status: 'idle', session: null } : prev));
+  // Same tokens as web, kept in sync intentionally.
+  const accent = '#6D5DFB';
+  const bg = '#0A0A12';
+  const surface = '#14141F';
+  const border = 'border-white/10';
+  const mutedBorder = 'border-white/5';
+
+  const filtered = useMemo(() => {
+    let list = agents.filter((a) => a.name && a.name.trim().length > 2);
+    if (!showUnclassified) list = list.filter((a) => a.category !== 'Unclassified');
+    list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
+    return [...list].sort((a, b) => (b.totalScore ?? -Infinity) - (a.totalScore ?? -Infinity));
+  }, [agents, activeCategory, showUnclassified]);
+
+  const handleRevoke = (id) => {
+    setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, session: null } : a)));
+    setOpenAgent((prev) => (prev ? { ...prev, session: null } : prev));
   };
 
   const startHire = () => {
+    if (!walletConnected) { alert('Connect a wallet first. A session key needs a real signature.'); return; }
     setHireStep('configure');
   };
 
-  const runFaceId = () => {
-    setHireStep('auth');
-    setIsAuthenticating(true);
-    setTimeout(() => {
-      setIsAuthenticating(false);
-      setHireStep('done');
-      setTimeout(() => {
-        setAgents((prev) =>
-          prev.map((a) =>
-            a.id === openAgent.id
-              ? { ...a, status: 'active', session: { key: '0x' + Math.random().toString(16).slice(2, 10) + '...4a', spendUtilized: 0, spendCap: Number(spendCap), expiry: '24h 00m' } }
-              : a
-          )
-        );
-        setHireStep(null);
-        setOpenAgent(null);
-      }, 1200);
-    }, 1800);
+  const confirmHire = () => {
+    setAgents((prev) => prev.map((a) => a.id === openAgent.id ? { ...a, session: { key: '0x' + Math.random().toString(16).slice(2, 8) + '...4a', spendUtilized: 0, spendCap: Number(spendCap), expiry: '24h' } } : a));
+    setHireStep(null);
+    setOpenAgent(null);
   };
 
-  const filtered = agents.filter((a) => activeCategory === 'All' || a.category === activeCategory);
-
   return (
-    <div className={`min-h-screen font-sans pb-16 ${chrome}`}>
-      {/* Compact top bar — status strip, not a full header */}
-      <div className={`flex items-center justify-between px-4 py-3 border-b ${border}`}>
+    <div className="min-h-screen font-sans pb-20" style={{ background: bg, color: '#F5F5F7' }}>
+      {/* Hyperliquid-pattern top bar: hamburger, logo, Connect CTA, settings */}
+      <div className={`flex items-center justify-between px-4 py-3 border-b ${border} sticky top-0 z-30 backdrop-blur-md`} style={{ background: 'rgba(10,10,18,0.9)' }}>
+        <button onClick={() => setMenuOpen(true)} className="p-1.5"><Menu size={20} /></button>
         <div className="flex items-center gap-2">
-          <div className="bg-[#22C55E] text-black font-mono font-bold px-1.5 py-0.5 text-[10px] border border-black">BSC</div>
-          <span className="font-serif font-bold text-lg">A2A</span>
+          <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: accent }}><Boxes size={13} className="text-white" /></div>
+          <span className="font-bold text-sm">Agents Marketplace</span>
         </div>
-        <button onClick={() => setDarkMode(!darkMode)}>
-          {darkMode ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} />}
-        </button>
+        <div className="flex items-center gap-2">
+          <HybridWalletConnect accent={accent} />
+          <button className="p-1.5 opacity-60"><Settings size={18} /></button>
+        </div>
       </div>
+
+      {/* Hyperliquid-pattern side menu for secondary items */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="w-72 h-full p-5 overflow-y-auto" style={{ background: surface }}>
+            <div className="flex justify-between items-center mb-8">
+              <span className="font-bold">Menu</span>
+              <button onClick={() => setMenuOpen(false)}><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              {[
+                { id: 'report', label: 'Advantage Report', icon: FileBarChart },
+                { id: 'learn', label: 'Learn', icon: GraduationCap },
+              ].map((item) => (
+                <button key={item.id} onClick={() => { setTab(item.id); setMenuOpen(false); }} className="w-full flex items-center gap-3 text-left py-2">
+                  <item.icon size={17} className="opacity-60" /> <span className="text-sm font-medium">{item.label}</span>
+                </button>
+              ))}
+              <div className={`border-t ${mutedBorder} my-4`} />
+              <div className="text-xs opacity-40 space-y-3">
+                <div>Testnet</div>
+                <div>Docs</div>
+                <div>Support</div>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 bg-black/60" onClick={() => setMenuOpen(false)} />
+        </div>
+      )}
 
       {tab === 'market' && !openAgent && (
         <>
-          {/* Horizontal-scroll category chips, thumb-reachable */}
           <div className="overflow-x-auto px-4 py-3 flex gap-2" style={{ scrollbarWidth: 'none' }}>
             {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`shrink-0 px-3 py-1.5 rounded-full font-mono text-[11px] border ${
-                  activeCategory === cat ? 'bg-black text-white border-black' : `${border} opacity-70`
-                }`}
-              >
+              <button key={cat} onClick={() => setActiveCategory(cat)} className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium border"
+                style={activeCategory === cat ? { background: accent, borderColor: accent, color: 'white' } : { borderColor: 'rgba(255,255,255,0.08)', opacity: 0.6 }}>
                 {cat}
               </button>
             ))}
+            <button onClick={() => setShowUnclassified((v) => !v)} className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium border ${mutedBorder} ${showUnclassified ? '' : 'opacity-40'}`}>
+              {showUnclassified ? 'Hide' : 'Show'} unclassified
+            </button>
           </div>
 
-          {/* Dense ticker list, not cards */}
-          <div>
-            {filtered.map((agent) => (
-              <TickerRow key={agent.id} agent={agent} darkMode={darkMode} onOpen={setOpenAgent} />
-            ))}
-          </div>
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-sm opacity-60">
+              <Loader2 size={24} className="animate-spin" style={{ color: accent }} /> Loading real agent data...
+            </div>
+          )}
+          {error && !loading && (
+            <div className="mx-4 flex items-center gap-2 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs">
+              <AlertTriangle size={16} className="text-red-400 shrink-0" /> {error}
+            </div>
+          )}
+          {!loading && !error && filtered.map((agent) => <TickerRow key={agent.id} agent={agent} accent={accent} onOpen={setOpenAgent} />)}
         </>
       )}
 
       {tab === 'report' && (
         <div className="p-4">
-          <h2 className="text-xl font-serif font-bold mb-1">Advantage Report</h2>
-          <p className="font-mono text-xs opacity-60 mb-4">3 real tasks, run both ways.</p>
+          <h2 className="text-xl font-bold mb-1">Advantage Report</h2>
+          <p className="text-xs opacity-50 mb-5">3 real tasks, run both ways.</p>
           <div className="space-y-3">
             {ADVANTAGE_REPORT.map((row, i) => (
-              <div key={i} className={`border p-3 ${border}`}>
-                <div className="font-mono text-[10px] uppercase opacity-50 mb-1">{row.category}</div>
-                <div className="font-bold text-sm mb-2">{row.task}</div>
-                <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
-                  <div className={`p-2 ${darkMode ? 'bg-green-900/20' : 'bg-green-50'}`}>
-                    <div className="font-bold text-green-600 mb-0.5">WITH</div>
-                    <div>{row.with.time} · {row.with.cost}</div>
-                  </div>
-                  <div className={`p-2 ${darkMode ? 'bg-gray-900/40' : 'bg-gray-100'}`}>
-                    <div className="font-bold opacity-60 mb-0.5">WITHOUT</div>
-                    <div>{row.without.time} · {row.without.cost}</div>
-                  </div>
+              <div key={i} className={`rounded-xl border ${mutedBorder} p-4`} style={{ background: surface }}>
+                <div className="text-[10px] uppercase opacity-40 mb-1">{row.category}</div>
+                <div className="font-semibold text-sm mb-3">{row.task}</div>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20"><div className="font-bold text-emerald-400 mb-0.5">WITH</div>{row.with.time} · {row.with.cost}</div>
+                  <div className={`p-2 rounded-lg border ${mutedBorder}`}><div className="font-bold opacity-50 mb-0.5">WITHOUT</div>{row.without.time} · {row.without.cost}</div>
                 </div>
               </div>
             ))}
@@ -180,103 +262,153 @@ export default function AgentMarketplaceMobileApp() {
         </div>
       )}
 
-      {/* Full-screen agent detail sheet — replaces the screen, not a modal card */}
-      {openAgent && (
-        <div className={`fixed inset-0 z-40 ${chrome} overflow-y-auto`}>
-          <div className={`flex items-center gap-3 px-4 py-3 border-b ${border} sticky top-0 ${chrome}`}>
-            <button onClick={() => { setOpenAgent(null); setHireStep(null); }}>
-              <ChevronLeft size={22} />
-            </button>
-            <span className="font-mono text-[10px] uppercase opacity-50">{openAgent.category}</span>
+      {tab === 'learn' && (
+        <div className="p-4">
+          <h2 className="text-xl font-bold mb-1">Learn</h2>
+          <p className="text-xs opacity-50 mb-5">What each agent does, and what you're granting.</p>
+          <div className="space-y-2">
+            {LEARN_TOPICS.map((item, i) => (
+              <div key={i} className={`rounded-xl border ${mutedBorder} p-4`} style={{ background: surface }}>
+                <div className="text-xs font-semibold mb-1">{item.h}</div>
+                <div className="text-xs opacity-60 leading-relaxed">{item.p}</div>
+              </div>
+            ))}
           </div>
+        </div>
+      )}
 
+      {tab === 'build' && (
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-1"><Sparkles size={17} style={{ color: accent }} /><h2 className="text-xl font-bold">Build Your Agent</h2></div>
+          <p className="text-xs opacity-50 mb-5">No coding required.</p>
+          <div className="space-y-3 mb-6">
+            {BUILD_STEPS.map((step, i) => (
+              <div key={i} className={`rounded-xl border ${mutedBorder} p-4`} style={{ background: surface }}>
+                <div className="text-xs font-semibold mb-1">{step.h}</div>
+                <div className="text-xs opacity-60 leading-relaxed">{step.p}</div>
+              </div>
+            ))}
+          </div>
+          <div className={`rounded-xl border ${mutedBorder} p-4 mb-6`} style={{ background: surface }}>
+            <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-[10px] font-semibold uppercase opacity-60">Deploy to other chains</span></div>
+            <p className="text-xs opacity-60">Your agent's identity works everywhere. Registering on a new chain is one real transaction, not automatic.</p>
+          </div>
+          <button className="w-full py-4 rounded-xl font-semibold text-white text-sm" style={{ background: accent }}>Start Building →</button>
+        </div>
+      )}
+
+      {tab === 'account' && (
+        // Hyperliquid-pattern: clean label/value rows, big primary CTA, outlined secondary actions
+        <div className="p-4">
+          <div className="text-xs uppercase opacity-40 font-semibold mb-3">Your Wallet</div>
+          {!walletConnected ? (
+            <div className={`rounded-xl border ${mutedBorder} p-6 text-center mb-6`} style={{ background: surface }}>
+              <Wallet size={28} className="mx-auto mb-3 opacity-40" />
+              <p className="text-sm opacity-60 mb-4">Connect to see your hired agents and sessions.</p>
+              <div className="flex flex-col gap-2">
+                <HybridWalletConnect accent={accent} />
+                <button onClick={login} className="px-4 py-2.5 rounded-full text-xs font-semibold border border-white/15 flex items-center justify-center gap-1.5"><ScanFace size={13} /> Face ID / Email</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className={`rounded-xl border ${mutedBorder} divide-y ${mutedBorder} mb-6`} style={{ background: surface }}>
+                {[
+                  ['Active sessions', agents.filter((a) => a.session).length],
+                  ['Total spend cap set', `$${agents.filter((a) => a.session).reduce((s, a) => s + (a.session?.spendCap || 0), 0).toLocaleString()}`],
+                  ['Wallet path', wagmiConnected ? 'External wallet' : 'Face ID / Email'],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex justify-between items-center px-4 py-3.5 text-sm">
+                    <span className="opacity-50">{label}</span>
+                    <span className="font-semibold">{value}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs uppercase opacity-40 font-semibold mb-3">Hired Agents</div>
+              {agents.filter((a) => a.session).length === 0 ? (
+                <p className="text-xs opacity-40 mb-6">No agents hired yet.</p>
+              ) : (
+                agents.filter((a) => a.session).map((a) => (
+                  <div key={a.id} className={`rounded-xl border ${mutedBorder} p-4 mb-2`} style={{ background: surface }}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="font-semibold text-sm">{a.name}</span>
+                      <button onClick={() => handleRevoke(a.id)} className="text-[10px] font-bold text-red-400 px-2 py-1 rounded-full border border-red-500/30">REVOKE</button>
+                    </div>
+                    <div className="text-xs opacity-50">${a.session.spendUtilized} / ${a.session.spendCap.toLocaleString()} used</div>
+                  </div>
+                ))
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Full-screen agent detail, replaces the screen like Hyperliquid's market drill-down */}
+      {openAgent && (
+        <div className="fixed inset-0 z-40 overflow-y-auto" style={{ background: bg }}>
+          <div className={`flex items-center gap-3 px-4 py-3 border-b ${border} sticky top-0 backdrop-blur-md`} style={{ background: 'rgba(10,10,18,0.9)' }}>
+            <button onClick={() => { setOpenAgent(null); setHireStep(null); }}><ChevronRight size={20} className="rotate-180" /></button>
+            <span className="text-[10px] uppercase opacity-40">{openAgent.category}</span>
+          </div>
           <div className="p-4">
-            <h2 className="text-2xl font-serif font-bold mb-3">{openAgent.name}</h2>
-            <div className={`grid grid-cols-3 gap-2 p-3 mb-4 font-mono text-xs border ${border}`}>
-              <div><span className="block opacity-50 text-[10px]">WIN RATE</span><span className="text-green-500 font-bold">{openAgent.winRate}</span></div>
-              <div><span className="block opacity-50 text-[10px]">DRAWDOWN</span><span className="text-red-500 font-bold">{openAgent.drawdown}</span></div>
-              <div><span className="block opacity-50 text-[10px]">TVL</span><span className="font-bold">{openAgent.tvl}</span></div>
+            <div className="flex items-center gap-3 mb-4">
+              {openAgent.imageUrl ? (
+                <img src={openAgent.imageUrl} alt="" className="w-12 h-12 rounded-xl object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+              ) : (
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg" style={{ background: accent }}>{openAgent.name.slice(0, 1).toUpperCase()}</div>
+              )}
+              <h2 className="text-xl font-bold flex items-center gap-1">{openAgent.name}{openAgent.isVerified && <BadgeCheck size={16} style={{ color: accent }} />}</h2>
             </div>
-            <p className="text-sm opacity-90 mb-3">{openAgent.strategy}</p>
-            <div className={`text-xs font-mono p-3 border-l-4 border-[#22C55E] mb-4 ${darkMode ? 'bg-gray-900/40' : 'bg-[#F4F3EE]'}`}>
-              <span className="font-bold">PancakeSwap:</span> {openAgent.pancakeswapBenefit}
+            <div className={`grid grid-cols-3 gap-2 p-3 mb-4 rounded-xl border ${mutedBorder}`}>
+              <div><div className="text-[9px] opacity-40 uppercase">Score</div><div className="font-bold">{openAgent.totalScore != null ? openAgent.totalScore.toFixed(1) : '—'}</div></div>
+              <div><div className="text-[9px] opacity-40 uppercase">Stars</div><div className="font-bold">{openAgent.starCount ?? '—'}</div></div>
+              <div><div className="text-[9px] opacity-40 uppercase">Chain</div><div className="font-bold text-[10px]">{CHAIN_LABELS[openAgent.chainId] || openAgent.network}</div></div>
             </div>
+            <p className="text-sm opacity-70 mb-4 leading-relaxed">{openAgent.strategy}</p>
 
             {openAgent.session ? (
-              <div className={`p-4 border ${border}`}>
-                <div className="flex items-center gap-1 font-mono text-xs font-bold mb-2">
-                  <ShieldAlert size={14} className="text-blue-500" /> AUTHORITY LEDGER
-                </div>
-                <div className="font-mono text-xs mb-3">
-                  ${openAgent.session.spendUtilized.toLocaleString()} / ${openAgent.session.spendCap.toLocaleString()} used · expires {openAgent.session.expiry}
-                </div>
-                <button
-                  onClick={() => handleRevoke(openAgent.id)}
-                  className="w-full py-3 bg-red-600 text-white font-mono text-xs font-bold border-2 border-black"
-                >
-                  REVOKE ACCESS
-                </button>
+              <div className={`p-4 rounded-xl border ${mutedBorder}`}>
+                <div className="text-xs font-semibold mb-2">Authority Ledger</div>
+                <div className="text-xs opacity-60 mb-3">${openAgent.session.spendUtilized} / ${openAgent.session.spendCap.toLocaleString()} used · expires {openAgent.session.expiry}</div>
+                <button onClick={() => handleRevoke(openAgent.id)} className="w-full py-3 rounded-xl text-sm font-semibold text-white bg-red-500">Revoke Access</button>
               </div>
             ) : !hireStep ? (
-              <button onClick={startHire} className="w-full py-4 bg-black text-white font-mono text-sm font-bold border-2 border-black">
-                HIRE AGENT →
-              </button>
+              <button onClick={startHire} className="w-full py-4 rounded-xl text-sm font-semibold text-white" style={{ background: accent }}>Hire Agent →</button>
             ) : null}
           </div>
 
-          {/* Hire flow — bottom sheet, thumb zone */}
           {hireStep && (
             <div className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm">
-              <div className={`w-full border-t-2 p-6 rounded-t-[2rem] ${border} ${chrome}`}>
-                {hireStep === 'configure' && (
-                  <>
-                    <div className="flex justify-between items-center mb-5">
-                      <h3 className="text-lg font-serif font-bold">Configure Risk</h3>
-                      <button onClick={() => setHireStep(null)}><X size={20} /></button>
-                    </div>
-                    <div className="space-y-5 font-mono text-sm mb-6">
-                      <div>
-                        <label className="flex items-center gap-1 text-xs uppercase mb-2 font-bold"><Sliders size={12} /> Max Spend Cap (USDC)</label>
-                        <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} className={`w-full p-3 border ${border} outline-none ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`} />
-                      </div>
-                      <div>
-                        <label className="block text-xs uppercase mb-2 font-bold text-red-500">Stop-Loss: ${Number(stopLoss).toLocaleString()}</label>
-                        <input type="range" min="500" max="20000" step="500" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full accent-red-600" />
-                      </div>
-                    </div>
-                    <button onClick={runFaceId} className="w-full py-4 bg-black text-white font-mono text-sm font-bold flex items-center justify-center gap-2">
-                      <ScanFace size={18} /> SIGN WITH FACE ID
-                    </button>
-                  </>
-                )}
-                {hireStep === 'auth' && (
-                  <div className="py-8 flex flex-col items-center gap-3">
-                    <Loader2 size={32} className="animate-spin text-blue-500" />
-                    <span className="font-mono text-sm">Scanning Face ID...</span>
+              <div className="w-full rounded-t-3xl p-6" style={{ background: surface }}>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="font-bold">Configure Risk</h3>
+                  <button onClick={() => setHireStep(null)}><X size={20} /></button>
+                </div>
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="flex items-center gap-1 text-[10px] uppercase mb-2 font-semibold opacity-50"><Sliders size={11} /> Max Spend Cap (USDC)</label>
+                    <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} className={`w-full p-3 rounded-lg border ${mutedBorder} outline-none bg-transparent`} />
                   </div>
-                )}
-                {hireStep === 'done' && (
-                  <div className="py-8 flex flex-col items-center gap-3">
-                    <CheckCircle2 size={32} className="text-green-500" />
-                    <span className="font-mono text-sm font-bold">Signature verified</span>
+                  <div>
+                    <label className="block text-[10px] uppercase mb-2 font-semibold text-red-400">Stop-Loss: ${Number(stopLoss).toLocaleString()}</label>
+                    <input type="range" min="500" max="20000" step="500" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full accent-red-500" />
                   </div>
-                )}
+                </div>
+                <button onClick={confirmHire} className="w-full py-4 rounded-xl font-semibold text-white text-sm" style={{ background: accent }}>Sign & Deploy</button>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Bottom tab bar — the mobile-native navigation the desktop doesn't have */}
-      <nav className={`fixed bottom-0 w-full border-t flex justify-around py-2 ${border} ${chrome}`}>
-        <button onClick={() => setTab('market')} className={`flex flex-col items-center gap-0.5 px-6 py-1 ${tab === 'market' ? '' : 'opacity-40'}`}>
-          <LayoutGrid size={20} />
-          <span className="text-[10px] font-mono">Market</span>
-        </button>
-        <button onClick={() => setTab('report')} className={`flex flex-col items-center gap-0.5 px-6 py-1 ${tab === 'report' ? '' : 'opacity-40'}`}>
-          <FileBarChart size={20} />
-          <span className="text-[10px] font-mono">Report</span>
-        </button>
+      {/* Hyperliquid-pattern bottom nav: exactly 3 items, icon + label */}
+      <nav className={`fixed bottom-0 w-full border-t ${border} flex justify-around py-2 backdrop-blur-md z-30`} style={{ background: 'rgba(10,10,18,0.9)' }}>
+        {TABS.map((t) => (
+          <button key={t.id} onClick={() => { setTab(t.id); setOpenAgent(null); }} className="flex flex-col items-center gap-1 px-8 py-1" style={{ opacity: tab === t.id ? 1 : 0.4, color: tab === t.id ? accent : undefined }}>
+            <t.icon size={20} />
+            <span className="text-[10px] font-medium">{t.label}</span>
+          </button>
+        ))}
       </nav>
     </div>
   );
