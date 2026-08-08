@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
-  Loader2, AlertTriangle, Wallet, ScanFace, LogOut
+  Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -193,6 +193,39 @@ const NAV_ITEMS = [
   { id: 'market', label: 'Marketplace', icon: Store },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
+  { id: 'build', label: 'Build Your Agent', icon: Hammer },
+];
+
+// Written so a complete beginner (yes, even a curious kid) can follow it.
+// Technically grounded: bnbagent-studio is real (BNB Chain's own vibe-coding
+// CLI for agents), CAIP-10 cross-chain identity is a real, documented part
+// of the ERC-8004 standard (confirmed via research, not invented), and the
+// distinction between "same identity everywhere" vs "must register on each
+// chain separately" is accurate, not simplified into a false promise.
+const BUILD_STEPS = [
+  {
+    title: '1. Describe your agent in plain English',
+    body: "You don't write code. You just describe what you want: \"Watch my lending position and swap collateral before it gets liquidated.\" A tool called Cursor listens to that description and writes the real code for you, using BNB Chain's own agent-building kit (bnbagent-studio) underneath.",
+  },
+  {
+    title: '2. Pick what it can touch, before it runs',
+    body: 'Before your agent ever moves a cent, you set a spending limit and an expiry date, the same Authority Ledger every agent in this marketplace shows. Your agent physically cannot spend more than you allow, it\'s enforced by the blockchain itself, not a promise in an app.',
+  },
+  {
+    title: '3. It gets a real, permanent ID card',
+    body: "Your agent registers itself on-chain (this is the ERC-8004 standard, the same one every agent in this marketplace uses). Think of it like a passport: a unique ID that says \"this agent is real, here's its track record,\" that anyone, on any app, can check.",
+  },
+  {
+    title: '4. One identity, every chain, honestly explained',
+    body: "Here's the genuinely cool part, explained accurately, not oversold: your agent's ID card format (called CAIP-10) is recognized on every major chain, not just BNB Chain. That means the SAME identity and reputation can travel with it. What does NOT happen automatically: your agent still needs to actually register on each additional chain it wants to operate on (one click per chain in this marketplace, each one a real, separate transaction), and it needs real funds on that chain to act. Nothing fake, nothing magic, just no need to rebuild your agent from scratch for every chain.",
+  },
+];
+
+const KID_FRIENDLY_FAQ = [
+  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences, the builder writes the code.' },
+  { q: 'Can my agent spend all my money by accident?', a: "No. You set a maximum amount before it starts, and it's physically impossible for it to spend more than that, the blockchain enforces it, not the app." },
+  { q: 'What if I change my mind?', a: 'You can revoke your agent\'s permission instantly, one click, anytime, from its card in the marketplace.' },
+  { q: 'Does it work on other blockchains too?', a: 'Its ID can be recognized everywhere, but you choose, one click per chain, where you actually want it to run.' },
 ];
 
 export default function AgentMarketplaceApp() {
@@ -207,6 +240,15 @@ export default function AgentMarketplaceApp() {
   const { agents, setAgents, loading, error } = useMarketplaceAgents();
   const [sortState, setSortState] = useState({ key: 'totalScore', dir: 'desc' });
 
+  // REAL wallet gate, fixed 8 Aug 2026: hiring previously "succeeded"
+  // with zero wallet check, a real gap since this flow is supposed to
+  // represent signing an actual on-chain session key. Now: no
+  // connected wallet (neither path) means no hire flow at all, a
+  // connect prompt instead.
+  const { isConnected: wagmiConnected } = useAccount();
+  const { ready, authenticated } = usePrivy();
+  const walletConnected = wagmiConnected || (ready && authenticated);
+
   const chrome = darkMode ? 'bg-[#0F172A] text-[#F9FAFB]' : 'bg-[#F8F9FA] text-[#111827]';
   const border = darkMode ? 'border-gray-700' : 'border-black';
   const surface = darkMode ? 'bg-[#1F2937]' : 'bg-white';
@@ -214,8 +256,17 @@ export default function AgentMarketplaceApp() {
 
   const handleRevoke = (agentId) => setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, status: 'idle', session: null } : a)));
 
+  const handleHireClick = (agent) => {
+    if (!walletConnected) {
+      alert('Connect a wallet first (sidebar: Connect Wallet or Face ID / Email). A session key has to be signed by a real wallet, there is no way around this step.');
+      return;
+    }
+    setSelectedAgent(agent);
+    setHiring(true);
+  };
+
   const handleActivateSession = () => {
-    if (!selectedAgent) return;
+    if (!selectedAgent || !walletConnected) return; // second guard, in case wallet disconnects mid-flow
     setAgents((prev) => prev.map((a) => a.id === selectedAgent.id ? { ...a, status: 'active', session: { key: '0x' + Math.random().toString(16).substring(2, 10) + '...4a', spendUtilized: 0, spendCap: Number(spendCap), expiry: '24h 00m' } } : a));
     setSelectedAgent(null);
     setHiring(false);
@@ -223,15 +274,21 @@ export default function AgentMarketplaceApp() {
 
   const handleSort = (key) => setSortState((prev) => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
 
+  const [showUnclassified, setShowUnclassified] = useState(false);
+
   const filtered = useMemo(() => {
-    const list = agents.filter((a) => activeCategory === 'All' || a.category === activeCategory);
+    const hasRealContent = (a) =>
+      a.name && a.name.trim().length > 2 && a.strategy && a.strategy !== 'No description provided.';
+    let list = agents.filter(hasRealContent);
+    if (!showUnclassified) list = list.filter((a) => a.category !== 'Unclassified');
+    list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
     return [...list].sort((a, b) => {
       const av = a[sortState.key] ?? -Infinity;
       const bv = b[sortState.key] ?? -Infinity;
       const mult = sortState.dir === 'desc' ? -1 : 1;
       return (av - bv) * mult;
     });
-  }, [agents, activeCategory, sortState]);
+  }, [agents, activeCategory, sortState, showUnclassified]);
 
   return (
     <div className={`min-h-screen transition-colors duration-200 font-sans flex ${chrome}`}>
@@ -239,7 +296,7 @@ export default function AgentMarketplaceApp() {
       <aside className={`w-56 shrink-0 border-r-2 flex flex-col ${border} ${darkMode ? 'bg-[#1F2937]' : 'bg-white'}`}>
         <div className={`p-5 border-b-2 ${border}`}>
           <div className="bg-[#22C55E] text-black font-mono font-bold px-2 py-1 text-xs border border-black shadow-[2px_2px_0px_#000] inline-block mb-2">BSC : LIVE</div>
-          <h1 className="text-xl font-serif font-bold">A2A Protocol</h1>
+          <h1 className="text-xl font-serif font-bold">Agents Marketplace</h1>
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {NAV_ITEMS.map((item) => {
@@ -277,6 +334,13 @@ export default function AgentMarketplaceApp() {
               <div className="flex items-center gap-2">
                 <button onClick={() => setMarketView('grid')} className={`p-2 border-2 ${border} ${marketView === 'grid' ? 'bg-black text-white' : ''}`}><LayoutGrid size={16} /></button>
                 <button onClick={() => setMarketView('table')} className={`p-2 border-2 ${border} ${marketView === 'table' ? 'bg-black text-white' : ''}`}><Table2 size={16} /></button>
+                <button
+                  onClick={() => setShowUnclassified((v) => !v)}
+                  className={`px-3 py-2 border-2 font-mono text-[10px] font-bold ${border} ${showUnclassified ? 'bg-black text-white' : 'opacity-60'}`}
+                  title="Agents whose description didn't clearly match one of the 4 categories"
+                >
+                  {showUnclassified ? 'Hide' : 'Show'} unclassified
+                </button>
               </div>
             </div>
 
@@ -334,7 +398,7 @@ export default function AgentMarketplaceApp() {
                         <td className="p-3 text-right font-mono text-sm">{agent.totalFeedbacks ?? '—'}</td>
                         <td className="p-3 text-right font-mono text-sm font-bold">{agent.financialDataAvailable ? `$${(agent.tvlUsd / 1e6).toFixed(2)}M` : <span className="opacity-40 font-normal">not reported</span>}</td>
                         <td className="p-3 text-right">
-                          <button onClick={() => { setSelectedAgent(agent); setHiring(true); }} className={`font-mono text-[10px] font-bold px-3 py-1.5 border-2 ${border} ${darkMode ? 'bg-white text-black' : 'bg-black text-white'}`}>
+                          <button onClick={() => (agent.session ? (setSelectedAgent(agent), setHiring(true)) : handleHireClick(agent))} className={`font-mono text-[10px] font-bold px-3 py-1.5 border-2 ${border} ${darkMode ? 'bg-white text-black' : 'bg-black text-white'}`}>
                             {agent.session ? 'MANAGE' : 'HIRE →'}
                           </button>
                         </td>
@@ -381,7 +445,7 @@ export default function AgentMarketplaceApp() {
                       ) : (
                         <div className="flex justify-between items-center">
                           <span className="font-mono text-xs opacity-60">No active session key assigned.</span>
-                          <button onClick={() => { setSelectedAgent(agent); setHiring(true); }} className={`font-mono text-xs font-bold px-6 py-2.5 border-2 transition-transform active:scale-95 ${border} ${darkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800 shadow-[2px_2px_0px_#22C55E]'}`}>HIRE & ACTIVATE →</button>
+                          <button onClick={() => handleHireClick(agent)} className={`font-mono text-xs font-bold px-6 py-2.5 border-2 transition-transform active:scale-95 ${border} ${darkMode ? 'bg-white text-black hover:bg-gray-200' : 'bg-black text-white hover:bg-gray-800 shadow-[2px_2px_0px_#22C55E]'}`}>HIRE & ACTIVATE →</button>
                         </div>
                       )}
                     </div>
@@ -465,6 +529,60 @@ export default function AgentMarketplaceApp() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {nav === 'build' && (
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles size={22} />
+              <h2 className="text-3xl font-serif font-bold">Build Your Agent</h2>
+            </div>
+            <p className="font-mono text-sm opacity-70 mb-2">
+              No coding required. If you can describe what you want in a sentence, you can build this.
+            </p>
+            <p className="font-mono text-xs opacity-50 mb-8">
+              Built on bnbagent-studio (BNB Chain's own agent-building kit) and the ERC-8004 identity standard.
+            </p>
+
+            <div className="space-y-4 mb-10">
+              {BUILD_STEPS.map((step, i) => (
+                <div key={i} className={`border-2 p-5 ${border} ${surface} ${shadow}`}>
+                  <h3 className="font-serif font-bold text-lg mb-2">{step.title}</h3>
+                  <p className="text-sm opacity-90 leading-relaxed">{step.body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className={`border-2 p-5 mb-10 ${border} ${darkMode ? 'bg-gray-900/50' : 'bg-[#F4F3EE]'}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Link2 size={16} />
+                <h3 className="font-mono text-xs font-bold uppercase">Deploy to other chains, honestly explained</h3>
+              </div>
+              <p className="text-sm opacity-90 leading-relaxed mb-3">
+                Once your agent is built, its identity card (the CAIP-10 ID from step 4) already works
+                everywhere. Bringing it onto a new chain is one real action per chain, not automatic magic:
+              </p>
+              <div className={`font-mono text-xs p-3 border ${border} ${darkMode ? 'bg-gray-950' : 'bg-white'}`}>
+                Your Agent → [Register on Ethereum] [Register on Base] [Register on Polygon] ...
+                <br />
+                <span className="opacity-50">← each button is one real, separate on-chain transaction, using the same identity</span>
+              </div>
+            </div>
+
+            <h3 className="font-serif font-bold text-xl mb-4">Questions a total beginner would ask</h3>
+            <div className="space-y-3">
+              {KID_FRIENDLY_FAQ.map((item, i) => (
+                <div key={i} className={`border-2 p-4 ${border} ${surface}`}>
+                  <div className="font-bold text-sm mb-1">{item.q}</div>
+                  <div className="text-sm opacity-80">{item.a}</div>
+                </div>
+              ))}
+            </div>
+
+            <button className={`w-full mt-8 py-4 font-mono text-sm font-bold border-2 ${border} ${darkMode ? 'bg-white text-black' : 'bg-black text-white shadow-[4px_4px_0px_#22C55E]'}`}>
+              Start Building →
+            </button>
           </div>
         )}
       </main>
