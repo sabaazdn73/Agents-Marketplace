@@ -12,35 +12,69 @@ const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const CHAIN_LABELS = { 56: 'BNB Smart Chain', 97: 'BNB Testnet' };
 
+const CACHE_KEY = 'agents-marketplace-cache-v1';
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // stale cache still shown instantly if under 24h old, refreshed regardless
+
+function mapAgent(a) {
+  return {
+    id: a.id, name: a.name || 'Unnamed agent', category: a.category || 'Unclassified',
+    network: a.network, chainId: a.chain_id, totalScore: a.total_score,
+    starCount: a.star_count, totalFeedbacks: a.total_feedbacks, isVerified: a.is_verified,
+    x402Supported: a.x402_supported, supportedProtocols: a.supported_protocols || [],
+    ownerAddress: a.owner_address, ownerEns: a.owner_ens, ownerUsername: a.owner_username,
+    imageUrl: a.image_url, strategy: a.description || 'No description provided.',
+    financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
+    defillamaUrl: a.defillama_url, session: null,
+  };
+}
+
 function useMarketplaceAgents() {
-  const [agents, setAgents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Stale-while-revalidate, matching 8004scan's actual behavior (confirmed
+  // by direct observation, 8 Aug 2026): never blank the screen on a
+  // repeat visit, show the last-known-good data instantly, refresh
+  // silently in the background, only swap in new data when it arrives.
+  const [agents, setAgents] = useState(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { data, savedAt } = JSON.parse(cached);
+        if (Date.now() - savedAt < CACHE_MAX_AGE_MS) return data;
+      }
+    } catch (e) { /* localStorage unavailable or corrupt cache, fall through to empty */ }
+    return [];
+  });
+  const [loading, setLoading] = useState(agents.length === 0); // only block on a genuinely first-ever visit
   const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (agents.length > 0) setRefreshing(true);
     fetch(`${API_BASE_URL}/api/agents`)
       .then((res) => { if (!res.ok) throw new Error(`Backend returned ${res.status}`); return res.json(); })
       .then((data) => {
         if (cancelled) return;
-        const mapped = (data.agents || []).map((a) => ({
-          id: a.id, name: a.name || 'Unnamed agent', category: a.category || 'Unclassified',
-          network: a.network, chainId: a.chain_id, totalScore: a.total_score,
-          starCount: a.star_count, totalFeedbacks: a.total_feedbacks, isVerified: a.is_verified,
-          x402Supported: a.x402_supported, supportedProtocols: a.supported_protocols || [],
-          ownerAddress: a.owner_address, ownerEns: a.owner_ens, ownerUsername: a.owner_username,
-          imageUrl: a.image_url, strategy: a.description || 'No description provided.',
-          financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
-          defillamaUrl: a.defillama_url, session: null,
-        }));
-        setAgents(mapped); setLoading(false);
+        const mapped = (data.agents || []).map(mapAgent);
+        setAgents(mapped);
+        setLoading(false);
+        setRefreshing(false);
+        setError(null);
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: mapped, savedAt: Date.now() })); } catch (e) { /* storage full or unavailable, non-fatal */ }
       })
-      .catch((err) => { if (cancelled) return; setError(err.message); setLoading(false); });
+      .catch((err) => {
+        if (cancelled) return;
+        setRefreshing(false);
+        // Only surface the error visibly if we have nothing at all to show,
+        // a failed background refresh with existing cached data on screen
+        // shouldn't interrupt the person, they still see real (if slightly
+        // older) data.
+        if (agents.length === 0) setError(err.message);
+        setLoading(false);
+      });
     return () => { cancelled = true; };
   }, []);
 
-  return { agents, setAgents, loading, error };
+  return { agents, setAgents, loading, error, refreshing };
 }
 
 const ADVANTAGE_REPORT = [
@@ -141,7 +175,7 @@ export default function AgentMarketplaceApp() {
   const [hiring, setHiring] = useState(false);
   const [spendCap, setSpendCap] = useState(50000);
   const [stopLoss, setStopLoss] = useState(5000);
-  const { agents, setAgents, loading, error } = useMarketplaceAgents();
+  const { agents, setAgents, loading, error, refreshing } = useMarketplaceAgents();
   const [sortState, setSortState] = useState({ key: 'totalScore', dir: 'desc' });
   const [showUnclassified, setShowUnclassified] = useState(true);
 
@@ -229,7 +263,10 @@ export default function AgentMarketplaceApp() {
           <>
             <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h2 className="text-3xl font-serif font-bold mb-1">Autonomous Agent Marketplace</h2>
+                <h2 className="text-3xl font-serif font-bold mb-1 flex items-center gap-2">
+                  Autonomous Agent Marketplace
+                  {refreshing && <Loader2 size={14} className="animate-spin opacity-40" />}
+                </h2>
                 <p className="font-mono text-sm opacity-70">Discover, verify, and hire ERC-8004 agents with enforceable financial limits.</p>
               </div>
               <div className="flex items-center gap-2">

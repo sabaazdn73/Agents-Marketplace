@@ -51,15 +51,30 @@ async def agents(force_refresh: bool = False):
                        "requires a real key, get one at 8004scan.io/developers.",
             )
         try:
-            _cache["data"] = await get_marketplace_agents_as_dicts(api_key=api_key)
-            _cache["fetched_at"] = now
+            fresh_data = await get_marketplace_agents_as_dicts(api_key=api_key)
+            # FIXED 8 Aug 2026, confirmed live: a successful-but-empty
+            # refresh (transient network hiccup, cold-start timing, a
+            # single failed page mid-pagination) was overwriting a
+            # perfectly good previous cache with an empty list, then
+            # serving that empty list for a full 30 minutes with no
+            # visible error, exactly what happened in production. An
+            # empty result now only replaces the cache if there was no
+            # real previous cache to protect, otherwise it's treated
+            # as suspect and the old, real data keeps serving while
+            # this gets logged for investigation.
+            if not fresh_data and _cache["data"]:
+                print(f"[server] Refresh returned 0 agents despite {len(_cache['data'])} "
+                      f"cached previously, treating as a transient failure, keeping the old cache.")
+            else:
+                _cache["data"] = fresh_data
+                _cache["fetched_at"] = now
         except Exception as e:
             if _cache["data"] is not None:
                 print(f"[server] Refresh failed, serving stale cache: {e}")
             else:
                 raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")
     return {
-        "agents": _cache["data"],
+        "agents": _cache["data"] or [],
         "cached_at": _cache["fetched_at"],
         "cache_age_seconds": int(now - _cache["fetched_at"]),
     }
