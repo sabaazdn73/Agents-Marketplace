@@ -1,8 +1,7 @@
-# F2F Agents
+# Agents Marketplace
 
 An agent marketplace for BNB Smart Chain, built for BNB Chain's "Smart
-Money Era" hackathon (Build the Era, Aug 5 – Sep 9 2026). Third project
-in the F2F family, alongside F2F Cross-Border and OnChain Oversight.
+Money Era" hackathon (Build the Era, Aug 5 – Sep 9 2026).
 
 ## Status
 
@@ -12,9 +11,8 @@ Monitoring) plus an Agent Advantage Report view for the TermiX track.
 
 Backend: scaffolded, NOT yet verified against a live BSC testnet
 connection. Every adapter function is stubbed with `NotImplementedError`
-and a clear note on what needs live verification first, the same
-verify-before-trusting discipline used throughout this project's other
-work, not guessed-and-shipped code.
+and a clear note on what needs live verification first, verify-before-
+trusting rather than guessed-and-shipped code.
 
 ## Structure
 
