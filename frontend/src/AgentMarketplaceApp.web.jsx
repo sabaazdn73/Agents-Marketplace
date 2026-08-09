@@ -8,6 +8,7 @@ import {
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
+import agentsLogo from './assets/agents.png';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -224,6 +225,15 @@ export default function AgentMarketplaceApp() {
     });
   }, [agents, activeCategory, sortState, showUnclassified]);
 
+  // Real, derived stats from actually-fetched agents, replacing the
+  // earlier hardcoded numbers (which were 8004scan's own global platform
+  // stats from a reference screenshot, not this marketplace's real data).
+  const stats = useMemo(() => ({
+    total: agents.length,
+    verified: agents.filter((a) => a.isVerified).length,
+    totalFeedbacks: agents.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
+  }), [agents]);
+
   return (
     <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
       
@@ -232,10 +242,10 @@ export default function AgentMarketplaceApp() {
         <div>
           <div className="p-6">
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <ShieldAlert size={18} className="text-white" />
+              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
+                <img src={agentsLogo} alt="Agents Marketplace" className="w-full h-full object-cover" />
               </div>
-              <h1 className="text-lg font-bold tracking-tight">ERC-8004 Core</h1>
+              <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
             </div>
             
             <nav className="space-y-1">
@@ -277,19 +287,19 @@ export default function AgentMarketplaceApp() {
           
           {nav === 'market' && !hiring && (
             <>
-              {/* Inspiration from 8004scan: Ecosystem Stats Banner */}
+              {/* Real stats derived from actually-fetched agents, not global platform numbers */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
                 <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                   <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
-                  <div><div className="text-2xl font-bold">398,721+</div><div className="text-xs text-gray-500 font-medium">Registered Agents</div></div>
+                  <div><div className="text-2xl font-bold">{stats.total.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Agents Shown</div></div>
                 </div>
                 <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                   <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
-                  <div><div className="text-2xl font-bold">545,022+</div><div className="text-xs text-gray-500 font-medium">Feedback Submitted</div></div>
+                  <div><div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Total Feedback</div></div>
                 </div>
                 <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                   <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
-                  <div><div className="text-2xl font-bold">380,088+</div><div className="text-xs text-gray-500 font-medium">Active Users</div></div>
+                  <div><div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Verified Agents</div></div>
                 </div>
               </div>
 
