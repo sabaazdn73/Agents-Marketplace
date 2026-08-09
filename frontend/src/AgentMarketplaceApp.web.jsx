@@ -275,47 +275,52 @@ export default function AgentMarketplaceApp() {
   return (
     <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
       
-      {/* Sidebar: Deep Dark Navy like the image, slightly smaller width (w-72) */}
-      <aside className="w-72 shrink-0 bg-[#0B101B] text-white flex flex-col justify-between border-r border-white/5 shadow-xl relative z-10">
-        <div>
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
-                <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
-              </div>
-              <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
+      {/* Sidebar: Deep Dark Navy, scrolls together with the page now, no independent region */}
+      <aside className="w-72 shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
+              <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
             </div>
-            
-            <nav className="space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const active = nav === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { setNav(item.id); setHiring(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                    }`}
-                  >
-                    <Icon size={18} className={active ? 'text-indigo-400' : 'opacity-70'} /> 
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
+            <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
           </div>
-
-          {/* Hero image, same role as OnChain Oversight's hand+device visual */}
-          <div className="px-6">
-            <img src={agentsHero} alt="" className="w-full rounded-2xl border border-white/10" />
-          </div>
+          
+          <nav className="space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const active = nav === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { setNav(item.id); setHiring(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                  }`}
+                >
+                  <Icon size={18} className={active ? 'text-indigo-400' : 'opacity-70'} /> 
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        <div className="p-6 pt-0">
-          <HybridWalletConnect accent={accent} />
-          
-          <div className="mt-6 flex items-center justify-between text-xs text-gray-500 px-2">
+        {/* Hero image, same role as OnChain Oversight's hand+device visual */}
+        <div className="px-6">
+          <img src={agentsHero} alt="" className="w-full rounded-2xl border border-white/10" />
+        </div>
+
+        {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight pattern */}
+        <div className="p-6">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Wallet size={16} className="opacity-70" />
+              <span className="text-xs font-bold uppercase tracking-wide opacity-80">Web3 Wallet Manager</span>
+            </div>
+            <HybridWalletConnect accent={accent} />
+          </div>
+
+          <div className="mt-4 flex items-center justify-between text-xs text-gray-500 px-2">
             <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> BSC Mainnet</div>
             <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
               {darkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -325,7 +330,7 @@ export default function AgentMarketplaceApp() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-8 md:p-12 overflow-x-hidden overflow-y-auto text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      <main className="flex-1 p-8 md:p-12 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
           
           {nav === 'market' && !hiring && (
