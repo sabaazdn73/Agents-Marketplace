@@ -1,0 +1,125 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- base background: deep glass gradient -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#132B66"/>
+      <stop offset="50%" stop-color="#1E4599"/>
+      <stop offset="100%" stop-color="#3A72DA"/>
+    </linearGradient>
+    <!-- glossy top highlight, apple-icon style -->
+    <linearGradient id="gloss" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="46%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="innerVignette" cx="50%" cy="105%" r="75%">
+      <stop offset="0%" stop-color="#04102E" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#04102E" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- side bands (fiat colours) -->
+    <linearGradient id="bandLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#F4D35E"/>
+      <stop offset="30%" stop-color="#EE8C6B"/>
+      <stop offset="60%" stop-color="#D8536B"/>
+      <stop offset="100%" stop-color="#7C6FC9"/>
+    </linearGradient>
+    <linearGradient id="bandRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#7C6FC9"/>
+      <stop offset="40%" stop-color="#5B8CDE"/>
+      <stop offset="70%" stop-color="#EE8C6B"/>
+      <stop offset="100%" stop-color="#F4D35E"/>
+    </linearGradient>
+
+    <!-- 3D hexagon node gradients -->
+    <linearGradient id="hexCenter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E6DCFF"/>
+      <stop offset="45%" stop-color="#B29BF2"/>
+      <stop offset="100%" stop-color="#6E4FC9"/>
+    </linearGradient>
+    <linearGradient id="hexOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#CFE0FF"/>
+      <stop offset="50%" stop-color="#8FAEEE"/>
+      <stop offset="100%" stop-color="#4E6FC4"/>
+    </linearGradient>
+
+    <filter id="dropShadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#04102E" flood-opacity="0.45"/>
+    </filter>
+    <filter id="bigShadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#04102E" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#innerVignette)"/>
+
+  <!-- side arcs: fiat-to-fiat, with embossed feel -->
+  <g filter="url(#bigShadow)">
+    <path d="M 120 384
+             C 120 302, 120 222, 168 170
+             C 196 140, 232 130, 232 130
+             L 232 178
+             C 232 178, 208 186, 190 208
+             C 168 234, 168 302, 168 384 Z"
+          fill="url(#bandLeft)"/>
+    <path d="M 392 384
+             C 392 302, 392 222, 344 170
+             C 316 140, 280 130, 280 130
+             L 280 178
+             C 280 178, 304 186, 322 208
+             C 344 234, 344 302, 344 384 Z"
+          fill="url(#bandRight)"/>
+  </g>
+  <!-- thin highlight edge on the arcs for dimensionality -->
+  <g opacity="0.55" stroke="#FFFFFF" stroke-width="3" fill="none">
+    <path d="M 168 380 C 168 300, 168 234, 190 208"/>
+    <path d="M 344 380 C 344 300, 344 234, 322 208"/>
+  </g>
+
+  <!-- central hexagon cluster: distributed ledger concept, apple-icon 3D style -->
+  <g transform="translate(256,272)">
+    <!-- 6 outer hexagons -->
+    <g filter="url(#dropShadow)">
+      <g id="hexset">
+        <polygon points="0,-84 20,-96 40,-84 40,-60 20,-48 0,-60" fill="url(#hexOuter)"/>
+      </g>
+    </g>
+    <g filter="url(#dropShadow)" transform="rotate(60)">
+      <polygon points="0,-84 20,-96 40,-84 40,-60 20,-48 0,-60" fill="url(#hexOuter)"/>
+    </g>
+    <g filter="url(#dropShadow)" transform="rotate(120)">
+      <polygon points="0,-84 20,-96 40,-84 40,-60 20,-48 0,-60" fill="url(#hexOuter)"/>
+    </g>
+    <g filter="url(#dropShadow)" transform="rotate(180)">
+      <polygon points="0,-84 20,-96 40,-84 40,-60 20,-48 0,-60" fill="url(#hexOuter)"/>
+    </g>
+    <g filter="url(#dropShadow)" transform="rotate(240)">
+      <polygon points="0,-84 20,-96 40,-84 40,-60 20,-48 0,-60" fill="url(#hexOuter)"/>
+    </g>
+    <g filter="url(#dropShadow)" transform="rotate(300)">
+      <polygon points="0,-84 20,-96 40,-84 40,-60 20,-48 0,-60" fill="url(#hexOuter)"/>
+    </g>
+
+    <!-- connecting ledger lines -->
+    <g stroke="#EAF0FF" stroke-width="3" opacity="0.7">
+      <line x1="0" y1="0" x2="0"   y2="-62"/>
+      <line x1="0" y1="0" x2="54"  y2="-31"/>
+      <line x1="0" y1="0" x2="54"  y2="31"/>
+      <line x1="0" y1="0" x2="0"   y2="62"/>
+      <line x1="0" y1="0" x2="-54" y2="31"/>
+      <line x1="0" y1="0" x2="-54" y2="-31"/>
+    </g>
+
+    <!-- central hexagon: the ledger's anchor block -->
+    <g filter="url(#dropShadow)">
+      <polygon points="0,-42 36,-21 36,21 0,42 -36,21 -36,-21" fill="url(#hexCenter)"/>
+    </g>
+    <!-- glossy highlight on center hex -->
+    <polygon points="0,-42 36,-21 20,-14 0,-24 -20,-14 -36,-21" fill="#FFFFFF" opacity="0.35"/>
+  </g>
+
+  <!-- overall glass gloss on top of everything -->
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#gloss)"/>
+</svg>

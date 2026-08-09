@@ -8,7 +8,8 @@ import {
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
-import agentsLogo from './assets/agents.png';
+import iconLogo from './assets/icon_v2.svg';
+import agentsHero from './assets/agents.png';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -243,7 +244,7 @@ export default function AgentMarketplaceApp() {
           <div className="p-6">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
-                <img src={agentsLogo} alt="Agents Marketplace" className="w-full h-full object-cover" />
+                <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
               </div>
               <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
             </div>
@@ -266,6 +267,11 @@ export default function AgentMarketplaceApp() {
                 );
               })}
             </nav>
+          </div>
+
+          {/* Hero image, same role as OnChain Oversight's hand+device visual */}
+          <div className="px-6">
+            <img src={agentsHero} alt="" className="w-full rounded-2xl border border-white/10" />
           </div>
         </div>
 

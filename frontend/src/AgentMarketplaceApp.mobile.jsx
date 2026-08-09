@@ -8,7 +8,7 @@ import {
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
-import agentsLogo from './assets/agents.png';
+import iconLogo from './assets/icon_v2.svg';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -161,7 +161,7 @@ export default function AgentMarketplaceMobile() {
       <header className="shrink-0 flex items-center justify-between px-5 py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg overflow-hidden">
-            <img src={agentsLogo} alt="Agents Marketplace" className="w-full h-full object-cover" />
+            <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
         </div>
