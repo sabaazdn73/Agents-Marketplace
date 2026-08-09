@@ -298,58 +298,64 @@ export default function AgentMarketplaceApp() {
   }), [agents]);
 
   return (
-    <div className={`min-h-screen font-sans flex items-start ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
+    <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
       
       {/* Sidebar: Deep Dark Navy, scrolls together with the page now, no independent region */}
       <aside className="w-96 shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
-              <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
+        {/* Sticky wrapper: this content stays visible near the top of the
+            viewport as you scroll through the taller main content, instead
+            of scrolling away and leaving blank space, while the aside's
+            own dark background still extends the full page height. */}
+        <div className="sticky top-0 max-h-screen overflow-y-auto">
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
+                <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
+              </div>
+              <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
             </div>
-            <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
-          </div>
-          
-          <nav className="space-y-1">
-            {NAV_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const active = nav === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => { setNav(item.id); setHiring(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                  }`}
-                >
-                  <Icon size={18} className={active ? 'text-indigo-400' : 'opacity-70'} /> 
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
-        <div className="px-4 mb-2">
-          <img src={agentsHero} alt="" className="w-full min-h-[280px] object-cover rounded-2xl border border-white/10" />
-        </div>
-
-        {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight pattern */}
-        <div className="p-6">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Wallet size={16} className="opacity-70" />
-              <span className="text-xs font-bold uppercase tracking-wide opacity-80">Web3 Wallet Manager</span>
-            </div>
-            <HybridWalletConnect accent={accent} />
+            
+            <nav className="space-y-1">
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = nav === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { setNav(item.id); setHiring(false); }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                      active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon size={18} className={active ? 'text-indigo-400' : 'opacity-70'} /> 
+                    {item.label}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-xs text-gray-500 px-2">
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> BSC Mainnet</div>
-            <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
-              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
+          {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
+          <div className="px-4 mb-2">
+            <img src={agentsHero} alt="" className="w-full min-h-[280px] object-cover rounded-2xl border border-white/10" />
+          </div>
+
+          {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight pattern */}
+          <div className="p-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Wallet size={16} className="opacity-70" />
+                <span className="text-xs font-bold uppercase tracking-wide opacity-80">Web3 Wallet Manager</span>
+              </div>
+              <HybridWalletConnect accent={accent} />
+            </div>
+
+            <div className="mt-4 flex items-center justify-between text-xs text-gray-500 px-2">
+              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> BSC Mainnet</div>
+              <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
+                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
+              </button>
+            </div>
           </div>
         </div>
       </aside>
