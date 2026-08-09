@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from core.aggregate import get_marketplace_agents_as_dicts
+from core.paper_trading import run_paper_trade, get_agent_performance, get_all_agent_performance
 
 load_dotenv()
 
@@ -83,3 +84,53 @@ async def agents(force_refresh: bool = False):
 @app.get("/api/health")
 async def health():
     return {"ok": True}
+
+
+@app.post("/api/paper-trade")
+async def paper_trade(
+    agent_id: str,
+    agent_name: str,
+    task_description: str,
+    from_address: str,
+    to_address: str,
+    input_data: str = "0x",
+    value: str = "0",
+    use_mainnet: bool = False,
+):
+    """Runs one REAL Tenderly simulation (against real current chain
+    state, no funds move) and records the outcome. This is the paper
+    trading entry point: try what an agent would actually do, safely."""
+    account_slug = os.environ.get("TENDERLY_ACCOUNT_SLUG")
+    project_slug = os.environ.get("TENDERLY_PROJECT_SLUG")
+    access_key = os.environ.get("TENDERLY_ACCESS_KEY")
+    if not all([account_slug, project_slug, access_key]):
+        raise HTTPException(
+            status_code=500,
+            detail="Tenderly credentials not configured (TENDERLY_ACCOUNT_SLUG, "
+                   "TENDERLY_PROJECT_SLUG, TENDERLY_ACCESS_KEY), see docs.tenderly.co "
+                   "to create a free account and project.",
+        )
+    network_id = "56" if use_mainnet else "97"
+    try:
+        record = await run_paper_trade(
+            agent_id=agent_id, agent_name=agent_name, task_description=task_description,
+            account_slug=account_slug, project_slug=project_slug, access_key=access_key,
+            network_id=network_id, from_address=from_address, to_address=to_address,
+            input_data=input_data, value=value,
+        )
+        return {"ok": True, "result": record.__dict__}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Simulation failed: {e}")
+
+
+@app.get("/api/paper-trade/performance/{agent_id}")
+async def paper_trade_performance(agent_id: str):
+    """Real, derived performance for one agent from actually-recorded
+    simulations, honest zeros if this agent has never been tested."""
+    return get_agent_performance(agent_id)
+
+
+@app.get("/api/paper-trade/performance")
+async def paper_trade_performance_all():
+    """Every agent with at least one real simulation on record."""
+    return get_all_agent_performance()
