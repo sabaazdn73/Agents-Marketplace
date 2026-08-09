@@ -196,6 +196,31 @@ export default function AgentMarketplaceApp() {
   const [hiring, setHiring] = useState(false);
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
+  const [buildStatus, setBuildStatus] = useState(null);
+
+  const handleRealBuild = async () => {
+    if (!buildDescription.trim()) return;
+    setBuildStatus({ step: 'queued' });
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/build?description=${encodeURIComponent(buildDescription.trim())}`, { method: 'POST' });
+      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+      const { slug } = await res.json();
+
+      const poll = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`${API_BASE_URL}/api/build/${slug}/status`);
+          const status = await statusRes.json();
+          setBuildStatus(status);
+          if (status.step === 'done' || status.step === 'error') clearInterval(poll);
+        } catch (e) {
+          setBuildStatus({ step: 'error', error: e.message });
+          clearInterval(poll);
+        }
+      }, 4000);
+    } catch (e) {
+      setBuildStatus({ step: 'error', error: e.message });
+    }
+  };
   const [spendCap, setSpendCap] = useState(50000);
   const [stopLoss, setStopLoss] = useState(5000);
   const { agents, setAgents, loading, error, refreshing } = useMarketplaceAgents();
@@ -273,10 +298,10 @@ export default function AgentMarketplaceApp() {
   }), [agents]);
 
   return (
-    <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
+    <div className={`min-h-screen font-sans flex items-start ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
       
       {/* Sidebar: Deep Dark Navy, scrolls together with the page now, no independent region */}
-      <aside className="w-72 shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
+      <aside className="w-96 shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
@@ -305,9 +330,9 @@ export default function AgentMarketplaceApp() {
           </nav>
         </div>
 
-        {/* Hero image, same role as OnChain Oversight's hand+device visual */}
-        <div className="px-6">
-          <img src={agentsHero} alt="" className="w-full rounded-2xl border border-white/10" />
+        {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
+        <div className="px-4 mb-2">
+          <img src={agentsHero} alt="" className="w-full min-h-[280px] object-cover rounded-2xl border border-white/10" />
         </div>
 
         {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight pattern */}
@@ -620,14 +645,7 @@ export default function AgentMarketplaceApp() {
                 ))}
               </div>
 
-              <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-500/20 rounded-3xl p-6 mb-8 text-sm text-amber-900/80 dark:text-amber-200/80">
-                <strong>Honest limit:</strong> BNB Agent Studio runs locally (your terminal, your
-                AWS account, your wallet), there's no hosted web API that can build and deploy an
-                agent for you from a browser. What this can genuinely do: turn your description
-                into the real, exact command to run yourself.
-              </div>
-
-              <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-3xl p-8 mb-12">
+              <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-3xl p-8 mb-8">
                 <div className="flex items-center gap-2 mb-4 text-indigo-700 dark:text-indigo-400">
                   <Sparkles size={18} />
                   <h3 className="font-bold text-sm uppercase tracking-wide">Describe your agent</h3>
@@ -637,28 +655,62 @@ export default function AgentMarketplaceApp() {
                   onChange={(e) => setBuildDescription(e.target.value)}
                   placeholder='e.g. "an agent that sells 3-day weather forecasts"'
                   rows={2}
-                  className="w-full p-4 rounded-2xl border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-[#0F172A] text-sm mb-4 outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error'}
+                  className="w-full p-4 rounded-2xl border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-[#0F172A] text-sm mb-4 outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                 />
-                <button
-                  onClick={() => setShowBuildCommand(true)}
-                  disabled={!buildDescription.trim()}
-                  className="px-6 py-3 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Generate my real build command
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    onClick={handleRealBuild}
+                    disabled={!buildDescription.trim() || (buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error')}
+                    className="px-6 py-3 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Build it for real (BSC Testnet, ~48h trial)
+                  </button>
+                  <button
+                    onClick={() => setShowBuildCommand(true)}
+                    disabled={!buildDescription.trim()}
+                    className="px-6 py-3 rounded-xl font-semibold text-indigo-700 dark:text-indigo-400 bg-white dark:bg-transparent border border-indigo-200 dark:border-indigo-500/30 disabled:opacity-40"
+                  >
+                    Or just show me the command
+                  </button>
+                </div>
+
+                {buildStatus && (
+                  <div className="mt-6 p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-indigo-100 dark:border-indigo-500/30">
+                    <div className="flex items-center gap-2 mb-2">
+                      {buildStatus.step !== 'done' && buildStatus.step !== 'error' && <Loader2 size={16} className="animate-spin text-indigo-500" />}
+                      {buildStatus.step === 'done' && <CheckCircle2 size={16} className="text-green-500" />}
+                      {buildStatus.step === 'error' && <XCircle size={16} className="text-red-500" />}
+                      <span className="font-semibold text-sm">
+                        {{
+                          queued: 'Queued...', scaffolding: 'Scaffolding the real project (bag init)...',
+                          creating_wallet: 'Creating a fresh testnet wallet...', writing_logic: 'Writing your agent\'s real task instructions...',
+                          activating_llm: 'Activating the LLM (Pieverse, zero-deposit)...', deploying: 'Deploying to the BNB Chain platform (48h trial)...',
+                          done: 'Deployed. This is a real agent, live for 48 hours.', error: 'Build failed',
+                        }[buildStatus.step] || buildStatus.step}
+                      </span>
+                    </div>
+                    {buildStatus.step === 'done' && buildStatus.address && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Wallet: <span className="font-mono">{buildStatus.address}</span> — a throwaway testnet wallet, per the platform trial's own security model.</p>
+                    )}
+                    {buildStatus.step === 'error' && (
+                      <p className="text-xs text-red-500 mt-2 font-mono whitespace-pre-wrap">{buildStatus.error}</p>
+                    )}
+                  </div>
+                )}
 
                 {showBuildCommand && buildDescription.trim() && (
                   <div className="mt-6 font-mono text-xs p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-{`# Run this in your own terminal (Claude Code or Cursor):
+{`# Or run this yourself, in your own terminal (Claude Code or Cursor):
 
 pip install bnbagent-studio
 bag skills install --target both --scope user
 
 # Then, in your IDE, just say:
-"Create a new BNB agent named ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)} on testnet that ${buildDescription.trim()}."
+"Create a new BNB agent named ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20)} on testnet that ${buildDescription.trim()}."
 
 # Or scaffold it directly:
-bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)} --network bsc-testnet`}
+bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20)} --network bsc-testnet`}
                   </div>
                 )}
               </div>
