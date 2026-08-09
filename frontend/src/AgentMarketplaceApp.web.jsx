@@ -279,7 +279,7 @@ export default function AgentMarketplaceApp() {
           <HybridWalletConnect accent={accent} />
           
           <div className="mt-6 flex items-center justify-between text-xs text-gray-500 px-2">
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> BSC Mainnet</div>
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> BSC Testnet</div>
             <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
               {darkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
