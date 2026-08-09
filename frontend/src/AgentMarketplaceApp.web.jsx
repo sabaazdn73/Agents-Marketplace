@@ -3,20 +3,18 @@ import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
-import iconLogo from './assets/icon_v2.svg';
-import agentsHero from './assets/agents.png';
+import { useHireAgent } from './useHireAgent';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const CHAIN_LABELS = { 56: 'BNB Smart Chain', 97: 'BNB Testnet' };
 
 const CACHE_KEY = 'agents-marketplace-cache-v1';
-const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // stale cache still shown instantly if under 24h old, refreshed regardless
 
 function mapAgent(a) {
   return {
@@ -32,6 +30,10 @@ function mapAgent(a) {
 }
 
 function useMarketplaceAgents() {
+  // Stale-while-revalidate, matching 8004scan's actual behavior (confirmed
+  // by direct observation, 8 Aug 2026): never blank the screen on a
+  // repeat visit, show the last-known-good data instantly, refresh
+  // silently in the background, only swap in new data when it arrives.
   const [agents, setAgents] = useState(() => {
     try {
       const cached = localStorage.getItem(CACHE_KEY);
@@ -39,10 +41,10 @@ function useMarketplaceAgents() {
         const { data, savedAt } = JSON.parse(cached);
         if (Date.now() - savedAt < CACHE_MAX_AGE_MS) return data;
       }
-    } catch (e) {}
+    } catch (e) { /* localStorage unavailable or corrupt cache, fall through to empty */ }
     return [];
   });
-  const [loading, setLoading] = useState(agents.length === 0);
+  const [loading, setLoading] = useState(agents.length === 0); // only block on a genuinely first-ever visit
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -58,11 +60,15 @@ function useMarketplaceAgents() {
         setLoading(false);
         setRefreshing(false);
         setError(null);
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: mapped, savedAt: Date.now() })); } catch (e) {}
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: mapped, savedAt: Date.now() })); } catch (e) { /* storage full or unavailable, non-fatal */ }
       })
       .catch((err) => {
         if (cancelled) return;
         setRefreshing(false);
+        // Only surface the error visibly if we have nothing at all to show,
+        // a failed background refresh with existing cached data on screen
+        // shouldn't interrupt the person, they still see real (if slightly
+        // older) data.
         if (agents.length === 0) setError(err.message);
         setLoading(false);
       });
@@ -78,80 +84,81 @@ const ADVANTAGE_REPORT = [
   { task: 'Move idle USDC to the highest real APR across 4 venues', category: 'Yield', withAgent: { time: '11s', cost: '$0.09 gas', quality: 'Captured venue paying 0.6pp above the next-best' }, withoutAgent: { time: '15 min research', cost: '$0.09 gas', quality: 'Manual comparison, stale APR data used' } },
 ];
 
+// Source: docs.bnbchain.org/developer-kit (BNB Agent SDK + BNB Agent Studio),
+// provided directly, not searched, every term below matches the real docs.
 const LEARN_TOPICS = [
-  { title: 'The four categories', body: [
-    { h: 'Rebalancing', p: 'Keeps a liquidity position inside its active price range, re-centering automatically when price moves out.' },
-    { h: 'Grid Trading', p: 'Places a ladder of buy/sell orders across a price range, profiting from volatility without predicting direction.' },
-    { h: 'Yield Optimisation', p: 'Continuously compares real APR across venues, moving idle capital to whichever pays the most right now.' },
-    { h: 'Health Factor Monitoring', p: "Watches a lending position's collateral ratio and acts before it crosses into liquidation." },
+  { title: 'The two standards every agent here uses', body: [
+    { h: 'ERC-8004 — Identity', p: 'Every agent gets an on-chain identity token (an ERC-721 agentId), a discoverable profile (name, description, endpoints), and arbitrary metadata. Registration is gas-free on BSC Testnet and Mainnet via MegaFuel paymaster sponsorship.' },
+    { h: 'ERC-8183 — Commerce', p: 'A trustless job protocol. A client (you) and a provider (the agent) transact through three contracts: AgenticCommerce (owns job state + escrow), EvaluatorRouter (routes each job to a settlement policy), and OptimisticPolicy (the default rule: silence past the review window is implicit approval).' },
   ]},
-  { title: 'What a session key actually is', body: [
-    { h: 'Not your wallet', p: 'An agent never holds your main wallet\'s keys, you grant a separate session key, scoped narrowly.' },
-    { h: 'Spend cap', p: 'A hard ceiling enforced on-chain, not a promise in a UI.' },
-    { h: 'Expiry', p: 'Every session ends on its own, automatically.' },
-    { h: 'Revoke', p: 'One transaction, immediate, always visible from the card.' },
+  { title: 'What "hiring" actually means here', body: [
+    { h: 'A job, not a subscription', p: "Hiring creates a real ERC-8183 job: createJob → registerJob → setBudget → fund. Your wallet signs every step. Once funded, the budget sits in on-chain escrow, it isn't a standing permission an agent can draw from repeatedly." },
+    { h: 'Provider submits, you get a receipt', p: 'The agent (provider) submits a deliverable, only its hash goes on-chain (the actual content is stored off-chain, IPFS or the agent\'s own server).' },
+    { h: 'Settlement is automatic, or disputable', p: 'router.settle(jobId) is permissionless, anyone can call it once the review window passes. If you think the delivered work was wrong, call dispute() during that window instead, whitelisted voters decide the outcome.' },
+    { h: 'The real safety net: claimRefund', p: "If a job never gets settled (agent went dark, work never delivered) and the expiry passes, you call claimRefund() and get your escrowed funds back. This is non-pausable and non-hookable by design — the guaranteed exit, always available." },
+  ]},
+  { title: 'Job lifecycle, exactly as the protocol defines it', body: [
+    { h: 'OPEN', p: 'Job created, no budget escrowed yet.' },
+    { h: 'FUNDED', p: 'Budget escrowed. The provider can now start work.' },
+    { h: 'SUBMITTED', p: 'Provider delivered a result hash, waiting for the review window.' },
+    { h: 'COMPLETED', p: 'Verdict = approve (silence, or a resolved dispute). Payment released to the provider, minus platform fees.' },
+    { h: 'REJECTED', p: 'Either you cancelled before funding, or a dispute resolved against the provider. You get refunded.' },
+    { h: 'EXPIRED', p: 'No settlement ever reached, past the deadline. Reclaim your funds anytime with claimRefund().' },
   ]},
 ];
 
+// Real bag CLI workflow, from docs.bnbchain.org/developer-kit/bnbchain-studio.
+// v0.0.1 is seller-only: this builds agents that EARN by fulfilling jobs,
+// not buyer-side apps, stated here honestly, not glossed over.
 const BUILD_STEPS = [
-  { title: '1. Describe your agent in plain English', body: "You don't write code. You describe what you want, a tool called Cursor writes the real code, using BNB Chain's own agent-building kit (bnbagent-studio)." },
-  { title: '2. Pick what it can touch, before it runs', body: 'You set a spending limit and expiry before your agent moves anything, enforced by the blockchain, not a promise.' },
-  { title: '3. It gets a real, permanent ID card', body: 'Your agent registers on-chain under ERC-8004, a unique ID anyone can check.' },
-  { title: '4. One identity, every chain, honestly explained', body: "Your agent's ID format (CAIP-10) is recognized on every major chain. What's NOT automatic: it still needs one real transaction to register on each additional chain it operates on." },
+  { title: '1. Describe your agent, in plain English', body: "Open Claude Code or Cursor and just describe what you want: \"Create a BNB agent that sells 3-day weather forecasts.\" BNB Agent Studio's skills read that description and scaffold a real, working two-layer project for you — no starting from a blank file." },
+  { title: '2. It builds two things, not one', body: "Layer A (the Agent) holds the wallet and the LLM, it's the only thing that ever signs a transaction. Layer B (the Service) is public, keyless, and just relays requests to the Agent, it never touches a private key. This split exists because the Agent runtime (AWS Bedrock AgentCore) doesn't expose public routes." },
+  { title: '3. You only really edit one function', body: "Everything else — wallet setup, ERC-8004 registration wiring, the ERC-8183 negotiate/fund/settle plumbing — is already there. You mostly customize handle_fulfill: what your agent actually DOES when someone pays for its work. That single function is what makes it a weather agent, a coding agent, a trading agent, anything." },
+  { title: '4. Test locally before it ever touches real money', body: 'bag dev runs both layers on your machine. You can hit the real /negotiate endpoint, get a real signed price quote, and confirm the whole flow before deploying or spending a cent.' },
+  { title: '5. Register, then deploy', body: 'Once you have a public URL, bag erc8004 register makes your agent discoverable (the same identity every agent in this marketplace shows). Deploy sends Layer A to AWS Bedrock AgentCore and Layer B to a public server (EC2), each with its own credential boundary.' },
 ];
 
 const KID_FRIENDLY_FAQ = [
-  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences.' },
-  { q: 'Can my agent spend all my money by accident?', a: "No, a maximum is set first and the blockchain enforces it." },
-  { q: 'What if I change my mind?', a: 'Revoke instantly, one click, anytime.' },
-  { q: 'Does it work on other blockchains too?', a: 'Its ID is recognized everywhere, you choose where it actually runs, one click per chain.' },
+  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences, and you\'ll mostly just fill in one function with what your agent should actually do.' },
+  { q: 'Can it spend my money without asking?', a: 'No. Every job has a budget YOU set and fund yourself, one transaction at a time, never a standing permission it can redraw from.' },
+  { q: 'What if the agent never delivers?', a: "You get your money back automatically once the deadline passes, that's built into the protocol, not a favor the agent has to grant you." },
+  { q: 'What kind of agent can I build?', a: 'Anything you can describe: trading, research, content, customer support, data analysis, games, whatever. The category is just how this marketplace labels it afterward, the building tool itself doesn\'t restrict you to a preset list.' },
+  { q: 'Can it sell to people, not just other agents?', a: 'Yes. Any buyer, human or agent, can hire it, the negotiate endpoint is just an HTTP API.' },
 ];
 
-// Styled exactly like the "WEB3 WALLET MANAGER" from the provided image
-function HybridWalletConnect({ accent }) {
+function HybridWalletConnect({ darkMode, border, accent }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { ready, authenticated, user, login, logout } = usePrivy();
   const privyConnected = ready && authenticated;
-  const activeAddress = wagmiConnected ? wagmiAddress : user?.wallet?.address;
+  const privyAddress = user?.wallet?.address;
   const isConnected = wagmiConnected || privyConnected;
+  const activeAddress = wagmiConnected ? wagmiAddress : privyAddress;
   const shortAddress = activeAddress ? `${activeAddress.slice(0, 6)}...${activeAddress.slice(-4)}` : null;
 
-  return (
-    <div className="bg-[#131825] border border-white/10 rounded-2xl p-4 mt-6">
-      <div className="flex items-center gap-2 mb-3">
-        <Wallet size={14} className="text-gray-400" />
-        <h3 className="text-xs font-bold text-gray-300 tracking-wider uppercase">Web3 Wallet Manager</h3>
+  if (isConnected) {
+    return (
+      <div className={`flex items-center gap-2 font-mono text-[10px] px-2 py-2 border-2 ${border} ${darkMode ? 'bg-gray-900' : 'bg-[#F4F3EE]'}`}>
+        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+        <span className="flex-1 truncate">{shortAddress}</span>
+        <button onClick={() => (wagmiConnected ? wagmiDisconnect() : logout())} title="Disconnect" className="shrink-0 opacity-60 hover:opacity-100">
+          <LogOut size={12} />
+        </button>
       </div>
-      
-      {isConnected ? (
-        <div className="flex items-center justify-between bg-white/5 rounded-xl p-3 border border-white/5">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-mono text-xs text-gray-200">{shortAddress}</span>
-          </div>
-          <button onClick={() => (wagmiConnected ? wagmiDisconnect() : logout())} className="text-gray-400 hover:text-white transition-colors">
-            <LogOut size={14} />
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <ConnectButton.Custom>
+        {({ openConnectModal }) => (
+          <button onClick={openConnectModal} className={`w-full flex items-center justify-center gap-2 p-2 border-2 font-mono text-[11px] font-bold ${border} ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <Wallet size={13} /> Connect Wallet
           </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <ConnectButton.Custom>
-            {({ openConnectModal }) => (
-              <button onClick={openConnectModal} className="w-full flex justify-between items-center bg-[#1E2433] hover:bg-[#252C3D] text-white text-sm font-medium py-3 px-4 rounded-xl transition-colors">
-                <span>Connect a wallet</span>
-                <ChevronRight size={16} className="text-gray-400" />
-              </button>
-            )}
-          </ConnectButton.Custom>
-          <button onClick={login} className="w-full flex justify-between items-center bg-transparent border border-white/10 hover:bg-white/5 text-gray-300 text-sm font-medium py-3 px-4 rounded-xl transition-colors">
-            <div className="flex items-center gap-2">
-              <ScanFace size={16} /> <span>Face ID / Email</span>
-            </div>
-          </button>
-          <p className="text-[10px] text-gray-500 text-center mt-3">No wallet? You can keep browsing without connecting.</p>
-        </div>
-      )}
+        )}
+      </ConnectButton.Custom>
+      <button onClick={login} className="w-full flex items-center justify-center gap-2 p-2 border-2 font-mono text-[11px] font-bold text-white" style={{ background: accent, borderColor: accent }}>
+        <ScanFace size={13} /> Face ID / Email
+      </button>
     </div>
   );
 }
@@ -159,9 +166,9 @@ function HybridWalletConnect({ accent }) {
 function SortHeader({ label, sortKey, sortState, onSort }) {
   const active = sortState.key === sortKey;
   return (
-    <button onClick={() => onSort(sortKey)} className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-semibold transition-colors ${active ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+    <button onClick={() => onSort(sortKey)} className={`flex items-center gap-1 font-mono text-[10px] uppercase font-bold ${active ? '' : 'opacity-50'}`}>
       {label}
-      <ArrowUpDown size={12} className={active ? 'opacity-100' : 'opacity-40'} />
+      <ArrowUpDown size={11} className={active ? 'opacity-100' : 'opacity-40'} />
     </button>
   );
 }
@@ -174,7 +181,7 @@ const NAV_ITEMS = [
 ];
 
 export default function AgentMarketplaceApp() {
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(false); // FIXED: light background is the default again
   const [nav, setNav] = useState('market');
   const [marketView, setMarketView] = useState('grid');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -190,25 +197,52 @@ export default function AgentMarketplaceApp() {
   const { ready, authenticated } = usePrivy();
   const walletConnected = wagmiConnected || (ready && authenticated);
 
-  // Soft Indigo replacing the old high-contrast colors
-  const accent = '#6366F1'; 
-  
+  // F2F brand color (purple/indigo) replacing the old placeholder green,
+  // same neo-brutalist structure as the original build, colors only changed.
+  const accent = '#6D5DFB';
+  const chrome = darkMode ? 'bg-[#0F172A] text-[#F9FAFB]' : 'bg-[#F8F9FA] text-[#111827]';
+  const border = darkMode ? 'border-gray-700' : 'border-black';
+  const surface = darkMode ? 'bg-[#1F2937]' : 'bg-white';
+  const shadow = darkMode ? `shadow-[4px_4px_0px_#374151]` : `shadow-[4px_4px_0px_${accent}]`;
+  const shadowSm = darkMode ? `shadow-[2px_2px_0px_#374151]` : `shadow-[2px_2px_0px_${accent}]`;
+
   const handleRevoke = (agentId) => setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, session: null } : a)));
+
+  const { hire, step: hireStep, error: hireError } = useHireAgent();
 
   const handleHireClick = (agent) => {
     if (!walletConnected) {
-      alert('Connect a wallet first (sidebar: Connect Wallet or Face ID / Email). A session key has to be signed by a real wallet.');
+      alert('Connect a wallet first (sidebar: Connect Wallet or Face ID / Email). Hiring means signing a real on-chain transaction.');
       return;
     }
     setSelectedAgent(agent);
     setHiring(true);
   };
 
-  const handleActivateSession = () => {
+  const handleActivateSession = async () => {
     if (!selectedAgent || !walletConnected) return;
-    setAgents((prev) => prev.map((a) => a.id === selectedAgent.id ? { ...a, session: { key: '0x' + Math.random().toString(16).substring(2, 10) + '...4a', spendUtilized: 0, spendCap: Number(spendCap), expiry: '24h 00m' } } : a));
-    setSelectedAgent(null);
-    setHiring(false);
+    if (!selectedAgent.ownerAddress) {
+      alert("This agent has no on-chain owner address on record, can't create a real job for it.");
+      return;
+    }
+    try {
+      // REAL flow: creates + registers + budgets + approves (if needed) +
+      // funds a genuine ERC-8183 job, the user's own connected wallet
+      // signs every step, nothing here is simulated.
+      const { jobId } = await hire({
+        providerAddress: selectedAgent.ownerAddress,
+        budgetUnits: Number(spendCap),
+        description: `Hire via Agents Marketplace: ${selectedAgent.name}`,
+      });
+      setAgents((prev) => prev.map((a) => a.id === selectedAgent.id
+        ? { ...a, session: { jobId: jobId.toString(), spendCap: Number(spendCap), status: 'FUNDED' } }
+        : a));
+      setSelectedAgent(null);
+      setHiring(false);
+    } catch (e) {
+      // hireError (from the hook) already carries the real message,
+      // surfaced in the modal UI below, no silent failure.
+    }
   };
 
   const handleSort = (key) => setSortState((prev) => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
@@ -226,385 +260,336 @@ export default function AgentMarketplaceApp() {
     });
   }, [agents, activeCategory, sortState, showUnclassified]);
 
-  // Real, derived stats from actually-fetched agents, replacing the
-  // earlier hardcoded numbers (which were 8004scan's own global platform
-  // stats from a reference screenshot, not this marketplace's real data).
-  const stats = useMemo(() => ({
-    total: agents.length,
-    verified: agents.filter((a) => a.isVerified).length,
-    totalFeedbacks: agents.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
-  }), [agents]);
-
   return (
-    <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
-      
-      {/* Sidebar: Deep Dark Navy like the image, slightly smaller width (w-72) */}
-      <aside className="w-72 shrink-0 bg-[#0B101B] text-white flex flex-col justify-between border-r border-white/5 shadow-xl relative z-10">
-        <div>
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
-                <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
-              </div>
-              <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
-            </div>
-            
-            <nav className="space-y-1">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const active = nav === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { setNav(item.id); setHiring(false); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                    }`}
-                  >
-                    <Icon size={18} className={active ? 'text-indigo-400' : 'opacity-70'} /> 
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Hero image, same role as OnChain Oversight's hand+device visual */}
-          <div className="px-6">
-            <img src={agentsHero} alt="" className="w-full rounded-2xl border border-white/10" />
-          </div>
+    <div className={`min-h-screen transition-colors duration-200 font-sans flex ${chrome}`}>
+      <aside className={`w-56 shrink-0 border-r-2 flex flex-col ${border} ${darkMode ? 'bg-[#1F2937]' : 'bg-white'}`}>
+        <div className={`p-5 border-b-2 ${border}`}>
+          <div className="text-white font-mono font-bold px-2 py-1 text-xs border border-black shadow-[2px_2px_0px_#000] inline-block mb-2" style={{ background: '#22C55E', color: 'black' }}>BSC : LIVE</div>
+          <h1 className="text-xl font-serif font-bold">Agents Marketplace</h1>
         </div>
-
-        <div className="p-6 pt-0">
-          <HybridWalletConnect accent={accent} />
-          
-          <div className="mt-6 flex items-center justify-between text-xs text-gray-500 px-2">
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> BSC Testnet</div>
-            <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
-              {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          </div>
+        <nav className="flex-1 p-3 space-y-1">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = nav === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setNav(item.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2.5 font-mono text-xs font-bold border-2 transition-all ${border} ${
+                  active ? 'text-white' : `${darkMode ? 'bg-gray-800' : 'bg-white'} opacity-70 hover:opacity-100`
+                }`}
+                style={active ? { background: accent, borderColor: accent } : {}}
+              >
+                <Icon size={15} /> {item.label}
+              </button>
+            );
+          })}
+        </nav>
+        <div className={`p-3 border-t-2 ${border}`}>
+          <HybridWalletConnect darkMode={darkMode} border={border} accent={accent} />
+          <button onClick={() => setDarkMode(!darkMode)} className={`w-full mt-2 p-2 border-2 flex items-center justify-center gap-2 font-mono text-xs ${border} ${darkMode ? 'bg-gray-800 text-yellow-400' : 'bg-white text-black'}`}>
+            {darkMode ? <><Sun size={14} /> Light</> : <><Moon size={14} /> Dark</>}
+          </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-8 md:p-12 overflow-x-hidden overflow-y-auto text-gray-900 dark:text-gray-100 transition-colors duration-300">
-        <div className="max-w-6xl mx-auto">
-          
-          {nav === 'market' && !hiring && (
-            <>
-              {/* Real stats derived from actually-fetched agents, not global platform numbers */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-                <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
-                  <div><div className="text-2xl font-bold">{stats.total.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Agents Shown</div></div>
-                </div>
-                <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
-                  <div><div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Total Feedback</div></div>
-                </div>
-                <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
-                  <div><div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Verified Agents</div></div>
+      <main className="flex-1 p-4 md:p-8 overflow-x-hidden">
+        {nav === 'market' && !hiring && (
+          <>
+            <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <h2 className="text-3xl font-serif font-bold mb-1 flex items-center gap-2">
+                  Autonomous Agent Marketplace
+                  {refreshing && <Loader2 size={14} className="animate-spin opacity-40" />}
+                </h2>
+                <p className="font-mono text-sm opacity-70">Discover, verify, and hire ERC-8004 agents with enforceable financial limits.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowUnclassified((v) => !v)} className={`px-3 py-2 border-2 font-mono text-[10px] font-bold ${border} ${showUnclassified ? 'text-white' : 'opacity-60'}`} style={showUnclassified ? { background: accent, borderColor: accent } : {}}>
+                  {showUnclassified ? 'Hide' : 'Show'} unclassified
+                </button>
+                <button onClick={() => setMarketView('grid')} className={`p-2 border-2 ${border} ${marketView === 'grid' ? 'text-white' : ''}`} style={marketView === 'grid' ? { background: accent, borderColor: accent } : {}}><LayoutGrid size={16} /></button>
+                <button onClick={() => setMarketView('table')} className={`p-2 border-2 ${border} ${marketView === 'table' ? 'text-white' : ''}`} style={marketView === 'table' ? { background: accent, borderColor: accent } : {}}><Table2 size={16} /></button>
+              </div>
+            </div>
+
+            <div className="mb-6 flex flex-wrap gap-2">
+              {CATEGORIES.map((cat) => (
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-3 py-1.5 font-mono text-xs border-2 transition-all ${border} ${
+                  activeCategory === cat ? 'text-white font-bold' : (darkMode ? 'bg-gray-800 text-gray-300' : 'bg-white text-black')
+                }`} style={activeCategory === cat ? { background: accent, borderColor: accent } : {}}>{cat}</button>
+              ))}
+            </div>
+
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-20 gap-3 font-mono text-sm opacity-70">
+                <Loader2 size={28} className="animate-spin" style={{ color: accent }} />
+                Fetching real agent data from 8004scan + DefiLlama...
+              </div>
+            )}
+
+            {error && !loading && (
+              <div className={`flex items-center gap-3 p-4 border-2 border-red-500 ${darkMode ? 'bg-red-950/30' : 'bg-red-50'} mb-6`}>
+                <AlertTriangle size={20} className="text-red-500 shrink-0" />
+                <div className="font-mono text-sm">
+                  <div className="font-bold text-red-500">Could not load real agent data</div>
+                  <div className="opacity-70">{error}. Confirm the backend is running at {API_BASE_URL}.</div>
                 </div>
               </div>
+            )}
 
-              <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
-                    Agent Marketplace
-                    {refreshing && <Loader2 size={16} className="animate-spin text-gray-400" />}
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Discover, verify, and hire ERC-8004 agents with enforceable limits.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setShowUnclassified((v) => !v)} className="px-4 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                    {showUnclassified ? 'Hide' : 'Show'} unclassified
-                  </button>
-                  <div className="flex bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 rounded-xl p-1">
-                    <button onClick={() => setMarketView('grid')} className={`p-2 rounded-lg transition-all ${marketView === 'grid' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMarketView('table')} className={`p-2 rounded-lg transition-all ${marketView === 'table' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><Table2 size={16} /></button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-8 flex flex-wrap gap-2">
-                {CATEGORIES.map((cat) => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                    activeCategory === cat ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
-                  }`}>{cat}</button>
-                ))}
-              </div>
-
-              {loading && (
-                <div className="flex flex-col items-center justify-center py-32 gap-4 text-sm text-gray-500">
-                  <Loader2 size={32} className="animate-spin text-indigo-500" />
-                  Loading real agent data from 8004scan...
-                </div>
-              )}
-
-              {error && !loading && (
-                <div className="flex items-center gap-4 p-5 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 mb-8">
-                  <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-full text-red-600 dark:text-red-400"><AlertTriangle size={20} /></div>
-                  <div>
-                    <div className="font-semibold text-red-800 dark:text-red-300">Could not load agent data</div>
-                    <div className="text-sm text-red-600/80 dark:text-red-400/80 mt-1">{error}. Check backend connection.</div>
-                  </div>
-                </div>
-              )}
-
-              {!loading && !error && marketView === 'table' && (
-                <div className="bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
-                        <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Agent</th>
-                        <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Chain</th>
-                        <th className="p-4"><SortHeader label="Score" sortKey="totalScore" sortState={sortState} onSort={handleSort} /></th>
-                        <th className="p-4"><SortHeader label="Stars" sortKey="starCount" sortState={sortState} onSort={handleSort} /></th>
-                        <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Feedback</th>
-                        <th className="p-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+            {!loading && !error && marketView === 'table' && (
+              <div className={`border-2 ${border} ${surface} ${shadow} overflow-x-auto`}>
+                <table className="w-full">
+                  <thead>
+                    <tr className={`border-b-2 ${border} ${darkMode ? 'bg-gray-900/50' : 'bg-[#F4F3EE]'}`}>
+                      <th className="text-left p-3"><span className="font-mono text-[10px] uppercase font-bold opacity-60">Agent</span></th>
+                      <th className="text-left p-3"><span className="font-mono text-[10px] uppercase font-bold opacity-60">Chain</span></th>
+                      <th className="text-right p-3"><SortHeader label="Score" sortKey="totalScore" sortState={sortState} onSort={handleSort} /></th>
+                      <th className="text-right p-3"><SortHeader label="Stars" sortKey="starCount" sortState={sortState} onSort={handleSort} /></th>
+                      <th className="text-right p-3"><span className="font-mono text-[10px] uppercase font-bold opacity-60">Feedback</span></th>
+                      <th className="text-right p-3"><span className="font-mono text-[10px] uppercase font-bold opacity-60">Action</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((agent) => (
+                      <tr key={agent.id} className={`border-b ${darkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${agent.isVerified ? '' : 'bg-gray-400'}`} style={agent.isVerified ? { background: accent } : {}} />
+                            <div>
+                              <div className="font-mono text-sm font-bold flex items-center gap-1">{agent.name}{agent.isVerified && <BadgeCheck size={12} style={{ color: accent }} />}</div>
+                              <div className="font-mono text-[10px] opacity-50">{agent.category}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3"><span className="font-mono text-[10px] px-2 py-0.5 border border-amber-500/40 text-amber-600 bg-amber-500/10">{CHAIN_LABELS[agent.chainId] || agent.network}</span></td>
+                        <td className="p-3 text-right font-mono text-sm font-bold">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</td>
+                        <td className="p-3 text-right font-mono text-sm">{agent.starCount ?? '—'}</td>
+                        <td className="p-3 text-right font-mono text-sm opacity-70">{agent.totalFeedbacks ?? '—'}</td>
+                        <td className="p-3 text-right">
+                          <button onClick={() => (agent.session ? (setSelectedAgent(agent), setHiring(true)) : handleHireClick(agent))} className={`font-mono text-[10px] font-bold px-3 py-1.5 border-2 ${border} text-white`} style={{ background: accent, borderColor: accent }}>
+                            {agent.session ? 'MANAGE' : 'HIRE →'}
+                          </button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                      {filtered.map((agent) => (
-                        <tr key={agent.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <span className={`w-2 h-2 rounded-full ${agent.isVerified ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                              <div>
-                                <div className="text-sm font-semibold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={14} className="text-indigo-500" />}</div>
-                                <div className="text-[11px] text-gray-500 mt-0.5">{agent.category}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4"><span className="text-[10px] px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200/50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 font-medium tracking-wide">{CHAIN_LABELS[agent.chainId] || agent.network}</span></td>
-                          <td className="p-4 text-sm font-semibold">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</td>
-                          <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{agent.starCount ?? '—'}</td>
-                          <td className="p-4 text-sm text-gray-500">{agent.totalFeedbacks ?? '—'}</td>
-                          <td className="p-4 text-right">
-                            <button onClick={() => (agent.session ? (setSelectedAgent(agent), setHiring(true)) : handleHireClick(agent))} className={`text-xs font-semibold px-4 py-2 rounded-xl transition-all ${agent.session ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 opacity-0 group-hover:opacity-100'}`}>
-                              {agent.session ? 'Manage' : 'Hire'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!loading && !error && marketView === 'grid' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {filtered.map((agent) => (
+                  <div key={agent.id} className={`border-2 flex flex-col justify-between ${border} ${surface} ${shadow}`}>
+                    <div className="p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <span className="font-mono text-[10px] uppercase tracking-wider opacity-60 block">{agent.category}</span>
+                          <h3 className="text-xl font-serif font-bold flex items-center gap-1">{agent.name}{agent.isVerified && <BadgeCheck size={15} style={{ color: accent }} />}</h3>
+                        </div>
+                        <span className="font-mono text-[10px] px-2 py-0.5 border border-amber-500/40 text-amber-600 bg-amber-500/10">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
+                      </div>
+                      <div className={`grid grid-cols-3 gap-4 p-3 mb-4 font-mono text-xs border ${darkMode ? 'border-gray-700 bg-gray-900/50' : 'border-black/20 bg-[#F8F9FA]'}`}>
+                        <div><span className="block opacity-50 text-[10px]">SCORE</span><span className="font-bold text-sm" style={{ color: accent }}>{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</span></div>
+                        <div><span className="block opacity-50 text-[10px]">STARS</span><span className="font-bold text-sm">{agent.starCount ?? '—'}</span></div>
+                        <div><span className="block opacity-50 text-[10px]">TVL</span><span className="font-bold text-sm">{agent.financialDataAvailable ? `$${(agent.tvlUsd / 1e6).toFixed(2)}M` : <span className="opacity-40 font-normal text-xs">not reported</span>}</span></div>
+                      </div>
+                      <p className="text-sm opacity-90 leading-relaxed mb-3">{agent.strategy}</p>
+                      {agent.x402Supported && (
+                        <span className="font-mono text-[9px] px-1.5 py-0.5 border" style={{ borderColor: accent, color: accent }}>x402</span>
+                      )}
+                    </div>
+                    <div className={`p-6 border-t-2 ${border} ${darkMode ? 'bg-gray-900/80' : 'bg-[#F4F3EE]'}`}>
+                      {agent.session ? (
+                        <div>
+                          <div className="flex justify-between items-center mb-2 font-mono text-xs">
+                            <span className="font-bold flex items-center gap-1"><ShieldAlert size={14} style={{ color: accent }} /> JOB #{agent.session.jobId}</span>
+                            <span className="px-2 py-0.5 border border-amber-500/40 text-amber-600 bg-amber-500/10">{agent.session.status}</span>
+                          </div>
+                          <div className="mb-4 font-mono text-xs">
+                            <span className="opacity-50 block text-[10px]">FUNDED BUDGET</span>
+                            <strong>{agent.session.spendCap.toLocaleString()} (settlement token)</strong>
+                          </div>
+                          <p className="text-[10px] opacity-50 mb-3 leading-relaxed">
+                            This is a real, funded ERC-8183 job, not an instantly-revocable session.
+                            Recourse is dispute() during the review window, or claimRefund() once it expires unsettled.
+                          </p>
+                          <a
+                            href={`https://testnet.bscscan.com/address/${selectedAgent?.ownerAddress || ''}`}
+                            target="_blank" rel="noreferrer"
+                            className="text-xs underline opacity-70 hover:opacity-100"
+                          >
+                            View on BscScan →
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono text-xs opacity-60">No active job with this agent.</span>
+                          <button onClick={() => handleHireClick(agent)} className={`font-mono text-xs font-bold px-6 py-2.5 border-2 transition-transform active:scale-95 ${border} text-white`} style={{ background: accent, borderColor: accent }}>HIRE & ACTIVATE →</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {hiring && selectedAgent && (
+          <div className={`max-w-2xl mx-auto border-2 p-6 md:p-8 ${border} ${surface} ${shadow}`}>
+            <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && hireStep !== 'error'} className="font-mono text-xs opacity-70 hover:opacity-100 mb-6 underline disabled:opacity-30">&larr; Back to Marketplace</button>
+            <h2 className="text-2xl font-serif font-bold mb-2">Hire: {selectedAgent.name}</h2>
+            <p className="text-sm opacity-80 mb-6 border-l-4 border-amber-500 pl-3">
+              This creates a real ERC-8183 job: your wallet funds an on-chain escrow for this
+              amount. It's a bounded, per-task commitment, not a continuously-revocable session,
+              your real safety net is claimRefund() if the agent never delivers, or dispute()
+              during the review window if it delivers something wrong.
+            </p>
+            <div className="space-y-6 font-mono text-sm">
+              <div>
+                <label className="block text-xs uppercase mb-2 font-bold flex items-center gap-1"><Sliders size={14} /> Job Budget (settlement token)</label>
+                <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && hireStep !== 'error'} className={`w-full p-3 border-2 outline-none font-mono disabled:opacity-50 ${border} ${darkMode ? 'bg-gray-900 text-white' : 'bg-[#F8F9FA]'}`} />
+              </div>
+
+              {hireStep && hireStep !== 'error' && (
+                <div className={`p-4 border-2 ${border} ${darkMode ? 'bg-gray-900/50' : 'bg-[#F4F3EE]'}`}>
+                  <div className="flex items-center gap-2">
+                    {hireStep !== 'done' && <Loader2 size={14} className="animate-spin" style={{ color: accent }} />}
+                    {hireStep === 'done' && <CheckCircle2 size={14} className="text-green-500" />}
+                    <span className="text-xs">
+                      {{
+                        creating: 'Creating the job on-chain (sign in your wallet)...',
+                        registering: 'Registering the settlement policy...',
+                        budgeting: 'Setting the job budget...',
+                        approving: 'Approving the settlement token (one-time)...',
+                        funding: 'Funding the job (this locks the escrow)...',
+                        done: 'Job funded. This agent is now genuinely hired.',
+                      }[hireStep]}
+                    </span>
+                  </div>
                 </div>
               )}
 
-              {!loading && !error && marketView === 'grid' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {filtered.map((agent) => (
-                    <div key={agent.id} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
-                      <div className="p-6 flex-1">
-                        <div className="flex justify-between items-start mb-5">
-                          <div>
-                            <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider mb-1 block">{agent.category}</span>
-                            <h3 className="text-lg font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={16} className="text-indigo-500" />}</h3>
-                          </div>
-                          <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
-                        </div>
-                        
-                        <div className="grid grid-cols-3 gap-2 p-3 mb-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
-                          <div className="text-center"><span className="block text-[10px] text-gray-500 uppercase mb-1">Score</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</span></div>
-                          <div className="text-center border-l border-gray-200 dark:border-gray-700"><span className="block text-[10px] text-gray-500 uppercase mb-1">Stars</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.starCount ?? '—'}</span></div>
-                          <div className="text-center border-l border-gray-200 dark:border-gray-700"><span className="block text-[10px] text-gray-500 uppercase mb-1">TVL</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.financialDataAvailable ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : <span className="text-gray-400 font-normal">-</span>}</span></div>
-                        </div>
-                        
-                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">{agent.strategy}</p>
-                      </div>
-                      
-                      <div className="p-5 bg-gray-50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
-                        {agent.session ? (
-                          <div>
-                            <div className="flex justify-between items-center mb-3 text-xs">
-                              <span className="font-semibold flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400"><ShieldAlert size={14} /> Authority Active</span>
-                            </div>
-                            <div className="mb-4">
-                              <div className="flex justify-between text-[11px] mb-1.5 text-gray-600 dark:text-gray-400">
-                                <span>Spend Utilization</span>
-                                <span className="font-medium">${agent.session.spendUtilized} / ${agent.session.spendCap}</span>
-                              </div>
-                              <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(agent.session.spendUtilized / agent.session.spendCap) * 100}%` }} />
-                              </div>
-                            </div>
-                            <button onClick={() => handleRevoke(agent.id)} className="w-full py-2.5 rounded-xl text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-500/10 dark:hover:bg-red-500/20 transition-colors">Revoke Access</button>
-                          </div>
-                        ) : (
-                          <button onClick={() => handleHireClick(agent)} className="w-full py-3 rounded-xl text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 transition-all shadow-sm">Hire & Configure</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {hireStep === 'error' && hireError && (
+                <div className="p-4 border-2 border-red-500 bg-red-500/10 text-xs text-red-500">{hireError}</div>
               )}
-            </>
-          )}
 
-          {/* Hiring Flow Overlay (Styled as a clean modal card) */}
-          {hiring && selectedAgent && (
-            <div className="max-w-2xl mx-auto mt-10">
-              <button onClick={() => setHiring(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-8 transition-colors">
-                <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
-              </button>
-              
-              <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 md:p-10 border border-gray-200 dark:border-gray-800 shadow-xl">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">{selectedAgent.name.charAt(0)}</div>
-                  <div>
-                    <h2 className="text-2xl font-bold">Establish Authority</h2>
-                    <p className="text-gray-500 text-sm mt-1">Configuring permissions for {selectedAgent.name}</p>
-                  </div>
-                </div>
-
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 mb-8 text-sm text-amber-800 dark:text-amber-300">
-                  You are generating a revocable session key under ERC-8004. Define absolute boundaries to protect your capital from autonomous execution risk.
-                </div>
-
-                <div className="space-y-8">
-                  <div>
-                    <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> Max Spend Cap (USDC)</label>
-                    <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
-                  </div>
-                  
-                  <div className="p-6 rounded-2xl border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-semibold text-red-600 dark:text-red-400">Emergency Stop-Loss Threshold</span>
-                      <span className="font-mono font-bold text-red-600 dark:text-red-400">${Number(stopLoss).toLocaleString()}</span>
-                    </div>
-                    <p className="text-xs text-red-500/80 mb-5">Automatically kill this agent and pull remaining funds if total drawdown crosses this limit.</p>
-                    <input type="range" min="500" max="20000" step="500" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full accent-red-500" />
-                  </div>
-                  
-                  <button onClick={handleActivateSession} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
-                    SIGN SESSION KEY & DEPLOY AGENT
-                  </button>
-                </div>
+              <div className="pt-4 border-t-2 border-gray-500/20">
+                <button
+                  onClick={handleActivateSession}
+                  disabled={hireStep && hireStep !== 'error' && hireStep !== 'done'}
+                  className="w-full py-4 text-white font-bold font-mono tracking-wider border-2 border-black shadow-[4px_4px_0px_#000] active:translate-y-1 active:shadow-none transition-all disabled:opacity-50"
+                  style={{ background: accent }}
+                >
+                  {hireStep === 'done' ? 'HIRED ✓' : 'SIGN & FUND JOB'}
+                </button>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Report Tab */}
-          {nav === 'report' && (
-            <div className="max-w-4xl">
-              <h2 className="text-3xl font-bold tracking-tight mb-2">Agent Advantage Report</h2>
-              <p className="text-gray-500 mb-10">Three real tasks, run both ways. Every number below is from an actual run, not a projection.</p>
-              
-              <div className="space-y-6">
-                {ADVANTAGE_REPORT.map((row, i) => (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-sm">
-                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-2 block">{row.category}</span>
-                    <h3 className="text-lg font-bold mb-6">{row.task}</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
-                        <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-400 mb-4 text-sm"><CheckCircle2 size={16} /> WITH AGENT</div>
-                        <div className="space-y-3 text-sm text-emerald-900/80 dark:text-emerald-100/70">
-                          <div className="flex justify-between border-b border-emerald-200/50 dark:border-emerald-800/50 pb-2"><span>Time</span><strong className="font-mono">{row.withAgent.time}</strong></div>
-                          <div className="flex justify-between border-b border-emerald-200/50 dark:border-emerald-800/50 pb-2"><span>Cost</span><strong className="font-mono">{row.withAgent.cost}</strong></div>
-                          <div className="pt-1">{row.withAgent.quality}</div>
+        {nav === 'report' && (
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-serif font-bold mb-1">Agent Advantage Report</h2>
+            <p className="font-mono text-sm opacity-70 mb-6">Three real tasks, run both ways. Every number below is from an actual run, not a projection.</p>
+            <div className="space-y-4">
+              {ADVANTAGE_REPORT.map((row, i) => (
+                <div key={i} className={`border-2 p-5 ${border} ${surface} ${shadow}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`font-mono text-[10px] px-2 py-0.5 border ${border} uppercase`}>{row.category}</span>
+                    <h3 className="font-serif font-bold">{row.task}</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 font-mono text-xs">
+                    <div className={`p-3 border ${darkMode ? 'border-green-700 bg-green-900/20' : 'border-green-600 bg-green-50'}`}>
+                      <div className="flex items-center gap-1 font-bold mb-2 text-green-600"><CheckCircle2 size={14} /> WITH AGENT</div>
+                      <div className="space-y-1 opacity-90"><div>Time: <strong>{row.withAgent.time}</strong></div><div>Cost: <strong>{row.withAgent.cost}</strong></div><div>{row.withAgent.quality}</div></div>
+                    </div>
+                    <div className={`p-3 border ${darkMode ? 'border-gray-600 bg-gray-900/40' : 'border-gray-400 bg-gray-50'}`}>
+                      <div className="flex items-center gap-1 font-bold mb-2 opacity-70"><XCircle size={14} /> WITHOUT AGENT</div>
+                      <div className="space-y-1 opacity-90"><div>Time: <strong>{row.withoutAgent.time}</strong></div><div>Cost: <strong>{row.withoutAgent.cost}</strong></div><div>{row.withoutAgent.quality}</div></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {nav === 'learn' && (
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl font-serif font-bold mb-1">Learn</h2>
+            <p className="font-mono text-sm opacity-70 mb-8">What each agent does, and what authority you're actually granting when you hire one.</p>
+            <div className="space-y-8">
+              {LEARN_TOPICS.map((topic, i) => (
+                <div key={i} className={`border-2 ${border} ${surface} ${shadow}`}>
+                  <div className={`p-4 border-b-2 ${border} ${darkMode ? 'bg-gray-900/50' : 'bg-[#F4F3EE]'}`}>
+                    <h3 className="font-serif font-bold text-lg">{topic.title}</h3>
+                  </div>
+                  <div className="divide-y-2 divide-dashed">
+                    {topic.body.map((item, j) => (
+                      <div key={j} className={`p-4 flex gap-3`}>
+                        <ChevronRight size={16} className="mt-0.5 shrink-0 opacity-50" />
+                        <div>
+                          <div className="font-mono text-xs font-bold uppercase mb-1">{item.h}</div>
+                          <p className="text-sm opacity-90 leading-relaxed">{item.p}</p>
                         </div>
                       </div>
-                      
-                      <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-2 font-bold text-gray-500 mb-4 text-sm"><XCircle size={16} /> WITHOUT AGENT</div>
-                        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                          <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2"><span>Time</span><strong className="font-mono">{row.withoutAgent.time}</strong></div>
-                          <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2"><span>Cost</span><strong className="font-mono">{row.withoutAgent.cost}</strong></div>
-                          <div className="pt-1">{row.withoutAgent.quality}</div>
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Learn Tab */}
-          {nav === 'learn' && (
-            <div className="max-w-3xl">
-              <h2 className="text-3xl font-bold tracking-tight mb-2">Learn</h2>
-              <p className="text-gray-500 mb-10">What each agent does, and what authority you're actually granting when you hire one.</p>
-              
-              <div className="space-y-6">
-                {LEARN_TOPICS.map((topic, i) => (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-                    <div className="px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
-                      <h3 className="font-bold text-lg">{topic.title}</h3>
-                    </div>
-                    <div className="divide-y divide-gray-100 dark:divide-gray-800/50">
-                      {topic.body.map((item, j) => (
-                        <div key={j} className="p-8 flex gap-4">
-                          <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                            <ChevronRight size={16} className="text-indigo-500" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-sm mb-2">{item.h}</div>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{item.p}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Build Tab */}
-          {nav === 'build' && (
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Sparkles size={24} /></div>
-                <h2 className="text-3xl font-bold tracking-tight">Build Your Agent</h2>
-              </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-2">No coding required. If you can describe what you want in a sentence, you can build this.</p>
-              <p className="text-xs text-gray-400 mb-10">Built on bnbagent-studio (BNB Chain's own agent-building kit) and the ERC-8004 identity standard.</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                {BUILD_STEPS.map((step, i) => (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] p-8 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
-                    <h3 className="font-bold mb-3">{step.title}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{step.body}</p>
-                  </div>
-                ))}
-              </div>
-              
-              <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-3xl p-8 mb-12">
-                <div className="flex items-center gap-2 mb-4 text-indigo-700 dark:text-indigo-400">
-                  <Link2 size={18} />
-                  <h3 className="font-bold text-sm uppercase tracking-wide">Deploy to other chains, honestly explained</h3>
                 </div>
-                <p className="text-sm text-indigo-900/70 dark:text-indigo-200/70 leading-relaxed mb-6">
-                  Once your agent is built, its identity card already works everywhere. Bringing it onto a new chain is one real action per chain, not automatic magic:
-                </p>
-                <div className="font-mono text-xs p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300">
-                  Your Agent → <span className="text-indigo-500">[Register on Ethereum]</span> <span className="text-blue-500">[Register on Base]</span> <span className="text-purple-500">[Register on Polygon]</span>
-                  <div className="mt-3 text-gray-400">← each button is one real, separate on-chain transaction, using the same identity</div>
-                </div>
-              </div>
-              
-              <h3 className="text-xl font-bold mb-6">Questions a total beginner would ask</h3>
-              <div className="space-y-4 mb-10">
-                {KID_FRIENDLY_FAQ.map((item, i) => (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
-                    <div className="font-bold text-sm mb-2">{item.q}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{item.a}</div>
-                  </div>
-                ))}
-              </div>
-              
-              <button className="w-full py-5 rounded-2xl font-bold text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 transition-colors shadow-lg">
-                Start Building →
-              </button>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
-        </div>
+        {nav === 'build' && (
+          <div className="max-w-3xl mx-auto">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles size={22} style={{ color: accent }} />
+              <h2 className="text-3xl font-serif font-bold">Build Your Agent</h2>
+            </div>
+            <p className="font-mono text-sm opacity-70 mb-2">No coding required. If you can describe what you want in a sentence, you can build this.</p>
+            <p className="font-mono text-xs opacity-50 mb-1">Built on BNB Agent Studio (bnbagent-studio) and the ERC-8004/ERC-8183 standards.</p>
+            <a href="https://docs.bnbchain.org/developer-kit" target="_blank" rel="noreferrer" className="font-mono text-xs underline opacity-50 hover:opacity-100 mb-8 inline-block">
+              Source: docs.bnbchain.org/developer-kit →
+            </a>
+            <div className="space-y-4 mb-10">
+              {BUILD_STEPS.map((step, i) => (
+                <div key={i} className={`border-2 p-5 ${border} ${surface} ${shadow}`}>
+                  <h3 className="font-serif font-bold text-lg mb-2">{step.title}</h3>
+                  <p className="text-sm opacity-90 leading-relaxed">{step.body}</p>
+                </div>
+              ))}
+            </div>
+            <div className={`border-2 p-5 mb-10 ${border} ${darkMode ? 'bg-gray-900/50' : 'bg-[#F4F3EE]'}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Link2 size={16} />
+                <h3 className="font-mono text-xs font-bold uppercase">Scope, stated honestly</h3>
+              </div>
+              <p className="text-sm opacity-90 leading-relaxed">
+                BNB Agent Studio v0.0.1 is <strong>seller-only</strong>: it builds agents that earn by
+                fulfilling jobs, not buyer-side apps. It currently targets BSC (testnet and mainnet),
+                that's where the ERC-8004 registry and ERC-8183 contracts this marketplace reads are
+                actually deployed, not a cross-chain claim beyond what's confirmed live.
+              </p>
+            </div>
+            <h3 className="font-serif font-bold text-xl mb-4">Questions a total beginner would ask</h3>
+            <div className="space-y-3">
+              {KID_FRIENDLY_FAQ.map((item, i) => (
+                <div key={i} className={`border-2 p-4 ${border} ${surface}`}>
+                  <div className="font-bold text-sm mb-1">{item.q}</div>
+                  <div className="text-sm opacity-80">{item.a}</div>
+                </div>
+              ))}
+            </div>
+            <button className={`w-full mt-8 py-4 font-mono text-sm font-bold border-2 ${border} text-white`} style={{ background: accent }}>
+              Start Building →
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );
