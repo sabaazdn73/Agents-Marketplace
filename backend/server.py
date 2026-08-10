@@ -9,25 +9,30 @@ Run locally: uvicorn server:app --reload --port 8000
 """
 
 import os
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+import httpx
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from core.aggregate import get_marketplace_agents_as_dicts
-from core.paper_trading import run_paper_trade, get_agent_performance, get_all_agent_performance
-from adapters.erc8183 import create_and_fund_job, get_job_status, settle_job, dispute_job, claim_refund
+from core.paper_trading import get_agent_performance, get_all_agent_performance, get_agent_history
 from core import agent_builder
+from core import practice_layer
 
 load_dotenv()
 
 app = FastAPI(title="Agents Marketplace API")
 
 # Wide open for local dev, tighten this (specific origins only) before
-# any real deployment, per this project's security rules.
+# any real deployment, per this project's security rules. The API serves
+# both GET (agents, performance/history) and POST (practice init/fund/record
+# and the /api/practice/rpc proxy the browser's practice wallet depends on),
+# so cross-origin POST + its OPTIONS preflight must be allowed.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -88,119 +93,36 @@ async def health():
     return {"ok": True}
 
 
-@app.post("/api/paper-trade")
-async def paper_trade(
-    agent_id: str,
-    agent_name: str,
-    task_description: str,
-    from_address: str,
-    to_address: str,
-    input_data: str = "0x",
-    value: str = "0",
-    use_mainnet: bool = False,
-):
-    """Runs one REAL Tenderly simulation (against real current chain
-    state, no funds move) and records the outcome. This is the paper
-    trading entry point: try what an agent would actually do, safely."""
-    account_slug = os.environ.get("TENDERLY_ACCOUNT_SLUG")
-    project_slug = os.environ.get("TENDERLY_PROJECT_SLUG")
-    access_key = os.environ.get("TENDERLY_ACCESS_KEY")
-    if not all([account_slug, project_slug, access_key]):
-        raise HTTPException(
-            status_code=500,
-            detail="Tenderly credentials not configured (TENDERLY_ACCOUNT_SLUG, "
-                   "TENDERLY_PROJECT_SLUG, TENDERLY_ACCESS_KEY), see docs.tenderly.co "
-                   "to create a free account and project.",
-        )
-    network_id = "56" if use_mainnet else "97"
-    try:
-        record = await run_paper_trade(
-            agent_id=agent_id, agent_name=agent_name, task_description=task_description,
-            account_slug=account_slug, project_slug=project_slug, access_key=access_key,
-            network_id=network_id, from_address=from_address, to_address=to_address,
-            input_data=input_data, value=value,
-        )
-        return {"ok": True, "result": record.__dict__}
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Simulation failed: {e}")
-
+# NOTE: the old POST /api/paper-trade (Tenderly simulate-and-persist) was
+# removed with Tenderly. The Practice Layer (POST /api/practice/*) is the real
+# "try before you spend" mechanism now. The read endpoints below still serve
+# any previously-persisted paper_trades history honestly.
 
 @app.get("/api/paper-trade/performance/{agent_id}")
 async def paper_trade_performance(agent_id: str):
-    """Real, derived performance for one agent from actually-recorded
-    simulations, honest zeros if this agent has never been tested."""
-    return get_agent_performance(agent_id)
+    """Real, persisted performance for one agent, category-aware
+    metric, honest empty state if never tested."""
+    return await get_agent_performance(agent_id)
+
+
+@app.get("/api/paper-trade/history/{agent_id}")
+async def paper_trade_history(agent_id: str):
+    """Real, persisted chronological simulation history for one agent."""
+    return await get_agent_history(agent_id)
 
 
 @app.get("/api/paper-trade/performance")
 async def paper_trade_performance_all():
-    """Every agent with at least one real simulation on record."""
-    return get_all_agent_performance()
+    """Every agent with at least one real, persisted simulation."""
+    return await get_all_agent_performance()
 
 
-# ── Real ERC-8183 job lifecycle (the actual "hire" mechanism) ──
-# WALLET_PASSWORD unlocks the operator's own encrypted keystore
-# (created once locally via `bag wallet new` or EVMWalletProvider's
-# first-run import), never a raw private key over HTTP, per this
-# project's security rules.
-
-@app.post("/api/hire")
-async def hire_agent(provider_address: str, budget_units: float, description: str, use_mainnet: bool = False):
-    """Real 'hire': creates + registers + funds an ERC-8183 job.
-    Returns the real on-chain jobId, this is not a simulated success."""
-    wallet_password = os.environ.get("WALLET_PASSWORD")
-    if not wallet_password:
-        raise HTTPException(status_code=500, detail="WALLET_PASSWORD not set on the server.")
-    try:
-        return await create_and_fund_job(
-            provider_address=provider_address, budget_units=budget_units,
-            description=description, wallet_password=wallet_password, use_mainnet=use_mainnet,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Hire failed: {e}")
-
-
-@app.get("/api/hire/{job_id}/status")
-async def hire_status(job_id: int, use_mainnet: bool = False):
-    wallet_password = os.environ.get("WALLET_PASSWORD")
-    try:
-        return await get_job_status(job_id, wallet_password, use_mainnet)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Status check failed: {e}")
-
-
-@app.post("/api/hire/{job_id}/settle")
-async def hire_settle(job_id: int, use_mainnet: bool = False):
-    """Permissionless per the real protocol, anyone can call this
-    once the dispute window elapses."""
-    wallet_password = os.environ.get("WALLET_PASSWORD")
-    try:
-        return await settle_job(job_id, wallet_password, use_mainnet)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Settle failed: {e}")
-
-
-@app.post("/api/hire/{job_id}/dispute")
-async def hire_dispute(job_id: int, use_mainnet: bool = False):
-    """The real recourse if a delivered result looks wrong, only
-    valid within the dispute window, client-only."""
-    wallet_password = os.environ.get("WALLET_PASSWORD")
-    try:
-        return await dispute_job(job_id, wallet_password, use_mainnet)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Dispute failed: {e}")
-
-
-@app.post("/api/hire/{job_id}/refund")
-async def hire_refund(job_id: int, use_mainnet: bool = False):
-    """The real, guaranteed escape hatch after expiry, no settlement
-    reached. This is the honest safety guarantee, not a fictional
-    instant revoke."""
-    wallet_password = os.environ.get("WALLET_PASSWORD")
-    try:
-        return await claim_refund(job_id, wallet_password, use_mainnet)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Refund claim failed: {e}")
+# ── Hiring an agent (ERC-8183) now happens entirely CLIENT-SIDE ──
+# The whole createJob -> registerJob -> setBudget -> approve -> fund
+# batch is driven from the browser by the Altana passkey wallet
+# (frontend/src/altana.js hireAgentWithSession + useHireAgent.js),
+# signed client-side. There is no backend-held key and no /api/hire
+# route anymore — the obsolete adapters/erc8183.py path was removed.
 
 
 # ── Real "build in the browser" pipeline ──
@@ -274,3 +196,85 @@ async def build_status(slug: str):
     if status is None:
         raise HTTPException(status_code=404, detail="Unknown build slug.")
     return status
+
+
+# ── Practice Layer (self-hosted Anvil fork of live BSC mainnet) ──
+# One long-lived Anvil instance (a Render Private Service) IS the shared,
+# persistent fork — it keeps state across separate calls, so no per-user
+# vnet is created. Its admin RPC (PRACTICE_RPC_URL) exposes anvil_* cheat
+# methods and stays SERVER-SIDE ONLY; the browser reaches the fork through
+# the allow-listed proxy below, never the admin RPC directly.
+
+
+@app.post("/api/practice/init")
+async def practice_init():
+    """Confirms the Anvil practice fork is alive and returns its chain id and
+    current forked block. No vnet creation — Anvil is the persistent fork."""
+    try:
+        return await practice_layer.get_practice_status()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Practice fork not reachable: {e}")
+
+
+@app.post("/api/practice/fund")
+async def practice_fund(address: str, bnb_amount: float = 10.0):
+    """Real faucet funding on the persistent fork: native BNB via
+    anvil_setBalance, plus a starter USDT balance via whale impersonation
+    (BSC-USD, the token nearly every skill here actually uses)."""
+    try:
+        result = await practice_layer.fund_practice_wallet(
+            address, bnb_amount=bnb_amount,
+            tokens={practice_layer.USDT_BSC: 1000.0},  # generous starter USDT
+        )
+        return {"ok": True, "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Funding failed: {e}")
+
+
+# The browser's practice-mode wallet (viem) talks to the fork ONLY through
+# this proxy. Admin cheat methods (anvil_*, hardhat_*, evm_*) and unsigned
+# eth_sendTransaction are refused; the browser signs locally and submits via
+# eth_sendRawTransaction.
+_PRACTICE_RPC_ALLOWED = {
+    "eth_chainId", "eth_blockNumber", "eth_gasPrice", "eth_maxPriorityFeePerGas",
+    "eth_feeHistory", "eth_estimateGas", "eth_call", "eth_getBalance",
+    "eth_getCode", "eth_getStorageAt", "eth_getTransactionCount",
+    "eth_getTransactionByHash", "eth_getTransactionReceipt", "eth_getLogs",
+    "eth_getBlockByNumber", "eth_getBlockByHash", "eth_sendRawTransaction",
+    "net_version", "web3_clientVersion",
+}
+
+
+@app.post("/api/practice/rpc")
+async def practice_rpc(request: Request):
+    """Allow-listed JSON-RPC passthrough to the Anvil fork for the browser's
+    practice wallet, keeping the admin RPC and its cheat methods off the
+    public internet."""
+    body = await request.json()
+    calls = body if isinstance(body, list) else [body]
+    for call in calls:
+        method = call.get("method") if isinstance(call, dict) else None
+        if method not in _PRACTICE_RPC_ALLOWED:
+            raise HTTPException(status_code=403, detail=f"Method not allowed in practice proxy: {method}")
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(practice_layer.get_practice_rpc(), json=body)
+    except httpx.HTTPError as e:
+        # Upstream Anvil fork unreachable — surface a clean 502 rather than an
+        # unhandled 500, so the browser can show "practice fork is down".
+        raise HTTPException(status_code=502, detail=f"Practice fork unreachable: {e}")
+    return Response(content=resp.content, media_type="application/json", status_code=resp.status_code)
+
+
+@app.post("/api/practice/record")
+async def practice_record(wallet_address: str, agent_id: str, agent_name: str, skill_id: str, action: str, result: dict):
+    """Persists one real practice run to MongoDB, keyed by wallet
+    address, per Saba's explicit requirement that history survive."""
+    await practice_layer.record_practice_run(wallet_address, agent_id, agent_name, skill_id, action, result)
+    return {"ok": True}
+
+
+@app.get("/api/practice/history/{wallet_address}")
+async def practice_history(wallet_address: str):
+    """Real, persisted practice history for one wallet."""
+    return await practice_layer.get_practice_history(wallet_address)

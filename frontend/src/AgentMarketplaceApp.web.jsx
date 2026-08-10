@@ -11,6 +11,8 @@ import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
 import { useHireAgent } from './useHireAgent';
+import AltanaSessionPanel from './AltanaSessionPanel';
+import AltanaSkillsPanel from './AltanaSkillsPanel';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -81,44 +83,74 @@ const ADVANTAGE_REPORT = [
 
 // Source: docs.bnbchain.org/developer-kit (BNB Agent SDK + BNB Agent Studio),
 // provided directly, not searched, every term below matches the real docs.
+// Confirmed-real source URLs (each verified to resolve, this session). Every
+// factual claim below links to one of these next to the claim itself.
+const SRC = {
+  sdk: { label: 'BNB Agent SDK docs', url: 'https://docs.bnbchain.org/developer-kit/bnbagent-sdk/' },
+  sdkArch: { label: 'BNB Agent SDK — architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbagent-sdk/architecture/' },
+  studio: { label: 'BNB Agent Studio docs', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/' },
+  studioQuick: { label: 'BNB Agent Studio — Quickstart', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/quickstart/' },
+  studioArch: { label: 'BNB Agent Studio — Architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/architecture/' },
+  altana: { label: 'Altana SDK docs', url: 'https://docs.altana.network' },
+  skills: { label: 'Altana Skills Registry', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json' },
+  venusSkill: { label: 'venus-lending SKILL.md', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/skills/venus-lending/SKILL.md' },
+};
+
 const LEARN_TOPICS = [
+  { title: 'Start here: the words we use, in plain English', body: [
+    { h: 'A wallet', p: 'A wallet is just an account that can hold crypto and sign approvals — like an online account that can also say "yes, spend this." Here you can create one with Face ID / a passkey, so there\'s no seed phrase to write down.', plain: 'Think: a bank-card + signature, combined, that only you control.', src: SRC.altana },
+    { h: 'Gas', p: 'Gas is the tiny network fee paid to record a transaction on the blockchain — like a stamp on a letter. Registering an agent here is gas-free: a "paymaster" called MegaFuel covers it, so you don\'t need to hold gas tokens.', plain: 'You don\'t pay a stamp to list an agent — the network sponsors it.', src: SRC.sdk },
+    { h: 'Mainnet vs a practice fork', p: 'Mainnet is the real BNB Chain, where real money moves. Practice Mode instead runs on a "fork" — a live copy of mainnet loaded with free fake money — so you can try any agent or skill first at zero cost and zero risk.', plain: 'A fork is a sandbox clone of the real chain; nothing you do there spends real money.' },
+    { h: 'Escrow', p: 'Escrow is a neutral on-chain vault. When you hire an agent, your payment is locked there; the agent is paid only when the work is accepted, and you can reclaim it if they never deliver.', plain: 'Your money is held by the rules, not by the agent, until the job is done.', src: SRC.sdk },
+  ]},
   { title: 'The two standards every agent here uses', body: [
-    { h: 'ERC-8004 — Identity', p: 'Every agent gets an on-chain identity token (an ERC-721 agentId), a discoverable profile (name, description, endpoints), and arbitrary metadata. Registration is gas-free on BSC Testnet and Mainnet via MegaFuel paymaster sponsorship.' },
-    { h: 'ERC-8183 — Commerce', p: 'A trustless job protocol. A client (you) and a provider (the agent) transact through three contracts: AgenticCommerce (owns job state + escrow), EvaluatorRouter (routes each job to a settlement policy), and OptimisticPolicy (the default rule: silence past the review window is implicit approval).' },
+    { h: 'ERC-8004 — Identity', p: 'Every agent gets an on-chain identity token (an ERC-721 agentId), a discoverable profile (name, description, endpoints), and metadata. Registration is sponsored by the MegaFuel paymaster on BNB Chain, so it costs no gas.', plain: 'It\'s the agent\'s ID card, and putting it on-chain is free.', src: SRC.sdk },
+    { h: 'ERC-8183 — Commerce', p: 'A trustless job protocol. A client (you) and a provider (the agent) transact through three contracts: AgenticCommerce (owns job state + escrow), EvaluatorRouter (routes each job to a settlement policy), and OptimisticPolicy (the default rule: silence past the review window counts as approval).', plain: 'Three small programs that hold the money and enforce the deal so neither side has to trust the other.', src: SRC.sdk },
   ]},
   { title: 'What "hiring" actually means here', body: [
-    { h: 'A job, not a subscription', p: "Hiring creates a real ERC-8183 job: createJob → registerJob → setBudget → fund. Your wallet signs every step. Once funded, the budget sits in on-chain escrow, it isn't a standing permission an agent can draw from repeatedly." },
-    { h: 'Provider submits, you get a receipt', p: 'The agent (provider) submits a deliverable, only its hash goes on-chain (the actual content is stored off-chain, IPFS or the agent\'s own server).' },
-    { h: 'Settlement is automatic, or disputable', p: 'router.settle(jobId) is permissionless, anyone can call it once the review window passes. If you think the delivered work was wrong, call dispute() during that window instead, whitelisted voters decide the outcome.' },
-    { h: 'The real safety net: claimRefund', p: "If a job never gets settled (agent went dark, work never delivered) and the expiry passes, you call claimRefund() and get your escrowed funds back. This is non-pausable and non-hookable by design — the guaranteed exit, always available." },
+    { h: 'A job, not a subscription', p: "Hiring creates a real ERC-8183 job — five wallet-signed steps: createJob → registerJob → setBudget → approve $U → fund. Payment is in $U (United Stables, a crypto dollar). Once funded, the budget sits in on-chain escrow; it is NOT a standing permission an agent can draw from repeatedly.", plain: 'You fund one specific job, once. The agent can never dip into your wallet again on its own.', src: SRC.sdk },
+    { h: 'Provider submits, you get a receipt', p: 'The agent submits a deliverable; only a pointer/hash goes on-chain (the actual content is stored off-chain and looked up by URL). ', plain: 'The chain records the proof-of-delivery, not the file itself.', src: SRC.sdkArch },
+    { h: 'Settlement is automatic, or disputable', p: 'Settling a job is permissionless — anyone can trigger it once the review window passes, releasing escrow to the provider. If the delivered work looks wrong, you dispute() during that window instead.', plain: 'Do nothing and the agent gets paid after the review window; object in time and it\'s contested.', src: SRC.sdk },
+    { h: 'The real safety net: claimRefund', p: "If a job is never settled (agent went dark, nothing delivered) and its deadline passes, you call claimRefund() and get your escrowed funds back. It's the guaranteed exit — always available after expiry.", plain: 'Worst case, you wait out the deadline and take your money back.', src: SRC.sdk },
   ]},
   { title: 'Job lifecycle, exactly as the protocol defines it', body: [
     { h: 'OPEN', p: 'Job created, no budget escrowed yet.' },
     { h: 'FUNDED', p: 'Budget escrowed. The provider can now start work.' },
-    { h: 'SUBMITTED', p: 'Provider delivered a result hash, waiting for the review window.' },
+    { h: 'SUBMITTED', p: 'Provider delivered a result, waiting out the review window.' },
     { h: 'COMPLETED', p: 'Verdict = approve (silence, or a resolved dispute). Payment released to the provider, minus platform fees.' },
     { h: 'REJECTED', p: 'Either you cancelled before funding, or a dispute resolved against the provider. You get refunded.' },
     { h: 'EXPIRED', p: 'No settlement ever reached, past the deadline. Reclaim your funds anytime with claimRefund().' },
+  ], src: SRC.sdk },
+  { title: 'Ready-made Skills & Practice Mode', body: [
+    { h: 'Skills = pre-built, fork-tested know-how', p: 'Instead of building an agent, you can use a ready-made Skill from Altana\'s public registry (PancakeSwap trading, Venus/Aave lending, Lista staking, four.meme, copy-trade, and more). Each Skill\'s exact contracts and steps are published and fork-tested.', plain: 'Skills are recipes an agent can run for you — no building required.', src: SRC.skills },
+    { h: 'A passkey wallet + a scoped session', p: 'To run a Skill for real you create a passkey wallet (Face ID / Touch ID) and grant a session: a spend cap, an expiry, and an allow-list of exactly which contracts it may touch. The Skill can act only inside those limits, and you can revoke it.', plain: 'You hand the agent a prepaid card with a limit and an expiry, not your whole wallet.', src: SRC.altana },
+    { h: 'Practice Mode: try it free first', p: 'Flip Practice Mode on to run any Skill against our live fork of BNB Chain with free faucet funds — no real money, no passkey. Every practice run is saved to your history (in a database), so it stays even though the fork itself can reset when the practice server restarts.', plain: 'Rehearse with fake money; the record of what you did is kept even if the sandbox is reset.', src: SRC.venusSkill },
   ]},
 ];
 
-// Real bag CLI workflow, from docs.bnbchain.org/developer-kit/bnbchain-studio.
-// v0.0.1 is seller-only: this builds agents that EARN by fulfilling jobs,
-// not buyer-side apps, stated here honestly, not glossed over.
+// Real bag CLI workflow, from BNB Agent Studio docs. v0.0.1 is seller-only:
+// this builds agents that EARN by fulfilling jobs, not buyer-side apps.
+// Steps below reflect what our tested pipeline (backend/core/agent_builder.py)
+// actually runs — notably: there is NO handle_fulfill (that was a doc-summary
+// myth we disproved by reading a real generated project); the real edit point
+// is the agent's instruction string in main.py.
 const BUILD_STEPS = [
-  { title: '1. Describe your agent, in plain English', body: "Open Claude Code or Cursor and just describe what you want: \"Create a BNB agent that sells 3-day weather forecasts.\" BNB Agent Studio's skills read that description and scaffold a real, working two-layer project for you — no starting from a blank file." },
-  { title: '2. It builds two things, not one', body: "Layer A (the Agent) holds the wallet and the LLM, it's the only thing that ever signs a transaction. Layer B (the Service) is public, keyless, and just relays requests to the Agent, it never touches a private key. This split exists because the Agent runtime (AWS Bedrock AgentCore) doesn't expose public routes." },
-  { title: '3. You only really edit one function', body: "Everything else — wallet setup, ERC-8004 registration wiring, the ERC-8183 negotiate/fund/settle plumbing — is already there. You mostly customize handle_fulfill: what your agent actually DOES when someone pays for its work. That single function is what makes it a weather agent, a coding agent, a trading agent, anything." },
-  { title: '4. Test locally before it ever touches real money', body: 'bag dev runs both layers on your machine. You can hit the real /negotiate endpoint, get a real signed price quote, and confirm the whole flow before deploying or spending a cent.' },
-  { title: '5. Register, then deploy', body: 'Once you have a public URL, bag erc8004 register makes your agent discoverable (the same identity every agent in this marketplace shows). Deploy sends Layer A to AWS Bedrock AgentCore and Layer B to a public server (EC2), each with its own credential boundary.' },
+  { title: '1. Describe your agent, in plain English', body: 'Open Claude Code or Cursor and describe what you want: "Create a BNB agent that sells 3-day weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a real, working project for you — no blank file.', plain: 'You type a sentence; the tool writes the starter code.', src: SRC.studioQuick },
+  { title: '2. It builds two things, not one', body: 'Layer A (the Agent, app/agent) holds the wallet + LLM and is the ONLY thing that ever signs. Layer B (the Service, app/service) is public, keyless, and just relays requests. The split exists because the Agent runtime (AWS Bedrock AgentCore) isn\'t publicly reachable, so a keyless relay (EC2/Fargate) fronts it.', plain: 'The part that holds keys stays private; a separate public part takes requests.', src: SRC.studioArch },
+  { title: '3. You edit the agent\'s instructions, not plumbing', body: 'Wallet setup, ERC-8004 registration, and the ERC-8183 negotiate/fund/settle wiring are already there. What you actually change is the agent\'s instruction string in main.py — the plain description of what it should DO when a funded job asks it to "fulfill." (There is no handle_fulfill function; we verified this against a real generated project.)', plain: 'You rewrite one paragraph telling the agent its job — not the wiring around it.', src: SRC.studioArch },
+  { title: '4. Test locally before it touches real money', body: 'bag dev runs both layers on your machine. You can hit the real /negotiate endpoint, get a real signed price quote, and confirm the whole flow before deploying or spending anything. The default Pieverse LLM needs no funds.', plain: 'Run it on your laptop first; the default AI model is free.', src: SRC.studioQuick },
+  { title: '5. Register, then deploy', body: 'bag erc8004 register makes your agent discoverable (the same identity every agent here shows). The one-click "Build it for real" button uses the free ~48h platform trial (no AWS account needed). To run it yourself instead, self-host Layer A on AWS Bedrock AgentCore and Layer B on EC2/Fargate.', plain: 'Try it free for 48h with one click, or host it yourself later.', src: SRC.studioArch },
 ];
 
 const KID_FRIENDLY_FAQ = [
-  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences, and you\'ll mostly just fill in one function with what your agent should actually do.' },
-  { q: 'Can it spend my money without asking?', a: 'No. Every job has a budget YOU set and fund yourself, one transaction at a time, never a standing permission it can redraw from.' },
-  { q: 'What if the agent never delivers?', a: "You get your money back automatically once the deadline passes, that's built into the protocol, not a favor the agent has to grant you." },
-  { q: 'What kind of agent can I build?', a: 'Anything you can describe: trading, research, content, customer support, data analysis, games, whatever. The category is just how this marketplace labels it afterward, the building tool itself doesn\'t restrict you to a preset list.' },
-  { q: 'Can it sell to people, not just other agents?', a: 'Yes. Any buyer, human or agent, can hire it, the negotiate endpoint is just an HTTP API.' },
+  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences; to build a custom agent you mostly edit one instruction paragraph, and to use a ready-made Skill you just fill in a form.', src: SRC.studioQuick },
+  { q: 'What is Practice Mode?', a: 'A free rehearsal. It runs a Skill on a live copy ("fork") of BNB Chain with fake faucet money, so you can see exactly what would happen before spending anything real. Your run history is saved even though the fork can reset.', src: SRC.venusSkill },
+  { q: 'What is a passkey wallet?', a: 'A crypto wallet you unlock with Face ID / Touch ID instead of a seed phrase. It signs approvals for you, and for Skills you grant it only a capped, expiring, contract-limited session.', src: SRC.altana },
+  { q: 'Can it spend my money without asking?', a: 'No. Hiring funds one specific job you set and fund yourself; a Skill session has a spend cap, an expiry, and an allow-list of contracts. Neither is a standing permission it can redraw from.', src: SRC.sdk },
+  { q: 'What if the agent never delivers?', a: 'You get your money back once the deadline passes — claimRefund() is built into the protocol, not a favor the agent has to grant.', src: SRC.sdk },
+  { q: 'Do I need my own AWS account to build one?', a: 'No. The "Build it for real" button uses a free ~48h platform trial on a throwaway testnet wallet — no AWS account, no real funds. Self-hosting on your own AWS is optional, later.', src: SRC.studio },
+  { q: 'What kind of agent can I build?', a: 'Anything you can describe: trading, research, content, customer support, data analysis, games — the scaffolder doesn\'t restrict you to a preset list. The category is just how this marketplace labels it afterward.', src: SRC.studioQuick },
+  { q: 'Can it sell to people, not just other agents?', a: 'Yes. Any buyer, human or agent, can hire it — the public Service layer exposes a plain /negotiate HTTP endpoint, so it isn\'t limited to agent-to-agent.', src: SRC.studioArch },
 ];
 
 // Styled exactly like the "WEB3 WALLET MANAGER" from the provided image
@@ -520,46 +552,63 @@ export default function AgentMarketplaceApp() {
           {/* Hiring Flow Overlay (Styled as a clean modal card) */}
           {hiring && selectedAgent && (
             <div className="max-w-2xl mx-auto mt-10">
-              <button onClick={() => setHiring(false)} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-8 transition-colors">
+              <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && hireStep !== 'error'} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-8 transition-colors disabled:opacity-40">
                 <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
               </button>
-              
-              <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 md:p-10 border border-gray-200 dark:border-gray-800 shadow-xl">
+
+              <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 md:p-10 border border-gray-200 dark:border-gray-800 shadow-xl mb-6">
                 <div className="flex items-center gap-4 mb-8">
                   <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">{selectedAgent.name.charAt(0)}</div>
                   <div>
-                    <h2 className="text-2xl font-bold">Establish Authority</h2>
-                    <p className="text-gray-500 text-sm mt-1">Configuring permissions for {selectedAgent.name}</p>
+                    <h2 className="text-2xl font-bold">Hire {selectedAgent.name}</h2>
+                    <p className="text-gray-500 text-sm mt-1">Two real ways to do this, pick one.</p>
                   </div>
                 </div>
 
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 mb-8 text-sm text-amber-800 dark:text-amber-300">
-                  This creates a real ERC-8183 job: your wallet funds an on-chain escrow. It's a
-                  bounded, per-task commitment, not a continuously-revocable session — your real
-                  safety net is claimRefund() if the agent never delivers, or dispute() during the
-                  review window if it delivers something wrong.
+                  Both options below create a real ERC-8183 job. Direct hire uses one wallet
+                  signature per step. The Altana path grants a reusable session with a real
+                  spend cap and expiry first, so future hires need no further signing until
+                  the cap or expiry is hit.
                 </div>
 
-                <div className="space-y-8">
-                  <div>
-                    <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> Max Spend Cap (USDC)</label>
-                    <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
-                  </div>
-                  
-                  <div className="p-6 rounded-2xl border border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-semibold text-red-600 dark:text-red-400">Emergency Stop-Loss Threshold</span>
-                      <span className="font-mono font-bold text-red-600 dark:text-red-400">${Number(stopLoss).toLocaleString()}</span>
-                    </div>
-                    <p className="text-xs text-red-500/80 mb-5">Automatically kill this agent and pull remaining funds if total drawdown crosses this limit.</p>
-                    <input type="range" min="500" max="20000" step="500" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full accent-red-500" />
-                  </div>
-                  
-                  <button onClick={handleActivateSession} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
-                    SIGN SESSION KEY & DEPLOY AGENT
-                  </button>
+                <div className="mb-6">
+                  <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> Job Budget (settlement token)</label>
+                  <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && hireStep !== 'error'} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
                 </div>
+
+                {hireStep && hireStep !== 'error' && (
+                  <div className="mb-6 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] flex items-center gap-2 text-sm">
+                    {hireStep !== 'done' && <Loader2 size={16} className="animate-spin text-indigo-500" />}
+                    {hireStep === 'done' && <CheckCircle2 size={16} className="text-green-500" />}
+                    <span>
+                      {{
+                        creating: 'Creating the job on-chain (sign in your wallet)...',
+                        registering: 'Registering the settlement policy...',
+                        budgeting: 'Setting the job budget...',
+                        approving: 'Approving the settlement token (one-time)...',
+                        funding: 'Funding the job (this locks the escrow)...',
+                        done: 'Job funded. This agent is now genuinely hired.',
+                      }[hireStep]}
+                    </span>
+                  </div>
+                )}
+                {hireStep === 'error' && hireError && (
+                  <div className="mb-6 p-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap">{hireError}</div>
+                )}
+
+                <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'error' && hireStep !== 'done'} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
+                  {hireStep === 'done' ? 'HIRED ✓' : 'SIGN & FUND JOB (direct)'}
+                </button>
               </div>
+
+              <AltanaSessionPanel
+                accent={accent}
+                surface={darkMode ? '#1E293B' : '#FFFFFF'}
+                mutedBorder="border-gray-200 dark:border-gray-800"
+                darkMode={darkMode}
+                agent={selectedAgent}
+              />
             </div>
           )}
 
@@ -611,6 +660,7 @@ export default function AgentMarketplaceApp() {
                   <div key={i} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
                     <div className="px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
                       <h3 className="font-bold text-lg">{topic.title}</h3>
+                      {topic.src && <a href={topic.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline">Source: {topic.src.label} →</a>}
                     </div>
                     <div className="divide-y divide-gray-100 dark:divide-gray-800/50">
                       {topic.body.map((item, j) => (
@@ -621,6 +671,8 @@ export default function AgentMarketplaceApp() {
                           <div>
                             <div className="font-bold text-sm mb-2">{item.h}</div>
                             <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{item.p}</p>
+                            {item.plain && <p className="text-[12px] text-gray-400 dark:text-gray-500 italic mt-1.5">In plain terms: {item.plain}</p>}
+                            {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
                           </div>
                         </div>
                       ))}
@@ -641,12 +693,24 @@ export default function AgentMarketplaceApp() {
               <p className="text-gray-600 dark:text-gray-300 mb-2">No coding required. If you can describe what you want in a sentence, you can build this.</p>
               <p className="text-xs text-gray-400 mb-1">Built on BNB Agent Studio (bnbagent-studio) and the ERC-8004/ERC-8183 standards.</p>
               <a href="https://docs.bnbchain.org/developer-kit" target="_blank" rel="noreferrer" className="text-xs text-indigo-500 underline mb-10 inline-block">Source: docs.bnbchain.org/developer-kit →</a>
-              
+
+              <div className="mb-10">
+                <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} />
+              </div>
+
+              <div className="flex items-center gap-3 mb-8">
+                <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                <span className="text-xs opacity-40 font-semibold uppercase">Or build something custom</span>
+                <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 {BUILD_STEPS.map((step, i) => (
                   <div key={i} className="bg-white dark:bg-[#1E293B] p-8 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
                     <h3 className="font-bold mb-3">{step.title}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{step.body}</p>
+                    {step.plain && <p className="text-[12px] text-gray-400 dark:text-gray-500 italic mt-2">In plain terms: {step.plain}</p>}
+                    {step.src && <a href={step.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-2 inline-block">Source: {step.src.label} →</a>}
                   </div>
                 ))}
               </div>
@@ -727,6 +791,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
                   <div key={i} className="bg-white dark:bg-[#1E293B] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
                     <div className="font-bold text-sm mb-2">{item.q}</div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">{item.a}</div>
+                    {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-2 inline-block">Source: {item.src.label} →</a>}
                   </div>
                 ))}
               </div>

@@ -1,142 +1,113 @@
 """
 paper_trading.py
 
-The real "try an agent without risking money" layer. Every recorded
-result comes from a REAL Tenderly simulation against REAL current
-chain state, nothing here is fabricated or sampled from a
-distribution, if an agent has zero simulations, it honestly shows
-zero, not a placeholder number.
+Read-side of the persisted paper-trading history in MongoDB (category-aware
+performance + chronological history per agent).
 
-Storage: a simple JSON file for now (paper_trading_log.json), one
-record per simulation, append-only. Swap for a real database later if
-volume grows, the interface (record_simulation / get_agent_performance)
-stays the same either way.
+NOTE (Tenderly removed): the earlier simulate-only writer (run_paper_trade,
+which ran a Tenderly simulation and persisted the result) has been removed
+along with adapters/tenderly.py. The Practice Layer (core/practice_layer.py,
+a persistent Anvil fork) is now the real "try before you spend" mechanism and
+writes its own history via record_practice_run. These read functions still
+serve any previously-persisted paper_trades honestly (empty state if none).
+
+Performance is category-aware, per Saba's correction (9 Aug 2026): not every
+agent trades, so "performance" can't be one universal number. Each category
+maps to the metric that actually makes sense for what that agent does,
+honestly None where nothing was measured.
 """
 
-import json
 import os
-from dataclasses import dataclass, asdict
-from datetime import datetime, timezone
 
-from adapters.tenderly import simulate_transaction, SimulationResult
+from motor.motor_asyncio import AsyncIOMotorClient
 
-LOG_PATH = os.path.join(os.path.dirname(__file__), "..", "paper_trading_log.json")
+_client: AsyncIOMotorClient | None = None
 
 
-@dataclass
-class PaperTradeRecord:
-    agent_id: str
-    agent_name: str
-    task_description: str  # human-readable: what was this simulation trying to do
-    simulated_at: str  # ISO timestamp
-    success: bool
-    gas_used: int | None
-    error_message: str | None
-    balance_changes: list
-    asset_changes: list
-    network_id: str
+def get_db():
+    global _client
+    if _client is None:
+        mongo_uri = os.environ.get("MONGODB_URI")
+        if not mongo_uri:
+            raise RuntimeError("MONGODB_URI not set, paper trading needs real persistent storage.")
+        _client = AsyncIOMotorClient(mongo_uri)
+    # Explicit database name, not relying on it being embedded in the
+    # URI (MongoDB Atlas connection strings often omit a db name in
+    # the path, which breaks get_default_database() with a real,
+    # confirmed ConfigurationError, caught via direct testing).
+    db_name = os.environ.get("MONGODB_DB_NAME", "agents_marketplace")
+    return _client[db_name]
 
 
-def _load_log() -> list[dict]:
-    if not os.path.exists(LOG_PATH):
-        return []
-    try:
-        with open(LOG_PATH, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
-        # Corrupt or unreadable log, don't crash the whole feature over
-        # it, start fresh rather than silently losing the ability to
-        # record new results, but this loses old history, worth a
-        # print so it's noticed.
-        print(f"[paper_trading] WARNING: {LOG_PATH} unreadable, starting a fresh log")
-        return []
+# Which real metric actually reflects "did this agent do its job well",
+# per category. Extend this as new categories get added to categorize.py,
+# an unmapped category honestly reports metric_type=None rather than
+# forcing a number that doesn't mean anything for that kind of work.
+CATEGORY_METRIC_MAP: dict[str, str] = {
+    "Rebalancing": "gas_efficiency",
+    "Grid Trading": "profit_loss",
+    "Yield Optimisation": "profit_loss",
+    "Health Factor Monitoring": "risk_avoided",
+    "Trading Signals": "profit_loss",
+    "Copy Trading": "profit_loss",
+    "Smart Contract Auditing": "issues_found",
+    "Data Analysis": "time_saved",
+    "Research": "time_saved",
+    "Content & Copywriting": "time_saved",
+    "Identity & Verification": "accuracy",
+    "Customer Support": "time_saved",
+    "NFT & Generative Art": "time_saved",
+    "Gaming": "time_saved",
+    "Prediction Markets": "accuracy",
+    "Social & Community": "time_saved",
+    "Payments & Settlement": "gas_efficiency",
+    "Developer Tools": "time_saved",
+}
 
 
-def _save_log(records: list[dict]) -> None:
-    with open(LOG_PATH, "w") as f:
-        json.dump(records, f, indent=2)
-
-
-async def run_paper_trade(
-    agent_id: str,
-    agent_name: str,
-    task_description: str,
-    account_slug: str,
-    project_slug: str,
-    access_key: str,
-    network_id: str,
-    from_address: str,
-    to_address: str,
-    input_data: str = "0x",
-    value: str = "0",
-) -> PaperTradeRecord:
-    """Runs one real simulation and records it. Raises if the
-    Tenderly call itself fails (network/auth error), that's different
-    from the SIMULATED transaction failing (success=False), which is
-    a normal, valuable, recorded outcome, not an exception."""
-    result: SimulationResult = await simulate_transaction(
-        account_slug=account_slug,
-        project_slug=project_slug,
-        access_key=access_key,
-        network_id=network_id,
-        from_address=from_address,
-        to_address=to_address,
-        input_data=input_data,
-        value=value,
-    )
-
-    record = PaperTradeRecord(
-        agent_id=agent_id,
-        agent_name=agent_name,
-        task_description=task_description,
-        simulated_at=datetime.now(timezone.utc).isoformat(),
-        success=result.success,
-        gas_used=result.gas_used,
-        error_message=result.error_message,
-        balance_changes=result.balance_changes,
-        asset_changes=result.asset_changes,
-        network_id=network_id,
-    )
-
-    records = _load_log()
-    records.append(asdict(record))
-    _save_log(records)
-
-    return record
-
-
-def get_agent_performance(agent_id: str) -> dict:
-    """Real, derived stats from actually-recorded simulations for one
-    agent. Returns honest zeros/None if this agent has never been
-    paper-traded, never a fabricated placeholder."""
-    records = [r for r in _load_log() if r["agent_id"] == agent_id]
+async def get_agent_performance(agent_id: str) -> dict:
+    """Real, persisted performance for one agent, category-aware.
+    Honest empty state if this agent has never been paper-traded."""
+    db = get_db()
+    records = await db.paper_trades.find({"agent_id": agent_id}).to_list(length=1000)
 
     if not records:
         return {
-            "agent_id": agent_id,
-            "total_simulations": 0,
-            "success_rate": None,
-            "avg_gas_used": None,
-            "last_simulated_at": None,
+            "agent_id": agent_id, "total_simulations": 0, "success_rate": None,
+            "metric_type": None, "avg_metric_value": None, "last_simulated_at": None,
         }
 
     successes = [r for r in records if r["success"]]
-    gas_values = [r["gas_used"] for r in records if r.get("gas_used") is not None]
+    metric_type = records[0].get("metric_type")  # consistent per agent's category
+    metric_values = [r["metric_value"] for r in records if r.get("metric_value") is not None]
 
     return {
         "agent_id": agent_id,
         "total_simulations": len(records),
         "success_rate": round(len(successes) / len(records) * 100, 1),
-        "avg_gas_used": round(sum(gas_values) / len(gas_values)) if gas_values else None,
+        "metric_type": metric_type,
+        "avg_metric_value": round(sum(metric_values) / len(metric_values), 4) if metric_values else None,
         "last_simulated_at": max(r["simulated_at"] for r in records),
     }
 
 
-def get_all_agent_performance() -> dict[str, dict]:
-    """Every agent that has at least one real simulation on record,
-    keyed by agent_id, for surfacing performance across the whole
-    marketplace at once (e.g. for ranking) without one API call per
-    agent."""
-    records = _load_log()
-    agent_ids = {r["agent_id"] for r in records}
-    return {aid: get_agent_performance(aid) for aid in agent_ids}
+async def get_all_agent_performance() -> dict[str, dict]:
+    """Every agent with at least one real, persisted simulation,
+    keyed by agent_id."""
+    db = get_db()
+    agent_ids = await db.paper_trades.distinct("agent_id")
+    results = {}
+    for aid in agent_ids:
+        results[aid] = await get_agent_performance(aid)
+    return results
+
+
+async def get_agent_history(agent_id: str, limit: int = 50) -> list[dict]:
+    """The real, persisted, chronological simulation history for one
+    agent, so a user can revisit prior results, not just the aggregate."""
+    db = get_db()
+    records = await db.paper_trades.find({"agent_id": agent_id}) \
+        .sort("simulated_at", -1).to_list(length=limit)
+    for r in records:
+        r["_id"] = str(r["_id"])  # ObjectId isn't JSON-serializable as-is
+    return records

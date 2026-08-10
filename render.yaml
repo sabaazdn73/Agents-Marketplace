@@ -1,39 +1,47 @@
 # Render Blueprint for the Practice Layer's Anvil fork.
 #
-# This defines ONLY the new Anvil Private Service. Add it to your existing
-# Render setup (or keep as a separate blueprint). After deploy, set the
-# backend web service's PRACTICE_RPC_URL to the internal URL of this service:
-#     PRACTICE_RPC_URL = http://anvil-practice-fork:8545
-# and the browser reaches the fork through the backend proxy /api/practice/rpc
-# (so the frontend needs no direct RPC URL — VITE_PRACTICE_RPC_URL defaults to
-# the same-origin proxy path).
+# ONE public Docker WEB SERVICE (free tier — no card required). Inside the
+# container, Anvil binds 127.0.0.1:8545 (never public) and a tiny gateway on the
+# public port fronts it: a PUBLIC method-filtered door + an AUTHENTICATED
+# /admin/rpc door (shared secret). See anvil/Dockerfile and anvil/gateway.py.
+#
+# We use a Web Service (not a Private Service) because Render's FREE tier is
+# Web-Services-only; Private Services are paid. Localhost-bound Anvil + the
+# filtering gateway give equivalent safety at no cost.
+#
+# EPHEMERAL STATE (free tier): no persistent disk, so on every restart/redeploy
+# (including Render's ~15-min idle spin-down) the container re-forks FRESH from
+# the latest BSC block — in-fork practice positions reset. The PERMANENT record
+# of what each user tried lives in MongoDB (the practice_runs collection, served
+# by /api/practice/history) and is UNAFFECTED — it never lived on the fork.
+#
+# After deploy, on your BACKEND service set:
+#   PRACTICE_RPC_URL   = https://<this-service>.onrender.com        (public door)
+#   PRACTICE_ADMIN_URL = https://<this-service>.onrender.com/admin/rpc
+#   PRACTICE_ADMIN_KEY = <the SAME secret you set below>
+# The browser still talks only to the backend proxy (/api/practice/rpc); it
+# never sees this URL or the admin key.
 services:
-  - type: pserv            # Private Service: internal-only TCP, reachable by
-    name: anvil-practice-fork  # other Render services on the private network.
+  - type: web
+    name: anvil-practice-fork
     runtime: docker
     dockerfilePath: ./anvil/Dockerfile
     dockerContext: ./anvil
-    plan: standard         # anvil forking is memory-hungry; free/starter may OOM.
+    plan: free               # free Web Service; anvil forking is memory-hungry,
+                             # so watch for OOM on the 512MB free instance.
     autoDeploy: false
+    healthCheckPath: /health  # gateway.py answers GET /health with 200
     envVars:
-      - key: PORT
-        value: 8545
-      # REQUIRED: an ARCHIVE-capable BSC RPC (see Dockerfile for why). Set this
-      # secret in the Render dashboard (never commit it).
-      #
-      # Provisioning a free archive endpoint (recommended: Alchemy):
-      #   1. dashboard.alchemy.com -> sign up -> Create app
-      #   2. Chain = BNB Smart Chain, Network = Mainnet
-      #   3. Copy the HTTPS URL: https://bnb-mainnet.g.alchemy.com/v2/<API_KEY>
-      #      (archive is included on Alchemy's free tier for BNB Chain)
-      #   Alternatives: BlockPI (generous free archive) or QuickNode (archive may
-      #   need a paid add-on). Do NOT use free public endpoints
-      #   (bsc-dataseed*, publicnode, ankr public) — they are pruned and crash
-      #   Anvil with "missing trie node" once the fork block ages out of their
-      #   pruning window (which a long-lived fork always hits).
+      # REQUIRED: an ARCHIVE-capable BSC RPC (see Dockerfile). Recommended: dRPC
+      # (drpc.org — confirmed free-tier BSC archive, ~210M compute units/month).
+      # Do NOT use pruned public endpoints (bsc-dataseed*, publicnode, ankr
+      # public) — they crash Anvil with "missing trie node".
       - key: FORK_RPC_URL
         sync: false
-    disk:
-      name: anvil-state    # persists /data/anvil-state.json across restarts,
-      mountPath: /data     # so accumulated practice state survives redeploys.
-      sizeGB: 1
+      # Shared secret guarding the /admin/rpc door. Set the SAME value here and
+      # in the backend service's PRACTICE_ADMIN_KEY (any long random string).
+      - key: PRACTICE_ADMIN_KEY
+        sync: false
+    # No persistent disk (free tier): fork state is ephemeral and resets on
+    # restart — see EPHEMERAL STATE above. Add a `disk:` at /data (paid) plus
+    # `--state /data/anvil-state.json` in the entrypoint to make it durable.

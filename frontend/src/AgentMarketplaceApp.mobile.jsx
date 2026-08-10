@@ -16,22 +16,47 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 const CHAIN_LABELS = { 56: 'BNB Smart Chain', 97: 'BNB Testnet' };
 
 // Source: docs.bnbchain.org/developer-kit — matches web's Learn content.
+// Confirmed-real source URLs (each verified to resolve). Same set as web.
+const SRC = {
+  sdk: { label: 'BNB Agent SDK docs', url: 'https://docs.bnbchain.org/developer-kit/bnbagent-sdk/' },
+  studio: { label: 'BNB Agent Studio docs', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/' },
+  studioQuick: { label: 'Studio — Quickstart', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/quickstart/' },
+  studioArch: { label: 'Studio — Architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/architecture/' },
+  altana: { label: 'Altana SDK docs', url: 'https://docs.altana.network' },
+  skills: { label: 'Altana Skills Registry', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json' },
+  venusSkill: { label: 'venus-lending SKILL.md', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/skills/venus-lending/SKILL.md' },
+};
+
 const LEARN_TOPICS = [
-  { h: 'ERC-8004 — Identity', p: 'Every agent gets an on-chain identity token (ERC-721), a discoverable profile, and metadata. Gas-free registration via MegaFuel paymaster.' },
-  { h: 'ERC-8183 — Commerce', p: 'A trustless job protocol: client + provider transact through AgenticCommerce (escrow), EvaluatorRouter (routing), OptimisticPolicy (silence = approve).' },
-  { h: 'Hiring = a real job, not a subscription', p: 'createJob → registerJob → setBudget → fund. Your wallet signs each step. The budget sits in escrow, it\'s not a standing permission.' },
-  { h: 'Job lifecycle', p: 'OPEN → FUNDED → SUBMITTED → COMPLETED (settled) / REJECTED (disputed) / EXPIRED (never settled).' },
-  { h: 'The real safety net', p: 'claimRefund() after expiry with no settlement, non-pausable, non-hookable, always available.' },
-  { h: 'Dispute window', p: 'If a submitted result looks wrong, dispute() during the review window, whitelisted voters decide.' },
+  { h: 'Wallet, gas, mainnet — plain English', p: 'A wallet is an account that holds crypto and signs approvals (here, via Face ID — no seed phrase). Gas is the small fee to record a transaction. Mainnet is the real chain; a "fork" is a free fake-money copy used for practice.' },
+  { h: 'ERC-8004 — Identity', p: 'Every agent gets an on-chain identity token (ERC-721) + profile. Registration is gas-free — sponsored by the MegaFuel paymaster.', src: SRC.sdk },
+  { h: 'ERC-8183 — Commerce', p: 'A trustless job protocol: client + provider transact through AgenticCommerce (escrow), EvaluatorRouter (routing), OptimisticPolicy (silence = approve).', src: SRC.sdk },
+  { h: 'Hiring = a real job, not a subscription', p: 'createJob → registerJob → setBudget → approve $U → fund, each signed by your wallet. Payment is $U (a crypto dollar) held in escrow — never a standing permission.', src: SRC.sdk },
+  { h: 'Job lifecycle', p: 'OPEN → FUNDED → SUBMITTED → COMPLETED (settled) / REJECTED (disputed) / EXPIRED (never settled).', src: SRC.sdk },
+  { h: 'The real safety net', p: 'claimRefund() after the deadline with no settlement — the guaranteed exit, always available.', src: SRC.sdk },
+  { h: 'Dispute window', p: 'If a submitted result looks wrong, dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
+  { h: 'Skills + Practice Mode', p: 'Use ready-made, fork-tested Skills from Altana\'s registry via a passkey wallet + a capped, expiring session. Practice Mode runs them on a free fork first; your run history is saved even if the fork resets.', src: SRC.skills },
 ];
 
-// Real bag CLI workflow. v0.0.1 is seller-only, currently BSC only.
+// Real bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
+// pipeline (agent_builder.py): there is NO handle_fulfill — you edit the
+// agent's instruction string in main.py.
 const BUILD_STEPS = [
-  { h: '1. Describe it in plain English', p: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio scaffolds the real project.' },
-  { h: '2. Two layers, automatically', p: 'Layer A (the Agent) holds the wallet + LLM, the only signer. Layer B (public, keyless) just relays requests.' },
-  { h: '3. You edit one function', p: 'Everything else is already wired. You customize handle_fulfill: what your agent actually does.' },
-  { h: '4. Test before spending anything', p: 'bag dev runs both layers locally, hit the real /negotiate endpoint before deploying.' },
-  { h: '5. Register, then deploy', p: 'bag erc8004 register makes it discoverable. Deploy sends Layer A to AgentCore and Layer B to EC2.' },
+  { h: '1. Describe it in plain English', p: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio scaffolds the real project.', src: SRC.studioQuick },
+  { h: '2. Two layers, automatically', p: 'Layer A (the Agent) holds the wallet + LLM, the only signer. Layer B (public, keyless) just relays requests.', src: SRC.studioArch },
+  { h: '3. You edit the instructions', p: 'Everything else is wired. You change the agent\'s instruction string in main.py (what it does on "fulfill") — there is no handle_fulfill, verified against a real project.', src: SRC.studioArch },
+  { h: '4. Test before spending anything', p: 'bag dev runs both layers locally; hit the real /negotiate endpoint. The default Pieverse LLM needs no funds.', src: SRC.studioQuick },
+  { h: '5. Register, then deploy', p: 'bag erc8004 register makes it discoverable. The one-click build uses a free ~48h trial (no AWS); self-hosting puts Layer A on AgentCore and Layer B on EC2/Fargate.', src: SRC.studioArch },
+];
+
+// Beginner FAQ — mirrors the web app's, kept in sync.
+const KID_FRIENDLY_FAQ = [
+  { q: 'Do I need to code?', a: 'No — describe it in sentences; edit one instruction paragraph, or just fill a form for a ready-made Skill.', src: SRC.studioQuick },
+  { q: 'What is Practice Mode?', a: 'A free rehearsal on a fake-money fork of BNB Chain. Your run history is saved even if the fork resets.', src: SRC.venusSkill },
+  { q: 'Can it spend my money without asking?', a: 'No. A job is funded once by you; a Skill session has a spend cap, expiry, and a contract allow-list.', src: SRC.sdk },
+  { q: 'Do I need my own AWS account?', a: 'No — the build button uses a free ~48h trial on a throwaway testnet wallet.', src: SRC.studio },
+  { q: 'What kind of agent can I build?', a: 'Anything you can describe — trading, research, content, support, games. The scaffolder doesn\'t restrict you; the category is just how the marketplace labels it afterward.', src: SRC.studioQuick },
+  { q: 'Can it sell to people, not just agents?', a: 'Yes. Any buyer, human or agent, can hire it — the public Service layer is a plain /negotiate HTTP endpoint.', src: SRC.studioArch },
 ];
 const CACHE_KEY = 'agents-marketplace-cache-v1';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -355,6 +380,7 @@ export default function AgentMarketplaceMobile() {
                     <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div className="font-bold text-sm mb-1">{item.h}</div>
                       <div className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{item.p}</div>
+                      {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
                     </div>
                   ))}
                 </div>
@@ -375,12 +401,25 @@ export default function AgentMarketplaceMobile() {
                     <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div className="font-bold text-sm mb-1">{step.h}</div>
                       <div className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{step.p}</div>
+                      {step.src && <a href={step.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {step.src.label} →</a>}
                     </div>
                   ))}
                 </div>
+
+                <div className="space-y-2">
+                  <div className="text-xs font-bold uppercase text-gray-500 mb-1">Questions a beginner would ask</div>
+                  {KID_FRIENDLY_FAQ.map((item, i) => (
+                    <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                      <div className="font-bold text-sm mb-1">{item.q}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{item.a}</div>
+                      {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
+                    </div>
+                  ))}
+                </div>
+
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Scope, stated honestly</span></div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">v0.0.1 is seller-only: builds agents that earn by fulfilling jobs. Currently BSC only (testnet + mainnet).</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">v0.0.1 is seller-only: builds agents that earn by fulfilling jobs. The build trial runs on BSC testnet; the marketplace and hiring run on BSC mainnet.</p>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">
