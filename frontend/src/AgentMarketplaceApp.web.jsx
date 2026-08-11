@@ -10,6 +10,32 @@ import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
+import { QRCodeCanvas } from 'qrcode.react';
+
+// QR linking to this same (responsive) site — a phone opens the mobile app.
+// Level H (30% error correction) tolerates the centered, excavated logo.
+function QrToMobile() {
+  const url = import.meta.env?.VITE_MOBILE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
+  return (
+    <div className="bg-white dark:bg-[#1E293B] p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4 lg:w-72 shrink-0">
+      <div className="bg-white p-2 rounded-lg shrink-0">
+        <QRCodeCanvas
+          value={url}
+          size={104}
+          level="H"
+          marginSize={3}
+          bgColor="#ffffff"
+          fgColor="#0B101B"
+          imageSettings={{ src: iconLogo, height: 24, width: 24, excavate: true }}
+        />
+      </div>
+      <div className="min-w-0">
+        <div className="text-sm font-bold">Open on your phone</div>
+        <div className="text-xs text-gray-500 dark:text-gray-400">Scan to launch the mobile app.</div>
+      </div>
+    </div>
+  );
+}
 import { useHireAgent } from './useHireAgent';
 import AltanaSessionPanel from './AltanaSessionPanel';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
@@ -333,7 +359,7 @@ export default function AgentMarketplaceApp() {
     <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
       
       {/* Sidebar: Deep Dark Navy, scrolls together with the page now, no independent region */}
-      <aside className="w-96 shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
+      <aside className="w-[28rem] shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
         {/* Sticky wrapper: this content stays visible near the top of the
             viewport as you scroll through the taller main content, instead
             of scrolling away and leaving blank space, while the aside's
@@ -399,19 +425,22 @@ export default function AgentMarketplaceApp() {
           {nav === 'market' && !hiring && (
             <>
               {/* Real stats derived from actually-fetched agents, not global platform numbers */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-                <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
-                  <div><div className="text-2xl font-bold">{stats.total.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Agents Shown</div></div>
+              <div className="flex flex-col lg:flex-row gap-4 mb-10 items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+                  <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
+                    <div><div className="text-2xl font-bold">{stats.total.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Agents Shown</div></div>
+                  </div>
+                  <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
+                    <div><div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Total Feedback</div></div>
+                  </div>
+                  <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
+                    <div><div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Verified Agents</div></div>
+                  </div>
                 </div>
-                <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
-                  <div><div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Total Feedback</div></div>
-                </div>
-                <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
-                  <div><div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Verified Agents</div></div>
-                </div>
+                <QrToMobile />
               </div>
 
               <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">

@@ -3,12 +3,13 @@ import {
   Sun, Moon, ShieldAlert, FileBarChart, CheckCircle2, XCircle,
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, Menu
+  Activity, Users, MessageSquare, Menu, ScanFace
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
+import agentsHero from './assets/agents.png';
 import { useHireAgent } from './useHireAgent';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
@@ -167,7 +168,79 @@ function MobileWalletSheet({ onClose }) {
   );
 }
 
-export default function AgentMarketplaceMobile() {
+// Full-screen launch splash. Shown before the app UI. Unlock by tapping
+// through, or via Face ID — which reuses the SAME Privy passkey login the
+// wallet-connect flow uses (no duplicate auth logic; one PrivyProvider in
+// main.jsx). A returning, already-authenticated Privy user unlocks instantly.
+function SplashScreen({ onUnlock }) {
+  const { ready, authenticated, login } = usePrivy();
+  const [showControls, setShowControls] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Show the hero for a beat, then reveal the unlock controls.
+  useEffect(() => {
+    const t = setTimeout(() => setShowControls(true), 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleFaceId = async () => {
+    setBusy(true);
+    try {
+      // Returning user with a live Privy session: no re-prompt needed.
+      if (ready && authenticated) { onUnlock(); return; }
+      // Otherwise open Privy's passkey/email modal — the Face ID prompt on
+      // capable devices — exactly the wallet-connect "Face ID / Email" path.
+      await login();
+      onUnlock();
+    } catch {
+      setBusy(false); // user dismissed the prompt; stay on the splash
+    }
+  };
+
+  return (
+    <div
+      onClick={showControls && !busy ? onUnlock : undefined}
+      className="fixed inset-0 z-50 bg-[#0B101B] text-white flex flex-col items-center justify-between p-8 select-none"
+      role="button"
+      aria-label="Tap to continue"
+    >
+      <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full">
+        <img src={agentsHero} alt="Agents Marketplace" className="w-full max-w-xs rounded-3xl border border-white/10 shadow-2xl object-cover" />
+        <div className="flex items-center gap-2">
+          <img src={iconLogo} alt="" className="w-7 h-7" />
+          <h1 className="text-xl font-bold tracking-tight">Agents Marketplace</h1>
+        </div>
+      </div>
+
+      <div className="w-full flex flex-col items-center gap-3 pb-4 min-h-[92px] justify-end">
+        {!showControls ? (
+          <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading…</div>
+        ) : (
+          <>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleFaceId(); }}
+              disabled={busy}
+              className="w-full max-w-xs flex items-center justify-center gap-2 bg-white text-[#0B101B] font-semibold py-3 rounded-2xl disabled:opacity-60"
+            >
+              {busy ? <Loader2 size={18} className="animate-spin" /> : <ScanFace size={18} />}
+              {ready && authenticated ? 'Unlock with Face ID' : 'Continue with Face ID'}
+            </button>
+            <p className="text-xs text-gray-400">or tap anywhere to continue</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Default export: the splash gate wrapping the real app.
+export default function AgentMarketplaceMobileRoot() {
+  const [unlocked, setUnlocked] = useState(false);
+  if (!unlocked) return <SplashScreen onUnlock={() => setUnlocked(true)} />;
+  return <AgentMarketplaceMobile />;
+}
+
+function AgentMarketplaceMobile() {
   const [darkMode, setDarkMode] = useState(false);
   const [nav, setNav] = useState('market');
   const [activeCategory, setActiveCategory] = useState('All');
