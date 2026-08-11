@@ -36,7 +36,10 @@ export async function detectLeaderTrades(publicClient, leaderAddress, { fromBloc
   if (!leaderAddress) throw new Error('A leader wallet address is required. Per this skill\'s own rule, it must never be inferred or guessed.');
 
   const latestBlock = toBlock ?? await publicClient.getBlockNumber();
-  const startBlock = fromBlock ?? (latestBlock > 5000n ? latestBlock - 5000n : 0n);
+  // 1000-block default (~50 min of BSC): served comfortably by an address-less
+  // getLogs on the configured read RPC (dRPC). The old 5000 exceeded free-tier
+  // getLogs limits.
+  const startBlock = fromBlock ?? (latestBlock > 1000n ? latestBlock - 1000n : 0n);
 
   const logs = await publicClient.getLogs({
     event: SWAP_EVENT,

@@ -48,7 +48,9 @@ export function screenTokenRisk(pair) {
 import { parseAbiItem } from 'viem';
 const SWAP_EVENT = parseAbiItem('event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)');
 
-export async function getRecentWalletSwaps(publicClient, walletAddress, { blockWindow = 5000n } = {}) {
+// 1000-block default (~50 min of BSC): served comfortably by an address-less
+// getLogs on the configured read RPC (dRPC). The old 5000 exceeded free limits.
+export async function getRecentWalletSwaps(publicClient, walletAddress, { blockWindow = 1000n } = {}) {
   const latestBlock = await publicClient.getBlockNumber();
   const fromBlock = latestBlock > blockWindow ? latestBlock - blockWindow : 0n;
 

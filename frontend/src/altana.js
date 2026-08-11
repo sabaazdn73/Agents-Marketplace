@@ -46,8 +46,12 @@ export function getAltanaClient() {
   return { client, network };
 }
 
-// Reads in real mode use a plain BSC mainnet public client.
-const _mainnetPublicClient = createPublicClient({ chain: bsc, transport: http(BNB.publicRpcUrl) });
+// Reads in real mode use a plain BSC mainnet public client. The read-only
+// skills (copy-trade / wallet-tracker) issue address-less topic getLogs, which
+// the default public RPC (publicnode) refuses — point VITE_MAINNET_READ_RPC at
+// an RPC that permits it (e.g. the same dRPC endpoint used for the fork).
+const MAINNET_READ_RPC = import.meta.env?.VITE_MAINNET_READ_RPC || BNB.publicRpcUrl;
+const _mainnetPublicClient = createPublicClient({ chain: bsc, transport: http(MAINNET_READ_RPC) });
 
 /** A BSC mainnet read client, for the read-only/detection skills (Token Radar,
  * Wallet Tracker, Copy Trade detection) that make no transactions. */
