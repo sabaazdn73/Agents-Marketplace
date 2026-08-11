@@ -11,27 +11,26 @@
 // discover one." This module refuses to run without an explicit
 // leaderAddress, exactly as instructed.
 
-import { parseAbi, decodeEventLog } from 'viem';
+import { parseAbi, parseAbiItem } from 'viem';
 
 const USDT_BSC = '0x55d398326f99059fF775485246999027B3197955';
 const WBNB = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 
-const SWAP_EVENT = parseAbi(['event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)']);
+// The real PancakeSwap V2 Swap event, as a typed AbiEvent so viem can both
+// FILTER by it (topic0) + the indexed `to`, and decode each matching log.
+const SWAP_EVENT = parseAbiItem('event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)');
 const PAIR_ABI = parseAbi(['function token0() view returns (address)', 'function token1() view returns (address)']);
 
-// Real topic0, computed the same disciplined way as the wallet-tracker
-// module (never trusted from memory without checking): keccak256 of
-// the exact event signature the skill's own doc gives.
-const SWAP_TOPIC0 = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822'.slice(0, 66);
-
-function addressToTopic(address) {
-  return `0x${'0'.repeat(24)}${address.slice(2).toLowerCase()}`;
-}
-
 /**
- * Real leader-trade detection: filters Swap logs where `to` (topic 2)
- * is the leader, decodes which token flowed to them, per the skill's
- * own documented method (not a guess, not an indexer, plain RPC logs).
+ * Real leader-trade detection: filters Swap logs where the indexed `to` is
+ * the leader, and reads which token flowed to them, per the skill's own
+ * documented method (plain RPC logs, no indexer).
+ *
+ * NOTE: viem's getLogs has NO raw `topics` param — you filter with a typed
+ * `event` + `args` (a passed `topics` array is silently ignored, which made an
+ * earlier version return everything / error on restrictive RPCs — caught by a
+ * live run). Scanning by topic across all pairs needs an RPC that permits
+ * address-less getLogs.
  */
 export async function detectLeaderTrades(publicClient, leaderAddress, { fromBlock, toBlock } = {}) {
   if (!leaderAddress) throw new Error('A leader wallet address is required. Per this skill\'s own rule, it must never be inferred or guessed.');
@@ -40,20 +39,20 @@ export async function detectLeaderTrades(publicClient, leaderAddress, { fromBloc
   const startBlock = fromBlock ?? (latestBlock > 5000n ? latestBlock - 5000n : 0n);
 
   const logs = await publicClient.getLogs({
+    event: SWAP_EVENT,
+    args: { to: leaderAddress },
     fromBlock: startBlock, toBlock: latestBlock,
-    topics: [SWAP_TOPIC0, null, addressToTopic(leaderAddress)],
   });
 
   const decoded = [];
   for (const log of logs) {
     try {
-      const event = decodeEventLog({ abi: SWAP_EVENT, data: log.data, topics: log.topics });
       const [token0, token1] = await Promise.all([
         publicClient.readContract({ address: log.address, abi: PAIR_ABI, functionName: 'token0' }),
         publicClient.readContract({ address: log.address, abi: PAIR_ABI, functionName: 'token1' }),
       ]);
-      const amountOut0 = event.args.amount0Out;
-      const amountOut1 = event.args.amount1Out;
+      const amountOut0 = log.args.amount0Out;
+      const amountOut1 = log.args.amount1Out;
       const tokenReceived = amountOut0 > 0n ? token0 : token1;
       const amountReceived = amountOut0 > 0n ? amountOut0 : amountOut1;
       const isSell = tokenReceived.toLowerCase() === USDT_BSC.toLowerCase() || tokenReceived.toLowerCase() === WBNB.toLowerCase();

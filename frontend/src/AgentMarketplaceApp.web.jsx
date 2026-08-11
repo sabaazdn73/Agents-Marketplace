@@ -16,7 +16,7 @@ import AltanaSkillsPanel from './AltanaSkillsPanel';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const CHAIN_LABELS = { 56: 'BNB Smart Chain', 97: 'BNB Testnet' };
+const CHAIN_LABELS = { 56: 'BNB Smart Chain' }; // mainnet-only
 
 const CACHE_KEY = 'agents-marketplace-cache-v1';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;

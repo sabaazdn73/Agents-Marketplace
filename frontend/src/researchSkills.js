@@ -42,21 +42,24 @@ export function screenTokenRisk(pair) {
 }
 
 // ── Wallet Tracker ──
-// Real PancakeSwap V2 pair Swap event topic0, computed from the
-// documented signature: Swap(address,uint256,uint256,uint256,uint256,address)
-const SWAP_EVENT_TOPIC = '0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822';
+// Real PancakeSwap V2 Swap event, typed so viem can filter by it + the
+// indexed `to`. (viem's getLogs has no raw `topics` param — a passed topics
+// array is silently ignored; you must use `event` + `args`.)
+import { parseAbiItem } from 'viem';
+const SWAP_EVENT = parseAbiItem('event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)');
 
 export async function getRecentWalletSwaps(publicClient, walletAddress, { blockWindow = 5000n } = {}) {
   const latestBlock = await publicClient.getBlockNumber();
   const fromBlock = latestBlock > blockWindow ? latestBlock - blockWindow : 0n;
 
-  // Real approach per the skill: filter Swap logs where `to` (the
-  // 3rd indexed topic per the event signature) matches the wallet,
-  // pair addresses discovered from the log's own `address` field,
-  // no hardcoded pair list needed.
+  // Filter Swap logs where the indexed `to` matches the wallet; pair addresses
+  // are discovered from each log's own `address` field, no hardcoded pair list.
+  // (Scanning by topic across all pairs needs an RPC that permits address-less
+  // getLogs.)
   const logs = await publicClient.getLogs({
+    event: SWAP_EVENT,
+    args: { to: walletAddress },
     fromBlock, toBlock: latestBlock,
-    topics: [SWAP_EVENT_TOPIC, null, `0x${'0'.repeat(24)}${walletAddress.slice(2).toLowerCase()}`],
   });
 
   return {

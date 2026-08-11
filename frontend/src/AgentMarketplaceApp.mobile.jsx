@@ -13,7 +13,7 @@ import { useHireAgent } from './useHireAgent';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const CHAIN_LABELS = { 56: 'BNB Smart Chain', 97: 'BNB Testnet' };
+const CHAIN_LABELS = { 56: 'BNB Smart Chain' }; // mainnet-only
 
 // Source: docs.bnbchain.org/developer-kit — matches web's Learn content.
 // Confirmed-real source URLs (each verified to resolve). Same set as web.
