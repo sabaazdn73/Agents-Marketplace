@@ -48,9 +48,11 @@ export function screenTokenRisk(pair) {
 import { parseAbiItem } from 'viem';
 const SWAP_EVENT = parseAbiItem('event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)');
 
-// 1000-block default (~50 min of BSC): served comfortably by an address-less
-// getLogs on the configured read RPC (dRPC). The old 5000 exceeded free limits.
-export async function getRecentWalletSwaps(publicClient, walletAddress, { blockWindow = 1000n } = {}) {
+// Default scan depth: 1000 blocks (~50 min of BSC), served by dRPC's
+// address-less getLogs. Override via VITE_SKILL_SCAN_BLOCKS.
+export const SCAN_BLOCKS = BigInt(import.meta.env?.VITE_SKILL_SCAN_BLOCKS || 1000);
+
+export async function getRecentWalletSwaps(publicClient, walletAddress, { blockWindow = SCAN_BLOCKS } = {}) {
   const latestBlock = await publicClient.getBlockNumber();
   const fromBlock = latestBlock > blockWindow ? latestBlock - blockWindow : 0n;
 

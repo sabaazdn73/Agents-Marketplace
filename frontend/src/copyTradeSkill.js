@@ -21,6 +21,11 @@ const WBNB = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 const SWAP_EVENT = parseAbiItem('event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)');
 const PAIR_ABI = parseAbi(['function token0() view returns (address)', 'function token1() view returns (address)']);
 
+// How many blocks back to scan by default. 1000 (~50 min of BSC) is served by
+// dRPC's address-less getLogs; bump via VITE_SKILL_SCAN_BLOCKS on a read RPC
+// that permits a wider range.
+export const SCAN_BLOCKS = BigInt(import.meta.env?.VITE_SKILL_SCAN_BLOCKS || 1000);
+
 /**
  * Real leader-trade detection: filters Swap logs where the indexed `to` is
  * the leader, and reads which token flowed to them, per the skill's own
@@ -36,10 +41,8 @@ export async function detectLeaderTrades(publicClient, leaderAddress, { fromBloc
   if (!leaderAddress) throw new Error('A leader wallet address is required. Per this skill\'s own rule, it must never be inferred or guessed.');
 
   const latestBlock = toBlock ?? await publicClient.getBlockNumber();
-  // 1000-block default (~50 min of BSC): served comfortably by an address-less
-  // getLogs on the configured read RPC (dRPC). The old 5000 exceeded free-tier
-  // getLogs limits.
-  const startBlock = fromBlock ?? (latestBlock > 1000n ? latestBlock - 1000n : 0n);
+  // Default scan depth is SCAN_BLOCKS (VITE_SKILL_SCAN_BLOCKS, default 1000).
+  const startBlock = fromBlock ?? (latestBlock > SCAN_BLOCKS ? latestBlock - SCAN_BLOCKS : 0n);
 
   const logs = await publicClient.getLogs({
     event: SWAP_EVENT,
