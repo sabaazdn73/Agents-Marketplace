@@ -12,6 +12,8 @@ import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
 import { useHireAgent } from './useHireAgent';
+import NotificationBell from './NotificationBell';
+import { addNotification, trackJob } from './notifications';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -364,6 +366,8 @@ function AgentMarketplaceMobile() {
         budgetUnits: Number(spendCap),
         description: `Hire via Agents Marketplace: ${selectedAgent.name}`,
       });
+      trackJob(jobId.toString(), 'FUNDED');
+      addNotification(`Job #${jobId} funded`, `You hired ${selectedAgent.name} (direct). The job is funded on-chain.`);
       setAgents((prev) => prev.map((a) => a.id === selectedAgent.id
         ? { ...a, session: { jobId: jobId.toString(), spendCap: Number(spendCap), status: 'FUNDED' } }
         : a));
@@ -399,6 +403,7 @@ function AgentMarketplaceMobile() {
           <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
         </div>
         <div className="flex items-center gap-3">
+          <NotificationBell />
           <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>

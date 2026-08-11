@@ -16,6 +16,7 @@ import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight, FlaskConical, H
 import { PERMIT2_ADDRESS } from '@altananetwork/sdk';
 import { getOrCreateAltanaWallet, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
 import { getPracticeExecutor, getPracticeAddressIfExists } from './practiceWallet';
+import { addNotification } from './notifications';
 import { executeEnterPosition, PANCAKESWAP_ROUTER, WBNB, USDT_BSC } from './pancakeswapSkill';
 import { venusSupply, aaveSupply, listaStake, pancakeAddLiquidity, VENUS_VUSDT, AAVE_POOL, LISTA_MANAGER } from './defiSkills';
 import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeSkill';
@@ -249,6 +250,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
               expectedAmountOut: result?.expectedAmountOut ? String(result.expectedAmountOut) : null,
             }),
           });
+          addNotification('Practice run complete', `${skill.name} · ${play} — saved to your practice history.`);
         }
       }
       setStep('done');

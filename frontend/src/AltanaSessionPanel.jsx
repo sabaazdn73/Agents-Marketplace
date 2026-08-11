@@ -6,12 +6,94 @@
 // the user can see in the product." Every action here is a real,
 // on-chain Altana SDK call, nothing simulated.
 
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Loader2, ExternalLink, XCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ShieldCheck, Loader2, ExternalLink, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import {
   getOrCreateAltanaWallet, grantMarketplaceSession, revokeMarketplaceSession,
   hireAgentWithSession, explorerLinkForWallet, ALTANA_EXPLORER_URL,
+  getJobStatus, getDeliverable, disputeJob,
 } from './altana';
+import { addNotification, trackJob } from './notifications';
+
+// Live ERC-8183 job status + the real dispute path. Reads getErc8183Job (and
+// getErc8183DeliverableUrl when SUBMITTED) on-chain; if the job is SUBMITTED
+// and still inside the dispute window, offers "Dispute this delivery" which
+// calls the real Policy.dispute — then re-reads the REAL status (never assumes
+// success). The contract enforces the exact window and reverts if it's closed;
+// we surface that error rather than pre-judging it in the UI.
+function JobStatusPanel({ wallet, jobId, initialStatus, mutedBorder, accent }) {
+  const [status, setStatus] = useState(initialStatus || null);
+  const [job, setJob] = useState(null);
+  const [deliverable, setDeliverable] = useState(undefined); // undefined=unknown, null=none, string=url
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const refresh = useCallback(async () => {
+    setError(null);
+    try {
+      const j = await getJobStatus(jobId);
+      setJob(j); setStatus(j.statusName);
+      trackJob(jobId, j.statusName);
+      if (j.statusName === 'SUBMITTED') {
+        try { setDeliverable(await getDeliverable(jobId)); } catch { setDeliverable(null); }
+      }
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [jobId]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const handleDispute = async () => {
+    setBusy(true); setError(null);
+    try {
+      await disputeJob(wallet, wallet.signer, jobId);
+      addNotification(`Job #${jobId} disputed`, 'You contested the delivery; awaiting the on-chain verdict.');
+      await refresh(); // read the real status back — don't optimistically assume
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitted = status === 'SUBMITTED';
+  return (
+    <div className={`mt-3 p-3 rounded-xl border ${mutedBorder} text-xs space-y-2`}>
+      <div className="flex items-center justify-between">
+        <span className="font-semibold">Job #{String(jobId)}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold" style={{ color: accent }}>{loading ? '…' : (status || 'unknown')}</span>
+          <button onClick={refresh} disabled={busy} className="opacity-60 hover:opacity-100"><RefreshCw size={12} /></button>
+        </div>
+      </div>
+
+      {submitted && (
+        <div className="space-y-2 pt-1">
+          <div className="opacity-70">The provider submitted a deliverable — review it before deciding:</div>
+          {deliverable === undefined ? (
+            <div className="flex items-center gap-1.5 opacity-60"><Loader2 size={12} className="animate-spin" /> loading deliverable…</div>
+          ) : deliverable ? (
+            <a href={deliverable} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1">Open deliverable <ExternalLink size={11} /></a>
+          ) : (
+            <div className="opacity-60">No deliverable URL found on-chain yet.</div>
+          )}
+          <button onClick={handleDispute} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold text-red-600 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1.5">
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />} Dispute this delivery
+          </button>
+          <p className="text-[10px] opacity-50">Only valid inside the on-chain dispute window; the contract reverts if it has closed.</p>
+        </div>
+      )}
+      {status === 'COMPLETED' && <div className="text-emerald-600 dark:text-emerald-400">Settled — payment released to the provider.</div>}
+      {status === 'REJECTED' && <div className="text-emerald-600 dark:text-emerald-400">Dispute resolved in your favor — you were refunded.</div>}
+      {status === 'EXPIRED' && <div className="opacity-70">Expired with no settlement — you can reclaim the escrow (claimRefund).</div>}
+      {error && <div className="text-red-500 whitespace-pre-wrap">{error}</div>}
+    </div>
+  );
+}
 
 const SESSION_STORAGE_KEY = 'altana-marketplace-session-v1';
 
@@ -69,6 +151,8 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
         budgetUnits: Number(spendCap),
       });
       setHireResult(result);
+      addNotification(`Job #${result.jobId} funded`, `You hired ${agent.name}. The job is now funded on-chain.`);
+      trackJob(result.jobId, 'FUNDED');
       setStep(null);
     } catch (e) {
       setStep('error');
@@ -143,9 +227,12 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
           )}
 
           {hireResult && (
-            <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-xs">
-              Job #{hireResult.jobId?.toString()} funded. Status: {hireResult.status}
-            </div>
+            <>
+              <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-xs">
+                Job #{hireResult.jobId?.toString()} funded.
+              </div>
+              <JobStatusPanel wallet={wallet} jobId={hireResult.jobId} initialStatus="FUNDED" mutedBorder={mutedBorder} accent={accent} />
+            </>
           )}
 
           <button onClick={handleRevoke} disabled={!!step && step !== 'error'}

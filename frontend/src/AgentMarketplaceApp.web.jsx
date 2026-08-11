@@ -11,6 +11,8 @@ import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
+import NotificationBell from './NotificationBell';
+import { addNotification, trackJob } from './notifications';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
@@ -403,6 +405,8 @@ export default function AgentMarketplaceApp() {
         budgetUnits: Number(spendCap),
         description: `Hire via Agents Marketplace: ${selectedAgent.name}`,
       });
+      trackJob(jobId.toString(), 'FUNDED');
+      addNotification(`Job #${jobId} funded`, `You hired ${selectedAgent.name} (direct). The job is funded on-chain.`);
       setAgents((prev) => prev.map((a) => a.id === selectedAgent.id
         ? { ...a, session: { jobId: jobId.toString(), spendCap: Number(spendCap), status: 'FUNDED' } }
         : a));
@@ -463,7 +467,8 @@ export default function AgentMarketplaceApp() {
               <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
                 <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
               </div>
-              <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
+              <h1 className="text-lg font-bold tracking-tight flex-1">Agents Marketplace</h1>
+              <NotificationBell variant="dark" />
             </div>
             
             <nav className="space-y-1">

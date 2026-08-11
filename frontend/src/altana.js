@@ -28,7 +28,7 @@
 import {
   createClient, BNB,
   ERC8183_ADDRESSES,
-  hireErc8183Agent, getErc8183Job, settleErc8183Job,
+  hireErc8183Agent, getErc8183Job, settleErc8183Job, getErc8183DeliverableUrl,
 } from '@altananetwork/sdk';
 import { createPublicClient, http } from 'viem';
 import { bsc } from 'viem/chains';
@@ -139,8 +139,20 @@ export async function getJobStatus(jobId) {
   return getErc8183Job(network, BigInt(jobId));
 }
 
+/** The real deliverable URL a provider submitted for a job (parsed from the
+ * policy's on-chain event), or undefined if none yet. Read-only. */
+export async function getDeliverable(jobId) {
+  return getErc8183DeliverableUrl(network, BigInt(jobId));
+}
+
 export async function settleJob(wallet, signer, jobId, action = 'approve') {
   return settleErc8183Job(wallet, signer, { jobId: BigInt(jobId), action }, { network });
+}
+
+/** Contest a delivered job — real on-chain Policy.dispute, valid only INSIDE
+ * the dispute window (the contract reverts otherwise; we surface that). */
+export async function disputeJob(wallet, signer, jobId) {
+  return settleErc8183Job(wallet, signer, { jobId: BigInt(jobId), action: 'dispute' }, { network });
 }
 
 /**
