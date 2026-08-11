@@ -3,7 +3,8 @@ import {
   Sun, Moon, ShieldAlert, FileBarChart, CheckCircle2, XCircle,
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, Menu, ScanFace
+  Activity, Users, MessageSquare, Menu, ScanFace,
+  ExternalLink, Zap, Coins, Search
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -233,6 +234,66 @@ function SplashScreen({ onUnlock }) {
   );
 }
 
+const BSCSCAN = 'https://bscscan.com';
+
+// Full agent detail — a full-screen push (matching the hire flow), showing
+// everything the aggregated data holds for one agent.
+function AgentDetailMobile({ agent, onBack, onHire }) {
+  return (
+    <div className="p-5 animate-in slide-in-from-right-4 duration-300">
+      <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 font-medium mb-6">
+        <ChevronRight size={18} className="rotate-180" /> Back
+      </button>
+      <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">{agent.category}</span>
+            <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</h2>
+          </div>
+          <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2 mb-3 text-center">
+          {[['Score', agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'],
+            ['Stars', agent.starCount ?? '—'],
+            ['Feedback', agent.totalFeedbacks ?? '—'],
+            ['TVL', agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—']].map(([l, v]) => (
+            <div key={l} className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+              <span className="block text-[9px] text-gray-500 uppercase">{l}</span>
+              <span className="font-bold text-sm">{v}</span>
+            </div>
+          ))}
+        </div>
+        {agent.financialDataAvailable && agent.defillamaUrl && (
+          <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 inline-flex items-center gap-1 mb-4">TVL source: DefiLlama <ExternalLink size={11} /></a>
+        )}
+
+        <div className="flex flex-wrap gap-2 my-4">
+          {agent.isVerified && <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
+          {agent.x402Supported && <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />x402</span>}
+          {(agent.supportedProtocols || []).map((p) => <span key={p} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
+        </div>
+
+        <h3 className="text-sm font-bold mb-1">About</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
+
+        <h3 className="text-sm font-bold mb-1">Owner</h3>
+        {agent.ownerAddress ? (
+          <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 inline-flex items-center gap-1 break-all">{agent.ownerAddress} <ExternalLink size={11} className="shrink-0" /></a>
+        ) : <p className="text-xs text-gray-400">No on-chain owner address on record.</p>}
+
+        <div className="mt-4 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
+          Practice-run history is per skill + practice wallet (Build → Practice Mode), not per marketplace agent — so there's no agent-specific practice history here (verified against the real schema).
+        </div>
+
+        <button onClick={() => onHire(agent)} className="w-full mt-5 py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform">
+          Hire this agent →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Default export: the splash gate wrapping the real app.
 export default function AgentMarketplaceMobileRoot() {
   const [unlocked, setUnlocked] = useState(false);
@@ -244,7 +305,10 @@ function AgentMarketplaceMobile() {
   const [darkMode, setDarkMode] = useState(false);
   const [nav, setNav] = useState('market');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedAgent, setSelectedAgent] = useState(null);
+  const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
@@ -310,10 +374,18 @@ function AgentMarketplaceMobile() {
     }
   };
 
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput.trim().toLowerCase()), 200);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const filtered = useMemo(() => {
     let list = agents.filter(a => a.name && a.name.trim().length > 2);
-    return list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
-  }, [agents, activeCategory]);
+    // Search AND category both apply together.
+    list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
+    if (searchQuery) list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
+    return list;
+  }, [agents, activeCategory, searchQuery]);
 
   return (
     <div className={`flex flex-col h-[100dvh] font-sans ${darkMode ? 'dark bg-[#0B101B] text-white' : 'bg-[#F4F5F8] text-gray-900'}`}>
@@ -362,6 +434,12 @@ function AgentMarketplaceMobile() {
               </div>
             </div>
           </div>
+        ) : detailAgent ? (
+          <AgentDetailMobile
+            agent={detailAgent}
+            onBack={() => setDetailAgent(null)}
+            onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
+          />
         ) : (
           <div className="p-5">
             {nav === 'market' && (
@@ -369,6 +447,11 @@ function AgentMarketplaceMobile() {
                 <div className="mb-6">
                   <h2 className="text-2xl font-bold mb-1">Marketplace</h2>
                   <p className="text-sm text-gray-500">Discover and hire AI agents.</p>
+                </div>
+
+                <div className="mb-3 relative">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search agents…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
                 </div>
 
                 {/* Horizontal Scroll Categories */}
@@ -387,7 +470,7 @@ function AgentMarketplaceMobile() {
                 ) : (
                   <div className="space-y-4">
                     {filtered.map((agent) => (
-                      <div key={agent.id} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col">
+                      <div key={agent.id} onClick={() => setDetailAgent(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
                           <div>
                             <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">{agent.category}</span>
@@ -407,12 +490,12 @@ function AgentMarketplaceMobile() {
                               <span>Spend: ${agent.session.spendUtilized}</span>
                               <span>Cap: ${agent.session.spendCap}</span>
                             </div>
-                            <button onClick={() => setAgents(prev => prev.map(a => a.id === agent.id ? { ...a, session: null } : a))} className="w-full py-3 rounded-xl text-sm font-bold text-red-600 bg-red-50 dark:bg-red-500/10">
+                            <button onClick={(e) => { e.stopPropagation(); setAgents(prev => prev.map(a => a.id === agent.id ? { ...a, session: null } : a)); }} className="w-full py-3 rounded-xl text-sm font-bold text-red-600 bg-red-50 dark:bg-red-500/10">
                               Revoke Access
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => handleHireClick(agent)} className="w-full mt-auto py-3 rounded-xl text-sm font-bold bg-gray-900 text-white dark:bg-white dark:text-gray-900 active:scale-[0.98] transition-transform">
+                          <button onClick={(e) => { e.stopPropagation(); handleHireClick(agent); }} className="w-full mt-auto py-3 rounded-xl text-sm font-bold bg-gray-900 text-white dark:bg-white dark:text-gray-900 active:scale-[0.98] transition-transform">
                             Hire Agent
                           </button>
                         )}

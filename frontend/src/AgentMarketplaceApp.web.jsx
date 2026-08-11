@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -180,6 +180,86 @@ const KID_FRIENDLY_FAQ = [
 ];
 
 // Styled exactly like the "WEB3 WALLET MANAGER" from the provided image
+const BSCSCAN = 'https://bscscan.com';
+
+function DetailStat({ label, value }) {
+  return (
+    <div className="text-center p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
+      <span className="block text-[10px] text-gray-500 uppercase mb-1">{label}</span>
+      <span className="font-bold text-sm text-gray-900 dark:text-white">{value}</span>
+    </div>
+  );
+}
+
+function DetailBadge({ children, icon: Icon }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
+      {Icon && <Icon size={12} />}{children}
+    </span>
+  );
+}
+
+// Full agent detail view — everything the aggregated 8004scan/DefiLlama data
+// actually holds for one agent. Shown full-screen in the market tab, matching
+// the hire-flow navigation pattern.
+function AgentDetail({ agent, onBack, onHire }) {
+  return (
+    <div className="max-w-3xl mx-auto mt-4">
+      <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-6 transition-colors">
+        <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
+      </button>
+      <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-xl">
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">{agent.name.charAt(0)}</div>
+            <div>
+              <div className="flex items-center gap-2"><h2 className="text-2xl font-bold">{agent.name}</h2>{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</div>
+              <div className="text-[11px] text-indigo-500 uppercase font-semibold tracking-wider mt-1">{agent.category}</div>
+            </div>
+          </div>
+          <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+          <DetailStat label="Score" value={agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'} />
+          <DetailStat label="Stars" value={agent.starCount ?? '—'} />
+          <DetailStat label="Feedback" value={agent.totalFeedbacks ?? '—'} />
+          <DetailStat label="TVL" value={agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—'} />
+        </div>
+        {agent.financialDataAvailable && agent.defillamaUrl && (
+          <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mb-5">TVL source: DefiLlama <ExternalLink size={11} /></a>
+        )}
+
+        <div className="flex flex-wrap gap-2 my-5">
+          {agent.isVerified && <DetailBadge icon={BadgeCheck}>Verified</DetailBadge>}
+          {agent.x402Supported && <DetailBadge icon={Zap}>x402 payments</DetailBadge>}
+          {(agent.supportedProtocols || []).map((p) => <DetailBadge key={p} icon={Coins}>{p}</DetailBadge>)}
+        </div>
+
+        <h3 className="text-sm font-bold mb-2">About</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
+
+        <h3 className="text-sm font-bold mb-2">Owner</h3>
+        {agent.ownerAddress ? (
+          <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 hover:underline inline-flex items-center gap-1 break-all">
+            {agent.ownerAddress} <ExternalLink size={11} className="shrink-0" />
+          </a>
+        ) : (
+          <p className="text-xs text-gray-400">No on-chain owner address on record.</p>
+        )}
+
+        <div className="mt-6 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
+          Practice-run history is recorded per skill + practice wallet (Build → Practice Mode), not per marketplace agent — verified against the real schema (practice_runs is keyed by wallet_address + skill_id), so there's no agent-specific practice history to show here.
+        </div>
+
+        <button onClick={() => onHire(agent)} className="w-full mt-6 py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
+          Hire this agent →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function HybridWalletConnect({ accent }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
@@ -250,7 +330,10 @@ export default function AgentMarketplaceApp() {
   const [nav, setNav] = useState('market');
   const [marketView, setMarketView] = useState('grid');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [searchInput, setSearchInput] = useState('');   // immediate input value
+  const [searchQuery, setSearchQuery] = useState('');    // debounced, used for filtering
   const [selectedAgent, setSelectedAgent] = useState(null);
+  const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail view
   const [hiring, setHiring] = useState(false);
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
@@ -333,18 +416,28 @@ export default function AgentMarketplaceApp() {
 
   const handleSort = (key) => setSortState((prev) => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
 
+  // Debounce the search so filtering doesn't run on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput.trim().toLowerCase()), 200);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const filtered = useMemo(() => {
     const hasRealContent = (a) => a.name && a.name.trim().length > 2;
     let list = agents.filter(hasRealContent);
     if (!showUnclassified) list = list.filter((a) => a.category !== 'Unclassified');
+    // Search AND category both apply together.
     list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
+    if (searchQuery) {
+      list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
+    }
     return [...list].sort((a, b) => {
       const av = a[sortState.key] ?? -Infinity;
       const bv = b[sortState.key] ?? -Infinity;
       const mult = sortState.dir === 'desc' ? -1 : 1;
       return (av - bv) * mult;
     });
-  }, [agents, activeCategory, sortState, showUnclassified]);
+  }, [agents, activeCategory, sortState, showUnclassified, searchQuery]);
 
   // Real, derived stats from actually-fetched agents, replacing the
   // earlier hardcoded numbers (which were 8004scan's own global platform
@@ -422,7 +515,15 @@ export default function AgentMarketplaceApp() {
       <main className="flex-1 p-8 md:p-12 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
           
-          {nav === 'market' && !hiring && (
+          {nav === 'market' && detailAgent && !hiring && (
+            <AgentDetail
+              agent={detailAgent}
+              onBack={() => setDetailAgent(null)}
+              onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
+            />
+          )}
+
+          {nav === 'market' && !hiring && !detailAgent && (
             <>
               {/* Real stats derived from actually-fetched agents, not global platform numbers */}
               <div className="flex flex-col lg:flex-row gap-4 mb-10 items-stretch">
@@ -460,6 +561,17 @@ export default function AgentMarketplaceApp() {
                     <button onClick={() => setMarketView('table')} className={`p-2 rounded-lg transition-all ${marketView === 'table' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><Table2 size={16} /></button>
                   </div>
                 </div>
+              </div>
+
+              <div className="mb-4 relative">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search agents by name or description…"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
 
               <div className="mb-8 flex flex-wrap gap-2">
@@ -502,7 +614,7 @@ export default function AgentMarketplaceApp() {
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                       {filtered.map((agent) => (
-                        <tr key={agent.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
+                        <tr key={agent.id} onClick={() => setDetailAgent(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <span className={`w-2 h-2 rounded-full ${agent.isVerified ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
@@ -517,7 +629,7 @@ export default function AgentMarketplaceApp() {
                           <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{agent.starCount ?? '—'}</td>
                           <td className="p-4 text-sm text-gray-500">{agent.totalFeedbacks ?? '—'}</td>
                           <td className="p-4 text-right">
-                            <button onClick={() => (agent.session ? (setSelectedAgent(agent), setHiring(true)) : handleHireClick(agent))} className={`text-xs font-semibold px-4 py-2 rounded-xl transition-all ${agent.session ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 opacity-0 group-hover:opacity-100'}`}>
+                            <button onClick={(e) => { e.stopPropagation(); agent.session ? (setSelectedAgent(agent), setHiring(true)) : handleHireClick(agent); }} className={`text-xs font-semibold px-4 py-2 rounded-xl transition-all ${agent.session ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 opacity-0 group-hover:opacity-100'}`}>
                               {agent.session ? 'Manage' : 'Hire'}
                             </button>
                           </td>
@@ -532,7 +644,7 @@ export default function AgentMarketplaceApp() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                   {filtered.map((agent) => (
                     <div key={agent.id} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
-                      <div className="p-6 flex-1">
+                      <div className="p-6 flex-1 cursor-pointer" onClick={() => setDetailAgent(agent)}>
                         <div className="flex justify-between items-start mb-5">
                           <div>
                             <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider mb-1 block">{agent.category}</span>

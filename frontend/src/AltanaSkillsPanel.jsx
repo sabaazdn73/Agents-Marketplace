@@ -241,9 +241,12 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
           }).toString();
           await fetch(`${API_BASE}/api/practice/record?${qs}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
+            // Canonical practice_runs.result shape — kept consistent so readers
+            // (e.g. the agent detail page) never handle two schemas:
+            //   { inputs: {...}, expectedAmountOut: string | null }
             body: JSON.stringify({
               inputs: values,
-              expectedAmountOut: result?.expectedAmountOut ? String(result.expectedAmountOut) : undefined,
+              expectedAmountOut: result?.expectedAmountOut ? String(result.expectedAmountOut) : null,
             }),
           });
         }
