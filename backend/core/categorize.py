@@ -121,19 +121,3 @@ def classify_agent(name: str, description: str) -> ClassificationResult:
             return ClassificationResult(category=category, matched_keywords=matched, confidence="matched")
 
     return ClassificationResult(category=None, matched_keywords=[], confidence="unmatched")
-
-
-def classify_agents(agents: list[dict]) -> dict[str, list[dict]]:
-    """Buckets a list of {name, description, ...} agent dicts by
-    category. Agents that don't confidently match anything go under
-    the "Unclassified" key, visible for manual review rather than
-    silently dropped or force-fit somewhere wrong."""
-    buckets: dict[str, list[dict]] = {cat: [] for cat in CATEGORIES}
-    buckets["Unclassified"] = []
-
-    for agent in agents:
-        result = classify_agent(agent.get("name", ""), agent.get("description", ""))
-        target = result.category or "Unclassified"
-        buckets[target].append({**agent, "_classification": result})
-
-    return buckets

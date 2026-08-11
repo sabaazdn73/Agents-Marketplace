@@ -24,7 +24,7 @@ class MarketplaceAgent:
     description: str
     owner_address: str
     chain_id: int
-    network: str  # "testnet" or "mainnet", derived from chain_id, for honest UI labeling
+    network: str  # always "mainnet" now (mainnet-only), derived from chain_id, for honest UI labeling
     total_score: float | None
     star_count: int | None
     total_feedbacks: int | None
@@ -53,32 +53,27 @@ async def get_marketplace_agents(
     """The real entry point for the frontend. Fetches, cross-references,
     and classifies, doesn't fabricate anything it can't source.
 
-    Reads BOTH testnet AND mainnet agent data, real coverage of the
-    whole BNB network. This is safe: reading agent identity/reputation
-    is read-only, no wallet, no keys, no financial risk, unlike hiring
-    an agent (bsc.py's hire_agent), which stays testnet-only per this
-    project's security rules until that's explicitly changed. Reading
-    broadly and acting narrowly are two different risk profiles, not
-    a contradiction.
+    Mainnet-only: reads BSC MAINNET (chain 56) agent identity/reputation.
+    This is read-only (no wallet, no keys, no financial risk); the
+    testnet listing was removed with the rest of the testnet paths.
 
-    Paginates via offset (0, 20, 40, ... up to max_offset) PER chain,
-    matching the real /api/v1/agents endpoint's pagination style
-    (confirmed 8 Aug 2026, total=714397 across all chains). Stops
-    early if a page comes back short (fewer than page_size results),
-    the real signal that pagination has reached the end for that chain.
+    Paginates via offset (0, 20, 40, ... up to max_offset), matching the
+    real /api/v1/agents endpoint's pagination style (confirmed 8 Aug
+    2026, total=714397 across all chains). Stops early if a page comes
+    back short (fewer than page_size results), the real signal that
+    pagination has reached the end.
     """
 
     raw_agents = []
-    for use_mainnet in (False, True):  # testnet first (primary dev target), then mainnet
-        offset = 0
-        while offset < max_offset:
-            page_agents, total = await list_bsc_agents(
-                api_key=api_key, use_mainnet=use_mainnet, offset=offset, limit=page_size
-            )
-            raw_agents.extend(page_agents)
-            offset += page_size
-            if len(page_agents) < page_size:
-                break  # short page = no more real results for this chain
+    offset = 0
+    while offset < max_offset:
+        page_agents, total = await list_bsc_agents(
+            api_key=api_key, offset=offset, limit=page_size
+        )
+        raw_agents.extend(page_agents)
+        offset += page_size
+        if len(page_agents) < page_size:
+            break  # short page = no more real results
 
     try:
         defillama_protocols = await fetch_bsc_ai_agent_protocols()
@@ -102,7 +97,7 @@ async def get_marketplace_agents(
             description=description,
             owner_address=agent.get("owner_address", ""),
             chain_id=chain_id,
-            network="mainnet" if chain_id == 56 else "testnet" if chain_id == 97 else "unknown",
+            network="mainnet" if chain_id == 56 else "unknown",
             total_score=agent.get("total_score"),
             star_count=agent.get("star_count"),
             total_feedbacks=agent.get("total_feedbacks"),

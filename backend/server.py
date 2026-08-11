@@ -16,7 +16,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from core.aggregate import get_marketplace_agents_as_dicts
-from core.paper_trading import get_agent_performance, get_all_agent_performance, get_agent_history
 from core import agent_builder
 from core import practice_layer
 
@@ -93,28 +92,9 @@ async def health():
     return {"ok": True}
 
 
-# NOTE: the old POST /api/paper-trade (Tenderly simulate-and-persist) was
-# removed with Tenderly. The Practice Layer (POST /api/practice/*) is the real
-# "try before you spend" mechanism now. The read endpoints below still serve
-# any previously-persisted paper_trades history honestly.
-
-@app.get("/api/paper-trade/performance/{agent_id}")
-async def paper_trade_performance(agent_id: str):
-    """Real, persisted performance for one agent, category-aware
-    metric, honest empty state if never tested."""
-    return await get_agent_performance(agent_id)
-
-
-@app.get("/api/paper-trade/history/{agent_id}")
-async def paper_trade_history(agent_id: str):
-    """Real, persisted chronological simulation history for one agent."""
-    return await get_agent_history(agent_id)
-
-
-@app.get("/api/paper-trade/performance")
-async def paper_trade_performance_all():
-    """Every agent with at least one real, persisted simulation."""
-    return await get_all_agent_performance()
+# NOTE: the old paper-trade feature (Tenderly simulate-and-persist) and its
+# read endpoints were removed — the Practice Layer (POST /api/practice/*) with
+# permanent MongoDB history is the real "try before you spend" mechanism now.
 
 
 # ── Hiring an agent (ERC-8183) now happens entirely CLIENT-SIDE ──

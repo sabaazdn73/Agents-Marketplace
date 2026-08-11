@@ -1,4 +1,5 @@
-bnbagent>=0.4.2
+# bnbagent-studio provides the `bag` CLI that agent_builder.py shells out to.
+# (The `bnbagent` Python lib was removed — its only importer was dead code.)
 bnbagent-studio>=0.0.5
 httpx>=0.28
 python-dotenv>=1.0

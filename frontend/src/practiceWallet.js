@@ -14,9 +14,12 @@
 import { createWalletClient, createPublicClient, http, defineChain } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 
-// The browser reaches the fork ONLY through the backend proxy (default,
-// same-origin). Overridable for other deployments via VITE_PRACTICE_RPC_URL.
-const PRACTICE_RPC_URL = import.meta.env?.VITE_PRACTICE_RPC_URL || '/api/practice/rpc';
+// The browser reaches the fork ONLY through the backend proxy. By default we
+// derive it from the same backend base the rest of the app uses
+// (VITE_API_BASE_URL), so practice RPC and the other API calls always target
+// the same backend. Overridable directly via VITE_PRACTICE_RPC_URL.
+const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+const PRACTICE_RPC_URL = import.meta.env?.VITE_PRACTICE_RPC_URL || `${API_BASE}/api/practice/rpc`;
 const BURNER_KEY_STORAGE = 'aam_practice_burner_pk';
 
 // Same chain id as real BSC (56) so every contract address, quote and ABI
@@ -41,6 +44,16 @@ export function getPracticeAccount() {
 
 export function getPracticePublicClient() {
   return createPublicClient({ chain: practiceChain, transport: http(PRACTICE_RPC_URL) });
+}
+
+/** The practice burner address IF one already exists (does NOT create one).
+ * Used by the history viewer so we don't mint a burner just to show an empty
+ * list — returns null until the user has actually run something in practice. */
+export function getPracticeAddressIfExists() {
+  if (typeof localStorage === 'undefined') return null;
+  const pk = localStorage.getItem(BURNER_KEY_STORAGE);
+  if (!pk) return null;
+  try { return privateKeyToAccount(pk).address; } catch { return null; }
 }
 
 /**

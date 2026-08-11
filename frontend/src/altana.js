@@ -49,6 +49,12 @@ export function getAltanaClient() {
 // Reads in real mode use a plain BSC mainnet public client.
 const _mainnetPublicClient = createPublicClient({ chain: bsc, transport: http(BNB.publicRpcUrl) });
 
+/** A BSC mainnet read client, for the read-only/detection skills (Token Radar,
+ * Wallet Tracker, Copy Trade detection) that make no transactions. */
+export function getMainnetReadClient() {
+  return _mainnetPublicClient;
+}
+
 /**
  * Real-mode executor. Same shape the skill modules consume in practice mode
  * ({ walletAddress, publicClient, execute(calls) }), but writes go through the

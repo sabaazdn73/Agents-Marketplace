@@ -11,15 +11,21 @@
 // every skill shows what it CAN and CANNOT do in plain sentences, and
 // a real example phrase, before any technical detail.
 
-import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight, FlaskConical } from 'lucide-react';
-import { getOrCreateAltanaWallet, grantSkillSession, getAltanaExecutor } from './altana';
-import { getPracticeExecutor } from './practiceWallet';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight, FlaskConical, History, RefreshCw } from 'lucide-react';
+import { PERMIT2_ADDRESS } from '@altananetwork/sdk';
+import { getOrCreateAltanaWallet, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
+import { getPracticeExecutor, getPracticeAddressIfExists } from './practiceWallet';
 import { executeEnterPosition, PANCAKESWAP_ROUTER, WBNB, USDT_BSC } from './pancakeswapSkill';
 import { venusSupply, aaveSupply, listaStake, pancakeAddLiquidity, VENUS_VUSDT, AAVE_POOL, LISTA_MANAGER } from './defiSkills';
 import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeSkill';
+import { detectLeaderTrades } from './copyTradeSkill';
+import { payOnce } from './x402Skill';
+import { getTrendingBscTokens, getRecentWalletSwaps } from './researchSkills';
 
-const API_BASE = import.meta.env?.VITE_API_BASE || '';
+// Single source of truth for the backend base URL, matching the main app
+// (web/mobile both read VITE_API_BASE_URL). Default suits local dev.
+const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const SKILLS_INDEX_URL = 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json';
 
@@ -60,6 +66,49 @@ const SKILL_EXEC = {
     play: 'add-liquidity', contracts: [PANCAKESWAP_ROUTER], spendToken: undefined,
     ready: (v) => v.tokenA && v.tokenB && v.amount,
     run: (ex, v) => pancakeAddLiquidity(ex, { tokenA: v.tokenA, tokenB: v.tokenB, amountADesired: toRaw18(v.amount), slippagePct: Number(v.slippagePct || 1) }),
+  },
+
+  // ── Read-only / detection skills (no wallet, no transactions) ──
+  // These make no on-chain writes, so Practice Mode / a session don't apply.
+  // `run` gets a BSC mainnet read client and returns data for display.
+  'dexscreener-token-radar': {
+    play: 'trending-scan', kind: 'read',
+    ready: () => true,
+    run: async (_pc, v) => {
+      const tokens = await getTrendingBscTokens();
+      return { kind: 'trending', tokens: tokens.slice(0, Number(v.count) || 5) };
+    },
+  },
+  'wallet-tracker': {
+    play: 'profile-wallet', kind: 'read',
+    ready: (v) => v.wallet,
+    run: async (pc, v) => {
+      const blockWindow = v.windowBlocks ? BigInt(Math.floor(Number(v.windowBlocks))) : 5000n;
+      return { kind: 'swaps', ...(await getRecentWalletSwaps(pc, v.wallet, { blockWindow })) };
+    },
+  },
+  'copy-trade': {
+    play: 'detect', kind: 'read',
+    ready: (v) => v.leaderWallet,
+    run: async (pc, v) => {
+      // Detection-only: surface what the leader traded. Mirroring is not
+      // auto-executed (that would need a real session + funded wallet).
+      const trades = await detectLeaderTrades(pc, v.leaderWallet, {});
+      return { kind: 'leader-trades', detected: trades.length, trades: trades.slice(0, 10) };
+    },
+  },
+
+  // ── x402 payment skill: needs a real session (a live facilitator settles
+  // it), so it runs real-only, never in Practice Mode. ──
+  'x402-payments': {
+    play: 'pay-once', kind: 'pay',
+    contracts: [PERMIT2_ADDRESS, USDT_BSC], spendToken: USDT_BSC,
+    ready: (v) => v.resourceUrl,
+    run: async (session, v) => {
+      const maxPriceRaw = v.maxPricePerPaymentUsd ? toRaw18(v.maxPricePerPaymentUsd) : undefined;
+      const resp = await payOnce(session, v.resourceUrl, { maxPriceRaw });
+      return { kind: 'x402', status: resp.status, ok: resp.ok, url: v.resourceUrl };
+    },
   },
 };
 
@@ -112,22 +161,51 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   // funds instead of the real Altana session on mainnet.
   const [practiceMode, setPracticeMode] = useState(false);
 
-  // Execution config for this skill (undefined for skills without a wired
-  // execution path yet, e.g. copy-trade / research skills — honestly disclosed).
+  // Execution config for this skill. All 10 registry skills are wired; a skill
+  // id not in SKILL_EXEC (shouldn't happen for the real registry) is disclosed
+  // as not-yet-executable. `kind`: 'tx' (on-chain writes, supports Practice
+  // Mode), 'read' (read-only/detection, no wallet), 'pay' (x402, real session).
   const exec = SKILL_EXEC[skill.id];
   const isExecutable = !!exec;
+  const kind = exec?.kind || 'tx';
   const play = exec?.play || 'enter-position';
   const relevantInputs = (skill.inputs || []).filter((inp) => !inp.plays || inp.plays.includes(play));
 
   const handleGrantAndRun = async () => {
     setError(null);
+    setExecResult(null);
     try {
-      let executor;
+      // ── Read-only / detection skills: no wallet, no session, no funding ──
+      if (kind === 'read') {
+        setStep('reading');
+        const result = await exec.run(getMainnetReadClient(), values);
+        setExecResult(result);
+        setStep('done');
+        return;
+      }
 
+      // ── x402 payment: real Altana session only (no Practice Mode) ──
+      if (kind === 'pay') {
+        setStep('wallet');
+        const wallet = await getOrCreateAltanaWallet();
+        setStep('granting');
+        const s = await grantSkillSession(wallet, wallet.signer, {
+          contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
+          spendCapUnits: Number(spendCap), expiryHours: 24,
+        });
+        setSession(s);
+        setStep('executing');
+        const result = await exec.run(s, values);
+        setExecResult(result);
+        setStep('done');
+        return;
+      }
+
+      // ── Transaction skills: Practice (burner on the fork) or real session ──
+      let executor;
       if (practiceMode) {
-        // Practice path: a throwaway burner wallet on our persistent Anvil
-        // fork, funded with free faucet BNB + USDT via the backend. No real
-        // Altana session, no real money — the relay only talks to real chains.
+        // A throwaway burner wallet on our persistent Anvil fork, funded with
+        // free faucet BNB + USDT via the backend. No real money.
         setStep('funding');
         executor = getPracticeExecutor();
         await fetch(`${API_BASE}/api/practice/init`, { method: 'POST' });
@@ -137,23 +215,19 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         );
         if (!fundRes.ok) throw new Error(`Practice funding failed: ${await fundRes.text()}`);
       } else {
-        // Real path: passkey wallet + a real, scoped on-chain Altana session.
+        // Passkey wallet + a real, scoped on-chain Altana session.
         setStep('wallet');
         const wallet = await getOrCreateAltanaWallet();
-
         setStep('granting');
-        // Scope the real session to exactly this skill's contracts + spend token.
-        const contractAddresses = exec?.contracts || [];
-        const spendToken = exec?.spendToken;
-
         const s = await grantSkillSession(wallet, wallet.signer, {
-          contractAddresses, spendToken, spendCapUnits: Number(spendCap), expiryHours: 24,
+          contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
+          spendCapUnits: Number(spendCap), expiryHours: 24,
         });
         setSession(s);
         executor = getAltanaExecutor(s);
       }
 
-      if (isExecutable && exec.ready(values)) {
+      if (exec.ready(values)) {
         setStep('executing');
         const result = await exec.run(executor, values);
         setExecResult(result);
@@ -187,6 +261,8 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       <h3 className="font-bold text-lg mb-1">{skill.name}</h3>
       <p className="text-xs opacity-60 mb-5">Fill this in, in plain terms, no code.</p>
 
+      {/* Practice Mode only applies to on-chain transaction skills. */}
+      {kind === 'tx' && (
       <button
         type="button"
         onClick={() => setPracticeMode((p) => !p)}
@@ -206,10 +282,22 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
           <span className="w-4 h-4 rounded-full bg-white" />
         </span>
       </button>
+      )}
+
+      {kind === 'read' && (
+        <div className="mb-5 p-3 rounded-xl border border-sky-500/30 bg-sky-500/5 text-[11px] text-sky-700 dark:text-sky-300">
+          Read-only: this skill just reads live BNB Chain data and reports back. It makes no transactions and needs no wallet, spend cap, or Practice Mode.
+        </div>
+      )}
+      {kind === 'pay' && (
+        <div className="mb-5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-[11px] text-amber-700 dark:text-amber-400">
+          This pays a real x402 endpoint for real, settled by a live facilitator — so it needs a real session and isn't available in Practice Mode.
+        </div>
+      )}
 
       {!isExecutable && (
         <div className="mb-5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-[11px] text-amber-700 dark:text-amber-400">
-          This skill can grant a real, scoped session, but real execution is only wired up for PancakeSwap Trading so far. The session will be created; running the actual trade isn't connected yet for this one.
+          This skill isn't wired for execution yet. (All 10 registry skills are wired; you'd only see this for an unrecognized skill id.)
         </div>
       )}
 
@@ -230,22 +318,27 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         ))}
       </div>
 
-      <div className="mb-5">
-        <label className="text-xs font-semibold block mb-1">Your real spend cap</label>
-        <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={!!step && step !== 'error' && step !== 'done'}
-          className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
-        <p className="text-[10px] opacity-40 mt-1">Suggested by this skill: {skill.scope?.spendCapSuggested}. This is a real, on-chain limit, enforced regardless of what the agent does.</p>
-      </div>
+      {kind !== 'read' && (
+        <div className="mb-5">
+          <label className="text-xs font-semibold block mb-1">Your real spend cap</label>
+          <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={!!step && step !== 'error' && step !== 'done'}
+            className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
+          <p className="text-[10px] opacity-40 mt-1">Suggested by this skill: {skill.scope?.spendCapSuggested}. This is a real, on-chain limit, enforced regardless of what the agent does.</p>
+        </div>
+      )}
 
-      <div className={`p-3 rounded-xl border ${mutedBorder} text-[11px] opacity-60 mb-5`}>
-        Contracts this skill can touch: {(skill.scope?.contracts || []).join(', ')}. Nothing else, ever, for this session.
-      </div>
+      {kind !== 'read' && (skill.scope?.contracts || []).length > 0 && (
+        <div className={`p-3 rounded-xl border ${mutedBorder} text-[11px] opacity-60 mb-5`}>
+          Contracts this skill can touch: {(skill.scope?.contracts || []).join(', ')}. Nothing else, ever, for this session.
+        </div>
+      )}
 
       {step && step !== 'error' && (
         <div className="mb-4 p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/10 text-xs flex items-center gap-2">
           {step !== 'done' && <Loader2 size={13} className="animate-spin" style={{ color: accent }} />}
           {step === 'done' && <CheckCircle2 size={13} className="text-green-500" />}
           {{
+            reading: 'Reading live BNB Chain data...',
             funding: 'Funding your practice wallet on the fork (free faucet)...',
             wallet: 'Creating your passkey wallet (biometric prompt)...',
             granting: 'Granting a real, scoped on-chain session...',
@@ -262,13 +355,101 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs text-red-500 whitespace-pre-wrap">{error}</div>
       )}
 
-      <button onClick={handleGrantAndRun} disabled={!!step && step !== 'error' && step !== 'done'} className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+      {step === 'done' && execResult && execResult.kind && (
+        <div className={`mb-4 p-3 rounded-xl border ${mutedBorder} text-[11px]`}>
+          <div className="font-semibold mb-1 opacity-70">Result</div>
+          <pre className="whitespace-pre-wrap break-all max-h-64 overflow-auto opacity-80">
+{JSON.stringify(execResult, (k, val) => (typeof val === 'bigint' ? val.toString() : val), 2)}
+          </pre>
+        </div>
+      )}
+
+      <button onClick={handleGrantAndRun} disabled={(!!step && step !== 'error' && step !== 'done') || !isExecutable} className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
         {step === 'done' ? 'Done ✓'
+          : !isExecutable ? 'Not executable'
+          : kind === 'read' ? 'Run this (read-only) →'
+          : kind === 'pay' ? 'Grant session & pay →'
           : practiceMode ? 'Try it free in Practice Mode →'
           : session ? 'Run again'
-          : isExecutable ? 'Grant session & run this trade →'
-          : 'Grant a real session for this skill →'}
+          : 'Grant session & run this →'}
       </button>
+    </div>
+  );
+}
+
+// Your past Practice Mode runs, read from MongoDB via /api/practice/history,
+// keyed by the practice burner wallet. This is what makes the Practice Mode
+// promise "your run history is saved and always viewable" literally true.
+function PracticeHistoryPanel({ accent, surface, mutedBorder }) {
+  const [address] = useState(() => getPracticeAddressIfExists());
+  const [runs, setRuns] = useState(address ? null : []); // null = loading
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    if (!address) { setRuns([]); return; }
+    setError(null);
+    setRuns(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/practice/history/${address}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setRuns(await res.json());
+    } catch (e) {
+      setError(e.message);
+      setRuns([]);
+    }
+  }, [address]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const fmtInputs = (result) => {
+    const inputs = result?.inputs;
+    if (!inputs || typeof inputs !== 'object') return '';
+    return Object.entries(inputs).map(([k, v]) => `${k}: ${v}`).join(', ');
+  };
+
+  return (
+    <div className="mt-8">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <History size={15} style={{ color: accent }} />
+          <span className="text-sm font-bold">Your practice history</span>
+        </div>
+        {address && (
+          <button onClick={load} className="text-[11px] opacity-60 hover:opacity-100 flex items-center gap-1">
+            <RefreshCw size={11} /> Refresh
+          </button>
+        )}
+      </div>
+      <p className="text-xs opacity-60 mb-3">Every Practice Mode run is saved permanently, keyed by your practice wallet — it stays even after the fork resets.</p>
+
+      {!address && (
+        <p className="text-xs opacity-50">No practice runs yet — try a skill in Practice Mode and it'll show up here.</p>
+      )}
+      {address && runs === null && (
+        <div className="flex items-center gap-2 text-xs opacity-60 py-2"><Loader2 size={13} className="animate-spin" /> Loading your history…</div>
+      )}
+      {error && <p className="text-xs text-red-500">Couldn't load history: {error}</p>}
+      {address && runs && runs.length === 0 && !error && (
+        <p className="text-xs opacity-50">No practice runs yet — try a skill in Practice Mode and it'll show up here.</p>
+      )}
+      {runs && runs.length > 0 && (
+        <div className="space-y-2">
+          {runs.map((r) => (
+            <div key={r._id} className={`p-3 rounded-xl border ${mutedBorder} text-xs`} style={{ background: surface }}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold">{r.agent_name || r.skill_id}</span>
+                <span className="opacity-50 text-[10px] shrink-0">{new Date(r.ran_at).toLocaleString()}</span>
+              </div>
+              <div className="opacity-60 mt-0.5">
+                {r.action}{fmtInputs(r.result) ? ` · ${fmtInputs(r.result)}` : ''}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {address && (
+        <p className="text-[10px] opacity-40 mt-2 font-mono">practice wallet: {address.slice(0, 8)}…{address.slice(-6)}</p>
+      )}
     </div>
   );
 }
@@ -301,6 +482,8 @@ export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMo
           ))}
         </div>
       )}
+
+      <PracticeHistoryPanel accent={accent} surface={surface} mutedBorder={mutedBorder} />
     </div>
   );
 }

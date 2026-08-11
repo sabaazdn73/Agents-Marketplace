@@ -117,12 +117,12 @@ export function useHireAgent() {
 
 // Decodes the real jobId from the createJob transaction receipt. The
 // exact event name/signature was NOT independently confirmed against
-// a live testnet call yet, this function needs verification against
+// a live on-chain call yet, this function needs verification against
 // a real transaction before being trusted, flagged here rather than
 // silently assumed correct, the same discipline used throughout this
 // project.
 function decodeJobIdFromReceipt(receipt) {
-  // TODO: verify against a real createJob call on testnet. If this
+  // TODO: verify against a real createJob call on BSC mainnet. If this
   // throws or returns an unexpected value, inspect receipt.logs
   // directly and adjust the decoding logic, don't guess a second time.
   if (!receipt.logs || receipt.logs.length === 0) {
