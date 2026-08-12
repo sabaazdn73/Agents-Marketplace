@@ -18,6 +18,8 @@ from dotenv import load_dotenv
 from core.aggregate import get_marketplace_agents_as_dicts
 from core import agent_builder
 from core import practice_layer
+from core import agent_store
+from core import agent_performance
 
 load_dotenv()
 
@@ -47,40 +49,51 @@ _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
 # min precisely because each refresh now costs more requests (see aggregate.py).
 
 
+async def _refresh_into_store() -> list[dict]:
+    """One real refresh: fetch a fresh 8004scan sample, UPSERT it into the
+    persistent known_agents store (never deletes), then return the FULL served
+    list read back from the store. The store — not this single fetch — is the
+    source of truth, so agents from earlier refreshes never vanish just because
+    they weren't in this particular paginated sample."""
+    api_key = os.environ.get("SCAN_8004_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="SCAN_8004_API_KEY is not set. The /api/v1/agents endpoint "
+                   "requires a real key, get one at 8004scan.io/developers.",
+        )
+    fresh_data = await get_marketplace_agents_as_dicts(api_key=api_key)
+    if fresh_data:
+        result = await agent_store.upsert_agents(fresh_data)
+        print(f"[server] Upserted refresh into known_agents: {result}")
+    else:
+        # A successful-but-empty fetch is treated as suspect (transient network
+        # hiccup / a failed page mid-pagination): we do NOT upsert nothing, and
+        # the persistent store keeps serving its existing agents untouched.
+        print("[server] Refresh returned 0 agents — keeping the persistent store as-is.")
+    return await agent_store.get_stored_agents()
+
+
 @app.get("/api/agents")
 async def agents(force_refresh: bool = False):
     now = time.time()
     is_stale = (now - _cache["fetched_at"]) > _CACHE_TTL_SECONDS
     if _cache["data"] is None or is_stale or force_refresh:
-        api_key = os.environ.get("SCAN_8004_API_KEY")
-        if not api_key:
-            raise HTTPException(
-                status_code=500,
-                detail="SCAN_8004_API_KEY is not set. The /api/v1/agents endpoint "
-                       "requires a real key, get one at 8004scan.io/developers.",
-            )
         try:
-            fresh_data = await get_marketplace_agents_as_dicts(api_key=api_key)
-            # FIXED 8 Aug 2026, confirmed live: a successful-but-empty
-            # refresh (transient network hiccup, cold-start timing, a
-            # single failed page mid-pagination) was overwriting a
-            # perfectly good previous cache with an empty list, then
-            # serving that empty list for a full 30 minutes with no
-            # visible error, exactly what happened in production. An
-            # empty result now only replaces the cache if there was no
-            # real previous cache to protect, otherwise it's treated
-            # as suspect and the old, real data keeps serving while
-            # this gets logged for investigation.
-            if not fresh_data and _cache["data"]:
-                print(f"[server] Refresh returned 0 agents despite {len(_cache['data'])} "
-                      f"cached previously, treating as a transient failure, keeping the old cache.")
-            else:
-                _cache["data"] = fresh_data
-                _cache["fetched_at"] = now
+            _cache["data"] = await _refresh_into_store()
+            _cache["fetched_at"] = now
+        except HTTPException:
+            raise
         except Exception as e:
-            if _cache["data"] is not None:
-                print(f"[server] Refresh failed, serving stale cache: {e}")
-            else:
+            # Refresh failed. Fall back to the persistent store (previous real
+            # data) if we can; only 502 if there's genuinely nothing to serve.
+            print(f"[server] Refresh failed: {e}")
+            if _cache["data"] is None:
+                try:
+                    _cache["data"] = await agent_store.get_stored_agents()
+                except Exception as store_err:
+                    raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}; store unavailable: {store_err}")
+            if not _cache["data"]:
                 raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")
     return {
         "agents": _cache["data"] or [],
@@ -260,6 +273,16 @@ async def practice_record(wallet_address: str, agent_id: str, agent_name: str, s
 async def practice_history(wallet_address: str):
     """Real, persisted practice history for one wallet."""
     return await practice_layer.get_practice_history(wallet_address)
+
+
+@app.get("/api/agents/performance")
+async def agent_perf(owner_address: str):
+    """Real per-agent track record from on-chain ERC-8183 job history (the
+    agent's owner as provider). Honest zero-history state when not yet hired."""
+    try:
+        return await agent_performance.get_agent_performance(owner_address)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to read on-chain job history: {e}")
 
 
 @app.get("/api/practice/stats")

@@ -76,7 +76,7 @@ function mapAgent(a) {
     supportedProtocols: a.supported_protocols || [], defillamaUrl: a.defillama_url,
     strategy: a.description || 'No description provided.',
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
-    ownerBnbBalance: a.owner_bnb_balance, session: null,
+    ownerBnbBalance: a.owner_bnb_balance, possiblyDelisted: a.possibly_delisted, session: null,
   };
 }
 
@@ -374,6 +374,43 @@ function SplashScreen({ onUnlock }) {
 
 const BSCSCAN = 'https://bscscan.com';
 
+// Real per-agent track record from on-chain ERC-8183 jobs (mobile equivalent).
+function AgentPerformanceMobile({ ownerAddress }) {
+  const [perf, setPerf] = useState(null);
+  const [state, setState] = useState('loading');
+  useEffect(() => {
+    if (!ownerAddress) { setState('ready'); return; }
+    let cancelled = false;
+    setState('loading');
+    fetch(`${API_BASE_URL}/api/agents/performance?owner_address=${ownerAddress}`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => { if (!cancelled) { setPerf(d); setState('ready'); } })
+      .catch(() => { if (!cancelled) setState('error'); });
+    return () => { cancelled = true; };
+  }, [ownerAddress]);
+  return (
+    <div className="mt-4">
+      <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Activity size={13} /> Real Hire Performance <span className="text-[10px] font-normal text-gray-400">(on-chain)</span></h3>
+      {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Reading on-chain job history…</div>}
+      {state === 'error' && <div className="text-xs text-gray-400">Couldn't read on-chain job history right now.</div>}
+      {state === 'ready' && (!perf || !perf.hired) ? (
+        <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
+          Not yet hired through this marketplace{perf ? ` (no ERC-8183 jobs in the most recent ${perf.scanned_window})` : ''}. An honest zero-history state, not poor performance.
+        </div>
+      ) : state === 'ready' && perf?.hired ? (
+        <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
+          <div className="flex items-center gap-4 mb-1">
+            <div><span className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</span> <span className="text-[10px] text-gray-500 uppercase">hires</span></div>
+            <div><span className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</span> <span className="text-[10px] text-gray-500 uppercase">completed</span></div>
+            <div><span className="text-lg font-bold">{perf.active}</span> <span className="text-[10px] text-gray-500 uppercase">active</span></div>
+          </div>
+          <div className="text-[10px] text-gray-500">Completed {perf.completed} · Rejected {perf.rejected} · Expired {perf.expired}. From the most recent {perf.scanned_window} jobs.</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // Full agent detail — a full-screen push (matching the hire flow), showing
 // everything the aggregated data holds for one agent.
 function AgentDetailMobile({ agent, onBack, onHire }) {
@@ -385,7 +422,10 @@ function AgentDetailMobile({ agent, onBack, onHire }) {
       <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">{agent.category}</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
+              {agent.possiblyDelisted && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">possibly delisted</span>}
+            </div>
             <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</h2>
           </div>
           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
@@ -426,6 +466,8 @@ function AgentDetailMobile({ agent, onBack, onHire }) {
           <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner On-Chain Balance <span className="text-[10px] text-gray-400">(BNB, live)</span></span>
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
+
+        <AgentPerformanceMobile ownerAddress={agent.ownerAddress} />
 
         <div className="mt-4 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
           Practice-run history is per skill + practice wallet (Build → Practice Mode), not per marketplace agent — so there's no agent-specific practice history here (verified against the real schema).
@@ -630,6 +672,12 @@ function AgentMarketplaceMobile() {
                   })}
                 </div>
 
+                {/* #3 — honest data-ceiling note */}
+                <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-500" />
+                  <span>Showing the most diverse agents on-chain. The BSC registry is ~68% one repetitive mass-registration campaign, so many agents share near-identical listings; we cap near-duplicates, which is why the list is intentionally short.</span>
+                </div>
+
                 <div className="mb-3 relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search agents…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
@@ -692,6 +740,7 @@ function AgentMarketplaceMobile() {
                 <div>
                   <h2 className="text-2xl font-bold mb-1">Practice-Layer Report</h2>
                   <p className="text-sm text-gray-500">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — not a projection.</p>
+                  <p className="text-[11px] text-gray-400 mt-1">Note: general Practice-Mode <em>testing</em> activity, not a specific agent's real hire record — for that, open an agent → “Real Hire Performance”.</p>
                 </div>
                 <PracticeStatsReportMobile />
               </div>

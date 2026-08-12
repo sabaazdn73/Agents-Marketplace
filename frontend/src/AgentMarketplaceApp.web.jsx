@@ -58,7 +58,8 @@ function mapAgent(a) {
     ownerAddress: a.owner_address, ownerEns: a.owner_ens, ownerUsername: a.owner_username,
     imageUrl: a.image_url, strategy: a.description || 'No description provided.',
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
-    defillamaUrl: a.defillama_url, ownerBnbBalance: a.owner_bnb_balance, session: null,
+    defillamaUrl: a.defillama_url, ownerBnbBalance: a.owner_bnb_balance,
+    possiblyDelisted: a.possibly_delisted, session: null,
   };
 }
 
@@ -195,6 +196,47 @@ function DetailBadge({ children, icon: Icon }) {
   );
 }
 
+// Real per-agent track record from on-chain ERC-8183 job history (this agent's
+// owner as the provider). Distinct from the Practice-Layer report — this is
+// "how has THIS agent done when actually hired." Honest empty state when the
+// agent has no real hires yet (expected for a new marketplace).
+function AgentPerformance({ ownerAddress }) {
+  const [perf, setPerf] = useState(null);
+  const [state, setState] = useState('loading'); // loading | ready | error
+  useEffect(() => {
+    if (!ownerAddress) { setState('ready'); return; }
+    let cancelled = false;
+    setState('loading');
+    fetch(`${API_BASE_URL}/api/agents/performance?owner_address=${ownerAddress}`)
+      .then((r) => { if (!r.ok) throw new Error(`Backend returned ${r.status}`); return r.json(); })
+      .then((d) => { if (!cancelled) { setPerf(d); setState('ready'); } })
+      .catch(() => { if (!cancelled) setState('error'); });
+    return () => { cancelled = true; };
+  }, [ownerAddress]);
+
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5"><Activity size={14} /> Real Hire Performance <span className="text-[10px] font-normal text-gray-400">(on-chain ERC-8183 jobs)</span></h3>
+      {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={13} className="animate-spin" /> Reading on-chain job history…</div>}
+      {state === 'error' && <div className="text-xs text-gray-400">Couldn't read on-chain job history right now.</div>}
+      {state === 'ready' && (!perf || !perf.hired) ? (
+        <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
+          Not yet hired through this marketplace — no ERC-8183 jobs found for this agent{perf ? ` in the most recent ${perf.scanned_window} on-chain jobs` : ''}. That's an honest zero-history state, not poor performance.
+        </div>
+      ) : state === 'ready' && perf?.hired ? (
+        <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
+          <div className="grid grid-cols-3 gap-3 mb-2">
+            <div><div className="text-[10px] uppercase text-gray-500">Real Hires</div><div className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</div></div>
+            <div><div className="text-[10px] uppercase text-gray-500">Completion Rate</div><div className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</div></div>
+            <div><div className="text-[10px] uppercase text-gray-500">In Progress</div><div className="text-lg font-bold">{perf.active}</div></div>
+          </div>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400">Completed {perf.completed} · Rejected {perf.rejected} · Expired {perf.expired}{perf.completion_rate == null ? ' — no settled jobs yet, so no rate' : ''}. From the most recent {perf.scanned_window} on-chain jobs.</div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // Full agent detail view — everything the aggregated 8004scan/DefiLlama data
 // actually holds for one agent. Shown full-screen in the market tab, matching
 // the hire-flow navigation pattern.
@@ -210,7 +252,10 @@ function AgentDetail({ agent, onBack, onHire }) {
             <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">{agent.name.charAt(0)}</div>
             <div>
               <div className="flex items-center gap-2"><h2 className="text-2xl font-bold">{agent.name}</h2>{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</div>
-              <div className="text-[11px] text-indigo-500 uppercase font-semibold tracking-wider mt-1">{agent.category}</div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[11px] text-indigo-500 uppercase font-semibold tracking-wider">{agent.category}</span>
+                {agent.possiblyDelisted && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" title="Not seen in recent on-chain listings for 7+ days — kept here so it never silently disappears, but it may have been delisted.">possibly delisted</span>}
+              </div>
             </div>
           </div>
           <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
@@ -253,6 +298,8 @@ function AgentDetail({ agent, onBack, onHire }) {
             {agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">not available</span>}
           </span>
         </div>
+
+        <AgentPerformance ownerAddress={agent.ownerAddress} />
 
         <div className="mt-6 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
           Practice-run history is recorded per skill + practice wallet (Build → Practice Mode), not per marketplace agent — verified against the real schema (practice_runs is keyed by wallet_address + skill_id), so there's no agent-specific practice history to show here.
@@ -739,6 +786,13 @@ export default function AgentMarketplaceApp() {
                 <QrToMobile />
               </div>
 
+              {/* #3 — honest data-ceiling note. Stated plainly rather than leaving
+                  the user to wonder why the list is short. */}
+              <div className="mb-8 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-500" />
+                <span>Showing the most diverse agents currently registered on-chain. The live BSC ERC-8004 registry is heavily dominated (~68%) by one repetitive mass-registration campaign, so many registered agents share near-identical listings from the same source; we cap near-duplicates to keep this list meaningful, which is why it's intentionally short.</span>
+              </div>
+
               <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
@@ -954,7 +1008,8 @@ export default function AgentMarketplaceApp() {
           {nav === 'report' && (
             <div className="max-w-4xl">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Practice-Layer Execution Report</h2>
-              <p className="text-gray-500 mb-10">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — persisted in the database, not a projection or an invented comparison.</p>
+              <p className="text-gray-500 mb-2">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — persisted in the database, not a projection or an invented comparison.</p>
+              <p className="text-[12px] text-gray-400 mb-10">Note: this reflects general Practice-Mode <em>testing</em> activity across all users, not any specific listed agent's real-world hire track record. For a given agent's real hires, open its detail page → “Real Hire Performance”.</p>
               <PracticeStatsReport />
             </div>
           )}
