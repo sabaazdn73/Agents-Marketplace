@@ -41,6 +41,8 @@ from core.categorize import classify_agent
 class MarketplaceAgent:
     # From 8004scan (identity/reputation), real
     id: str
+    token_id: int | None  # the ERC-8004 ERC-721 tokenId — the on-chain agentId
+    #                        the AgentAccessMarket contract keys listings on
     name: str
     description: str
     owner_address: str
@@ -181,8 +183,10 @@ async def get_marketplace_agents(
 
         chain_id = agent.get("chain_id")
         owner_address = agent.get("owner_address", "")
+        _tid = agent.get("token_id")
         results.append(MarketplaceAgent(
             id=str(agent.get("id") or agent.get("agent_id") or agent.get("token_id")),
+            token_id=int(_tid) if isinstance(_tid, (int, str)) and str(_tid).isdigit() else None,
             name=name,
             description=description,
             owner_address=owner_address,

@@ -14,6 +14,8 @@ import agentsHero from './assets/agents.png';
 import { useHireAgent } from './useHireAgent';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
+import SellYourAgentForm from './SellYourAgentForm';
+import BuyAccessPanel from './BuyAccessPanel';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -67,7 +69,7 @@ const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function mapAgent(a) {
   return {
-    id: a.id, name: a.name || 'Unnamed', category: a.category || 'Unclassified',
+    id: a.id, tokenId: a.token_id, name: a.name || 'Unnamed', category: a.category || 'Unclassified',
     network: a.network, chainId: a.chain_id, totalScore: a.total_score,
     starCount: a.star_count, totalFeedbacks: a.total_feedbacks, isVerified: a.is_verified,
     // Parity fix: these were missing on mobile, so the detail page's owner link,
@@ -183,66 +185,6 @@ function PracticeStatsReportMobile() {
         </div>
       ))}
       {stats?.note && <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-200 dark:border-gray-800 pt-3">{stats.note}</p>}
-    </div>
-  );
-}
-
-const WAITLIST_KEY = 'aam_sell_waitlist_v1';
-
-// #7 mobile — honest coming-soon; waitlist genuinely persists to localStorage.
-function SellYourAgentMobile() {
-  const [email, setEmail] = useState('');
-  const [joined, setJoined] = useState(() => { try { return !!JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null'); } catch { return false; } });
-  const [savedValue, setSavedValue] = useState(() => { try { return JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null')?.email || ''; } catch { return ''; } });
-  const submit = (e) => {
-    e.preventDefault();
-    const v = email.trim();
-    if (!v || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return;
-    try { localStorage.setItem(WAITLIST_KEY, JSON.stringify({ email: v, at: new Date().toISOString() })); } catch {}
-    setSavedValue(v); setJoined(true);
-  };
-  const leave = () => { try { localStorage.removeItem(WAITLIST_KEY); } catch {}; setJoined(false); setSavedValue(''); setEmail(''); };
-  const willDo = [
-    { icon: Hammer, h: 'List an agent you built', p: 'Publish your own ERC-8004 agent so buyers can discover and hire it.' },
-    { icon: Coins, h: 'Choose a pricing model', p: 'Per-job, per-call, or subscription — enforced on-chain via ERC-8183 escrow.' },
-    { icon: Activity, h: 'Earn from real hires', p: 'Get paid in $U from settled jobs; escrow releases when work is accepted.' },
-  ];
-  return (
-    <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <h2 className="text-2xl font-bold">Sell Your Agent</h2>
-          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">Coming soon</span>
-        </div>
-        <p className="text-sm text-gray-500">The creator side, not live yet. Here's exactly what it will do — nothing faked.</p>
-      </div>
-      <div className="space-y-3">
-        {willDo.map((f) => {
-          const Icon = f.icon;
-          return (
-            <div key={f.h} className="bg-white dark:bg-[#1E293B] p-4 rounded-2xl border border-gray-100 dark:border-gray-800 flex gap-3">
-              <div className="p-2 rounded-xl h-fit" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}><Icon size={16} /></div>
-              <div><div className="font-bold text-sm mb-0.5">{f.h}</div><div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{f.p}</div></div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-        {joined ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: REPORT_ACCENT }}><CheckCircle2 size={16} /> You're on the waitlist</div>
-            <p className="text-xs text-gray-500">Saved <span className="font-mono">{savedValue}</span> — stored locally in your browser for now (no server call yet).</p>
-            <button onClick={leave} className="text-[11px] text-gray-400 underline">Remove me</button>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="space-y-3">
-            <label className="text-sm font-semibold block">Get notified when selling opens</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-sm outline-none" />
-            <button type="submit" className="w-full py-3 rounded-xl text-sm font-bold text-white" style={{ background: REPORT_ACCENT }}>Notify me</button>
-            <p className="text-[11px] text-gray-400">Honest note: saved locally in this browser for now — the real waitlist backend and on-chain pricing/settlement come in a later session.</p>
-          </form>
-        )}
-      </div>
     </div>
   );
 }
@@ -468,6 +410,8 @@ function AgentDetailMobile({ agent, onBack, onHire }) {
         </div>
 
         <AgentPerformanceMobile ownerAddress={agent.ownerAddress} />
+
+        {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
         <div className="mt-4 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
           Practice-run history is per skill + practice wallet (Build → Practice Mode), not per marketplace agent — so there's no agent-specific practice history here (verified against the real schema).
@@ -746,7 +690,7 @@ function AgentMarketplaceMobile() {
               </div>
             )}
 
-            {nav === 'sell' && <SellYourAgentMobile />}
+            {nav === 'sell' && <SellYourAgentForm />}
 
             {nav === 'learn' && (
               <div className="space-y-6">

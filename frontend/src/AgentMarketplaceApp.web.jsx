@@ -13,6 +13,8 @@ import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
+import SellYourAgentForm from './SellYourAgentForm';
+import BuyAccessPanel from './BuyAccessPanel';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
@@ -51,7 +53,7 @@ const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function mapAgent(a) {
   return {
-    id: a.id, name: a.name || 'Unnamed agent', category: a.category || 'Unclassified',
+    id: a.id, tokenId: a.token_id, name: a.name || 'Unnamed agent', category: a.category || 'Unclassified',
     network: a.network, chainId: a.chain_id, totalScore: a.total_score,
     starCount: a.star_count, totalFeedbacks: a.total_feedbacks, isVerified: a.is_verified,
     x402Supported: a.x402_supported, supportedProtocols: a.supported_protocols || [],
@@ -301,6 +303,8 @@ function AgentDetail({ agent, onBack, onHire }) {
 
         <AgentPerformance ownerAddress={agent.ownerAddress} />
 
+        {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
+
         <div className="mt-6 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
           Practice-run history is recorded per skill + practice wallet (Build → Practice Mode), not per marketplace agent — verified against the real schema (practice_runs is keyed by wallet_address + skill_id), so there's no agent-specific practice history to show here.
         </div>
@@ -465,85 +469,6 @@ function PracticeStatsReport() {
       {stats?.note && (
         <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-200 dark:border-gray-800 pt-4">{stats.note}</p>
       )}
-    </div>
-  );
-}
-
-// #7 — an honest home for the upcoming creator economy. NOT fake pricing data
-// and NOT a form that pretends to submit; the waitlist genuinely persists (to
-// localStorage for now, clearly labeled as such — the real pricing-model logic
-// and settlement contract land in a later session).
-const WAITLIST_KEY = 'aam_sell_waitlist_v1';
-
-function SellYourAgent() {
-  const [email, setEmail] = useState('');
-  const [joined, setJoined] = useState(() => {
-    try { return !!JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null'); } catch { return false; }
-  });
-  const [savedValue, setSavedValue] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null')?.email || ''; } catch { return ''; }
-  });
-
-  const submit = (e) => {
-    e.preventDefault();
-    const v = email.trim();
-    if (!v || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return;
-    const entry = { email: v, at: new Date().toISOString() };
-    try { localStorage.setItem(WAITLIST_KEY, JSON.stringify(entry)); } catch {}
-    setSavedValue(v); setJoined(true);
-  };
-
-  const leave = () => {
-    try { localStorage.removeItem(WAITLIST_KEY); } catch {}
-    setJoined(false); setSavedValue(''); setEmail('');
-  };
-
-  const willDo = [
-    { icon: Hammer, h: 'List an agent you built', p: 'Publish your own ERC-8004 agent to this marketplace so buyers can discover and hire it.' },
-    { icon: Coins, h: 'Choose a pricing model', p: 'Set how you charge — per-job, per-call, or subscription — enforced on-chain via ERC-8183 escrow.' },
-    { icon: Activity, h: 'Earn from real hires', p: 'Get paid in $U from real, settled jobs; funds release from escrow when work is accepted.' },
-  ];
-
-  return (
-    <div className="max-w-3xl">
-      <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-3xl font-bold tracking-tight">Sell Your Agent</h2>
-        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">Coming soon</span>
-      </div>
-      <p className="text-gray-500 mb-10">The creator side of the marketplace. This isn't live yet — here's exactly what it will let you do, honestly, with nothing faked.</p>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
-        {willDo.map((f) => {
-          const Icon = f.icon;
-          return (
-            <div key={f.h} className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="p-2.5 rounded-xl w-fit mb-3" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}><Icon size={18} /></div>
-              <h3 className="font-bold text-sm mb-1">{f.h}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{f.p}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="bg-white dark:bg-[#1E293B] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
-        {joined ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: REPORT_ACCENT }}><CheckCircle2 size={16} /> You're on the waitlist</div>
-            <p className="text-xs text-gray-500">Saved <span className="font-mono">{savedValue}</span> — stored locally in your browser for now (no server call yet; we'll wire real notifications when the seller flow ships).</p>
-            <button onClick={leave} className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline">Remove me</button>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="space-y-3">
-            <label className="text-sm font-semibold">Get notified when selling opens</label>
-            <div className="flex gap-2">
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com"
-                className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-sm outline-none focus:ring-2 focus:ring-indigo-500/40" />
-              <button type="submit" className="px-5 rounded-xl text-sm font-semibold text-white" style={{ background: REPORT_ACCENT }}>Notify me</button>
-            </div>
-            <p className="text-[11px] text-gray-400">Honest note: this saves your address locally in this browser for now — the real waitlist backend and the on-chain pricing/settlement logic are built in a following session.</p>
-          </form>
-        )}
-      </div>
     </div>
   );
 }
@@ -1014,9 +939,10 @@ export default function AgentMarketplaceApp() {
             </div>
           )}
 
-          {/* Sell Your Agent Tab (#7) — honest "coming soon" home for the creator
-              economy; no fake pricing/data, and the waitlist input really persists. */}
-          {nav === 'sell' && <SellYourAgent />}
+          {/* Sell Your Agent Tab — real creator listing flow (on-chain models 1&2
+              via AgentAccessMarket + x402 config for model 3). Shared component,
+              identical on web and mobile. */}
+          {nav === 'sell' && <SellYourAgentForm />}
 
           {/* Learn Tab */}
           {nav === 'learn' && (

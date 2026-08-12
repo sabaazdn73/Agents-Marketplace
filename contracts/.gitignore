@@ -1,0 +1,8 @@
+# Foundry
+out/
+cache/
+broadcast/
+# Vendored dependencies — reinstall with:
+#   forge install OpenZeppelin/openzeppelin-contracts@v5.1.0
+#   forge install foundry-rs/forge-std
+lib/
