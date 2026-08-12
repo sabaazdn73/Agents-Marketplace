@@ -39,10 +39,12 @@ app.add_middleware(
 import time
 
 _cache: dict = {"data": None, "fetched_at": 0}
-_CACHE_TTL_SECONDS = 30 * 60  # 30 minutes: a full refresh (~20-40 real API
-# calls across both networks) stays well inside the free_api 1000/day
-# budget even refreshed every 30 min (48 refreshes/day max), while
-# keeping the marketplace reasonably fresh, not stale for hours.
+_CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
+# for real agent diversity (aggregate.py: 20 pages × 100 = 20 real 8004scan
+# requests + 1 DefiLlama). Budget math against the free_api tier (30 req/min,
+# 1000 req/day): ≤24 refreshes/day × ~21 = ~504 req/day ⇒ well under 1000, with
+# headroom for occasional force_refresh + 429 retries. TTL was raised from 30→60
+# min precisely because each refresh now costs more requests (see aggregate.py).
 
 
 @app.get("/api/agents")
@@ -258,3 +260,14 @@ async def practice_record(wallet_address: str, agent_id: str, agent_name: str, s
 async def practice_history(wallet_address: str):
     """Real, persisted practice history for one wallet."""
     return await practice_layer.get_practice_history(wallet_address)
+
+
+@app.get("/api/practice/stats")
+async def practice_stats():
+    """Real, aggregated practice-layer execution stats (per skill: real run
+    count, distinct wallets, actions exercised, last run). Powers the rebuilt
+    Advantage Report tab — real data, not the old fabricated comparison array."""
+    try:
+        return await practice_layer.get_practice_stats()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to aggregate practice stats: {e}")

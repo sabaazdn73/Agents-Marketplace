@@ -54,6 +54,11 @@ _KEYWORD_RULES: list[tuple[str, list[str]]] = [
     ("Trading Signals", [
         "trading signal", "signal", "market analysis", "technical analysis",
         "trade alert",
+        # Real trading-agent clusters observed live (Ave.ai, apm.fun, logearn,
+        # MevX): general execution/trading bots that were all landing in
+        # Unclassified. Placed AFTER Grid/Copy so those still win first.
+        "trading agent", "trade agent", "trading bot", "trading platform",
+        "meme trading", "same block execution", "win-rate", "win rate",
     ]),
     ("Smart Contract Auditing", [
         "audit", "vulnerability", "reentrancy", "security review",
@@ -66,6 +71,14 @@ _KEYWORD_RULES: list[tuple[str, list[str]]] = [
     ("Research", [
         "research", "nuance-first", "interpreter", "mechanism analyst",
         "evidence-first", "reasoning",
+        # Real reasoning-persona agents observed live (the "EvoEvo AI Agent.
+        # Reason like … / Think like …" cluster): analysis/reasoning agents that
+        # were landing in Unclassified. Matched on the reasoning language itself,
+        # NOT on "evoevo", so the vague "focused on sports/crypto" EvoEvo agents
+        # stay honestly unclassified.
+        "reason like", "think like", "analytical", "skeptic",
+        "systems planner", "grounded observer", "careful verifier",
+        "competing explanations",
     ]),
     ("Content & Copywriting", [
         "copywriting", "copywriter", "content writing", "blog post",

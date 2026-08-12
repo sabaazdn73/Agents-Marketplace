@@ -70,9 +70,13 @@ function mapAgent(a) {
     id: a.id, name: a.name || 'Unnamed', category: a.category || 'Unclassified',
     network: a.network, chainId: a.chain_id, totalScore: a.total_score,
     starCount: a.star_count, totalFeedbacks: a.total_feedbacks, isVerified: a.is_verified,
+    // Parity fix: these were missing on mobile, so the detail page's owner link,
+    // x402 badge, protocol badges and DefiLlama link silently rendered nothing.
+    ownerAddress: a.owner_address, x402Supported: a.x402_supported,
+    supportedProtocols: a.supported_protocols || [], defillamaUrl: a.defillama_url,
     strategy: a.description || 'No description provided.',
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
-    session: null,
+    ownerBnbBalance: a.owner_bnb_balance, session: null,
   };
 }
 
@@ -112,9 +116,141 @@ function useMarketplaceAgents() {
   return { agents, setAgents, loading, error };
 }
 
+const REPORT_ACCENT = '#4F46E5'; // app indigo — no green here (matches web)
+
+function reportTimeAgo(iso) {
+  if (!iso) return '—';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '—';
+  const s = Math.floor((Date.now() - t) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+// Mobile equivalent of the web PracticeStatsReport — same real endpoint, same
+// honest framing, same indigo accent. Functionally equivalent, not pixel-equal.
+function PracticeStatsReportMobile() {
+  const [stats, setStats] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/api/practice/stats`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => { if (!cancelled) { setStats(d); setLoading(false); } })
+      .catch((e) => { if (!cancelled) { setError(e.message); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading real stats…</div>;
+  if (error) return <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Couldn't load practice stats: {error}</div>;
+
+  const skills = stats?.skills || [];
+  const cards = [
+    { label: 'Runs', value: stats?.total_runs ?? 0, icon: Activity },
+    { label: 'Wallets', value: stats?.distinct_wallets ?? 0, icon: Users },
+    { label: 'Skills', value: stats?.skill_count ?? 0, icon: Zap },
+  ];
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-3 gap-3">
+        {cards.map((c) => {
+          const Icon = c.icon;
+          return (
+            <div key={c.label} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+              <Icon size={16} className="mx-auto mb-1" style={{ color: REPORT_ACCENT }} />
+              <div className="text-lg font-bold">{c.value}</div>
+              <div className="text-[10px] text-gray-500">{c.label}</div>
+            </div>
+          );
+        })}
+      </div>
+      {skills.length === 0 ? (
+        <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm text-gray-500">No practice runs yet. Run a Skill in Practice Mode and its real stats appear here.</div>
+      ) : skills.map((s) => (
+        <div key={s.skill_id} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+          <div className="flex items-center justify-between mb-2">
+            <div><div className="font-bold text-sm">{s.agent_name}</div><div className="text-[10px] font-mono text-gray-400">{s.skill_id}</div></div>
+            <span className="text-[9px] font-semibold uppercase px-2 py-1 rounded-full" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}>{reportTimeAgo(s.last_ran_at)}</span>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div><span className="font-bold" style={{ color: REPORT_ACCENT }}>{s.executions}</span> <span className="text-[10px] text-gray-500 uppercase">runs</span></div>
+            <div><span className="font-bold">{s.distinct_wallets}</span> <span className="text-[10px] text-gray-500 uppercase">wallets</span></div>
+            <div className="flex flex-wrap gap-1">{(s.actions || []).map((a) => <span key={a} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">{a}</span>)}</div>
+          </div>
+        </div>
+      ))}
+      {stats?.note && <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-200 dark:border-gray-800 pt-3">{stats.note}</p>}
+    </div>
+  );
+}
+
+const WAITLIST_KEY = 'aam_sell_waitlist_v1';
+
+// #7 mobile — honest coming-soon; waitlist genuinely persists to localStorage.
+function SellYourAgentMobile() {
+  const [email, setEmail] = useState('');
+  const [joined, setJoined] = useState(() => { try { return !!JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null'); } catch { return false; } });
+  const [savedValue, setSavedValue] = useState(() => { try { return JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null')?.email || ''; } catch { return ''; } });
+  const submit = (e) => {
+    e.preventDefault();
+    const v = email.trim();
+    if (!v || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return;
+    try { localStorage.setItem(WAITLIST_KEY, JSON.stringify({ email: v, at: new Date().toISOString() })); } catch {}
+    setSavedValue(v); setJoined(true);
+  };
+  const leave = () => { try { localStorage.removeItem(WAITLIST_KEY); } catch {}; setJoined(false); setSavedValue(''); setEmail(''); };
+  const willDo = [
+    { icon: Hammer, h: 'List an agent you built', p: 'Publish your own ERC-8004 agent so buyers can discover and hire it.' },
+    { icon: Coins, h: 'Choose a pricing model', p: 'Per-job, per-call, or subscription — enforced on-chain via ERC-8183 escrow.' },
+    { icon: Activity, h: 'Earn from real hires', p: 'Get paid in $U from settled jobs; escrow releases when work is accepted.' },
+  ];
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="text-2xl font-bold">Sell Your Agent</h2>
+          <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">Coming soon</span>
+        </div>
+        <p className="text-sm text-gray-500">The creator side, not live yet. Here's exactly what it will do — nothing faked.</p>
+      </div>
+      <div className="space-y-3">
+        {willDo.map((f) => {
+          const Icon = f.icon;
+          return (
+            <div key={f.h} className="bg-white dark:bg-[#1E293B] p-4 rounded-2xl border border-gray-100 dark:border-gray-800 flex gap-3">
+              <div className="p-2 rounded-xl h-fit" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}><Icon size={16} /></div>
+              <div><div className="font-bold text-sm mb-0.5">{f.h}</div><div className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{f.p}</div></div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+        {joined ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: REPORT_ACCENT }}><CheckCircle2 size={16} /> You're on the waitlist</div>
+            <p className="text-xs text-gray-500">Saved <span className="font-mono">{savedValue}</span> — stored locally in your browser for now (no server call yet).</p>
+            <button onClick={leave} className="text-[11px] text-gray-400 underline">Remove me</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            <label className="text-sm font-semibold block">Get notified when selling opens</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-sm outline-none" />
+            <button type="submit" className="w-full py-3 rounded-xl text-sm font-bold text-white" style={{ background: REPORT_ACCENT }}>Notify me</button>
+            <p className="text-[11px] text-gray-400">Honest note: saved locally in this browser for now — the real waitlist backend and on-chain pricing/settlement come in a later session.</p>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const NAV_ITEMS = [
   { id: 'market', label: 'Market', icon: Store },
   { id: 'report', label: 'Report', icon: FileBarChart },
+  { id: 'sell', label: 'Sell', icon: Coins },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build', icon: Hammer },
 ];
@@ -284,6 +420,13 @@ function AgentDetailMobile({ agent, onBack, onHire }) {
           <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 inline-flex items-center gap-1 break-all">{agent.ownerAddress} <ExternalLink size={11} className="shrink-0" /></a>
         ) : <p className="text-xs text-gray-400">No on-chain owner address on record.</p>}
 
+        {/* Real live native BNB of the owner wallet — a different metric from
+            TVL, labeled and placed separately so the two are never conflated. */}
+        <div className="mt-3 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
+          <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner On-Chain Balance <span className="text-[10px] text-gray-400">(BNB, live)</span></span>
+          <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">n/a</span>}</span>
+        </div>
+
         <div className="mt-4 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
           Practice-run history is per skill + practice wallet (Build → Practice Mode), not per marketplace agent — so there's no agent-specific practice history here (verified against the real schema).
         </div>
@@ -391,6 +534,21 @@ function AgentMarketplaceMobile() {
     return list;
   }, [agents, activeCategory, searchQuery]);
 
+  // Category chips derived from the REAL fetched data, so newly-classified
+  // categories (Trading Signals, Research, Payments, …) actually appear and are
+  // filterable — the old hardcoded list only had the original 4.
+  const categories = useMemo(
+    () => ['All', ...Array.from(new Set(agents.map((a) => a.category).filter(Boolean))).sort()],
+    [agents]
+  );
+
+  // Same real stat cards as web (Agents Shown / Feedback / Verified).
+  const stats = useMemo(() => ({
+    total: agents.length,
+    verified: agents.filter((a) => a.isVerified).length,
+    totalFeedbacks: agents.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
+  }), [agents]);
+
   return (
     <div className={`flex flex-col h-[100dvh] font-sans ${darkMode ? 'dark bg-[#0B101B] text-white' : 'bg-[#F4F5F8] text-gray-900'}`}>
       
@@ -449,9 +607,27 @@ function AgentMarketplaceMobile() {
           <div className="p-5">
             {nav === 'market' && (
               <>
-                <div className="mb-6">
+                <div className="mb-4">
                   <h2 className="text-2xl font-bold mb-1">Marketplace</h2>
                   <p className="text-sm text-gray-500">Discover and hire AI agents.</p>
+                </div>
+
+                {/* Real stat cards (parity with web) */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {[
+                    { label: 'Shown', value: stats.total, icon: Activity, color: '#2563EB' },
+                    { label: 'Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669' },
+                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED' },
+                  ].map((c) => {
+                    const Icon = c.icon;
+                    return (
+                      <div key={c.label} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+                        <Icon size={16} className="mx-auto mb-1" style={{ color: c.color }} />
+                        <div className="text-lg font-bold">{c.value.toLocaleString()}</div>
+                        <div className="text-[10px] text-gray-500">{c.label}</div>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mb-3 relative">
@@ -461,7 +637,7 @@ function AgentMarketplaceMobile() {
 
                 {/* Horizontal Scroll Categories */}
                 <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
-                  {CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <button key={cat} onClick={() => setActiveCategory(cat)} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
                       activeCategory === cat ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                     }`}>
@@ -512,23 +688,16 @@ function AgentMarketplaceMobile() {
             )}
 
             {nav === 'report' && (
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold">Advantage Report</h2>
-                <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm">
-                  <h3 className="font-bold mb-4 text-base">Rebalance WBNB/USDC</h3>
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
-                      <div className="font-bold text-emerald-700 dark:text-emerald-400 text-xs mb-2 flex items-center gap-1"><CheckCircle2 size={14}/> WITH AGENT</div>
-                      <div className="text-sm">Time: 38s • Cost: $0.41</div>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-800/50">
-                      <div className="font-bold text-gray-500 text-xs mb-2 flex items-center gap-1"><XCircle size={14}/> MANUAL</div>
-                      <div className="text-sm">Time: 22 min • Cost: $0.41 + missed fees</div>
-                    </div>
-                  </div>
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">Practice-Layer Report</h2>
+                  <p className="text-sm text-gray-500">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — not a projection.</p>
                 </div>
+                <PracticeStatsReportMobile />
               </div>
             )}
+
+            {nav === 'sell' && <SellYourAgentMobile />}
 
             {nav === 'learn' && (
               <div className="space-y-6">

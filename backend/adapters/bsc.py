@@ -27,14 +27,24 @@ async def list_bsc_agents(
     offset: int = 0,
     limit: int = 20,
     max_retries: int = 4,
-) -> tuple[list[dict], int]:
+) -> tuple[list[dict], int, int]:
     """Reads one page of BSC MAINNET agents from 8004scan. Returns
-    (agents, total_reported_by_server) so callers can paginate. Retries
-    on 429 with exponential backoff.
+    (bsc_agents, total_reported_by_server, raw_page_len) so callers can
+    paginate correctly. Retries on 429 with exponential backoff.
+
+    raw_page_len is the number of agents the server returned for this page
+    BEFORE the client-side chain filter. Callers MUST use raw_page_len (not
+    len(bsc_agents)) to detect the real end of pagination: a page of `limit`
+    mixed-chain results typically contains only ~70% BSC, so a chain-filtered
+    count is almost always < limit even when many more pages remain. (This was
+    a real bug — the old early-stop compared the filtered count to `limit` and
+    broke after page 1, so the marketplace only ever showed the newest ~one
+    page of agents, dominated by whatever batch registered most recently.)
 
     Real fields available: is_verified, x402_supported, health_score,
-    rank, network_rank, average_score, and cross_chain_versions (the
-    real mechanism for "same agent identity across chains")."""
+    rank, network_rank, average_score, supported_protocols, owner_ens,
+    owner_username, image_url, and cross_chain_versions (the real mechanism
+    for "same agent identity across chains")."""
     headers = {"X-API-Key": api_key}
 
     last_error = None
@@ -70,4 +80,4 @@ async def list_bsc_agents(
               f"chainId={MAINNET_CHAIN_ID} at offset {offset}, only {len(bsc_only)} "
               f"actually matched, client-side filter caught the rest.")
 
-    return bsc_only, total
+    return bsc_only, total, len(all_results)

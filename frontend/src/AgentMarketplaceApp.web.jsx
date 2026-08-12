@@ -58,7 +58,7 @@ function mapAgent(a) {
     ownerAddress: a.owner_address, ownerEns: a.owner_ens, ownerUsername: a.owner_username,
     imageUrl: a.image_url, strategy: a.description || 'No description provided.',
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
-    defillamaUrl: a.defillama_url, session: null,
+    defillamaUrl: a.defillama_url, ownerBnbBalance: a.owner_bnb_balance, session: null,
   };
 }
 
@@ -102,12 +102,6 @@ function useMarketplaceAgents() {
 
   return { agents, setAgents, loading, error, refreshing };
 }
-
-const ADVANTAGE_REPORT = [
-  { task: 'Rebalance a $50k WBNB/USDC LP position after a 6% price move', category: 'Trading', withAgent: { time: '38s', cost: '$0.41 gas', quality: 'Range re-centered within 2 ticks of optimal' }, withoutAgent: { time: '22 min', cost: '$0.41 gas + missed fees', quality: 'Manual re-center, 40 min out-of-range window' } },
-  { task: 'Detect and close an under-collateralized Venus position before liquidation', category: 'Security', withAgent: { time: '4s', cost: '$0.18 gas', quality: 'Closed at health factor 1.05, before penalty threshold' }, withoutAgent: { time: 'n/a', cost: 'liquidation penalty (5%)', quality: 'Position liquidated, no manual watch active' } },
-  { task: 'Move idle USDC to the highest real APR across 4 venues', category: 'Yield', withAgent: { time: '11s', cost: '$0.09 gas', quality: 'Captured venue paying 0.6pp above the next-best' }, withoutAgent: { time: '15 min research', cost: '$0.09 gas', quality: 'Manual comparison, stale APR data used' } },
-];
 
 // Source: docs.bnbchain.org/developer-kit (BNB Agent SDK + BNB Agent Studio),
 // provided directly, not searched, every term below matches the real docs.
@@ -250,6 +244,16 @@ function AgentDetail({ agent, onBack, onHire }) {
           <p className="text-xs text-gray-400">No on-chain owner address on record.</p>
         )}
 
+        {/* A REAL, live number distinct from TVL: the owner wallet's actual
+            native BNB, read from a BSC mainnet RPC. Deliberately labeled and
+            placed apart from the TVL stat above so the two are never conflated. */}
+        <div className="mt-4 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
+          <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner On-Chain Balance <span className="text-[10px] text-gray-400">(native BNB, live)</span></span>
+          <span className="font-mono text-sm font-semibold">
+            {agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">not available</span>}
+          </span>
+        </div>
+
         <div className="mt-6 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
           Practice-run history is recorded per skill + practice wallet (Build → Practice Mode), not per marketplace agent — verified against the real schema (practice_runs is keyed by wallet_address + skill_id), so there's no agent-specific practice history to show here.
         </div>
@@ -320,9 +324,187 @@ function SortHeader({ label, sortKey, sortState, onSort }) {
   );
 }
 
+// The rebuilt Advantage Report: REAL aggregated practice-layer execution stats
+// from MongoDB (/api/practice/stats), replacing the old hardcoded, unverifiable
+// "with agent vs without agent" comparison array. Accent is the app's indigo
+// (#4F46E5), consistent with the rest of the UI — no more green here.
+const REPORT_ACCENT = '#4F46E5';
+
+function reportTimeAgo(iso) {
+  if (!iso) return '—';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return '—';
+  const s = Math.floor((Date.now() - t) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function PracticeStatsReport() {
+  const [stats, setStats] = useState(null);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/api/practice/stats`)
+      .then((r) => { if (!r.ok) throw new Error(`Backend returned ${r.status}`); return r.json(); })
+      .then((d) => { if (!cancelled) { setStats(d); setLoading(false); } })
+      .catch((e) => { if (!cancelled) { setError(e.message); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) return <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading real practice-layer stats…</div>;
+  if (error) return <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Couldn't load practice stats: {error}</div>;
+
+  const skills = stats?.skills || [];
+  const topCards = [
+    { label: 'Total Practice Runs', value: (stats?.total_runs ?? 0).toLocaleString(), icon: Activity },
+    { label: 'Distinct Practice Wallets', value: (stats?.distinct_wallets ?? 0).toLocaleString(), icon: Users },
+    { label: 'Skills Exercised', value: (stats?.skill_count ?? 0).toLocaleString(), icon: Zap },
+  ];
+
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {topCards.map((c) => {
+          const Icon = c.icon;
+          return (
+            <div key={c.label} className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+              <div className="p-3 rounded-xl" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}><Icon size={20} /></div>
+              <div><div className="text-2xl font-bold">{c.value}</div><div className="text-xs text-gray-500 font-medium">{c.label}</div></div>
+            </div>
+          );
+        })}
+      </div>
+
+      {skills.length === 0 ? (
+        <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 text-sm text-gray-500">
+          No practice runs recorded yet. Run a Skill in Practice Mode (Build → Practice Mode) and its real execution stats will appear here.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {skills.map((s) => (
+            <div key={s.skill_id} className="bg-white dark:bg-[#1E293B] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold">{s.agent_name}</h3>
+                  <span className="text-[11px] font-mono text-gray-400">{s.skill_id}</span>
+                </div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}>Last run {reportTimeAgo(s.last_ran_at)}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
+                  <div className="text-[10px] uppercase text-gray-500 mb-1">Executions</div>
+                  <div className="text-xl font-bold" style={{ color: REPORT_ACCENT }}>{s.executions}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
+                  <div className="text-[10px] uppercase text-gray-500 mb-1">Distinct Wallets</div>
+                  <div className="text-xl font-bold">{s.distinct_wallets}</div>
+                </div>
+                <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50 col-span-2 sm:col-span-1">
+                  <div className="text-[10px] uppercase text-gray-500 mb-1">Actions</div>
+                  <div className="flex flex-wrap gap-1">
+                    {(s.actions || []).map((a) => <span key={a} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">{a}</span>)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {stats?.note && (
+        <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-200 dark:border-gray-800 pt-4">{stats.note}</p>
+      )}
+    </div>
+  );
+}
+
+// #7 — an honest home for the upcoming creator economy. NOT fake pricing data
+// and NOT a form that pretends to submit; the waitlist genuinely persists (to
+// localStorage for now, clearly labeled as such — the real pricing-model logic
+// and settlement contract land in a later session).
+const WAITLIST_KEY = 'aam_sell_waitlist_v1';
+
+function SellYourAgent() {
+  const [email, setEmail] = useState('');
+  const [joined, setJoined] = useState(() => {
+    try { return !!JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null'); } catch { return false; }
+  });
+  const [savedValue, setSavedValue] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(WAITLIST_KEY) || 'null')?.email || ''; } catch { return ''; }
+  });
+
+  const submit = (e) => {
+    e.preventDefault();
+    const v = email.trim();
+    if (!v || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return;
+    const entry = { email: v, at: new Date().toISOString() };
+    try { localStorage.setItem(WAITLIST_KEY, JSON.stringify(entry)); } catch {}
+    setSavedValue(v); setJoined(true);
+  };
+
+  const leave = () => {
+    try { localStorage.removeItem(WAITLIST_KEY); } catch {}
+    setJoined(false); setSavedValue(''); setEmail('');
+  };
+
+  const willDo = [
+    { icon: Hammer, h: 'List an agent you built', p: 'Publish your own ERC-8004 agent to this marketplace so buyers can discover and hire it.' },
+    { icon: Coins, h: 'Choose a pricing model', p: 'Set how you charge — per-job, per-call, or subscription — enforced on-chain via ERC-8183 escrow.' },
+    { icon: Activity, h: 'Earn from real hires', p: 'Get paid in $U from real, settled jobs; funds release from escrow when work is accepted.' },
+  ];
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center gap-2 mb-2">
+        <h2 className="text-3xl font-bold tracking-tight">Sell Your Agent</h2>
+        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">Coming soon</span>
+      </div>
+      <p className="text-gray-500 mb-10">The creator side of the marketplace. This isn't live yet — here's exactly what it will let you do, honestly, with nothing faked.</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        {willDo.map((f) => {
+          const Icon = f.icon;
+          return (
+            <div key={f.h} className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="p-2.5 rounded-xl w-fit mb-3" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}><Icon size={18} /></div>
+              <h3 className="font-bold text-sm mb-1">{f.h}</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{f.p}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="bg-white dark:bg-[#1E293B] rounded-2xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
+        {joined ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: REPORT_ACCENT }}><CheckCircle2 size={16} /> You're on the waitlist</div>
+            <p className="text-xs text-gray-500">Saved <span className="font-mono">{savedValue}</span> — stored locally in your browser for now (no server call yet; we'll wire real notifications when the seller flow ships).</p>
+            <button onClick={leave} className="text-[11px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline">Remove me</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="space-y-3">
+            <label className="text-sm font-semibold">Get notified when selling opens</label>
+            <div className="flex gap-2">
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com"
+                className="flex-1 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-sm outline-none focus:ring-2 focus:ring-indigo-500/40" />
+              <button type="submit" className="px-5 rounded-xl text-sm font-semibold text-white" style={{ background: REPORT_ACCENT }}>Notify me</button>
+            </div>
+            <p className="text-[11px] text-gray-400">Honest note: this saves your address locally in this browser for now — the real waitlist backend and the on-chain pricing/settlement logic are built in a following session.</p>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const NAV_ITEMS = [
   { id: 'market', label: 'Marketplace', icon: Store },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
+  { id: 'sell', label: 'Sell Your Agent', icon: Coins },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
 ];
@@ -452,6 +634,14 @@ export default function AgentMarketplaceApp() {
     totalFeedbacks: agents.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
   }), [agents]);
 
+  // Category chips derived from the REAL fetched data, so the newly-classified
+  // categories (Trading Signals, Research, Payments, …) actually appear and are
+  // filterable — the old hardcoded CATEGORIES only listed the original 4.
+  const categories = useMemo(
+    () => ['All', ...Array.from(new Set(agents.map((a) => a.category).filter(Boolean))).sort()],
+    [agents]
+  );
+
   return (
     <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
       
@@ -580,7 +770,7 @@ export default function AgentMarketplaceApp() {
               </div>
 
               <div className="mb-8 flex flex-wrap gap-2">
-                {CATEGORIES.map((cat) => (
+                {categories.map((cat) => (
                   <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                     activeCategory === cat ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
                   }`}>{cat}</button>
@@ -758,42 +948,20 @@ export default function AgentMarketplaceApp() {
             </div>
           )}
 
-          {/* Report Tab */}
+          {/* Report Tab — REAL practice-layer execution stats (not a fabricated
+              comparison). Every number is aggregated from actual on-chain-fork
+              runs persisted in MongoDB. */}
           {nav === 'report' && (
             <div className="max-w-4xl">
-              <h2 className="text-3xl font-bold tracking-tight mb-2">Agent Advantage Report</h2>
-              <p className="text-gray-500 mb-10">Three real tasks, run both ways. Every number below is from an actual run, not a projection.</p>
-              
-              <div className="space-y-6">
-                {ADVANTAGE_REPORT.map((row, i) => (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-sm">
-                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-2 block">{row.category}</span>
-                    <h3 className="text-lg font-bold mb-6">{row.task}</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30">
-                        <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-400 mb-4 text-sm"><CheckCircle2 size={16} /> WITH AGENT</div>
-                        <div className="space-y-3 text-sm text-emerald-900/80 dark:text-emerald-100/70">
-                          <div className="flex justify-between border-b border-emerald-200/50 dark:border-emerald-800/50 pb-2"><span>Time</span><strong className="font-mono">{row.withAgent.time}</strong></div>
-                          <div className="flex justify-between border-b border-emerald-200/50 dark:border-emerald-800/50 pb-2"><span>Cost</span><strong className="font-mono">{row.withAgent.cost}</strong></div>
-                          <div className="pt-1">{row.withAgent.quality}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-2 font-bold text-gray-500 mb-4 text-sm"><XCircle size={16} /> WITHOUT AGENT</div>
-                        <div className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                          <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2"><span>Time</span><strong className="font-mono">{row.withoutAgent.time}</strong></div>
-                          <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2"><span>Cost</span><strong className="font-mono">{row.withoutAgent.cost}</strong></div>
-                          <div className="pt-1">{row.withoutAgent.quality}</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-3xl font-bold tracking-tight mb-2">Practice-Layer Execution Report</h2>
+              <p className="text-gray-500 mb-10">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — persisted in the database, not a projection or an invented comparison.</p>
+              <PracticeStatsReport />
             </div>
           )}
+
+          {/* Sell Your Agent Tab (#7) — honest "coming soon" home for the creator
+              economy; no fake pricing/data, and the waitlist input really persists. */}
+          {nav === 'sell' && <SellYourAgent />}
 
           {/* Learn Tab */}
           {nav === 'learn' && (

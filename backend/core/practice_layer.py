@@ -228,3 +228,54 @@ async def get_practice_history(wallet_address: str, limit: int = 100) -> list[di
     for r in records:
         r["_id"] = str(r["_id"])
     return records
+
+
+async def get_practice_stats() -> dict:
+    """Real, aggregated stats over ALL practice runs, grouped by skill.
+
+    HONESTY NOTE (verified against the real collection, 12 Aug 2026): the
+    stored `result` dicts do NOT record gas used or an explicit success/failure
+    flag — they hold per-skill output values (bnbStaked, lpReceived,
+    usdtSupplied, …). So this deliberately aggregates only what is genuinely
+    recorded, and does NOT fabricate an "average gas" or "success rate" that the
+    data cannot support. Per skill we return: real execution count, number of
+    distinct practice wallets, the set of actions actually exercised, and the
+    most-recent run time. All real, all already in MongoDB.
+    """
+    db = get_db()
+    pipeline = [
+        {"$group": {
+            "_id": "$skill_id",
+            "agent_name": {"$last": "$agent_name"},
+            "executions": {"$sum": 1},
+            "wallets": {"$addToSet": "$wallet_address"},
+            "actions": {"$addToSet": "$action"},
+            "last_ran_at": {"$max": "$ran_at"},
+            "first_ran_at": {"$min": "$ran_at"},
+        }},
+        {"$sort": {"executions": -1}},
+    ]
+    rows = await db.practice_runs.aggregate(pipeline).to_list(length=200)
+    skills = [{
+        "skill_id": r["_id"],
+        "agent_name": r.get("agent_name") or r["_id"],
+        "executions": r.get("executions", 0),
+        "distinct_wallets": len(r.get("wallets", [])),
+        "actions": sorted(a for a in r.get("actions", []) if a),
+        "last_ran_at": r.get("last_ran_at"),
+        "first_ran_at": r.get("first_ran_at"),
+    } for r in rows]
+
+    total_runs = sum(s["executions"] for s in skills)
+    all_wallets = await db.practice_runs.distinct("wallet_address")
+    return {
+        "total_runs": total_runs,
+        "distinct_wallets": len(all_wallets),
+        "skill_count": len(skills),
+        "skills": skills,
+        # Stated in the payload so the UI can be honest about what these numbers
+        # are (and are not) without hard-coding the caveat in the frontend.
+        "note": "Real execution counts from the practice layer's on-chain-fork "
+                "runs (persisted in MongoDB). Gas and pass/fail are not recorded "
+                "per run, so they are intentionally not shown.",
+    }
