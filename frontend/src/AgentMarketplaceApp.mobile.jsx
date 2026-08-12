@@ -209,17 +209,10 @@ function SplashScreen({ onUnlock }) {
     >
       <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full">
         <img src={agentsHero} alt="Agents Marketplace" className="w-full max-w-xs rounded-3xl border border-white/10 shadow-2xl object-cover" />
-        <div className="flex items-center gap-2">
-          <img src={iconLogo} alt="" className="w-7 h-7" />
-          <h1 className="text-xl font-bold tracking-tight">Agents Marketplace</h1>
-        </div>
-      </div>
-
-      <div className="w-full flex flex-col items-center gap-3 pb-4 min-h-[92px] justify-end">
         {!showControls ? (
           <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading…</div>
         ) : (
-          <>
+          <div className="w-full flex flex-col items-center gap-3">
             <button
               onClick={(e) => { e.stopPropagation(); handleFaceId(); }}
               disabled={busy}
@@ -229,8 +222,15 @@ function SplashScreen({ onUnlock }) {
               {ready && authenticated ? 'Unlock with Face ID' : 'Continue with Face ID'}
             </button>
             <p className="text-xs text-gray-400">or tap anywhere to continue</p>
-          </>
+          </div>
         )}
+      </div>
+
+      <div className="w-full flex flex-col items-center gap-2 pb-4 min-h-[48px] justify-end">
+        <div className="flex items-center gap-2">
+          <img src={iconLogo} alt="" className="w-7 h-7" />
+          <h1 className="text-xl font-bold tracking-tight">Agents Marketplace</h1>
+        </div>
       </div>
     </div>
   );
