@@ -17,8 +17,9 @@ import { CheckCircle2, XCircle, Loader2, Coins, Hammer, Activity, ShieldCheck, A
 import { useAccount } from 'wagmi';
 import {
   MODEL, isMarketConfigured, toRawUnits,
-  useAgentOwnership, useListAgent, PAYMENT_TOKEN,
+  useAgentOwnership, useListAgent, useFeeBps, PAYMENT_TOKEN,
 } from './agentMarket';
+import { buildBazaarBlob } from './x402Skill';
 
 const X402_KEY = 'aam_x402_listings_v1';
 const ACCENT = '#4F46E5';
@@ -31,11 +32,15 @@ export default function SellYourAgentForm() {
   const [periodDays, setPeriodDays] = useState('30');
   const [endpoint, setEndpoint] = useState('');
   const [perCall, setPerCall] = useState('');
+  const [x402Name, setX402Name] = useState('');
+  const [x402Desc, setX402Desc] = useState('');
+  const [bazaarOptIn, setBazaarOptIn] = useState(true);
   const [done, setDone] = useState(null); // {kind, msg}
   const [localErr, setLocalErr] = useState(null);
 
   const ownership = useAgentOwnership(agentId);
   const { listAgent, busy, error } = useListAgent();
+  const { feeBps, feePct } = useFeeBps();
 
   const configured = isMarketConfigured();
   const idValid = /^\d+$/.test(agentId.trim());
@@ -46,18 +51,29 @@ export default function SellYourAgentForm() {
 
     if (model === MODEL.NONE) return;
 
-    // Model 3 — x402 pay-per-call: no contract, saved as local config.
+    // Model 3 — x402 pay-per-call: no contract, saved as local config. If the
+    // creator opts in, we build the REAL B402 Bazaar discovery blob now so their
+    // endpoint can attach it on its x402 settle call and get indexed.
     if (model === 'x402') {
       if (!idValid) return setLocalErr('Enter your agent’s ERC-8004 token ID.');
       if (!ownership.isOwner) return setLocalErr('Only the on-chain owner of this agent can list it.');
       if (!/^https?:\/\//.test(endpoint.trim())) return setLocalErr('Enter your agent’s paid endpoint URL (https://…).');
       if (!perCall.trim()) return setLocalErr('Enter a per-call price.');
+      const bazaar = bazaarOptIn
+        ? buildBazaarBlob({ name: x402Name.trim() || undefined, description: x402Desc.trim() || undefined, method: 'GET' })
+        : null;
       try {
         const cfg = JSON.parse(localStorage.getItem(X402_KEY) || '{}');
-        cfg[agentId.trim()] = { endpoint: endpoint.trim(), perCall: perCall.trim(), owner: address, at: new Date().toISOString() };
+        cfg[agentId.trim()] = {
+          endpoint: endpoint.trim(), perCall: perCall.trim(),
+          name: x402Name.trim() || null, description: x402Desc.trim() || null,
+          bazaar, owner: address, at: new Date().toISOString(),
+        };
         localStorage.setItem(X402_KEY, JSON.stringify(cfg));
       } catch {}
-      return setDone({ kind: 'x402', msg: 'Saved your x402 pay-per-call config. Buyers pay per call directly to your wallet via the existing x402 flow — no marketplace contract needed.' });
+      return setDone({ kind: 'x402', msg: bazaarOptIn
+        ? 'Saved your x402 config with a real B402 Bazaar discovery blob. Buyers pay per call straight to your wallet; once your endpoint attaches this blob to its first x402 settle, B402 lists you (~30s) so agents can discover you.'
+        : 'Saved your x402 pay-per-call config. Buyers pay per call directly to your wallet via the existing x402 flow — no marketplace contract needed.' });
     }
 
     // Models 1 & 2 — on-chain listing.
@@ -160,6 +176,32 @@ export default function SellYourAgentForm() {
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
             <p className="text-[11px] text-gray-400">x402 charges per HTTP call and settles straight to your wallet — no marketplace contract. This saves the config; wiring your endpoint as an x402 resource is your own deploy step.</p>
+
+            {/* B402 Bazaar opt-in (free discovery) */}
+            <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/5 space-y-2">
+              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                <input type="checkbox" checked={bazaarOptIn} onChange={(e) => setBazaarOptIn(e.target.checked)} />
+                List on Binance B402 Bazaar (free discovery)
+              </label>
+              <p className="text-[11px] text-gray-500">Attaches a real Bazaar metadata blob to your x402 settle call so AI agents can discover your endpoint. Opt-in, zero extra cost.</p>
+              {bazaarOptIn && (
+                <div className="grid grid-cols-1 gap-2 pt-1">
+                  <input value={x402Name} onChange={(e) => setX402Name(e.target.value)} placeholder="Agent name (for discovery)"
+                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-xs outline-none" />
+                  <textarea value={x402Desc} onChange={(e) => setX402Desc(e.target.value)} placeholder="Short description of what your agent does" rows={2}
+                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-xs outline-none resize-none" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Live, on-chain platform fee (models 1 & 2). Read from feeBps() — never hardcoded. */}
+        {model !== 'x402' && (
+          <div className="text-[11px] text-gray-500 p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+            {feePct != null
+              ? <>Platform fee: <strong style={{ color: ACCENT }}>{feePct}%</strong> — read live from the contract, so buyers see the real current rate. You keep the remaining {100 - feePct}%.</>
+              : <>Platform fee is read live from the contract’s <code>feeBps</code> once deployed (2.5% on the practice-fork test). It’s never hardcoded, so it stays accurate if the rate changes.</>}
           </div>
         )}
 

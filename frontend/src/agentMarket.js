@@ -34,6 +34,7 @@ export const MARKET_ABI = [
   { type: 'function', name: 'hasAccess', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }, { name: 'buyer', type: 'address' }], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'listings', stateMutability: 'view', inputs: [{ type: 'uint256' }], outputs: [{ name: 'creator', type: 'address' }, { name: 'model', type: 'uint8' }, { name: 'price', type: 'uint256' }, { name: 'period', type: 'uint64' }, { name: 'active', type: 'bool' }] },
   { type: 'function', name: 'accessExpiry', stateMutability: 'view', inputs: [{ type: 'uint256' }, { type: 'address' }], outputs: [{ type: 'uint64' }] },
+  { type: 'function', name: 'feeBps', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint16' }] },
 ];
 export const ERC20_ABI = [
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }] },
@@ -81,6 +82,39 @@ export function useAgentOwnership(agentIdStr) {
   }, [agentIdStr, address, publicClient]);
 
   return state;
+}
+
+/**
+ * Reads the platform fee LIVE from the contract's feeBps() so it is always the
+ * real current value (never a hardcoded % that could silently go stale if the
+ * owner changes the fee). Returns raw bps + a percent number. When the market
+ * isn't deployed to this network yet, feeBps is null and callers show an honest
+ * "read once deployed" state rather than inventing a number.
+ */
+export function useFeeBps() {
+  const publicClient = usePublicClient();
+  const [feeBps, setFeeBps] = useState(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!isMarketConfigured() || !publicClient) { setFeeBps(null); return; }
+    let cancelled = false;
+    setLoading(true);
+    publicClient.readContract({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: 'feeBps' })
+      .then((v) => { if (!cancelled) setFeeBps(Number(v)); })
+      .catch(() => { if (!cancelled) setFeeBps(null); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [publicClient]);
+  const feePct = feeBps == null ? null : feeBps / 100; // bps -> percent
+  return { feeBps, feePct, loading };
+}
+
+/** Split a raw price by the given feeBps into { fee, creatorGets } (raw units). */
+export function splitByFee(priceRaw, feeBps) {
+  if (feeBps == null) return { fee: null, creatorGets: null };
+  const p = BigInt(priceRaw);
+  const fee = (p * BigInt(feeBps)) / 10000n;
+  return { fee, creatorGets: p - fee };
 }
 
 /** Read the on-chain listing for an agent (if the market is deployed). */

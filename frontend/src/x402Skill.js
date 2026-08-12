@@ -42,3 +42,71 @@ export function assertWithinBudget(spentSoFarRaw, nextPaymentRaw, budgetRaw) {
   }
   return total;
 }
+
+// ── B402 Bazaar discovery (opt-in) ───────────────────────────────────────────
+//
+// Binance's B402 Bazaar is a free, opt-in discovery layer: attach a
+// `paymentPayload.extensions.bazaar` blob to the normal x402 V2 settle call and
+// B402 indexes the endpoint (~30s after the first confirmed settle carrying it).
+//
+// Field spec confirmed from the REAL docs (not assumed):
+//   https://developers.binance.com/docs/onchainpay-x402/b402-bazaar
+//   — sections "TL;DR — attach `extensions.bazaar` on every V2 settle",
+//     "The bazaar blob — field reference", "info variants".
+//   The blob matches Coinbase CDP's x402 Bazaar extension field-for-field, so a
+//   CDP-compatible blob works against B402 unchanged. Required: `info` +
+//   `schema`; optional: `routeTemplate`, `description`. Attach point:
+//   paymentPayload.extensions.bazaar on POST /papi/v2/b402/settle.
+export const B402_SETTLE_PATH = '/papi/v2/b402/settle';
+
+/**
+ * Build the real `extensions.bazaar` blob for an HTTP-resource agent, to the
+ * documented shape. `name`/`description` fold into the blob's `description`
+ * (the spec has no separate name field); the price lives in the x402 payment
+ * requirements (not the blob) and the endpoint is the resource URL.
+ */
+export function buildBazaarBlob({ name, description, method = 'GET', queryParams, outputExample, routeTemplate } = {}) {
+  const upper = String(method).toUpperCase();
+  const isBodyMethod = ['POST', 'PUT', 'PATCH'].includes(upper);
+  const input = { type: 'http', method: upper };
+  if (queryParams) input.queryParams = queryParams;
+  if (isBodyMethod) input.bodyType = 'json'; // body methods require a bodyType per spec
+
+  const info = {
+    input,
+    output: { type: 'json', ...(outputExample ? { example: outputExample } : {}) },
+  };
+  const schema = {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    type: 'object',
+    properties: {
+      input: {
+        type: 'object',
+        properties: { type: { const: 'http' }, method: { enum: [upper] } },
+        required: ['type', 'method'],
+      },
+    },
+    required: ['input'],
+  };
+  const blob = { info, schema };
+  const desc = [name, description].filter(Boolean).join(' — ');
+  if (desc) blob.description = desc;
+  if (routeTemplate) blob.routeTemplate = routeTemplate;
+  return blob;
+}
+
+/**
+ * Attach a Bazaar blob to a V2 settle payload so B402 indexes the endpoint.
+ * Sets paymentPayload.extensions.bazaar and (if given) the resource url/desc.
+ * The creator's endpoint POSTs the returned payload to <facilitator>/papi/v2/b402/settle.
+ */
+export function attachBazaarToSettle(settlePayload, { blob, endpoint, description } = {}) {
+  const payload = settlePayload || { x402Version: 2, paymentPayload: {} };
+  const pp = payload.paymentPayload || (payload.paymentPayload = {});
+  pp.extensions = pp.extensions || {};
+  pp.extensions.bazaar = blob;
+  if (endpoint) {
+    pp.resource = { url: endpoint, description: description || blob?.description, mimeType: 'application/json', ...(pp.resource || {}) };
+  }
+  return payload;
+}

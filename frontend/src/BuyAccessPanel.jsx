@@ -10,7 +10,7 @@ import { CheckCircle2, Loader2, Coins, Activity } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import {
   MODEL, isMarketConfigured, fromRawUnits,
-  useListing, useHasAccess, useBuyAccess,
+  useListing, useHasAccess, useBuyAccess, useFeeBps, splitByFee,
 } from './agentMarket';
 
 const ACCENT = '#4F46E5';
@@ -20,6 +20,7 @@ export default function BuyAccessPanel({ agentId }) {
   const { listing, refresh: refreshListing } = useListing(agentId);
   const { access, refresh: refreshAccess } = useHasAccess(agentId);
   const { buy, busy, step, error } = useBuyAccess();
+  const { feeBps, feePct } = useFeeBps();
   const [ok, setOk] = useState(false);
 
   // Nothing to show unless the contract is live AND this agent is actually listed.
@@ -27,6 +28,8 @@ export default function BuyAccessPanel({ agentId }) {
 
   const isSub = listing.model === MODEL.SUBSCRIPTION;
   const priceStr = fromRawUnits(listing.price, 18);
+  // Real breakdown from the LIVE on-chain feeBps — never estimated/hardcoded.
+  const { fee, creatorGets } = splitByFee(listing.price, feeBps);
 
   const onBuy = async () => {
     setOk(false);
@@ -65,6 +68,16 @@ export default function BuyAccessPanel({ agentId }) {
           {step === 'approving' ? 'Approving…' : step === 'buying' ? 'Confirming…' : isSub ? (hasAccess ? 'Renew' : 'Subscribe') : 'Buy license'}
         </button>
       </div>
+
+      {/* Real, on-chain-sourced price breakdown (from live feeBps). */}
+      {feeBps != null && (
+        <div className="mt-3 pt-3 border-t border-indigo-100 dark:border-indigo-500/20 text-[11px] space-y-1">
+          <div className="flex justify-between"><span className="text-gray-500">Total price</span><span className="font-mono">{priceStr} $U</span></div>
+          <div className="flex justify-between"><span className="text-gray-500">Platform fee ({feePct}%)</span><span className="font-mono">{fee != null ? fromRawUnits(fee, 18) : '—'} $U</span></div>
+          <div className="flex justify-between font-semibold"><span className="text-gray-600 dark:text-gray-300">Creator receives</span><span className="font-mono">{creatorGets != null ? fromRawUnits(creatorGets, 18) : '—'} $U</span></div>
+          <p className="text-[10px] text-gray-400 pt-1">The {feePct}% platform fee keeps this marketplace running (a hackathon project); everything else goes straight to the creator. This % is read live from the contract, so it's always the real current rate.</p>
+        </div>
+      )}
 
       {!listing.active && <div className="text-[11px] text-gray-400 mt-2">The creator has paused sales for this listing.</div>}
       {!isConnected && <div className="text-[11px] text-gray-400 mt-2">Connect your wallet to purchase.</div>}
