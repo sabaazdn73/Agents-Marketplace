@@ -16,6 +16,15 @@ than an ERC-1155 license token on purpose: access should not be resold or transf
 of the creator's control, and a mapping answers the only question asked ("does this buyer
 have access, until when?") more cheaply and is non-transferable by construction.
 
+## Multi-token (fixed whitelist, no swap)
+Payments settle in one of a **fixed, owner-controlled whitelist** of tokens — **native BNB**
+(the `NATIVE` sentinel, paid via `msg.value`), plus whitelisted ERC-20s (**real USDT** and
+**$U**). There is **no swap logic**, so we take on zero slippage/MEV risk. A creator can price
+the *same* agent in several tokens (one `Offer` per `(agentId, token)`), and the **buyer picks**
+which token to pay with via `buyOneTime(agentId, token)` / `subscribe(agentId, token)`. The
+whitelist is set at deploy from a constructor `address[]` and tunable via `setAcceptedToken`
+(owner-only, go-forward). Payouts and fee accrual are tracked per token.
+
 ## Security
 - **OpenZeppelin**: `Ownable2Step` (single admin, fat-finger-safe transfer), `ReentrancyGuard`
   (every token-moving fn), `SafeERC20` (non-standard tokens).
@@ -43,13 +52,16 @@ Real deploy + real purchase on a local Anvil fork (the Practice Layer):
 ```
 BSC_RPC=https://bsc-dataseed.binance.org bash script/fork_demo.sh
 ```
-Deploy (fee wallet from env; NOT run against mainnet here):
+Deploy (fee wallet + accepted ERC-20s from env; native BNB added automatically):
 ```
-PLATFORM_FEE_WALLET=0x... forge script script/Deploy.s.sol --rpc-url <url> --private-key <key> --broadcast
+PLATFORM_FEE_WALLET=0x.. ACCEPTED_ERC20S=<USDT>,<liveU> \
+  forge script script/Deploy.s.sol --rpc-url <url> --account <cast-wallet> --broadcast
 ```
+`$U` should be read live from the Altana SDK by the deploy wrapper, not hardcoded.
 
 ## Status
-Verified on the Anvil fork of live BSC (9 passing tests + a scripted deploy/purchase showing
-a correct 2.5% fee split). **Not deployed to mainnet.** Before mainnet: an independent audit,
-and set the frontend's `VITE_AGENT_MARKET_ADDRESS` / `VITE_AGENT_MARKET_TOKEN` to the deployed
-values.
+Verified on the Anvil fork of live BSC — **12 passing tests** (a full purchase + fee-split per
+token: USDT, $U, native BNB; buyer-choice among multiple offers; whitelist enforcement; native
+value guards) + a scripted multi-token deploy/purchase (correct 2.5% split). **Not deployed to
+mainnet.** Before mainnet: an independent audit, and set the frontend's
+`VITE_AGENT_MARKET_ADDRESS` to the deployed address.

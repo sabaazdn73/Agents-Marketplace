@@ -16,8 +16,8 @@ import React, { useState } from 'react';
 import { CheckCircle2, XCircle, Loader2, Coins, Hammer, Activity, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import {
-  MODEL, isMarketConfigured, toRawUnits,
-  useAgentOwnership, useListAgent, useFeeBps, PAYMENT_TOKEN,
+  MODEL, isMarketConfigured, toRawUnits, ACCEPTED_TOKENS,
+  useAgentOwnership, useListAgent, useFeeBps,
 } from './agentMarket';
 import { buildBazaarBlob } from './x402Skill';
 
@@ -29,6 +29,7 @@ export default function SellYourAgentForm() {
   const [agentId, setAgentId] = useState('');
   const [model, setModel] = useState(MODEL.ONE_TIME);
   const [price, setPrice] = useState('');
+  const [token, setToken] = useState(ACCEPTED_TOKENS[1].address); // default USDT
   const [periodDays, setPeriodDays] = useState('30');
   const [endpoint, setEndpoint] = useState('');
   const [perCall, setPerCall] = useState('');
@@ -83,8 +84,9 @@ export default function SellYourAgentForm() {
     try {
       const priceRaw = toRawUnits(price, 18);
       const periodSeconds = model === MODEL.SUBSCRIPTION ? Math.max(1, Math.floor(Number(periodDays) * 86400)) : 0;
-      await listAgent({ agentId: agentId.trim(), model, priceRaw, periodSeconds });
-      setDone({ kind: 'onchain', msg: `Listed agent #${agentId.trim()} on-chain. Buyers can now ${model === MODEL.SUBSCRIPTION ? 'subscribe' : 'purchase a license'} from its detail page.` });
+      const sym = ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol || 'token';
+      await listAgent({ agentId: agentId.trim(), token, model, priceRaw, periodSeconds });
+      setDone({ kind: 'onchain', msg: `Listed agent #${agentId.trim()} priced in ${sym}. Buyers can now ${model === MODEL.SUBSCRIPTION ? 'subscribe' : 'purchase a license'} in ${sym} from its detail page. List again in another token to accept it too.` });
     } catch { /* error surfaced via hook */ }
   };
 
@@ -142,9 +144,26 @@ export default function SellYourAgentForm() {
           })}
         </div>
 
+        {/* Payment token (all three accepted tokens supported). Creator prices
+            in one; list again in another to accept it too. */}
+        {model !== 'x402' && (
+          <div>
+            <label className="text-xs font-semibold block mb-1">Payment token</label>
+            <div className="flex gap-2">
+              {ACCEPTED_TOKENS.map((t) => (
+                <button type="button" key={t.address} onClick={() => setToken(t.address)}
+                  className={`flex-1 py-2 rounded-xl border text-sm font-semibold transition-colors ${token === t.address ? 'border-indigo-500 bg-indigo-50/60 dark:bg-indigo-500/5 text-indigo-600 dark:text-indigo-300' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                  {t.symbol}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">All three are accepted — buyers pick which they pay with. List the same agent again in another token to offer it too.</p>
+          </div>
+        )}
+
         {model === MODEL.ONE_TIME && (
           <div>
-            <label className="text-xs font-semibold block mb-1">Price ($U)</label>
+            <label className="text-xs font-semibold block mb-1">Price ({ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol})</label>
             <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 25"
               className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
           </div>
@@ -152,7 +171,7 @@ export default function SellYourAgentForm() {
         {model === MODEL.SUBSCRIPTION && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1">Price per period ($U)</label>
+              <label className="text-xs font-semibold block mb-1">Price/period ({ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol})</label>
               <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 10"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
