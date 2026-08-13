@@ -16,7 +16,10 @@ import { ERC8183_ADDRESSES } from '@altananetwork/sdk';
 
 export const REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'; // ERC-8004 AgentIdentity
 export const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'; // == contract NATIVE sentinel
-export const MARKET_ADDRESS = import.meta.env?.VITE_AGENT_MARKET_ADDRESS || '';
+// Real BSC mainnet deployment (13 Aug 2026, tx 0xa94fca60…d522c26). Public,
+// permanent address — used as the default; VITE_AGENT_MARKET_ADDRESS can still
+// override (e.g. pointing at a fork for testing).
+export const MARKET_ADDRESS = import.meta.env?.VITE_AGENT_MARKET_ADDRESS || '0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333';
 
 // $U read LIVE from the installed Altana SDK (not a hardcoded, possibly-stale
 // address); falls back to the known value only if the SDK read fails.
