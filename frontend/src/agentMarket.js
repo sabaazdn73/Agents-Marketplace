@@ -50,6 +50,8 @@ export const MARKET_ABI = [
   { type: 'function', name: 'accessExpiry', stateMutability: 'view', inputs: [{ type: 'uint256' }, { type: 'address' }], outputs: [{ type: 'uint64' }] },
   { type: 'function', name: 'acceptedTokens', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ type: 'bool' }] },
   { type: 'function', name: 'feeBps', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint16' }] },
+  { type: 'function', name: 'creatorBalance', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'uint256' }] },
+  { type: 'function', name: 'withdrawCreatorBalance', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }], outputs: [] },
 ];
 export const ERC20_ABI = [
   { type: 'function', name: 'approve', stateMutability: 'nonpayable', inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [{ type: 'bool' }] },
@@ -168,6 +170,54 @@ export function useListAgent() {
     finally { setBusy(false); }
   }, [writeContractAsync, publicClient]);
   return { listAgent, busy, error };
+}
+
+/** Reads the connected creator's withdrawable balance in every accepted token. */
+export function useCreatorEarnings() {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const [rows, setRows] = useState([]);
+  const refresh = useCallback(async () => {
+    if (!isMarketConfigured() || !address || !publicClient) { setRows([]); return; }
+    try {
+      const r = await Promise.all(ACCEPTED_TOKENS.map(async (t) => {
+        const balance = await publicClient.readContract({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: 'creatorBalance', args: [t.address, address] });
+        return { ...t, balance };
+      }));
+      setRows(r);
+    } catch { setRows([]); }
+  }, [address, publicClient]);
+  useEffect(() => { refresh(); }, [refresh]);
+  return { rows, refresh };
+}
+
+/** Read every accepted token's offer for one agent (plain async, for looping). */
+export async function readAgentOffers(publicClient, agentId) {
+  const rows = await Promise.all(ACCEPTED_TOKENS.map(async (t) => {
+    const [model, price, period, active] = await publicClient.readContract({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: 'offers', args: [BigInt(agentId), t.address] });
+    return { ...t, model: Number(model), price, period: Number(period), active, exists: Number(model) !== MODEL.NONE };
+  }));
+  return rows.filter((r) => r.exists);
+}
+
+/** Creator write actions: withdraw earnings per token, pause/resume an offer. */
+export function useCreatorWrites() {
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
+  const [busy, setBusy] = useState(null); // key of the in-flight action
+  const [error, setError] = useState(null);
+  const _run = useCallback(async (key, fn, args) => {
+    setBusy(key); setError(null);
+    try {
+      const hash = await writeContractAsync({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args });
+      await publicClient.waitForTransactionReceipt({ hash });
+      return hash;
+    } catch (e) { setError(e.shortMessage || e.message || String(e)); throw e; }
+    finally { setBusy(null); }
+  }, [writeContractAsync, publicClient]);
+  const withdraw = useCallback((token) => _run('wd:' + token, 'withdrawCreatorBalance', [token]), [_run]);
+  const setOfferActive = useCallback((agentId, token, active) => _run(`of:${agentId}:${token}`, 'setOfferActive', [BigInt(agentId), token, active]), [_run]);
+  return { withdraw, setOfferActive, busy, error };
 }
 
 /** Buy/subscribe in a chosen token: native via msg.value, ERC-20 via approve+call. */

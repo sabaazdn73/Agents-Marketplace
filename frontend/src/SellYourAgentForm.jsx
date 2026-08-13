@@ -20,6 +20,7 @@ import {
   useAgentOwnership, useListAgent, useFeeBps,
 } from './agentMarket';
 import { buildBazaarBlob } from './x402Skill';
+import CreatorEarningsPanel, { rememberMyListing } from './CreatorEarningsPanel';
 
 const X402_KEY = 'aam_x402_listings_v1';
 const ACCENT = '#4F46E5';
@@ -86,6 +87,8 @@ export default function SellYourAgentForm() {
       const periodSeconds = model === MODEL.SUBSCRIPTION ? Math.max(1, Math.floor(Number(periodDays) * 86400)) : 0;
       const sym = ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol || 'token';
       await listAgent({ agentId: agentId.trim(), token, model, priceRaw, periodSeconds });
+      rememberMyListing(agentId.trim()); // so it shows in "Your listings" above
+
       setDone({ kind: 'onchain', msg: `Listed agent #${agentId.trim()} priced in ${sym}. Buyers can now ${model === MODEL.SUBSCRIPTION ? 'subscribe' : 'purchase a license'} in ${sym} from its detail page. List again in another token to accept it too.` });
     } catch { /* error surfaced via hook */ }
   };
@@ -102,6 +105,9 @@ export default function SellYourAgentForm() {
         <h2 className="text-2xl font-bold mb-1">Sell Your Agent</h2>
         <p className="text-sm text-gray-500">List an agent <strong>you own</strong> and choose how buyers pay. Ownership is verified on-chain against the ERC-8004 registry — you can only list your own agent.</p>
       </div>
+
+      {/* Creator dashboard: real per-token withdrawable earnings + your listings. */}
+      <CreatorEarningsPanel />
 
       {!isConnected && (
         <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
