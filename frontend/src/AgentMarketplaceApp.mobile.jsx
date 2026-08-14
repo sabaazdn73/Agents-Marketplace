@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Sun, Moon, ShieldAlert, FileBarChart, CheckCircle2, XCircle,
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
@@ -16,6 +16,7 @@ import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
+import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -356,11 +357,22 @@ function AgentPerformanceMobile({ ownerAddress }) {
 // Full agent detail — a full-screen push (matching the hire flow), showing
 // everything the aggregated data holds for one agent.
 function AgentDetailMobile({ agent, onBack, onHire }) {
+  const [copied, setCopied] = useState(false);
+  const onShare = async () => {
+    const ok = await copyShareLink(agentShareUrl(agent));
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
+  };
   return (
     <div className="p-5 animate-in slide-in-from-right-4 duration-300">
-      <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 font-medium mb-6">
-        <ChevronRight size={18} className="rotate-180" /> Back
-      </button>
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 font-medium">
+          <ChevronRight size={18} className="rotate-180" /> Back
+        </button>
+        {/* Shareable per-agent link */}
+        <button onClick={onShare} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+          <Link2 size={14} /> {copied ? 'Copied!' : 'Share'}
+        </button>
+      </div>
       <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
@@ -470,6 +482,15 @@ function AgentMarketplaceMobile() {
   const [spendCap, setSpendCap] = useState(50000);
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
   const { agents, setAgents, loading, error } = useMarketplaceAgents();
+
+  // Deep link: ?agent=<tokenId|id> opens that agent once agents load.
+  const deepLinkIdRef = useRef(readDeepLinkAgentId());
+  const deepLinkHandledRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandledRef.current || !deepLinkIdRef.current || agents.length === 0) return;
+    const match = agents.find((a) => matchesDeepLink(a, deepLinkIdRef.current));
+    if (match) { deepLinkHandledRef.current = true; setNav('market'); setDetailAgent(match); }
+  }, [agents]);
 
   const { isConnected: wagmiConnected } = useAccount();
   const { ready, authenticated } = usePrivy();

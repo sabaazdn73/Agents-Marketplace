@@ -169,16 +169,23 @@ deploy to the free ~48h platform trial.
 
 ## Partner-track alignment
 
+> Full, current, honest architecture + status + partner details live in **[DOCS.md](DOCS.md)** (authoritative).
+
 - **Altana** — the core of the build: passkey wallets, real on-chain sessions
   (spend cap + expiry + revocation), the 10-skill Skills Registry integration,
   x402 payments, and the ERC-8183 hire flow.
 - **PancakeSwap** — `pancakeswap-trading` and `pancakeswap-liquidity` skills,
   both **verified live** on the fork.
-- **AltLayer** — ERC-8004 agent identity and agent discovery via **8004scan**.
-- **TermiX** — the Agent Advantage Report (measurement). ⚠️ **incomplete** —
-  currently placeholder data (see above).
+- **AltLayer** — ERC-8004 agent identity and agent discovery via **8004scan**
+  (an AltLayer product); a real data integration, not a formal partnership.
+- **Binance Pay / B402 Bazaar** — real B402 Bazaar opt-in (spec-accurate
+  `extensions.bazaar` blob on the x402 settle). NOT the Binance Pay Merchant API.
 - **BNB Agent Studio** (BNB Chain core) — the "Build Your Agent" `bag` CLI
   pipeline and the ERC-8004/8183 standards throughout.
+- **TermiX** — ⚠️ **corrected: no TermiX integration.** They are simply the
+  largest source of agents in the live 8004scan registry (~68% of BSC agents);
+  we index and **de-duplicate** them. The old "Advantage Report → TermiX" claim
+  is obsolete — that tab is now real practice-layer stats. See DOCS.md §7.
 
 ---
 

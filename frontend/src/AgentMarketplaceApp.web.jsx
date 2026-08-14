@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
@@ -15,6 +15,7 @@ import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
+import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
@@ -243,11 +244,22 @@ function AgentPerformance({ ownerAddress }) {
 // actually holds for one agent. Shown full-screen in the market tab, matching
 // the hire-flow navigation pattern.
 function AgentDetail({ agent, onBack, onHire }) {
+  const [copied, setCopied] = useState(false);
+  const onShare = async () => {
+    const ok = await copyShareLink(agentShareUrl(agent));
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
+  };
   return (
     <div className="max-w-3xl mx-auto mt-4">
-      <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-6 transition-colors">
-        <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
-      </button>
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
+          <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
+        </button>
+        {/* Shareable per-agent link — send a client straight to this agent. */}
+        <button onClick={onShare} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+          <Link2 size={14} /> {copied ? 'Link copied!' : 'Share this agent'}
+        </button>
+      </div>
       <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-xl">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
@@ -521,6 +533,17 @@ export default function AgentMarketplaceApp() {
   const [spendCap, setSpendCap] = useState(50000);
   const [stopLoss, setStopLoss] = useState(5000);
   const { agents, setAgents, loading, error, refreshing } = useMarketplaceAgents();
+
+  // Deep link: ?agent=<tokenId|id> opens that agent's detail once agents load,
+  // so a creator's shared link lands a client straight on their agent.
+  const deepLinkIdRef = useRef(readDeepLinkAgentId());
+  const deepLinkHandledRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandledRef.current || !deepLinkIdRef.current || agents.length === 0) return;
+    const match = agents.find((a) => matchesDeepLink(a, deepLinkIdRef.current));
+    if (match) { deepLinkHandledRef.current = true; setNav('market'); setDetailAgent(match); }
+  }, [agents]);
+
   const [sortState, setSortState] = useState({ key: 'totalScore', dir: 'desc' });
   const [showUnclassified, setShowUnclassified] = useState(true);
 
