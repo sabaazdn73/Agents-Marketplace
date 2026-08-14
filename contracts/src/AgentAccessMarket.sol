@@ -83,7 +83,7 @@ contract AgentAccessMarket is Ownable2Step, ReentrancyGuard {
     event CreatorWithdrawal(address indexed creator, address indexed token, uint256 amount);
     event FeesWithdrawn(address indexed to, address indexed token, uint256 amount);
     event FeeBpsUpdated(uint16 oldBps, uint16 newBps);
-    event FeeWalletUpdated(address oldWallet, address newWallet);
+    event FeeWalletUpdated(address indexed oldWallet, address indexed newWallet);
 
     error NotAgentOwner();
     error InvalidModel();
