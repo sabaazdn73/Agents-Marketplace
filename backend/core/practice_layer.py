@@ -113,20 +113,21 @@ def get_practice_admin() -> tuple[str, str | None]:
 # "takes about one minute" to spin back up. This schedule sums to 75s of
 # waiting, comfortably past that documented ~60s, before we give up honestly.
 _COLD_START_BACKOFF_SECONDS = [2, 3, 5, 8, 12, 15, 15, 15]  # 8 retries, 75s total
-# REVISED 16 Aug 2026 after a real live test uncovered a real bug: with a 10s
+# REVISED 16 Aug 2026 after real live tests uncovered a real bug: with a 10s
 # per-attempt timeout, the first 1-2 attempts reliably timed out BEFORE the
-# real cold boot finished (measured live: a single isolated request took
-# 14.3s end-to-end), so this code was retrying WHILE Render was still booting
-# the container — and Render's edge responded to that rapid repeated hitting
-# of a booting instance with a real 429 Too Many Requests, which (429 wasn't
-# in the retry set) then hard-failed immediately instead of the graceful
-# recovery this whole mechanism exists for. Root cause: retrying too
-# impatiently was CAUSING the failure it was meant to prevent. Fix: give the
-# first attempt enough real patience to just catch the boot outright (20s,
-# comfortably past the measured 14.3s) instead of racing it, and treat 429
-# as a real cold-start signal too (defense in depth) rather than hard-failing
-# on it.
-_COLD_START_ATTEMPT_TIMEOUT = 20.0
+# real cold boot finished, so this code was retrying WHILE Render was still
+# booting the container — and Render's edge responded to that rapid repeated
+# hitting of a booting instance with a real 429 Too Many Requests, which (429
+# wasn't in the retry set) then hard-failed immediately instead of the
+# graceful recovery this whole mechanism exists for. Root cause: retrying too
+# impatiently was CAUSING the failure it was meant to prevent.
+#
+# Real measured cold-boot durations across multiple live trials this session:
+# 12.3s, 14.3s, 21.3s — genuine boot-time variance (not a fixed constant), so
+# a single sample isn't enough margin. 30s comfortably clears all three
+# observed values. 429 is also now a retryable cold-start signal (defense in
+# depth) rather than a hard fail.
+_COLD_START_ATTEMPT_TIMEOUT = 30.0
 
 # Real failure signals that mean a cold start, EMPIRICALLY CONFIRMED (16 Aug
 # 2026) against the actual live fork, not assumed: 502/503/504/429 from
