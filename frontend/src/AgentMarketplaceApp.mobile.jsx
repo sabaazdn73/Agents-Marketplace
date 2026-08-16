@@ -16,6 +16,7 @@ import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
+import PasskeyBadge from './PasskeyBadge';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
@@ -409,7 +410,7 @@ function AgentDetailMobile({ agent, onBack, onHire }) {
         <h3 className="text-sm font-bold mb-1">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
 
-        <h3 className="text-sm font-bold mb-1">Owner</h3>
+        <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Owner <PasskeyBadge ownerAddress={agent.ownerAddress} /></h3>
         {agent.ownerAddress ? (
           <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 inline-flex items-center gap-1 break-all">{agent.ownerAddress} <ExternalLink size={11} className="shrink-0" /></a>
         ) : <p className="text-xs text-gray-400">No on-chain owner address on record.</p>}

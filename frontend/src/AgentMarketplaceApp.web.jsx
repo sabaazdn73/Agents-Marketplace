@@ -15,6 +15,7 @@ import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
+import PasskeyBadge from './PasskeyBadge';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
@@ -294,7 +295,7 @@ function AgentDetail({ agent, onBack, onHire }) {
         <h3 className="text-sm font-bold mb-2">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
 
-        <h3 className="text-sm font-bold mb-2">Owner</h3>
+        <h3 className="text-sm font-bold mb-2 flex items-center gap-2">Owner <PasskeyBadge ownerAddress={agent.ownerAddress} /></h3>
         {agent.ownerAddress ? (
           <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 hover:underline inline-flex items-center gap-1 break-all">
             {agent.ownerAddress} <ExternalLink size={11} className="shrink-0" />
