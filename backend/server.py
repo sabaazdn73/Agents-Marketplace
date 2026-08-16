@@ -204,8 +204,8 @@ async def build_status(slug: str):
 _COLD_START_DETAIL = (
     "The practice fork is waking up — it's a free-tier service that sleeps after "
     "15 minutes idle and takes about a minute to restart (confirmed against Render's "
-    "own docs). We already retried for 75s server-side. Please try again in a few "
-    "seconds; it should be warm now."
+    "own docs). We already retried server-side with real patience. Please try again "
+    "in a few seconds; it should be warm now."
 )
 
 

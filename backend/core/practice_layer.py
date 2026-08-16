@@ -113,27 +113,38 @@ def get_practice_admin() -> tuple[str, str | None]:
 # "takes about one minute" to spin back up. This schedule sums to 75s of
 # waiting, comfortably past that documented ~60s, before we give up honestly.
 _COLD_START_BACKOFF_SECONDS = [2, 3, 5, 8, 12, 15, 15, 15]  # 8 retries, 75s total
-# Each individual attempt gets its own short timeout (independent of whatever
-# the caller's AsyncClient default is) so a hung attempt fails fast into the
-# backoff loop instead of eating the whole budget on one try.
-_COLD_START_ATTEMPT_TIMEOUT = 10.0
+# REVISED 16 Aug 2026 after a real live test uncovered a real bug: with a 10s
+# per-attempt timeout, the first 1-2 attempts reliably timed out BEFORE the
+# real cold boot finished (measured live: a single isolated request took
+# 14.3s end-to-end), so this code was retrying WHILE Render was still booting
+# the container — and Render's edge responded to that rapid repeated hitting
+# of a booting instance with a real 429 Too Many Requests, which (429 wasn't
+# in the retry set) then hard-failed immediately instead of the graceful
+# recovery this whole mechanism exists for. Root cause: retrying too
+# impatiently was CAUSING the failure it was meant to prevent. Fix: give the
+# first attempt enough real patience to just catch the boot outright (20s,
+# comfortably past the measured 14.3s) instead of racing it, and treat 429
+# as a real cold-start signal too (defense in depth) rather than hard-failing
+# on it.
+_COLD_START_ATTEMPT_TIMEOUT = 20.0
 
 # Real failure signals that mean a cold start, EMPIRICALLY CONFIRMED (16 Aug
-# 2026) against the actual live fork, not assumed: 502/503/504 from Render's
-# edge while the container is still booting, a refused connection, AND
-# ReadTimeout — tested live and the real failure mode was a held-open
-# connection that timed out client-side, not a fast 502. Retrying reads
-# (eth_chainId, eth_blockNumber, getBalance, etc.) on any of these is fully
-# safe — no state changes involved. The one state-changing admin call in this
-# module that isn't naturally idempotent is the whale eth_sendTransaction in
-# _fund_erc20_via_whale: if a timeout happens AFTER Anvil actually received
+# 2026) against the actual live fork, not assumed: 502/503/504/429 from
+# Render's edge while the container is still booting, a refused connection,
+# AND ReadTimeout — tested live and the real failure modes were (a) a
+# held-open connection that timed out client-side, and (b) Render's edge
+# rate-limiting repeated requests to a booting instance with 429. Retrying
+# reads (eth_chainId, eth_blockNumber, getBalance, etc.) on any of these is
+# fully safe — no state changes involved. The one state-changing admin call in
+# this module that isn't naturally idempotent is the whale eth_sendTransaction
+# in _fund_erc20_via_whale: if a timeout happens AFTER Anvil actually received
 # and mined it, a retry could send a second, real (on-fork) transfer. Accepted
 # tradeoff, stated honestly: this is fake practice-fork money the user is
 # being GIVEN for free — a rare double-funded practice wallet is a cosmetic
 # non-issue, not a safety issue, and far better than a hard-failing funding
 # call on every cold start.
 _COLD_START_EXCEPTIONS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout)
-_COLD_START_STATUS_CODES = {502, 503, 504}
+_COLD_START_STATUS_CODES = {429, 502, 503, 504}
 
 
 async def _rpc(client: httpx.AsyncClient, method: str, params: list, *, admin: bool = False) -> dict:
