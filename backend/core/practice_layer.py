@@ -51,6 +51,14 @@ from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 
 BSC_MAINNET_CHAIN_ID = 56
+
+
+class PracticeForkWaking(Exception):
+    """Raised when the fork's free-tier Render instance never came up within
+    the retry budget below. Distinct from other RuntimeErrors so server.py can
+    tell the user honestly "it's asleep, still waking" instead of a generic
+    502/stack trace."""
+    pass
 USDT_BSC = "0x55d398326f99059fF775485246999027B3197955"
 
 # Real holders that carry huge balances of these tokens on live BSC, used as
@@ -99,26 +107,82 @@ def get_practice_admin() -> tuple[str, str | None]:
     return url, key
 
 
+# Retry budget for the free-tier Render instance waking from idle sleep.
+# CONFIRMED against Render's own docs (render.com/docs/free, 16 Aug 2026):
+# a Free web service spins down after 15 minutes with no inbound traffic and
+# "takes about one minute" to spin back up. This schedule sums to 75s of
+# waiting, comfortably past that documented ~60s, before we give up honestly.
+_COLD_START_BACKOFF_SECONDS = [2, 3, 5, 8, 12, 15, 15, 15]  # 8 retries, 75s total
+# Each individual attempt gets its own short timeout (independent of whatever
+# the caller's AsyncClient default is) so a hung attempt fails fast into the
+# backoff loop instead of eating the whole budget on one try.
+_COLD_START_ATTEMPT_TIMEOUT = 10.0
+
+# Real failure signals that mean a cold start, EMPIRICALLY CONFIRMED (16 Aug
+# 2026) against the actual live fork, not assumed: 502/503/504 from Render's
+# edge while the container is still booting, a refused connection, AND
+# ReadTimeout — tested live and the real failure mode was a held-open
+# connection that timed out client-side, not a fast 502. Retrying reads
+# (eth_chainId, eth_blockNumber, getBalance, etc.) on any of these is fully
+# safe — no state changes involved. The one state-changing admin call in this
+# module that isn't naturally idempotent is the whale eth_sendTransaction in
+# _fund_erc20_via_whale: if a timeout happens AFTER Anvil actually received
+# and mined it, a retry could send a second, real (on-fork) transfer. Accepted
+# tradeoff, stated honestly: this is fake practice-fork money the user is
+# being GIVEN for free — a rare double-funded practice wallet is a cosmetic
+# non-issue, not a safety issue, and far better than a hard-failing funding
+# call on every cold start.
+_COLD_START_EXCEPTIONS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout)
+_COLD_START_STATUS_CODES = {502, 503, 504}
+
+
 async def _rpc(client: httpx.AsyncClient, method: str, params: list, *, admin: bool = False) -> dict:
     """One JSON-RPC call to the Anvil fork. Raises on a JSON-RPC error so a
     failed cheat surfaces honestly instead of silently no-op'ing.
 
     admin=True routes to the authenticated /admin/rpc door (carrying the shared
     secret) so anvil_* cheat methods reach Anvil; admin=False routes to the
-    public, method-filtered door (safe for reads)."""
+    public, method-filtered door (safe for reads).
+
+    Retries on the real, empirically-observed cold-start signals — see
+    _COLD_START_EXCEPTIONS / _COLD_START_STATUS_CODES above (and their comment
+    for the one accepted, honestly-stated tradeoff)."""
     if admin:
         url, key = get_practice_admin()
         headers = {"X-Admin-Key": key} if key else {}
     else:
         url, headers = get_practice_rpc(), {}
-    resp = await client.post(url, headers=headers, json={
-        "jsonrpc": "2.0", "method": method, "params": params, "id": 1,
-    })
-    resp.raise_for_status()
-    data = resp.json()
-    if "error" in data and data["error"]:
-        raise RuntimeError(f"{method} failed: {data['error']}")
-    return data
+
+    attempts = len(_COLD_START_BACKOFF_SECONDS) + 1
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            resp = await client.post(url, headers=headers, json={
+                "jsonrpc": "2.0", "method": method, "params": params, "id": 1,
+            }, timeout=_COLD_START_ATTEMPT_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+            if "error" in data and data["error"]:
+                raise RuntimeError(f"{method} failed: {data['error']}")
+            return data
+        except _COLD_START_EXCEPTIONS as e:
+            last_error = e
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code not in _COLD_START_STATUS_CODES:
+                raise
+            last_error = e
+
+        if attempt < len(_COLD_START_BACKOFF_SECONDS):
+            wait = _COLD_START_BACKOFF_SECONDS[attempt]
+            print(f"[practice_layer] {method} got a cold-start signal ({type(last_error).__name__}: {last_error}), "
+                  f"retrying in {wait}s (attempt {attempt + 1}/{attempts})")
+            await asyncio.sleep(wait)
+
+    raise PracticeForkWaking(
+        f"The practice fork's free-tier service did not respond within "
+        f"{sum(_COLD_START_BACKOFF_SECONDS) + attempts * _COLD_START_ATTEMPT_TIMEOUT:.0f}s of retrying "
+        f"— it may still be waking from idle sleep, or genuinely down. Last error: {last_error}"
+    )
 
 
 async def get_practice_status() -> dict:

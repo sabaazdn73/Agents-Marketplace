@@ -161,6 +161,12 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   // Practice Mode: run against our persistent Anvil fork with free faucet
   // funds instead of the real Altana session on mainnet.
   const [practiceMode, setPracticeMode] = useState(false);
+  // True once the funding call has been pending a while — the fork is a
+  // free-tier service that sleeps after 15min idle and takes ~1min to wake
+  // (confirmed against Render's own docs), and the backend now retries for up
+  // to 75s server-side before giving up, so a slow-but-successful wake looks
+  // identical to "stuck" unless we say so honestly.
+  const [fundingSlow, setFundingSlow] = useState(false);
 
   // Execution config for this skill. All 10 registry skills are wired; a skill
   // id not in SKILL_EXEC (shouldn't happen for the real registry) is disclosed
@@ -208,13 +214,29 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         // A throwaway burner wallet on our persistent Anvil fork, funded with
         // free faucet BNB + USDT via the backend. No real money.
         setStep('funding');
+        setFundingSlow(false);
         executor = getPracticeExecutor();
-        await fetch(`${API_BASE}/api/practice/init`, { method: 'POST' });
-        const fundRes = await fetch(
-          `${API_BASE}/api/practice/fund?address=${executor.walletAddress}&bnb_amount=10`,
-          { method: 'POST' },
-        );
-        if (!fundRes.ok) throw new Error(`Practice funding failed: ${await fundRes.text()}`);
+        // The backend itself retries cold-starts for up to 75s before giving
+        // up (see practice_layer.py), so a slow-but-real wake can take a
+        // while — flip an honest "waking up" hint rather than looking stuck.
+        const slowTimer = setTimeout(() => setFundingSlow(true), 6000);
+        try {
+          await fetch(`${API_BASE}/api/practice/init`, { method: 'POST' });
+          const fundRes = await fetch(
+            `${API_BASE}/api/practice/fund?address=${executor.walletAddress}&bnb_amount=10`,
+            { method: 'POST' },
+          );
+          if (!fundRes.ok) {
+            const body = await fundRes.json().catch(() => null);
+            const detail = body?.detail || await fundRes.text().catch(() => '');
+            throw new Error(fundRes.status === 503
+              ? detail // already the honest, real cold-start message from the backend
+              : `Practice funding failed: ${detail}`);
+          }
+        } finally {
+          clearTimeout(slowTimer);
+          setFundingSlow(false);
+        }
       } else {
         // Passkey wallet + a real, scoped on-chain Altana session.
         setStep('wallet');
@@ -356,8 +378,18 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
           }[step]}
         </div>
       )}
+      {step === 'funding' && fundingSlow && (
+        <div className="mb-4 p-3 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-900/10 text-[11px] text-amber-700 dark:text-amber-400">
+          Taking longer than usual — the practice fork is a free-tier service that sleeps after 15 minutes idle and takes about a minute to wake up. Still trying; no action needed.
+        </div>
+      )}
       {step === 'error' && error && (
-        <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs text-red-500 whitespace-pre-wrap">{error}</div>
+        <div className="mb-4 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs text-red-500 space-y-2">
+          <div className="whitespace-pre-wrap">{error}</div>
+          <button onClick={handleGrantAndRun} className="text-[11px] font-semibold underline" style={{ color: accent }}>
+            Try again
+          </button>
+        </div>
       )}
 
       {step === 'done' && execResult && execResult.kind && (

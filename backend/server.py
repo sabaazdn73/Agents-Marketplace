@@ -201,12 +201,22 @@ async def build_status(slug: str):
 # the allow-listed proxy below, never the admin RPC directly.
 
 
+_COLD_START_DETAIL = (
+    "The practice fork is waking up — it's a free-tier service that sleeps after "
+    "15 minutes idle and takes about a minute to restart (confirmed against Render's "
+    "own docs). We already retried for 75s server-side. Please try again in a few "
+    "seconds; it should be warm now."
+)
+
+
 @app.post("/api/practice/init")
 async def practice_init():
     """Confirms the Anvil practice fork is alive and returns its chain id and
     current forked block. No vnet creation — Anvil is the persistent fork."""
     try:
         return await practice_layer.get_practice_status()
+    except practice_layer.PracticeForkWaking:
+        raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Practice fork not reachable: {e}")
 
@@ -222,6 +232,8 @@ async def practice_fund(address: str, bnb_amount: float = 10.0):
             tokens={practice_layer.USDT_BSC: 1000.0},  # generous starter USDT
         )
         return {"ok": True, "result": result}
+    except practice_layer.PracticeForkWaking:
+        raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Funding failed: {e}")
 
