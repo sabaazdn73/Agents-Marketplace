@@ -194,9 +194,9 @@ function PracticeStatsReportMobile() {
 const NAV_ITEMS = [
   { id: 'market', label: 'Market', icon: Store },
   { id: 'report', label: 'Report', icon: FileBarChart },
-  { id: 'sell', label: 'Sell', icon: Coins },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build', icon: Hammer },
+  { id: 'sell', label: 'Sell', icon: Coins },
 ];
 
 // Mobile-optimized Wallet Modal / Sheet

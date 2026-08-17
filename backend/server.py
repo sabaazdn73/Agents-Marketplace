@@ -48,6 +48,8 @@ _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
 # headroom for occasional force_refresh + 429 retries. TTL was raised from 30→60
 # min precisely because each refresh now costs more requests (see aggregate.py).
 
+_refresh_in_progress = False  # de-dupes concurrent background refreshes
+
 
 async def _refresh_into_store() -> list[dict]:
     """One real refresh: fetch a fresh 8004scan sample, UPSERT it into the
@@ -74,27 +76,71 @@ async def _refresh_into_store() -> list[dict]:
     return await agent_store.get_stored_agents()
 
 
+async def _background_refresh():
+    """Runs the slow, real, multi-page 8004scan refresh OUTSIDE the request
+    path. Whoever's request triggered this already got served instantly from
+    the store below; this just updates the in-memory cache (and the
+    persistent store) for whoever asks next. De-duped so a burst of stale
+    requests doesn't kick off N redundant live refreshes at once."""
+    global _refresh_in_progress
+    if _refresh_in_progress:
+        return
+    _refresh_in_progress = True
+    try:
+        _cache["data"] = await _refresh_into_store()
+        _cache["fetched_at"] = time.time()
+    except Exception as e:
+        # A failed background refresh just leaves the existing cache/store
+        # serving as before — nothing user-facing to report, there's no
+        # request waiting on this.
+        print(f"[server] Background refresh failed: {e}")
+    finally:
+        _refresh_in_progress = False
+
+
 @app.get("/api/agents")
-async def agents(force_refresh: bool = False):
+async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks = None):
+    """Serves INSTANTLY from the persistent store/in-memory cache — never
+    blocks the response on a live 8004scan fetch. A live refresh (when the
+    cache is stale, force_refresh is set, or this is a cold instance with an
+    empty in-memory cache but a populated store) is kicked off as a
+    background task instead, updating the cache for the next request.
+
+    The one exception is a genuinely empty store (first-ever boot, nothing
+    to serve at all) — there we have no choice but to wait for a real fetch,
+    since serving an empty list would just be a worse user experience than a
+    one-time real wait."""
     now = time.time()
     is_stale = (now - _cache["fetched_at"]) > _CACHE_TTL_SECONDS
-    if _cache["data"] is None or is_stale or force_refresh:
+
+    if _cache["data"] is None:
+        # Cold in-memory cache (fresh instance boot) — read the persistent
+        # store directly. This is a fast, single Mongo query, not a live
+        # 8004scan fetch, so it's fine to await inline.
+        try:
+            _cache["data"] = await agent_store.get_stored_agents()
+            _cache["fetched_at"] = now
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")
+
+    if not _cache["data"]:
+        # Truly nothing anywhere yet (first-ever boot, empty store) — the
+        # only case where we actually wait on a live fetch, since there's
+        # nothing honest to serve otherwise.
         try:
             _cache["data"] = await _refresh_into_store()
-            _cache["fetched_at"] = now
+            _cache["fetched_at"] = time.time()
         except HTTPException:
             raise
         except Exception as e:
-            # Refresh failed. Fall back to the persistent store (previous real
-            # data) if we can; only 502 if there's genuinely nothing to serve.
-            print(f"[server] Refresh failed: {e}")
-            if _cache["data"] is None:
-                try:
-                    _cache["data"] = await agent_store.get_stored_agents()
-                except Exception as store_err:
-                    raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}; store unavailable: {store_err}")
-            if not _cache["data"]:
-                raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")
+            raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")
+    elif is_stale or force_refresh:
+        # We have real data to serve right now — return it immediately and
+        # let the live refresh happen silently in the background.
+        if background_tasks is not None:
+            background_tasks.add_task(_background_refresh)
+
+    now = time.time()
     return {
         "agents": _cache["data"] or [],
         "cached_at": _cache["fetched_at"],

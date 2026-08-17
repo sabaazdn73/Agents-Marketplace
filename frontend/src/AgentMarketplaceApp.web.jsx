@@ -489,9 +489,9 @@ function PracticeStatsReport() {
 const NAV_ITEMS = [
   { id: 'market', label: 'Marketplace', icon: Store },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
-  { id: 'sell', label: 'Sell Your Agent', icon: Coins },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
+  { id: 'sell', label: 'Sell Your Agent', icon: Coins },
 ];
 
 export default function AgentMarketplaceApp() {
