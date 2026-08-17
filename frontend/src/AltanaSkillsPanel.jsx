@@ -30,6 +30,38 @@ const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const SKILLS_INDEX_URL = 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json';
 
+// ── Practice-fork warm-up (perceived-latency fix, NOT a fix for the wait
+// itself) ──
+//
+// The practice fork (anvil-practice-fork.onrender.com) is a real free-tier
+// Render service that sleeps after 15 min idle and takes real time to wake
+// (see practice_layer.py's retry-with-backoff, which stays in place as the
+// safety net for whenever this warm-up wasn't fired early enough, was missed,
+// or GitHub/Render itself is slow — that code is unchanged and still does the
+// real work if the user acts before the fork is actually warm).
+//
+// This just gets the wake-up STARTED earlier: the instant the Skills panel
+// mounts (the user is reading/deciding, not yet acting), fire one real,
+// unawaited request at our own backend's /api/practice/init. That request
+// itself is the thing that makes Render start booting the sleeping
+// container — Render's spin-up proceeds server-side from that first inbound
+// request regardless of whether we wait for or retry it client-side. By the
+// time the user actually clicks fund/execute, the fork has had a real head
+// start (however long they spent reading the form) instead of starting cold
+// at the moment that matters.
+//
+// Module-level (not component state) so it fires at most ONCE per browser
+// tab session, not on every mount/remount of the panel as the user navigates
+// tabs. Deliberately silent: no loading state, no error surfaced — if it
+// fails or is still slow, the real action button's own retry/backoff (built
+// separately, unchanged) handles it exactly as before.
+let _practiceForkWarmupFired = false;
+function warmUpPracticeForkOnce() {
+  if (_practiceForkWarmupFired) return;
+  _practiceForkWarmupFired = true;
+  fetch(`${API_BASE}/api/practice/init`, { method: 'POST' }).catch(() => { /* silent — real retry/backoff still covers the actual action */ });
+}
+
 // Whole units -> raw 18-decimal bigint (USDT, BNB, and most BSC tokens here).
 const toRaw18 = (v) => BigInt(Math.round(Number(v) * 1e18));
 
@@ -494,6 +526,10 @@ function PracticeHistoryPanel({ accent, surface, mutedBorder }) {
 export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMode }) {
   const { skills, loading, error } = useAltanaSkills();
   const [selected, setSelected] = useState(null);
+
+  // Fire the silent practice-fork warm-up the moment this panel is opened —
+  // see warmUpPracticeForkOnce() above for why and its real safety net.
+  useEffect(() => { warmUpPracticeForkOnce(); }, []);
 
   if (selected) {
     return <SkillGuidedForm skill={selected} accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} onBack={() => setSelected(null)} />;
