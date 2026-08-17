@@ -20,8 +20,20 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         - WagmiProvider + RainbowKitProvider: direct wallet-connect for
           crypto-native users (MetaMask, Trust Wallet, WalletConnect)
         Both target the same chain (bsc mainnet — this project is
-        mainnet-only), a user picks ONE path per session via the connect
-        modal, they aren't stacked. */}
+        mainnet-only). They are NOT bridged via @privy-io/wagmi (that
+        would need wagmiConfig.js rebuilt around Privy's own createConfig,
+        a bigger change than this fix). Real bug found 2026-08-17: plain
+        wagmi's WagmiProvider defaults reconnectOnMount to true, so on
+        every mount it silently tries to reconnect/re-verify the
+        previously-authorized injected connector AT THE SAME TIME Privy's
+        own SDK is independently probing window.ethereum for its
+        embeddedWallets.createOnLogin check — two uncoordinated systems
+        touching the same injected provider is exactly what Privy's own
+        docs (docs.privy.io/wallets/connectors/ethereum/integrations/wagmi)
+        say their bridged WagmiProvider sets reconnectOnMount=false to
+        avoid. Disabling it here (without the full bridge) removes that
+        race: a returning user just clicks "Connect a wallet" again
+        instead of it silently firing on mount. */}
     <PrivyProvider
       appId={import.meta.env.VITE_PRIVY_APP_ID}
       config={{
@@ -33,7 +45,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         },
       }}
     >
-      <WagmiProvider config={wagmiConfig}>
+      <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
         <QueryClientProvider client={queryClient}>
           <RainbowKitProvider>
             <App />

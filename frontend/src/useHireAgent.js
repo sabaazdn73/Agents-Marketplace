@@ -7,15 +7,26 @@
 // backend-held key.
 
 import { useState, useCallback } from 'react';
-import { useAccount, useWriteContract, usePublicClient, useChainId } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
+import { bsc } from 'wagmi/chains';
 import {
   getContracts, AGENTIC_COMMERCE_ABI, EVALUATOR_ROUTER_ABI,
   ERC20_ABI, JOB_STATUS,
 } from './erc8183';
 
+// A step whose tx hash never confirms within this window is reported as
+// "unconfirmed", not silently hung forever — real money is on the line here.
+// waitForTransactionReceipt's own default (unbounded) previously meant a
+// dropped-by-the-wallet transaction (never actually broadcast, so no node
+// will ever produce a receipt for it) just left the UI stuck on a spinner
+// with no honest signal to the user. 90s comfortably clears normal BSC
+// confirmation time (~3 blocks) with real margin.
+const RECEIPT_TIMEOUT_MS = 90_000;
+
 export function useHireAgent() {
   const { address } = useAccount();
   const chainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
@@ -23,9 +34,42 @@ export function useHireAgent() {
   const [jobId, setJobId] = useState(null);
   const [error, setError] = useState(null);
 
+  // Wraps a write + receipt-wait so a step that never reaches the network
+  // (wallet-side drop — the exact real failure mode this was built for)
+  // reports itself honestly instead of leaving the caller unsure whether to
+  // retry (and risk a duplicate) or wait.
+  const writeAndConfirm = useCallback(async (params) => {
+    const hash = await writeContractAsync(params);
+    let receipt;
+    try {
+      receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
+    } catch (e) {
+      throw new Error(
+        `Transaction ${hash} did not confirm within ${RECEIPT_TIMEOUT_MS / 1000}s. ` +
+        `It may still land — check https://bscscan.com/tx/${hash} before doing anything else. ` +
+        `If BscScan genuinely shows "not found" after a few minutes, your wallet likely never ` +
+        `broadcast it (a local drop, not a revert) and it is safe to retry this step. ` +
+        `Do NOT retry blindly without checking first, to avoid a duplicate on-chain action.`
+      );
+    }
+    return { hash, receipt };
+  }, [writeContractAsync, publicClient]);
+
   const hire = useCallback(async ({ providerAddress, budgetUnits, description, expiryMinutes = 65 }) => {
     if (!address) throw new Error('Connect a wallet first.');
-    const contracts = getContracts(chainId);
+
+    // Real guard, added 2026-08-17: previously nothing checked the wallet's
+    // ACTUAL active chain before starting a 5-step, real-money sequence.
+    // getContracts() below only throws for a chain BSC/testnet don't know at
+    // all — it silently succeeds (using the correct chain-56 addresses) even
+    // if the wallet is actually sitting on a different network, which is
+    // exactly the kind of dApp-state/wallet-state mismatch that can produce
+    // a transaction request the wallet locally rejects or never broadcasts.
+    // Ask the wallet to switch BEFORE any writes, not mid-sequence.
+    if (chainId !== bsc.id) {
+      await switchChainAsync({ chainId: bsc.id });
+    }
+    const contracts = getContracts(bsc.id);
     setError(null);
 
     try {
@@ -43,11 +87,10 @@ export function useHireAgent() {
       // Step 1: create the job (client -> provider, real on-chain tx)
       setStep('creating');
       const expiredAt = BigInt(Math.floor(Date.now() / 1000) + expiryMinutes * 60);
-      const createHash = await writeContractAsync({
+      const { receipt: createReceipt } = await writeAndConfirm({
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'createJob',
         args: [providerAddress, contracts.router, expiredAt, description, contracts.router],
       });
-      const createReceipt = await publicClient.waitForTransactionReceipt({ hash: createHash });
       // The real jobId comes from the emitted event/return value, decoded
       // from the receipt logs, not guessed or assumed to be sequential.
       const newJobId = decodeJobIdFromReceipt(createReceipt);
@@ -55,19 +98,17 @@ export function useHireAgent() {
 
       // Step 2: register the default OptimisticPolicy
       setStep('registering');
-      const registerHash = await writeContractAsync({
+      await writeAndConfirm({
         address: contracts.router, abi: EVALUATOR_ROUTER_ABI, functionName: 'registerJob',
         args: [newJobId, contracts.policy],
       });
-      await publicClient.waitForTransactionReceipt({ hash: registerHash });
 
       // Step 3: set the budget
       setStep('budgeting');
-      const budgetHash = await writeContractAsync({
+      await writeAndConfirm({
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'setBudget',
         args: [newJobId, budgetRaw, '0x'],
       });
-      await publicClient.waitForTransactionReceipt({ hash: budgetHash });
 
       // Step 4: approve the settlement asset if needed (real allowance
       // check first, don't force a redundant approve tx)
@@ -77,20 +118,18 @@ export function useHireAgent() {
       });
       if (currentAllowance < budgetRaw) {
         setStep('approving');
-        const approveHash = await writeContractAsync({
+        await writeAndConfirm({
           address: paymentToken, abi: ERC20_ABI, functionName: 'approve',
           args: [contracts.commerce, budgetRaw],
         });
-        await publicClient.waitForTransactionReceipt({ hash: approveHash });
       }
 
       // Step 5: fund (this is the real "hire" moment, escrow locked)
       setStep('funding');
-      const fundHash = await writeContractAsync({
+      const { hash: fundHash } = await writeAndConfirm({
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'fund',
         args: [newJobId, budgetRaw, '0x'],
       });
-      await publicClient.waitForTransactionReceipt({ hash: fundHash });
 
       setStep('done');
       return { jobId: newJobId, txHash: fundHash };
@@ -99,7 +138,7 @@ export function useHireAgent() {
       setError(e.message || String(e));
       throw e;
     }
-  }, [address, chainId, publicClient, writeContractAsync]);
+  }, [address, chainId, switchChainAsync, publicClient, writeAndConfirm]);
 
   const getRealJobStatus = useCallback(async (jobIdToCheck) => {
     const contracts = getContracts(chainId);
