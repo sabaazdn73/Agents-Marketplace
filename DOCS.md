@@ -143,7 +143,7 @@ Pulled honestly from what was actually run, not intentions.
   | Endpoint | Method | Result | Notes |
   |---|---|---|---|
   | `/api/health` | GET | ✅ 200 `{"ok":true}` | Ops liveness probe; not called by the frontend (not dead). |
-  | `/api/agents` | GET | ✅ 200, 56 agents | Live 8004scan refresh + owner-balance RPC + Mongo upsert; ~65s cold. |
+  | `/api/agents` | GET | ✅ 200, 87 agents | **Fixed 2026-08-17**: was blocking the response on the full live 8004scan refresh (~65-90s cold, measured). Now always serves instantly from the known_agents store/in-memory cache (measured: ~1.0s on a freshly-deployed instance with a cold in-memory cache); the live refresh runs as a background task instead. |
   | `/api/agents/performance` | GET | ✅ 200 | Real ERC-8183 on-chain read (job_counter ~56,592). |
   | `/api/practice/stats` | GET | ✅ 200 | Real Mongo aggregation (7 runs, 6 skills). |
   | `/api/practice/history/{wallet}` | GET | ✅ 200 | Real persisted rows. |
@@ -219,8 +219,24 @@ Pulled honestly from what was actually run, not intentions.
 
 ## 8. What needs a decision / action from you
 
-1. **Fix practice funding** (config): set the live backend's `PRACTICE_ADMIN_KEY` to
-   match the fork's. One env var on Render.
+1. ~~**Fix practice funding** (config): set the live backend's `PRACTICE_ADMIN_KEY`
+   to match the fork's.~~ **The auth mismatch is fixed** (confirmed 2026-08-17: no
+   more 401). But funding is **broken again for a different reason** — live
+   `anvil_setBalance` calls are failing with a "Temporary internal error" from
+   `FORK_RPC_URL` (dRPC free tier), reproduced twice with fresh trace IDs. Only an
+   upstream RPC account/plan decision fixes this (retry later / upgrade the dRPC
+   plan) — not something fixable by editing our code.
 2. **B402 Bazaar** goes from "built" to "indexed" only once a real x402 merchant
    endpoint emits a settle carrying the blob — decide if/when to stand one up.
+3. **TermiX track's required Agent Advantage Report doesn't exist yet**
+   (confirmed against the live rubric 2026-08-17): ≥3 real tasks run both ways
+   (with our marketplace's agent vs. without), time/cost/quality per task, real
+   outputs attached, ≥1 task from trading/stock/security. This needs real task
+   runs decided and executed, not just more code — needs your input on which 3
+   tasks to run.
+4. **Grid Trading has zero real agents** in the currently-served set (main-track
+   "equal depth across all four categories" requirement). `core/categorize.py`'s
+   keyword rules exist but aren't matching real 8004scan listings — worth
+   either broadening the keywords or accepting this as a real data-availability
+   limit of the current registry sample.
 3. **Audit** before promoting significant real-money volume through AgentAccessMarket.

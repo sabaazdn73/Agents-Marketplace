@@ -149,21 +149,40 @@ deploy to the free ~48h platform trial.
 
 ## What's still incomplete (honest)
 
-- ⚠️ **Agent Advantage Report (TermiX track) — NOT real yet.** The web app's
-  "Advantage Report" tab currently shows **hardcoded placeholder numbers**
-  (`ADVANTAGE_REPORT` in `AgentMarketplaceApp.web.jsx`), not measured data. The
-  real requirement — run ≥3 real tasks with and without an agent and compare
-  time/cost/quality, with outputs attached — **has not been done**. (The
-  backend validator that once checked this was removed as unused; it needs
-  rebuilding around real task data.) Treat this tab as a mockup until real runs
-  replace the placeholders.
+- ⚠️ **TermiX track's required "Agent Advantage Report" — NOT built.** Corrected
+  2026-08-17: the web app's "Advantage Report" tab is **no longer hardcoded** —
+  it's `PracticeStatsReport`, real Mongo-aggregated practice-run stats (total
+  runs, distinct wallets, per-skill executions from `/api/practice/stats`). But
+  that is a different thing from what the TermiX track's rubric (confirmed
+  fresh against bnbchain.org/en/hackathons/smart-money-era, 2026-08-17)
+  actually requires for eligibility: **"at least 3 real tasks run both ways —
+  with an agent hired through your marketplace vs. without — reporting time,
+  cost, and output quality per task, with the actual outputs attached, at
+  least one task from trading/stock/security."** That comparative report does
+  not exist yet. Treat "TermiX track eligibility" as not met until it's built.
+- ⚠️ **Agent category diversity gap (main-track requirement).** The rubric
+  requires all four categories — Rebalancing, Grid Trading, Yield
+  Optimisation, Health Factor Monitoring — "surfaced with equal depth."
+  Measured live 2026-08-17 against the 87 agents currently served: Rebalancing
+  2, Yield Optimisation 2, Health Factor Monitoring 3, **Grid Trading 0** —
+  real agents in the current 8004scan sample just don't classify into these
+  categories (`core/categorize.py` has real keyword rules for all four; none
+  matched enough real listings). This is a genuine, current gap against a
+  hard main-track requirement, not a missing feature.
 - ⚠️ **x402 live settlement** untested (see table).
 - ⚠️ **On-chain hire + Altana session grant/revoke** not executed live (code
-  verified vs SDK only).
+  verified vs SDK only) — still true as of 2026-08-17; no funded wallet +
+  passkey + browser available to actually run it end-to-end.
 - ⚠️ **Copy-trade / wallet-tracker** require a `getLogs`-capable read RPC
   (`VITE_MAINNET_READ_RPC`); they won't work on the default public RPC.
 - ⚠️ **8004scan agent discovery** not re-called live this session (needs an API
   key); relies on an earlier session's confirmation.
+- ⚠️ **Practice funding (`/api/practice/fund`) is broken live again**, as of
+  2026-08-17 — a *different* failure than the 08-14 admin-key mismatch (that
+  part now authenticates fine): `anvil_setBalance` is failing with a
+  "Temporary internal error" from the fork's upstream archive RPC
+  (`FORK_RPC_URL`, dRPC free tier), reproduced twice with fresh trace IDs.
+  Reads/records still work; only funding is affected.
 
 ---
 
