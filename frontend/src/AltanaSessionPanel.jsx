@@ -14,6 +14,7 @@ import {
   getJobStatus, getDeliverable, disputeJob,
 } from './altana';
 import { addNotification, trackJob } from './notifications';
+import StepChecklist from './StepChecklist';
 
 // Live ERC-8183 job status + the real dispute path. Reads getErc8183Job (and
 // getErc8183DeliverableUrl when SUBMITTED) on-chain; if the job is SUBMITTED
@@ -123,19 +124,36 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(s, (k, v) => (typeof v === 'bigint' ? `${v}n` : v)));
   };
 
+  // Real 2-step sequence tracked explicitly (creating_wallet, granting) so
+  // <StepChecklist/> can show real progress instead of one opaque button
+  // label. Neither step has a BscScan-linkable hash to show yet:
+  // creating_wallet is a local WebAuthn/passkey ceremony (never on-chain),
+  // and grantMarketplaceSession's return value (altana.js) is documented as
+  // "the real Session object", not a captured tx hash — if the installed
+  // SDK's grantSession response turns out to carry one, wire it in rather
+  // than guessing at its shape here (same discipline as the flagged-unverified
+  // decodeJobIdFromReceipt in useHireAgent.js).
+  const [completedSessionSteps, setCompletedSessionSteps] = useState([]);
+
+  // Real bug fixed 2026-08-17 (same one useHireAgent.js had): `step` used to
+  // get overwritten with the literal string 'error' on failure, losing which
+  // of the real steps was active. Now `step` always stays the real last-
+  // active step name; `error` (already existed) is the separate signal.
   const handleCreateWalletAndSession = async () => {
     setError(null);
+    setCompletedSessionSteps([]);
     try {
       setStep('creating_wallet');
       const w = await getOrCreateAltanaWallet();
       setWallet(w);
+      setCompletedSessionSteps(['creating_wallet']);
 
       setStep('granting');
       const s = await grantMarketplaceSession(w, w.signer, { spendCapUnits: Number(spendCap), expiryHours: Number(expiryHours) });
       persistSession(s);
+      setCompletedSessionSteps(['creating_wallet', 'granting']);
       setStep(null);
     } catch (e) {
-      setStep('error');
       setError(e.message || String(e));
     }
   };
@@ -155,7 +173,6 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
       trackJob(result.jobId, 'FUNDED');
       setStep(null);
     } catch (e) {
-      setStep('error');
       setError(e.message || String(e));
     }
   };
@@ -170,10 +187,30 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       setStep(null);
     } catch (e) {
-      setStep('error');
       setError(e.message || String(e));
     }
   };
+
+  // Real step list for the 2-step wallet+session creation, built straight
+  // from the state above — no invented progress.
+  const sessionSteps = [
+    {
+      key: 'creating_wallet', label: 'Create passkey wallet',
+      description: 'Creating your passkey wallet (Face ID/Touch ID) — a one-time local device confirmation, not a blockchain transaction',
+      status: completedSessionSteps.includes('creating_wallet') ? 'complete'
+        : step === 'creating_wallet' ? (error ? 'error' : 'active') : 'pending',
+      hash: null,
+      errorMessage: step === 'creating_wallet' && error ? error : null,
+    },
+    {
+      key: 'granting', label: 'Grant on-chain session',
+      description: 'Registering a scoped on-chain session (spend cap + expiry) so this wallet can act on your behalf',
+      status: completedSessionSteps.includes('granting') ? 'complete'
+        : step === 'granting' ? (error ? 'error' : 'active') : 'pending',
+      hash: null,
+      errorMessage: step === 'granting' && error ? error : null,
+    },
+  ];
 
   return (
     <div className={`rounded-2xl border p-5 ${mutedBorder}`} style={{ background: surface }}>
@@ -201,9 +238,17 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
                 disabled={!!step} className={`w-full p-2 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
             </div>
           </div>
-          <button onClick={handleCreateWalletAndSession} disabled={!!step && step !== 'error'}
+          {/* Real step checklist for this 2-step sequence — see
+              sessionSteps above, driven by real tracked state. */}
+          {(step === 'creating_wallet' || step === 'granting' || completedSessionSteps.length > 0) && (
+            <div className={`p-3 rounded-xl border ${mutedBorder}`}>
+              <StepChecklist steps={sessionSteps} />
+            </div>
+          )}
+
+          <button onClick={handleCreateWalletAndSession} disabled={!!step && !error}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-            {step === 'creating_wallet' ? 'Creating passkey wallet (biometric prompt)...' : step === 'granting' ? 'Granting session on-chain...' : 'Create Altana Wallet + Session'}
+            {error && (step === 'creating_wallet' || step === 'granting') ? 'Retry' : 'Create Altana Wallet + Session'}
           </button>
         </div>
       ) : (
@@ -219,10 +264,10 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
           </a>
 
           {agent && (
-            <button onClick={handleHire} disabled={!!step && step !== 'error'}
+            <button onClick={handleHire} disabled={!!step && !error}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
               {step === 'hiring' ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}
-              Hire {agent.name} through this session
+              {error && step === 'hiring' ? 'Retry hire' : `Hire ${agent.name} through this session`}
             </button>
           )}
 
@@ -235,14 +280,14 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
             </>
           )}
 
-          <button onClick={handleRevoke} disabled={!!step && step !== 'error'}
+          <button onClick={handleRevoke} disabled={!!step && !error}
             className="w-full py-2 rounded-xl text-xs font-semibold text-red-500 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1">
-            <XCircle size={13} /> {step === 'revoking' ? 'Revoking on-chain...' : 'Revoke Session'}
+            <XCircle size={13} /> {step === 'revoking' ? 'Revoking on-chain...' : error && step === 'revoking' ? 'Retry revoke' : 'Revoke Session'}
           </button>
         </div>
       )}
 
-      {step === 'error' && error && (
+      {error && step !== 'creating_wallet' && step !== 'granting' && (
         <div className="mt-3 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs text-red-500 whitespace-pre-wrap">{error}</div>
       )}
     </div>

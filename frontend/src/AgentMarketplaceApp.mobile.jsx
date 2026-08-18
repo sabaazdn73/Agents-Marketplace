@@ -11,7 +11,8 @@ import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
-import { useHireAgent } from './useHireAgent';
+import { useHireAgent, buildHireStepList } from './useHireAgent';
+import StepChecklist from './StepChecklist';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -503,7 +504,10 @@ function AgentMarketplaceMobile() {
     setHiring(true);
   };
 
-  const { hire, step: hireStep, error: hireError } = useHireAgent();
+  const {
+    hire, step: hireStep, error: hireError,
+    completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps, stepHashes: hireStepHashes,
+  } = useHireAgent();
 
   const handleActivateSession = async () => {
     if (!selectedAgent || !walletConnected) return;
@@ -584,7 +588,7 @@ function AgentMarketplaceMobile() {
         
         {hiring && selectedAgent ? (
           <div className="p-5 animate-in slide-in-from-right-4 duration-300">
-            <button onClick={() => setHiring(false)} className="flex items-center gap-1 text-sm text-gray-500 font-medium mb-6">
+            <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && !hireError} className="flex items-center gap-1 text-sm text-gray-500 font-medium mb-6 disabled:opacity-40">
               <ChevronRight size={18} className="rotate-180" /> Back
             </button>
             <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
@@ -592,15 +596,33 @@ function AgentMarketplaceMobile() {
                 {selectedAgent.name.charAt(0)}
               </div>
               <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
-              <p className="text-gray-500 text-sm mb-6">Establish on-chain authority.</p>
+              <p className="text-gray-500 text-sm mb-6">Real ERC-8183 hire — 5 wallet signatures, tracked below as they happen.</p>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Max Spend Cap (USDC)</label>
-                  <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none" />
+                  <label className="block text-sm font-semibold mb-2">Job Budget ($U)</label>
+                  <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50" />
                 </div>
-                <button onClick={handleActivateSession} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform">
-                  SIGN & DEPLOY
+
+                {/* Real step checklist — identical logic to web, via the
+                    same shared buildHireStepList helper (useHireAgent.js),
+                    so the two can't drift on what each step actually means. */}
+                {hireStep && (
+                  <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                    <StepChecklist steps={buildHireStepList({
+                      step: hireStep, completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps,
+                      stepHashes: hireStepHashes, error: hireError, budgetUnits: spendCap,
+                    })} />
+                    {hireStep === 'done' && (
+                      <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+                        <CheckCircle2 size={16} /> Job funded. This agent is now genuinely hired.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'done' && !hireError} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'RETRY' : 'SIGN & DEPLOY'}
                 </button>
               </div>
             </div>

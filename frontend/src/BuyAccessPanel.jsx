@@ -11,8 +11,9 @@ import { CheckCircle2, Loader2, Coins, Activity } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import {
   MODEL, isMarketConfigured, fromRawUnits,
-  useOffers, useHasAccess, useBuyAccess, useFeeBps, splitByFee,
+  useOffers, useHasAccess, useBuyAccess, useFeeBps, splitByFee, buildBuyStepList,
 } from './agentMarket';
+import StepChecklist from './StepChecklist';
 
 const ACCENT = '#4F46E5';
 
@@ -20,7 +21,7 @@ export default function BuyAccessPanel({ agentId }) {
   const { isConnected } = useAccount();
   const { offers, refresh: refreshOffers } = useOffers(agentId);
   const { access, refresh: refreshAccess } = useHasAccess(agentId);
-  const { buy, busy, step, error } = useBuyAccess();
+  const { buy, busy, step, error, completedSteps, skippedSteps, stepHashes } = useBuyAccess();
   const { feeBps, feePct } = useFeeBps();
   const [sel, setSel] = useState(0);
   const [ok, setOk] = useState(false);
@@ -79,9 +80,20 @@ export default function BuyAccessPanel({ agentId }) {
         <button onClick={onBuy} disabled={!isConnected || busy || !offer.active}
           className="px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-50 flex items-center gap-2" style={{ background: ACCENT }}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : null}
-          {step === 'approving' ? 'Approving…' : step === 'buying' ? 'Confirming…' : isSub ? (hasAccess ? 'Renew' : 'Subscribe') : 'Buy license'}
+          {error ? 'Retry' : busy ? 'Confirm in wallet…' : isSub ? (hasAccess ? 'Renew' : 'Subscribe') : 'Buy license'}
         </button>
       </div>
+
+      {/* Real step checklist — same buildBuyStepList/StepChecklist pattern
+          as the hire flow, driven straight from useBuyAccess's own state.
+          Shown once a purchase attempt has actually started. */}
+      {step && (
+        <div className="mt-3 p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-white/50 dark:bg-black/10">
+          <StepChecklist steps={buildBuyStepList({
+            step, completedSteps, skippedSteps, stepHashes, error, amount: priceStr, symbol: offer.symbol,
+          })} />
+        </div>
+      )}
 
       {/* Real, on-chain-sourced breakdown from the live feeBps. */}
       {feeBps != null && (

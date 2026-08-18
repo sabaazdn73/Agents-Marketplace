@@ -42,9 +42,10 @@ function QrToMobile() {
     </div>
   );
 }
-import { useHireAgent } from './useHireAgent';
+import { useHireAgent, buildHireStepList } from './useHireAgent';
 import AltanaSessionPanel from './AltanaSessionPanel';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
+import StepChecklist from './StepChecklist';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -557,7 +558,10 @@ export default function AgentMarketplaceApp() {
   
   const handleRevoke = (agentId) => setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, session: null } : a)));
 
-  const { hire, step: hireStep, error: hireError } = useHireAgent();
+  const {
+    hire, step: hireStep, error: hireError,
+    completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps, stepHashes: hireStepHashes,
+  } = useHireAgent();
 
   const handleHireClick = (agent) => {
     if (!walletConnected) {
@@ -891,7 +895,7 @@ export default function AgentMarketplaceApp() {
           {/* Hiring Flow Overlay (Styled as a clean modal card) */}
           {hiring && selectedAgent && (
             <div className="max-w-2xl mx-auto mt-10">
-              <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && hireStep !== 'error'} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-8 transition-colors disabled:opacity-40">
+              <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && !hireError} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-8 transition-colors disabled:opacity-40">
                 <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
               </button>
 
@@ -913,31 +917,29 @@ export default function AgentMarketplaceApp() {
 
                 <div className="mb-6">
                   <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> Job Budget (settlement token)</label>
-                  <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && hireStep !== 'error'} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
+                  <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
                 </div>
 
-                {hireStep && hireStep !== 'error' && (
-                  <div className="mb-6 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] flex items-center gap-2 text-sm">
-                    {hireStep !== 'done' && <Loader2 size={16} className="animate-spin text-indigo-500" />}
-                    {hireStep === 'done' && <CheckCircle2 size={16} className="text-green-500" />}
-                    <span>
-                      {{
-                        creating: 'Creating the job on-chain (sign in your wallet)...',
-                        registering: 'Registering the settlement policy...',
-                        budgeting: 'Setting the job budget...',
-                        approving: 'Approving the settlement token (one-time)...',
-                        funding: 'Funding the job (this locks the escrow)...',
-                        done: 'Job funded. This agent is now genuinely hired.',
-                      }[hireStep]}
-                    </span>
+                {/* Real step checklist — every row's state comes straight from
+                    useHireAgent's own tracked state (step/completedSteps/
+                    skippedSteps/stepHashes/error), see buildHireStepList in
+                    useHireAgent.js. Only shown once the flow has started. */}
+                {hireStep && (
+                  <div className="mb-6 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                    <StepChecklist steps={buildHireStepList({
+                      step: hireStep, completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps,
+                      stepHashes: hireStepHashes, error: hireError, budgetUnits: spendCap,
+                    })} />
+                    {hireStep === 'done' && (
+                      <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+                        <CheckCircle2 size={16} /> Job funded. This agent is now genuinely hired.
+                      </div>
+                    )}
                   </div>
                 )}
-                {hireStep === 'error' && hireError && (
-                  <div className="mb-6 p-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/10 text-xs text-red-600 dark:text-red-400 whitespace-pre-wrap">{hireError}</div>
-                )}
 
-                <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'error' && hireStep !== 'done'} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : 'SIGN & FUND JOB (direct)'}
+                <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'done' && !hireError} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'RETRY' : 'SIGN & FUND JOB (direct)'}
                 </button>
               </div>
 

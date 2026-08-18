@@ -5,6 +5,17 @@
 // RainbowKit, or Privy's embedded wallet) signs directly, wagmi
 // broadcasts it, nothing is simulated and nothing runs through a
 // backend-held key.
+//
+// Step tracking is granular on purpose (completedSteps/skippedSteps/
+// stepHashes below), added 2026-08-17 to drive a real, visible step
+// checklist in the UI (StepChecklist.jsx) — the exact same real state
+// this hook already tracked internally, just exposed instead of thrown
+// away. Real bug fixed here too: `step` used to be overwritten with the
+// literal string 'error' on failure, which lost which of the 5 steps was
+// actually active when it failed — exactly the ambiguity a checklist is
+// supposed to resolve. Now `step` always stays the real last-active step
+// name; `error` (already existed) is the separate error signal, so the
+// UI can point at the right row.
 
 import { useState, useCallback } from 'react';
 import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
@@ -23,6 +34,11 @@ import {
 // confirmation time (~3 blocks) with real margin.
 const RECEIPT_TIMEOUT_MS = 90_000;
 
+// The real, ordered step keys — matches HIRE_STEP_COPY below and the
+// actual execution order in `hire()`. 'approving' is genuinely conditional
+// (skipped when the existing allowance already covers the budget).
+export const HIRE_STEPS = ['creating', 'registering', 'budgeting', 'approving', 'funding'];
+
 export function useHireAgent() {
   const { address } = useAccount();
   const chainId = useChainId();
@@ -30,16 +46,21 @@ export function useHireAgent() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
 
-  const [step, setStep] = useState(null); // null | 'approving' | 'creating' | 'registering' | 'budgeting' | 'funding' | 'done' | 'error'
+  const [step, setStep] = useState(null); // null | 'creating' | 'registering' | 'budgeting' | 'approving' | 'funding' | 'done'
   const [jobId, setJobId] = useState(null);
   const [error, setError] = useState(null);
+  const [completedSteps, setCompletedSteps] = useState([]); // step keys that really finished this run
+  const [skippedSteps, setSkippedSteps] = useState([]);      // step keys genuinely not needed this run
+  const [stepHashes, setStepHashes] = useState({});          // { [stepKey]: realTxHash }
 
   // Wraps a write + receipt-wait so a step that never reaches the network
   // (wallet-side drop — the exact real failure mode this was built for)
   // reports itself honestly instead of leaving the caller unsure whether to
-  // retry (and risk a duplicate) or wait.
-  const writeAndConfirm = useCallback(async (params) => {
+  // retry (and risk a duplicate) or wait. Records the real hash against
+  // `stepKey` and marks it complete only once a real receipt confirms it.
+  const writeAndConfirm = useCallback(async (stepKey, params) => {
     const hash = await writeContractAsync(params);
+    setStepHashes((prev) => ({ ...prev, [stepKey]: hash }));
     let receipt;
     try {
       receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
@@ -52,6 +73,7 @@ export function useHireAgent() {
         `Do NOT retry blindly without checking first, to avoid a duplicate on-chain action.`
       );
     }
+    setCompletedSteps((prev) => [...prev, stepKey]);
     return { hash, receipt };
   }, [writeContractAsync, publicClient]);
 
@@ -71,6 +93,10 @@ export function useHireAgent() {
     }
     const contracts = getContracts(bsc.id);
     setError(null);
+    setCompletedSteps([]);
+    setSkippedSteps([]);
+    setStepHashes({});
+    setJobId(null);
 
     try {
       // Read the real settlement asset and its real decimals, never
@@ -87,7 +113,7 @@ export function useHireAgent() {
       // Step 1: create the job (client -> provider, real on-chain tx)
       setStep('creating');
       const expiredAt = BigInt(Math.floor(Date.now() / 1000) + expiryMinutes * 60);
-      const { receipt: createReceipt } = await writeAndConfirm({
+      const { receipt: createReceipt } = await writeAndConfirm('creating', {
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'createJob',
         args: [providerAddress, contracts.router, expiredAt, description, contracts.router],
       });
@@ -98,14 +124,14 @@ export function useHireAgent() {
 
       // Step 2: register the default OptimisticPolicy
       setStep('registering');
-      await writeAndConfirm({
+      await writeAndConfirm('registering', {
         address: contracts.router, abi: EVALUATOR_ROUTER_ABI, functionName: 'registerJob',
         args: [newJobId, contracts.policy],
       });
 
       // Step 3: set the budget
       setStep('budgeting');
-      await writeAndConfirm({
+      await writeAndConfirm('budgeting', {
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'setBudget',
         args: [newJobId, budgetRaw, '0x'],
       });
@@ -118,15 +144,17 @@ export function useHireAgent() {
       });
       if (currentAllowance < budgetRaw) {
         setStep('approving');
-        await writeAndConfirm({
+        await writeAndConfirm('approving', {
           address: paymentToken, abi: ERC20_ABI, functionName: 'approve',
           args: [contracts.commerce, budgetRaw],
         });
+      } else {
+        setSkippedSteps((prev) => [...prev, 'approving']);
       }
 
       // Step 5: fund (this is the real "hire" moment, escrow locked)
       setStep('funding');
-      const { hash: fundHash } = await writeAndConfirm({
+      const { hash: fundHash } = await writeAndConfirm('funding', {
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'fund',
         args: [newJobId, budgetRaw, '0x'],
       });
@@ -134,7 +162,8 @@ export function useHireAgent() {
       setStep('done');
       return { jobId: newJobId, txHash: fundHash };
     } catch (e) {
-      setStep('error');
+      // step is deliberately left as whatever it was when this threw —
+      // that's the real step the checklist should mark as errored.
       setError(e.message || String(e));
       throw e;
     }
@@ -151,7 +180,41 @@ export function useHireAgent() {
     return { ...job, statusLabel: JOB_STATUS[job.status] ?? 'UNKNOWN' };
   }, [chainId, publicClient]);
 
-  return { hire, getRealJobStatus, step, jobId, error };
+  return { hire, getRealJobStatus, step, jobId, error, completedSteps, skippedSteps, stepHashes };
+}
+
+// Honest, wallet-matched copy per step — exactly what each real
+// transaction actually does, no vaguer marketing language. Shared by web
+// and mobile so the two can't drift.
+const HIRE_STEP_COPY = {
+  creating: { label: 'Create job', description: 'Registering your hire request on-chain' },
+  registering: { label: 'Link settlement policy', description: 'Linking the dispute/settlement policy to this job' },
+  budgeting: { label: 'Set budget', description: "Setting your job's spending limit on-chain" },
+  approving: { label: 'Approve $U', description: 'Giving the contract permission to move up to {amount} $U — this step does not spend anything yet' },
+  funding: { label: 'Fund job', description: 'Final step — this actually moves {amount} $U into escrow' },
+};
+
+/** Builds the real, current step list for <StepChecklist/>, straight from
+ * useHireAgent's own state — no invented progress. `budgetUnits` fills in
+ * the {amount} placeholder in the approve/fund copy so the user sees the
+ * real number they're approving/spending, not a generic amount. */
+export function buildHireStepList({ step, completedSteps, skippedSteps, stepHashes, error, budgetUnits }) {
+  const amount = budgetUnits != null ? `${budgetUnits} ` : '';
+  return HIRE_STEPS.map((key) => {
+    const copy = HIRE_STEP_COPY[key];
+    const description = copy.description.replace('{amount} ', amount);
+    let status = 'pending';
+    if (completedSteps.includes(key)) status = 'complete';
+    else if (skippedSteps.includes(key)) status = 'skipped';
+    else if (step === key) status = error ? 'error' : 'active';
+    return {
+      key, label: copy.label, description,
+      status,
+      hash: stepHashes[key] || null,
+      reason: key === 'approving' && status === 'skipped' ? 'Already approved — skipped' : null,
+      errorMessage: status === 'error' ? error : null,
+    };
+  });
 }
 
 // Decodes the real jobId from the createJob transaction receipt. The

@@ -220,7 +220,16 @@ export function useCreatorWrites() {
   return { withdraw, setOfferActive, busy, error };
 }
 
-/** Buy/subscribe in a chosen token: native via msg.value, ERC-20 via approve+call. */
+// Real, ordered step keys for the buy/subscribe flow. 'approving' is
+// genuinely conditional: never runs for native BNB (paid via msg.value,
+// nothing to approve), and skipped for ERC-20 when the existing allowance
+// already covers the price.
+export const BUY_STEPS = ['approving', 'buying'];
+
+/** Buy/subscribe in a chosen token: native via msg.value, ERC-20 via approve+call.
+ * Tracks the same real per-step state as useHireAgent (completedSteps/
+ * skippedSteps/stepHashes) so BuyAccessPanel can drive an honest
+ * StepChecklist instead of a single "Approving…/Confirming…" label. */
 export function useBuyAccess() {
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
@@ -228,30 +237,75 @@ export function useBuyAccess() {
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(null);
   const [error, setError] = useState(null);
+  const [completedSteps, setCompletedSteps] = useState([]);
+  const [skippedSteps, setSkippedSteps] = useState([]);
+  const [stepHashes, setStepHashes] = useState({});
+
+  const writeAndConfirm = useCallback(async (stepKey, params) => {
+    const hash = await writeContractAsync(params);
+    setStepHashes((prev) => ({ ...prev, [stepKey]: hash }));
+    await publicClient.waitForTransactionReceipt({ hash });
+    setCompletedSteps((prev) => [...prev, stepKey]);
+    return hash;
+  }, [writeContractAsync, publicClient]);
 
   const buy = useCallback(async ({ agentId, token, native, model, priceRaw }) => {
     setBusy(true); setError(null);
+    setCompletedSteps([]); setSkippedSteps([]); setStepHashes({});
     try {
       const fn = model === MODEL.SUBSCRIPTION ? 'subscribe' : 'buyOneTime';
       if (native) {
+        // Nothing to approve for native BNB — it's paid via msg.value on
+        // the same call, so this run genuinely never has an approve step.
+        setSkippedSteps(['approving']);
         setStep('buying');
-        const hash = await writeContractAsync({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args: [BigInt(agentId), token], value: BigInt(priceRaw) });
-        await publicClient.waitForTransactionReceipt({ hash });
+        const hash = await writeAndConfirm('buying', { address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args: [BigInt(agentId), token], value: BigInt(priceRaw) });
+        setStep('done');
         return hash;
       }
       const allowance = await publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'allowance', args: [address, MARKET_ADDRESS] });
       if (BigInt(allowance) < BigInt(priceRaw)) {
         setStep('approving');
-        const ah = await writeContractAsync({ address: token, abi: ERC20_ABI, functionName: 'approve', args: [MARKET_ADDRESS, priceRaw] });
-        await publicClient.waitForTransactionReceipt({ hash: ah });
+        await writeAndConfirm('approving', { address: token, abi: ERC20_ABI, functionName: 'approve', args: [MARKET_ADDRESS, priceRaw] });
+      } else {
+        setSkippedSteps((prev) => [...prev, 'approving']);
       }
       setStep('buying');
-      const hash = await writeContractAsync({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args: [BigInt(agentId), token] });
-      await publicClient.waitForTransactionReceipt({ hash });
+      const hash = await writeAndConfirm('buying', { address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args: [BigInt(agentId), token] });
+      setStep('done');
       return hash;
     } catch (e) { setError(e.shortMessage || e.message || String(e)); throw e; }
-    finally { setBusy(false); setStep(null); }
-  }, [address, writeContractAsync, publicClient]);
+    finally { setBusy(false); }
+  }, [address, writeAndConfirm, publicClient]);
 
-  return { buy, busy, step, error };
+  return { buy, busy, step, error, completedSteps, skippedSteps, stepHashes };
+}
+
+// Honest, wallet-matched copy per step. {amount}/{symbol} are filled in by
+// buildBuyStepList from the real offer being purchased.
+const BUY_STEP_COPY = {
+  approving: { label: 'Approve {symbol}', description: 'Giving the contract permission to move up to {amount} {symbol} — this step does not spend anything yet' },
+  buying: { label: 'Pay & unlock access', description: 'Final step — this pays {amount} {symbol} for access' },
+};
+
+/** Builds the real, current step list for <StepChecklist/>, straight from
+ * useBuyAccess's own state. */
+export function buildBuyStepList({ step, completedSteps, skippedSteps, stepHashes, error, amount, symbol }) {
+  return BUY_STEPS.map((key) => {
+    const copy = BUY_STEP_COPY[key];
+    const fill = (s) => s.replace('{amount}', amount ?? '').replace('{symbol}', symbol ?? '');
+    let status = 'pending';
+    if (completedSteps.includes(key)) status = 'complete';
+    else if (skippedSteps.includes(key)) status = 'skipped';
+    else if (step === key) status = error ? 'error' : 'active';
+    return {
+      key, label: fill(copy.label), description: fill(copy.description),
+      status,
+      hash: stepHashes[key] || null,
+      reason: key === 'approving' && status === 'skipped'
+        ? (symbol === 'BNB' ? 'Paying with BNB directly — no approval needed' : 'Already approved — skipped')
+        : null,
+      errorMessage: status === 'error' ? error : null,
+    };
+  });
 }
