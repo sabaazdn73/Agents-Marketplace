@@ -46,6 +46,7 @@ import { useHireAgent, buildHireStepList } from './useHireAgent';
 import AltanaSessionPanel from './AltanaSessionPanel';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import StepChecklist from './StepChecklist';
+import GetULink from './GetULink';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -918,6 +919,7 @@ export default function AgentMarketplaceApp() {
                 <div className="mb-6">
                   <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> Job Budget (settlement token)</label>
                   <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
+                  <div className="mt-1.5"><GetULink /></div>
                 </div>
 
                 {/* Real step checklist — every row's state comes straight from

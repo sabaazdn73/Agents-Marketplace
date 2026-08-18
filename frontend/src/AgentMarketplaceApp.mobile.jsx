@@ -13,6 +13,7 @@ import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
 import { useHireAgent, buildHireStepList } from './useHireAgent';
 import StepChecklist from './StepChecklist';
+import GetULink from './GetULink';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -602,6 +603,7 @@ function AgentMarketplaceMobile() {
                 <div>
                   <label className="block text-sm font-semibold mb-2">Job Budget ($U)</label>
                   <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50" />
+                  <div className="mt-1.5"><GetULink /></div>
                 </div>
 
                 {/* Real step checklist — identical logic to web, via the

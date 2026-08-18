@@ -14,6 +14,7 @@ import {
   useOffers, useHasAccess, useBuyAccess, useFeeBps, splitByFee, buildBuyStepList,
 } from './agentMarket';
 import StepChecklist from './StepChecklist';
+import GetULink from './GetULink';
 
 const ACCENT = '#4F46E5';
 
@@ -83,6 +84,9 @@ export default function BuyAccessPanel({ agentId }) {
           {error ? 'Retry' : busy ? 'Confirm in wallet…' : isSub ? (hasAccess ? 'Renew' : 'Subscribe') : 'Buy license'}
         </button>
       </div>
+      {/* Only relevant when the token the buyer is currently about to pay
+          with is actually $U — BNB/USDT offers don't need it. */}
+      {offer.symbol === '$U' && <div className="mt-1.5"><GetULink /></div>}
 
       {/* Real step checklist — same buildBuyStepList/StepChecklist pattern
           as the hire flow, driven straight from useBuyAccess's own state.

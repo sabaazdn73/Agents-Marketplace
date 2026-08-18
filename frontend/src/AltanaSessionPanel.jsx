@@ -15,6 +15,7 @@ import {
 } from './altana';
 import { addNotification, trackJob } from './notifications';
 import StepChecklist from './StepChecklist';
+import GetULink from './GetULink';
 
 // Live ERC-8183 job status + the real dispute path. Reads getErc8183Job (and
 // getErc8183DeliverableUrl when SUBMITTED) on-chain; if the job is SUBMITTED
@@ -238,6 +239,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
                 disabled={!!step} className={`w-full p-2 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
             </div>
           </div>
+          <GetULink />
           {/* Real step checklist for this 2-step sequence — see
               sessionSteps above, driven by real tracked state. */}
           {(step === 'creating_wallet' || step === 'granting' || completedSessionSteps.length > 0) && (
