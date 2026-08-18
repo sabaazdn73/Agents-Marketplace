@@ -153,6 +153,60 @@ async def health():
     return {"ok": True}
 
 
+# ── Altana Skills Registry proxy ──
+# Real bug (2026-08-19): the frontend used to fetch
+# raw.githubusercontent.com/altananetwork/skills/main/index.json directly from
+# each visitor's own browser. GitHub's raw-content CDN rate-limits by source
+# IP, and that limit is SHARED across everyone behind the same IP (VPNs,
+# corporate NAT, cloud/CGNAT egress) — so a real visitor could get a real 429
+# through no fault of their own, and it's not reproducible from any one
+# tester's machine (confirmed live: the exact same URL returned a clean 200
+# from here at the time this was fixed). One server-side fetch, cached and
+# served to every visitor, fixes this the same way the /api/agents /
+# known_agents pattern already does: real data, never re-fetched live in the
+# request path once cached.
+_skills_cache: dict = {"data": None, "fetched_at": 0}
+_SKILLS_CACHE_TTL_SECONDS = 60 * 60  # the real registry changes rarely; matches /api/agents' TTL reasoning
+_SKILLS_INDEX_URL = "https://raw.githubusercontent.com/altananetwork/skills/main/index.json"
+
+
+async def _fetch_skills_registry() -> list[dict]:
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(_SKILLS_INDEX_URL)
+        resp.raise_for_status()
+        return resp.json().get("skills", [])
+
+
+@app.get("/api/skills-registry")
+async def skills_registry():
+    """Serves the real Altana Skills Registry, proxied and cached server-side
+    (see the module comment above for why). Same "always serve fast, refresh
+    stale data in the background" shape as /api/agents — a request never
+    blocks on a live GitHub fetch once real data exists in the cache."""
+    now = time.time()
+    is_stale = (now - _skills_cache["fetched_at"]) > _SKILLS_CACHE_TTL_SECONDS
+
+    if _skills_cache["data"] is None:
+        try:
+            _skills_cache["data"] = await _fetch_skills_registry()
+            _skills_cache["fetched_at"] = now
+        except Exception as e:
+            # Nothing cached yet and the live fetch failed — genuinely nothing
+            # honest to serve. The frontend turns this into a friendly retry
+            # prompt, not a raw error string.
+            raise HTTPException(status_code=502, detail=f"Could not reach the real skills registry: {e}")
+    elif is_stale:
+        try:
+            _skills_cache["data"] = await _fetch_skills_registry()
+            _skills_cache["fetched_at"] = now
+        except Exception as e:
+            # Stale-but-real data beats no data — keep serving what we have
+            # and try again on the next request past the TTL.
+            print(f"[server] Skills registry refresh failed, serving stale cache: {e}")
+
+    return {"skills": _skills_cache["data"] or [], "cache_age_seconds": int(time.time() - _skills_cache["fetched_at"])}
+
+
 # NOTE: the old paper-trade feature (Tenderly simulate-and-persist) and its
 # read endpoints were removed — the Practice Layer (POST /api/practice/*) with
 # permanent MongoDB history is the real "try before you spend" mechanism now.

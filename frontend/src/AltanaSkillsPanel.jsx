@@ -29,7 +29,16 @@ import PracticeRunMarketContext from './PracticeRunMarketContext';
 // (web/mobile both read VITE_API_BASE_URL). Default suits local dev.
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 
-const SKILLS_INDEX_URL = 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json';
+// Real bug fixed 2026-08-19: this used to be a direct browser fetch to
+// raw.githubusercontent.com/altananetwork/skills/main/index.json — GitHub's
+// raw-content CDN rate-limits by source IP, and that limit is SHARED across
+// everyone behind the same IP (VPNs, corporate NAT, cloud/CGNAT egress), so
+// a real visitor could get a real 429 through no fault of their own, and it
+// wasn't reproducible from any one tester's machine. Now proxied through our
+// own backend (GET /api/skills-registry), which fetches the real registry
+// server-side once and caches it — one fetch serves every visitor instead of
+// one fetch per visitor.
+const SKILLS_INDEX_URL = `${API_BASE}/api/skills-registry`;
 
 // ── Practice-fork warm-up (perceived-latency fix, NOT a fix for the wait
 // itself) ──
@@ -146,21 +155,35 @@ const SKILL_EXEC = {
   },
 };
 
+// Honest, friendly copy for the user-facing error — the real technical
+// detail (status code, message) still goes to the console for anyone
+// actually debugging it, never shown raw in the UI.
+const SKILLS_LOAD_FRIENDLY_ERROR = "Couldn't load the skills list right now. This sometimes happens — give it another try.";
+
 function useAltanaSkills() {
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [retryTick, setRetryTick] = useState(0);
+  const retry = () => setRetryTick((t) => t + 1);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
     fetch(SKILLS_INDEX_URL)
       .then((r) => { if (!r.ok) throw new Error(`Registry returned ${r.status}`); return r.json(); })
       .then((data) => { if (!cancelled) { setSkills(data.skills || []); setLoading(false); } })
-      .catch((e) => { if (!cancelled) { setError(e.message); setLoading(false); } });
+      .catch((e) => {
+        if (cancelled) return;
+        console.error('[AltanaSkillsPanel] skills registry load failed:', e.message || e);
+        setError(SKILLS_LOAD_FRIENDLY_ERROR);
+        setLoading(false);
+      });
     return () => { cancelled = true; };
-  }, []);
+  }, [retryTick]);
 
-  return { skills, loading, error };
+  return { skills, loading, error, retry };
 }
 
 function SkillCard({ skill, accent, surface, mutedBorder, onSelect }) {
@@ -533,7 +556,7 @@ function PracticeHistoryPanel({ accent, surface, mutedBorder }) {
 }
 
 export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMode, initialSkillId, onConsumedInitialSkill }) {
-  const { skills, loading, error } = useAltanaSkills();
+  const { skills, loading, error, retry } = useAltanaSkills();
   const [selected, setSelected] = useState(null);
 
   // Fire the silent practice-fork warm-up the moment this panel is opened —
@@ -565,7 +588,12 @@ export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMo
       </p>
 
       {loading && <div className="flex items-center gap-2 text-xs opacity-60 py-6"><Loader2 size={14} className="animate-spin" /> Loading the real skills registry...</div>}
-      {error && <div className="text-xs text-red-500 py-4">Could not load the skills registry: {error}</div>}
+      {error && (
+        <div className="py-4 space-y-2">
+          <div className="text-xs text-red-500">{error}</div>
+          <button onClick={retry} className="text-xs font-semibold underline" style={{ color: accent }}>Try again</button>
+        </div>
+      )}
 
       {!loading && !error && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
