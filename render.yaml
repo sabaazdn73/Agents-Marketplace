@@ -81,3 +81,9 @@ services:
         sync: false
       - key: WALLET_KEYSTORE_JSON
         sync: false
+      # REQUIRED: the real Pieverse LLM gateway key (`bag llm activate`
+      # wrote it to .env.local locally). Confirmed via
+      # bnbagent_studio_core/llm.py's _resolve_provider_config(): without
+      # this, build_model() raises RuntimeError for provider='pieverse-llm'.
+      - key: PIEVERSE_LLM_API_KEY
+        sync: false
