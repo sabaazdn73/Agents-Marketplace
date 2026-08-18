@@ -253,10 +253,10 @@ async def explainer_agent_ask(question: str = ""):
             "status": "not_deployed",
             "message": (
                 "This real agent is built and verified working (scaffolded, wallet, "
-                "LLM, and instruction all live-confirmed) but isn't publicly reachable "
-                "yet — its final deploy step needs a one-time human GitHub sign-in, "
-                "which an automated backend can't do. Once deployed, this same button "
-                "will call it for real."
+                "LLM, and instruction all live-confirmed), self-hosted on Render, but "
+                "EXPLAINER_AGENT_URL isn't set on this backend right now — a human "
+                "needs to set it (see render.yaml) and redeploy. Once set, this same "
+                "button will call it for real."
             ),
             "agent_name": EXPLAINER_AGENT_NAME,
         }
