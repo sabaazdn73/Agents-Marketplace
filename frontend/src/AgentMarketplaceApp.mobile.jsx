@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu, ScanFace,
-  ExternalLink, Zap, Coins, Search
+  ExternalLink, Zap, Coins, Search, Briefcase
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -14,6 +14,7 @@ import agentsHero from './assets/agents.png';
 import { useHireAgent, buildHireStepList } from './useHireAgent';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
+import MyJobsPanel from './MyJobsPanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -195,6 +196,7 @@ function PracticeStatsReportMobile() {
 
 const NAV_ITEMS = [
   { id: 'market', label: 'Market', icon: Store },
+  { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'report', label: 'Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build', icon: Hammer },
@@ -725,6 +727,16 @@ function AgentMarketplaceMobile() {
               </>
             )}
 
+            {nav === 'my-agents' && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">My Agents</h2>
+                  <p className="text-sm text-gray-500">Every real job you've hired through this marketplace, with its live on-chain status.</p>
+                </div>
+                <MyJobsPanel accent="#4F46E5" mutedBorder="border-gray-100 dark:border-gray-800" />
+              </div>
+            )}
+
             {nav === 'report' && (
               <div className="space-y-5">
                 <div>
@@ -868,7 +880,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
               <button
                 key={item.id}
                 onClick={() => { setNav(item.id); setHiring(false); }}
-                className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-colors ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                className={`flex flex-col items-center justify-center flex-1 max-w-[72px] h-14 rounded-xl transition-colors ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5'}`}
               >
                 <Icon size={20} className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`} />
                 <span className="text-[10px] font-medium tracking-wide">{item.label}</span>

@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -47,6 +47,7 @@ import AltanaSessionPanel from './AltanaSessionPanel';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
+import MyJobsPanel from './MyJobsPanel';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -490,6 +491,7 @@ function PracticeStatsReport() {
 
 const NAV_ITEMS = [
   { id: 'market', label: 'Marketplace', icon: Store },
+  { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
@@ -952,6 +954,17 @@ export default function AgentMarketplaceApp() {
                 darkMode={darkMode}
                 agent={selectedAgent}
               />
+            </div>
+          )}
+
+          {/* My Agents Tab — every real ERC-8183 job where the connected
+              wallet is the client, so a completed hire has somewhere to be
+              found afterward. See MyJobsPanel.jsx for the real backing. */}
+          {nav === 'my-agents' && (
+            <div className="max-w-2xl">
+              <h2 className="text-3xl font-bold tracking-tight mb-2">My Agents</h2>
+              <p className="text-gray-500 mb-8">Every real job you've hired through this marketplace, with its live on-chain status.</p>
+              <MyJobsPanel accent={accent} mutedBorder="border-gray-200 dark:border-gray-800" />
             </div>
           )}
 

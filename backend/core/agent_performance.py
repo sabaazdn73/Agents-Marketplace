@@ -6,20 +6,31 @@ answer to "how well has THIS agent performed when people actually hire it",
 which is different from the Practice-Layer report (general Practice-Mode testing
 activity, not a specific agent's real hires).
 
+Also the real backing for "My Agents" (get_my_jobs) — same scan, same window,
+just indexed by job.client instead of job.provider. Investigated honestly before
+building this (2026-08-18): there is no client-indexed event either (checked the
+installed SDK's erc8183.d.ts — getErc8183Job is a single-job read, no
+getJobsByClient/list method), so the identical "scan the recent window, filter"
+approach used for providers is the right one here too, not a different pattern —
+and since the scan already decodes every job's full struct (including .client),
+indexing both by_provider AND by_client costs zero extra RPC calls, just one more
+dict populated in the same pass.
+
 How it reads real data (and why it's bounded):
   - The AgenticCommerce kernel (ERC8183_ADDRESSES[56].commerce) exposes
     getJob(jobId) -> (id, client, provider, evaluator, description, budget,
     expiredAt, status, hook, submittedAt, deliverable), and jobCounter().
-  - There is NO provider-indexed event, and there are already ~56k+ jobs, so a
-    full per-agent scan of every job on every page view is infeasible.
+  - There is NO provider- or client-indexed event, and there are already ~56k+
+    jobs, so a full scan of every job on every page view is infeasible.
   - Instead we scan the MOST RECENT `WINDOW` jobs once (batched eth_call), decode
-    them, and tally outcomes per provider address. An agent's real track record
-    is then a dict lookup. The window is stated honestly in the payload so the UI
-    never implies it saw the agent's entire history.
+    them, and index by BOTH provider and client. A real lookup (either
+    direction) is then a dict lookup. The window is stated honestly in the
+    payload so the UI never implies it saw the wallet's/agent's entire history —
+    a job older than the most recent WINDOW jobs globally won't be found.
 
-Everything here is a real on-chain read (public BSC RPC). If a provider has no
-jobs in the window, the agent honestly reports zero real hires — expected for a
-new marketplace — rather than a fabricated number.
+Everything here is a real on-chain read (public BSC RPC). If a provider/client
+has no jobs in the window, the response honestly reports zero real hires —
+expected for a new marketplace — rather than a fabricated number.
 """
 
 import os
@@ -49,7 +60,7 @@ _AGG3_SEL = function_signature_to_4byte_selector("aggregate3((address,bool,bytes
 # getJob's returned struct, in ABI order:
 _JOB_TUPLE = "(uint256,address,address,address,string,uint256,uint256,uint8,address,uint256,bytes32)"
 
-_cache: dict = {"at": 0, "by_provider": {}, "job_counter": 0, "window_from": 0, "window_to": 0}
+_cache: dict = {"at": 0, "by_provider": {}, "by_client": {}, "job_counter": 0, "window_from": 0, "window_to": 0}
 
 
 def _rpc_url() -> str:
@@ -88,8 +99,8 @@ async def _multicall_getjobs(client: httpx.AsyncClient, job_ids: list[int]) -> l
             (job,) = abi_decode([_JOB_TUPLE], ret)
             out.append({
                 "id": job[0], "client": job[1], "provider": job[2],
-                "budget": job[5], "expiredAt": job[6], "status": job[7],
-                "submittedAt": job[9],
+                "description": job[4], "budget": job[5], "expiredAt": job[6],
+                "status": job[7], "submittedAt": job[9],
             })
         except Exception:
             continue  # malformed entry — skip honestly
@@ -97,7 +108,9 @@ async def _multicall_getjobs(client: httpx.AsyncClient, job_ids: list[int]) -> l
 
 
 async def _scan_recent_window() -> dict:
-    """Scan the most-recent WINDOW jobs and tally outcomes per provider."""
+    """Scan the most-recent WINDOW jobs once and index the real results by
+    BOTH provider (agent performance) and client (My Agents) — one scan,
+    two dict-populates, zero extra RPC calls."""
     async with httpx.AsyncClient(timeout=30) as client:
         cnt_resp = await client.post(_rpc_url(), json={
             "jsonrpc": "2.0", "id": 1, "method": "eth_call",
@@ -106,32 +119,46 @@ async def _scan_recent_window() -> dict:
         cnt_resp.raise_for_status()
         job_counter = int(cnt_resp.json()["result"], 16)
         if job_counter <= 0:
-            return {"by_provider": {}, "job_counter": 0, "window_from": 0, "window_to": 0}
+            return {"by_provider": {}, "by_client": {}, "job_counter": 0, "window_from": 0, "window_to": 0}
 
         window_to = job_counter
         window_from = max(1, job_counter - WINDOW + 1)
         ids = list(range(window_from, window_to + 1))
 
         by_provider: dict[str, dict] = {}
+        by_client: dict[str, list[dict]] = {}
         for i in range(0, len(ids), _CHUNK):
             jobs = await _multicall_getjobs(client, ids[i:i + _CHUNK])
             for job in jobs:
-                prov = (job["provider"] or "").lower()
-                if not prov or prov == "0x" + "0" * 40:
-                    continue
                 st = JOB_STATUS[job["status"]] if 0 <= job["status"] < len(JOB_STATUS) else "OPEN"
-                p = by_provider.setdefault(prov, {
-                    "total": 0, "COMPLETED": 0, "REJECTED": 0, "EXPIRED": 0,
-                    "OPEN": 0, "FUNDED": 0, "SUBMITTED": 0,
-                    "last_submitted_at": 0, "job_ids": [],
-                })
-                p["total"] += 1
-                p[st] = p.get(st, 0) + 1
-                p["job_ids"].append(int(job["id"]))
-                if job["submittedAt"] and int(job["submittedAt"]) > p["last_submitted_at"]:
-                    p["last_submitted_at"] = int(job["submittedAt"])
 
-    return {"by_provider": by_provider, "job_counter": job_counter,
+                prov = (job["provider"] or "").lower()
+                if prov and prov != "0x" + "0" * 40:
+                    p = by_provider.setdefault(prov, {
+                        "total": 0, "COMPLETED": 0, "REJECTED": 0, "EXPIRED": 0,
+                        "OPEN": 0, "FUNDED": 0, "SUBMITTED": 0,
+                        "last_submitted_at": 0, "job_ids": [],
+                    })
+                    p["total"] += 1
+                    p[st] = p.get(st, 0) + 1
+                    p["job_ids"].append(int(job["id"]))
+                    if job["submittedAt"] and int(job["submittedAt"]) > p["last_submitted_at"]:
+                        p["last_submitted_at"] = int(job["submittedAt"])
+
+                cli = (job["client"] or "").lower()
+                if cli and cli != "0x" + "0" * 40:
+                    by_client.setdefault(cli, []).append({
+                        "id": int(job["id"]),
+                        "provider": job["provider"],
+                        "description": job["description"],
+                        "budget": str(job["budget"]),
+                        "expiredAt": int(job["expiredAt"]),
+                        "status": job["status"],
+                        "statusLabel": st,
+                        "submittedAt": int(job["submittedAt"]),
+                    })
+
+    return {"by_provider": by_provider, "by_client": by_client, "job_counter": job_counter,
             "window_from": window_from, "window_to": window_to}
 
 
@@ -180,4 +207,28 @@ async def get_agent_performance(owner_address: str) -> dict:
         **window,
         "note": "Real on-chain ERC-8183 outcomes for this agent as the provider, "
                 f"from the most recent {WINDOW} jobs.",
+    }
+
+
+async def get_my_jobs(client_address: str) -> dict:
+    """Real ERC-8183 jobs where this wallet is the CLIENT (the "My Agents" tab),
+    from the same recent-WINDOW scan used for agent performance — same honest
+    bound: a job older than the most recent WINDOW jobs globally won't be found,
+    even if it's genuinely this wallet's. Sorted newest-first (highest job id)."""
+    cli = (client_address or "").lower()
+    await _ensure_fresh()
+    window = {
+        "scanned_window": WINDOW,
+        "job_counter": _cache["job_counter"],
+        "window_from": _cache["window_from"],
+        "window_to": _cache["window_to"],
+    }
+    jobs = sorted(_cache["by_client"].get(cli, []), key=lambda j: j["id"], reverse=True)
+    return {
+        "client_address": client_address,
+        "jobs": jobs,
+        **window,
+        "note": f"Real on-chain ERC-8183 jobs for this wallet as client, from the "
+                f"most recent {WINDOW} jobs (job counter {_cache['job_counter']}). "
+                "An older job than that window would not appear here, even if real.",
     }

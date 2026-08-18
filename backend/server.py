@@ -343,6 +343,36 @@ async def agent_perf(owner_address: str):
         raise HTTPException(status_code=502, detail=f"Failed to read on-chain job history: {e}")
 
 
+@app.get("/api/my-jobs")
+async def my_jobs(client_address: str):
+    """The real backing for the "My Agents" tab: every ERC-8183 job where the
+    given wallet is the CLIENT, from the same recent-window on-chain scan
+    agent_performance.py already does for providers (see that module's docstring
+    for why this is the right approach — no client-indexed event exists either).
+
+    Each job's provider address is cross-referenced against the persistent
+    known_agents store (by owner_address) to resolve a real agent name/id when
+    we have one on record; otherwise the raw provider address is returned
+    honestly rather than guessing a name."""
+    try:
+        result = await agent_performance.get_my_jobs(client_address)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to read on-chain job history: {e}")
+
+    try:
+        known = await agent_store.get_stored_agents()
+        by_owner = {(a.get("owner_address") or "").lower(): a for a in known if a.get("owner_address")}
+    except Exception:
+        by_owner = {}  # resolution is a nice-to-have; a store hiccup shouldn't break the jobs list
+
+    for job in result["jobs"]:
+        agent = by_owner.get((job["provider"] or "").lower())
+        job["agent_id"] = agent.get("id") if agent else None
+        job["agent_name"] = agent.get("name") if agent else None
+
+    return result
+
+
 @app.get("/api/practice/stats")
 async def practice_stats():
     """Real, aggregated practice-layer execution stats (per skill: real run
