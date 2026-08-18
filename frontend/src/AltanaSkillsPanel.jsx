@@ -23,6 +23,7 @@ import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeS
 import { detectLeaderTrades } from './copyTradeSkill';
 import { payOnce } from './x402Skill';
 import { getTrendingBscTokens, getRecentWalletSwaps } from './researchSkills';
+import PracticeRunMarketContext from './PracticeRunMarketContext';
 
 // Single source of truth for the backend base URL, matching the main app
 // (web/mobile both read VITE_API_BASE_URL). Default suits local dev.
@@ -511,6 +512,14 @@ function PracticeHistoryPanel({ accent, surface, mutedBorder }) {
               </div>
               <div className="opacity-60 mt-0.5">
                 {r.action}{fmtInputs(r.result) ? ` · ${fmtInputs(r.result)}` : ''}
+              </div>
+              {/* Real market context for this specific run — see
+                  skillMarketContext.js for what's real vs. honestly
+                  unavailable per skill type. Returns null (renders nothing)
+                  for skills this doesn't apply to (detection/read-only
+                  skills, x402). */}
+              <div className="mt-2 pt-2 border-t border-black/5 dark:border-white/5">
+                <PracticeRunMarketContext skillId={r.skill_id} inputs={r.result?.inputs} accent={accent} />
               </div>
             </div>
           ))}
