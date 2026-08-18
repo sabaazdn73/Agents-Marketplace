@@ -343,6 +343,25 @@ async def agent_perf(owner_address: str):
         raise HTTPException(status_code=502, detail=f"Failed to read on-chain job history: {e}")
 
 
+# The exact prefixes our own hire flows write into a job's real, immutable
+# on-chain `description` (useHireAgent.js / AltanaSessionPanel.jsx / mobile
+# app — all three checked and matched here). Keep these in sync if any of
+# those change.
+_HIRE_DESCRIPTION_PREFIXES = [
+    "Hire via Agents Marketplace (Altana session): ",
+    "Hire via Agents Marketplace: ",
+]
+
+
+def _parse_hired_agent_name(description: str) -> str | None:
+    """Recovers the exact agent name shown at hire time, straight from the
+    job's own real on-chain description — see the real bug this fixes below."""
+    for prefix in _HIRE_DESCRIPTION_PREFIXES:
+        if description and description.startswith(prefix):
+            return description[len(prefix):].strip() or None
+    return None
+
+
 @app.get("/api/my-jobs")
 async def my_jobs(client_address: str):
     """The real backing for the "My Agents" tab: every ERC-8183 job where the
@@ -350,10 +369,28 @@ async def my_jobs(client_address: str):
     agent_performance.py already does for providers (see that module's docstring
     for why this is the right approach — no client-indexed event exists either).
 
-    Each job's provider address is cross-referenced against the persistent
-    known_agents store (by owner_address) to resolve a real agent name/id when
-    we have one on record; otherwise the raw provider address is returned
-    honestly rather than guessing a name."""
+    Real bug fixed 2026-08-19: a job's `provider` field is a WALLET address,
+    not an agent identity — and one wallet can genuinely own several distinct
+    ERC-8004 agents (confirmed live: the wallet behind job #56606 owns THREE
+    registered identities from the same mass-registration cluster). Resolving
+    "the agent" purely by owner_address is ambiguous — it can silently pick a
+    different one of that wallet's agents than the one actually hired, which
+    is exactly what happened (hire-time notification correctly showed
+    "Ethgar9qoq1pf7b" from the specific agent object the user clicked;
+    owner_address-only resolution here later showed a same-wallet sibling,
+    "Chaingarvppv", instead).
+
+    Real fix: our own hire flows (useHireAgent.js, AltanaSessionPanel.jsx —
+    web and mobile) write the exact agent name into the job's own real,
+    immutable on-chain `description` field ("Hire via Agents Marketplace:
+    {name}"). That string is the authoritative record of which agent was
+    actually hired, sourced from the chain itself, not a guess — parsed and
+    preferred over the owner_address lookup, which now only breaks the
+    provider/name tie (and supplies agent_id for the link) rather than
+    picking the name outright. Falls back to owner_address alone only for
+    jobs our own flows didn't create (no parseable description) — honestly
+    a best-effort/ambiguous case in that scenario, same real limitation as
+    before, now scoped to only where it's unavoidable."""
     try:
         result = await agent_performance.get_my_jobs(client_address)
     except Exception as e:
@@ -361,14 +398,44 @@ async def my_jobs(client_address: str):
 
     try:
         known = await agent_store.get_stored_agents()
-        by_owner = {(a.get("owner_address") or "").lower(): a for a in known if a.get("owner_address")}
+        by_owner: dict[str, list[dict]] = {}
+        for a in known:
+            owner = (a.get("owner_address") or "").lower()
+            if owner:
+                by_owner.setdefault(owner, []).append(a)
     except Exception:
         by_owner = {}  # resolution is a nice-to-have; a store hiccup shouldn't break the jobs list
 
     for job in result["jobs"]:
-        agent = by_owner.get((job["provider"] or "").lower())
-        job["agent_id"] = agent.get("id") if agent else None
-        job["agent_name"] = agent.get("name") if agent else None
+        candidates = by_owner.get((job["provider"] or "").lower(), [])
+        parsed_name = _parse_hired_agent_name(job.get("description") or "")
+
+        agent = None
+        if parsed_name:
+            # The real, on-chain-sourced name wins — find the specific known
+            # agent that's BOTH this provider wallet AND this exact name.
+            agent = next((a for a in candidates if a.get("name") == parsed_name), None)
+
+        if agent:
+            job["agent_id"] = agent.get("id")
+            job["agent_name"] = agent.get("name")
+        elif parsed_name:
+            # We know the real name (it's on-chain) but this specific agent
+            # isn't in our store (or the store is momentarily behind) — show
+            # the real name honestly, just without a working detail-page link.
+            job["agent_id"] = None
+            job["agent_name"] = parsed_name
+        elif len(candidates) == 1:
+            # No parseable description (not one of our own hire flows), but
+            # this wallet only has one known agent — unambiguous.
+            job["agent_id"] = candidates[0].get("id")
+            job["agent_name"] = candidates[0].get("name")
+        else:
+            # Genuinely ambiguous (multiple same-wallet agents, no on-chain
+            # name to disambiguate with) or simply unknown — the honest
+            # fallback is the raw provider address, not a guess.
+            job["agent_id"] = None
+            job["agent_name"] = None
 
     return result
 
