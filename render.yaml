@@ -45,3 +45,39 @@ services:
     # No persistent disk (free tier): fork state is ephemeral and resets on
     # restart — see EPHEMERAL STATE above. Add a `disk:` at /data (paid) plus
     # `--state /data/anvil-state.json` in the entrypoint to make it durable.
+
+  # Task 3's explainer agent (TermiX Advantage Report Q&A bot), self-hosted
+  # on real BSC MAINNET — a real BNB Agent Studio seller agent, deliberately
+  # NOT deployed via `bag deploy agent`'s AWS AgentCore path (this project's
+  # standing rule: no paid/unknown-cost infrastructure anywhere). See
+  # explainer-agent/Dockerfile's header comment for the real investigation
+  # that confirmed this app has no hard AWS runtime dependency — it's a
+  # plain Starlette app served by plain uvicorn, same Web-Service pattern as
+  # the Anvil fork above.
+  #
+  # EPHEMERAL STATE (free tier, same real tradeoff as the Anvil fork):
+  # studio.toml's [storage].kind = "local" — a submitted deliverable lives on
+  # the container's own disk and would become unreadable across a
+  # restart/idle-cycle, even though its on-chain reference survives.
+  # Accepted for now; revisit if it becomes a real problem in practice.
+  #
+  # After deploy, on the BACKEND service set:
+  #   EXPLAINER_AGENT_URL = https://<this-service>.onrender.com
+  - type: web
+    name: explainer-agent
+    runtime: docker
+    dockerfilePath: ./explainer-agent/Dockerfile
+    dockerContext: ./explainer-agent
+    plan: free
+    autoDeploy: false
+    healthCheckPath: /ping   # main.py's build_a2a_app() answers GET /ping with {"status":"Healthy"}
+    envVars:
+      # REQUIRED: the real agent wallet's password + its real V3 keystore
+      # JSON (both generated locally this session — never committed to git,
+      # matching the scaffold's own .gitignore). ensure_keystore_materialized()
+      # (a real bnbagent_studio_core.wallet function) writes the keystore to
+      # disk from this env var on boot — no custom secret-handling code needed.
+      - key: WALLET_PASSWORD
+        sync: false
+      - key: WALLET_KEYSTORE_JSON
+        sync: false
