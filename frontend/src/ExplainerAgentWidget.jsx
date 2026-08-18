@@ -1,10 +1,12 @@
 // ExplainerAgentWidget.jsx
 //
 // "Ask our explainer agent" — the real, live TermiX Advantage Report agent,
-// built 2026-08-19 via the actual `bag` CLI pipeline (scaffold, wallet, LLM
-// activation all genuinely succeeded, real testnet wallet, real BSC-testnet
-// AgenticCommerce contract). Shared verbatim by web and mobile, placed in the
-// Learn tab since that's exactly what this agent explains.
+// built via the actual `bag` CLI pipeline (scaffold, wallet, LLM activation
+// all genuinely succeeded). Rebuilt 2026-08-18 on real BSC MAINNET (was
+// testnet) and self-hosted as a plain Docker Web Service on Render — see
+// explainer-agent/ + render.yaml for the real "no AWS, no faucet" rebuild.
+// Shared verbatim by web and mobile, placed in the Learn tab since that's
+// exactly what this agent explains.
 //
 // Honest real constraint, not a choice we're hiding: this agent's only two
 // real skills are `negotiate` (fast, rule-based, no LLM — just a signed price
@@ -20,7 +22,7 @@ import React, { useState } from 'react';
 import { Sparkles, Loader2, ExternalLink, Send } from 'lucide-react';
 
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
-const AGENT_WALLET = '0x17D5e278b313fC6E74976341F8E296E08481CB74'; // real testnet wallet from the real build; a full ERC-8004 identity registers once deployed
+const AGENT_WALLET = '0x08Cef8B3ec5D33529dFe6700ccbFfc97158Cb5dd'; // real BSC MAINNET wallet, self-hosted on Render
 
 export default function ExplainerAgentWidget({ accent = '#4F46E5', mutedBorder = 'border-gray-200 dark:border-gray-800', surface }) {
   const [question, setQuestion] = useState('');
@@ -50,7 +52,7 @@ export default function ExplainerAgentWidget({ accent = '#4F46E5', mutedBorder =
       </div>
       <p className="text-xs opacity-60 mb-4">
         A real agent, built for this project via the real BNB Agent Studio CLI, whose job is explaining exactly what's on this page. Not a canned FAQ bot — a genuine ERC-8183 seller agent with its own real wallet.
-        {' '}<a href={`https://testnet.bscscan.com/address/${AGENT_WALLET}`} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5">its real on-chain wallet <ExternalLink size={10} /></a>.
+        {' '}<a href={`https://bscscan.com/address/${AGENT_WALLET}`} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5">its real on-chain wallet <ExternalLink size={10} /></a>.
       </p>
 
       <div className="flex gap-2 mb-3">

@@ -221,20 +221,24 @@ async def skills_registry():
 # marketplace exists to demonstrate, not a shortcut we're choosing not to
 # take.
 #
-# Getting real explanation text requires a funded BSC-testnet job, which
-# requires real testnet BNB, which every real faucet checked gates behind a
-# CAPTCHA — something this backend cannot and will not automate (bypassing
-# bot-detection is out of scope, always). And calling this agent from a
-# public, unauthenticated widget requires it to be PUBLICLY deployed
-# (`bag deploy agent`), which requires a one-time interactive GitHub
-# device-flow login — also not something this backend can do non-interactively.
+# Update 2026-08-18: rebuilt on real BSC MAINNET instead of testnet, to
+# eliminate the CAPTCHA-gated faucet blocker described below — real gas comes
+# from a real funded wallet, no faucet needed. `bag deploy agent`'s free
+# platform trial turned out to be testnet-only, and mainnet deploy defaults to
+# self-hosting via AWS Bedrock AgentCore — rejected (this project's standing
+# rule: no paid/unknown-cost infrastructure). Self-hosted instead as a plain
+# Docker Web Service on Render (see explainer-agent/ + render.yaml) after
+# confirming, by reading the real generated source, that the app has no hard
+# AWS runtime dependency. Getting the real deliverable TEXT (not just this
+# quote) still requires a real, funded on-chain ERC-8183 job — that's a real
+# transfer of crypto funds, so it's done by a human, not this backend.
 #
-# So: EXPLAINER_AGENT_URL is unset until a human completes that one-time
-# deploy. Until then, this endpoint reports that real, specific, honest state
-# instead of pretending to call something that isn't reachable.
-EXPLAINER_AGENT_URL = os.environ.get("EXPLAINER_AGENT_URL")  # e.g. https://<slug>.agentcore.aws/ once deployed
-EXPLAINER_AGENT_NAME = "explainerc8004ide8d449f-agent"
-EXPLAINER_AGENT_WALLET = "0x17D5e278b313fC6E74976341F8E296E08481CB74"  # real testnet wallet, from the real build
+# So: EXPLAINER_AGENT_URL is unset until a human sets it (now pointing at the
+# real live Render URL). Until then, this endpoint reports that real, specific,
+# honest state instead of pretending to call something that isn't reachable.
+EXPLAINER_AGENT_URL = os.environ.get("EXPLAINER_AGENT_URL")  # https://explainer-agent.onrender.com once EXPLAINER_AGENT_URL is set on this backend service
+EXPLAINER_AGENT_NAME = "explainmainnet1a2b3c-agent"
+EXPLAINER_AGENT_WALLET = "0x08Cef8B3ec5D33529dFe6700ccbFfc97158Cb5dd"  # real BSC MAINNET wallet, self-hosted on Render (see explainer-agent/)
 
 
 @app.post("/api/explainer-agent/ask")
