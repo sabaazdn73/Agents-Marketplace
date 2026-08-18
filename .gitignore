@@ -6,6 +6,13 @@ frontend/.env
 *.pem
 *.key
 
+# bnbagent-studio project state (explainer-agent/ and any future agent
+# scaffolds): .studio/ holds the encrypted wallet keystore + .env.local
+# secrets. .env.local is already covered above (matches at any depth); this
+# additionally covers the keystore JSON itself and anything else under
+# .studio/, matching the scaffold's own real .gitignore convention.
+.studio/
+
 # Node / frontend
 node_modules/
 dist/
