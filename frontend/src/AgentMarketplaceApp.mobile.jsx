@@ -16,6 +16,8 @@ import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AgentGuidancePanel from './AgentGuidancePanel';
+import ExplainerAgentWidget from './ExplainerAgentWidget';
+import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
@@ -753,6 +755,12 @@ function AgentMarketplaceMobile() {
             {nav === 'report' && (
               <div className="space-y-5">
                 <div>
+                  <h2 className="text-2xl font-bold mb-1">Advantage Report</h2>
+                  <p className="text-sm text-gray-500">3 real tasks, with an agent and without, real time/cost/quality — the TermiX track's required comparison.</p>
+                </div>
+                <AdvantageReport />
+
+                <div className="pt-4">
                   <h2 className="text-2xl font-bold mb-1">Practice-Layer Report</h2>
                   <p className="text-sm text-gray-500">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — not a projection.</p>
                   <p className="text-[11px] text-gray-400 mt-1">Note: general Practice-Mode <em>testing</em> activity, not a specific agent's real hire record — for that, open an agent → “Real Hire Performance”.</p>
@@ -769,6 +777,9 @@ function AgentMarketplaceMobile() {
                   <h2 className="text-2xl font-bold mb-1">Learn</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">What each agent does, and what you're actually granting.</p>
                 </div>
+
+                <ExplainerAgentWidget accent={REPORT_ACCENT} mutedBorder="border-gray-100 dark:border-gray-800" />
+
                 <div className="space-y-3">
                   {LEARN_TOPICS.map((item, i) => (
                     <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">

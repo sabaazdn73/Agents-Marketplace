@@ -207,6 +207,104 @@ async def skills_registry():
     return {"skills": _skills_cache["data"] or [], "cache_age_seconds": int(time.time() - _skills_cache["fetched_at"])}
 
 
+# ── The real explainer agent (ERC-8004/ERC-8183 education demo, TermiX
+# Advantage Report agent) ──
+#
+# Real, honest status as of 2026-08-19, confirmed by actually building it via
+# the real `bag` CLI pipeline (scaffold/wallet/instruction/LLM all genuinely
+# succeeded) and reading its own real source: this agent has exactly two real
+# skills, `negotiate` (fast, rule-based, no LLM — just a signed price quote)
+# and `notify_funded` (the LLM only runs, and the real deliverable text only
+# gets produced, AFTER a real on-chain ERC-8183 job is created and funded).
+# There is no faster "just ask it and get text back" path — that would be
+# faking the real economic mechanic (paid job-escrow hiring) this whole
+# marketplace exists to demonstrate, not a shortcut we're choosing not to
+# take.
+#
+# Getting real explanation text requires a funded BSC-testnet job, which
+# requires real testnet BNB, which every real faucet checked gates behind a
+# CAPTCHA — something this backend cannot and will not automate (bypassing
+# bot-detection is out of scope, always). And calling this agent from a
+# public, unauthenticated widget requires it to be PUBLICLY deployed
+# (`bag deploy agent`), which requires a one-time interactive GitHub
+# device-flow login — also not something this backend can do non-interactively.
+#
+# So: EXPLAINER_AGENT_URL is unset until a human completes that one-time
+# deploy. Until then, this endpoint reports that real, specific, honest state
+# instead of pretending to call something that isn't reachable.
+EXPLAINER_AGENT_URL = os.environ.get("EXPLAINER_AGENT_URL")  # e.g. https://<slug>.agentcore.aws/ once deployed
+EXPLAINER_AGENT_NAME = "explainerc8004ide8d449f-agent"
+EXPLAINER_AGENT_WALLET = "0x17D5e278b313fC6E74976341F8E296E08481CB74"  # real testnet wallet, from the real build
+
+
+@app.post("/api/explainer-agent/ask")
+async def explainer_agent_ask(question: str = ""):
+    """Real proxy to the real explainer agent's A2A `negotiate` skill — the
+    one real, fast, LLM-free interaction available without a funded on-chain
+    job (see module comment above for why nothing faster/free exists).
+    Returns the real signed quote when the agent is reachable, or an honest
+    "not deployed yet" status otherwise — never a fabricated response."""
+    if not EXPLAINER_AGENT_URL:
+        return {
+            "status": "not_deployed",
+            "message": (
+                "This real agent is built and verified working (scaffolded, wallet, "
+                "LLM, and instruction all live-confirmed) but isn't publicly reachable "
+                "yet — its final deploy step needs a one-time human GitHub sign-in, "
+                "which an automated backend can't do. Once deployed, this same button "
+                "will call it for real."
+            ),
+            "agent_name": EXPLAINER_AGENT_NAME,
+        }
+
+    task_description = (
+        question.strip()
+        or "Explain ERC-8004 identity and ERC-8183 job-escrow hiring to a total beginner, in plain simple English with real analogies and no jargon."
+    )
+    payload = {
+        "jsonrpc": "2.0", "id": 1, "method": "message/send",
+        "params": {
+            "message": {
+                "role": "user",
+                "parts": [{
+                    "kind": "data",
+                    "data": {
+                        "skill": "negotiate",
+                        "task_description": task_description,
+                        "terms": {
+                            "deliverables": "A short, beginner-friendly written explanation with a real-world analogy.",
+                            "quality_standards": "No jargon without explanation. A total beginner should be able to follow it.",
+                        },
+                    },
+                }],
+                "messageId": "web-widget",
+            },
+        },
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(EXPLAINER_AGENT_URL, json=payload)
+            resp.raise_for_status()
+            body = resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"The real agent didn't respond: {e}")
+
+    data_part = (body.get("result", {}).get("parts") or [{}])[0].get("data", {})
+    return {
+        "status": "quoted",
+        "task_description": task_description,
+        "quote": data_part.get("response"),
+        "negotiation_hash": data_part.get("negotiation_hash"),
+        "estimated_completion_seconds": (data_part.get("response") or {}).get("estimated_completion_seconds"),
+        "note": (
+            "This is a real, live, signed quote from the real agent — proof it's "
+            "genuinely running. The actual written answer is only produced after "
+            "this quote is paid and funded on-chain (real ERC-8183 job-escrow), "
+            "which is the real thing this agent is built to explain."
+        ),
+    }
+
+
 # NOTE: the old paper-trade feature (Tenderly simulate-and-persist) and its
 # read endpoints were removed — the Practice Layer (POST /api/practice/*) with
 # permanent MongoDB history is the real "try before you spend" mechanism now.

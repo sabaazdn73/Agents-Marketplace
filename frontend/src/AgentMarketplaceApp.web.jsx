@@ -49,6 +49,8 @@ import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AgentGuidancePanel from './AgentGuidancePanel';
+import ExplainerAgentWidget from './ExplainerAgentWidget';
+import AdvantageReport from './AdvantageReport';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -981,6 +983,12 @@ export default function AgentMarketplaceApp() {
               runs persisted in MongoDB. */}
           {nav === 'report' && (
             <div className="max-w-4xl">
+              <h2 className="text-3xl font-bold tracking-tight mb-2">Advantage Report</h2>
+              <p className="text-gray-500 mb-8">3 real tasks, each run with an agent and without, real time/cost/quality — the TermiX track's required comparison.</p>
+              <div className="mb-14">
+                <AdvantageReport />
+              </div>
+
               <h2 className="text-3xl font-bold tracking-tight mb-2">Practice-Layer Execution Report</h2>
               <p className="text-gray-500 mb-2">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — persisted in the database, not a projection or an invented comparison.</p>
               <p className="text-[12px] text-gray-400 mb-10">Note: this reflects general Practice-Mode <em>testing</em> activity across all users, not any specific listed agent's real-world hire track record. For a given agent's real hires, open its detail page → “Real Hire Performance”.</p>
@@ -997,8 +1005,12 @@ export default function AgentMarketplaceApp() {
           {nav === 'learn' && (
             <div className="max-w-3xl">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Learn</h2>
-              <p className="text-gray-500 mb-10">What each agent does, and what authority you're actually granting when you hire one.</p>
-              
+              <p className="text-gray-500 mb-6">What each agent does, and what authority you're actually granting when you hire one.</p>
+
+              <div className="mb-10">
+                <ExplainerAgentWidget accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" />
+              </div>
+
               <div className="space-y-6">
                 {LEARN_TOPICS.map((topic, i) => (
                   <div key={i} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
