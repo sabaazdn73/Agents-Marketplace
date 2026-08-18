@@ -74,8 +74,8 @@ export default function AdvantageReport() {
       {/* Task 2 — BLOCKED, honestly */}
       <TaskCard icon={Coins} title="Task 2 — DeFi execution (Venus Lending supply)" statusLabel="Blocked" statusColor="#F59E0B">
         <Side label="With agent (real, Practice Mode Venus skill)">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Blocked by a real, disclosed infrastructure issue</div>
-          <p className="text-[11px] text-gray-400 leading-relaxed">8 real attempts across ~15 minutes all failed at the same point: funding a fresh practice wallet hits a "Temporary internal error" from the practice fork's upstream archive RPC (a known, already-documented dRPC free-tier degradation — not a code bug). Will be completed and reported with real numbers once resolved.</p>
+          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Blocked by a real, disclosed infrastructure issue (intermittent)</div>
+          <p className="text-[11px] text-gray-400 leading-relaxed">15+ real attempts across two sessions: mostly a "Temporary internal error" from the practice fork's upstream archive RPC (known dRPC free-tier degradation, not a code bug) — but it briefly cleared twice mid-session (real funding succeeded), then reverted before the full approve+supply sequence could complete cleanly in one run. Genuinely intermittent, not permanently down. Will be completed and reported with real numbers on the next clean window.</p>
         </Side>
         <Side label="Without agent (manual)">
           <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><Clock size={12} /> TODO — awaiting your real manual timing</div>
