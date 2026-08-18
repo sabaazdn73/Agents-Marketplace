@@ -4,7 +4,7 @@
 # the Dockerfile's header comment for why this has no hard AWS dependency.
 set -euo pipefail
 
-: "${WALLET_PASSWORD:?WALLET_PASSWORD is required — unlocks the agent's real V3 keystore}"
+: "${WALLET_PASSWORD:?WALLET_PASSWORD is required — unlocks this agent real V3 keystore}"
 : "${WALLET_KEYSTORE_JSON:?WALLET_KEYSTORE_JSON is required — the real encrypted keystore JSON (ensure_keystore_materialized() writes it to disk on boot)}"
 
 # main.py reads AGENT_PORT (not $PORT) for the bind port — see main.py's own
