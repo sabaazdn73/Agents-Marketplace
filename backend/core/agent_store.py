@@ -25,6 +25,27 @@ Diversity is re-applied on READ: agents accumulate across refreshes, and without
 a re-cap the big campaigns (Termix/Q402/Ave.ai) would slowly refill the store
 with distinct-id duplicates. get_stored_agents() sorts by score then re-caps per
 cluster so the served list stays diverse no matter how much has accumulated.
+
+Real gap found and fixed 2026-08-18 (audited against the live store, not just
+this docstring's stated intent): `upsert_agents` did a blind `$set` of every
+field aggregate.py sent, every refresh. aggregate.py itself explicitly falls
+back to None/False for its best-effort enrichment fields (tvl_usd,
+defillama_slug/url, financial_data_available, owner_bnb_balance) whenever the
+DefiLlama fetch or the owner-balance RPC transiently fails THAT round (see its
+own try/except comments — "agents still shown, just without TVL"). A blind
+$set meant a transient upstream hiccup on refresh N would silently OVERWRITE a
+real value learned on refresh N-1 with None — not a dropped agent (the
+document survives, matching the headline promise above), but a real, silent
+loss of previously-known real data, live-confirmed: all 96 agents in the store
+right now have a real owner_bnb_balance, every one of them one bad RPC call
+away from being wiped back to None on the next refresh under the old code.
+Fixed below: these specific best-effort fields only get overwritten when the
+fresh value is genuinely present; a fresh None/failed-match doesn't erase a
+real one already on record. Deliberate, stated tradeoff: this can't distinguish
+"transient failure" from "this agent genuinely stopped matching a DefiLlama
+protocol" — it's biased toward keeping last-known-real data rather than
+silently losing it, consistent with this file's own possibly_delisted
+philosophy above (flag soft and reversible, never erase).
 """
 
 from datetime import datetime, timezone, timedelta
@@ -35,22 +56,53 @@ from core.aggregate import _diversify   # same cluster-cap used at fetch time
 STALE_DAYS = 7          # not seen in any refresh for a week => possibly delisted
 READ_CLUSTER_CAP = 3    # keep the served list diverse across accumulation
 
+# Best-effort enrichment fields that a transient upstream failure can null out
+# on any given refresh (see the module docstring). Grouped because they
+# describe ONE outcome (the DefiLlama match) — preserved or overwritten
+# together, never partially, so tvl_usd can't end up stale while
+# financial_data_available flips to False (or vice versa).
+_DEFILLAMA_FIELD_GROUP = ["tvl_usd", "defillama_slug", "defillama_url", "financial_data_available"]
+_OWNER_BALANCE_FIELD = "owner_bnb_balance"
+
+
+def _merge_preserving_real_data(fresh: dict, existing: dict | None) -> dict:
+    """Returns the $set payload for one agent: fresh data, except the
+    best-effort fields above fall back to the EXISTING stored value when the
+    fresh fetch came back empty/failed for them this round."""
+    merged = dict(fresh)
+    if not existing:
+        return merged
+    if fresh.get("tvl_usd") is None and existing.get("tvl_usd") is not None:
+        for f in _DEFILLAMA_FIELD_GROUP:
+            merged[f] = existing.get(f)
+    if fresh.get(_OWNER_BALANCE_FIELD) is None and existing.get(_OWNER_BALANCE_FIELD) is not None:
+        merged[_OWNER_BALANCE_FIELD] = existing[_OWNER_BALANCE_FIELD]
+    return merged
+
 
 async def upsert_agents(agents: list[dict]) -> dict:
     """Upsert each freshly-fetched agent into `known_agents`, keyed by agent id.
-    Updates mutable fields (score, feedback, balance, category, …) in place,
-    stamps last_seen_at, records first_seen_at once, and NEVER deletes."""
+    Updates mutable fields (score, feedback, category, …) in place, stamps
+    last_seen_at, records first_seen_at once, and NEVER deletes — and never
+    silently regresses a best-effort enrichment field to empty just because
+    this round's fetch of it happened to fail (see module docstring)."""
     db = get_db()
     now_iso = datetime.now(timezone.utc).isoformat()
     coll = db.known_agents
     new_count = 0
+
+    ids = [a.get("id") for a in agents if a.get("id") and a.get("id") != "None"]
+    existing_docs = await coll.find({"_id": {"$in": ids}}).to_list(length=len(ids)) if ids else []
+    existing_by_id = {d["_id"]: d for d in existing_docs}
+
     for a in agents:
         aid = a.get("id")
         if not aid or aid == "None":
             continue
+        merged = _merge_preserving_real_data(a, existing_by_id.get(aid))
         res = await coll.update_one(
             {"_id": aid},
-            {"$set": {**a, "last_seen_at": now_iso},
+            {"$set": {**merged, "last_seen_at": now_iso},
              "$setOnInsert": {"first_seen_at": now_iso}},
             upsert=True,
         )
