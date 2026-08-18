@@ -48,6 +48,7 @@ import AltanaSkillsPanel from './AltanaSkillsPanel';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
+import AgentGuidancePanel from './AgentGuidancePanel';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -207,7 +208,8 @@ function DetailBadge({ children, icon: Icon }) {
 // owner as the provider). Distinct from the Practice-Layer report — this is
 // "how has THIS agent done when actually hired." Honest empty state when the
 // agent has no real hires yet (expected for a new marketplace).
-function AgentPerformance({ ownerAddress }) {
+function AgentPerformance({ agent, onTrySkill }) {
+  const ownerAddress = agent.ownerAddress;
   const [perf, setPerf] = useState(null);
   const [state, setState] = useState('loading'); // loading | ready | error
   useEffect(() => {
@@ -227,9 +229,10 @@ function AgentPerformance({ ownerAddress }) {
       {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={13} className="animate-spin" /> Reading on-chain job history…</div>}
       {state === 'error' && <div className="text-xs text-gray-400">Couldn't read on-chain job history right now.</div>}
       {state === 'ready' && (!perf || !perf.hired) ? (
-        <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
-          Not yet hired through this marketplace — no ERC-8183 jobs found for this agent{perf ? ` in the most recent ${perf.scanned_window} on-chain jobs` : ''}. That's an honest zero-history state, not poor performance.
-        </div>
+        <>
+          <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" onTrySkill={onTrySkill} />
+          {perf && <p className="text-[10px] text-gray-400 mt-1.5">Checked the most recent {perf.scanned_window} on-chain ERC-8183 jobs — none found for this agent.</p>}
+        </>
       ) : state === 'ready' && perf?.hired ? (
         <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
           <div className="grid grid-cols-3 gap-3 mb-2">
@@ -247,7 +250,7 @@ function AgentPerformance({ ownerAddress }) {
 // Full agent detail view — everything the aggregated 8004scan/DefiLlama data
 // actually holds for one agent. Shown full-screen in the market tab, matching
 // the hire-flow navigation pattern.
-function AgentDetail({ agent, onBack, onHire }) {
+function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
   const [copied, setCopied] = useState(false);
   const onShare = async () => {
     const ok = await copyShareLink(agentShareUrl(agent));
@@ -317,7 +320,7 @@ function AgentDetail({ agent, onBack, onHire }) {
           </span>
         </div>
 
-        <AgentPerformance ownerAddress={agent.ownerAddress} />
+        <AgentPerformance agent={agent} onTrySkill={onTrySkill} />
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
@@ -507,6 +510,10 @@ export default function AgentMarketplaceApp() {
   const [searchQuery, setSearchQuery] = useState('');    // debounced, used for filtering
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail view
+  // Real deep-link from the agent guidance panel's "Try in Practice Mode" —
+  // switches to Build and pre-opens that specific skill's guided form.
+  const [pendingSkillId, setPendingSkillId] = useState(null);
+  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); };
   const [hiring, setHiring] = useState(false);
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
@@ -718,6 +725,7 @@ export default function AgentMarketplaceApp() {
               agent={detailAgent}
               onBack={() => setDetailAgent(null)}
               onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
+              onTrySkill={handleTrySkill}
             />
           )}
 
@@ -1031,7 +1039,7 @@ export default function AgentMarketplaceApp() {
               <a href="https://docs.bnbchain.org/developer-kit" target="_blank" rel="noreferrer" className="text-xs text-indigo-500 underline mb-10 inline-block">Source: docs.bnbchain.org/developer-kit →</a>
 
               <div className="mb-10">
-                <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} />
+                <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
               </div>
 
               <div className="flex items-center gap-3 mb-8">

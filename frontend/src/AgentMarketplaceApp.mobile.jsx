@@ -15,6 +15,7 @@ import { useHireAgent, buildHireStepList } from './useHireAgent';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
+import AgentGuidancePanel from './AgentGuidancePanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -323,7 +324,8 @@ function SplashScreen({ onUnlock }) {
 const BSCSCAN = 'https://bscscan.com';
 
 // Real per-agent track record from on-chain ERC-8183 jobs (mobile equivalent).
-function AgentPerformanceMobile({ ownerAddress }) {
+function AgentPerformanceMobile({ agent }) {
+  const ownerAddress = agent.ownerAddress;
   const [perf, setPerf] = useState(null);
   const [state, setState] = useState('loading');
   useEffect(() => {
@@ -342,9 +344,14 @@ function AgentPerformanceMobile({ ownerAddress }) {
       {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Reading on-chain job history…</div>}
       {state === 'error' && <div className="text-xs text-gray-400">Couldn't read on-chain job history right now.</div>}
       {state === 'ready' && (!perf || !perf.hired) ? (
-        <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
-          Not yet hired through this marketplace{perf ? ` (no ERC-8183 jobs in the most recent ${perf.scanned_window})` : ''}. An honest zero-history state, not poor performance.
-        </div>
+        <>
+          {/* Practice Mode has no mobile UI yet (confirmed, real constraint,
+              not a gap introduced here), so no onTrySkill here — the panel
+              honestly omits the "try this skill" suggestion on its own and
+              falls back to the plain "nothing to show yet" copy instead. */}
+          <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" />
+          {perf && <p className="text-[10px] text-gray-400 mt-1.5">Checked the most recent {perf.scanned_window} on-chain ERC-8183 jobs — none found for this agent.</p>}
+        </>
       ) : state === 'ready' && perf?.hired ? (
         <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
           <div className="flex items-center gap-4 mb-1">
@@ -426,7 +433,7 @@ function AgentDetailMobile({ agent, onBack, onHire }) {
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
 
-        <AgentPerformanceMobile ownerAddress={agent.ownerAddress} />
+        <AgentPerformanceMobile agent={agent} />
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 

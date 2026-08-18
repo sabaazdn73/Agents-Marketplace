@@ -532,13 +532,23 @@ function PracticeHistoryPanel({ accent, surface, mutedBorder }) {
   );
 }
 
-export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMode }) {
+export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMode, initialSkillId, onConsumedInitialSkill }) {
   const { skills, loading, error } = useAltanaSkills();
   const [selected, setSelected] = useState(null);
 
   // Fire the silent practice-fork warm-up the moment this panel is opened —
   // see warmUpPracticeForkOnce() above for why and its real safety net.
   useEffect(() => { warmUpPracticeForkOnce(); }, []);
+
+  // Real deep-link from the agent detail page's guidance panel ("Try this
+  // risk-free in Practice Mode") — once the real skills registry has
+  // loaded, auto-open the specific skill it pointed at, once.
+  useEffect(() => {
+    if (!initialSkillId || loading || skills.length === 0) return;
+    const match = skills.find((s) => s.id === initialSkillId);
+    if (match) setSelected(match);
+    onConsumedInitialSkill?.();
+  }, [initialSkillId, loading, skills, onConsumedInitialSkill]);
 
   if (selected) {
     return <SkillGuidedForm skill={selected} accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} onBack={() => setSelected(null)} />;
