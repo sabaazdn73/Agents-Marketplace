@@ -36,9 +36,20 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md studio.toml ./
 COPY *.py ./
 RUN pip install --no-cache-dir -e .
+
+# Real, checked quirk (not a bug): studio.toml's [wallet].keystore_dir is
+# "../../.studio/wallets", written for the original nested
+# workspace_root/app/agent/ layout. In this flattened image, find_project_root()
+# sees WORKDIR /app as the project root, so ensure_keystore_materialized()
+# resolves that relative path to /.studio/wallets (container filesystem root)
+# — confirmed via bnbagent_studio_core/wallet.py + config.py source and a
+# local Path().resolve() check. Since this image runs as root (no USER
+# directive) that mkdir/write succeeds; if it ever didn't, wallet.py already
+# falls back to a writable tempdir on OSError. Left as-is: functionally fine,
+# just an unusual on-disk location worth knowing about.
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
