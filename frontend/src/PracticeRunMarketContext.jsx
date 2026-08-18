@@ -22,6 +22,11 @@ import {
 
 function Sparkline({ points, accent }) {
   if (!points || points.length < 2) return null;
+  // Fixed-size viewBox coordinate math, but the SVG itself scales to
+  // whatever real width its container gives it (width="100%") — fixed at
+  // exactly 280px, this genuinely overflowed narrower mobile screens
+  // (~320-375px wide minus real padding); percentage width fixes that for
+  // both platforms, not just a mobile-specific patch.
   const w = 280, h = 56, pad = 4;
   const closes = points.map((p) => p.close);
   const min = Math.min(...closes), max = Math.max(...closes);
@@ -31,7 +36,7 @@ function Sparkline({ points, accent }) {
   const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.close).toFixed(1)}`).join(' ');
   const up = closes[closes.length - 1] >= closes[0];
   return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block">
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="block">
       <path d={path} fill="none" stroke={up ? '#10B981' : '#EF4444'} strokeWidth="1.75" />
     </svg>
   );

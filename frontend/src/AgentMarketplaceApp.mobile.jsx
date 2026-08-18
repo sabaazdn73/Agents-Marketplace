@@ -16,6 +16,7 @@ import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AgentGuidancePanel from './AgentGuidancePanel';
+import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -324,7 +325,7 @@ function SplashScreen({ onUnlock }) {
 const BSCSCAN = 'https://bscscan.com';
 
 // Real per-agent track record from on-chain ERC-8183 jobs (mobile equivalent).
-function AgentPerformanceMobile({ agent }) {
+function AgentPerformanceMobile({ agent, onTrySkill }) {
   const ownerAddress = agent.ownerAddress;
   const [perf, setPerf] = useState(null);
   const [state, setState] = useState('loading');
@@ -345,11 +346,9 @@ function AgentPerformanceMobile({ agent }) {
       {state === 'error' && <div className="text-xs text-gray-400">Couldn't read on-chain job history right now.</div>}
       {state === 'ready' && (!perf || !perf.hired) ? (
         <>
-          {/* Practice Mode has no mobile UI yet (confirmed, real constraint,
-              not a gap introduced here), so no onTrySkill here — the panel
-              honestly omits the "try this skill" suggestion on its own and
-              falls back to the plain "nothing to show yet" copy instead. */}
-          <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" />
+          {/* Practice Mode is now real on mobile (2026-08-19 port) — the real
+              working "try this skill" deep-link renders here too. */}
+          <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" onTrySkill={onTrySkill} />
           {perf && <p className="text-[10px] text-gray-400 mt-1.5">Checked the most recent {perf.scanned_window} on-chain ERC-8183 jobs — none found for this agent.</p>}
         </>
       ) : state === 'ready' && perf?.hired ? (
@@ -368,7 +367,7 @@ function AgentPerformanceMobile({ agent }) {
 
 // Full agent detail — a full-screen push (matching the hire flow), showing
 // everything the aggregated data holds for one agent.
-function AgentDetailMobile({ agent, onBack, onHire }) {
+function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
   const [copied, setCopied] = useState(false);
   const onShare = async () => {
     const ok = await copyShareLink(agentShareUrl(agent));
@@ -433,7 +432,7 @@ function AgentDetailMobile({ agent, onBack, onHire }) {
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
 
-        <AgentPerformanceMobile agent={agent} />
+        <AgentPerformanceMobile agent={agent} onTrySkill={onTrySkill} />
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
@@ -465,6 +464,12 @@ function AgentMarketplaceMobile() {
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
+  // Real deep-link from the agent guidance panel's "Try in Practice Mode" —
+  // switches to Build and pre-opens that specific skill's guided form.
+  // Mirrors web's identical handleTrySkill now that Practice Mode is real
+  // on mobile too.
+  const [pendingSkillId, setPendingSkillId] = useState(null);
+  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); };
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
   const [buildStatus, setBuildStatus] = useState(null);
@@ -643,6 +648,7 @@ function AgentMarketplaceMobile() {
             agent={detailAgent}
             onBack={() => setDetailAgent(null)}
             onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
+            onTrySkill={handleTrySkill}
           />
         ) : (
           <div className="p-5">
@@ -778,6 +784,25 @@ function AgentMarketplaceMobile() {
             {nav === 'build' && (
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold mb-1">Build Your Agent</h2>
+
+                {/* Real, fork-tested skills from Altana's public registry —
+                    the same AltanaSkillsPanel web uses, verbatim (2026-08-19
+                    port). Its own JSX was already touch/mobile-friendly
+                    Tailwind (rounded-2xl cards, compact text, single-column
+                    grid on narrow widths) — no separate mobile rewrite of
+                    the execution logic, matching every other shared
+                    component in this app (BuyAccessPanel, StepChecklist,
+                    JobStatusPanel, MyJobsPanel all work the same way). */}
+                <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                  <AltanaSkillsPanel accent={REPORT_ACCENT} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
+                </div>
+
+                <div className="flex items-center gap-3 py-1">
+                  <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                  <span className="text-[10px] opacity-40 font-semibold uppercase">Or build something custom</span>
+                  <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
+                </div>
+
                 <div className="bg-indigo-600 text-white p-6 rounded-3xl shadow-lg shadow-indigo-600/20">
                   <Sparkles size={24} className="mb-3" />
                   <h3 className="font-bold text-lg mb-2">No code required</h3>

@@ -23,10 +23,11 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
   const willShowSkillSuggestion = skills.length > 0 && !!onTrySkill;
   // "Genuinely nothing to show" has to account for whether the skill
   // suggestion will ACTUALLY render here, not just whether a category
-  // mapping exists in the abstract — on a platform with no onTrySkill
-  // wired (mobile has no Practice Mode UI at all), a mapped category
-  // still means nothing real gets shown, so the honest fallback below
-  // must still fire.
+  // mapping exists in the abstract — onTrySkill is wired on both
+  // platforms now (Practice Mode shipped to mobile 2026-08-19), but this
+  // stays defensive: if some future caller ever omits it, a mapped
+  // category alone shouldn't silently show nothing with no honest
+  // fallback either.
   const nothingDistinguishing = !willShowSkillSuggestion && !agent.isVerified && signals.length === 0;
 
   return (
