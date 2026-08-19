@@ -29,7 +29,15 @@ address = "0x08Cef8B3ec5D33529dFe6700ccbFfc97158Cb5dd"
 
 [llm]
 provider = "pieverse-llm"
-model = "auto/free"
+# Real cause confirmed from Render logs 2026-08-19: "auto/free" hit a hard
+# daily rate limit (litellm.RateLimitError: "Daily request limit exceeded
+# for model auto/free"), unrelated to the real $1.00 Pieverse key credit
+# already funded (it sat untouched — the request was rejected before any
+# billable call happened). Switched to "auto/paid" to actually spend that
+# real credit instead of hitting the free tier's cap. Cost per short
+# explainer generation is a small fraction of a cent to a few cents —
+# comfortably covered by the existing balance for many retries.
+model = "auto/paid"
 
 [llm.pieverse]
 # Pieverse topup runs ONLY on BSC mainnet (chainId=56); decoupled from [network].default.
