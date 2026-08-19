@@ -552,6 +552,12 @@ export default function AgentMarketplaceApp() {
   // never need this.
   const [customDescription, setCustomDescription] = useState('');
   const [showCustomDescription, setShowCustomDescription] = useState(false);
+  // Hire-by-address: an escape hatch for an agent that isn't (yet) indexed
+  // in the known_agents store / showing as a card — e.g. one registered
+  // minutes ago. Builds a synthetic in-memory agent object and reuses the
+  // exact same hire pipeline as a real card; touches no backend/DB state.
+  const [showManualHire, setShowManualHire] = useState(false);
+  const [manualAddress, setManualAddress] = useState('');
   const [stopLoss, setStopLoss] = useState(5000);
   const { agents, setAgents, loading, error, refreshing } = useMarketplaceAgents();
 
@@ -796,6 +802,37 @@ export default function AgentMarketplaceApp() {
                   placeholder="Search agents by name or description…"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+
+              {/* Hire-by-address escape hatch — for an agent not yet indexed
+                  as a card (e.g. just registered). Builds a synthetic agent
+                  object and reuses the real hire flow; no backend involved. */}
+              <div className="mb-8">
+                <button type="button" onClick={() => setShowManualHire((v) => !v)} className="text-xs font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                  {showManualHire ? '− Hide' : '+ Hire a specific agent by address'}
+                </button>
+                {showManualHire && (
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      value={manualAddress}
+                      onChange={(e) => setManualAddress(e.target.value.trim())}
+                      placeholder="0x… provider wallet address"
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={!/^0x[a-fA-F0-9]{40}$/.test(manualAddress)}
+                      onClick={() => {
+                        handleHireClick({ id: `manual-${manualAddress}`, name: `Custom agent (${manualAddress.slice(0, 6)}…${manualAddress.slice(-4)})`, ownerAddress: manualAddress, category: 'Unclassified' });
+                        setShowManualHire(false);
+                      }}
+                      className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    >
+                      Hire
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="mb-8 flex flex-wrap gap-2">

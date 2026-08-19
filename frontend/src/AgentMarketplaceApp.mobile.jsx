@@ -503,6 +503,10 @@ function AgentMarketplaceMobile() {
   // comment in AgentMarketplaceApp.web.jsx (kept in sync with web).
   const [customDescription, setCustomDescription] = useState('');
   const [showCustomDescription, setShowCustomDescription] = useState(false);
+  // Hire-by-address escape hatch — see the matching comment in
+  // AgentMarketplaceApp.web.jsx (kept in sync with web).
+  const [showManualHire, setShowManualHire] = useState(false);
+  const [manualAddress, setManualAddress] = useState('');
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
   const { agents, setAgents, loading, error } = useMarketplaceAgents();
 
@@ -713,6 +717,36 @@ function AgentMarketplaceMobile() {
                 <div className="mb-3 relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search agents…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
+                </div>
+
+                {/* Hire-by-address escape hatch — see the matching block in
+                    AgentMarketplaceApp.web.jsx. */}
+                <div className="mb-4">
+                  <button type="button" onClick={() => setShowManualHire((v) => !v)} className="text-xs font-semibold text-gray-400">
+                    {showManualHire ? '− Hide' : '+ Hire a specific agent by address'}
+                  </button>
+                  {showManualHire && (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={manualAddress}
+                        onChange={(e) => setManualAddress(e.target.value.trim())}
+                        placeholder="0x… provider wallet address"
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm font-mono outline-none"
+                      />
+                      <button
+                        type="button"
+                        disabled={!/^0x[a-fA-F0-9]{40}$/.test(manualAddress)}
+                        onClick={() => {
+                          handleHireClick({ id: `manual-${manualAddress}`, name: `Custom agent (${manualAddress.slice(0, 6)}…${manualAddress.slice(-4)})`, ownerAddress: manualAddress, category: 'Unclassified' });
+                          setShowManualHire(false);
+                        }}
+                        className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gray-900 text-white dark:bg-white dark:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Hire
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Horizontal Scroll Categories */}
