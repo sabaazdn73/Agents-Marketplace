@@ -83,14 +83,23 @@ export default function AdvantageReport() {
         </Side>
       </TaskCard>
 
-      {/* Task 3 — PARTIAL, honest */}
-      <TaskCard icon={GraduationCap} title="Task 3 — Knowledge/content (ERC-8004/8183 explainer agent)" statusLabel="Partial" statusColor="#F59E0B">
-        <Side label="With agent (real — built + live-negotiated)">
+      {/* Task 3 — COMPLETE, real mainnet delivery captured 2026-08-19 */}
+      <TaskCard icon={GraduationCap} title="Task 3 — Knowledge/content (ERC-8004/8183 explainer agent)" statusLabel="Complete" statusColor="#10B981">
+        <Side label="With agent (real — self-hosted on BSC mainnet)">
           <Row label="Real build time" value="~50s (scaffold→LLM)" />
-          <Row label="Real negotiate time" value="0.637s" />
-          <Row label="Real quoted price" value="0.1 $U (testnet)" />
-          <Row label="Est. full delivery" value="600s (agent's own real estimate)" />
-          <p className="text-[11px] text-gray-400 leading-relaxed mt-1">The real signed quote proves the agent is genuinely live. The actual written explanation requires funding a real testnet job first — every real BSC testnet faucet checked requires a CAPTCHA, which is a real, hard step only a human can complete. Try it live in the Learn tab's "Ask our explainer agent."</p>
+          <Row label="Real quoted price" value="0.1 $U (mainnet)" />
+          <Row label="Real delivery time" value="~60s (notify→SUBMITTED)" />
+          <Row label="Real job" value="#56620" />
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
+            Real, funded, on-chain ERC-8183 job — self-hosted on Render (BSC mainnet, no testnet, no faucet). Fetched the actual deliverable and independently verified its keccak256 hash matches the on-chain record exactly.
+          </p>
+          <a href="https://bscscan.com/tx/0xe82346efb104b80afaaff9ba4584c2bcf26ad2d3888e01cf03128459f6d16de7" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View the real submit tx <ExternalLink size={10} /></a>
+          <a href="https://explainer-agent.onrender.com/erc8183/job/56620/response" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1 ml-3">View the raw deliverable <ExternalLink size={10} /></a>
+          <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed max-h-40 overflow-y-auto">
+            "ERC-8004 is the agent's official ID card&nbsp;&mdash; like a driver's license: anyone can look it up and confirm who's really behind it before trusting it. ERC-8183 is job escrow&nbsp;&mdash; like buying a house through a title company: payment sits in a neutral locked box until the work is delivered, so neither side can get cheated. Together: ERC-8004 tells you *who* you're hiring, ERC-8183 makes sure the *payment* is safe while they work."
+          </div>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> Honest content-quality note: the raw deliverable includes the model's own visible planning notes before the actual write-up (shown above is the clean excerpt) — a real prompt-tuning gap, not hidden here.</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Real debugging note: getting here surfaced and fixed four genuine infrastructure bugs on Render's free tier (two event-loop-blocking stalls, a missing deliverable route, a filename mismatch) — five real funded jobs total, one delivered end to end.</p>
         </Side>
         <Side label="Without agent (manual)">
           <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><Clock size={12} /> TODO — awaiting your real manual timing</div>
