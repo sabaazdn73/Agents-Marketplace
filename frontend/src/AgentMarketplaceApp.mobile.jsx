@@ -722,8 +722,8 @@ function AgentMarketplaceMobile() {
                 {/* Hire-by-address escape hatch — see the matching block in
                     AgentMarketplaceApp.web.jsx. */}
                 <div className="mb-4">
-                  <button type="button" onClick={() => setShowManualHire((v) => !v)} className="text-xs font-semibold text-gray-400">
-                    {showManualHire ? '− Hide' : '+ Hire a specific agent by address'}
+                  <button type="button" onClick={() => setShowManualHire((v) => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300">
+                    <Search size={12} />{showManualHire ? 'Hide address hire' : 'Hire a specific agent by address'}
                   </button>
                   {showManualHire && (
                     <div className="mt-2 flex gap-2">
