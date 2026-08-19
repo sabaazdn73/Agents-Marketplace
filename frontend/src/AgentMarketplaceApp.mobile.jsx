@@ -499,6 +499,10 @@ function AgentMarketplaceMobile() {
     }
   };
   const [spendCap, setSpendCap] = useState(50000);
+  // Advanced override for the on-chain job description — see the matching
+  // comment in AgentMarketplaceApp.web.jsx (kept in sync with web).
+  const [customDescription, setCustomDescription] = useState('');
+  const [showCustomDescription, setShowCustomDescription] = useState(false);
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
   const { agents, setAgents, loading, error } = useMarketplaceAgents();
 
@@ -536,7 +540,9 @@ function AgentMarketplaceMobile() {
       const { jobId } = await hire({
         providerAddress: selectedAgent.ownerAddress,
         budgetUnits: Number(spendCap),
-        description: `Hire via Agents Marketplace: ${selectedAgent.name}`,
+        description: (showCustomDescription && customDescription.trim())
+          ? customDescription.trim()
+          : `Hire via Agents Marketplace: ${selectedAgent.name}`,
       });
       trackJob(jobId.toString(), 'FUNDED');
       addNotification(`Job #${jobId} funded`, `You hired ${selectedAgent.name} (direct). The job is funded on-chain.`);
@@ -620,6 +626,25 @@ function AgentMarketplaceMobile() {
                   <label className="block text-sm font-semibold mb-2">Job Budget ($U)</label>
                   <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50" />
                   <div className="mt-1.5"><GetULink /></div>
+                </div>
+
+                <div>
+                  <button type="button" onClick={() => setShowCustomDescription((v) => !v)} disabled={hireStep && !hireError} className="text-xs font-semibold text-gray-400 disabled:opacity-50">
+                    {showCustomDescription ? '− Hide' : '+ Advanced: custom job description'}
+                  </button>
+                  {showCustomDescription && (
+                    <div className="mt-3">
+                      <textarea
+                        value={customDescription}
+                        onChange={(e) => setCustomDescription(e.target.value)}
+                        disabled={hireStep && !hireError}
+                        placeholder={`Hire via Agents Marketplace: ${selectedAgent.name}`}
+                        rows={4}
+                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono outline-none disabled:opacity-50"
+                      />
+                      <p className="text-[11px] text-gray-400 mt-1">Overrides the default label above. Stored verbatim as this job's on-chain description — leave blank to use the default.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Real step checklist — identical logic to web, via the

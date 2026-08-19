@@ -545,6 +545,13 @@ export default function AgentMarketplaceApp() {
     }
   };
   const [spendCap, setSpendCap] = useState(50000);
+  // Advanced override for the on-chain job description (default: the plain
+  // auto-generated string below). Needed for e.g. hiring an agent that
+  // requires a signed-quote-anchored description (see build_job_description)
+  // instead of a human-readable label. Collapsed by default — most hires
+  // never need this.
+  const [customDescription, setCustomDescription] = useState('');
+  const [showCustomDescription, setShowCustomDescription] = useState(false);
   const [stopLoss, setStopLoss] = useState(5000);
   const { agents, setAgents, loading, error, refreshing } = useMarketplaceAgents();
 
@@ -597,7 +604,9 @@ export default function AgentMarketplaceApp() {
       const { jobId } = await hire({
         providerAddress: selectedAgent.ownerAddress,
         budgetUnits: Number(spendCap),
-        description: `Hire via Agents Marketplace: ${selectedAgent.name}`,
+        description: (showCustomDescription && customDescription.trim())
+          ? customDescription.trim()
+          : `Hire via Agents Marketplace: ${selectedAgent.name}`,
       });
       trackJob(jobId.toString(), 'FUNDED');
       addNotification(`Job #${jobId} funded`, `You hired ${selectedAgent.name} (direct). The job is funded on-chain.`);
@@ -932,6 +941,29 @@ export default function AgentMarketplaceApp() {
                   <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> Job Budget (settlement token)</label>
                   <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
                   <div className="mt-1.5"><GetULink /></div>
+                </div>
+
+                {/* Advanced: override the on-chain job description. Off by
+                    default — only needed when the seller requires a specific
+                    anchored description (e.g. a signed-quote JSON string)
+                    instead of the plain auto-generated label. */}
+                <div className="mb-6">
+                  <button type="button" onClick={() => setShowCustomDescription((v) => !v)} disabled={hireStep && !hireError} className="text-xs font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50">
+                    {showCustomDescription ? '− Hide' : '+ Advanced: custom job description'}
+                  </button>
+                  {showCustomDescription && (
+                    <div className="mt-3">
+                      <textarea
+                        value={customDescription}
+                        onChange={(e) => setCustomDescription(e.target.value)}
+                        disabled={hireStep && !hireError}
+                        placeholder={`Hire via Agents Marketplace: ${selectedAgent.name}`}
+                        rows={4}
+                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
+                      />
+                      <p className="text-[11px] text-gray-400 mt-1">Overrides the default label above. Stored verbatim as this job's on-chain description — leave blank to use the default.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Real step checklist — every row's state comes straight from
