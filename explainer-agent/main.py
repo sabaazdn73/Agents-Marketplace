@@ -223,6 +223,38 @@ executor = SellerAgentExecutor(
 agent_card = build_agent_card()
 
 
+async def _serve_deliverable(request):
+    """GET /erc8183/job/{job_id}/response — real, third bug fixed 2026-08-19.
+
+    Real Render log: job #56619's submit() genuinely reached this far (LLM
+    succeeded, both earlier event-loop bugs fixed) and then failed with:
+    "Cannot publish deliverable: storage returned a non-public URL and
+    ERC8183_AGENT_URL is not set." studio.toml's [storage].kind = "local"
+    (LocalStorageProvider) writes file:// URLs, which submit() refuses to
+    publish on-chain without ERC8183_AGENT_URL configured — and per the
+    SDK's own docstring (bnbagent.storage.StorageProvider.uses_file_url),
+    the agent is expected to serve GET {ERC8183_AGENT_URL}/job/{id}/response
+    itself; nothing in bag's scaffolded main.py/executor.py did that until
+    now (confirmed by grepping the real generated source — no such route
+    existed).
+
+    Reads the exact file LocalStorageProvider.upload() wrote — same
+    STORAGE_LOCAL_PATH env var (default ".agent-data"), same
+    "job-{id}.json" naming — and returns it verbatim, matching what
+    LocalStorageProvider.download() expects to parse on the reading side.
+    """
+    from pathlib import Path
+
+    from starlette.responses import JSONResponse, Response
+
+    job_id = request.path_params["job_id"]
+    base_dir = os.environ.get("STORAGE_LOCAL_PATH") or ".agent-data"
+    path = Path(base_dir) / f"job-{job_id}.json"
+    if not path.is_file():
+        return JSONResponse({"error": f"no deliverable on disk for job {job_id}"}, status_code=404)
+    return Response(path.read_text(encoding="utf-8"), media_type="application/json")
+
+
 def _ping_status():
     """GET /ping status fed to AgentCore: HEALTHY_BUSY while a background delivery
     is in flight, else HEALTHY.
@@ -371,6 +403,12 @@ if __name__ == "__main__":
         yield
 
     app.router.lifespan_context = _lifespan
+    # Real fix (see _serve_deliverable's own docstring): serve the
+    # deliverable submit() publishes on-chain as {ERC8183_AGENT_URL}
+    # /job/{id}/response — nothing did before this. ERC8183_AGENT_URL
+    # itself is a Render env var (set to
+    # https://explainer-agent.onrender.com/erc8183), not hardcoded here.
+    app.add_route("/erc8183/job/{job_id}/response", _serve_deliverable, methods=["GET"])
     # Registered on the INNER Starlette app, not the _strip_error_input
     # wrapper below: _wrapped() only intercepts scope["type"] == "http" and
     # forwards everything else (including "lifespan") straight to `app`, so
