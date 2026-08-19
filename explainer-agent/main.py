@@ -249,9 +249,28 @@ async def _serve_deliverable(request):
 
     job_id = request.path_params["job_id"]
     base_dir = os.environ.get("STORAGE_LOCAL_PATH") or ".agent-data"
-    path = Path(base_dir) / f"job-{job_id}.json"
+    base_path = Path(base_dir)
+    path = base_path / f"job-{job_id}.json"
     if not path.is_file():
-        return JSONResponse({"error": f"no deliverable on disk for job {job_id}"}, status_code=404)
+        # TEMPORARY real diagnostic (2026-08-19): job #56619's submit()
+        # succeeded on-chain (real tx_hash logged) but this same route,
+        # same process, no restart, 404'd right after. Rather than guess
+        # at a second fix, report the ACTUAL resolved paths + directory
+        # contents so the real mismatch is visible, not assumed. Remove
+        # once the real cause is found and fixed for good.
+        try:
+            listing = sorted(p.name for p in base_path.iterdir()) if base_path.is_dir() else None
+        except Exception as e:  # noqa: BLE001 — diagnostic only
+            listing = f"<error listing: {e}>"
+        return JSONResponse({
+            "error": f"no deliverable on disk for job {job_id}",
+            "debug_base_dir_raw": base_dir,
+            "debug_base_dir_resolved": str(base_path.resolve()),
+            "debug_expected_path": str(path.resolve()),
+            "debug_base_dir_exists": base_path.is_dir(),
+            "debug_dir_listing": listing,
+            "debug_cwd": str(Path.cwd()),
+        }, status_code=404)
     return Response(path.read_text(encoding="utf-8"), media_type="application/json")
 
 
