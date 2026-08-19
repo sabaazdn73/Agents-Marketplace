@@ -33,6 +33,8 @@ We follow that convention for the ``_ensurer`` reference.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import AsyncGenerator, Callable
 from typing import TYPE_CHECKING, Any
 
@@ -41,8 +43,11 @@ from google.adk.models.lite_llm import LiteLlm
 from bnbagent_studio_core import config
 from bnbagent_studio_core.llm import _resolve_provider_config
 from bnbagent_studio_core.pieverse import PieverseCreditEnsurer
+from bnbagent_studio_core.pieverse.keys import inspect_key
 from bnbagent_studio_core.pieverse.policy import BudgetPolicy, PieversePolicy
 from bnbagent_studio_core.wallet import get_wallet
+
+logger = logging.getLogger("seller-agent.managed_model")
 
 if TYPE_CHECKING:  # pragma: no cover
     from google.adk.models.llm_request import LlmRequest
@@ -92,9 +97,61 @@ class PieverseManagedModel(LiteLlm):
             clock=clock,
         )
 
+    async def _pre_warm_credit_cache(self) -> None:
+        """Refresh the ensurer's balance cache OFF the main event loop.
+
+        Real bug found + fixed 2026-08-19: PieverseCreditEnsurer.ensure_credits()
+        (bnbagent_studio_core, third-party) calls its own synchronous
+        ``_with_siwe_retry`` (SIWE login + a real ``inspect_key`` HTTP round
+        trip) with no ``await``/thread offload — it BLOCKS this process's
+        single asyncio event loop for the whole network round trip. That
+        starves every other coroutine on the loop, including the ASGI
+        handler for GET /ping. Render's health check has a hard 5s timeout;
+        confirmed via Render's own event log ("HTTP health check failed
+        (timed out after 5 seconds)") that this is exactly what force-
+        restarts the container mid-delivery, every time, once a non-free
+        model (this hook is a no-op for free models) is used.
+
+        Real fix: do NOT call ensure_credits() itself off-loop — its
+        internal ``asyncio.Lock`` is bound to THIS loop, and awaiting it
+        from a different loop (e.g. one spun up inside a worker thread)
+        raises "Lock is bound to a different event loop". Instead, run
+        ONLY the underlying blocking call (``_with_siwe_retry`` — a plain
+        method, no lock involved) via asyncio.to_thread, off the main
+        loop, and update the ensurer's own cache fields with the result —
+        mirroring exactly what ensure_credits() would have done itself.
+        The real, official ensure_credits() call right after this then
+        hits its own cache-hit fast path (see its "1. Cache hit" check)
+        and returns immediately, with no blocking call left to make.
+        """
+        e = self._ensurer
+        if e._is_free_model():
+            return
+        now = e._clock()
+        if (
+            e._last_check_at is not None
+            and now - e._last_check_at < e._policy.check_interval_seconds
+            and e._last_known_balance is not None
+            and e._last_known_balance >= e._policy.min_balance_usd
+        ):
+            return  # already warm — no network call needed at all
+        try:
+            info = await asyncio.to_thread(
+                e._with_siwe_retry,
+                lambda token: inspect_key(token, e._key_hash, http_client=e._client),
+            )
+            e._last_known_balance = info.get("remaining_usd")
+            e._last_check_at = now
+        except Exception:
+            # Best-effort warm-up only — if it fails, fall through and let
+            # the real ensure_credits() call handle it (and its error
+            # paths) on the main loop, same as before this fix existed.
+            logger.exception("credit-cache pre-warm failed; falling back to ensure_credits()")
+
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
     ) -> AsyncGenerator[LlmResponse, None]:
+        await self._pre_warm_credit_cache()
         await self._ensurer.ensure_credits()
         async for chunk in super().generate_content_async(llm_request, stream=stream):
             yield chunk
