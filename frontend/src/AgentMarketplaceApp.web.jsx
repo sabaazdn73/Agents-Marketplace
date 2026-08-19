@@ -49,7 +49,6 @@ import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AgentGuidancePanel from './AgentGuidancePanel';
-import ExplainerAgentWidget from './ExplainerAgentWidget';
 import AdvantageReport from './AdvantageReport';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
@@ -1075,10 +1074,6 @@ export default function AgentMarketplaceApp() {
             <div className="max-w-3xl">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Learn</h2>
               <p className="text-gray-500 mb-6">What each agent does, and what authority you're actually granting when you hire one.</p>
-
-              <div className="mb-10">
-                <ExplainerAgentWidget accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" />
-              </div>
 
               <div className="space-y-6">
                 {LEARN_TOPICS.map((topic, i) => (

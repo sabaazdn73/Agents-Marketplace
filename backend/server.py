@@ -207,107 +207,16 @@ async def skills_registry():
     return {"skills": _skills_cache["data"] or [], "cache_age_seconds": int(time.time() - _skills_cache["fetched_at"])}
 
 
-# ── The real explainer agent (ERC-8004/ERC-8183 education demo, TermiX
-# Advantage Report agent) ──
-#
-# Real, honest status as of 2026-08-19, confirmed by actually building it via
-# the real `bag` CLI pipeline (scaffold/wallet/instruction/LLM all genuinely
-# succeeded) and reading its own real source: this agent has exactly two real
-# skills, `negotiate` (fast, rule-based, no LLM — just a signed price quote)
-# and `notify_funded` (the LLM only runs, and the real deliverable text only
-# gets produced, AFTER a real on-chain ERC-8183 job is created and funded).
-# There is no faster "just ask it and get text back" path — that would be
-# faking the real economic mechanic (paid job-escrow hiring) this whole
-# marketplace exists to demonstrate, not a shortcut we're choosing not to
-# take.
-#
-# Update 2026-08-18: rebuilt on real BSC MAINNET instead of testnet, to
-# eliminate the CAPTCHA-gated faucet blocker described below — real gas comes
-# from a real funded wallet, no faucet needed. `bag deploy agent`'s free
-# platform trial turned out to be testnet-only, and mainnet deploy defaults to
-# self-hosting via AWS Bedrock AgentCore — rejected (this project's standing
-# rule: no paid/unknown-cost infrastructure). Self-hosted instead as a plain
-# Docker Web Service on Render (see explainer-agent/ + render.yaml) after
-# confirming, by reading the real generated source, that the app has no hard
-# AWS runtime dependency. Getting the real deliverable TEXT (not just this
-# quote) still requires a real, funded on-chain ERC-8183 job — that's a real
-# transfer of crypto funds, so it's done by a human, not this backend.
-#
-# So: EXPLAINER_AGENT_URL is unset until a human sets it (now pointing at the
-# real live Render URL). Until then, this endpoint reports that real, specific,
-# honest state instead of pretending to call something that isn't reachable.
-EXPLAINER_AGENT_URL = os.environ.get("EXPLAINER_AGENT_URL")  # https://explainer-agent.onrender.com once EXPLAINER_AGENT_URL is set on this backend service
-EXPLAINER_AGENT_NAME = "explainmainnet1a2b3c-agent"
-EXPLAINER_AGENT_WALLET = "0x08Cef8B3ec5D33529dFe6700ccbFfc97158Cb5dd"  # real BSC MAINNET wallet, self-hosted on Render (see explainer-agent/)
-
-
-@app.post("/api/explainer-agent/ask")
-async def explainer_agent_ask(question: str = ""):
-    """Real proxy to the real explainer agent's A2A `negotiate` skill — the
-    one real, fast, LLM-free interaction available without a funded on-chain
-    job (see module comment above for why nothing faster/free exists).
-    Returns the real signed quote when the agent is reachable, or an honest
-    "not deployed yet" status otherwise — never a fabricated response."""
-    if not EXPLAINER_AGENT_URL:
-        return {
-            "status": "not_deployed",
-            "message": (
-                "This real agent is built and verified working (scaffolded, wallet, "
-                "LLM, and instruction all live-confirmed), self-hosted on Render, but "
-                "EXPLAINER_AGENT_URL isn't set on this backend right now — a human "
-                "needs to set it (see render.yaml) and redeploy. Once set, this same "
-                "button will call it for real."
-            ),
-            "agent_name": EXPLAINER_AGENT_NAME,
-        }
-
-    task_description = (
-        question.strip()
-        or "Explain ERC-8004 identity and ERC-8183 job-escrow hiring to a total beginner, in plain simple English with real analogies and no jargon."
-    )
-    payload = {
-        "jsonrpc": "2.0", "id": 1, "method": "message/send",
-        "params": {
-            "message": {
-                "role": "user",
-                "parts": [{
-                    "kind": "data",
-                    "data": {
-                        "skill": "negotiate",
-                        "task_description": task_description,
-                        "terms": {
-                            "deliverables": "A short, beginner-friendly written explanation with a real-world analogy.",
-                            "quality_standards": "No jargon without explanation. A total beginner should be able to follow it.",
-                        },
-                    },
-                }],
-                "messageId": "web-widget",
-            },
-        },
-    }
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(EXPLAINER_AGENT_URL, json=payload)
-            resp.raise_for_status()
-            body = resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"The real agent didn't respond: {e}")
-
-    data_part = (body.get("result", {}).get("parts") or [{}])[0].get("data", {})
-    return {
-        "status": "quoted",
-        "task_description": task_description,
-        "quote": data_part.get("response"),
-        "negotiation_hash": data_part.get("negotiation_hash"),
-        "estimated_completion_seconds": (data_part.get("response") or {}).get("estimated_completion_seconds"),
-        "note": (
-            "This is a real, live, signed quote from the real agent — proof it's "
-            "genuinely running. The actual written answer is only produced after "
-            "this quote is paid and funded on-chain (real ERC-8183 job-escrow), "
-            "which is the real thing this agent is built to explain."
-        ),
-    }
-
+# NOTE: the "Ask our explainer agent" widget + its backing
+# /api/explainer-agent/ask endpoint were removed 2026-08-20 — real user
+# feedback: paying and waiting up to 10 real minutes just to see a signed
+# quote, with no visible answer without payment, was confusing UX, not
+# worth keeping as a live site feature. The explainer agent itself is
+# untouched: still real, still deployed on Render (BSC mainnet,
+# self-hosted, ERC-8004 agent_id 270213), still the real infrastructure
+# behind the TermiX Advantage Report's Task 3 (see AdvantageReport.jsx —
+# real jobs #56611/#56616/#56620, the last one delivered end-to-end and
+# hash-verified). It's just no longer exposed as a site widget.
 
 # NOTE: the old paper-trade feature (Tenderly simulate-and-persist) and its
 # read endpoints were removed — the Practice Layer (POST /api/practice/*) with

@@ -16,7 +16,6 @@ import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AgentGuidancePanel from './AgentGuidancePanel';
-import ExplainerAgentWidget from './ExplainerAgentWidget';
 import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NotificationBell from './NotificationBell';
@@ -836,8 +835,6 @@ function AgentMarketplaceMobile() {
                   <h2 className="text-2xl font-bold mb-1">Learn</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">What each agent does, and what you're actually granting.</p>
                 </div>
-
-                <ExplainerAgentWidget accent={REPORT_ACCENT} mutedBorder="border-gray-100 dark:border-gray-800" />
 
                 <div className="space-y-3">
                   {LEARN_TOPICS.map((item, i) => (

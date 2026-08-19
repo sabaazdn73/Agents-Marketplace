@@ -61,8 +61,14 @@ services:
   # restart/idle-cycle, even though its on-chain reference survives.
   # Accepted for now; revisit if it becomes a real problem in practice.
   #
-  # After deploy, on the BACKEND service set:
-  #   EXPLAINER_AGENT_URL = https://<this-service>.onrender.com
+  # Real infrastructure kept intact for the TermiX Advantage Report (Task 3
+  # — real jobs #56611/#56616/#56620, hash-verified). No longer exposed as a
+  # site widget: the backend's /api/explainer-agent/ask endpoint + the
+  # frontend's "Ask our explainer agent" widget were removed 2026-08-20
+  # (real user feedback: paying + waiting up to 10 real minutes just to see
+  # a signed quote, no visible answer without payment, was confusing UX).
+  # This service, its own ERC8183_AGENT_URL below, and its real ERC-8004
+  # registration (agent_id 270213) are unaffected.
   - type: web
     name: explainer-agent
     runtime: docker
