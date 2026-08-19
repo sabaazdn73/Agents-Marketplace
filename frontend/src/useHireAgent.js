@@ -22,7 +22,7 @@ import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchCha
 import { bsc } from 'wagmi/chains';
 import {
   getContracts, AGENTIC_COMMERCE_ABI, EVALUATOR_ROUTER_ABI,
-  ERC20_ABI, JOB_STATUS,
+  OPTIMISTIC_POLICY_ABI, ERC20_ABI, JOB_STATUS,
 } from './erc8183';
 
 // A step whose tx hash never confirms within this window is reported as
@@ -111,8 +111,28 @@ export function useHireAgent() {
       const budgetRaw = BigInt(Math.round(budgetUnits * 10 ** decimals));
 
       // Step 1: create the job (client -> provider, real on-chain tx)
+      //
+      // Real bug fixed 2026-08-19: expiredAt used to be just
+      // `now + expiryMinutes*60`, with no idea the on-chain seller's REAL
+      // submission cutoff is `expiredAt - disputeWindow`, not `expiredAt`
+      // itself (confirmed against bnbagent's own buy_workflow, which pads
+      // for exactly this). OptimisticPolicy's real disputeWindow is 7 DAYS
+      // — so every job created with the old formula was already past its
+      // real submission deadline the moment it was created, regardless of
+      // how fast any agent worked. Job #56611 (2026-08-19) died this way:
+      // funded, notify_funded accepted, but the on-chain submit() the agent
+      // attempted was rejected because the real cutoff had already passed
+      // at creation time — read live and confirmed after the fact.
+      //
+      // Fix: read the real disputeWindow and pad for it, so `expiryMinutes`
+      // means what it looks like it means — real usable processing time
+      // from now, not a number that gets silently swallowed by a 7-day
+      // window nobody here knew about.
       setStep('creating');
-      const expiredAt = BigInt(Math.floor(Date.now() / 1000) + expiryMinutes * 60);
+      const disputeWindowSeconds = await publicClient.readContract({
+        address: contracts.policy, abi: OPTIMISTIC_POLICY_ABI, functionName: 'disputeWindow',
+      });
+      const expiredAt = BigInt(Math.floor(Date.now() / 1000) + expiryMinutes * 60) + disputeWindowSeconds;
       const { receipt: createReceipt } = await writeAndConfirm('creating', {
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'createJob',
         args: [providerAddress, contracts.router, expiredAt, description, contracts.router],

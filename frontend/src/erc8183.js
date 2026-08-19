@@ -82,6 +82,12 @@ export const OPTIMISTIC_POLICY_ABI = [
   { type: 'function', name: 'check', stateMutability: 'view',
     inputs: [{ name: 'jobId', type: 'uint256' }, { name: '', type: 'bytes' }],
     outputs: [{ type: 'uint8' }, { type: 'bytes32' }] },
+  // Real, confirmed 2026-08-19 (bnbagent PolicyClient.dispute_window() ->
+  // contract.functions.disputeWindow()): the seller's real on-chain
+  // submission cutoff is `expiredAt - disputeWindow`, NOT `expiredAt`
+  // itself. Read this before computing expiredAt in useHireAgent.js.
+  { type: 'function', name: 'disputeWindow', stateMutability: 'view',
+    inputs: [], outputs: [{ type: 'uint256' }] },
 ];
 
 export const ERC20_ABI = [
