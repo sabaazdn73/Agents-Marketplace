@@ -87,3 +87,11 @@ services:
       # this, build_model() raises RuntimeError for provider='pieverse-llm'.
       - key: PIEVERSE_LLM_API_KEY
         sync: false
+      # REQUIRED: real value https://explainer-agent.onrender.com/erc8183 —
+      # this service's own public URL + /erc8183. Without it, submit()
+      # refuses to publish a deliverable stored via [storage].kind="local"
+      # (confirmed via a real Render log: "Cannot publish deliverable:
+      # storage returned a non-public URL and ERC8183_AGENT_URL is not
+      # set"). main.py serves GET {this}/job/{id}/response itself.
+      - key: ERC8183_AGENT_URL
+        sync: false
