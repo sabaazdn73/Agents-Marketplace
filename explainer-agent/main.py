@@ -40,6 +40,7 @@ import json
 import logging
 import os
 import sys
+import time
 
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
@@ -308,6 +309,43 @@ async def _emit(send, start_message, body: bytes):
     await send({"type": "http.response.body", "body": new_body, "more_body": False})
 
 
+async def _warm_up_llm() -> None:
+    """One real, throwaway LLM call at boot, BEFORE uvicorn starts accepting
+    connections — so a real, measured cold-start cost never lands on a real
+    request or on Render's health check.
+
+    Real bug found + fixed 2026-08-19 (second half — see managed_model.py's
+    _pre_warm_credit_cache for the first): even after fixing the Pieverse
+    credit-check's blocking call, notify_funded deliveries kept getting
+    killed by Render's "HTTP health check failed (timed out after 5
+    seconds)". Proved it directly, locally, with a concurrent heartbeat
+    coroutine racing the real generate_content_async call: the FIRST real
+    completion call blocks the event loop for ~1.7-3.8s (something inside
+    litellm/ADK doing synchronous cold-start work — likely a pricing/model
+    table or tokenizer load — with no yield point). A SECOND call in the
+    same process had ZERO stall and ran ~6x faster (2.19s vs 13.89s),
+    confirming it's a one-time, cacheable cost, not a per-call cost.
+
+    Fix: pay that cost once, right here, on the SAME event loop uvicorn is
+    about to serve requests on (no separate thread/loop — this is a
+    Starlette ``startup`` lifespan event, and uvicorn does not begin
+    accepting connections, including Render's health check, until the
+    lifespan startup phase completes). By the time any real job arrives,
+    litellm's internal caches are already warm.
+
+    Best-effort: any failure here is logged, not raised — worst case is
+    reverting to the pre-fix cold-start cost on the first real request,
+    never worse than before this existed.
+    """
+    log = logging.getLogger("seller-agent.main")
+    try:
+        t0 = time.monotonic()
+        await _run_llm("Say hello in one short sentence.", session_id="startup-warmup")
+        log.info("LLM warm-up completed in %.2fs", time.monotonic() - t0)
+    except Exception:
+        log.exception("LLM warm-up failed (non-fatal, continuing startup)")
+
+
 if __name__ == "__main__":
     import uvicorn
     from bedrock_agentcore.runtime import build_a2a_app
@@ -317,6 +355,26 @@ if __name__ == "__main__":
     # identical to serve_a2a — we only interpose the error-input stripper before
     # serving.
     app = build_a2a_app(executor, agent_card, ping_handler=_ping_status)
+    # Real, tested against this exact installed Starlette version (1.6.0):
+    # it has no add_event_handler / router.on_startup (both raised
+    # AttributeError when tried locally, caught before ever deploying).
+    # The real, current API is router.lifespan_context — a callable that
+    # takes `app` and returns an async context manager. build_a2a_app()
+    # leaves it as Starlette's own no-op _DefaultLifespan (confirmed by
+    # inspection), so replacing it outright is safe — there is nothing of
+    # build_a2a_app's own to preserve here.
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def _lifespan(_app):
+        await _warm_up_llm()
+        yield
+
+    app.router.lifespan_context = _lifespan
+    # Registered on the INNER Starlette app, not the _strip_error_input
+    # wrapper below: _wrapped() only intercepts scope["type"] == "http" and
+    # forwards everything else (including "lifespan") straight to `app`, so
+    # this still fires correctly.
     app = _strip_error_input(app)
 
     uvicorn.run(
