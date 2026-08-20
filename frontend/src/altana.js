@@ -140,9 +140,21 @@ export async function getJobStatus(jobId) {
 }
 
 /** The real deliverable URL a provider submitted for a job (parsed from the
- * policy's on-chain event), or undefined if none yet. Read-only. */
+ * policy's on-chain event), or undefined if none yet. Read-only.
+ *
+ * Real bug fixed 2026-08-20: this used the plain `network` object (BNB's
+ * default publicRpcUrl, bsc-rpc.publicnode.com), NOT MAINNET_READ_RPC —
+ * even though the exact same "publicnode refuses getLogs" problem is
+ * already documented and solved above for copy-trade/wallet-tracker.
+ * Confirmed directly (Node, real RPC calls, real job #56620): publicnode
+ * rejects it outright ("Archive requests require a personal token"), and
+ * several other free/keyless public RPCs tried (bsc-dataseed, meowrpc,
+ * 1rpc, nodereal, blockpi, bscrpc) ALL failed too, each for its own reason
+ * — this needs a properly provisioned RPC, not a public default. Routing
+ * through the same working MAINNET_READ_RPC this file already uses for
+ * getLogs elsewhere. */
 export async function getDeliverable(jobId) {
-  return getErc8183DeliverableUrl(network, BigInt(jobId));
+  return getErc8183DeliverableUrl({ ...network, publicRpcUrl: MAINNET_READ_RPC }, BigInt(jobId));
 }
 
 export async function settleJob(wallet, signer, jobId, action = 'approve') {

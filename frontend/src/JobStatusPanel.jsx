@@ -27,7 +27,7 @@
 // not just a bare link.
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText } from 'lucide-react';
+import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Sparkles } from 'lucide-react';
 import { getJobStatus, getDeliverable } from './altana';
 import { trackJob } from './notifications';
 
@@ -133,7 +133,16 @@ export default function JobStatusPanel({
 }) {
   const [status, setStatus] = useState(initialStatus || null);
   const [job, setJob] = useState(null);
-  const [deliverable, setDeliverable] = useState(undefined); // undefined=unknown, null=none, string=url
+  // Real bug fixed 2026-08-20: this used to be a single undefined/null/string
+  // value, which conflated three genuinely different real states into one —
+  // "still checking", "checked and genuinely nothing there", and "the check
+  // itself failed" (e.g. a real RPC error) all collapsed into the same UI
+  // message, "hasn't posted a result", even when that was false. Confirmed
+  // for real against job #56620: getDeliverable() was THROWING (a real
+  // eth_getLogs rejection from the default RPC — see altana.js's own fix),
+  // not resolving to "not found" — the blanket catch hid a real failure
+  // behind a message that implied the agent simply hadn't delivered yet.
+  const [deliverableState, setDeliverableState] = useState({ status: 'idle' }); // idle|loading|found|not_found|error
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -145,7 +154,13 @@ export default function JobStatusPanel({
       setJob(j); setStatus(j.statusName);
       trackJob(jobId, j.statusName);
       if (j.statusName === 'SUBMITTED' || j.statusName === 'COMPLETED') {
-        try { setDeliverable(await getDeliverable(jobId)); } catch { setDeliverable(null); }
+        setDeliverableState({ status: 'loading' });
+        try {
+          const url = await getDeliverable(jobId);
+          setDeliverableState(url ? { status: 'found', url } : { status: 'not_found' });
+        } catch (e) {
+          setDeliverableState({ status: 'error', error: e.message || String(e) });
+        }
       }
     } catch (e) {
       setError(e.message || String(e));
@@ -214,10 +229,27 @@ export default function JobStatusPanel({
 
       {(submitted || completed) && (
         <div className="space-y-2 pt-1">
-          {deliverable === undefined ? (
+          {/* Real trust feature, general to any agent/any job (not
+              explainer-agent-specific): a SUBMITTED/COMPLETED job's real
+              output must be immediately, visually obvious — not small
+              inline text a user has to hunt for or wonder whether anything
+              came back at all. */}
+          {deliverableState.status === 'idle' || deliverableState.status === 'loading' ? (
             <div className="flex items-center gap-1.5 opacity-60"><Loader2 size={12} className="animate-spin" /> checking for the delivered result…</div>
-          ) : deliverable ? (
-            <DeliverableViewer url={deliverable} />
+          ) : deliverableState.status === 'found' ? (
+            <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: accent + '4D' }}>
+              <div className="px-3 py-2 flex items-center gap-1.5 font-bold text-[11px] uppercase tracking-wide" style={{ background: accent + '15', color: accent }}>
+                <Sparkles size={13} /> Result
+              </div>
+              <div className="p-3 bg-white dark:bg-black/20">
+                <DeliverableViewer url={deliverableState.url} />
+              </div>
+            </div>
+          ) : deliverableState.status === 'error' ? (
+            <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
+              <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+              <span>Couldn't check for a result right now ({deliverableState.error}) — this is a real read failure, not necessarily "nothing delivered". <button onClick={refresh} className="underline">Retry</button></span>
+            </div>
           ) : (
             <div className="flex items-center gap-1.5 opacity-60"><FileText size={12} /> The agent hasn't posted a result we can find on-chain yet.</div>
           )}
