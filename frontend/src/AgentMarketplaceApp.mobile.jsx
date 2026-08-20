@@ -24,6 +24,7 @@ import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
+import { getReliabilityHint } from './agentReliability';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -360,6 +361,16 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
             <div><span className="text-lg font-bold">{perf.active}</span> <span className="text-[10px] text-gray-500 uppercase">active</span></div>
           </div>
           <div className="text-[10px] text-gray-500">Completed {perf.completed} · Rejected {perf.rejected} · Expired {perf.expired}. From the most recent {perf.scanned_window} jobs.</div>
+          {/* Real, data-driven reliability hint — see agentReliability.js. */}
+          {(() => {
+            const hint = getReliabilityHint(perf);
+            return hint ? (
+              <div className="mt-2.5 flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                <span>{hint.message}</span>
+              </div>
+            ) : null;
+          })()}
         </div>
       ) : null}
     </div>

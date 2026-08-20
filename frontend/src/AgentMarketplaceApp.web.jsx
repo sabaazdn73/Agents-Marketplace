@@ -17,6 +17,7 @@ import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
+import { getReliabilityHint } from './agentReliability';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
@@ -242,6 +243,18 @@ function AgentPerformance({ agent, onTrySkill }) {
             <div><div className="text-[10px] uppercase text-gray-500">In Progress</div><div className="text-lg font-bold">{perf.active}</div></div>
           </div>
           <div className="text-[11px] text-gray-500 dark:text-gray-400">Completed {perf.completed} · Rejected {perf.rejected} · Expired {perf.expired}{perf.completion_rate == null ? ' — no settled jobs yet, so no rate' : ''}. From the most recent {perf.scanned_window} on-chain jobs.</div>
+          {/* Real, data-driven reliability hint — see agentReliability.js for
+              the exact thresholds and reasoning. No LLM guessing, no
+              fabricated score, just the real EXPIRED/settled ratio. */}
+          {(() => {
+            const hint = getReliabilityHint(perf);
+            return hint ? (
+              <div className="mt-3 flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300">
+                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                <span>{hint.message}</span>
+              </div>
+            ) : null;
+          })()}
         </div>
       ) : null}
     </div>
