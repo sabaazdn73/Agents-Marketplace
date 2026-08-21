@@ -35,6 +35,7 @@ from adapters.bsc import list_bsc_agents
 from adapters.bsc_balance import fetch_owner_bnb_balances
 from adapters.defillama import fetch_bsc_ai_agent_protocols, try_match_agent_to_protocol
 from core.categorize import classify_agent
+from core.pinned_agents import fetch_pinned_agents
 
 
 @dataclass
@@ -151,6 +152,21 @@ async def get_marketplace_agents(
             break
         if page_delay_seconds and offset < max_offset:
             await asyncio.sleep(page_delay_seconds)  # respect 30 req/min
+
+    # Real, explicit safety net for agents we know are genuinely real but that
+    # 8004scan's own index doesn't return for ANY query (see
+    # core/pinned_agents.py's docstring for the real, confirmed investigation
+    # — a direct owner_address lookup, which bypasses pagination entirely,
+    # still returned nothing for our own explainer agent). Fetched directly
+    # on-chain and merged in BEFORE diversify/classify/enrich, so from here on
+    # it's treated identically to every other agent. Deduped by token_id in
+    # case 8004scan ever does start indexing one of these for real.
+    try:
+        pinned = await fetch_pinned_agents()
+        known_token_ids = {a.get("token_id") for a in raw_agents}
+        raw_agents.extend(a for a in pinned if a["token_id"] not in known_token_ids)
+    except Exception as e:
+        print(f"[aggregate] pinned-agent on-chain fetch failed, continuing without it: {e}")
 
     # Cap clusters so one mass-registration campaign can't dominate the list.
     raw_agents = _diversify(raw_agents, per_cluster_cap=per_cluster_cap)
