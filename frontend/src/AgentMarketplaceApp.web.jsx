@@ -16,6 +16,7 @@ import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
+import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './ServiceHealthBadge';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 
@@ -70,6 +71,9 @@ function mapAgent(a) {
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
     defillamaUrl: a.defillama_url, ownerBnbBalance: a.owner_bnb_balance,
     possiblyDelisted: a.possibly_delisted, session: null,
+    // Real, server-checked service-liveness signal — see core/agent_health.py.
+    serviceStatus: a.service_status || null, serviceEndpoint: a.service_endpoint || null,
+    serviceCheckedAt: a.service_checked_at || null, serviceRank: serviceRank(a.service_status),
   };
 }
 
@@ -329,11 +333,18 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
           <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mb-5">TVL source: DefiLlama <ExternalLink size={11} /></a>
         )}
 
-        <div className="flex flex-wrap gap-2 my-5">
+        <div className="flex flex-wrap items-center gap-2 my-5">
           {agent.isVerified && <DetailBadge icon={BadgeCheck}>Verified</DetailBadge>}
           {agent.x402Supported && <DetailBadge icon={Zap}>x402 payments</DetailBadge>}
           {(agent.supportedProtocols || []).map((p) => <DetailBadge key={p} icon={Coins}>{p}</DetailBadge>)}
+          <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
+          {(!agent.serviceStatus || agent.serviceStatus === 'unknown') && (
+            <span className="text-[11px] text-gray-400" title="We couldn't confirm this agent's service status yet — either it hasn't been checked, or our own check failed (not necessarily the agent's fault).">Not yet confirmed responding</span>
+          )}
         </div>
+        {agent.serviceEndpoint && (
+          <p className="text-[11px] text-gray-400 mb-2 -mt-3 break-all">Registered endpoint: <span className="font-mono">{agent.serviceEndpoint}</span></p>
+        )}
 
         <h3 className="text-sm font-bold mb-2">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
@@ -608,6 +619,7 @@ export default function AgentMarketplaceApp() {
 
   const [sortState, setSortState] = useState({ key: 'totalScore', dir: 'desc' });
   const [showUnclassified, setShowUnclassified] = useState(true);
+  const [onlyResponding, setOnlyResponding] = useState(false);
 
   const { isConnected: wagmiConnected } = useAccount();
   const { ready, authenticated } = usePrivy();
@@ -679,13 +691,17 @@ export default function AgentMarketplaceApp() {
     if (searchQuery) {
       list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
     }
+    // Real filter: only agents whose registered endpoint answered a real
+    // health-check (see core/agent_health.py) — the requested "let a user
+    // filter to only see agents with a currently-responding endpoint".
+    if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
     return [...list].sort((a, b) => {
       const av = a[sortState.key] ?? -Infinity;
       const bv = b[sortState.key] ?? -Infinity;
       const mult = sortState.dir === 'desc' ? -1 : 1;
       return (av - bv) * mult;
     });
-  }, [agents, activeCategory, sortState, showUnclassified, searchQuery]);
+  }, [agents, activeCategory, sortState, showUnclassified, onlyResponding, searchQuery]);
 
   // Real, derived stats from actually-fetched agents, replacing the
   // earlier hardcoded numbers (which were 8004scan's own global platform
@@ -809,6 +825,8 @@ export default function AgentMarketplaceApp() {
                 <span>Showing the most diverse agents currently registered on-chain. The live BSC ERC-8004 registry is heavily dominated (~68%) by one repetitive mass-registration campaign, so many registered agents share near-identical listings from the same source; we cap near-duplicates to keep this list meaningful, which is why it's intentionally short.</span>
               </div>
 
+              <ServiceHealthExplainer className="mb-8" />
+
               <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
@@ -818,6 +836,17 @@ export default function AgentMarketplaceApp() {
                   <p className="text-sm text-gray-500 dark:text-gray-400">Discover, verify, and hire ERC-8004 agents with enforceable limits.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setOnlyResponding((v) => !v)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                      onlyResponding
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
+                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                    title="Show only agents whose registered service answered a real health-check just now."
+                  >
+                    {onlyResponding ? '✓ ' : ''}Only responding services
+                  </button>
                   <button onClick={() => setShowUnclassified((v) => !v)} className="px-4 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     {showUnclassified ? 'Hide' : 'Show'} unclassified
                   </button>
@@ -904,6 +933,7 @@ export default function AgentMarketplaceApp() {
                         <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Chain</th>
                         <th className="p-4"><SortHeader label="Score" sortKey="totalScore" sortState={sortState} onSort={handleSort} /></th>
                         <th className="p-4"><SortHeader label="Stars" sortKey="starCount" sortState={sortState} onSort={handleSort} /></th>
+                        <th className="p-4"><SortHeader label="Service" sortKey="serviceRank" sortState={sortState} onSort={handleSort} /></th>
                         <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Feedback</th>
                         <th className="p-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
                       </tr>
@@ -923,6 +953,7 @@ export default function AgentMarketplaceApp() {
                           <td className="p-4"><span className="text-[10px] px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200/50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 font-medium tracking-wide">{CHAIN_LABELS[agent.chainId] || agent.network}</span></td>
                           <td className="p-4 text-sm font-semibold">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</td>
                           <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{agent.starCount ?? '—'}</td>
+                          <td className="p-4"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></td>
                           <td className="p-4 text-sm text-gray-500">{agent.totalFeedbacks ?? '—'}</td>
                           <td className="p-4 text-right">
                             <button onClick={(e) => { e.stopPropagation(); agent.session ? (setSelectedAgent(agent), setHiring(true)) : handleHireClick(agent); }} className={`text-xs font-semibold px-4 py-2 rounded-xl transition-all ${agent.session ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 opacity-0 group-hover:opacity-100'}`}>
@@ -948,7 +979,11 @@ export default function AgentMarketplaceApp() {
                           </div>
                           <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
                         </div>
-                        
+
+                        {agent.serviceStatus && agent.serviceStatus !== 'unknown' && (
+                          <div className="mb-3"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></div>
+                        )}
+
                         <div className="grid grid-cols-3 gap-2 p-3 mb-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
                           <div className="text-center"><span className="block text-[10px] text-gray-500 uppercase mb-1">Score</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</span></div>
                           <div className="text-center border-l border-gray-200 dark:border-gray-700"><span className="block text-[10px] text-gray-500 uppercase mb-1">Stars</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.starCount ?? '—'}</span></div>

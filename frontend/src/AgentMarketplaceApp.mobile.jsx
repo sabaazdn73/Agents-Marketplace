@@ -23,6 +23,7 @@ import { addNotification, trackJob } from './notifications';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
+import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './ServiceHealthBadge';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 
@@ -88,6 +89,9 @@ function mapAgent(a) {
     strategy: a.description || 'No description provided.',
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
     ownerBnbBalance: a.owner_bnb_balance, possiblyDelisted: a.possibly_delisted, session: null,
+    // Real, server-checked service-liveness signal — see core/agent_health.py.
+    serviceStatus: a.service_status || null, serviceEndpoint: a.service_endpoint || null,
+    serviceCheckedAt: a.service_checked_at || null, serviceRank: serviceRank(a.service_status),
   };
 }
 
@@ -437,11 +441,18 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 inline-flex items-center gap-1 mb-4">TVL source: DefiLlama <ExternalLink size={11} /></a>
         )}
 
-        <div className="flex flex-wrap gap-2 my-4">
+        <div className="flex flex-wrap items-center gap-2 my-4">
           {agent.isVerified && <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
           {agent.x402Supported && <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />x402</span>}
           {(agent.supportedProtocols || []).map((p) => <span key={p} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
+          <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
+          {(!agent.serviceStatus || agent.serviceStatus === 'unknown') && (
+            <span className="text-[11px] text-gray-400">Not yet confirmed responding</span>
+          )}
         </div>
+        {agent.serviceEndpoint && (
+          <p className="text-[11px] text-gray-400 mb-3 -mt-2 break-all">Registered endpoint: <span className="font-mono">{agent.serviceEndpoint}</span></p>
+        )}
 
         <h3 className="text-sm font-bold mb-1">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
@@ -487,6 +498,7 @@ function AgentMarketplaceMobile() {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlyResponding, setOnlyResponding] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
@@ -594,8 +606,12 @@ function AgentMarketplaceMobile() {
     // Search AND category both apply together.
     list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
     if (searchQuery) list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
+    // Real filter: only agents whose registered endpoint answered a real
+    // health-check (see core/agent_health.py) — the requested "let a user
+    // filter to only see agents with a currently-responding endpoint".
+    if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
     return list;
-  }, [agents, activeCategory, searchQuery]);
+  }, [agents, activeCategory, searchQuery, onlyResponding]);
 
   // Category chips derived from the REAL fetched data, so newly-classified
   // categories (Trading Signals, Research, Payments, …) actually appear and are
@@ -738,10 +754,23 @@ function AgentMarketplaceMobile() {
                   <span>Showing the most diverse agents on-chain. The BSC registry is ~68% one repetitive mass-registration campaign, so many agents share near-identical listings; we cap near-duplicates, which is why the list is intentionally short.</span>
                 </div>
 
+                <ServiceHealthExplainer className="mb-4" />
+
                 <div className="mb-3 relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search agents…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
                 </div>
+
+                <button
+                  onClick={() => setOnlyResponding((v) => !v)}
+                  className={`mb-4 px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                    onlyResponding
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
+                      : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
+                  }`}
+                >
+                  {onlyResponding ? '✓ ' : ''}Only responding services
+                </button>
 
                 {/* Hire-by-address escape hatch — see the matching block in
                     AgentMarketplaceApp.web.jsx. */}
@@ -797,7 +826,11 @@ function AgentMarketplaceMobile() {
                           </div>
                           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
                         </div>
-                        
+
+                        {agent.serviceStatus && agent.serviceStatus !== 'unknown' && (
+                          <div className="mb-3"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></div>
+                        )}
+
                         <div className="flex gap-4 mb-4">
                           <div><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
                           <div><span className="text-[10px] text-gray-500 uppercase block">TVL</span><span className="font-bold text-sm">{agent.tvlUsd ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '-'}</span></div>
