@@ -82,8 +82,15 @@ _RESOLVE_TIMEOUT = 6.0         # real, generous — IPFS gateways are genuinely 
 _RESOLVE_RETRY_DELAY = 4.0     # real backoff before retrying a failed resolution — see _resolve_services
 _HEALTHCHECK_TIMEOUT = 4.0     # real, short, as specified — this is a liveness ping, not a real job
 # Real cold-start mitigation — see _check_one's own comment for the live
-# evidence. Only paid on a first-attempt failure, not every check.
-_HEALTHCHECK_RETRY_TIMEOUT = 25.0
+# evidence. Only paid on a first-attempt failure, not every check. Bumped
+# from 25.0 -> 35.0 (2026-08-21) after a live re-test of our own known-live
+# explainer agent measured a real 26.3s cold start — just over the old
+# budget, which would have produced a real false negative on that exact
+# check. 35s leaves real headroom above the worst cold start actually
+# observed this session (the earlier one was ~90s in a much colder case,
+# but that was measured after a longer idle window than a 20-min health
+# TTL will typically produce).
+_HEALTHCHECK_RETRY_TIMEOUT = 35.0
 _CONCURRENCY = 12              # real cap so a large agent list doesn't hammer IPFS/agent hosts at once
 
 # Shorter than agent_performance.py's own TTLs and the 60-min agent-data
