@@ -112,6 +112,29 @@ async def upsert_agents(agents: list[dict]) -> dict:
     return {"seen": len(agents), "new": new_count, "total_known": total, "at": now_iso}
 
 
+async def update_agent_health(results: dict[str, dict]) -> int:
+    """Persist real health-check results (see core/agent_health.py) — one
+    $set per agent, keyed by the same `_id` upsert_agents uses. A separate
+    write path from upsert_agents on purpose: health-checks run on a
+    shorter TTL than the main 8004scan refresh (liveness changes faster
+    than metadata), so this needs to update a SUBSET of known_agents
+    on its own cadence, not piggyback on the full-list $set above. Agents
+    not present in `results` (skipped because their existing check was
+    still fresh — see agent_health.HEALTH_TTL_SECONDS) are left untouched,
+    never regressed to unknown just because this pass didn't re-check them.
+    Returns the real number of documents updated."""
+    if not results:
+        return 0
+    db = get_db()
+    coll = db.known_agents
+    updated = 0
+    for aid, fields in results.items():
+        res = await coll.update_one({"_id": aid}, {"$set": fields})
+        if res.matched_count:
+            updated += 1
+    return updated
+
+
 async def get_stored_agents(limit: int = 5000) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);

@@ -20,6 +20,7 @@ from core import agent_builder
 from core import practice_layer
 from core import agent_store
 from core import agent_performance
+from core import agent_health
 
 load_dotenv()
 
@@ -56,7 +57,17 @@ async def _refresh_into_store() -> list[dict]:
     persistent known_agents store (never deletes), then return the FULL served
     list read back from the store. The store — not this single fetch — is the
     source of truth, so agents from earlier refreshes never vanish just because
-    they weren't in this particular paginated sample."""
+    they weren't in this particular paginated sample.
+
+    Also runs the real service-liveness health-check (core/agent_health.py)
+    over the served list, on its own shorter TTL — see that module's own
+    docstring for the real investigation behind it (8004scan's API has no
+    endpoint field; the real source is the on-chain ERC-8004 tokenURI).
+    Deliberately part of THIS same function, not a separate job: the whole
+    point (per the real product ask) is that every agent already in the
+    store gets checked on an ongoing basis, and any newly-upserted agent
+    gets checked automatically on its very first appearance here — no
+    separate manual trigger, no second pipeline to keep in sync."""
     api_key = os.environ.get("SCAN_8004_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -73,7 +84,27 @@ async def _refresh_into_store() -> list[dict]:
         # hiccup / a failed page mid-pagination): we do NOT upsert nothing, and
         # the persistent store keeps serving its existing agents untouched.
         print("[server] Refresh returned 0 agents — keeping the persistent store as-is.")
-    return await agent_store.get_stored_agents()
+
+    served = await agent_store.get_stored_agents()
+
+    try:
+        health_results = await agent_health.check_agents_health(served)
+        if health_results:
+            updated = await agent_store.update_agent_health(health_results)
+            print(f"[server] Real health-check pass: {len(health_results)} agents "
+                  f"checked (TTL-fresh ones skipped), {updated} stored.")
+            # Merge the fresh results into what we're about to return so THIS
+            # response already reflects them, not just the next refresh.
+            for a in served:
+                if a.get("id") in health_results:
+                    a.update(health_results[a["id"]])
+    except Exception as e:
+        # Real health-check failure never blocks serving real agent data —
+        # agents just keep whatever service_status they already had on
+        # record (or the honest "not yet checked" absence of one).
+        print(f"[server] Real health-check pass failed: {e}")
+
+    return served
 
 
 async def _background_refresh():
