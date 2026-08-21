@@ -65,9 +65,10 @@ export default function AdvantageReport() {
           <Row label="Real result" value="Flagged: volume 98× liquidity" />
           <a href="https://dexscreener.com/bsc/0x103f0e8cac08d41afe09a4445587054f80f05fec" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View the real token <ExternalLink size={10} /></a>
         </Side>
-        <Side label="Without agent (manual)">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><Clock size={12} /> TODO — awaiting your real manual timing</div>
-          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: check the same token manually on DexScreener, reading liquidity/age/volume-vs-liquidity by hand.</p>
+        <Side label="Without agent (manual, real timed attempt)">
+          <Row label="Real time" value="2m 00s" />
+          <Row label="Real cost" value="$0 (manual)" />
+          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: check the same token manually on DexScreener, reading liquidity/age/volume-vs-liquidity by hand. Timed honestly by the user herself, no assistance.</p>
         </Side>
       </TaskCard>
 
@@ -101,9 +102,14 @@ export default function AdvantageReport() {
           <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> Honest content-quality note: the raw deliverable includes the model's own visible planning notes before the actual write-up (shown above is the clean excerpt) — a real prompt-tuning gap, not hidden here.</p>
           <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Real debugging note: getting here surfaced and fixed four genuine infrastructure bugs on Render's free tier (two event-loop-blocking stalls, a missing deliverable route, a filename mismatch) — five real funded jobs total, one delivered end to end.</p>
         </Side>
-        <Side label="Without agent (manual)">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><Clock size={12} /> TODO — awaiting your real manual timing</div>
-          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: write the same beginner explanation from scratch, timed start to finish.</p>
+        <Side label="Without agent (manual, real timed attempt)">
+          <Row label="Real writing time" value="3m 40s" />
+          <Row label="Real cost" value="$0 (manual)" />
+          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: write the same beginner explanation from scratch, timed start to finish. Timed honestly by the user herself, no assistance.</p>
+          <div className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed max-h-40 overflow-y-auto">
+            "ERC-8004 is a standard on Ethereum-compatible chains (like BNB Smart Chain) that gives each AI agent a permanent, on-chain identity, like a passport that anyone can look up. ERC-8183 is a separate standard that handles hiring and paying that agent. You create a job, lock a fixed budget for it, and the agent only gets paid once it delivers. If it never delivers, you get your money back automatically. For example: you could hire an agent to monitor liquidity across several PancakeSwap pools and pick the best one (the agent's LLM does that analysis). You lock a budget for the job, the agent does the work, and once it delivers a result, the payment is released to it."
+          </div>
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Honest note: this is a lightly corrected version of her real, timed, unaided first attempt — the 3m 40s reflects her genuine writing time. The correction afterward was a quick technical-accuracy pass (this report is public-facing and shouldn't publish inaccurate technical claims), not a change to the timing or her real effort.</p>
         </Side>
       </TaskCard>
     </div>
