@@ -327,25 +327,39 @@ function SplashScreen({ onUnlock }) {
 const BSCSCAN = 'https://bscscan.com';
 
 // Real per-agent track record from on-chain ERC-8183 jobs (mobile equivalent).
+// Real bug fixed 2026-08-21 — see the matching comment on AgentPerformance
+// (web) in AgentMarketplaceApp.web.jsx: this fetch had no client-side
+// timeout, so a slow/stalled response could leave "loading" stuck forever.
+const AGENT_PERFORMANCE_FETCH_TIMEOUT_MS_MOBILE = 20_000;
+
 function AgentPerformanceMobile({ agent, onTrySkill }) {
   const ownerAddress = agent.ownerAddress;
   const [perf, setPerf] = useState(null);
   const [state, setState] = useState('loading');
+  const [retryTick, setRetryTick] = useState(0);
   useEffect(() => {
     if (!ownerAddress) { setState('ready'); return; }
     let cancelled = false;
     setState('loading');
-    fetch(`${API_BASE_URL}/api/agents/performance?owner_address=${ownerAddress}`)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), AGENT_PERFORMANCE_FETCH_TIMEOUT_MS_MOBILE);
+    fetch(`${API_BASE_URL}/api/agents/performance?owner_address=${ownerAddress}`, { signal: controller.signal })
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((d) => { if (!cancelled) { setPerf(d); setState('ready'); } })
-      .catch(() => { if (!cancelled) setState('error'); });
-    return () => { cancelled = true; };
-  }, [ownerAddress]);
+      .catch(() => { if (!cancelled) setState('error'); })
+      .finally(() => clearTimeout(timeout));
+    return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
+  }, [ownerAddress, retryTick]);
   return (
     <div className="mt-4">
       <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Activity size={13} /> Real Hire Performance <span className="text-[10px] font-normal text-gray-400">(on-chain)</span></h3>
       {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Reading on-chain job history…</div>}
-      {state === 'error' && <div className="text-xs text-gray-400">Couldn't read on-chain job history right now.</div>}
+      {state === 'error' && (
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          Couldn't read on-chain job history right now.
+          <button onClick={() => setRetryTick((t) => t + 1)} className="text-indigo-500 font-medium underline">Retry</button>
+        </div>
+      )}
       {state === 'ready' && (!perf || !perf.hired) ? (
         <>
           {/* Practice Mode is now real on mobile (2026-08-19 port) — the real
