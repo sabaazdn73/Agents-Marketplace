@@ -40,6 +40,49 @@ app.add_middleware(
 
 
 import time
+import asyncio
+
+# Real, best-effort keep-alive for the explainer-agent's own Render free-tier
+# instance (srv-da2api9t0dsc7392afdg) — added 2026-08-21 after a real,
+# confirmed incident: a user's /ping check and a real hire attempt both hit
+# the agent mid-idle-spindown-restart (a ~25-40s window where uvicorn isn't
+# accepting connections yet), even though nothing had crashed or regressed —
+# confirmed via direct Render log inspection (clean, repeating
+# shutdown/restart cycles, no OOM/error/rate-limit anywhere). Render's free
+# tier scales to zero after ~15 min of no traffic; this loop pings /ping every
+# 10 minutes (comfortably under that threshold) so the instance ideally never
+# goes idle long enough to spin down during real marketplace usage.
+#
+# Honest limitation, stated plainly: THIS backend is also on Render's free
+# tier, so this loop only runs while server.py itself happens to be awake —
+# it reduces, but cannot fully eliminate, the explainer-agent's cold-start
+# window (this server's own traffic pattern keeps it warm far more reliably
+# than the explainer-agent's low-traffic norm, but there is no guarantee).
+# The already-existing mitigations (agent_health.py's retry-with-backoff,
+# and the explainer-agent's own pre-warm-on-startup) remain the real backstop
+# for whatever this can't prevent.
+_EXPLAINER_AGENT_PING_URL = "https://explainer-agent.onrender.com/ping"
+_KEEPALIVE_INTERVAL_SECONDS = 10 * 60
+
+
+async def _explainer_agent_keepalive_loop():
+    async with httpx.AsyncClient(timeout=15) as client:
+        while True:
+            try:
+                resp = await client.get(_EXPLAINER_AGENT_PING_URL)
+                print(f"[keepalive] explainer-agent /ping -> {resp.status_code} "
+                      f"({resp.elapsed.total_seconds():.2f}s)")
+            except Exception as e:
+                # Real, expected outcome during an actual cold start (the
+                # ping itself is what wakes it up) — not fatal, just logged.
+                print(f"[keepalive] explainer-agent /ping failed (likely mid cold-start): {e}")
+            await asyncio.sleep(_KEEPALIVE_INTERVAL_SECONDS)
+
+
+@app.on_event("startup")
+async def _start_explainer_agent_keepalive():
+    asyncio.create_task(_explainer_agent_keepalive_loop())
+
 
 _cache: dict = {"data": None, "fetched_at": 0}
 _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
