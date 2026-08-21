@@ -79,6 +79,7 @@ _AGG3_SEL = function_signature_to_4byte_selector("aggregate3((address,bool,bytes
 _TOKENURI_CHUNK = 200          # tokenURI reads per aggregate3 eth_call
 _IPFS_GATEWAY = "https://ipfs.io/ipfs/"
 _RESOLVE_TIMEOUT = 6.0         # real, generous — IPFS gateways are genuinely slower than a plain API
+_RESOLVE_RETRY_DELAY = 4.0     # real backoff before retrying a failed resolution — see _resolve_services
 _HEALTHCHECK_TIMEOUT = 4.0     # real, short, as specified — this is a liveness ping, not a real job
 # Real cold-start mitigation — see _check_one's own comment for the live
 # evidence. Only paid on a first-attempt failure, not every check.
@@ -131,41 +132,68 @@ async def _multicall_tokenuris(client: httpx.AsyncClient, token_ids: list[int]) 
     return out
 
 
+async def _fetch_metadata(uri: str, client: httpx.AsyncClient) -> dict:
+    """One real attempt to fetch+parse the metadata JSON behind `uri`. Raises
+    on any failure — retrying is the caller's job (see _resolve_services)."""
+    if uri.startswith("data:application/json;base64,"):
+        raw = base64.b64decode(uri.split(",", 1)[1])
+        return json.loads(raw)
+    elif uri.startswith("data:application/json,"):
+        return json.loads(uri.split(",", 1)[1])
+    elif uri.startswith("ipfs://"):
+        gateway_url = _IPFS_GATEWAY + uri[len("ipfs://"):]
+        resp = await client.get(gateway_url, timeout=_RESOLVE_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    elif uri.startswith("http://") or uri.startswith("https://"):
+        resp = await client.get(uri, timeout=_RESOLVE_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    else:
+        raise ValueError(f"unrecognized URI scheme: {uri[:30]}")
+
+
 async def _resolve_services(uri: str, client: httpx.AsyncClient) -> tuple[list[dict] | None, bool]:
     """Resolve an agentURI to its real services[] list.
 
     Returns (services, resolution_failed). `services` is None when there is
     genuinely no metadata (empty URI) OR when resolution itself failed
     (network/parse error) — the second return value distinguishes those two
-    real cases so the caller can tell "no_endpoint" from "unknown"."""
+    real cases so the caller can tell "no_endpoint" from "unknown".
+
+    Real, confirmed reliability finding (2026-08-21, full-scale production
+    run): the first full bulk run (332 agents) showed a 38% "unknown" rate,
+    vastly higher than small-sample tests (~1%). Root-caused by re-resolving
+    every real agent then marked "unknown" directly, one at a time, right
+    after — 126 of 127 resolved instantly and successfully in isolation, and
+    every single one of those 126 shared the exact same metadata host,
+    metadata.evoevo.ai (a large single-campaign cluster, consistent with the
+    registry's known cluster-domination). Not an IPFS gateway problem, not a
+    genuine per-agent failure — a real, single-host transient failure under
+    OUR OWN concurrent load hitting one third-party host repeatedly within a
+    short window. Mitigation: one retry with a short backoff, mirroring the
+    same wake-up-then-retry philosophy that fixed the earlier HTTP cold-start
+    false negative below — a brief pause is enough to clear a transient
+    per-host rate-limit/overload window without materially slowing down the
+    common (first-try-succeeds) case."""
     if not uri:
         return None, False  # genuinely no URI at all — no_endpoint, not a failure
 
-    try:
-        if uri.startswith("data:application/json;base64,"):
-            raw = base64.b64decode(uri.split(",", 1)[1])
-            data = json.loads(raw)
-        elif uri.startswith("data:application/json,"):
-            data = json.loads(uri.split(",", 1)[1])
-        elif uri.startswith("ipfs://"):
-            gateway_url = _IPFS_GATEWAY + uri[len("ipfs://"):]
-            resp = await client.get(gateway_url, timeout=_RESOLVE_TIMEOUT)
-            resp.raise_for_status()
-            data = resp.json()
-        elif uri.startswith("http://") or uri.startswith("https://"):
-            resp = await client.get(uri, timeout=_RESOLVE_TIMEOUT)
-            resp.raise_for_status()
-            data = resp.json()
-        else:
-            # Unrecognized scheme — genuinely can't resolve this, but it's
-            # not a transient failure either; treat as unresolvable metadata.
-            return None, True
-        return (data.get("services") or None), False
-    except Exception:
-        # Real resolution failure (gateway timeout, invalid CID like the
-        # real "ipfs://bort-v31-canary" junk value seen in testing, bad
-        # JSON, etc.) — OUR pipeline's limitation, not the agent's fault.
-        return None, True
+    last_exc: Exception | None = None
+    for attempt, delay in enumerate((0.0, _RESOLVE_RETRY_DELAY)):
+        if delay:
+            await asyncio.sleep(delay)
+        try:
+            data = await _fetch_metadata(uri, client)
+            return (data.get("services") or None), False
+        except Exception as e:
+            last_exc = e
+            continue
+    # Real resolution failure on BOTH attempts (gateway/host still down after
+    # a backoff, invalid CID like the real "ipfs://bort-v31-canary" junk value
+    # seen in testing, bad JSON, etc.) — OUR pipeline's limitation, not
+    # necessarily the agent's fault.
+    return None, True
 
 
 def _first_http_endpoint(services: list[dict] | None) -> str | None:
