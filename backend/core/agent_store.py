@@ -48,6 +48,7 @@ silently losing it, consistent with this file's own possibly_delisted
 philosophy above (flag soft and reversible, never erase).
 """
 
+import re
 from datetime import datetime, timezone, timedelta
 
 from core.practice_layer import get_db  # reuse the one shared Mongo client
@@ -133,6 +134,30 @@ async def update_agent_health(results: dict[str, dict]) -> int:
         if res.matched_count:
             updated += 1
     return updated
+
+
+_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+
+
+async def get_agent_by_owner(owner_address: str) -> dict | None:
+    """Real lookup for one agent by its owner address (case-insensitive —
+    on-chain addresses vary in casing across sources). Used by the negotiate
+    proxy (server.py) to find an agent's real, on-chain-sourced
+    `service_endpoint` without a fresh RPC round trip on every hire attempt.
+    Returns the freshest-scored match if an owner somehow has more than one
+    (real, if rare) known agent; None if genuinely not in the store yet, or
+    if the input isn't even a well-formed address (also guards the regex
+    query below against anything but a real hex address reaching Mongo)."""
+    if not owner_address or not _ADDRESS_RE.match(owner_address):
+        return None
+    db = get_db()
+    docs = await db.known_agents.find(
+        {"owner_address": {"$regex": f"^{owner_address}$", "$options": "i"}}
+    ).to_list(length=5)
+    if not docs:
+        return None
+    docs.sort(key=lambda d: (d.get("total_score") or 0), reverse=True)
+    return docs[0]
 
 
 async def get_stored_agents(limit: int = 5000) -> list[dict]:

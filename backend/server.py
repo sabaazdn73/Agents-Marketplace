@@ -21,6 +21,7 @@ from core import practice_layer
 from core import agent_store
 from core import agent_performance
 from core import agent_health
+from core import erc8183_negotiate
 
 load_dotenv()
 
@@ -480,6 +481,42 @@ async def agent_perf(owner_address: str):
         return await agent_performance.get_agent_performance(owner_address)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Failed to read on-chain job history: {e}")
+
+
+@app.post("/api/agents/negotiate")
+async def agent_negotiate(request: Request):
+    """Real, server-side proxy for the ERC-8183 A2A `negotiate` skill.
+
+    Real, confirmed reason this exists (2026-08-22): job #56636 was funded
+    through the old generic hire flow (a fixed plain-text description, no
+    negotiate step) and was PERMANENTLY rejected by the seller's own
+    notify_funded — "no signed quote anchored in job description" — traced
+    through the real SDK verification logic. Strict ERC-8183 sellers require
+    a Schema-v1 JobDescription carrying a negotiation_hash + provider_sig
+    THEY signed, which only `negotiate` produces. See core/erc8183_negotiate.py
+    for the full investigation (including why this must run server-side: the
+    agent's endpoint has no CORS support, confirmed live).
+
+    Body: {"owner_address": "0x...", "task_description": "...", "terms": {...}}.
+    Returns the raw negotiation-result envelope on a real accepted quote, or
+    a clean {"available": false} the frontend can fall back on — never a
+    fabricated/synthesized quote."""
+    body = await request.json()
+    owner_address = body.get("owner_address")
+    task_description = body.get("task_description")
+    terms = body.get("terms") or {}
+    if not owner_address or not task_description:
+        raise HTTPException(status_code=400, detail="owner_address and task_description are required")
+
+    agent = await agent_store.get_agent_by_owner(owner_address)
+    service_endpoint = (agent or {}).get("service_endpoint")
+    if not service_endpoint:
+        return {"available": False, "reason": "no registered service_endpoint on record for this agent"}
+
+    result = await erc8183_negotiate.negotiate(service_endpoint, task_description, terms)
+    if result is None:
+        return {"available": False, "reason": "agent did not accept a real negotiate call (unsupported, unreachable, or rejected)"}
+    return {"available": True, "negotiation_result": result}
 
 
 # The exact prefixes our own hire flows write into a job's real, immutable
