@@ -24,6 +24,19 @@ import {
   getContracts, AGENTIC_COMMERCE_ABI, EVALUATOR_ROUTER_ABI,
   OPTIMISTIC_POLICY_ABI, ERC20_ABI, JOB_STATUS,
 } from './erc8183';
+import { negotiateJob, buildJobDescription, negotiatedPriceRaw } from './erc8183Negotiate';
+
+// Generic quality terms sent with every real negotiate attempt. Deliberately
+// broad/neutral — this flow doesn't know the specifics of an arbitrary
+// marketplace agent's work, unlike the explainer-agent's own scripted test
+// jobs which used task-specific terms. A strict seller only needs SOME
+// structured terms to sign a quote against; the actual work spec it reads
+// back is the on-chain description's own `task` field (the same description
+// text this flow already passed in).
+const DEFAULT_NEGOTIATE_TERMS = {
+  deliverables: 'A completed response to the task described above.',
+  quality_standards: 'Accurate, on-topic, and genuinely responsive to what was asked.',
+};
 
 // A step whose tx hash never confirms within this window is reported as
 // "unconfirmed", not silently hung forever — real money is on the line here.
@@ -37,7 +50,14 @@ const RECEIPT_TIMEOUT_MS = 90_000;
 // The real, ordered step keys — matches HIRE_STEP_COPY below and the
 // actual execution order in `hire()`. 'approving' is genuinely conditional
 // (skipped when the existing allowance already covers the budget).
-export const HIRE_STEPS = ['creating', 'registering', 'budgeting', 'approving', 'funding'];
+// 'negotiating' is also genuinely conditional — added 2026-08-22 after a
+// real, confirmed incident (job #56636): a strict ERC-8183 seller
+// PERMANENTLY rejects a job whose on-chain description carries no signed
+// quote. Skipped (not errored) for the many marketplace agents that don't
+// implement `negotiate` at all — see erc8183Negotiate.js for the real
+// investigation and why a failure here always falls back cleanly rather
+// than blocking the hire.
+export const HIRE_STEPS = ['negotiating', 'creating', 'registering', 'budgeting', 'approving', 'funding'];
 
 export function useHireAgent() {
   const { address } = useAccount();
@@ -110,6 +130,37 @@ export function useHireAgent() {
       });
       const budgetRaw = BigInt(Math.round(budgetUnits * 10 ** decimals));
 
+      // Step 0: real, best-effort negotiate — see erc8183Negotiate.js for
+      // the full investigation (job #56636's permanent rejection, traced to
+      // a missing signed quote). Never blocks the hire: any failure here
+      // (agent doesn't support negotiate, isn't reachable, or genuinely
+      // rejected the terms) falls back to the exact plain-description flow
+      // this hook already had — the only difference for those agents is a
+      // few real seconds spent finding out negotiate isn't available.
+      setStep('negotiating');
+      let finalDescription = description;
+      let finalBudgetRaw = budgetRaw;
+      let negotiationSucceeded = false;
+      try {
+        const negotiationResult = await negotiateJob(providerAddress, description, DEFAULT_NEGOTIATE_TERMS);
+        const price = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
+        if (negotiationResult && price != null) {
+          finalDescription = buildJobDescription(negotiationResult);
+          // Never fund less than the agreed price (verify_signed_job requires
+          // budget >= price); respect a higher user-chosen spend cap as-is.
+          finalBudgetRaw = budgetRaw > price ? budgetRaw : price;
+          negotiationSucceeded = true;
+        }
+      } catch (e) {
+        // Real, non-fatal: treat a malformed/unexpected negotiate response
+        // exactly like an agent that never supported negotiate at all.
+      }
+      if (negotiationSucceeded) {
+        setCompletedSteps((prev) => [...prev, 'negotiating']);
+      } else {
+        setSkippedSteps((prev) => [...prev, 'negotiating']);
+      }
+
       // Step 1: create the job (client -> provider, real on-chain tx)
       //
       // Real bug fixed 2026-08-19: expiredAt used to be just
@@ -135,7 +186,7 @@ export function useHireAgent() {
       const expiredAt = BigInt(Math.floor(Date.now() / 1000) + expiryMinutes * 60) + disputeWindowSeconds;
       const { receipt: createReceipt } = await writeAndConfirm('creating', {
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'createJob',
-        args: [providerAddress, contracts.router, expiredAt, description, contracts.router],
+        args: [providerAddress, contracts.router, expiredAt, finalDescription, contracts.router],
       });
       // The real jobId comes from the emitted event/return value, decoded
       // from the receipt logs, not guessed or assumed to be sequential.
@@ -153,7 +204,7 @@ export function useHireAgent() {
       setStep('budgeting');
       await writeAndConfirm('budgeting', {
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'setBudget',
-        args: [newJobId, budgetRaw, '0x'],
+        args: [newJobId, finalBudgetRaw, '0x'],
       });
 
       // Step 4: approve the settlement asset if needed (real allowance
@@ -162,11 +213,11 @@ export function useHireAgent() {
         address: paymentToken, abi: ERC20_ABI, functionName: 'allowance',
         args: [address, contracts.commerce],
       });
-      if (currentAllowance < budgetRaw) {
+      if (currentAllowance < finalBudgetRaw) {
         setStep('approving');
         await writeAndConfirm('approving', {
           address: paymentToken, abi: ERC20_ABI, functionName: 'approve',
-          args: [contracts.commerce, budgetRaw],
+          args: [contracts.commerce, finalBudgetRaw],
         });
       } else {
         setSkippedSteps((prev) => [...prev, 'approving']);
@@ -176,7 +227,7 @@ export function useHireAgent() {
       setStep('funding');
       const { hash: fundHash } = await writeAndConfirm('funding', {
         address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'fund',
-        args: [newJobId, budgetRaw, '0x'],
+        args: [newJobId, finalBudgetRaw, '0x'],
       });
 
       setStep('done');
@@ -207,6 +258,7 @@ export function useHireAgent() {
 // transaction actually does, no vaguer marketing language. Shared by web
 // and mobile so the two can't drift.
 const HIRE_STEP_COPY = {
+  negotiating: { label: 'Get a signed quote', description: "Asking the agent to sign a real price quote — required by some agents before they'll deliver" },
   creating: { label: 'Create job', description: 'Registering your hire request on-chain' },
   registering: { label: 'Link settlement policy', description: 'Linking the dispute/settlement policy to this job' },
   budgeting: { label: 'Set budget', description: "Setting your job's spending limit on-chain" },
@@ -231,7 +283,9 @@ export function buildHireStepList({ step, completedSteps, skippedSteps, stepHash
       key, label: copy.label, description,
       status,
       hash: stepHashes[key] || null,
-      reason: key === 'approving' && status === 'skipped' ? 'Already approved — skipped' : null,
+      reason: key === 'approving' && status === 'skipped' ? 'Already approved — skipped'
+        : key === 'negotiating' && status === 'skipped' ? "This agent doesn't require a signed quote — skipped"
+        : null,
       errorMessage: status === 'error' ? error : null,
     };
   });

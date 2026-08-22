@@ -9,6 +9,7 @@ Run locally: uvicorn server:app --reload --port 8000
 """
 
 import os
+import json
 import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import Response
@@ -531,9 +532,26 @@ _HIRE_DESCRIPTION_PREFIXES = [
 
 def _parse_hired_agent_name(description: str) -> str | None:
     """Recovers the exact agent name shown at hire time, straight from the
-    job's own real on-chain description — see the real bug this fixes below."""
+    job's own real on-chain description — see the real bug this fixes below.
+
+    Real update 2026-08-22: since useHireAgent.js's negotiate step (see
+    core/erc8183_negotiate.py), a job hired against a strict ERC-8183 seller
+    no longer has a plain-text description — it's a Schema-v1 JobDescription
+    JSON blob whose OWN `task` field carries this exact same prefixed string
+    (see erc8183Negotiate.js's buildJobDescription: `task` is the sanitized
+    task_description passed in, unchanged). Try the JSON `task` field first;
+    fall back to the legacy plain-text prefix match for jobs hired before
+    this, or against agents that don't require negotiate at all."""
+    if not description:
+        return None
+    try:
+        parsed = json.loads(description)
+        if isinstance(parsed, dict) and isinstance(parsed.get("task"), str):
+            description = parsed["task"]
+    except (ValueError, TypeError):
+        pass  # not JSON — the legacy plain-text case, fall through as-is
     for prefix in _HIRE_DESCRIPTION_PREFIXES:
-        if description and description.startswith(prefix):
+        if description.startswith(prefix):
             return description[len(prefix):].strip() or None
     return None
 
@@ -584,7 +602,19 @@ async def my_jobs(client_address: str):
 
     for job in result["jobs"]:
         candidates = by_owner.get((job["provider"] or "").lower(), [])
-        parsed_name = _parse_hired_agent_name(job.get("description") or "")
+        raw_description = job.get("description") or ""
+        parsed_name = _parse_hired_agent_name(raw_description)
+        # Real fix, 2026-08-22: a negotiated job's real on-chain description
+        # is a JobDescription JSON blob (see _parse_hired_agent_name's own
+        # docstring), not readable prose — show its `task` field in the UI
+        # instead of the raw JSON. Legacy plain-text descriptions pass
+        # through unchanged.
+        try:
+            parsed_description = json.loads(raw_description)
+            if isinstance(parsed_description, dict) and isinstance(parsed_description.get("task"), str):
+                job["description"] = parsed_description["task"]
+        except (ValueError, TypeError):
+            pass
 
         agent = None
         if parsed_name:
