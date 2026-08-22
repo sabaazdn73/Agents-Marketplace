@@ -11,7 +11,7 @@ import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
-import { useHireAgent, buildHireStepList } from './useHireAgent';
+import { useHireAgent, buildHireStepList, useAgentQuote } from './useHireAgent';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
@@ -535,10 +535,19 @@ function AgentMarketplaceMobile() {
     }
   };
   const [spendCap, setSpendCap] = useState(50000);
+  const [spendCapTouched, setSpendCapTouched] = useState(false);
   // Advanced override for the on-chain job description — see the matching
   // comment in AgentMarketplaceApp.web.jsx (kept in sync with web).
   const [customDescription, setCustomDescription] = useState('');
   const [showCustomDescription, setShowCustomDescription] = useState(false);
+  // Real, live price discovery — see useAgentQuote in useHireAgent.js /
+  // the matching comment in AgentMarketplaceApp.web.jsx (kept in sync).
+  const agentQuote = useAgentQuote(hiring ? selectedAgent : null);
+  useEffect(() => {
+    if (agentQuote.status === 'available' && !spendCapTouched) {
+      setSpendCap(agentQuote.priceUnits);
+    }
+  }, [agentQuote.status, agentQuote.priceUnits, spendCapTouched]);
   // Hire-by-address escape hatch — see the matching comment in
   // AgentMarketplaceApp.web.jsx (kept in sync with web).
   const [showManualHire, setShowManualHire] = useState(false);
@@ -563,6 +572,7 @@ function AgentMarketplaceMobile() {
     if (!walletConnected) { setWalletSheetOpen(true); return; }
     setSelectedAgent(agent);
     setHiring(true);
+    setSpendCapTouched(false); // fresh agent — let its real price (if any) pre-fill again
   };
 
   const {
@@ -668,7 +678,29 @@ function AgentMarketplaceMobile() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-semibold mb-2">Job Budget ($U)</label>
-                  <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50" />
+
+                  {/* Real, live price discovery — see the matching comment
+                      in AgentMarketplaceApp.web.jsx (kept in sync). */}
+                  {agentQuote.status === 'loading' && (
+                    <div className="mb-2 flex items-center gap-1.5 text-xs text-gray-400">
+                      <Loader2 size={12} className="animate-spin" /> Checking this agent's real price…
+                    </div>
+                  )}
+                  {agentQuote.status === 'available' && (
+                    <div className="mb-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
+                      <strong>This agent's price: {agentQuote.priceUnits} $U.</strong> Read directly from the agent's own signed quote — pre-filled below, no need to guess.
+                      {spendCapTouched && Number(spendCap) < agentQuote.priceUnits && (
+                        <span className="block mt-1 text-amber-700 dark:text-amber-400">You've set less than that — we'll automatically fund at least {agentQuote.priceUnits} $U, the agent won't accept less.</span>
+                      )}
+                    </div>
+                  )}
+                  {agentQuote.status === 'unavailable' && (
+                    <div className="mb-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+                      This agent hasn't published a fixed price we could find — you're setting the budget yourself. There's a real chance it's too low for the agent to accept the work.
+                    </div>
+                  )}
+
+                  <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50" />
                   <div className="mt-1.5"><GetULink /></div>
                 </div>
 

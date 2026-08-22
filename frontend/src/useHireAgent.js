@@ -17,7 +17,7 @@
 // name; `error` (already existed) is the separate error signal, so the
 // UI can point at the right row.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
 import { bsc } from 'wagmi/chains';
 import {
@@ -58,6 +58,60 @@ const RECEIPT_TIMEOUT_MS = 90_000;
 // investigation and why a failure here always falls back cleanly rather
 // than blocking the hire.
 export const HIRE_STEPS = ['negotiating', 'creating', 'registering', 'budgeting', 'approving', 'funding'];
+
+// Real, confirmed incident (2026-08-22): our own explainer agent only ever
+// accepts a job whose description carries a signed quote (verify_signed_job
+// permanently rejects a plain-text one) — hire() above already negotiates
+// automatically so this "just works" invisibly. But the user is still left
+// GUESSING at a budget beforehand: for an agent with a real, knowable fixed
+// price, showing a blank/arbitrary default and letting them find out only
+// after funding is a real, avoidable gap. This hook runs the SAME real
+// negotiate call ahead of time, purely for display — `hire()` still
+// negotiates fresh at execution time (a quote has a real TTL; reusing a
+// stale one here would be wrong), so this never substitutes for that, only
+// previews it.
+export function useAgentQuote(agent) {
+  const publicClient = usePublicClient();
+  // status: 'idle' | 'loading' | 'available' | 'unavailable'
+  const [state, setState] = useState({ status: 'idle' });
+
+  useEffect(() => {
+    if (!agent?.ownerAddress) { setState({ status: 'idle' }); return; }
+    let cancelled = false;
+    setState({ status: 'loading' });
+    (async () => {
+      try {
+        const description = `Hire via Agents Marketplace: ${agent.name}`;
+        const negotiationResult = await negotiateJob(agent.ownerAddress, description, DEFAULT_NEGOTIATE_TERMS);
+        const priceRaw = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
+        if (cancelled) return;
+        if (!negotiationResult || priceRaw == null) {
+          setState({ status: 'unavailable' });
+          return;
+        }
+        // Real decimals for the real settlement token — never assumed.
+        const contracts = getContracts(bsc.id);
+        const paymentToken = await publicClient.readContract({
+          address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'paymentToken',
+        });
+        const decimals = await publicClient.readContract({
+          address: paymentToken, abi: ERC20_ABI, functionName: 'decimals',
+        });
+        if (cancelled) return;
+        setState({
+          status: 'available',
+          priceUnits: Number(priceRaw) / 10 ** decimals,
+          priceRaw, decimals,
+        });
+      } catch (e) {
+        if (!cancelled) setState({ status: 'unavailable' });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [agent?.ownerAddress, agent?.name, publicClient]);
+
+  return state;
+}
 
 export function useHireAgent() {
   const { address } = useAccount();
