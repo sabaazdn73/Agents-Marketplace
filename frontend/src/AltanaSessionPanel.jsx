@@ -14,6 +14,7 @@ import {
   disputeJob,
 } from './altana';
 import { addNotification, trackJob } from './notifications';
+import { recordFunded } from './jobTiming';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import JobStatusPanel from './JobStatusPanel';
@@ -91,8 +92,9 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
         budgetUnits: Number(spendCap),
       });
       setHireResult(result);
-      addNotification(`Job #${result.jobId} funded`, `You hired ${agent.name}. The job is now funded on-chain.`);
+      addNotification(`Job #${result.jobId}: Payment on hold`, `You hired ${agent.name} — your payment is on hold until the work is done.`);
       trackJob(result.jobId, 'FUNDED');
+      recordFunded(result.jobId); // the real moment funding confirmed — see jobTiming.js
       setStep(null);
     } catch (e) {
       setError(e.message || String(e));
@@ -117,16 +119,16 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
   // from the state above — no invented progress.
   const sessionSteps = [
     {
-      key: 'creating_wallet', label: 'Create passkey wallet',
-      description: 'Creating your passkey wallet (Face ID/Touch ID) — a one-time local device confirmation, not a blockchain transaction',
+      key: 'creating_wallet', label: 'Set up the mini-wallet',
+      description: 'Confirming with Face ID or your fingerprint — just a one-time check on this device, nothing sent anywhere yet',
       status: completedSessionSteps.includes('creating_wallet') ? 'complete'
         : step === 'creating_wallet' ? (error ? 'error' : 'active') : 'pending',
       hash: null,
       errorMessage: step === 'creating_wallet' && error ? error : null,
     },
     {
-      key: 'granting', label: 'Grant on-chain session',
-      description: 'Registering a scoped on-chain session (spend cap + expiry) so this wallet can act on your behalf',
+      key: 'granting', label: 'Turn on the spending limit',
+      description: "Permanently recording this mini-wallet's spending limit and expiry, so it can act on your behalf within those limits",
       status: completedSessionSteps.includes('granting') ? 'complete'
         : step === 'granting' ? (error ? 'error' : 'active') : 'pending',
       hash: null,
@@ -138,24 +140,25 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
     <div className={`rounded-2xl border p-5 ${mutedBorder}`} style={{ background: surface }}>
       <div className="flex items-center gap-2 mb-3">
         <ShieldCheck size={16} style={{ color: accent }} />
-        <span className="text-xs font-bold uppercase tracking-wide opacity-70">Altana Session (real, on-chain)</span>
+        <span className="text-xs font-bold uppercase tracking-wide opacity-70">Set a spending limit instead</span>
       </div>
 
       {!session ? (
         <div className="space-y-3">
           <p className="text-xs opacity-60">
-            This creates a real, passkey-secured Altana wallet and a genuine on-chain
-            session with a real spend cap and expiry, revocable anytime, visible on the
-            Altana Explorer.
+            This sets up a separate, protected mini-wallet that unlocks with Face ID or a fingerprint —
+            no password to remember. You choose exactly how much it's allowed to spend per day and when
+            that permission expires. You can cancel this anytime, and every hire it makes is checked and
+            recorded permanently, so nothing about it is hidden from you.
           </p>
           <div className="flex gap-3">
             <div className="flex-1">
-              <label className="text-[10px] uppercase opacity-50 block mb-1">Daily Cap ($U)</label>
+              <label className="text-[10px] uppercase opacity-50 block mb-1">Daily limit ($U)</label>
               <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)}
                 disabled={!!step} className={`w-full p-2 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
             </div>
             <div className="flex-1">
-              <label className="text-[10px] uppercase opacity-50 block mb-1">Expiry (hours)</label>
+              <label className="text-[10px] uppercase opacity-50 block mb-1">Expires after (hours)</label>
               <input type="number" value={expiryHours} onChange={(e) => setExpiryHours(e.target.value)}
                 disabled={!!step} className={`w-full p-2 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
             </div>
@@ -171,39 +174,39 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
 
           <button onClick={handleCreateWalletAndSession} disabled={!!step && !error}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-            {error && (step === 'creating_wallet' || step === 'granting') ? 'Retry' : 'Create Altana Wallet + Session'}
+            {error && (step === 'creating_wallet' || step === 'granting') ? 'Try again' : 'Set up spending limit'}
           </button>
         </div>
       ) : (
         <div className="space-y-3">
           <div className={`p-3 rounded-xl border ${mutedBorder} text-xs`}>
-            <div className="flex justify-between mb-1"><span className="opacity-50">Wallet</span><span className="font-mono">{wallet?.address?.slice(0, 8)}...{wallet?.address?.slice(-6)}</span></div>
-            <div className="flex justify-between mb-1"><span className="opacity-50">Spend cap</span><span className="font-semibold">{spendCap} $U / day</span></div>
+            <div className="flex justify-between mb-1"><span className="opacity-50">Mini-wallet</span><span className="font-mono">{wallet?.address?.slice(0, 8)}...{wallet?.address?.slice(-6)}</span></div>
+            <div className="flex justify-between mb-1"><span className="opacity-50">Daily limit</span><span className="font-semibold">{spendCap} $U / day</span></div>
             <div className="flex justify-between"><span className="opacity-50">Expires</span><span className="font-semibold">{new Date(session.expiry * 1000).toLocaleString()}</span></div>
           </div>
 
           <a href={explorerLinkForWallet(wallet?.address)} target="_blank" rel="noreferrer" className="text-xs underline flex items-center gap-1 opacity-70 hover:opacity-100">
-            View on Altana Explorer <ExternalLink size={11} />
+            See its full activity record <ExternalLink size={11} />
           </a>
 
           {agent && (
             <button onClick={handleHire} disabled={!!step && !error}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
               {step === 'hiring' ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}
-              {error && step === 'hiring' ? 'Retry hire' : `Hire ${agent.name} through this session`}
+              {error && step === 'hiring' ? 'Try hire again' : `Hire ${agent.name} using this limit`}
             </button>
           )}
 
           {hireResult && (
             <>
               <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-xs">
-                Job #{hireResult.jobId?.toString()} funded.
+                Job #{hireResult.jobId?.toString()} — payment is on hold.
               </div>
               <JobStatusPanel
                 jobId={hireResult.jobId} initialStatus="FUNDED" mutedBorder={mutedBorder} accent={accent}
                 onDispute={async (jobId) => {
                   await disputeJob(wallet, wallet.signer, jobId);
-                  addNotification(`Job #${jobId} disputed`, 'You contested the delivery; awaiting the on-chain verdict.');
+                  addNotification(`Job #${jobId}: Disputed`, "You've flagged this delivery as a problem; waiting on the outcome.");
                 }}
               />
             </>
@@ -211,7 +214,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
 
           <button onClick={handleRevoke} disabled={!!step && !error}
             className="w-full py-2 rounded-xl text-xs font-semibold text-red-500 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1">
-            <XCircle size={13} /> {step === 'revoking' ? 'Revoking on-chain...' : error && step === 'revoking' ? 'Retry revoke' : 'Revoke Session'}
+            <XCircle size={13} /> {step === 'revoking' ? 'Turning off access…' : error && step === 'revoking' ? 'Try turning off again' : 'Turn off this limit'}
           </button>
         </div>
       )}

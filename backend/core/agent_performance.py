@@ -187,8 +187,8 @@ async def get_agent_performance(owner_address: str) -> dict:
             "hired": False,
             "hire_count": 0,
             **window,
-            "note": "No ERC-8183 jobs found for this agent in the most recent "
-                    f"{WINDOW} on-chain jobs — not yet hired through this marketplace.",
+            "note": f"We checked the last {WINDOW} jobs across the whole marketplace and "
+                    "found none for this agent — it hasn't been hired through here yet.",
         }
     settled = p["COMPLETED"] + p["REJECTED"] + p["EXPIRED"]
     active = p["OPEN"] + p["FUNDED"] + p["SUBMITTED"]
@@ -205,8 +205,7 @@ async def get_agent_performance(owner_address: str) -> dict:
         "last_submitted_at": p["last_submitted_at"] or None,
         "recent_job_ids": sorted(p["job_ids"], reverse=True)[:10],
         **window,
-        "note": "Real on-chain ERC-8183 outcomes for this agent as the provider, "
-                f"from the most recent {WINDOW} jobs.",
+        "note": f"Based on this agent's last {WINDOW} jobs across the whole marketplace.",
     }
 
 
@@ -228,7 +227,6 @@ async def get_my_jobs(client_address: str) -> dict:
         "client_address": client_address,
         "jobs": jobs,
         **window,
-        "note": f"Real on-chain ERC-8183 jobs for this wallet as client, from the "
-                f"most recent {WINDOW} jobs (job counter {_cache['job_counter']}). "
-                "An older job than that window would not appear here, even if real.",
+        "note": f"Based on the last {WINDOW} jobs across the whole marketplace. "
+                "If you hired someone longer ago than that, it may not show up here yet.",
     }

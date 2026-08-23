@@ -57,10 +57,10 @@ export default function SellYourAgentForm() {
     // creator opts in, we build the REAL B402 Bazaar discovery blob now so their
     // endpoint can attach it on its x402 settle call and get indexed.
     if (model === 'x402') {
-      if (!idValid) return setLocalErr('Enter your agent’s ERC-8004 token ID.');
-      if (!ownership.isOwner) return setLocalErr('Only the on-chain owner of this agent can list it.');
-      if (!/^https?:\/\//.test(endpoint.trim())) return setLocalErr('Enter your agent’s paid endpoint URL (https://…).');
-      if (!perCall.trim()) return setLocalErr('Enter a per-call price.');
+      if (!idValid) return setLocalErr("Enter your agent's ID number.");
+      if (!ownership.isOwner) return setLocalErr("Only this agent's real owner can list it — this wallet isn't it.");
+      if (!/^https?:\/\//.test(endpoint.trim())) return setLocalErr('Enter the web address people will pay to use (starting with https://).');
+      if (!perCall.trim()) return setLocalErr('Enter a price for each use.');
       const bazaar = bazaarOptIn
         ? buildBazaarBlob({ name: x402Name.trim() || undefined, description: x402Desc.trim() || undefined, method: 'GET' })
         : null;
@@ -74,14 +74,14 @@ export default function SellYourAgentForm() {
         localStorage.setItem(X402_KEY, JSON.stringify(cfg));
       } catch {}
       return setDone({ kind: 'x402', msg: bazaarOptIn
-        ? 'Saved your x402 config with a real B402 Bazaar discovery blob. Buyers pay per call straight to your wallet; once your endpoint attaches this blob to its first x402 settle, B402 lists you (~30s) so agents can discover you.'
-        : 'Saved your x402 pay-per-call config. Buyers pay per call directly to your wallet via the existing x402 flow — no marketplace contract needed.' });
+        ? "Saved! People will pay you directly, each time they use it. Once your service is set up to accept these payments (a separate step for you or your developer), you'll also show up in Binance's agent directory within about 30 seconds, so other agents can find and use yours automatically."
+        : "Saved! Once your service is set up to accept payments (a separate step for you or your developer), people will pay you directly each time they use it — no further steps needed on our end." });
     }
 
     // Models 1 & 2 — on-chain listing.
-    if (!ownership.isOwner) return setLocalErr('Only the on-chain owner of this agent can list it.');
-    if (!price.trim() || Number(price) <= 0) return setLocalErr('Enter a price greater than 0.');
-    if (!configured) return setLocalErr('On-chain listing is not live on this network yet (contract pending deployment).');
+    if (!ownership.isOwner) return setLocalErr("Only this agent's real owner can list it — this wallet isn't it.");
+    if (!price.trim() || Number(price) <= 0) return setLocalErr('Enter a price above 0.');
+    if (!configured) return setLocalErr("Paid listings aren't turned on for this marketplace yet — check back soon.");
     try {
       const priceRaw = toRawUnits(price, 18);
       const periodSeconds = model === MODEL.SUBSCRIPTION ? Math.max(1, Math.floor(Number(periodDays) * 86400)) : 0;
@@ -89,21 +89,21 @@ export default function SellYourAgentForm() {
       await listAgent({ agentId: agentId.trim(), token, model, priceRaw, periodSeconds });
       rememberMyListing(agentId.trim()); // so it shows in "Your listings" above
 
-      setDone({ kind: 'onchain', msg: `Listed agent #${agentId.trim()} priced in ${sym}. Buyers can now ${model === MODEL.SUBSCRIPTION ? 'subscribe' : 'purchase a license'} in ${sym} from its detail page. List again in another token to accept it too.` });
+      setDone({ kind: 'onchain', msg: `Your agent is listed! Buyers can now ${model === MODEL.SUBSCRIPTION ? 'subscribe to it' : 'buy access to it'} using ${sym} from its page. Want to accept a different currency too? List it again and pick another one.` });
     } catch { /* error surfaced via hook */ }
   };
 
   const models = [
-    { id: MODEL.ONE_TIME, icon: Coins, label: 'One-time license', desc: 'Buyer pays once for permanent access.' },
-    { id: MODEL.SUBSCRIPTION, icon: Activity, label: 'Subscription', desc: 'Buyer pays per period; access expires unless renewed.' },
-    { id: 'x402', icon: Hammer, label: 'Pay-per-call (x402)', desc: 'Charged per API call, settled directly to you off-contract.' },
+    { id: MODEL.ONE_TIME, icon: Coins, label: 'One-time purchase', desc: 'Buyer pays once and gets access forever.' },
+    { id: MODEL.SUBSCRIPTION, icon: Activity, label: 'Subscription', desc: "Buyer pays regularly (like a monthly membership) — access stops if they don't renew." },
+    { id: 'x402', icon: Hammer, label: 'Pay-per-use', desc: 'Buyer is charged automatically each time they use it, paid straight to your wallet.' },
   ];
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold mb-1">Sell Your Agent</h2>
-        <p className="text-sm text-gray-500">List an agent <strong>you own</strong> and choose how buyers pay. Ownership is verified on-chain against the ERC-8004 registry — you can only list your own agent.</p>
+        <p className="text-sm text-gray-500">List an agent <strong>you own</strong> and choose how people pay you for it. We check directly with the public registry that you actually own it first — you can only list agents that are really yours.</p>
       </div>
 
       {/* Creator dashboard: real per-token withdrawable earnings + your listings. */}
@@ -118,21 +118,21 @@ export default function SellYourAgentForm() {
       {!configured && (
         <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40 text-[11px] text-gray-500 flex items-start gap-2">
           <ShieldCheck size={14} className="shrink-0 mt-0.5" />
-          <span>The AgentAccessMarket contract is verified on the practice fork but not yet deployed to this network, so on-chain listing (one-time / subscription) is disabled. Ownership verification and x402 config work now.</span>
+          <span>Paid listings (one-time purchase or subscription) aren't turned on for this marketplace yet — we're still setting that up. You can still confirm you own your agent below, and set up pay-per-use pricing.</span>
         </div>
       )}
 
       <form onSubmit={submit} className="space-y-5">
         <div>
-          <label className="text-xs font-semibold block mb-1">Your agent’s ERC-8004 token ID</label>
+          <label className="text-xs font-semibold block mb-1">Your agent's ID number</label>
           <input value={agentId} onChange={(e) => setAgentId(e.target.value)} inputMode="numeric" placeholder="e.g. 1024"
             className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none focus:ring-2 focus:ring-indigo-500/40" />
           {idValid && (
             <div className="mt-1.5 text-[11px] flex items-center gap-1.5">
-              {ownership.status === 'checking' && <span className="text-gray-400 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> checking ownership…</span>}
-              {ownership.status === 'notfound' && <span className="text-gray-400">No ERC-8004 identity found for that token ID.</span>}
-              {ownership.status === 'done' && ownership.isOwner && <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> You own this agent (verified on-chain).</span>}
-              {ownership.status === 'done' && !ownership.isOwner && <span className="text-red-500 flex items-center gap-1"><XCircle size={12} /> Owned by {ownership.owner?.slice(0, 6)}…{ownership.owner?.slice(-4)}, not your wallet.</span>}
+              {ownership.status === 'checking' && <span className="text-gray-400 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> checking…</span>}
+              {ownership.status === 'notfound' && <span className="text-gray-400">We can't find an agent registered with that ID.</span>}
+              {ownership.status === 'done' && ownership.isOwner && <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Confirmed — this is your agent.</span>}
+              {ownership.status === 'done' && !ownership.isOwner && <span className="text-red-500 flex items-center gap-1"><XCircle size={12} /> This agent belongs to a different wallet ({ownership.owner?.slice(0, 6)}…{ownership.owner?.slice(-4)}), not yours.</span>}
             </div>
           )}
         </div>
@@ -154,7 +154,7 @@ export default function SellYourAgentForm() {
             in one; list again in another to accept it too. */}
         {model !== 'x402' && (
           <div>
-            <label className="text-xs font-semibold block mb-1">Payment token</label>
+            <label className="text-xs font-semibold block mb-1">Which currency to accept</label>
             <div className="flex gap-2">
               {ACCEPTED_TOKENS.map((t) => (
                 <button type="button" key={t.address} onClick={() => setToken(t.address)}
@@ -163,7 +163,7 @@ export default function SellYourAgentForm() {
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-gray-400 mt-1">All three are accepted — buyers pick which they pay with. List the same agent again in another token to offer it too.</p>
+            <p className="text-[10px] text-gray-400 mt-1">Buyers can pay with any of these three digital currencies. You can list the same agent again to accept another one too.</p>
           </div>
         )}
 
@@ -177,12 +177,12 @@ export default function SellYourAgentForm() {
         {model === MODEL.SUBSCRIPTION && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold block mb-1">Price/period ({ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol})</label>
+              <label className="text-xs font-semibold block mb-1">Price per period ({ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol})</label>
               <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 10"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1">Period (days)</label>
+              <label className="text-xs font-semibold block mb-1">How often (days)</label>
               <input value={periodDays} onChange={(e) => setPeriodDays(e.target.value)} inputMode="numeric" placeholder="30"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
@@ -191,24 +191,24 @@ export default function SellYourAgentForm() {
         {model === 'x402' && (
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-semibold block mb-1">Your agent’s paid endpoint (x402)</label>
+              <label className="text-xs font-semibold block mb-1">The web address people pay to use</label>
               <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://your-agent.example/api"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1">Price per call ($U)</label>
+              <label className="text-xs font-semibold block mb-1">Price per use <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
               <input value={perCall} onChange={(e) => setPerCall(e.target.value)} inputMode="decimal" placeholder="e.g. 0.05"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
-            <p className="text-[11px] text-gray-400">x402 charges per HTTP call and settles straight to your wallet — no marketplace contract. This saves the config; wiring your endpoint as an x402 resource is your own deploy step.</p>
+            <p className="text-[11px] text-gray-400">Each time someone uses this web address, they're charged automatically and it goes straight to your wallet — we never hold or touch the money. This just saves your settings here; you (or your developer) still need to set up your own service to actually accept these payments, which is a separate technical step.</p>
 
             {/* B402 Bazaar opt-in (free discovery) */}
             <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/5 space-y-2">
               <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
                 <input type="checkbox" checked={bazaarOptIn} onChange={(e) => setBazaarOptIn(e.target.checked)} />
-                List on Binance B402 Bazaar (free discovery)
+                Also list me in Binance's agent directory (free)
               </label>
-              <p className="text-[11px] text-gray-500">Attaches a real Bazaar metadata blob to your x402 settle call so AI agents can discover your endpoint. Opt-in, zero extra cost.</p>
+              <p className="text-[11px] text-gray-500">Helps other AI agents find and use yours automatically, similar to getting listed in an app store. Optional, and free.</p>
               {bazaarOptIn && (
                 <div className="grid grid-cols-1 gap-2 pt-1">
                   <input value={x402Name} onChange={(e) => setX402Name(e.target.value)} placeholder="Agent name (for discovery)"
@@ -225,15 +225,15 @@ export default function SellYourAgentForm() {
         {model !== 'x402' && (
           <div className="text-[11px] text-gray-500 p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
             {feePct != null
-              ? <>Platform fee: <strong style={{ color: ACCENT }}>{feePct}%</strong> — read live from the contract, so buyers see the real current rate. You keep the remaining {100 - feePct}%.</>
-              : <>Platform fee is read live from the contract’s <code>feeBps</code> once deployed (2.5% on the practice-fork test). It’s never hardcoded, so it stays accurate if the rate changes.</>}
+              ? <>We take a <strong style={{ color: ACCENT }}>{feePct}%</strong> fee automatically when someone buys — pulled directly from our live settings, not a guess. You keep the remaining {100 - feePct}%.</>
+              : <>Once paid listings go live, our exact fee will show here automatically (2.5% during this early test period) — never something we set behind the scenes without you seeing it.</>}
           </div>
         )}
 
         <button type="submit" disabled={!isConnected || busy || (model !== 'x402' && !ownership.isOwner)}
           className="w-full py-3 rounded-xl text-sm font-bold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: ACCENT }}>
           {busy ? <Loader2 size={15} className="animate-spin" /> : null}
-          {model === 'x402' ? 'Save x402 config' : busy ? 'Listing on-chain…' : 'List agent on-chain'}
+          {model === 'x402' ? 'Save my settings' : busy ? 'Listing…' : 'List my agent'}
         </button>
 
         {(localErr || error) && <div className="text-xs text-red-500 whitespace-pre-wrap">{localErr || error}</div>}

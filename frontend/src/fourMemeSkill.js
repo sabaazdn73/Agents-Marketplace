@@ -37,7 +37,7 @@ export async function getCurveStatus(publicClient, tokenAddress) {
 
 export async function buyOnCurve(executor, { tokenAddress, bnbToSpend, slippagePct = 3 }) {
   const status = await getCurveStatus(executor.publicClient, tokenAddress);
-  if (status.liquidityAdded) throw new Error('This token has already graduated to PancakeSwap, curve buys will revert. Use the PancakeSwap trading skill instead.');
+  if (status.liquidityAdded) throw new Error("This token has already moved to full trading on PancakeSwap — use the PancakeSwap Trading skill for it instead.");
 
   const fundsRaw = BigInt(Math.round(bnbToSpend * 1e18));
 
@@ -51,7 +51,7 @@ export async function buyOnCurve(executor, { tokenAddress, bnbToSpend, slippageP
 
 export async function sellOnCurve(executor, { tokenAddress, tokenAmount, slippagePct = 3 }) {
   const status = await getCurveStatus(executor.publicClient, tokenAddress);
-  if (status.liquidityAdded) throw new Error('This token has already graduated to PancakeSwap, curve sells will revert. Use the PancakeSwap trading skill instead.');
+  if (status.liquidityAdded) throw new Error("This token has already moved to full trading on PancakeSwap — use the PancakeSwap Trading skill for it instead.");
 
   const amountRaw = BigInt(Math.round(tokenAmount * 1e18));
 

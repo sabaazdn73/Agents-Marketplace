@@ -32,20 +32,24 @@ export function usePasskeyVerified(ownerAddress) {
   return result;
 }
 
-const HONEST_TOOLTIP =
-  "This wallet's owner authenticates via device biometrics (Face ID/Touch ID), not a plaintext " +
-  'private key. Read live from the real on-chain KeyStore contract — not a claim the owner makes. ' +
-  'This does NOT prove a unique human controls the wallet.';
+// Copy audit (2026-08-22): this tooltip used to say things like "plaintext
+// private key" and "on-chain KeyStore contract" — real, but meaningless to
+// someone without a crypto background. Rewritten in plain language; the
+// underlying check (usePasskeyVerified above) is unchanged.
+const PLAIN_TOOLTIP =
+  "This account unlocks with Face ID or a fingerprint, not a secret password someone could steal or lose. " +
+  "We checked this directly, ourselves — it's not just something the owner claims. " +
+  "It doesn't prove one specific real person controls it, though.";
 
 export default function PasskeyBadge({ ownerAddress, className = '' }) {
   const result = usePasskeyVerified(ownerAddress);
   if (!result || result.status !== 'passkey') return null; // no badge unless genuinely confirmed — ever
   return (
     <span
-      title={HONEST_TOOLTIP}
+      title={PLAIN_TOOLTIP}
       className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 ${className}`}
     >
-      <Fingerprint size={11} /> Passkey-verified
+      <Fingerprint size={11} /> Uses Face ID / fingerprint
     </span>
   );
 }

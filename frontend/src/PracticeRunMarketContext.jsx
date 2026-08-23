@@ -60,16 +60,16 @@ function ChartContext({ tokenAddress, secondToken, accent }) {
     return () => { cancelled = true; };
   }, [tokenAddress, secondToken]);
 
-  if (state.status === 'loading') return <div className="flex items-center gap-1.5 text-[11px] opacity-60"><Loader2 size={11} className="animate-spin" /> Loading the real price chart for this token…</div>;
-  if (state.status === 'no-pool') return <p className="text-[11px] opacity-60">No real PancakeSwap market exists for this token yet, so there's no real price chart to show.</p>;
-  if (state.status === 'error') return <p className="text-[11px] opacity-50">Couldn't load a real price chart right now ({state.message}).</p>;
+  if (state.status === 'loading') return <div className="flex items-center gap-1.5 text-[11px] opacity-60"><Loader2 size={11} className="animate-spin" /> Loading the price chart for this token…</div>;
+  if (state.status === 'no-pool') return <p className="text-[11px] opacity-60">This token isn't trading anywhere yet, so there's no price chart to show.</p>;
+  if (state.status === 'error') return <p className="text-[11px] opacity-50">Couldn't load a price chart right now ({state.message}).</p>;
 
   const first = state.points[0].close, last = state.points[state.points.length - 1].close;
   const pctChange = first ? ((last - first) / first) * 100 : 0;
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] opacity-60 flex items-center gap-1"><TrendingUp size={11} /> Real market price around your practice trade</span>
+        <span className="text-[11px] opacity-60 flex items-center gap-1"><TrendingUp size={11} /> Market price around when you made this practice trade</span>
         <span className={`text-[11px] font-semibold ${pctChange >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{pctChange >= 0 ? '+' : ''}{pctChange.toFixed(2)}% (24h)</span>
       </div>
       <Sparkline points={state.points} accent={accent} />
@@ -96,15 +96,15 @@ function RateContext({ skillId }) {
     return () => { cancelled = true; };
   }, [skillId]);
 
-  if (state.status === 'loading') return <div className="flex items-center gap-1.5 text-[11px] opacity-60"><Loader2 size={11} className="animate-spin" /> Reading the real current rate…</div>;
-  if (state.status === 'error' || state.status === 'unavailable') return <p className="text-[11px] opacity-50">Couldn't read the real current rate right now{state.message ? ` (${state.message})` : ''}.</p>;
+  if (state.status === 'loading') return <div className="flex items-center gap-1.5 text-[11px] opacity-60"><Loader2 size={11} className="animate-spin" /> Checking the current rate…</div>;
+  if (state.status === 'error' || state.status === 'unavailable') return <p className="text-[11px] opacity-50">Couldn't check the current rate right now{state.message ? ` (${state.message})` : ''}.</p>;
 
   return (
     <div className="text-[11px] space-y-1">
-      <div className="flex items-center gap-1.5 opacity-60"><Percent size={11} /> Real current rate (right now, not a history — no honest historical source for this exists)</div>
-      {'apyPct' in state && <div className="font-semibold" style={{ fontSize: 13 }}>{state.apyPct.toFixed(2)}% APY</div>}
+      <div className="flex items-center gap-1.5 opacity-60"><Percent size={11} /> Current rate, checked just now (we don't have a history of past rates to show)</div>
+      {'apyPct' in state && <div className="font-semibold" style={{ fontSize: 13 }}>{state.apyPct.toFixed(2)}% per year</div>}
       {'bnbPerSlisBnb' in state && <div className="font-semibold" style={{ fontSize: 13 }}>1 slisBNB = {state.bnbPerSlisBnb.toFixed(4)} BNB</div>}
-      <p className="opacity-50">This isn't a "trade price" — it's the real interest/exchange rate this position is actually earning, read live from the contract.</p>
+      <p className="opacity-50">This isn't a trade price — it's the actual interest rate (or exchange rate) this practice position is earning right now, checked live.</p>
     </div>
   );
 }
@@ -125,14 +125,14 @@ function CurveContext({ tokenAddress }) {
     return () => { cancelled = true; };
   }, [tokenAddress]);
 
-  if (state.status === 'loading') return <div className="flex items-center gap-1.5 text-[11px] opacity-60"><Loader2 size={11} className="animate-spin" /> Reading the real bonding-curve price…</div>;
-  if (state.status === 'error') return <p className="text-[11px] opacity-50">Couldn't read the real curve price right now ({state.message}).</p>;
+  if (state.status === 'loading') return <div className="flex items-center gap-1.5 text-[11px] opacity-60"><Loader2 size={11} className="animate-spin" /> Checking the current price…</div>;
+  if (state.status === 'error') return <p className="text-[11px] opacity-50">Couldn't check the current price right now ({state.message}).</p>;
 
   return (
     <div className="text-[11px] space-y-1">
-      <div className="flex items-center gap-1.5 opacity-60"><Activity size={11} /> Real bonding-curve price (right now)</div>
-      <div className="font-semibold" style={{ fontSize: 13 }}>{state.progressPct.toFixed(1)}% of the way to graduating to PancakeSwap</div>
-      <p className="opacity-50">This token hasn't listed on a real exchange yet, so there's no real price history anywhere to chart — this progress number is the honest real signal that exists for it right now.</p>
+      <div className="flex items-center gap-1.5 opacity-60"><Activity size={11} /> Current price, checked just now</div>
+      <div className="font-semibold" style={{ fontSize: 13 }}>{state.progressPct.toFixed(1)}% of the way to being tradeable on PancakeSwap</div>
+      <p className="opacity-50">This token isn't listed on an exchange yet, so there's no price history to chart — this progress number is the best real signal we have for it right now.</p>
     </div>
   );
 }

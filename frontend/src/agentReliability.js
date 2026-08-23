@@ -45,6 +45,6 @@ export function getReliabilityHint(perf) {
   return {
     expired,
     settled,
-    message: `This agent has a history of not delivering — ${expired} of ${settled} recent settled jobs expired without a result.`,
+    message: `Heads up: this agent has a history of not finishing on time — ${expired} out of its last ${settled} finished jobs ran out of time with nothing delivered.`,
   };
 }

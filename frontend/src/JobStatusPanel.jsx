@@ -25,14 +25,75 @@
 // or, once something real exists (a submitted deliverable), actually shows
 // it — fetched and rendered in whatever real format it turns out to be,
 // not just a bare link.
+//
+// "Live waiting" pass, 2026-08-23: the FUNDED state used to just be one
+// static sentence with no sense of time passing — a real UX complaint
+// ("feels like a black box"). Real, honest constraint investigated before
+// building this: the on-chain job struct (erc8183.js's own ABI) has NO
+// fundedAt/createdAt field, only `expiredAt` (bakes in a per-job, user-
+// chosen buffer + a fixed dispute-window constant — not invertible without
+// knowing that per-job buffer) and `submittedAt`. There's also no indexed
+// event we can scan instead (see agent_performance.py's own docstring —
+// this project already, deliberately avoids getLogs scans after real,
+// repeated RPC rate-limit/archive-node pain). So a general "typical
+// delivery time" average across arbitrary third-party agents genuinely
+// isn't computable from what's available today — jobTiming.js's own header
+// has the full investigation. What IS real and buildable: a live elapsed
+// timer (jobTiming.js records the real funding moment for jobs hired
+// through this browser, or an honest first-observed fallback otherwise),
+// a real countdown to the actual on-chain expiredAt, faster panel-local
+// polling while a FUNDED job is actually open, and a progress ESTIMATE
+// only for the one agent we've genuinely measured (also in jobTiming.js) —
+// never a fabricated bar for agents we have no real data on.
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Sparkles, Clock, Hourglass, CheckCircle2, XCircle } from 'lucide-react';
 import { getJobStatus, getDeliverable } from './altana';
 import { trackJob } from './notifications';
+import { recordFunded, getStartEstimate, getKnownTypicalDelivery } from './jobTiming';
 
 const DELIVERABLE_FETCH_TIMEOUT_MS = 12_000;
 const DELIVERABLE_MAX_CHARS = 4000; // long deliverables get truncated with a "view full" link, not a broken layout
+
+// Panel-local fast poll, distinct from NotificationBell's app-wide 30s
+// background poll — this one only runs while THIS panel is mounted, visible
+// (Page Visibility API — no point hammering RPCs for a backgrounded tab),
+// and the job is actually FUNDED (the only state where anything changes).
+const FAST_POLL_MS = 8_000;
+// Purely cosmetic re-render tick for the live elapsed/countdown/"checked Xs
+// ago" numbers — no network call, that's what makes it feel alive at zero
+// extra RPC cost.
+const TICK_MS = 1_000;
+// How long a real, detected status change stays visually flashed before
+// settling into its normal steady-state look.
+const FLASH_MS = 2_200;
+
+function useTicker(active) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setTick((t) => t + 1), TICK_MS);
+    return () => clearInterval(id);
+  }, [active]);
+}
+
+function formatElapsed(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (h > 0) return `${h}h ${m}m ${sec}s`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+function formatCountdown(ms) {
+  if (ms <= 0) return null; // past deadline — caller shows the refund path instead
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
 
 /** Fetches the real deliverable URL and figures out, from what actually
  * comes back, how to show it honestly: real JSON pretty-printed, a real
@@ -126,6 +187,19 @@ const STATUS_COPY = {
   REJECTED: "You disputed this delivery, and it was decided in your favor — you got your money back.",
 };
 
+// A friendlier word for the status badge next to the plain-English sentence
+// above — the raw values (OPEN, FUNDED, SUBMITTED…) are the real, internal
+// status names read straight from the blockchain, kept as-is for anyone who
+// wants to look this job up directly; this is just what's SHOWN.
+export const STATUS_DISPLAY_LABEL = {
+  OPEN: 'Not paid yet',
+  FUNDED: 'Payment on hold',
+  SUBMITTED: 'Delivered',
+  COMPLETED: 'Finished',
+  REJECTED: 'Refunded',
+  EXPIRED: 'Refunded',
+};
+
 export default function JobStatusPanel({
   jobId, initialStatus, mutedBorder, accent,
   onDispute, onClaimRefund,
@@ -147,12 +221,34 @@ export default function JobStatusPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  // "Live waiting" state — see this file's header + jobTiming.js for the
+  // real investigation behind each of these.
+  const [lastCheckedAtMs, setLastCheckedAtMs] = useState(null);
+  const [flashKind, setFlashKind] = useState(null); // null | 'submitted' | 'expired' — a real, just-detected change
+  const prevStatusRef = useRef(initialStatus || null);
+  const tickerActive = status === 'FUNDED' || flashKind != null;
+  useTicker(tickerActive);
+
   const refresh = useCallback(async () => {
     setError(null);
+    // "Checked Xs ago" should reflect that we just tried, whether or not it
+    // succeeds — a failed check is still a real check, and silently NOT
+    // updating this on failure would make repeated failures look like one
+    // long-stale check instead of what's actually happening.
+    setLastCheckedAtMs(Date.now());
     try {
       const j = await getJobStatus(jobId);
       setJob(j); setStatus(j.statusName);
       trackJob(jobId, j.statusName);
+
+      // A real, detected change (not the initial load) — trigger the
+      // visual transition once, driven by an actual state flip.
+      if (prevStatusRef.current != null && prevStatusRef.current !== j.statusName) {
+        if (j.statusName === 'SUBMITTED') { setFlashKind('submitted'); setTimeout(() => setFlashKind(null), FLASH_MS); }
+        else if (j.statusName === 'EXPIRED') { setFlashKind('expired'); setTimeout(() => setFlashKind(null), FLASH_MS); }
+      }
+      prevStatusRef.current = j.statusName;
+
       if (j.statusName === 'SUBMITTED' || j.statusName === 'COMPLETED') {
         setDeliverableState({ status: 'loading' });
         try {
@@ -170,6 +266,25 @@ export default function JobStatusPanel({
   }, [jobId]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Panel-local fast poll — only while a FUNDED job is actually mounted and
+  // the tab is visible. Distinct from NotificationBell's slower, app-wide
+  // background poll (still the fallback for jobs not currently open).
+  useEffect(() => {
+    if (status !== 'FUNDED') return;
+    const id = setInterval(() => { if (!document.hidden) refresh(); }, FAST_POLL_MS);
+    return () => clearInterval(id);
+  }, [status, refresh]);
+
+  // The real start-time estimate for the elapsed timer — computed (and, for
+  // the fallback case, persisted) the moment we first see FUNDED for this
+  // job, not recomputed every render/tick.
+  const [startEstimate, setStartEstimate] = useState(null);
+  useEffect(() => {
+    if (status === 'FUNDED' && !startEstimate) setStartEstimate(getStartEstimate(jobId));
+  }, [status, jobId, startEstimate]);
+
+  const nowMs = Date.now(); // safe here — only read during a render driven by useTicker
 
   const handleDispute = async () => {
     if (!onDispute) return;
@@ -209,8 +324,30 @@ export default function JobStatusPanel({
   const nowSec = Math.floor(Date.now() / 1000);
   const canClaimRefund = status === 'FUNDED' && job?.expiredAt != null && nowSec > Number(job.expiredAt);
 
+  // Live-waiting numbers — all derived from real state (startEstimate,
+  // job.expiredAt, lastCheckedAtMs) re-evaluated every tick, never a fake
+  // incrementing counter running independently of reality.
+  const elapsedMs = status === 'FUNDED' && startEstimate ? nowMs - startEstimate.atMs : null;
+  const countdownMs = status === 'FUNDED' && job?.expiredAt != null ? Number(job.expiredAt) * 1000 - nowMs : null;
+  const typical = status === 'FUNDED' ? getKnownTypicalDelivery(job?.provider) : null;
+  const progressPct = typical && elapsedMs != null ? Math.min(100, (elapsedMs / (typical.seconds * 1000)) * 100) : null;
+  const checkedSecAgo = lastCheckedAtMs != null ? Math.max(0, Math.floor((nowMs - lastCheckedAtMs) / 1000)) : null;
+
+  // Flash styling — a real, visible transition ONLY when refresh() just
+  // detected an actual change (flashKind), self-clearing after FLASH_MS.
+  const flashRing = flashKind === 'submitted' ? 'ring-2 ring-emerald-400 dark:ring-emerald-500'
+    : flashKind === 'expired' ? 'ring-2 ring-amber-400 dark:ring-amber-500'
+    : '';
+
   return (
-    <div className={`mt-3 p-3 rounded-xl border ${mutedBorder} text-xs space-y-2`}>
+    <div className={`mt-3 p-3 rounded-xl border ${mutedBorder} text-xs space-y-2 transition-all duration-500 ${flashRing}`}>
+      {flashKind && (
+        <div className={`-mt-1 -mx-1 mb-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 animate-in fade-in duration-300 ${
+          flashKind === 'submitted' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+        }`}>
+          {flashKind === 'submitted' ? <><CheckCircle2 size={13} /> Just delivered!</> : <><XCircle size={13} /> Just expired — you can get a refund now</>}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="font-semibold">Job #{String(jobId)}</span>
@@ -219,13 +356,58 @@ export default function JobStatusPanel({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-semibold" style={{ color: accent }}>{loading ? '…' : (status || 'unknown')}</span>
+          <span className="font-semibold" title={status ? `Real status: ${status}` : undefined} style={{ color: accent }}>{loading ? '…' : (STATUS_DISPLAY_LABEL[status] || status || 'unknown')}</span>
           <button onClick={refresh} disabled={busy} className="opacity-60 hover:opacity-100"><RefreshCw size={12} /></button>
         </div>
       </div>
 
-      {/* One plain-English line explaining exactly where things stand, before anything else. */}
-      {status && STATUS_COPY[status] && <p className="opacity-80 leading-relaxed">{STATUS_COPY[status]}</p>}
+      {/* One plain-English line explaining exactly where things stand, before
+          anything else — except FUNDED, where the real live-ticking view
+          below replaces the old static "waiting" text entirely. */}
+      {status && status !== 'FUNDED' && STATUS_COPY[status] && <p className="opacity-80 leading-relaxed">{STATUS_COPY[status]}</p>}
+
+      {status === 'FUNDED' && (
+        <div className="space-y-2 pt-0.5">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 font-semibold text-sm" style={{ color: accent }}>
+              <Hourglass size={13} className="animate-pulse" /> Waiting: {elapsedMs != null ? formatElapsed(elapsedMs) : '…'}
+            </span>
+            {checkedSecAgo != null && (
+              <span className="opacity-50 text-[10px]" title="How long ago we last checked this job's real on-chain status">Checked {checkedSecAgo}s ago</span>
+            )}
+          </div>
+          {startEstimate && !startEstimate.precise && (
+            <p className="text-[10px] opacity-40">We don't have your exact funding moment on record for this job — this counts from when we first saw it funded, so the real wait may be a bit longer.</p>
+          )}
+
+          {typical && progressPct != null && (
+            <div>
+              <div className="flex items-center justify-between text-[10px] opacity-60 mb-1">
+                <span>Estimated progress</span>
+                <span>{Math.round(progressPct)}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${progressPct}%`, background: accent }} />
+              </div>
+              <p className="text-[10px] opacity-40 mt-1">
+                Most similar jobs finish in about {formatElapsed(typical.seconds * 1000)} — an estimate from {typical.sourceLabel}, not a guarantee.
+                {progressPct >= 100 && ' Taking longer than that typical case; still genuinely possible it delivers.'}
+              </p>
+            </div>
+          )}
+
+          {countdownMs != null && (
+            <div className="flex items-center gap-1.5 text-[11px] opacity-70" title="Real time left before this job's on-chain deadline">
+              <Clock size={11} />
+              {countdownMs > 0
+                ? <span>Deadline in {formatCountdown(countdownMs)} — after that, come back here and claim a refund yourself (it won't happen on its own)</span>
+                : <span>Past its deadline — a refund is now available below</span>}
+            </div>
+          )}
+
+          <p className="opacity-60 leading-relaxed pt-0.5">The agent hasn't finished the work yet — there's nothing to show until it does.</p>
+        </div>
+      )}
 
       {(submitted || completed) && (
         <div className="space-y-2 pt-1">
@@ -248,17 +430,17 @@ export default function JobStatusPanel({
           ) : deliverableState.status === 'error' ? (
             <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-              <span>Couldn't check for a result right now ({deliverableState.error}) — this is a real read failure, not necessarily "nothing delivered". <button onClick={refresh} className="underline">Retry</button></span>
+              <span>Couldn't check for a result right now ({deliverableState.error}) — that's a problem on our end, not proof nothing was delivered. <button onClick={refresh} className="underline">Retry</button></span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 opacity-60"><FileText size={12} /> The agent hasn't posted a result we can find on-chain yet.</div>
+            <div className="flex items-center gap-1.5 opacity-60"><FileText size={12} /> We can't find a result from the agent yet.</div>
           )}
           {submitted && onDispute && (
             <>
               <button onClick={handleDispute} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold text-red-600 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1.5">
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />} This isn't right — dispute it
               </button>
-              <p className="text-[10px] opacity-50">You can only do this for a short window after the agent delivers. If that window has closed, the button above won't work — the contract will say so.</p>
+              <p className="text-[10px] opacity-50">You can only do this for a short window after the agent delivers. If that window has closed, this won't work — you'll see a message explaining why.</p>
             </>
           )}
         </div>

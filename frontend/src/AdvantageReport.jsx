@@ -42,9 +42,9 @@ function Side({ label, children }) {
   );
 }
 
-const Row = ({ label, value }) => (
+const Row = ({ label, value, hint }) => (
   <div className="flex justify-between gap-3 text-xs">
-    <span className="text-gray-500">{label}</span>
+    <span className="text-gray-500" title={hint}>{label}</span>
     <span className="font-mono font-semibold text-right">{value}</span>
   </div>
 );
@@ -53,63 +53,63 @@ export default function AdvantageReport() {
   return (
     <div className="space-y-6">
       <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
-        Real tasks, run for real through the actual built system — not simulated. Where a real number is still missing (your manual "without agent" timings, or a real blocker on our side), it's marked honestly below rather than filled with a placeholder that looks like data.
+        These are measured results, not simulated ones. Where a number is still missing — like a manual timing we don't have yet, or something blocked on our side — we say so plainly below instead of filling it in with a placeholder that looks like data.
       </div>
 
       {/* Task 1 — COMPLETE */}
       <TaskCard icon={ShieldAlert} title="Task 1 — Security/trading risk check" statusLabel="Complete" statusColor="#10B981">
-        <Side label="With agent (real, Practice Mode Token Radar skill)">
-          <Row label="Target" value="犇犇/WBNB (real, live BSC token)" />
-          <Row label="Real time" value="0.216s" />
-          <Row label="Real cost" value="$0 (read-only)" />
-          <Row label="Real result" value="Flagged: volume 98× liquidity" />
-          <a href="https://dexscreener.com/bsc/0x103f0e8cac08d41afe09a4445587054f80f05fec" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View the real token <ExternalLink size={10} /></a>
+        <Side label="With an agent (Practice Mode's Token Radar skill)">
+          <Row label="Target" value="犇犇/WBNB (a real, live token)" />
+          <Row label="Time taken" value="0.216s" />
+          <Row label="Cost" value="$0 (just looked something up)" />
+          <Row label="Result" value="Flagged: trading volume 98× its available liquidity" />
+          <a href="https://dexscreener.com/bsc/0x103f0e8cac08d41afe09a4445587054f80f05fec" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View this token <ExternalLink size={10} /></a>
         </Side>
-        <Side label="Without agent (manual, real timed attempt)">
-          <Row label="Real time" value="2m 00s" />
-          <Row label="Real cost" value="$0 (manual)" />
-          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: check the same token manually on DexScreener, reading liquidity/age/volume-vs-liquidity by hand. Timed honestly by the user herself, no assistance.</p>
+        <Side label="Without an agent (done by hand, timed)">
+          <Row label="Time taken" value="2m 00s" />
+          <Row label="Cost" value="$0 (manual)" />
+          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: check the same token manually on DexScreener, reading liquidity/age/volume-vs-liquidity by hand. Timed by the user herself, with no help.</p>
         </Side>
       </TaskCard>
 
       {/* Task 2 — BLOCKED, honestly */}
       <TaskCard icon={Coins} title="Task 2 — DeFi execution (Venus Lending supply)" statusLabel="Blocked" statusColor="#F59E0B">
-        <Side label="With agent (real, Practice Mode Venus skill)">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Blocked by a real, disclosed infrastructure issue (intermittent)</div>
-          <p className="text-[11px] text-gray-400 leading-relaxed">15+ real attempts across two sessions: mostly a "Temporary internal error" from the practice fork's upstream archive RPC (known dRPC free-tier degradation, not a code bug) — but it briefly cleared twice mid-session (real funding succeeded), then reverted before the full approve+supply sequence could complete cleanly in one run. Genuinely intermittent, not permanently down. Will be completed and reported with real numbers on the next clean window.</p>
+        <Side label="With an agent (Practice Mode's Venus skill)">
+          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Blocked by a technical issue on our end (comes and goes)</div>
+          <p className="text-[11px] text-gray-400 leading-relaxed">We tried more than 15 times across two sessions. Most attempts failed with a temporary error from one of our practice system's outside data providers (not a bug in our own code) — though it briefly worked twice, successfully moving funds, before failing again partway through. It comes and goes, it's not permanently broken. We'll finish this task and report real numbers once it's reliably working again.</p>
         </Side>
-        <Side label="Without agent (manual)">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><Clock size={12} /> TODO — awaiting your real manual timing</div>
+        <Side label="Without an agent">
+          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><Clock size={12} /> Still waiting on your manual timing for this one</div>
           <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: supply USDT to Venus directly via app.venus.io (connect wallet → approve → supply → confirm).</p>
         </Side>
       </TaskCard>
 
       {/* Task 3 — COMPLETE, real mainnet delivery captured 2026-08-19 */}
       <TaskCard icon={GraduationCap} title="Task 3 — Knowledge/content (ERC-8004/8183 explainer agent)" statusLabel="Complete" statusColor="#10B981">
-        <Side label="With agent (real — self-hosted on BSC mainnet)">
-          <Row label="Real build time" value="~50s (scaffold→LLM)" />
-          <Row label="Real quoted price" value="0.1 $U (mainnet)" />
-          <Row label="Real delivery time" value="~60s (notify→SUBMITTED)" />
-          <Row label="Real job" value="#56620" />
+        <Side label="With an agent (self-hosted, on the real network)">
+          <Row label="Build time" value="~50s (scaffold → AI)" />
+          <Row label="Price quoted" value="0.1 $U" hint="$U is a type of digital dollar — 1 $U is worth about $1." />
+          <Row label="Delivery time" value="~60s (notified → delivered)" />
+          <Row label="Job number" value="#56620" />
           <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
-            Real, funded, on-chain ERC-8183 job — self-hosted on Render (BSC mainnet, no testnet, no faucet). Fetched the actual deliverable and independently verified its keccak256 hash matches the on-chain record exactly.
+            A real, paid job, hosted by us on the real network — no test network, no free practice money involved. We fetched what the agent actually delivered and independently confirmed its fingerprint matches the permanent public record exactly.
           </p>
-          <a href="https://bscscan.com/tx/0xe82346efb104b80afaaff9ba4584c2bcf26ad2d3888e01cf03128459f6d16de7" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View the real submit tx <ExternalLink size={10} /></a>
-          <a href="https://explainer-agent.onrender.com/erc8183/job/56620/response" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1 ml-3">View the raw deliverable <ExternalLink size={10} /></a>
+          <a href="https://bscscan.com/tx/0xe82346efb104b80afaaff9ba4584c2bcf26ad2d3888e01cf03128459f6d16de7" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View the delivery record <ExternalLink size={10} /></a>
+          <a href="https://explainer-agent.onrender.com/erc8183/job/56620/response" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1 ml-3">View what the agent delivered <ExternalLink size={10} /></a>
           <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed max-h-40 overflow-y-auto">
             "ERC-8004 is the agent's official ID card&nbsp;&mdash; like a driver's license: anyone can look it up and confirm who's really behind it before trusting it. ERC-8183 is job escrow&nbsp;&mdash; like buying a house through a title company: payment sits in a neutral locked box until the work is delivered, so neither side can get cheated. Together: ERC-8004 tells you *who* you're hiring, ERC-8183 makes sure the *payment* is safe while they work."
           </div>
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> Honest content-quality note: the raw deliverable includes the model's own visible planning notes before the actual write-up (shown above is the clean excerpt) — a real prompt-tuning gap, not hidden here.</p>
-          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Real debugging note: getting here surfaced and fixed four genuine infrastructure bugs on Render's free tier (two event-loop-blocking stalls, a missing deliverable route, a filename mismatch) — five real funded jobs total, one delivered end to end.</p>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> One quality note: what the agent delivered includes its own visible planning notes before the actual write-up (we're showing the cleaned-up excerpt above) — a rough edge in how we prompted it, that we're not hiding from you.</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Getting this working surfaced and fixed four real technical bugs in our own hosting setup along the way. It took five funded attempts in total — one delivered successfully, start to finish.</p>
         </Side>
-        <Side label="Without agent (manual, real timed attempt)">
-          <Row label="Real writing time" value="3m 40s" />
-          <Row label="Real cost" value="$0 (manual)" />
-          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: write the same beginner explanation from scratch, timed start to finish. Timed honestly by the user herself, no assistance.</p>
+        <Side label="Without an agent (done by hand, timed)">
+          <Row label="Time taken" value="3m 40s" />
+          <Row label="Cost" value="$0 (manual)" />
+          <p className="text-[11px] text-gray-400 leading-relaxed">Instructions given: write the same beginner explanation from scratch, timed start to finish. Timed by the user herself, with no help.</p>
           <div className="mt-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed max-h-40 overflow-y-auto">
-            "ERC-8004 is a standard on Ethereum-compatible chains (like BNB Smart Chain) that gives each AI agent a permanent, on-chain identity, like a passport that anyone can look up. ERC-8183 is a separate standard that handles hiring and paying that agent. You create a job, lock a fixed budget for it, and the agent only gets paid once it delivers. If it never delivers, you get your money back automatically. For example: you could hire an agent to monitor liquidity across several PancakeSwap pools and pick the best one (the agent's LLM does that analysis). You lock a budget for the job, the agent does the work, and once it delivers a result, the payment is released to it."
+            "ERC-8004 is a standard on Ethereum-compatible chains (like BNB Smart Chain) that gives each AI agent a permanent, on-chain identity, like a passport that anyone can look up. ERC-8183 is a separate standard that handles hiring and paying that agent. You create a job, lock a fixed budget for it, and the agent only gets paid once it delivers. If it never delivers, you get your money back automatically. For example: you could hire an agent to monitor liquidity across several PancakeSwap pools and pick the best one (the agent's AI does that analysis). You lock a budget for the job, the agent does the work, and once it delivers a result, the payment is released to it."
           </div>
-          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Honest note: this is a lightly corrected version of her real, timed, unaided first attempt — the 3m 40s reflects her genuine writing time. The correction afterward was a quick technical-accuracy pass (this report is public-facing and shouldn't publish inaccurate technical claims), not a change to the timing or her real effort.</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">This is a lightly corrected version of her original, timed, unaided attempt — the 3m 40s is her real writing time. The only change afterward was a quick fact-check pass to fix a technical inaccuracy; her timing and effort weren't touched.</p>
         </Side>
       </TaskCard>
     </div>

@@ -38,7 +38,7 @@ export const SCAN_BLOCKS = BigInt(import.meta.env?.VITE_SKILL_SCAN_BLOCKS || 100
  * address-less getLogs.
  */
 export async function detectLeaderTrades(publicClient, leaderAddress, { fromBlock, toBlock } = {}) {
-  if (!leaderAddress) throw new Error('A leader wallet address is required. Per this skill\'s own rule, it must never be inferred or guessed.');
+  if (!leaderAddress) throw new Error('Enter the wallet address you want to copy trades from.');
 
   const latestBlock = toBlock ?? await publicClient.getBlockNumber();
   // Default scan depth is SCAN_BLOCKS (VITE_SKILL_SCAN_BLOCKS, default 1000).

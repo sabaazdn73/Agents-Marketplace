@@ -41,7 +41,7 @@ export async function quoteBestRoute(publicClient, tokenAddress, usdtAmountRaw) 
   const directOut = directQuote ? directQuote[directQuote.length - 1] : 0n;
   const hopOut = hopQuote ? hopQuote[hopQuote.length - 1] : 0n;
 
-  if (directOut === 0n && hopOut === 0n) throw new Error('No route found for this token on either the direct or WBNB-hop path.');
+  if (directOut === 0n && hopOut === 0n) throw new Error("We couldn't find a way to trade this token pair right now.");
   return directOut >= hopOut ? { path: directPath, amountOut: directOut } : { path: hopPath, amountOut: hopOut };
 }
 

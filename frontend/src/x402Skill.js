@@ -21,7 +21,7 @@ export async function payOnce(session, url, { maxPriceRaw, init } = {}) {
     const body = await probe.json().catch(() => null);
     const askedAmount = body?.accepts?.[0]?.amount ? BigInt(body.accepts[0].amount) : null;
     if (askedAmount !== null && maxPriceRaw !== undefined && askedAmount > BigInt(maxPriceRaw)) {
-      throw new Error(`Refused: server asked ${askedAmount} but maximum price allowed is ${maxPriceRaw}.`);
+      throw new Error(`Stopped this payment: it would cost more than the maximum price you allowed (asked ${askedAmount}, your limit ${maxPriceRaw}).`);
     }
   }
 
@@ -38,7 +38,7 @@ export async function payOnce(session, url, { maxPriceRaw, init } = {}) {
 export function assertWithinBudget(spentSoFarRaw, nextPaymentRaw, budgetRaw) {
   const total = BigInt(spentSoFarRaw) + BigInt(nextPaymentRaw);
   if (total > BigInt(budgetRaw)) {
-    throw new Error(`Payment would bring cumulative spend to ${total}, over the ${budgetRaw} budget. Refused.`);
+    throw new Error(`Stopped this payment: it would put your total spending (${total}) over your limit for this session (${budgetRaw}).`);
   }
   return total;
 }

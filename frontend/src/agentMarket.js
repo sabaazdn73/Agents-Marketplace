@@ -284,8 +284,8 @@ export function useBuyAccess() {
 // Honest, wallet-matched copy per step. {amount}/{symbol} are filled in by
 // buildBuyStepList from the real offer being purchased.
 const BUY_STEP_COPY = {
-  approving: { label: 'Approve {symbol}', description: 'Giving the contract permission to move up to {amount} {symbol} — this step does not spend anything yet' },
-  buying: { label: 'Pay & unlock access', description: 'Final step — this pays {amount} {symbol} for access' },
+  approving: { label: 'Allow the payment', description: "Giving permission to set aside up to {amount} {symbol} — this doesn't spend anything yet, it just unlocks the next step" },
+  buying: { label: 'Pay & unlock access', description: 'Final step — this pays {amount} {symbol} to unlock access' },
 };
 
 /** Builds the real, current step list for <StepChecklist/>, straight from

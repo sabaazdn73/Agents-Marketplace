@@ -50,15 +50,15 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
   if (!isConnected) {
     return (
       <div className={`p-8 rounded-2xl border ${mutedBorder} text-center text-sm text-gray-500`}>
-        Connect a wallet to see the real jobs you've hired through this marketplace.
+        Connect a wallet to see the agents you've hired.
       </div>
     );
   }
   if (loading) {
-    return <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center"><Loader2 size={16} className="animate-spin" /> Reading your real on-chain jobs…</div>;
+    return <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center"><Loader2 size={16} className="animate-spin" /> Looking up who you've hired…</div>;
   }
   if (error) {
-    return <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Couldn't load your jobs: {error}</div>;
+    return <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Couldn't load your hires: {error}</div>;
   }
 
   const jobs = data?.jobs || [];
@@ -68,7 +68,7 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
       {jobs.length === 0 ? (
         <div className={`p-8 rounded-2xl border ${mutedBorder} text-center`}>
           <Briefcase size={28} className="mx-auto mb-3 text-gray-300 dark:text-gray-700" />
-          <p className="text-sm text-gray-500">No real ERC-8183 jobs found for this wallet yet.</p>
+          <p className="text-sm text-gray-500">You haven't hired anyone yet.</p>
           <p className="text-xs text-gray-400 mt-1">Hire an agent from the Marketplace and it'll show up here.</p>
         </div>
       ) : (
@@ -84,8 +84,8 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
                   <span className="font-mono text-xs text-gray-500 truncate">{job.provider}</span>
                 )}
               </div>
-              <a href={`https://bscscan.com/address/${job.provider}`} target="_blank" rel="noreferrer" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 shrink-0">
-                provider <ExternalLink size={9} />
+              <a href={`https://bscscan.com/address/${job.provider}`} target="_blank" rel="noreferrer" title="See this agent owner's full activity record" className="text-[10px] text-gray-400 hover:text-gray-600 flex items-center gap-0.5 shrink-0">
+                owner <ExternalLink size={9} />
               </a>
             </div>
             <div className="text-[11px] text-gray-400 mt-0.5 truncate">{job.description}</div>

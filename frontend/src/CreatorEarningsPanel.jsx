@@ -79,7 +79,7 @@ export default function CreatorEarningsPanel() {
         <>
           {/* Withdrawable earnings per token (real, on-chain, pull-over-push) */}
           {nonzero.length === 0 ? (
-            <p className="text-[11px] text-gray-500">No withdrawable earnings yet. When buyers purchase your agents, your share accrues here per token.</p>
+            <p className="text-[11px] text-gray-500">No money to withdraw yet. When someone buys your agent, your share builds up here, separately for each currency.</p>
           ) : (
             <div className="space-y-2">
               {nonzero.map((r) => (
@@ -98,7 +98,7 @@ export default function CreatorEarningsPanel() {
           <div className="mt-4">
             <div className="text-[11px] font-semibold text-gray-500 mb-1.5 flex items-center gap-1.5">Your listings {loadingListings && <Loader2 size={11} className="animate-spin" />}</div>
             {listings.length === 0 ? (
-              <p className="text-[11px] text-gray-400">No listings made from this browser yet. When you list an agent below, it appears here with pause/resume controls.</p>
+              <p className="text-[11px] text-gray-400">You haven't listed anything from this device yet. When you list an agent below, it'll show up here, where you can pause or resume it anytime.</p>
             ) : (
               <div className="space-y-2">
                 {listings.map((l) => (

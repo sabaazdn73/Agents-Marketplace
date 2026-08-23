@@ -39,7 +39,7 @@ export async function venusSupply(executor, { usdtAmount }) {
 export async function venusWithdraw(executor, { usdtAmount, withdrawAll = false }) {
   if (withdrawAll) {
     // Real flow per the skill: read full vToken balance, redeem() it entirely.
-    throw new Error('withdrawAll requires reading the live vUSDT balance first, wire a publicClient read before calling this with withdrawAll=true.');
+    throw new Error("Couldn't withdraw everything — please try again, or contact support if it keeps happening.");
   }
   const amountRaw = BigInt(Math.round(usdtAmount * 1e18));
   const calldata = encodeFunctionData({ abi: VENUS_ABI, functionName: 'redeemUnderlying', args: [amountRaw] });
@@ -98,7 +98,7 @@ const PANCAKESWAP_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
  * per the skill's own quirk: "never assume a 50/50 or a stale ratio." */
 export async function quoteLiquidityRatio(publicClient, tokenA, tokenB, amountADesired) {
   const pairAddress = await publicClient.readContract({ address: PANCAKESWAP_FACTORY, abi: FACTORY_ABI, functionName: 'getPair', args: [tokenA, tokenB] });
-  if (pairAddress === '0x0000000000000000000000000000000000000000') throw new Error('No PancakeSwap V2 pair exists for this token pair.');
+  if (pairAddress === '0x0000000000000000000000000000000000000000') throw new Error("There's no trading pool for this pair of tokens on PancakeSwap yet.");
 
   const [reserves, token0] = await Promise.all([
     publicClient.readContract({ address: pairAddress, abi: PAIR_ABI, functionName: 'getReserves' }),

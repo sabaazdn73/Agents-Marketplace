@@ -20,10 +20,12 @@ import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
+import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './ServiceHealthBadge';
+import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 
@@ -43,36 +45,52 @@ const SRC = {
   venusSkill: { label: 'venus-lending SKILL.md', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/skills/venus-lending/SKILL.md' },
 };
 
+// Copy audit (2026-08-23): this array previously had NO plain-language
+// layer at all — just condensed jargon (raw function-call chains, contract
+// names) for what's meant to be the beginner glossary. Rewritten with a
+// real `p` (plain, leads) + `tech` (secondary, for anyone curious) split —
+// kept in sync in spirit with web's LEARN_TOPICS, condensed to one card
+// per topic for mobile's layout.
 const LEARN_TOPICS = [
-  { h: 'Wallet, gas, mainnet — plain English', p: 'A wallet is an account that holds crypto and signs approvals (here, via Face ID — no seed phrase). Gas is the small fee to record a transaction. Mainnet is the real chain; a "fork" is a free fake-money copy used for practice.' },
-  { h: 'ERC-8004 — Identity', p: 'Every agent gets an on-chain identity token (ERC-721) + profile. Registration is gas-free — sponsored by the MegaFuel paymaster.', src: SRC.sdk },
-  { h: 'ERC-8183 — Commerce', p: 'A trustless job protocol: client + provider transact through AgenticCommerce (escrow), EvaluatorRouter (routing), OptimisticPolicy (silence = approve).', src: SRC.sdk },
-  { h: 'Hiring = a real job, not a subscription', p: 'createJob → registerJob → setBudget → approve $U → fund, each signed by your wallet. Payment is $U (a crypto dollar) held in escrow — never a standing permission.', src: SRC.sdk },
-  { h: 'Job lifecycle', p: 'OPEN → FUNDED → SUBMITTED → COMPLETED (settled) / REJECTED (disputed) / EXPIRED (never settled).', src: SRC.sdk },
-  { h: 'The real safety net', p: 'claimRefund() after the deadline with no settlement — the guaranteed exit, always available.', src: SRC.sdk },
-  { h: 'Dispute window', p: 'If a submitted result looks wrong, dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
-  { h: 'Skills + Practice Mode', p: 'Use ready-made, fork-tested Skills from Altana\'s registry via a passkey wallet + a capped, expiring session. Practice Mode runs them on a free fork first; your run history is saved even if the fork resets.', src: SRC.skills },
+  { h: 'A wallet', p: 'An account that holds your crypto and approves payments — like a bank card, but only you control it. Here you can make one with Face ID, no password to write down.', tech: 'A wallet signs on-chain approvals. This app supports passkey wallets (WebAuthn/Face ID), so there\'s no seed phrase.', src: SRC.altana },
+  { h: 'Gas', p: "The tiny fee normally paid to record something permanently — like a stamp on a letter. Registering an agent here is free; we cover that fee for you.", tech: 'A "paymaster" (MegaFuel) sponsors registration gas on BNB Chain.', src: SRC.sdk },
+  { h: 'Mainnet vs. practice', p: "Mainnet is the real network, where real money moves. Practice Mode is a free copy of it loaded with fake money, so you can try anything first at zero risk.", tech: 'Practice Mode runs against a "fork" — a live copy of mainnet state.' },
+  { h: 'Escrow', p: 'When you hire an agent, your payment is held by the system, not the agent — it only gets paid once the work is accepted, and you can get it back if nothing is delivered.', tech: 'Your payment sits in an on-chain vault (AgenticCommerce) until settlement.', src: SRC.sdk },
+  { h: 'The agent\'s ID card (ERC-8004)', p: "Every agent gets a permanent, public identity anyone can look up — like an ID card. Free to register.", tech: 'An on-chain ERC-721 identity token + a discoverable profile (name, description, endpoints).', src: SRC.sdk },
+  { h: 'The payment rulebook (ERC-8183)', p: "A set of automatic rules that hold the money and enforce the deal, so neither you nor the agent has to just trust the other.", tech: 'Three contracts: AgenticCommerce (job + escrow), EvaluatorRouter (routes to a settlement policy), OptimisticPolicy (silence past the review window = approved).', src: SRC.sdk },
+  { h: 'Hiring = one job, not a subscription', p: "You fund one specific job, once. The agent can never dip into your wallet again on its own.", tech: 'createJob → registerJob → setBudget → approve $U → fund, each signed by your wallet.', src: SRC.sdk },
+  { h: 'The stages a hire goes through', p: 'Not paid yet → Payment on hold → Delivered → Finished (paid) — or Refunded, if you cancel, dispute successfully, or the deadline passes with nothing delivered.', tech: 'OPEN → FUNDED → SUBMITTED → COMPLETED, or REJECTED / EXPIRED.', src: SRC.sdk },
+  { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry — always available, guaranteed by the contract.', src: SRC.sdk },
+  { h: "If something looks wrong", p: "You get a short window after delivery to flag a problem before payment is automatically released.", tech: 'Call dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
+  { h: 'Ready-made Skills + Practice Mode', p: "Skills are pre-built recipes an agent can run for you — no building required. You can try any of them for free first with practice money before using your own.", tech: "Fork-tested Skills from Altana's public registry, run via a passkey wallet + a capped, expiring session.", src: SRC.skills },
 ];
 
 // Real bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
 // pipeline (agent_builder.py): there is NO handle_fulfill — you edit the
 // agent's instruction string in main.py.
+// Copy audit (2026-08-23): each step now leads with a plain-language
+// explanation (`p`); the real technical detail moves to `tech`, shown
+// smaller/secondary — kept in sync with the equivalent BUILD_STEPS array
+// in AgentMarketplaceApp.web.jsx (that one keeps the original field names
+// body/plain for its own historical reasons; same content here, mobile's
+// own naming).
 const BUILD_STEPS = [
-  { h: '1. Describe it in plain English', p: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio scaffolds the real project.', src: SRC.studioQuick },
-  { h: '2. Two layers, automatically', p: 'Layer A (the Agent) holds the wallet + LLM, the only signer. Layer B (public, keyless) just relays requests.', src: SRC.studioArch },
-  { h: '3. You edit the instructions', p: 'Everything else is wired. You change the agent\'s instruction string in main.py (what it does on "fulfill") — there is no handle_fulfill, verified against a real project.', src: SRC.studioArch },
-  { h: '4. Test before spending anything', p: 'bag dev runs both layers locally; hit the real /negotiate endpoint. The default Pieverse LLM needs no funds.', src: SRC.studioQuick },
-  { h: '5. Register, then deploy', p: 'bag erc8004 register makes it discoverable. The one-click build uses a free ~48h trial (no AWS); self-hosting puts Layer A on AgentCore and Layer B on EC2/Fargate.', src: SRC.studioArch },
+  { h: '1. Describe your agent, in plain English', p: 'You type a sentence describing what you want; a tool writes the starter code for you.', tech: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a real, working project.', src: SRC.studioQuick },
+  { h: '2. It builds two things, not one', p: 'The part that holds the keys to real money stays private; a separate public part takes requests from the outside world.', tech: 'Layer A (the Agent) holds the wallet + LLM and is the only thing that ever signs. Layer B (the Service) is public, keyless, and just relays requests.', src: SRC.studioArch },
+  { h: '3. You edit the instructions, not the plumbing', p: "You rewrite one paragraph telling the agent its job — not the technical wiring around it.", tech: 'Wallet setup and the on-chain registration/payment wiring are already there. What you change is the instruction string in main.py describing what it should do when a funded job asks it to work.', src: SRC.studioArch },
+  { h: '4. Test it before it touches real money', p: 'Run it on your own computer first, with a free AI model, before deploying or spending anything.', tech: 'bag dev runs both layers on your machine. You can hit the real negotiate step, get a real signed price quote, and confirm the whole flow first.', src: SRC.studioQuick },
+  { h: '5. Register, then publish it', p: 'Try it free for about 2 days with one click, or host it yourself permanently later.', tech: 'bag erc8004 register makes your agent discoverable. The one-click "Build it for real" button uses a free trial (no cloud hosting account needed).', src: SRC.studioArch },
 ];
 
 // Beginner FAQ — mirrors the web app's, kept in sync.
 const KID_FRIENDLY_FAQ = [
-  { q: 'Do I need to code?', a: 'No — describe it in sentences; edit one instruction paragraph, or just fill a form for a ready-made Skill.', src: SRC.studioQuick },
-  { q: 'What is Practice Mode?', a: 'A free rehearsal on a fake-money fork of BNB Chain. Your run history is saved even if the fork resets.', src: SRC.venusSkill },
-  { q: 'Can it spend my money without asking?', a: 'No. A job is funded once by you; a Skill session has a spend cap, expiry, and a contract allow-list.', src: SRC.sdk },
-  { q: 'Do I need my own AWS account?', a: 'No — the build button uses a free ~48h trial on a throwaway testnet wallet.', src: SRC.studio },
-  { q: 'What kind of agent can I build?', a: 'Anything you can describe — trading, research, content, support, games. The scaffolder doesn\'t restrict you; the category is just how the marketplace labels it afterward.', src: SRC.studioQuick },
-  { q: 'Can it sell to people, not just agents?', a: 'Yes. Any buyer, human or agent, can hire it — the public Service layer is a plain /negotiate HTTP endpoint.', src: SRC.studioArch },
+  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences; to build a custom agent you mostly edit one instruction paragraph, and to use a ready-made Skill you just fill in a form.', src: SRC.studioQuick },
+  { q: 'What is Practice Mode?', a: 'A free rehearsal. It runs a Skill on a live copy of BNB Chain with fake money, so you can see exactly what would happen before spending anything real. Your run history is saved even though the practice copy can reset.', src: SRC.venusSkill },
+  { q: 'Can it spend my money without asking?', a: "No. Hiring funds one specific job you set and fund yourself; a Skill's spending permission has a cap, an expiry, and a limited list of what it can touch. Neither is a standing permission it can dip into freely.", src: SRC.sdk },
+  { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes — but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
+  { q: 'Do I need my own cloud hosting account to build one?', a: 'No. The build button uses a free trial (about 2 days) on a temporary practice wallet — no hosting account, no real money involved.', src: SRC.studio },
+  { q: 'What kind of agent can I build?', a: "Pretty much anything you can describe in a sentence: trading, research, writing, customer support, data analysis, games — you're not limited to a preset list.", src: SRC.studioQuick },
+  { q: 'Can it sell to people, not just other agents?', a: "Yes. Any buyer — a person or another agent — can hire it. It's not limited to agent-to-agent deals.", src: SRC.studioArch },
 ];
 const CACHE_KEY = 'agents-marketplace-cache-v1';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -159,7 +177,7 @@ function PracticeStatsReportMobile() {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) return <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading real stats…</div>;
+  if (loading) return <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading practice stats…</div>;
   if (error) return <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Couldn't load practice stats: {error}</div>;
 
   const skills = stats?.skills || [];
@@ -183,7 +201,7 @@ function PracticeStatsReportMobile() {
         })}
       </div>
       {skills.length === 0 ? (
-        <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm text-gray-500">No practice runs yet. Run a Skill in Practice Mode and its real stats appear here.</div>
+        <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm text-gray-500">No practice runs yet. Try a skill in Practice Mode and its stats will show up here.</div>
       ) : skills.map((s) => (
         <div key={s.skill_id} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between mb-2">
@@ -225,7 +243,7 @@ function MobileWalletSheet({ onClose }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full bg-white dark:bg-[#0F172A] rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
         <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6" />
-        <h3 className="text-lg font-bold mb-6 text-gray-900 dark:text-white text-center">Web3 Connection</h3>
+        <h3 className="text-lg font-bold mb-6 text-gray-900 dark:text-white text-center">Your Wallet</h3>
         
         {isConnected ? (
           <div className="space-y-4">
@@ -356,12 +374,12 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
   }, [ownerAddress, retryTick]);
   return (
     <div className="mt-4">
-      <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Activity size={13} /> Real Hire Performance <span className="text-[10px] font-normal text-gray-400">(on-chain)</span></h3>
-      {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Reading on-chain job history…</div>}
+      <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Activity size={13} /> Past Hires <span className="text-[10px] font-normal text-gray-400" title="Checked directly from the blockchain, the permanent public record every job here is written to — can't be faked.">(checked directly)</span></h3>
+      {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Looking up this agent's hire history…</div>}
       {state === 'error' && (
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          Couldn't read on-chain job history right now.
-          <button onClick={() => setRetryTick((t) => t + 1)} className="text-indigo-500 font-medium underline">Retry</button>
+          Couldn't look up this agent's hire history right now.
+          <button onClick={() => setRetryTick((t) => t + 1)} className="text-indigo-500 font-medium underline">Try again</button>
         </div>
       )}
       {state === 'ready' && (!perf || !perf.hired) ? (
@@ -369,16 +387,16 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
           {/* Practice Mode is now real on mobile (2026-08-19 port) — the real
               working "try this skill" deep-link renders here too. */}
           <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" onTrySkill={onTrySkill} />
-          {perf && <p className="text-[10px] text-gray-400 mt-1.5">Checked the most recent {perf.scanned_window} on-chain ERC-8183 jobs — none found for this agent.</p>}
+          {perf && <p className="text-[10px] text-gray-400 mt-1.5">We checked the last {perf.scanned_window} jobs on the whole marketplace and found none for this agent — it may just be new.</p>}
         </>
       ) : state === 'ready' && perf?.hired ? (
         <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
           <div className="flex items-center gap-4 mb-1">
-            <div><span className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</span> <span className="text-[10px] text-gray-500 uppercase">hires</span></div>
-            <div><span className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</span> <span className="text-[10px] text-gray-500 uppercase">completed</span></div>
-            <div><span className="text-lg font-bold">{perf.active}</span> <span className="text-[10px] text-gray-500 uppercase">active</span></div>
+            <div title="How many times people have hired this agent"><span className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</span> <span className="text-[10px] text-gray-500 uppercase">hires</span></div>
+            <div title="Out of finished jobs, how many succeeded"><span className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</span> <span className="text-[10px] text-gray-500 uppercase">succeeded</span></div>
+            <div title="Jobs still underway"><span className="text-lg font-bold">{perf.active}</span> <span className="text-[10px] text-gray-500 uppercase">in progress</span></div>
           </div>
-          <div className="text-[10px] text-gray-500">Completed {perf.completed} · Rejected {perf.rejected} · Expired {perf.expired}. From the most recent {perf.scanned_window} jobs.</div>
+          <div className="text-[10px] text-gray-500" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished by the deadline.">Finished {perf.completed} · Rejected by buyer {perf.rejected} · Missed deadline {perf.expired}. From the last {perf.scanned_window} jobs marketplace-wide.</div>
           {/* Real, data-driven reliability hint — see agentReliability.js. */}
           {(() => {
             const hint = getReliabilityHint(perf);
@@ -418,54 +436,58 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
-              {agent.possiblyDelisted && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">possibly delisted</span>}
+              <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
+              {agent.possiblyDelisted && <span title="We haven't seen this agent show up anywhere in over a week. It might be gone, or it might just not have come up in our latest check." className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">may no longer be active</span>}
             </div>
-            <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</h2>
+            <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Confirmed as a real, registered agent — not a promise it's good" />}</h2>
           </div>
           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
         </div>
 
         <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-          {[['Score', agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'],
-            ['Stars', agent.starCount ?? '—'],
-            ['Feedback', agent.totalFeedbacks ?? '—'],
-            ['TVL', agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—']].map(([l, v]) => (
-            <div key={l} className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+          {[['Score', agent.totalScore != null ? agent.totalScore.toFixed(1) : '—', 'How trustworthy this agent looks, based on real past feedback'],
+            ['Stars', agent.starCount ?? '—', 'How many people rated this agent'],
+            ['Feedback', agent.totalFeedbacks ?? '—', 'How many written reviews this agent has'],
+            ['Funds', agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—', 'Total money this agent currently manages for people']].map(([l, v, hint]) => (
+            <div key={l} title={hint} className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/50">
               <span className="block text-[9px] text-gray-500 uppercase">{l}</span>
               <span className="font-bold text-sm">{v}</span>
             </div>
           ))}
         </div>
         {agent.financialDataAvailable && agent.defillamaUrl && (
-          <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 inline-flex items-center gap-1 mb-4">TVL source: DefiLlama <ExternalLink size={11} /></a>
+          <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 inline-flex items-center gap-1 mb-4">Where this money number comes from: DefiLlama <ExternalLink size={11} /></a>
         )}
 
         <div className="flex flex-wrap items-center gap-2 my-4">
-          {agent.isVerified && <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
-          {agent.x402Supported && <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />x402</span>}
-          {(agent.supportedProtocols || []).map((p) => <span key={p} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
+          {agent.isVerified && <span title="Confirmed as a real, registered agent — not a promise it's good" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
+          {agent.x402Supported && <span title="Can pay other agents automatically for tools or data it needs, without a person approving each payment" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />Pays other agents automatically</span>}
+          {(agent.supportedProtocols || []).map((p) => <span key={p} title={`Works with ${p}, a real app it can act on for you`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
           <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
           {(!agent.serviceStatus || agent.serviceStatus === 'unknown') && (
-            <span className="text-[11px] text-gray-400">Not yet confirmed responding</span>
+            <span className="text-[11px] text-gray-400">Not confirmed online yet</span>
           )}
         </div>
         {agent.serviceEndpoint && (
-          <p className="text-[11px] text-gray-400 mb-3 -mt-2 break-all">Registered endpoint: <span className="font-mono">{agent.serviceEndpoint}</span></p>
+          <p className="text-[11px] text-gray-400 mb-3 -mt-2 break-all" title="The web address we contact to check whether this agent is turned on">Where we check on it: <span className="font-mono">{agent.serviceEndpoint}</span></p>
         )}
 
         <h3 className="text-sm font-bold mb-1">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
 
-        <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Owner <PasskeyBadge ownerAddress={agent.ownerAddress} /></h3>
+        <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Who owns this agent <PasskeyBadge ownerAddress={agent.ownerAddress} /></h3>
         {agent.ownerAddress ? (
-          <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 inline-flex items-center gap-1 break-all">{agent.ownerAddress} <ExternalLink size={11} className="shrink-0" /></a>
-        ) : <p className="text-xs text-gray-400">No on-chain owner address on record.</p>}
+          <>
+            <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 inline-flex items-center gap-1 break-all">{agent.ownerAddress} <ExternalLink size={11} className="shrink-0" /></a>
+            <p className="text-[11px] text-gray-400 mt-1">This is the agent creator's wallet ID — a public account number anyone can look up, like a bank account number that's safe to share.</p>
+          </>
+        ) : <p className="text-xs text-gray-400">We don't have an owner ID on record for this agent.</p>}
 
-        {/* Real live native BNB of the owner wallet — a different metric from
-            TVL, labeled and placed separately so the two are never conflated. */}
+        {/* Real live BNB balance of the owner wallet — a different metric from
+            "Funds", labeled and placed separately so the two are never
+            confused with one another. */}
         <div className="mt-3 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
-          <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner On-Chain Balance <span className="text-[10px] text-gray-400">(BNB, live)</span></span>
+          <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
 
@@ -474,7 +496,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
         <div className="mt-4 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
-          Practice-run history is per skill + practice wallet (Build → Practice Mode), not per marketplace agent — so there's no agent-specific practice history here (verified against the real schema).
+          We don't yet track practice-run history per agent — only by which practice tool you tried under Build → Practice Mode. So there's nothing agent-specific to show here yet.
         </div>
 
         <button onClick={() => onHire(agent)} className="w-full mt-5 py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform">
@@ -583,7 +605,7 @@ function AgentMarketplaceMobile() {
   const handleActivateSession = async () => {
     if (!selectedAgent || !walletConnected) return;
     if (!selectedAgent.ownerAddress) {
-      alert("This agent has no on-chain owner address on record, can't create a real job.");
+      alert("We don't have an owner ID on record for this agent, so we can't hire it.");
       return;
     }
     try {
@@ -595,7 +617,8 @@ function AgentMarketplaceMobile() {
           : `Hire via Agents Marketplace: ${selectedAgent.name}`,
       });
       trackJob(jobId.toString(), 'FUNDED');
-      addNotification(`Job #${jobId} funded`, `You hired ${selectedAgent.name} (direct). The job is funded on-chain.`);
+      recordFunded(jobId.toString()); // the real moment funding confirmed — see jobTiming.js
+      addNotification(`Job #${jobId}: Payment on hold`, `You hired ${selectedAgent.name} — your payment is on hold until the work is done.`);
       setAgents((prev) => prev.map((a) => a.id === selectedAgent.id
         ? { ...a, session: { jobId: jobId.toString(), spendCap: Number(spendCap), status: 'FUNDED' } }
         : a));
@@ -673,30 +696,30 @@ function AgentMarketplaceMobile() {
                 {selectedAgent.name.charAt(0)}
               </div>
               <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
-              <p className="text-gray-500 text-sm mb-6">Real ERC-8183 hire — 5 wallet signatures, tracked below as they happen.</p>
+              <p className="text-gray-500 text-sm mb-6">You'll approve a few quick steps in your wallet — tracked below as they happen.</p>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">Job Budget ($U)</label>
+                  <label className="block text-sm font-semibold mb-2">How much to pay <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
 
-                  {/* Real, live price discovery — see the matching comment
+                  {/* Live price discovery — see the matching comment
                       in AgentMarketplaceApp.web.jsx (kept in sync). */}
                   {agentQuote.status === 'loading' && (
                     <div className="mb-2 flex items-center gap-1.5 text-xs text-gray-400">
-                      <Loader2 size={12} className="animate-spin" /> Checking this agent's real price…
+                      <Loader2 size={12} className="animate-spin" /> Checking what this agent charges…
                     </div>
                   )}
                   {agentQuote.status === 'available' && (
                     <div className="mb-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
-                      <strong>This agent's price: {agentQuote.priceUnits} $U.</strong> Read directly from the agent's own signed quote — pre-filled below, no need to guess.
+                      <strong>This agent charges {agentQuote.priceUnits} $U.</strong> We got this straight from the agent itself — filled in below, no need to guess.
                       {spendCapTouched && Number(spendCap) < agentQuote.priceUnits && (
-                        <span className="block mt-1 text-amber-700 dark:text-amber-400">You've set less than that — we'll automatically fund at least {agentQuote.priceUnits} $U, the agent won't accept less.</span>
+                        <span className="block mt-1 text-amber-700 dark:text-amber-400">You've entered less than that — we'll automatically pay at least {agentQuote.priceUnits} $U, since the agent won't accept less.</span>
                       )}
                     </div>
                   )}
                   {agentQuote.status === 'unavailable' && (
                     <div className="mb-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
-                      This agent hasn't published a fixed price we could find — you're setting the budget yourself. There's a real chance it's too low for the agent to accept the work.
+                      This agent hasn't told us what it charges, so you're picking the amount yourself. Heads up: if you enter too little, the agent may not accept the job.
                     </div>
                   )}
 
@@ -706,7 +729,7 @@ function AgentMarketplaceMobile() {
 
                 <div>
                   <button type="button" onClick={() => setShowCustomDescription((v) => !v)} disabled={hireStep && !hireError} className="text-xs font-semibold text-gray-400 disabled:opacity-50">
-                    {showCustomDescription ? '− Hide' : '+ Advanced: custom job description'}
+                    {showCustomDescription ? '− Hide advanced option' : '+ Advanced: write your own job description'}
                   </button>
                   {showCustomDescription && (
                     <div className="mt-3">
@@ -718,7 +741,7 @@ function AgentMarketplaceMobile() {
                         rows={4}
                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono outline-none disabled:opacity-50"
                       />
-                      <p className="text-[11px] text-gray-400 mt-1">Overrides the default label above. Stored verbatim as this job's on-chain description — leave blank to use the default.</p>
+                      <p className="text-[11px] text-gray-400 mt-1">Only for advanced users — this replaces the automatic description above with your own text, permanently recorded. Leave it blank unless you have a specific reason to use this.</p>
                     </div>
                   )}
                 </div>
@@ -734,14 +757,14 @@ function AgentMarketplaceMobile() {
                     })} />
                     {hireStep === 'done' && (
                       <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
-                        <CheckCircle2 size={16} /> Job funded. This agent is now genuinely hired.
+                        <CheckCircle2 size={16} /> Done! Your payment is on hold and this agent has been notified to start work.
                       </div>
                     )}
                   </div>
                 )}
 
                 <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'done' && !hireError} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'RETRY' : 'SIGN & DEPLOY'}
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'PAY DIRECTLY'}
                 </button>
               </div>
             </div>
@@ -759,19 +782,19 @@ function AgentMarketplaceMobile() {
               <>
                 <div className="mb-4">
                   <h2 className="text-2xl font-bold mb-1">Marketplace</h2>
-                  <p className="text-sm text-gray-500">Discover and hire AI agents.</p>
+                  <p className="text-sm text-gray-500">Browse AI agents and hire one with a spending limit you control.</p>
                 </div>
 
                 {/* Real stat cards (parity with web) */}
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
-                    { label: 'Shown', value: stats.total, icon: Activity, color: '#2563EB' },
-                    { label: 'Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669' },
-                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED' },
+                    { label: 'Listed', value: stats.total, icon: Activity, color: '#2563EB', hint: 'How many agents are shown below' },
+                    { label: 'Reviews', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'Total written reviews left across all these agents' },
+                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Confirmed as a real, registered agent — not a promise it's good" },
                   ].map((c) => {
                     const Icon = c.icon;
                     return (
-                      <div key={c.label} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+                      <div key={c.label} title={c.hint} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
                         <Icon size={16} className="mx-auto mb-1" style={{ color: c.color }} />
                         <div className="text-lg font-bold">{c.value.toLocaleString()}</div>
                         <div className="text-[10px] text-gray-500">{c.label}</div>
@@ -783,7 +806,7 @@ function AgentMarketplaceMobile() {
                 {/* #3 — honest data-ceiling note */}
                 <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
                   <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-500" />
-                  <span>Showing the most diverse agents on-chain. The BSC registry is ~68% one repetitive mass-registration campaign, so many agents share near-identical listings; we cap near-duplicates, which is why the list is intentionally short.</span>
+                  <span>We're showing you a varied mix, not every agent that exists. Most agents here were created in a few big batches and look almost identical, so we limit how many lookalikes show up — that's why this list is short on purpose.</span>
                 </div>
 
                 <ServiceHealthExplainer className="mb-4" />
@@ -801,14 +824,14 @@ function AgentMarketplaceMobile() {
                       : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
                   }`}
                 >
-                  {onlyResponding ? '✓ ' : ''}Only responding services
+                  {onlyResponding ? '✓ ' : ''}Only show online agents
                 </button>
 
                 {/* Hire-by-address escape hatch — see the matching block in
                     AgentMarketplaceApp.web.jsx. */}
                 <div className="mb-4">
                   <button type="button" onClick={() => setShowManualHire((v) => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300">
-                    <Search size={12} />{showManualHire ? 'Hide address hire' : 'Hire a specific agent by address'}
+                    <Search size={12} />{showManualHire ? 'Hide this' : "Know an agent's ID? Hire it directly"}
                   </button>
                   {showManualHire && (
                     <div className="mt-2 flex gap-2">
@@ -816,7 +839,7 @@ function AgentMarketplaceMobile() {
                         type="text"
                         value={manualAddress}
                         onChange={(e) => setManualAddress(e.target.value.trim())}
-                        placeholder="0x… provider wallet address"
+                        placeholder="0x… the agent owner's wallet ID"
                         className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm font-mono outline-none"
                       />
                       <button
@@ -837,7 +860,7 @@ function AgentMarketplaceMobile() {
                 {/* Horizontal Scroll Categories */}
                 <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
                   {categories.map((cat) => (
-                    <button key={cat} onClick={() => setActiveCategory(cat)} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
+                    <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
                       activeCategory === cat ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                     }`}>
                       {cat}
@@ -864,23 +887,23 @@ function AgentMarketplaceMobile() {
                         )}
 
                         <div className="flex gap-4 mb-4">
-                          <div><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
-                          <div><span className="text-[10px] text-gray-500 uppercase block">TVL</span><span className="font-bold text-sm">{agent.tvlUsd ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '-'}</span></div>
+                          <div title="How trustworthy this agent looks, based on real past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
+                          <div title="Total money this agent currently manages for people"><span className="text-[10px] text-gray-500 uppercase block">Funds</span><span className="font-bold text-sm">{agent.tvlUsd ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '-'}</span></div>
                         </div>
 
                         {agent.session ? (
                           <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
                             <div className="flex justify-between text-xs mb-2 text-gray-600 dark:text-gray-400">
-                              <span>Spend: ${agent.session.spendUtilized}</span>
-                              <span>Cap: ${agent.session.spendCap}</span>
+                              <span>Spent: ${agent.session.spendUtilized}</span>
+                              <span>Limit: ${agent.session.spendCap}</span>
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); setAgents(prev => prev.map(a => a.id === agent.id ? { ...a, session: null } : a)); }} className="w-full py-3 rounded-xl text-sm font-bold text-red-600 bg-red-50 dark:bg-red-500/10">
-                              Revoke Access
+                              Turn off access
                             </button>
                           </div>
                         ) : (
                           <button onClick={(e) => { e.stopPropagation(); handleHireClick(agent); }} className="w-full mt-auto py-3 rounded-xl text-sm font-bold bg-gray-900 text-white dark:bg-white dark:text-gray-900 active:scale-[0.98] transition-transform">
-                            Hire Agent
+                            Hire this agent
                           </button>
                         )}
                       </div>
@@ -894,7 +917,7 @@ function AgentMarketplaceMobile() {
               <div className="space-y-5">
                 <div>
                   <h2 className="text-2xl font-bold mb-1">My Agents</h2>
-                  <p className="text-sm text-gray-500">Every real job you've hired through this marketplace, with its live on-chain status.</p>
+                  <p className="text-sm text-gray-500">Every agent you've hired through here, and where things stand right now.</p>
                 </div>
                 <MyJobsPanel accent="#4F46E5" mutedBorder="border-gray-100 dark:border-gray-800" />
               </div>
@@ -904,14 +927,14 @@ function AgentMarketplaceMobile() {
               <div className="space-y-5">
                 <div>
                   <h2 className="text-2xl font-bold mb-1">Advantage Report</h2>
-                  <p className="text-sm text-gray-500">3 real tasks, with an agent and without, real time/cost/quality — the TermiX track's required comparison.</p>
+                  <p className="text-sm text-gray-500">3 tasks, each done two ways — once using an agent, once by hand — so you can see the real time, cost, and quality difference for yourself.</p>
                 </div>
                 <AdvantageReport />
 
                 <div className="pt-4">
-                  <h2 className="text-2xl font-bold mb-1">Practice-Layer Report</h2>
-                  <p className="text-sm text-gray-500">Real, aggregated stats from actual Practice-Mode runs on our live BSC-mainnet fork — not a projection.</p>
-                  <p className="text-[11px] text-gray-400 mt-1">Note: general Practice-Mode <em>testing</em> activity, not a specific agent's real hire record — for that, open an agent → “Real Hire Performance”.</p>
+                  <h2 className="text-2xl font-bold mb-1">Practice Mode Activity</h2>
+                  <p className="text-sm text-gray-500">Real, combined stats from actual Practice Mode runs on our live practice copy of the network — not a guess.</p>
+                  <p className="text-[11px] text-gray-400 mt-1">Note: general Practice Mode <em>testing</em> activity, not a specific agent's real hire record — for that, open an agent and look for "Past Hires".</p>
                 </div>
                 <PracticeStatsReportMobile />
               </div>
@@ -930,7 +953,8 @@ function AgentMarketplaceMobile() {
                   {LEARN_TOPICS.map((item, i) => (
                     <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div className="font-bold text-sm mb-1">{item.h}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{item.p}</div>
+                      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{item.p}</div>
+                      {item.tech && <div className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {item.tech}</div>}
                       {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
                     </div>
                   ))}
@@ -970,7 +994,8 @@ function AgentMarketplaceMobile() {
                   {BUILD_STEPS.map((step, i) => (
                     <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div className="font-bold text-sm mb-1">{step.h}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{step.p}</div>
+                      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{step.p}</div>
+                      {step.tech && <div className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {step.tech}</div>}
                       {step.src && <a href={step.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {step.src.label} →</a>}
                     </div>
                   ))}
@@ -988,8 +1013,8 @@ function AgentMarketplaceMobile() {
                 </div>
 
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-                  <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Scope, stated honestly</span></div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">v0.0.1 is seller-only: builds agents that earn by fulfilling jobs. The build trial runs on BSC testnet; the marketplace and hiring run on BSC mainnet.</p>
+                  <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Good to know</span></div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Right now, this tool only builds agents that earn money by doing jobs for others (not ones that hire other agents themselves). The free build trial runs on a practice network; hiring agents in the Marketplace uses real money on the real network.</p>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">
@@ -1006,7 +1031,7 @@ function AgentMarketplaceMobile() {
                     disabled={!buildDescription.trim() || (buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error')}
                     className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm disabled:opacity-40 mb-2"
                   >
-                    Build it for real (48h trial)
+                    Build it for real (free trial, ~2 days)
                   </button>
                   <button
                     onClick={() => setShowBuildCommand(true)}
@@ -1024,9 +1049,9 @@ function AgentMarketplaceMobile() {
                         {buildStatus.step === 'error' && <XCircle size={14} className="text-red-500" />}
                         <span className="font-semibold text-xs">
                           {{
-                            queued: 'Queued...', scaffolding: 'Scaffolding (bag init)...', creating_wallet: 'Creating testnet wallet...',
-                            writing_logic: 'Writing agent instructions...', activating_llm: 'Activating LLM...',
-                            deploying: 'Deploying (48h trial)...', done: 'Deployed, live for 48h.', error: 'Build failed',
+                            queued: 'In line...', scaffolding: "Setting up your agent's files...", creating_wallet: 'Creating a practice wallet...',
+                            writing_logic: "Writing your agent's instructions...", activating_llm: 'Turning on its AI (free to start)...',
+                            deploying: 'Publishing it live for your free trial...', done: "Done! It's live for the next 2 days.", error: 'Build failed',
                           }[buildStatus.step] || buildStatus.step}
                         </span>
                       </div>

@@ -197,7 +197,7 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
             _cache["data"] = await agent_store.get_stored_agents()
             _cache["fetched_at"] = now
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")
+            raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
 
     if not _cache["data"]:
         # Truly nothing anywhere yet (first-ever boot, empty store) — the
@@ -209,7 +209,7 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"Failed to fetch real agent data: {e}")
+            raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
     elif is_stale or force_refresh:
         # We have real data to serve right now — return it immediately and
         # let the live refresh happen silently in the background.
@@ -270,7 +270,7 @@ async def skills_registry():
             # Nothing cached yet and the live fetch failed — genuinely nothing
             # honest to serve. The frontend turns this into a friendly retry
             # prompt, not a raw error string.
-            raise HTTPException(status_code=502, detail=f"Could not reach the real skills registry: {e}")
+            raise HTTPException(status_code=502, detail=f"Couldn't reach the skills list right now: {e}")
     elif is_stale:
         try:
             _skills_cache["data"] = await _fetch_skills_registry()
@@ -364,7 +364,7 @@ async def start_build(description: str, background_tasks: BackgroundTasks):
     """Starts the real pipeline, returns immediately with a slug to
     poll. Doesn't block the request on a multi-minute real deploy."""
     if not description or not description.strip():
-        raise HTTPException(status_code=400, detail="A real description is required.")
+        raise HTTPException(status_code=400, detail="Please describe what you want your agent to do.")
     slug = agent_builder.slugify(description)
     _build_status[slug] = {"step": "queued"}
     background_tasks.add_task(_run_build_pipeline, slug, description)
@@ -389,10 +389,9 @@ async def build_status(slug: str):
 
 
 _COLD_START_DETAIL = (
-    "The practice fork is waking up — it's a free-tier service that sleeps after "
-    "15 minutes idle and takes about a minute to restart (confirmed against Render's "
-    "own docs). We already retried server-side with real patience. Please try again "
-    "in a few seconds; it should be warm now."
+    "Our practice system takes a nap when nobody's using it, and it's just waking "
+    "back up — that usually takes under a minute. We already tried a few times on "
+    "our end. Please try again in a few seconds; it should be ready now."
 )
 
 
@@ -405,7 +404,7 @@ async def practice_init():
     except practice_layer.PracticeForkWaking:
         raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Practice fork not reachable: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the practice system right now: {e}")
 
 
 @app.post("/api/practice/fund")
@@ -422,7 +421,7 @@ async def practice_fund(address: str, bnb_amount: float = 10.0):
     except practice_layer.PracticeForkWaking:
         raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Funding failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't add practice money right now: {e}")
 
 
 # The browser's practice-mode wallet (viem) talks to the fork ONLY through
@@ -449,14 +448,14 @@ async def practice_rpc(request: Request):
     for call in calls:
         method = call.get("method") if isinstance(call, dict) else None
         if method not in _PRACTICE_RPC_ALLOWED:
-            raise HTTPException(status_code=403, detail=f"Method not allowed in practice proxy: {method}")
+            raise HTTPException(status_code=403, detail=f"That action isn't allowed here: {method}")
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(practice_layer.get_practice_rpc(), json=body)
     except httpx.HTTPError as e:
         # Upstream Anvil fork unreachable — surface a clean 502 rather than an
         # unhandled 500, so the browser can show "practice fork is down".
-        raise HTTPException(status_code=502, detail=f"Practice fork unreachable: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't reach the practice system right now: {e}")
     return Response(content=resp.content, media_type="application/json", status_code=resp.status_code)
 
 
@@ -481,7 +480,7 @@ async def agent_perf(owner_address: str):
     try:
         return await agent_performance.get_agent_performance(owner_address)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to read on-chain job history: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
 
 
 @app.post("/api/agents/negotiate")
@@ -588,7 +587,7 @@ async def my_jobs(client_address: str):
     try:
         result = await agent_performance.get_my_jobs(client_address)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to read on-chain job history: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
 
     try:
         known = await agent_store.get_stored_agents()
@@ -654,4 +653,4 @@ async def practice_stats():
     try:
         return await practice_layer.get_practice_stats()
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to aggregate practice stats: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't load practice stats right now: {e}")

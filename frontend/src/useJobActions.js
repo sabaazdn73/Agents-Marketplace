@@ -35,9 +35,9 @@ export function useJobActions() {
       await publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
     } catch (e) {
       throw new Error(
-        `Transaction ${hash} did not confirm within ${RECEIPT_TIMEOUT_MS / 1000}s. ` +
-        `Check https://bscscan.com/tx/${hash} before retrying — if BscScan shows ` +
-        `"not found" after a few minutes, it never broadcast and it's safe to retry.`
+        `This is taking longer than expected (over ${RECEIPT_TIMEOUT_MS / 1000} seconds). ` +
+        `Check its status here before trying again: https://bscscan.com/tx/${hash} . If it says ` +
+        `"not found" after a few minutes, it never actually went through, and it's safe to retry.`
       );
     }
     return hash;

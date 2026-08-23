@@ -7,7 +7,7 @@
 // ── DexScreener Token Radar ──
 export async function getTrendingBscTokens() {
   const res = await fetch('https://api.geckoterminal.com/api/v2/networks/bsc/trending_pools');
-  if (!res.ok) throw new Error(`GeckoTerminal returned ${res.status}`);
+  if (!res.ok) throw new Error(`GeckoTerminal didn't respond properly (status ${res.status}).`);
   const data = await res.json();
   return (data.data || []).map((p) => ({
     name: p.attributes?.name,
@@ -20,7 +20,7 @@ export async function getTrendingBscTokens() {
 
 export async function searchToken(query) {
   const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) throw new Error(`DexScreener returned ${res.status}`);
+  if (!res.ok) throw new Error(`DexScreener didn't respond properly (status ${res.status}).`);
   const data = await res.json();
   return (data.pairs || []).filter((p) => p.chainId === 'bsc');
 }

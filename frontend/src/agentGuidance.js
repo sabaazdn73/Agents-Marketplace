@@ -57,8 +57,8 @@ export const CATEGORY_TO_SKILLS = {
  * a negative-sounding phrasing for an honestly-neutral absence. */
 export function realSignals(agent) {
   const out = [];
-  if (agent.totalScore != null) out.push({ label: '8004scan reputation score', value: agent.totalScore.toFixed(1) });
+  if (agent.totalScore != null) out.push({ label: 'Trust score', value: agent.totalScore.toFixed(1) });
   if (agent.starCount != null && agent.starCount > 0) out.push({ label: 'Stars from other users', value: String(agent.starCount) });
-  if (agent.totalFeedbacks != null && agent.totalFeedbacks > 0) out.push({ label: 'Pieces of real feedback recorded', value: String(agent.totalFeedbacks) });
+  if (agent.totalFeedbacks != null && agent.totalFeedbacks > 0) out.push({ label: 'Written reviews', value: String(agent.totalFeedbacks) });
   return out;
 }

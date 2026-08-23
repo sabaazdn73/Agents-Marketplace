@@ -105,13 +105,13 @@ export default function BuyAccessPanel({ agentId }) {
           <div className="flex justify-between"><span className="text-gray-500">Total price</span><span className="font-mono">{priceStr} {offer.symbol}</span></div>
           <div className="flex justify-between"><span className="text-gray-500">Platform fee ({feePct}%)</span><span className="font-mono">{fee != null ? fromRawUnits(fee, 18) : '—'} {offer.symbol}</span></div>
           <div className="flex justify-between font-semibold"><span className="text-gray-600 dark:text-gray-300">Creator receives</span><span className="font-mono">{creatorGets != null ? fromRawUnits(creatorGets, 18) : '—'} {offer.symbol}</span></div>
-          <p className="text-[10px] text-gray-400 pt-1">The {feePct}% platform fee keeps this marketplace running (a hackathon project); everything else goes straight to the creator. This % is read live from the contract, so it's always the real current rate.</p>
+          <p className="text-[10px] text-gray-400 pt-1">The {feePct}% fee helps keep this marketplace running — everything else goes straight to the creator. This number comes directly from our live settings, so it's always accurate.</p>
         </div>
       )}
 
       {!offer.active && <div className="text-[11px] text-gray-400 mt-2">The creator has paused this offer.</div>}
       {!isConnected && <div className="text-[11px] text-gray-400 mt-2">Connect your wallet to purchase.</div>}
-      {ok && !error && <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2">Purchase confirmed on-chain.</div>}
+      {ok && !error && <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-2">Purchase confirmed.</div>}
       {error && <div className="text-[11px] text-red-500 mt-2 whitespace-pre-wrap">{error}</div>}
     </div>
   );

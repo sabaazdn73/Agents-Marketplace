@@ -33,13 +33,13 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
   return (
     <div className={`p-4 rounded-xl border ${mutedBorder} space-y-4`}>
       <p className="text-[11px] text-gray-500 dark:text-gray-400">
-        No real hires yet through this marketplace — an honest zero-history state, not poor performance. Here's what can actually help you decide.
+        No one has hired this agent through us yet. That just means it's new — not that it's bad. Here's what can help you decide anyway:
       </p>
 
       {willShowSkillSuggestion && (
         <div className="space-y-2">
           <p className="text-xs text-gray-700 dark:text-gray-300">
-            This agent's category is <span className="font-semibold">{agent.category}</span> — you can try the same real mechanics yourself, risk-free, before trusting this specific agent with real money:
+            This agent does <span className="font-semibold">{agent.category}</span>-type work — you can try that same kind of task yourself for free first, before trusting this specific agent with real money:
           </p>
           <div className="flex flex-col gap-2">
             {skills.map((s) => (
@@ -49,20 +49,20 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
                 className="w-full flex items-center justify-between gap-2 py-2.5 px-3 rounded-xl text-xs font-semibold text-white transition-opacity hover:opacity-90"
                 style={{ background: accent }}
               >
-                <span className="flex items-center gap-1.5"><FlaskConical size={13} /> Try {s.label} in Practice Mode</span>
+                <span className="flex items-center gap-1.5"><FlaskConical size={13} /> Try it for free</span>
                 <ChevronRight size={14} />
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-gray-400">This shows you how this kind of agent's real mechanics work — it isn't this specific agent's own trading, just the same real category of action.</p>
+          <p className="text-[10px] text-gray-400">This lets you try how this TYPE of task works, with practice money — it's not this specific agent, just the same kind of work.</p>
         </div>
       )}
 
       <div className="space-y-1.5">
-        <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">What we actually know about this agent</p>
+        <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">What we know about this agent so far</p>
         <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
           <BadgeCheck size={13} className={agent.isVerified ? 'text-indigo-500' : 'text-gray-300 dark:text-gray-600'} />
-          {agent.isVerified ? 'Verified by 8004scan.' : 'Not yet verified by 8004scan — that just means it hasn\'t gone through that check yet, not that anything is wrong.'}
+          {agent.isVerified ? 'Confirmed as a real, registered agent.' : "Not yet confirmed as registered — that just means it hasn't been checked yet, not that anything is wrong."}
         </div>
         {signals.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
@@ -75,7 +75,7 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
 
       {nothingDistinguishing && (
         <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed border-t border-gray-100 dark:border-gray-800 pt-3">
-          This agent is newly registered with no track record yet on this marketplace or on-chain. There's genuinely nothing here yet to tell you it's good or bad — that's the honest truth, not something we're hiding. If you want to use it anyway, consider starting with a small hire to test it before committing more.
+          This agent signed up recently and has no track record yet. There's nothing here yet to tell you if it's good or bad — it's simply new. If you want to try it anyway, consider starting with a small hire to test it before trusting it with more.
         </p>
       )}
     </div>

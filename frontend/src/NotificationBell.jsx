@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { useNotifications, getTrackedJobs, setJobStatus, addNotification } from './notifications';
 import { getJobStatus } from './altana';
+import { STATUS_DISPLAY_LABEL } from './JobStatusPanel';
 
 // Polls the user's tracked ERC-8183 jobs and raises a notification when a real
 // on-chain status changes (FUNDED → SUBMITTED → COMPLETED/REJECTED/EXPIRED).
@@ -16,7 +17,8 @@ function useJobStatusPolling(intervalMs = 30000) {
           const j = await getJobStatus(jobId);
           if (cancelled) return;
           if (j.statusName && j.statusName !== last) {
-            addNotification(`Job #${jobId} → ${j.statusName}`, `Your hired job's status changed to ${j.statusName}.`);
+            const plain = STATUS_DISPLAY_LABEL[j.statusName] || j.statusName;
+            addNotification(`Job #${jobId}: ${plain}`, `One of your hires just changed status to "${plain}".`);
             setJobStatus(jobId, j.statusName);
           }
         } catch { /* transient RPC error — retry next tick */ }

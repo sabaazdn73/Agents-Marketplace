@@ -140,11 +140,11 @@ export function useHireAgent() {
       receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
     } catch (e) {
       throw new Error(
-        `Transaction ${hash} did not confirm within ${RECEIPT_TIMEOUT_MS / 1000}s. ` +
-        `It may still land — check https://bscscan.com/tx/${hash} before doing anything else. ` +
-        `If BscScan genuinely shows "not found" after a few minutes, your wallet likely never ` +
-        `broadcast it (a local drop, not a revert) and it is safe to retry this step. ` +
-        `Do NOT retry blindly without checking first, to avoid a duplicate on-chain action.`
+        `This step is taking longer than expected to go through (over ${RECEIPT_TIMEOUT_MS / 1000} seconds). ` +
+        `It might still complete — check its status here before doing anything else: https://bscscan.com/tx/${hash} . ` +
+        `If that page says the transaction was never found after a few minutes, it likely never actually left your ` +
+        `wallet, and it's safe to try this step again. Please check first, though — trying again without checking ` +
+        `could end up paying twice.`
       );
     }
     setCompletedSteps((prev) => [...prev, stepKey]);
@@ -312,12 +312,12 @@ export function useHireAgent() {
 // transaction actually does, no vaguer marketing language. Shared by web
 // and mobile so the two can't drift.
 const HIRE_STEP_COPY = {
-  negotiating: { label: 'Get a signed quote', description: "Asking the agent to sign a real price quote — required by some agents before they'll deliver" },
-  creating: { label: 'Create job', description: 'Registering your hire request on-chain' },
-  registering: { label: 'Link settlement policy', description: 'Linking the dispute/settlement policy to this job' },
-  budgeting: { label: 'Set budget', description: "Setting your job's spending limit on-chain" },
-  approving: { label: 'Approve $U', description: 'Giving the contract permission to move up to {amount} $U — this step does not spend anything yet' },
-  funding: { label: 'Fund job', description: 'Final step — this actually moves {amount} $U into escrow' },
+  negotiating: { label: 'Ask what it charges', description: "Checking whether this agent needs to confirm its price before it'll do the work — some do, some don't" },
+  creating: { label: 'Start the job', description: 'Permanently recording your hire request, so both sides can trust it happened' },
+  registering: { label: 'Set up protection', description: 'Setting up the rule that protects your money if this job goes wrong (like getting it back if nothing is delivered)' },
+  budgeting: { label: 'Set the spending limit', description: 'Setting the maximum this job is allowed to spend' },
+  approving: { label: 'Allow the payment', description: "Giving permission to set aside up to {amount} $U — this doesn't spend anything yet, it just unlocks the next step" },
+  funding: { label: 'Send the payment', description: 'Final step — this actually puts {amount} $U on hold for the agent to claim once the work is done' },
 };
 
 /** Builds the real, current step list for <StepChecklist/>, straight from
@@ -337,8 +337,8 @@ export function buildHireStepList({ step, completedSteps, skippedSteps, stepHash
       key, label: copy.label, description,
       status,
       hash: stepHashes[key] || null,
-      reason: key === 'approving' && status === 'skipped' ? 'Already approved — skipped'
-        : key === 'negotiating' && status === 'skipped' ? "This agent doesn't require a signed quote — skipped"
+      reason: key === 'approving' && status === 'skipped' ? 'Already allowed — skipped'
+        : key === 'negotiating' && status === 'skipped' ? "This agent doesn't need to confirm a price — skipped"
         : null,
       errorMessage: status === 'error' ? error : null,
     };
@@ -356,7 +356,7 @@ function decodeJobIdFromReceipt(receipt) {
   // throws or returns an unexpected value, inspect receipt.logs
   // directly and adjust the decoding logic, don't guess a second time.
   if (!receipt.logs || receipt.logs.length === 0) {
-    throw new Error('No logs in createJob receipt, cannot determine jobId, inspect the real receipt.');
+    throw new Error("The job was created, but we couldn't determine its job number from the confirmation. Check your recent activity on BscScan to find it before trying anything else.");
   }
   // Placeholder: many such kernels return jobId as the return value AND
   // emit it in the first indexed topic of a JobCreated-style event.

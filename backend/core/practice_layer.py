@@ -351,7 +351,7 @@ async def get_practice_stats() -> dict:
         "skills": skills,
         # Stated in the payload so the UI can be honest about what these numbers
         # are (and are not) without hard-coding the caveat in the frontend.
-        "note": "Real execution counts from the practice layer's on-chain-fork "
-                "runs (persisted in MongoDB). Gas and pass/fail are not recorded "
-                "per run, so they are intentionally not shown.",
+        "note": "Real counts from practice runs on our live practice copy of the "
+                "network, saved permanently. We don't currently track network fees "
+                "or pass/fail per run, so those aren't shown.",
     }
