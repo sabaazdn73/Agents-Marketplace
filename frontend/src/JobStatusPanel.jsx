@@ -391,13 +391,13 @@ export default function JobStatusPanel({
               </div>
               <p className="text-[10px] opacity-40 mt-1">
                 Most similar jobs finish in about {formatElapsed(typical.seconds * 1000)} — an estimate from {typical.sourceLabel}, not a guarantee.
-                {progressPct >= 100 && ' Taking longer than that typical case; still genuinely possible it delivers.'}
+                {progressPct >= 100 && ' Taking longer than that typical case — it can still deliver.'}
               </p>
             </div>
           )}
 
           {countdownMs != null && (
-            <div className="flex items-center gap-1.5 text-[11px] opacity-70" title="Real time left before this job's on-chain deadline">
+            <div className="flex items-center gap-1.5 text-[11px] opacity-70" title="Time left before this job's on-chain deadline">
               <Clock size={11} />
               {countdownMs > 0
                 ? <span>Deadline in {formatCountdown(countdownMs)} — after that, come back here and claim a refund yourself (it won't happen on its own)</span>

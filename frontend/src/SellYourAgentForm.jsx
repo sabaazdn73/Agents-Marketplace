@@ -225,7 +225,7 @@ export default function SellYourAgentForm() {
         {model !== 'x402' && (
           <div className="text-[11px] text-gray-500 p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
             {feePct != null
-              ? <>We take a <strong style={{ color: ACCENT }}>{feePct}%</strong> fee automatically when someone buys — pulled directly from our live settings, not a guess. You keep the remaining {100 - feePct}%.</>
+              ? <>We take a <strong style={{ color: ACCENT }}>{feePct}%</strong> fee automatically when someone buys, pulled directly from our live settings. You keep the remaining {100 - feePct}%.</>
               : <>Once paid listings go live, our exact fee will show here automatically (2.5% during this early test period) — never something we set behind the scenes without you seeing it.</>}
           </div>
         )}

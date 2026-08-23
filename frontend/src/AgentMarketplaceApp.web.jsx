@@ -1172,7 +1172,7 @@ export default function AgentMarketplaceApp() {
               </div>
 
               <h2 className="text-3xl font-bold tracking-tight mb-2">Practice Mode Activity</h2>
-              <p className="text-gray-500 mb-2">Real, combined stats from actual Practice Mode runs on our live practice copy of the network — saved permanently, not a guess or a made-up comparison.</p>
+              <p className="text-gray-500 mb-2">Combined stats from actual Practice Mode runs on our live practice copy of the network, saved permanently.</p>
               <p className="text-[12px] text-gray-400 mb-10">Note: this reflects general Practice Mode <em>testing</em> activity across all users, not any specific listed agent's real-world hire track record. To see a specific agent's real hire history, open its detail page and look for "Past Hires".</p>
               <PracticeStatsReport />
             </div>

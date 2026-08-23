@@ -933,7 +933,7 @@ function AgentMarketplaceMobile() {
 
                 <div className="pt-4">
                   <h2 className="text-2xl font-bold mb-1">Practice Mode Activity</h2>
-                  <p className="text-sm text-gray-500">Real, combined stats from actual Practice Mode runs on our live practice copy of the network — not a guess.</p>
+                  <p className="text-sm text-gray-500">Combined stats from actual Practice Mode runs on our live practice copy of the network.</p>
                   <p className="text-[11px] text-gray-400 mt-1">Note: general Practice Mode <em>testing</em> activity, not a specific agent's real hire record — for that, open an agent and look for "Past Hires".</p>
                 </div>
                 <PracticeStatsReportMobile />
