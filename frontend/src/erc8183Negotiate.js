@@ -52,6 +52,30 @@ export async function negotiateJob(ownerAddress, taskDescription, terms) {
   }
 }
 
+/** Real call to our backend's notify_funded proxy — tells a strict ERC-8183
+ * seller "I funded job X, please deliver" right after the real on-chain
+ * `fund` tx confirms. Real, confirmed gap fixed 2026-08-24: without this,
+ * a job funded through this marketplace had no trigger to ever get
+ * delivered (see backend/server.py's /api/agents/notify-funded for the
+ * full trace). Best-effort, NEVER throws and NEVER blocks the hire — the
+ * job is already funded on-chain by the time this is called, so a failure
+ * here means "delivery may be slower", never "the hire failed". Returns
+ * true only on a real accepted notification. */
+export async function notifyFunded(ownerAddress, jobId) {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/agents/notify-funded`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ owner_address: ownerAddress, job_id: Number(jobId) }),
+    });
+    if (!res.ok) return false;
+    const body = await res.json();
+    return body.notified === true;
+  } catch (e) {
+    return false;
+  }
+}
+
 /** Mirrors bnbagent.erc8183.negotiation._sanitize_for_claim exactly:
  * '[' -> '(', ']' -> ')' (prevents injection into the UMA claim's
  * [REQUEST]/[RESPONSE]/[VERIFY] section markers), strips ASCII control

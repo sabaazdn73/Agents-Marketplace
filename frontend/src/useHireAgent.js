@@ -24,7 +24,7 @@ import {
   getContracts, AGENTIC_COMMERCE_ABI, EVALUATOR_ROUTER_ABI,
   OPTIMISTIC_POLICY_ABI, ERC20_ABI, JOB_STATUS,
 } from './erc8183';
-import { negotiateJob, buildJobDescription, negotiatedPriceRaw } from './erc8183Negotiate';
+import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded } from './erc8183Negotiate';
 
 // Generic quality terms sent with every real negotiate attempt. Deliberately
 // broad/neutral — this flow doesn't know the specifics of an arbitrary
@@ -57,7 +57,16 @@ const RECEIPT_TIMEOUT_MS = 90_000;
 // implement `negotiate` at all — see erc8183Negotiate.js for the real
 // investigation and why a failure here always falls back cleanly rather
 // than blocking the hire.
-export const HIRE_STEPS = ['negotiating', 'creating', 'registering', 'budgeting', 'approving', 'funding'];
+//
+// 'notifying' — added 2026-08-24 after a real, confirmed gap: funding a job
+// was never actually telling the seller to start work (see
+// erc8183Negotiate.js's notifyFunded() for the full trace, found via job
+// #56646 sitting funded with zero delivery activity). Genuinely conditional
+// same as negotiating: an agent that doesn't implement notify_funded (or is
+// briefly unreachable) skips cleanly here — the job is ALREADY funded
+// on-chain by this point, so this step can never fail the hire, only note
+// that delivery might rely on the agent's own sweep instead.
+export const HIRE_STEPS = ['negotiating', 'creating', 'registering', 'budgeting', 'approving', 'funding', 'notifying'];
 
 // Real, confirmed incident (2026-08-22): our own explainer agent only ever
 // accepts a job whose description carries a signed quote (verify_signed_job
@@ -284,6 +293,27 @@ export function useHireAgent() {
         args: [newJobId, finalBudgetRaw, '0x'],
       });
 
+      // Step 6: tell the seller agent to start work. Real, confirmed gap
+      // fixed 2026-08-24 (see erc8183Negotiate.js's notifyFunded): funding
+      // alone never reached the agent — a strict seller's own background
+      // sweep only runs as a side effect of ANOTHER buyer's notify landing
+      // first, so a job could sit funded forever with nothing to trigger
+      // delivery. Best-effort and NEVER fatal: the job is already funded
+      // on-chain by this point, so a failure here can only mean slower
+      // delivery, never a failed hire.
+      setStep('notifying');
+      let notifySucceeded = false;
+      try {
+        notifySucceeded = await notifyFunded(providerAddress, newJobId);
+      } catch (e) {
+        // Real, non-fatal: same treatment as a negotiate failure.
+      }
+      if (notifySucceeded) {
+        setCompletedSteps((prev) => [...prev, 'notifying']);
+      } else {
+        setSkippedSteps((prev) => [...prev, 'notifying']);
+      }
+
       setStep('done');
       return { jobId: newJobId, txHash: fundHash };
     } catch (e) {
@@ -317,7 +347,8 @@ const HIRE_STEP_COPY = {
   registering: { label: 'Set up protection', description: 'Setting up the rule that protects your money if this job goes wrong (like getting it back if nothing is delivered)' },
   budgeting: { label: 'Set the spending limit', description: 'Setting the maximum this job is allowed to spend' },
   approving: { label: 'Allow the payment', description: "Giving permission to set aside up to {amount} $U — this doesn't spend anything yet, it just unlocks the next step" },
-  funding: { label: 'Send the payment', description: 'Final step — this actually puts {amount} $U on hold for the agent to claim once the work is done' },
+  funding: { label: 'Send the payment', description: 'Puts {amount} $U on hold for the agent to claim once the work is done' },
+  notifying: { label: 'Tell the agent to start', description: "Letting the agent know it's been hired and paid, so it starts the work now instead of waiting to notice on its own" },
 };
 
 /** Builds the real, current step list for <StepChecklist/>, straight from
@@ -339,6 +370,7 @@ export function buildHireStepList({ step, completedSteps, skippedSteps, stepHash
       hash: stepHashes[key] || null,
       reason: key === 'approving' && status === 'skipped' ? 'Already allowed — skipped'
         : key === 'negotiating' && status === 'skipped' ? "This agent doesn't need to confirm a price — skipped"
+        : key === 'notifying' && status === 'skipped' ? "Couldn't reach the agent directly — it'll still pick this job up on its own, just possibly slower"
         : null,
       errorMessage: status === 'error' ? error : null,
     };

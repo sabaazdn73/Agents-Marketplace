@@ -89,15 +89,12 @@ async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) 
     return candidates
 
 
-async def negotiate(
-    service_endpoint: str, task_description: str, terms: dict
-) -> dict | None:
-    """Real A2A `negotiate` call against a seller agent. Returns the raw
-    negotiation-result dict (the same shape `NegotiationResult.to_dict()`
-    produces — request/response/negotiation_hash/provider_sig/chain_id/
-    verifying_contract) on a real accepted quote, or None on ANY failure
-    (no endpoint, not a real A2A agent, timeout, or a genuine rejection) —
-    the caller's job is to fall back cleanly, not to distinguish why."""
+async def _call_skill(service_endpoint: str, skill_data: dict) -> dict | None:
+    """Shared A2A `message/send` plumbing for both `negotiate` and
+    `notify_funded`: resolve the real JSON-RPC candidates, POST the skill
+    envelope, and hand back the inner data part — or None on ANY transport
+    failure (no endpoint, not a real A2A agent, timeout, malformed reply).
+    Callers apply their own skill-specific acceptance check on the result."""
     if not service_endpoint:
         return None
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
@@ -114,16 +111,7 @@ async def negotiate(
                     "kind": "message",
                     "messageId": str(uuid.uuid4()),
                     "role": "user",
-                    "parts": [
-                        {
-                            "kind": "data",
-                            "data": {
-                                "skill": "negotiate",
-                                "task_description": task_description,
-                                "terms": terms,
-                            },
-                        }
-                    ],
+                    "parts": [{"kind": "data", "data": skill_data}],
                 }
             },
         }
@@ -147,16 +135,64 @@ async def negotiate(
 
         try:
             parts = body["result"]["parts"]
-            data = next(p["data"] for p in parts if p.get("kind") == "data")
+            return next(p["data"] for p in parts if p.get("kind") == "data")
         except (KeyError, IndexError, StopIteration, TypeError):
             print(f"[erc8183_negotiate] unexpected response shape: {body}")
             return None
 
-        response = data.get("response") or {}
-        if not response.get("accepted"):
-            # A real, genuine rejection (e.g. malformed terms) — not a
-            # transport failure. Still None: the caller falls back the same
-            # way either way, and the real reason is already logged for us.
-            print(f"[erc8183_negotiate] negotiation not accepted: {response}")
-            return None
-        return data
+
+async def negotiate(
+    service_endpoint: str, task_description: str, terms: dict
+) -> dict | None:
+    """Real A2A `negotiate` call against a seller agent. Returns the raw
+    negotiation-result dict (the same shape `NegotiationResult.to_dict()`
+    produces — request/response/negotiation_hash/provider_sig/chain_id/
+    verifying_contract) on a real accepted quote, or None on ANY failure
+    (no endpoint, not a real A2A agent, timeout, or a genuine rejection) —
+    the caller's job is to fall back cleanly, not to distinguish why."""
+    data = await _call_skill(service_endpoint, {
+        "skill": "negotiate",
+        "task_description": task_description,
+        "terms": terms,
+    })
+    if data is None:
+        return None
+
+    response = data.get("response") or {}
+    if not response.get("accepted"):
+        # A real, genuine rejection (e.g. malformed terms) — not a
+        # transport failure. Still None: the caller falls back the same
+        # way either way, and the real reason is already logged for us.
+        print(f"[erc8183_negotiate] negotiation not accepted: {response}")
+        return None
+    return data
+
+
+async def notify_funded(service_endpoint: str, job_id: int) -> dict | None:
+    """Real A2A `notify_funded` push: "I funded job X — please deliver."
+
+    Real, confirmed gap (2026-08-24): this marketplace's own hire flow
+    (useHireAgent.js) creates + funds the on-chain job but never sent this
+    notification — confirmed live against job #56646, which sat funded with
+    zero delivery activity in the seller's own logs until this call was sent
+    manually. A strict ERC-8183 seller (like our own explainer agent) has no
+    other trigger to start work: its background "sweep" for missed funded
+    jobs only runs as a side effect of ANOTHER buyer's notify_funded landing
+    first (see explainer-agent/seller_core.py's own docstring) — with no
+    other buyer ever notifying, a job funded through this marketplace could
+    sit forever.
+
+    Best-effort by design, same as `negotiate`: returns the accepted-status
+    dict on success, or None on ANY failure (no endpoint, agent doesn't
+    implement notify_funded, timeout, or a genuine rejection) — the caller
+    must NEVER treat a None here as the hire itself failing. The job is
+    already funded on-chain regardless; a missed notify only means slower
+    delivery (until the agent's own sweep or sufficiently-informed future
+    infra retries it), not a lost payment."""
+    data = await _call_skill(service_endpoint, {"skill": "notify_funded", "job_id": job_id})
+    if data is None:
+        return None
+    if data.get("status") != "accepted":
+        print(f"[erc8183_negotiate] notify_funded not accepted: {data}")
+        return None
+    return data

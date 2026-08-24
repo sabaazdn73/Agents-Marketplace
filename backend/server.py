@@ -519,6 +519,42 @@ async def agent_negotiate(request: Request):
     return {"available": True, "negotiation_result": result}
 
 
+@app.post("/api/agents/notify-funded")
+async def agent_notify_funded(request: Request):
+    """Real, server-side proxy for the ERC-8183 A2A `notify_funded` push.
+
+    Real, confirmed gap (2026-08-24): the hire flow (useHireAgent.js) funds
+    a job on-chain but had no way to tell the seller agent to start work — a
+    strict seller's own background sweep only runs as a side effect of
+    ANOTHER buyer's notify_funded landing first, so a job funded through
+    this marketplace could sit forever with no delivery. Confirmed live
+    against job #56646 (zero delivery activity in the seller's own logs
+    until this call was sent manually). See core/erc8183_negotiate.py's
+    notify_funded() for the full trace; same server-side requirement as
+    negotiate (the agent's endpoint has no CORS support).
+
+    Body: {"owner_address": "0x...", "job_id": 123}. Returns a clean
+    {"notified": false} on ANY failure (no endpoint, agent doesn't
+    implement notify_funded, timeout, rejection) — the caller must treat
+    that as "delivery may be slower, not that funding failed": the job is
+    already funded on-chain by the time this is ever called."""
+    body = await request.json()
+    owner_address = body.get("owner_address")
+    job_id = body.get("job_id")
+    if not owner_address or job_id is None:
+        raise HTTPException(status_code=400, detail="owner_address and job_id are required")
+
+    agent = await agent_store.get_agent_by_owner(owner_address)
+    service_endpoint = (agent or {}).get("service_endpoint")
+    if not service_endpoint:
+        return {"notified": False, "reason": "no registered service_endpoint on record for this agent"}
+
+    result = await erc8183_negotiate.notify_funded(service_endpoint, job_id)
+    if result is None:
+        return {"notified": False, "reason": "agent did not accept a real notify_funded call (unsupported, unreachable, or rejected)"}
+    return {"notified": True}
+
+
 # The exact prefixes our own hire flows write into a job's real, immutable
 # on-chain `description` (useHireAgent.js / AltanaSessionPanel.jsx / mobile
 # app — all three checked and matched here). Keep these in sync if any of
