@@ -330,7 +330,19 @@ export default function JobStatusPanel({
   const elapsedMs = status === 'FUNDED' && startEstimate ? nowMs - startEstimate.atMs : null;
   const countdownMs = status === 'FUNDED' && job?.expiredAt != null ? Number(job.expiredAt) * 1000 - nowMs : null;
   const typical = status === 'FUNDED' ? getKnownTypicalDelivery(job?.provider) : null;
-  const progressPct = typical && elapsedMs != null ? Math.min(100, (elapsedMs / (typical.seconds * 1000)) * 100) : null;
+  // Real UX fix, 2026-08-24: a percentage bar that climbs to 100% and then
+  // just sits there once elapsed time passes the typical estimate reads as
+  // stuck/broken — a real user flagged exactly this. Looked at how real
+  // products handle "past the estimate" for an async wait (order tracking,
+  // package tracking, background job queues): none of them leave a frozen
+  // percentage — they either keep updating the estimate, or drop the numeric
+  // progress entirely and switch to an open-ended "still working" state
+  // anchored on elapsed time, which is what reassures the user something is
+  // still actually happening. `isPastTypical` below is that switch point —
+  // the percentage bar only ever renders BELOW 100%; past it, the bar
+  // disappears in favor of the open-ended state.
+  const isPastTypical = typical && elapsedMs != null && elapsedMs >= typical.seconds * 1000;
+  const progressPct = typical && elapsedMs != null && !isPastTypical ? (elapsedMs / (typical.seconds * 1000)) * 100 : null;
   const checkedSecAgo = lastCheckedAtMs != null ? Math.max(0, Math.floor((nowMs - lastCheckedAtMs) / 1000)) : null;
 
   // Flash styling — a real, visible transition ONLY when refresh() just
@@ -391,8 +403,24 @@ export default function JobStatusPanel({
               </div>
               <p className="text-[10px] opacity-40 mt-1">
                 Most similar jobs finish in about {formatElapsed(typical.seconds * 1000)} — an estimate from {typical.sourceLabel}, not a guarantee.
-                {progressPct >= 100 && ' Taking longer than that typical case — it can still deliver.'}
               </p>
+            </div>
+          )}
+
+          {/* Past the typical estimate — the percentage bar above stops
+              rendering (see isPastTypical's own comment for the real UX
+              research behind this) and this open-ended state takes over
+              instead. The elapsed timer and deadline countdown elsewhere in
+              this panel are untouched — they stay accurate regardless. */}
+          {isPastTypical && (
+            <div className="flex items-start gap-1.5 text-[10px] opacity-60">
+              <span className="relative flex h-2 w-2 mt-0.5 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60" style={{ background: accent }} />
+                <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: accent }} />
+              </span>
+              <span>
+                Still working — this is taking longer than the usual ~{formatElapsed(typical.seconds * 1000)} for this agent. The job is still valid and could deliver anytime before its deadline below.
+              </span>
             </div>
           )}
 
