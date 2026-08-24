@@ -147,7 +147,7 @@ _COLD_START_ATTEMPT_TIMEOUT = 30.0
 _COLD_START_EXCEPTIONS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout)
 _COLD_START_STATUS_CODES = {429, 502, 503, 504}
 
-# Real fix, 2026-08-24, for a real production outage: confirmed via live
+# Real fix #1, 2026-08-24, for a real production outage: confirmed via live
 # Render logs that a single cold start was NOT the real cause of that
 # incident — 8 separate, correctly-spaced retries (over the full real 75s
 # backoff schedule) each got an IMMEDIATE 429 back, and the failure stayed
@@ -164,11 +164,143 @@ _COLD_START_STATUS_CODES = {429, 502, 503, 504}
 # together. Each independent retry loop's own requests kept re-triggering
 # Render's own rate-limit protection before any single one could clear it,
 # turning what should be a ~15s cold start into a sustained multi-minute
-# outage. This is a real "we're hammering our own upstream" bug, not a
-# transient-failure case that more retries or a longer budget would fix —
-# so the real fix is coalescing concurrent retry sequences, not padding
-# the existing (already correct) backoff schedule.
-_coldstart_lock = asyncio.Lock()
+# outage.
+#
+# Real fix #2, same day, for a RECURRENCE of that exact outage: fix #1's
+# lock only serialized concurrent retry sequences — it never made them
+# SHARE an outcome. Proven live with a real concurrency test: 5 concurrent
+# callers hitting a down upstream through the fix-#1 design produced 15
+# logged retry attempts (5 callers × 3 retries each, one after another
+# through the lock), not the ~3 a real single-flight design produces — each
+# lock-holder still independently repeated the FULL retry schedule from
+# scratch once it was its turn, oblivious that the caller before it had
+# just proven the upstream still wasn't up. Under real concurrent load
+# (several real users, or the several concurrent RPC calls one browser
+# session's own reads/writes normally make — see rpc_passthrough's own
+# docstring for that second, separate real path this now also covers) that
+# meant N independent 10-request bursts landing on the SAME struggling
+# upstream one after another, easily enough to keep re-tripping a real rate
+# limit for minutes, which is exactly what recurred.
+#
+# Real fix: true single-flight coalescing (_ensure_fork_awake /
+# _coldstart_wake_task below) — however many callers hit a cold-start
+# signal concurrently, only ONE lightweight wake probe is ever in flight;
+# everyone else awaits that SAME task and shares its exact outcome (woken,
+# or a real PracticeForkWaking), then makes their own one real request
+# exactly once more. The lock here only ever guards the tiny "is a probe
+# already running" check — never the retries themselves.
+_coldstart_wake_task: asyncio.Task | None = None
+_coldstart_wake_task_lock = asyncio.Lock()
+
+
+def _is_cold_start_signal(e: Exception) -> bool:
+    return isinstance(e, _COLD_START_EXCEPTIONS) or (
+        isinstance(e, httpx.HTTPStatusError) and e.response.status_code in _COLD_START_STATUS_CODES
+    )
+
+
+async def _probe_fork_awake(client: httpx.AsyncClient) -> None:
+    """The ONE real retry sequence every concurrent caller coalesces onto
+    (see _ensure_fork_awake) — a single lightweight eth_chainId call against
+    the public door, retried on the real backoff schedule. Returns on the
+    first success; raises PracticeForkWaking if the fork never answers
+    within the real budget. Deliberately ignorant of what any caller
+    actually wanted to do — "is the fork awake" is the same question
+    regardless of which request is waiting on the answer."""
+    url = get_practice_rpc()
+
+    async def _attempt() -> None:
+        resp = await client.post(url, json={"jsonrpc": "2.0", "method": "eth_chainId", "params": [], "id": 0}, timeout=_COLD_START_ATTEMPT_TIMEOUT)
+        resp.raise_for_status()
+
+    try:
+        await _attempt()
+        return
+    except Exception as e:
+        if not _is_cold_start_signal(e):
+            raise
+        last_error = e
+
+    for attempt, wait in enumerate(_COLD_START_BACKOFF_SECONDS):
+        print(f"[practice_layer] wake probe got a cold-start signal ({type(last_error).__name__}: {last_error}), "
+              f"retrying in {wait}s (attempt {attempt + 1}/{len(_COLD_START_BACKOFF_SECONDS)})")
+        await asyncio.sleep(wait)
+        try:
+            await _attempt()
+            return
+        except Exception as e:
+            if not _is_cold_start_signal(e):
+                raise
+            last_error = e
+
+    raise PracticeForkWaking(
+        f"The practice fork's free-tier service did not respond within "
+        f"{sum(_COLD_START_BACKOFF_SECONDS) + (len(_COLD_START_BACKOFF_SECONDS) + 1) * _COLD_START_ATTEMPT_TIMEOUT:.0f}s "
+        f"of retrying — it may still be waking from idle sleep, or genuinely down. Last error: {last_error}"
+    )
+
+
+async def _ensure_fork_awake(client: httpx.AsyncClient) -> None:
+    """Real single-flight coalescing: if a wake probe is already in flight
+    (started by another concurrent caller), await THAT SAME task instead of
+    starting a new one — every concurrently-cold-started caller, however
+    many there are, ends up awaiting the one real probe in flight at any
+    given moment, and shares its exact outcome. Raises PracticeForkWaking
+    (propagated from the shared probe) if it never woke."""
+    global _coldstart_wake_task
+    async with _coldstart_wake_task_lock:
+        task = _coldstart_wake_task
+        if task is None or task.done():
+            task = asyncio.ensure_future(_probe_fork_awake(client))
+            _coldstart_wake_task = task
+    await task
+
+
+async def _post_with_cold_start_retry(client: httpx.AsyncClient, url: str, headers: dict, json_body, *, label: str, _recursed: bool = False) -> httpx.Response:
+    """The shared cold-start retry + coalescing core — used by BOTH `_rpc()`
+    (our own server-side calls: init/status, funding) and `rpc_passthrough()`
+    (the browser's own live RPC traffic during a session), so ALL traffic to
+    the fork is finally coordinated through one real gate, not two
+    independently-behaving ones (see `rpc_passthrough`'s own docstring for
+    why the browser path needed this too).
+
+    On a cold-start signal, this does NOT retry its OWN request in a loop —
+    it awaits the one shared wake probe (`_ensure_fork_awake`) every
+    concurrent caller coalesces onto, then makes its own real request
+    exactly once more. If THAT still hits a cold-start signal (a fresh burst
+    re-tripped it right after the probe succeeded — real, possible under
+    real concurrent load), it recurses: the recursion naturally re-coalesces
+    the new burst the same way and terminates because each level requires a
+    genuine fresh cold-start signal to continue, bounded by the probe
+    eventually either succeeding for good or raising PracticeForkWaking.
+
+    Returns the raw 2xx `httpx.Response`; raises `PracticeForkWaking` if the
+    fork never woke, or re-raises immediately on any non-cold-start failure
+    (a genuine JSON-RPC/application error is never retried here)."""
+    async def _attempt() -> httpx.Response:
+        resp = await client.post(url, headers=headers, json=json_body, timeout=_COLD_START_ATTEMPT_TIMEOUT)
+        resp.raise_for_status()
+        return resp
+
+    try:
+        return await _attempt()
+    except Exception as e:
+        if not _is_cold_start_signal(e):
+            raise
+        if not _recursed:
+            print(f"[practice_layer] {label} got a cold-start signal ({type(e).__name__}: {e}), "
+                  f"waiting on the shared wake probe")
+
+    await _ensure_fork_awake(client)  # shared across every concurrent caller; raises PracticeForkWaking if it never woke
+
+    try:
+        return await _attempt()
+    except Exception as e:
+        if not _is_cold_start_signal(e):
+            raise
+        # A fresh burst re-tripped it right after the shared probe succeeded.
+        # Recurse — re-coalesces this new burst the same way.
+        return await _post_with_cold_start_retry(client, url, headers, json_body, label=label, _recursed=True)
 
 
 async def _rpc(client: httpx.AsyncClient, method: str, params: list, *, admin: bool = False) -> dict:
@@ -179,75 +311,33 @@ async def _rpc(client: httpx.AsyncClient, method: str, params: list, *, admin: b
     secret) so anvil_* cheat methods reach Anvil; admin=False routes to the
     public, method-filtered door (safe for reads).
 
-    Retries on the real, empirically-observed cold-start signals — see
-    _COLD_START_EXCEPTIONS / _COLD_START_STATUS_CODES above. The real retry
-    SEQUENCE (everything past the first attempt) is coalesced through
-    _coldstart_lock — see that variable's own comment for the real incident
-    this fixes: a fork that's warm still serves every concurrent caller at
-    full speed (the first attempt below never touches the lock), but once a
-    call is confirmed to actually need cold-start retries, only ONE such
-    real retry sequence is ever in flight at a time — any other concurrent
-    caller queues behind it instead of independently hammering the same
-    struggling upstream with its own parallel 9-retry storm."""
+    Cold-start retry + coalescing: see _post_with_cold_start_retry's own
+    docstring."""
     if admin:
         url, key = get_practice_admin()
         headers = {"X-Admin-Key": key} if key else {}
     else:
         url, headers = get_practice_rpc(), {}
 
-    async def _attempt() -> dict:
-        resp = await client.post(url, headers=headers, json={
-            "jsonrpc": "2.0", "method": method, "params": params, "id": 1,
-        }, timeout=_COLD_START_ATTEMPT_TIMEOUT)
-        resp.raise_for_status()
-        data = resp.json()
-        if "error" in data and data["error"]:
-            raise RuntimeError(f"{method} failed: {data['error']}")
-        return data
+    resp = await _post_with_cold_start_retry(client, url, headers, {
+        "jsonrpc": "2.0", "method": method, "params": params, "id": 1,
+    }, label=method)
+    data = resp.json()
+    if "error" in data and data["error"]:
+        raise RuntimeError(f"{method} failed: {data['error']}")
+    return data
 
-    def _is_cold_start_signal(e: Exception) -> bool:
-        return isinstance(e, _COLD_START_EXCEPTIONS) or (
-            isinstance(e, httpx.HTTPStatusError) and e.response.status_code in _COLD_START_STATUS_CODES
-        )
 
-    # The real first attempt — outside the lock, so a warm fork (the normal,
-    # common case) serves every concurrent caller with zero added latency.
-    try:
-        return await _attempt()
-    except Exception as e:
-        if not _is_cold_start_signal(e):
-            raise
-        last_error = e
-
-    # A real cold-start signal — from here on, serialize through the shared
-    # lock (see its own comment above for why).
-    async with _coldstart_lock:
-        # The lock's previous holder may have already woken the fork while we
-        # were waiting our turn — check once immediately before paying the
-        # first real backoff wait.
-        try:
-            return await _attempt()
-        except Exception as e:
-            if not _is_cold_start_signal(e):
-                raise
-            last_error = e
-
-        for attempt, wait in enumerate(_COLD_START_BACKOFF_SECONDS):
-            print(f"[practice_layer] {method} got a cold-start signal ({type(last_error).__name__}: {last_error}), "
-                  f"retrying in {wait}s (attempt {attempt + 1}/{len(_COLD_START_BACKOFF_SECONDS)})")
-            await asyncio.sleep(wait)
-            try:
-                return await _attempt()
-            except Exception as e:
-                if not _is_cold_start_signal(e):
-                    raise
-                last_error = e
-
-    raise PracticeForkWaking(
-        f"The practice fork's free-tier service did not respond within "
-        f"{sum(_COLD_START_BACKOFF_SECONDS) + (len(_COLD_START_BACKOFF_SECONDS) + 2) * _COLD_START_ATTEMPT_TIMEOUT:.0f}s "
-        f"of retrying — it may still be waking from idle sleep, or genuinely down. Last error: {last_error}"
-    )
+async def rpc_passthrough(client: httpx.AsyncClient, body) -> httpx.Response:
+    """The browser's own allow-listed JSON-RPC passthrough (single call or a
+    real JSON-RPC batch — both valid, `body` is forwarded as-is), now sharing
+    the exact same cold-start retry + coalescing core as `_rpc()` — see
+    _post_with_cold_start_retry's own docstring for the real gap this closes.
+    Returns the raw response for the route to relay verbatim: a genuine
+    JSON-RPC-level error (a revert, an invalid param) is real content the
+    BROWSER must see and parse itself, never intercepted or retried here —
+    only real cold-start/transport signals are."""
+    return await _post_with_cold_start_retry(client, get_practice_rpc(), {}, body, label="rpc_passthrough")
 
 
 async def get_practice_status() -> dict:

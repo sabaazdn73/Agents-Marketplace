@@ -443,7 +443,16 @@ _PRACTICE_RPC_ALLOWED = {
 async def practice_rpc(request: Request):
     """Allow-listed JSON-RPC passthrough to the Anvil fork for the browser's
     practice wallet, keeping the admin RPC and its cheat methods off the
-    public internet."""
+    public internet.
+
+    Real fix, 2026-08-24: this used to do a raw one-shot httpx call with NO
+    cold-start retry and NO coalescing — a real, confirmed cause of a
+    RECURRING version of the outage the earlier init/funding-only fix was
+    built for (see practice_layer.rpc_passthrough's own docstring for the
+    full trace). Now shares the exact same retry+coalescing core as
+    /api/practice/init and /api/practice/fund, so a 503 here carries the
+    same honest "still waking up" message instead of a raw 502 for what's
+    really just an ordinary cold start."""
     body = await request.json()
     calls = body if isinstance(body, list) else [body]
     for call in calls:
@@ -451,8 +460,10 @@ async def practice_rpc(request: Request):
         if method not in _PRACTICE_RPC_ALLOWED:
             raise HTTPException(status_code=403, detail=f"That action isn't allowed here: {method}")
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(practice_layer.get_practice_rpc(), json=body)
+        async with httpx.AsyncClient() as client:
+            resp = await practice_layer.rpc_passthrough(client, body)
+    except practice_layer.PracticeForkWaking:
+        raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
     except httpx.HTTPError as e:
         # Upstream Anvil fork unreachable — surface a clean 502 rather than an
         # unhandled 500, so the browser can show "practice fork is down".
