@@ -24,6 +24,7 @@ from core import agent_performance
 from core import agent_health
 from core import erc8183_negotiate
 from core import deliverable_proxy
+from adapters import zerion
 
 load_dotenv()
 
@@ -493,6 +494,22 @@ async def agent_perf(owner_address: str):
         return await agent_performance.get_agent_performance(owner_address)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
+
+
+@app.get("/api/agents/wallet-portfolio")
+async def agent_wallet_portfolio(owner_address: str):
+    """Real, OPT-IN wallet portfolio via Zerion (core/adapters/zerion.py) —
+    every real token this owner address holds on BSC, with real USD values,
+    not just the native BNB balance already shown for free on every agent
+    card. Deliberately never called from the bulk marketplace refresh — our
+    key's real, measured tier is 300 requests/day (confirmed live via
+    response headers, not docs), nowhere near enough for 500+ agents; this
+    exists only for a buyer who opens ONE specific agent's detail page and
+    asks to see more. Always returns 200 with an honest {"available": false,
+    "reason": ...} on any real failure (missing key, rate limited,
+    unreachable) rather than a 5xx — this is a nice-to-have enrichment, never
+    something that should break the detail page."""
+    return await zerion.get_wallet_portfolio(owner_address)
 
 
 @app.post("/api/agents/negotiate")

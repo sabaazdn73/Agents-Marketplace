@@ -22,6 +22,7 @@ import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
+import WalletPortfolioPanel from './WalletPortfolioPanel';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
@@ -382,6 +383,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             {agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">not available</span>}
           </span>
         </div>
+        <WalletPortfolioPanel ownerAddress={agent.ownerAddress} />
 
         <AgentPerformance agent={agent} onTrySkill={onTrySkill} />
 
