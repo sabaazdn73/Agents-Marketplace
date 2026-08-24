@@ -37,7 +37,7 @@ export function useJobActions() {
       throw new Error(
         `This is taking longer than expected (over ${RECEIPT_TIMEOUT_MS / 1000} seconds). ` +
         `Check its status here before trying again: https://bscscan.com/tx/${hash} . If it says ` +
-        `"not found" after a few minutes, it never actually went through, and it's safe to retry.`
+        `"not found" after a few minutes, it never went through, and it's safe to retry.`
       );
     }
     return hash;

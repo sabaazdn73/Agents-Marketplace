@@ -76,7 +76,7 @@ const KNOWN_TYPICAL_DELIVERY_SECONDS = {
   '0x08cef8b3ec5d33529dfe6700ccbffc97158cb5dd': {
     seconds: 60,
     sampleSize: 1,
-    sourceLabel: '1 real delivery we measured (job #56620)',
+    sourceLabel: '1 past delivery (job #56620)',
   },
 };
 

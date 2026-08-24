@@ -62,7 +62,7 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
         <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">What we know about this agent so far</p>
         <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
           <BadgeCheck size={13} className={agent.isVerified ? 'text-indigo-500' : 'text-gray-300 dark:text-gray-600'} />
-          {agent.isVerified ? 'Confirmed as a real, registered agent.' : "Not yet confirmed as registered — that just means it hasn't been checked yet, not that anything is wrong."}
+          {agent.isVerified ? 'Registered on-chain.' : 'Not yet confirmed as registered — just not checked yet.'}
         </div>
         {signals.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">

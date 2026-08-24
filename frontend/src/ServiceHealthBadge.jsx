@@ -58,9 +58,7 @@ function timeAgo(unixSeconds) {
 // User-facing copy audit (2026-08-22): rewritten so someone with zero
 // crypto background can read every tooltip/label here and understand it —
 // no "endpoint", "health-check", or "real"-as-hedge language left in.
-const LIMITATION_NOTE =
-  "This just means we contacted it and it answered — it's turned on and working right now. " +
-  "It doesn't promise the work it does will be good, only that someone's there.";
+const LIMITATION_NOTE = "Means it's turned on and reachable — not a quality signal.";
 
 /** Per-agent badge — cards, table rows, and the detail header. Renders
  * nothing for 'unknown' or a never-checked agent, on purpose: we don't have
@@ -86,7 +84,7 @@ export default function ServiceHealthBadge({ status, checkedAt, size = 'sm', cla
   if (status === 'not_responding') {
     return (
       <span
-        title={`We tried to reach this agent${when ? ` ${when}` : ''} and got no answer. It might just be waking up from being idle — this doesn't mean it's gone for good.`}
+        title={`No answer${when ? ` ${when}` : ''} — may just be waking up from idle`}
         className={`inline-flex items-center gap-1 ${textCls} font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 ${className}`}
       >
         <WifiOff size={sizePx} /> Not answering right now
@@ -96,7 +94,7 @@ export default function ServiceHealthBadge({ status, checkedAt, size = 'sm', cla
   if (status === 'no_endpoint') {
     return (
       <span
-        title="This agent hasn't told us how to check on it. That's not necessarily bad — we just have no way to confirm it's running yet."
+        title="No endpoint registered — can't confirm it's running"
         className={`inline-flex items-center gap-1 ${textCls} font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 ${className}`}
       >
         <MinusCircle size={sizePx} /> Can't check yet
@@ -115,10 +113,8 @@ export function ServiceHealthExplainer({ className = '' }) {
       <Info size={13} className="shrink-0 mt-0.5 text-emerald-600 dark:text-emerald-400" />
       <span>
         <CheckCircle2 size={11} className="inline -mt-0.5 mr-0.5 text-emerald-600 dark:text-emerald-400" />
-        <strong> "Online now"</strong> next to an agent means we just tried reaching it and it answered — so it's
-        actually turned on right now, not just listed here. No checkmark doesn't mean it's broken; it might
-        just not have answered yet, or we haven't checked recently. Either way, this only tells you it's
-        switched on — not whether the work it does is any good.
+        <strong> "Online now"</strong> means we just reached this agent and it answered. No checkmark just
+        means we haven't confirmed that recently — not that it's broken. Either way, it's not a quality signal.
       </span>
     </div>
   );

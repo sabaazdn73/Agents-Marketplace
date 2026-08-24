@@ -368,7 +368,7 @@ export default function JobStatusPanel({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-semibold" title={status ? `Real status: ${status}` : undefined} style={{ color: accent }}>{loading ? '…' : (STATUS_DISPLAY_LABEL[status] || status || 'unknown')}</span>
+          <span className="font-semibold" title={status ? `On-chain status: ${status}` : undefined} style={{ color: accent }}>{loading ? '…' : (STATUS_DISPLAY_LABEL[status] || status || 'unknown')}</span>
           <button onClick={refresh} disabled={busy} className="opacity-60 hover:opacity-100"><RefreshCw size={12} /></button>
         </div>
       </div>

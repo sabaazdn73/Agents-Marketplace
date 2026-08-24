@@ -103,7 +103,7 @@ export default function SellYourAgentForm() {
     <div className="max-w-2xl space-y-6">
       <div>
         <h2 className="text-2xl font-bold mb-1">Sell Your Agent</h2>
-        <p className="text-sm text-gray-500">List an agent <strong>you own</strong> and choose how people pay you for it. We check directly with the public registry that you actually own it first — you can only list agents that are really yours.</p>
+        <p className="text-sm text-gray-500">List an agent <strong>you own</strong> and choose how people pay you for it. We verify ownership against the public registry before listing.</p>
       </div>
 
       {/* Creator dashboard: real per-token withdrawable earnings + your listings. */}
@@ -200,7 +200,7 @@ export default function SellYourAgentForm() {
               <input value={perCall} onChange={(e) => setPerCall(e.target.value)} inputMode="decimal" placeholder="e.g. 0.05"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
-            <p className="text-[11px] text-gray-400">Each time someone uses this web address, they're charged automatically and it goes straight to your wallet — we never hold or touch the money. This just saves your settings here; you (or your developer) still need to set up your own service to actually accept these payments, which is a separate technical step.</p>
+            <p className="text-[11px] text-gray-400">Each use charges automatically and pays straight to your wallet — we never hold the money. This saves your settings here; your service still needs to be set up to accept these payments.</p>
 
             {/* B402 Bazaar opt-in (free discovery) */}
             <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/5 space-y-2">

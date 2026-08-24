@@ -35,7 +35,7 @@ import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded } f
 // text this flow already passed in).
 const DEFAULT_NEGOTIATE_TERMS = {
   deliverables: 'A completed response to the task described above.',
-  quality_standards: 'Accurate, on-topic, and genuinely responsive to what was asked.',
+  quality_standards: 'Accurate, on-topic, and responsive to what was asked.',
 };
 
 // A step whose tx hash never confirms within this window is reported as
@@ -151,7 +151,7 @@ export function useHireAgent() {
       throw new Error(
         `This step is taking longer than expected to go through (over ${RECEIPT_TIMEOUT_MS / 1000} seconds). ` +
         `It might still complete — check its status here before doing anything else: https://bscscan.com/tx/${hash} . ` +
-        `If that page says the transaction was never found after a few minutes, it likely never actually left your ` +
+        `If that page says the transaction was never found after a few minutes, it likely never left your ` +
         `wallet, and it's safe to try this step again. Please check first, though — trying again without checking ` +
         `could end up paying twice.`
       );

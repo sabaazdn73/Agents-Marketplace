@@ -146,7 +146,7 @@ const LEARN_TOPICS = [
     { h: 'ERC-8004 — Identity', p: 'Every agent gets an on-chain identity token (an ERC-721 agentId), a discoverable profile (name, description, endpoints), and metadata. Registration is sponsored by the MegaFuel paymaster on BNB Chain, so it costs no gas.', plain: 'It\'s the agent\'s ID card, and putting it on-chain is free.', src: SRC.sdk },
     { h: 'ERC-8183 — Commerce', p: 'A trustless job protocol. A client (you) and a provider (the agent) transact through three contracts: AgenticCommerce (owns job state + escrow), EvaluatorRouter (routes each job to a settlement policy), and OptimisticPolicy (the default rule: silence past the review window counts as approval).', plain: 'Three small programs that hold the money and enforce the deal so neither side has to trust the other.', src: SRC.sdk },
   ]},
-  { title: 'What "hiring" actually means here', body: [
+  { title: 'What "hiring" means here', body: [
     { h: 'A job, not a subscription', p: "Hiring creates a real ERC-8183 job — five wallet-signed steps: createJob → registerJob → setBudget → approve $U → fund. Payment is in $U (United Stables, a crypto dollar). Once funded, the budget sits in on-chain escrow; it is NOT a standing permission an agent can draw from repeatedly.", plain: 'You fund one specific job, once. The agent can never dip into your wallet again on its own.', src: SRC.sdk },
     { h: 'Provider submits, you get a receipt', p: 'The agent submits a deliverable; only a pointer/hash goes on-chain (the actual content is stored off-chain and looked up by URL). ', plain: 'The chain records the proof-of-delivery, not the file itself.', src: SRC.sdkArch },
     { h: 'Settlement is automatic, or disputable', p: 'Settling a job is permissionless — anyone can trigger it once the review window passes, releasing escrow to the provider. If the delivered work looks wrong, you dispute() during that window instead.', plain: 'Do nothing and the agent gets paid after the review window; object in time and it\'s contested.', src: SRC.sdk },
@@ -174,9 +174,9 @@ const LEARN_TOPICS = [
 // myth we disproved by reading a real generated project); the real edit point
 // is the agent's instruction string in main.py.
 const BUILD_STEPS = [
-  { title: '1. Describe your agent, in plain English', body: 'Open Claude Code or Cursor and describe what you want: "Create a BNB agent that sells 3-day weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a real, working project for you — no blank file.', plain: 'You type a sentence; the tool writes the starter code.', src: SRC.studioQuick },
+  { title: '1. Describe your agent, in plain English', body: 'Open Claude Code or Cursor and describe what you want: "Create a BNB agent that sells 3-day weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a working project for you — no blank file.', plain: 'You type a sentence; the tool writes the starter code.', src: SRC.studioQuick },
   { title: '2. It builds two things, not one', body: 'Layer A (the Agent, app/agent) holds the wallet + LLM and is the ONLY thing that ever signs. Layer B (the Service, app/service) is public, keyless, and just relays requests. The split exists because the Agent runtime (AWS Bedrock AgentCore) isn\'t publicly reachable, so a keyless relay (EC2/Fargate) fronts it.', plain: 'The part that holds keys stays private; a separate public part takes requests.', src: SRC.studioArch },
-  { title: '3. You edit the agent\'s instructions, not plumbing', body: 'Wallet setup, ERC-8004 registration, and the ERC-8183 negotiate/fund/settle wiring are already there. What you actually change is the agent\'s instruction string in main.py — the plain description of what it should DO when a funded job asks it to "fulfill." (There is no handle_fulfill function; we verified this against a real generated project.)', plain: 'You rewrite one paragraph telling the agent its job — not the wiring around it.', src: SRC.studioArch },
+  { title: '3. You edit the agent\'s instructions, not plumbing', body: 'Wallet setup, ERC-8004 registration, and the ERC-8183 negotiate/fund/settle wiring are already there. What you change is the agent\'s instruction string in main.py — the plain description of what it should DO when a funded job asks it to "fulfill."', plain: 'You rewrite one paragraph telling the agent its job — not the wiring around it.', src: SRC.studioArch },
   { title: '4. Test locally before it touches real money', body: 'bag dev runs both layers on your machine. You can hit the real /negotiate endpoint, get a real signed price quote, and confirm the whole flow before deploying or spending anything. The default Pieverse LLM needs no funds.', plain: 'Run it on your laptop first; the default AI model is free.', src: SRC.studioQuick },
   { title: '5. Register, then deploy', body: 'bag erc8004 register makes your agent discoverable (the same identity every agent here shows). The one-click "Build it for real" button uses the free ~48h platform trial (no AWS account needed). To run it yourself instead, self-host Layer A on AWS Bedrock AgentCore and Layer B on EC2/Fargate.', plain: 'Try it free for 48h with one click, or host it yourself later.', src: SRC.studioArch },
 ];
@@ -251,7 +251,7 @@ function AgentPerformance({ agent, onTrySkill }) {
 
   return (
     <div className="mt-6">
-      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5"><Activity size={14} /> Past Hires <span className="text-[10px] font-normal text-gray-400" title="We look this up directly from the blockchain, the permanent public record every job here is written to — not something the agent could fake.">(checked directly, can't be faked)</span></h3>
+      <h3 className="text-sm font-bold mb-2 flex items-center gap-1.5"><Activity size={14} /> Past Hires</h3>
       {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={13} className="animate-spin" /> Looking up this agent's hire history…</div>}
       {state === 'error' && (
         <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -267,7 +267,7 @@ function AgentPerformance({ agent, onTrySkill }) {
       ) : state === 'ready' && perf?.hired ? (
         <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
           <div className="grid grid-cols-3 gap-3 mb-2">
-            <div title="How many times people have actually hired this agent"><div className="text-[10px] uppercase text-gray-500">Times Hired</div><div className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</div></div>
+            <div title="How many times people have hired this agent"><div className="text-[10px] uppercase text-gray-500">Times Hired</div><div className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</div></div>
             <div title="Out of the jobs that finished, how many were successfully completed"><div className="text-[10px] uppercase text-gray-500">Success Rate</div><div className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</div></div>
             <div title="Jobs currently underway, not finished yet"><div className="text-[10px] uppercase text-gray-500">In Progress</div><div className="text-lg font-bold">{perf.active}</div></div>
           </div>
@@ -318,7 +318,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
               <div className="flex items-center gap-2"><h2 className="text-2xl font-bold">{agent.name}</h2>{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</div>
               <div className="flex items-center gap-2 mt-1">
                 <span title={CATEGORY_HINTS[agent.category]} className="text-[11px] text-indigo-500 uppercase font-semibold tracking-wider">{agent.category}</span>
-                {agent.possiblyDelisted && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" title="We haven't seen this agent show up anywhere in over a week. It might be gone, or it might just not have come up in our latest check — we're keeping it listed either way instead of guessing.">may no longer be active</span>}
+                {agent.possiblyDelisted && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" title="Not seen active in over a week">may no longer be active</span>}
               </div>
             </div>
           </div>
@@ -336,12 +336,12 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         )}
 
         <div className="flex flex-wrap items-center gap-2 my-5">
-          {agent.isVerified && <DetailBadge icon={BadgeCheck} hint="Confirmed as a real, registered agent — not a promise it's good">Verified</DetailBadge>}
+          {agent.isVerified && <DetailBadge icon={BadgeCheck} hint="Registered on-chain — not a quality rating">Verified</DetailBadge>}
           {agent.x402Supported && <DetailBadge icon={Zap} hint="Can pay other agents automatically for tools or data it needs, without a person approving each payment">Pays other agents automatically</DetailBadge>}
           {(agent.supportedProtocols || []).map((p) => <DetailBadge key={p} icon={Coins} hint={`Works with ${p}, a real app it can act on for you`}>{p}</DetailBadge>)}
           <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
           {(!agent.serviceStatus || agent.serviceStatus === 'unknown') && (
-            <span className="text-[11px] text-gray-400" title="We haven't been able to confirm whether it's turned on right now — could mean we haven't checked yet, or our own check didn't go through. Not necessarily the agent's fault.">Not confirmed online yet</span>
+            <span className="text-[11px] text-gray-400" title="Not checked yet, or the last check didn't go through">Not confirmed online yet</span>
           )}
         </div>
         {agent.serviceEndpoint && (
@@ -656,7 +656,7 @@ export default function AgentMarketplaceApp() {
 
   const handleHireClick = (agent) => {
     if (!walletConnected) {
-      alert('Connect a wallet first (sidebar: Connect Wallet or Face ID / Email) — hiring means real money moves, so we need somewhere for it to come from.');
+      alert('Connect a wallet first to hire this agent — sidebar: Connect Wallet or Face ID / Email.');
       return;
     }
     setSelectedAgent(agent);
@@ -831,7 +831,7 @@ export default function AgentMarketplaceApp() {
                     <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
                     <div><div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Reviews</div></div>
                   </div>
-                  <div title="Confirmed as real, registered agents — not a promise they're good" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                  <div title="Registered on-chain — not a quality rating" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
                     <div><div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Verified Agents</div></div>
                   </div>
@@ -864,7 +864,7 @@ export default function AgentMarketplaceApp() {
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
                         : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
-                    title="Only show agents we just successfully reached, so you know something is actually running."
+                    title="Only show agents that responded just now"
                   >
                     {onlyResponding ? '✓ ' : ''}Only show online agents
                   </button>
@@ -966,7 +966,7 @@ export default function AgentMarketplaceApp() {
                             <div className="flex items-center gap-3">
                               <span className={`w-2 h-2 rounded-full ${agent.isVerified ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
                               <div>
-                                <div className="text-sm font-semibold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={14} className="text-indigo-500" title="Confirmed as a real, registered agent — not a promise it's good" />}</div>
+                                <div className="text-sm font-semibold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={14} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</div>
                                 <div className="text-[11px] text-gray-500 mt-0.5" title={CATEGORY_HINTS[agent.category]}>{agent.category}</div>
                               </div>
                             </div>
@@ -996,7 +996,7 @@ export default function AgentMarketplaceApp() {
                         <div className="flex justify-between items-start mb-5">
                           <div>
                             <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider mb-1 block">{agent.category}</span>
-                            <h3 className="text-lg font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={16} className="text-indigo-500" title="Confirmed as a real, registered agent — not a promise it's good" />}</h3>
+                            <h3 className="text-lg font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={16} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</h3>
                           </div>
                           <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
                         </div>
@@ -1187,7 +1187,7 @@ export default function AgentMarketplaceApp() {
           {nav === 'learn' && (
             <div className="max-w-3xl">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Learn</h2>
-              <p className="text-gray-500 mb-6">What each agent does, and what authority you're actually granting when you hire one.</p>
+              <p className="text-gray-500 mb-6">What each agent does, and what authority you're granting when you hire one.</p>
 
               <div className="space-y-6">
                 {LEARN_TOPICS.map((topic, i) => (

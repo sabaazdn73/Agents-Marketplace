@@ -105,7 +105,7 @@ export default function BuyAccessPanel({ agentId }) {
           <div className="flex justify-between"><span className="text-gray-500">Total price</span><span className="font-mono">{priceStr} {offer.symbol}</span></div>
           <div className="flex justify-between"><span className="text-gray-500">Platform fee ({feePct}%)</span><span className="font-mono">{fee != null ? fromRawUnits(fee, 18) : '—'} {offer.symbol}</span></div>
           <div className="flex justify-between font-semibold"><span className="text-gray-600 dark:text-gray-300">Creator receives</span><span className="font-mono">{creatorGets != null ? fromRawUnits(creatorGets, 18) : '—'} {offer.symbol}</span></div>
-          <p className="text-[10px] text-gray-400 pt-1">The {feePct}% fee helps keep this marketplace running — everything else goes straight to the creator. This number comes directly from our live settings, so it's always accurate.</p>
+          <p className="text-[10px] text-gray-400 pt-1">The {feePct}% fee helps keep this marketplace running — everything else goes straight to the creator.</p>
         </div>
       )}
 

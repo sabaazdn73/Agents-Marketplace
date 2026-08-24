@@ -37,9 +37,8 @@ export function usePasskeyVerified(ownerAddress) {
 // someone without a crypto background. Rewritten in plain language; the
 // underlying check (usePasskeyVerified above) is unchanged.
 const PLAIN_TOOLTIP =
-  "This account unlocks with Face ID or a fingerprint, not a secret password someone could steal or lose. " +
-  "We checked this directly, ourselves — it's not just something the owner claims. " +
-  "It doesn't prove one specific real person controls it, though.";
+  "This account unlocks with Face ID or a fingerprint, not a password that could be stolen or lost. " +
+  "Doesn't prove a specific person controls it.";
 
 export default function PasskeyBadge({ ownerAddress, className = '' }) {
   const result = usePasskeyVerified(ownerAddress);

@@ -146,10 +146,9 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
       {!session ? (
         <div className="space-y-3">
           <p className="text-xs opacity-60">
-            This sets up a separate, protected mini-wallet that unlocks with Face ID or a fingerprint —
-            no password to remember. You choose exactly how much it's allowed to spend per day and when
-            that permission expires. You can cancel this anytime, and every hire it makes is checked and
-            recorded permanently, so nothing about it is hidden from you.
+            Sets up a separate mini-wallet that unlocks with Face ID or a fingerprint — no password.
+            You set the daily limit and when it expires, and can cancel anytime. Every hire it makes
+            is recorded and visible here.
           </p>
           <div className="flex gap-3">
             <div className="flex-1">

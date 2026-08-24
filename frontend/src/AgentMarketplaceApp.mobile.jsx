@@ -75,7 +75,7 @@ const LEARN_TOPICS = [
 // body/plain for its own historical reasons; same content here, mobile's
 // own naming).
 const BUILD_STEPS = [
-  { h: '1. Describe your agent, in plain English', p: 'You type a sentence describing what you want; a tool writes the starter code for you.', tech: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a real, working project.', src: SRC.studioQuick },
+  { h: '1. Describe your agent, in plain English', p: 'You type a sentence describing what you want; a tool writes the starter code for you.', tech: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a working project.', src: SRC.studioQuick },
   { h: '2. It builds two things, not one', p: 'The part that holds the keys to real money stays private; a separate public part takes requests from the outside world.', tech: 'Layer A (the Agent) holds the wallet + LLM and is the only thing that ever signs. Layer B (the Service) is public, keyless, and just relays requests.', src: SRC.studioArch },
   { h: '3. You edit the instructions, not the plumbing', p: "You rewrite one paragraph telling the agent its job — not the technical wiring around it.", tech: 'Wallet setup and the on-chain registration/payment wiring are already there. What you change is the instruction string in main.py describing what it should do when a funded job asks it to work.', src: SRC.studioArch },
   { h: '4. Test it before it touches real money', p: 'Run it on your own computer first, with a free AI model, before deploying or spending anything.', tech: 'bag dev runs both layers on your machine. You can hit the real negotiate step, get a real signed price quote, and confirm the whole flow first.', src: SRC.studioQuick },
@@ -374,7 +374,7 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
   }, [ownerAddress, retryTick]);
   return (
     <div className="mt-4">
-      <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Activity size={13} /> Past Hires <span className="text-[10px] font-normal text-gray-400" title="Checked directly from the blockchain, the permanent public record every job here is written to — can't be faked.">(checked directly)</span></h3>
+      <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Activity size={13} /> Past Hires</h3>
       {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Looking up this agent's hire history…</div>}
       {state === 'error' && (
         <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -437,9 +437,9 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
-              {agent.possiblyDelisted && <span title="We haven't seen this agent show up anywhere in over a week. It might be gone, or it might just not have come up in our latest check." className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">may no longer be active</span>}
+              {agent.possiblyDelisted && <span title="Not seen active in over a week" className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">may no longer be active</span>}
             </div>
-            <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Confirmed as a real, registered agent — not a promise it's good" />}</h2>
+            <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</h2>
           </div>
           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
         </div>
@@ -460,7 +460,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         )}
 
         <div className="flex flex-wrap items-center gap-2 my-4">
-          {agent.isVerified && <span title="Confirmed as a real, registered agent — not a promise it's good" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
+          {agent.isVerified && <span title="Registered on-chain — not a quality rating" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
           {agent.x402Supported && <span title="Can pay other agents automatically for tools or data it needs, without a person approving each payment" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />Pays other agents automatically</span>}
           {(agent.supportedProtocols || []).map((p) => <span key={p} title={`Works with ${p}, a real app it can act on for you`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
           <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
@@ -790,7 +790,7 @@ function AgentMarketplaceMobile() {
                   {[
                     { label: 'Listed', value: stats.total, icon: Activity, color: '#2563EB', hint: 'How many agents are shown below' },
                     { label: 'Reviews', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'Total written reviews left across all these agents' },
-                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Confirmed as a real, registered agent — not a promise it's good" },
+                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Registered on-chain — not a quality rating" },
                   ].map((c) => {
                     const Icon = c.icon;
                     return (
@@ -946,7 +946,7 @@ function AgentMarketplaceMobile() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-2xl font-bold mb-1">Learn</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">What each agent does, and what you're actually granting.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">What each agent does, and what you're granting.</p>
                 </div>
 
                 <div className="space-y-3">

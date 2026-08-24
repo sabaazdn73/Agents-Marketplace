@@ -427,7 +427,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       )}
       {kind === 'pay' && (
         <div className="mb-5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-[11px] text-amber-700 dark:text-amber-400">
-          This makes an actual payment to a web address, handled by an outside payment service — so it needs your real wallet and can't be tried in Practice Mode.
+          This makes a payment to a web address, handled by an outside payment service — so it needs your real wallet and can't be tried in Practice Mode.
         </div>
       )}
 

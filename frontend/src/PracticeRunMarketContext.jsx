@@ -104,7 +104,7 @@ function RateContext({ skillId }) {
       <div className="flex items-center gap-1.5 opacity-60"><Percent size={11} /> Current rate, checked just now (we don't have a history of past rates to show)</div>
       {'apyPct' in state && <div className="font-semibold" style={{ fontSize: 13 }}>{state.apyPct.toFixed(2)}% per year</div>}
       {'bnbPerSlisBnb' in state && <div className="font-semibold" style={{ fontSize: 13 }}>1 slisBNB = {state.bnbPerSlisBnb.toFixed(4)} BNB</div>}
-      <p className="opacity-50">This isn't a trade price — it's the actual interest rate (or exchange rate) this practice position is earning right now, checked live.</p>
+      <p className="opacity-50">This isn't a trade price — it's the interest rate (or exchange rate) this practice position is earning right now, checked live.</p>
     </div>
   );
 }
@@ -132,7 +132,7 @@ function CurveContext({ tokenAddress }) {
     <div className="text-[11px] space-y-1">
       <div className="flex items-center gap-1.5 opacity-60"><Activity size={11} /> Current price, checked just now</div>
       <div className="font-semibold" style={{ fontSize: 13 }}>{state.progressPct.toFixed(1)}% of the way to being tradeable on PancakeSwap</div>
-      <p className="opacity-50">This token isn't listed on an exchange yet, so there's no price history to chart — this progress number is the best real signal we have for it right now.</p>
+      <p className="opacity-50">This token isn't listed on an exchange yet, so there's no price history to chart — this progress number is the best signal available right now.</p>
     </div>
   );
 }
