@@ -42,6 +42,7 @@ import logging
 import os
 from typing import Any
 
+import deliverable_store
 import signing
 from bnbagent_studio_core.erc8183.errors import SubmitPermanentlyUnsupportedError
 
@@ -271,6 +272,15 @@ class SellerCore:
             # Deterministic for this wallet kind: submit can NEVER succeed →
             # permanent skip (a transient error would burn one LLM call / retry).
             return {"ok": False, "job_id": job_id, "skip": True, "reason": str(e)}
+
+        # Real regression fixed 2026-08-24 (see deliverable_store.py): submit()
+        # above only just wrote the deliverable to the SDK's configured LOCAL
+        # storage, which Render's free tier wipes on any restart/resume/
+        # redeploy. Mirror it into MongoDB now, right while we still have a
+        # freshly-written local copy to read back — best-effort, never lets a
+        # durability hiccup fail an on-chain submit that already landed.
+        await asyncio.to_thread(deliverable_store.capture_and_store, job_id)
+
         return {
             "ok": True,
             "job_id": job_id,

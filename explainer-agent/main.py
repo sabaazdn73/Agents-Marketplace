@@ -224,7 +224,7 @@ agent_card = build_agent_card()
 
 
 async def _serve_deliverable(request):
-    """GET /erc8183/job/{job_id}/response — real, third bug fixed 2026-08-19.
+    """GET /erc8183/job/{job_id}/response — real, fourth bug fixed 2026-08-24.
 
     Real Render log: job #56619's submit() genuinely reached this far (LLM
     succeeded, both earlier event-loop bugs fixed) and then failed with:
@@ -238,28 +238,25 @@ async def _serve_deliverable(request):
     now (confirmed by grepping the real generated source — no such route
     existed).
 
-    Reads the exact file LocalStorageProvider.upload() wrote — same
-    STORAGE_LOCAL_PATH env var (default ".agent-data"), same
-    "job-{id}.json" naming — and returns it verbatim, matching what
-    LocalStorageProvider.download() expects to parse on the reading side.
+    Fourth bug (2026-08-24): that fix made the route exist, but it read
+    ONLY the local disk copy LocalStorageProvider.upload() wrote — which
+    Render's free tier wipes on any restart/resume/redeploy (no persistent
+    volume). Job #56620's real, on-chain-published deliverable was lost that
+    way (confirmed via Render's own /events history — see deliverable_store.py's
+    docstring for the full trace) and started 404ing here. Now durable: reads
+    the MongoDB mirror deliverable_store.capture_and_store() writes right
+    after each real submit(), falling back to local disk only for
+    pre-fix deliveries / the narrow window before a Mongo write lands.
     """
-    from pathlib import Path
-
     from starlette.responses import JSONResponse, Response
 
+    import deliverable_store
+
     job_id = request.path_params["job_id"]
-    base_dir = os.environ.get("STORAGE_LOCAL_PATH") or ".agent-data"
-    base_path = Path(base_dir)
-    # Real bug found via the temporary diagnostic this replaced: the actual
-    # writer is bnbagent's ERC8183JobOps.submit_result(), which calls
-    # self._storage.upload(data, f"erc8183-job-{job_id}.json") — an EXPLICIT
-    # filename. LocalStorageProvider.upload() only falls back to its own
-    # "job-{id}.json" default when filename is None, which never happens
-    # here. Matching the real, explicit name the actual writer uses.
-    path = base_path / f"erc8183-job-{job_id}.json"
-    if not path.is_file():
+    content = deliverable_store.read_deliverable(job_id)
+    if content is None:
         return JSONResponse({"error": f"no deliverable on disk for job {job_id}"}, status_code=404)
-    return Response(path.read_text(encoding="utf-8"), media_type="application/json")
+    return Response(content, media_type="application/json")
 
 
 def _ping_status():

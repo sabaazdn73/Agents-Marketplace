@@ -95,11 +95,11 @@ export default function AdvantageReport() {
             A paid job we ran ourselves on the real network — not a test network, no free practice money involved. We fetched what the agent actually delivered and independently confirmed its fingerprint matches the permanent public record exactly.
           </p>
           <a href="https://bscscan.com/tx/0xe82346efb104b80afaaff9ba4584c2bcf26ad2d3888e01cf03128459f6d16de7" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View the delivery record <ExternalLink size={10} /></a>
-          <a href="https://explainer-agent.onrender.com/erc8183/job/56620/response" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1 ml-3">View what the agent delivered <ExternalLink size={10} /></a>
           <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed max-h-40 overflow-y-auto">
             "ERC-8004 is the agent's official ID card&nbsp;&mdash; like a driver's license: anyone can look it up and confirm who's really behind it before trusting it. ERC-8183 is job escrow&nbsp;&mdash; like buying a house through a title company: payment sits in a neutral locked box until the work is delivered, so neither side can get cheated. Together: ERC-8004 tells you *who* you're hiring, ERC-8183 makes sure the *payment* is safe while they work."
           </div>
           <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> What's shown above is a cleaned-up excerpt — the agent's full output also included its own draft/planning notes ahead of the final write-up.</p>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> The link to the agent's full raw file no longer works — our hosting wiped it during a later, unrelated update, and that copy can't be recovered. The delivery record above (the permanent public record) is unaffected and still confirms the job was paid for and completed. We've since fixed the storage so this can't happen to future deliveries.</p>
         </Side>
         <Side label="Without an agent (done by hand, timed)">
           <Row label="Time taken" value="3m 40s" />

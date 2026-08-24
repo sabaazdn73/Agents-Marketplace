@@ -16,14 +16,19 @@
 # working end-to-end locally (`bag dev`) with zero AWS involvement before this
 # Dockerfile was even written.
 #
-# Real, honest limitation carried forward from the local build: studio.toml
-# has [storage].kind = "local" — deliverables are written to the container's
-# own ephemeral disk (Render free tier has no persistent disk, same real
-# constraint as the Anvil fork). A deliverable submitted and then not fetched
-# before a container restart/idle-cycle would become unreadable even though
-# its on-chain reference survives. Accepted for now, same "documented
-# free-tier tradeoff" pattern as the rest of this project; revisit if it
-# becomes a real problem in practice.
+# studio.toml still has [storage].kind = "local" — deliverables still land on
+# the container's own ephemeral disk first (Render free tier has no
+# persistent disk, same real constraint as the Anvil fork). That WAS a real,
+# accepted limitation ("revisit if it becomes a real problem in practice") —
+# it became one on 2026-08-24 (job #56620's real, on-chain-published
+# deliverable was silently wiped by a restart after delivery). Fixed:
+# deliverable_store.py mirrors every delivered result into MongoDB right
+# after submit() lands, and /erc8183/job/{id}/response now reads that durable
+# copy first, local disk only as a fallback. See that module's docstring for
+# the full trace. Requires MONGODB_URI (+ MONGODB_DB_NAME) set on this
+# service — without it, deliveries still work but are back to local-disk-only
+# (a warning is logged, not a hard failure, so a missing var never blocks a
+# delivery that already landed on-chain).
 
 FROM python:3.13-slim
 
