@@ -65,11 +65,36 @@ const SKILLS_INDEX_URL = `${API_BASE}/api/skills-registry`;
 // tabs. Deliberately silent: no loading state, no error surfaced — if it
 // fails or is still slow, the real action button's own retry/backoff (built
 // separately, unchanged) handles it exactly as before.
-let _practiceForkWarmupFired = false;
+//
+// Real fix, 2026-08-24: this used to fire completely independently of
+// handleGrantAndRun's OWN explicit /api/practice/init call below — both are
+// real, separate top-level requests, and if a user clicked "try it" while
+// this silent warmup's own backend-side retry sequence was still in flight,
+// we'd have TWO independent calls each driving their own real cold-start
+// recovery against the same fork. The backend now coalesces concurrent
+// retry sequences (practice_layer.py's _coldstart_lock — the real, root-
+// cause fix for a real production outage this caused), but there's no real
+// reason for this module to ALSO fire a second, genuinely redundant request
+// when we already know a recent one is very likely still resolving —
+// tracking the real time of the last fire lets handleGrantAndRun skip its
+// own call in that case instead of relying purely on the backend to absorb it.
+let _practiceForkWarmupFiredAtMs = 0;
+// Covers the backend's full real worst-case retry window (first attempt +
+// up to 9 more inside the lock) with margin — see practice_layer.py's own
+// _COLD_START_BACKOFF_SECONDS/_COLD_START_ATTEMPT_TIMEOUT for the real numbers.
+const PRACTICE_FORK_WARMUP_FRESH_MS = 90_000;
+
 function warmUpPracticeForkOnce() {
-  if (_practiceForkWarmupFired) return;
-  _practiceForkWarmupFired = true;
+  if (_practiceForkWarmupFiredAtMs) return;
+  _practiceForkWarmupFiredAtMs = Date.now();
   fetch(`${API_BASE}/api/practice/init`, { method: 'POST' }).catch(() => { /* silent — real retry/backoff still covers the actual action */ });
+}
+
+/** True while the silent warmup's own request is still likely resolving —
+ * lets a caller about to make its own real init call skip a genuinely
+ * redundant one instead of firing a second parallel request. */
+function practiceForkWarmupStillFresh() {
+  return _practiceForkWarmupFiredAtMs > 0 && (Date.now() - _practiceForkWarmupFiredAtMs) < PRACTICE_FORK_WARMUP_FRESH_MS;
 }
 
 // Whole units -> raw 18-decimal bigint (USDT, BNB, and most BSC tokens here).
@@ -296,7 +321,16 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         // while — flip an honest "waking up" hint rather than looking stuck.
         const slowTimer = setTimeout(() => setFundingSlow(true), 6000);
         try {
-          await fetch(`${API_BASE}/api/practice/init`, { method: 'POST' });
+          // Real fix, 2026-08-24: skip this call if the silent warmup above
+          // already fired recently and is very likely still resolving —
+          // firing our own, genuinely redundant init request here was a real,
+          // confirmed contributor to a production outage (two independent
+          // top-level calls each driving their own cold-start recovery
+          // against the same struggling fork). /api/practice/fund below still
+          // does its own real work either way.
+          if (!practiceForkWarmupStillFresh()) {
+            await fetch(`${API_BASE}/api/practice/init`, { method: 'POST' });
+          }
           const fundRes = await fetch(
             `${API_BASE}/api/practice/fund?address=${executor.walletAddress}&bnb_amount=10`,
             { method: 'POST' },

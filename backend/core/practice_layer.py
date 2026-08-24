@@ -147,6 +147,29 @@ _COLD_START_ATTEMPT_TIMEOUT = 30.0
 _COLD_START_EXCEPTIONS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout, httpx.PoolTimeout)
 _COLD_START_STATUS_CODES = {429, 502, 503, 504}
 
+# Real fix, 2026-08-24, for a real production outage: confirmed via live
+# Render logs that a single cold start was NOT the real cause of that
+# incident — 8 separate, correctly-spaced retries (over the full real 75s
+# backoff schedule) each got an IMMEDIATE 429 back, and the failure stayed
+# sustained across multiple separate top-level calls spanning 5+ real
+# minutes, far longer than any single boot this project has ever measured
+# (12-21s). Root cause, confirmed by code audit (not guessed): this
+# module's own callers can legitimately fire MORE THAN ONE independent
+# top-level request close together — AltanaSkillsPanel.jsx's silent
+# warmUpPracticeForkOnce() (fired on mount) and the SAME panel's own
+# explicit /api/practice/init call (fired again right before funding) can
+# both be in flight at once, each spawning its OWN full 9-retry loop
+# against the SAME struggling instance — and the same is true across
+# multiple browser tabs or multiple real users hitting a cold fork
+# together. Each independent retry loop's own requests kept re-triggering
+# Render's own rate-limit protection before any single one could clear it,
+# turning what should be a ~15s cold start into a sustained multi-minute
+# outage. This is a real "we're hammering our own upstream" bug, not a
+# transient-failure case that more retries or a longer budget would fix —
+# so the real fix is coalescing concurrent retry sequences, not padding
+# the existing (already correct) backoff schedule.
+_coldstart_lock = asyncio.Lock()
+
 
 async def _rpc(client: httpx.AsyncClient, method: str, params: list, *, admin: bool = False) -> dict:
     """One JSON-RPC call to the Anvil fork. Raises on a JSON-RPC error so a
@@ -157,43 +180,73 @@ async def _rpc(client: httpx.AsyncClient, method: str, params: list, *, admin: b
     public, method-filtered door (safe for reads).
 
     Retries on the real, empirically-observed cold-start signals — see
-    _COLD_START_EXCEPTIONS / _COLD_START_STATUS_CODES above (and their comment
-    for the one accepted, honestly-stated tradeoff)."""
+    _COLD_START_EXCEPTIONS / _COLD_START_STATUS_CODES above. The real retry
+    SEQUENCE (everything past the first attempt) is coalesced through
+    _coldstart_lock — see that variable's own comment for the real incident
+    this fixes: a fork that's warm still serves every concurrent caller at
+    full speed (the first attempt below never touches the lock), but once a
+    call is confirmed to actually need cold-start retries, only ONE such
+    real retry sequence is ever in flight at a time — any other concurrent
+    caller queues behind it instead of independently hammering the same
+    struggling upstream with its own parallel 9-retry storm."""
     if admin:
         url, key = get_practice_admin()
         headers = {"X-Admin-Key": key} if key else {}
     else:
         url, headers = get_practice_rpc(), {}
 
-    attempts = len(_COLD_START_BACKOFF_SECONDS) + 1
-    last_error = None
-    for attempt in range(attempts):
+    async def _attempt() -> dict:
+        resp = await client.post(url, headers=headers, json={
+            "jsonrpc": "2.0", "method": method, "params": params, "id": 1,
+        }, timeout=_COLD_START_ATTEMPT_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        if "error" in data and data["error"]:
+            raise RuntimeError(f"{method} failed: {data['error']}")
+        return data
+
+    def _is_cold_start_signal(e: Exception) -> bool:
+        return isinstance(e, _COLD_START_EXCEPTIONS) or (
+            isinstance(e, httpx.HTTPStatusError) and e.response.status_code in _COLD_START_STATUS_CODES
+        )
+
+    # The real first attempt — outside the lock, so a warm fork (the normal,
+    # common case) serves every concurrent caller with zero added latency.
+    try:
+        return await _attempt()
+    except Exception as e:
+        if not _is_cold_start_signal(e):
+            raise
+        last_error = e
+
+    # A real cold-start signal — from here on, serialize through the shared
+    # lock (see its own comment above for why).
+    async with _coldstart_lock:
+        # The lock's previous holder may have already woken the fork while we
+        # were waiting our turn — check once immediately before paying the
+        # first real backoff wait.
         try:
-            resp = await client.post(url, headers=headers, json={
-                "jsonrpc": "2.0", "method": method, "params": params, "id": 1,
-            }, timeout=_COLD_START_ATTEMPT_TIMEOUT)
-            resp.raise_for_status()
-            data = resp.json()
-            if "error" in data and data["error"]:
-                raise RuntimeError(f"{method} failed: {data['error']}")
-            return data
-        except _COLD_START_EXCEPTIONS as e:
-            last_error = e
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code not in _COLD_START_STATUS_CODES:
+            return await _attempt()
+        except Exception as e:
+            if not _is_cold_start_signal(e):
                 raise
             last_error = e
 
-        if attempt < len(_COLD_START_BACKOFF_SECONDS):
-            wait = _COLD_START_BACKOFF_SECONDS[attempt]
+        for attempt, wait in enumerate(_COLD_START_BACKOFF_SECONDS):
             print(f"[practice_layer] {method} got a cold-start signal ({type(last_error).__name__}: {last_error}), "
-                  f"retrying in {wait}s (attempt {attempt + 1}/{attempts})")
+                  f"retrying in {wait}s (attempt {attempt + 1}/{len(_COLD_START_BACKOFF_SECONDS)})")
             await asyncio.sleep(wait)
+            try:
+                return await _attempt()
+            except Exception as e:
+                if not _is_cold_start_signal(e):
+                    raise
+                last_error = e
 
     raise PracticeForkWaking(
         f"The practice fork's free-tier service did not respond within "
-        f"{sum(_COLD_START_BACKOFF_SECONDS) + attempts * _COLD_START_ATTEMPT_TIMEOUT:.0f}s of retrying "
-        f"— it may still be waking from idle sleep, or genuinely down. Last error: {last_error}"
+        f"{sum(_COLD_START_BACKOFF_SECONDS) + (len(_COLD_START_BACKOFF_SECONDS) + 2) * _COLD_START_ATTEMPT_TIMEOUT:.0f}s "
+        f"of retrying — it may still be waking from idle sleep, or genuinely down. Last error: {last_error}"
     )
 
 
