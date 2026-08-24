@@ -498,7 +498,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
-        <WalletPortfolioPanel ownerAddress={agent.ownerAddress} />
+        <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
 
         <AgentPerformanceMobile agent={agent} onTrySkill={onTrySkill} />
 

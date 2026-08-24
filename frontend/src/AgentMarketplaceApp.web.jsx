@@ -383,7 +383,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             {agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">not available</span>}
           </span>
         </div>
-        <WalletPortfolioPanel ownerAddress={agent.ownerAddress} />
+        <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
 
         <AgentPerformance agent={agent} onTrySkill={onTrySkill} />
 
