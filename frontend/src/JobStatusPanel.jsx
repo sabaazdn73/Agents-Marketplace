@@ -51,6 +51,7 @@ import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Spark
 import { getJobStatus, getDeliverable } from './altana';
 import { trackJob } from './notifications';
 import { recordFunded, getStartEstimate, getKnownTypicalDelivery } from './jobTiming';
+import { extractDeliverableText, parseLightMarkdown } from './deliverableFormat';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const DELIVERABLE_FETCH_TIMEOUT_MS = 12_000;
@@ -141,7 +142,7 @@ function useDeliverableContent(url) {
         if (cancelled) return;
         try {
           const parsed = JSON.parse(text);
-          setState({ status: 'json', content: JSON.stringify(parsed, null, 2) });
+          setState({ status: 'json', content: JSON.stringify(parsed, null, 2), parsed });
         } catch {
           setState({ status: 'text', content: text });
         }
@@ -155,9 +156,118 @@ function useDeliverableContent(url) {
   return state;
 }
 
+/** Renders one parseLightMarkdown() inline-run array (plain/bold/italic). */
+function InlineRuns({ runs }) {
+  return runs.map((r, i) => {
+    if (r.t === 'bold') return <strong key={i}>{r.v}</strong>;
+    if (r.t === 'italic') return <em key={i}>{r.v}</em>;
+    return <React.Fragment key={i}>{r.v}</React.Fragment>;
+  });
+}
+
+const HEADING_SIZE_CLASS = {
+  1: 'text-sm font-bold',
+  2: 'text-[13px] font-bold',
+  3: 'text-[12px] font-semibold',
+  4: 'text-[12px] font-semibold',
+};
+
+/** The polished, human-readable rendering of a deliverable's real content
+ * field — headings, bold/italic, lists, simple tables, paragraphs. Nothing
+ * fabricated: this only re-formats the exact real text extractDeliverableText
+ * found, never rewrites or trims it (a "thinking preamble" some agents
+ * include ahead of their real answer, if present, renders as-is — this is a
+ * general-purpose viewer, not a curated excerpt like AdvantageReport.jsx's
+ * own hand-picked one). */
+function LightMarkdown({ text }) {
+  const blocks = React.useMemo(() => parseLightMarkdown(text), [text]);
+  return (
+    <div className="space-y-2.5 text-[12px] leading-relaxed text-gray-700 dark:text-gray-300">
+      {blocks.map((b, i) => {
+        if (b.type === 'heading') {
+          return (
+            <div key={i} className={`${HEADING_SIZE_CLASS[b.level] || HEADING_SIZE_CLASS[4]} text-gray-900 dark:text-white mt-1 first:mt-0`}>
+              <InlineRuns runs={b.inline} />
+            </div>
+          );
+        }
+        if (b.type === 'hr') return <hr key={i} className="border-gray-200 dark:border-gray-800" />;
+        if (b.type === 'list') {
+          const Tag = b.ordered ? 'ol' : 'ul';
+          return (
+            <Tag key={i} className={`${b.ordered ? 'list-decimal' : 'list-disc'} pl-4 space-y-1`}>
+              {b.items.map((it, j) => <li key={j}><InlineRuns runs={it} /></li>)}
+            </Tag>
+          );
+        }
+        if (b.type === 'table') {
+          return (
+            <div key={i} className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr>{b.headerInline.map((h, j) => (
+                    <th key={j} className="border-b border-gray-200 dark:border-gray-800 pb-1 pr-3 font-semibold text-gray-900 dark:text-white"><InlineRuns runs={h} /></th>
+                  ))}</tr>
+                </thead>
+                <tbody>
+                  {b.rows.map((row, ri) => (
+                    <tr key={ri}>{row.map((c, ci) => (
+                      <td key={ci} className="border-b border-gray-100 dark:border-gray-800/50 py-1 pr-3 align-top"><InlineRuns runs={c} /></td>
+                    ))}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        return <p key={i}><InlineRuns runs={b.inline} /></p>;
+      })}
+    </div>
+  );
+}
+
+/** The exact original raw content, with its own expand/collapse for long
+ * output — the same rendering used both as the "no polished view available"
+ * fallback and as what a polished view's "View raw" toggle reveals. Access
+ * to the real, unmodified raw content is never removed, just not the
+ * default when something more readable was found. */
+function RawDeliverableBlock({ content, url }) {
+  const [expanded, setExpanded] = useState(false);
+  const full = content || '';
+  const isLong = full.length > DELIVERABLE_MAX_CHARS;
+  const shown = expanded || !isLong ? full : full.slice(0, DELIVERABLE_MAX_CHARS);
+  return (
+    <div className="space-y-1">
+      <pre className="whitespace-pre-wrap break-words bg-black/5 dark:bg-white/5 rounded-lg p-2.5 text-[11px] font-mono max-h-72 overflow-y-auto">{shown}{!expanded && isLong ? '…' : ''}</pre>
+      <div className="flex items-center gap-3">
+        {isLong && (
+          <button onClick={() => setExpanded((v) => !v)} className="text-indigo-500 hover:underline text-[10px]">
+            {expanded ? 'Show less' : `Show all (${full.length.toLocaleString()} characters)`}
+          </button>
+        )}
+        <a href={url} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1 text-[10px]">Open original <ExternalLink size={10} /></a>
+      </div>
+    </div>
+  );
+}
+
+/** Polished view (default) + a small, clearly-labeled "View raw" toggle
+ * that reveals the exact original content underneath — never replaces it. */
+function PolishedDeliverable({ text, raw, url }) {
+  const [showRaw, setShowRaw] = useState(false);
+  return (
+    <div className="space-y-2">
+      <LightMarkdown text={text} />
+      <button onClick={() => setShowRaw((v) => !v)} className="text-indigo-500 hover:underline text-[10px] pt-1 border-t border-gray-100 dark:border-gray-800/50 w-full text-left">
+        {showRaw ? '− Hide raw' : '+ View raw'}
+      </button>
+      {showRaw && <RawDeliverableBlock content={raw} url={url} />}
+    </div>
+  );
+}
+
 function DeliverableViewer({ url }) {
   const state = useDeliverableContent(url);
-  const [expanded, setExpanded] = useState(false);
 
   if (state.status === 'loading' || state.status === 'idle') {
     return <div className="flex items-center gap-1.5 opacity-60"><Loader2 size={12} className="animate-spin" /> Getting what the agent delivered…</div>;
@@ -178,23 +288,15 @@ function DeliverableViewer({ url }) {
       </div>
     );
   }
-  // json or text
-  const full = state.content || '';
-  const isLong = full.length > DELIVERABLE_MAX_CHARS;
-  const shown = expanded || !isLong ? full : full.slice(0, DELIVERABLE_MAX_CHARS);
-  return (
-    <div className="space-y-1">
-      <pre className="whitespace-pre-wrap break-words bg-black/5 dark:bg-white/5 rounded-lg p-2.5 text-[11px] font-mono max-h-72 overflow-y-auto">{shown}{!expanded && isLong ? '…' : ''}</pre>
-      <div className="flex items-center gap-3">
-        {isLong && (
-          <button onClick={() => setExpanded((v) => !v)} className="text-indigo-500 hover:underline text-[10px]">
-            {expanded ? 'Show less' : `Show all (${full.length.toLocaleString()} characters)`}
-          </button>
-        )}
-        <a href={url} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1 text-[10px]">Open original <ExternalLink size={10} /></a>
-      </div>
-    </div>
-  );
+  // json with a real, identifiable content field → polished by default, raw
+  // available underneath. json with no such field, or plain text → the raw
+  // view is the only honest representation, shown directly (nothing to
+  // "polish" beyond it).
+  const meaningfulText = state.status === 'json' ? extractDeliverableText(state.parsed) : null;
+  if (meaningfulText) {
+    return <PolishedDeliverable text={meaningfulText} raw={state.content} url={url} />;
+  }
+  return <RawDeliverableBlock content={state.content} url={url} />;
 }
 
 // One plain-language line per status, written for a total beginner — no

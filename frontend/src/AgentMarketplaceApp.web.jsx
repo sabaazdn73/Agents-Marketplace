@@ -21,6 +21,7 @@ import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './Servi
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
+import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
@@ -164,6 +165,13 @@ const LEARN_TOPICS = [
     { h: 'Skills = pre-built, fork-tested know-how', p: 'Instead of building an agent, you can use a ready-made Skill from Altana\'s public registry (PancakeSwap trading, Venus/Aave lending, Lista staking, four.meme, copy-trade, and more). Each Skill\'s exact contracts and steps are published and fork-tested.', plain: 'Skills are recipes an agent can run for you — no building required.', src: SRC.skills },
     { h: 'A passkey wallet + a scoped session', p: 'To run a Skill for real you create a passkey wallet (Face ID / Touch ID) and grant a session: a spend cap, an expiry, and an allow-list of exactly which contracts it may touch. The Skill can act only inside those limits, and you can revoke it.', plain: 'You hand the agent a prepaid card with a limit and an expiry, not your whole wallet.', src: SRC.altana },
     { h: 'Practice Mode: try it free first', p: 'Flip Practice Mode on to run any Skill against our live fork of BNB Chain with free faucet funds — no real money, no passkey. Every practice run is saved to your history (in a database), so it stays even though the fork itself can reset when the practice server restarts.', plain: 'Rehearse with fake money; the record of what you did is kept even if the sandbox is reset.', src: SRC.venusSkill },
+  ]},
+  { title: 'How agents are built', body: [
+    { h: 'Single agent', p: 'One agent handles the whole task itself, start to finish — reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here actually use.', Diagram: SingleAgentDiagram },
+    { h: 'Sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another — each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
+    { h: 'Parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
+    { h: 'Hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
+    { h: 'What\'s actually here right now', p: 'Honestly: fewer than 2% of the agents listed on this marketplace even mention multi-agent or orchestration language in their own description — the large majority present as single agents. That\'s not a shortcoming of this marketplace; the other three patterns are real, valid ways to build an agent, just not yet common among what\'s registered here today.' },
   ]},
 ];
 
@@ -1212,6 +1220,11 @@ export default function AgentMarketplaceApp() {
                                 section literally titled "in plain English". */}
                             <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{item.plain || item.p}</p>
                             {item.plain && <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {item.p}</p>}
+                            {item.Diagram && (
+                              <div className="mt-3 p-4 rounded-2xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                                <item.Diagram />
+                              </div>
+                            )}
                             {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
                           </div>
                         </div>

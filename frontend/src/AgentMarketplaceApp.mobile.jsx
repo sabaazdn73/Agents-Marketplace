@@ -28,6 +28,7 @@ import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './Servi
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
+import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -63,6 +64,11 @@ const LEARN_TOPICS = [
   { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry — always available, guaranteed by the contract.', src: SRC.sdk },
   { h: "If something looks wrong", p: "You get a short window after delivery to flag a problem before payment is automatically released.", tech: 'Call dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
   { h: 'Ready-made Skills + Practice Mode', p: "Skills are pre-built recipes an agent can run for you — no building required. You can try any of them for free first with practice money before using your own.", tech: "Fork-tested Skills from Altana's public registry, run via a passkey wallet + a capped, expiring session.", src: SRC.skills },
+  { h: 'How agents are built: single agent', p: 'One agent handles the whole task itself, start to finish — reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here actually use.', Diagram: SingleAgentDiagram },
+  { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another — each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
+  { h: 'How agents are built: parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
+  { h: 'How agents are built: hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
+  { h: "What's actually here right now", p: 'Honestly: fewer than 2% of the agents listed on this marketplace even mention multi-agent or orchestration language in their own description — the large majority present as single agents. That\'s not a shortcoming of this marketplace; the other three patterns are real, valid ways to build an agent, just not yet common among what\'s registered here today.' },
 ];
 
 // Real bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
@@ -957,6 +963,11 @@ function AgentMarketplaceMobile() {
                       <div className="font-bold text-sm mb-1">{item.h}</div>
                       <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{item.p}</div>
                       {item.tech && <div className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {item.tech}</div>}
+                      {item.Diagram && (
+                        <div className="mt-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                          <item.Diagram compact />
+                        </div>
+                      )}
                       {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
                     </div>
                   ))}
