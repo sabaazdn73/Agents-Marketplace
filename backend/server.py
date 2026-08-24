@@ -176,6 +176,32 @@ async def _background_refresh():
         _refresh_in_progress = False
 
 
+@app.get("/api/_diag/8004scan-tier")
+async def _diag_8004scan_tier():
+    """TEMPORARY — real re-check (2026-08-24) of whether SCAN_8004_API_KEY
+    has genuinely been upgraded to Pro tier on the /api/v1/public/* surface
+    (separate provisioning from /api/v1/agents — confirmed live last check
+    that the same key was still anonymous-tier there). Same method as
+    before: a random, essentially-uncacheable token id per call, real
+    server-side env var, never returns the key itself. Remove after use."""
+    api_key = os.environ.get("SCAN_8004_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="SCAN_8004_API_KEY not set on this deployment.")
+    import random
+    token_id = random.randint(1, 300000)
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            f"https://8004scan.io/api/v1/public/agents/56/{token_id}",
+            headers={"X-API-Key": api_key},
+        )
+    return {
+        "status_code": resp.status_code,
+        "token_id_used": token_id,
+        "rate_limit_headers": {k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()},
+        "cache_age_header": resp.headers.get("age"),
+    }
+
+
 @app.get("/api/agents")
 async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks = None):
     """Serves INSTANTLY from the persistent store/in-memory cache — never
