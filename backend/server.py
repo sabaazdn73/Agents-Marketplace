@@ -175,6 +175,32 @@ async def _background_refresh():
         _refresh_in_progress = False
 
 
+@app.get("/api/_diag/8004scan-tier")
+async def _diag_8004scan_tier():
+    """TEMPORARY — real, one-off verification of what tier the REAL,
+    Render-deployed SCAN_8004_API_KEY actually gets on the newer
+    /api/v1/public/* surface (separate provisioning from the older
+    /api/v1/agents surface — confirmed live 2026-08-24 that the same key
+    value returns anonymous-tier 10/min there despite a real Basic-tier
+    grant). Uses the real server-side env var directly — never returns the
+    key itself, only the real rate-limit headers + status, so this is safe
+    to hit without exposing anything. Remove after use; not a permanent
+    endpoint."""
+    api_key = os.environ.get("SCAN_8004_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="SCAN_8004_API_KEY not set on this deployment.")
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(
+            "https://8004scan.io/api/v1/public/agents/56/297624",
+            headers={"X-API-Key": api_key},
+        )
+    return {
+        "status_code": resp.status_code,
+        "rate_limit_headers": {k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()},
+        "cache_age_header": resp.headers.get("age"),
+    }
+
+
 @app.get("/api/agents")
 async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks = None):
     """Serves INSTANTLY from the persistent store/in-memory cache — never
