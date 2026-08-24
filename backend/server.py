@@ -189,13 +189,16 @@ async def _diag_8004scan_tier():
     api_key = os.environ.get("SCAN_8004_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="SCAN_8004_API_KEY not set on this deployment.")
+    import random
+    token_id = random.randint(1, 300000)  # a fresh, essentially-uncacheable id each call
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(
-            "https://8004scan.io/api/v1/public/agents/56/297624",
+            f"https://8004scan.io/api/v1/public/agents/56/{token_id}",
             headers={"X-API-Key": api_key},
         )
     return {
         "status_code": resp.status_code,
+        "token_id_used": token_id,
         "rate_limit_headers": {k: v for k, v in resp.headers.items() if "ratelimit" in k.lower()},
         "cache_age_header": resp.headers.get("age"),
     }
