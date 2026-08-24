@@ -600,6 +600,7 @@ function AgentMarketplaceMobile() {
   const {
     hire, step: hireStep, error: hireError,
     completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps, stepHashes: hireStepHashes,
+    notifySkipReason: hireNotifySkipReason,
   } = useHireAgent();
 
   const handleActivateSession = async () => {
@@ -754,6 +755,7 @@ function AgentMarketplaceMobile() {
                     <StepChecklist steps={buildHireStepList({
                       step: hireStep, completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps,
                       stepHashes: hireStepHashes, error: hireError, budgetUnits: spendCap,
+                      notifySkipReason: hireNotifySkipReason,
                     })} />
                     {hireStep === 'done' && (
                       <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">

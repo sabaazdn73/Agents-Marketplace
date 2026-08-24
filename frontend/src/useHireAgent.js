@@ -18,13 +18,23 @@
 // UI can point at the right row.
 
 import { useState, useCallback, useEffect } from 'react';
-import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useWriteContract, useSignTypedData, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
 import { bsc } from 'wagmi/chains';
 import {
   getContracts, AGENTIC_COMMERCE_ABI, EVALUATOR_ROUTER_ABI,
   OPTIMISTIC_POLICY_ABI, ERC20_ABI, JOB_STATUS,
 } from './erc8183';
-import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded } from './erc8183Negotiate';
+import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded, buildNotifyAuthorization } from './erc8183Negotiate';
+
+// The one real, confirmed seller-side convention (2026-08-24, live
+// stockanalyst-agent) for "this job's notify_funded call MUST carry a real
+// EIP-712-signed authorization or it's unconditionally rejected" — see
+// buildNotifyAuthorization's own docstring in erc8183Negotiate.js for the
+// full trace. Read off the NEGOTIATED terms (echoed back in the on-chain
+// description via buildJobDescription), not hardcoded to one agent —
+// general on purpose, any seller using this same convention gets the same
+// real treatment automatically.
+const NOTIFY_CONTEXT_REQUIRED_CRITERION = 'uomp_notify_context_required_v1';
 
 // Generic quality terms sent with every real negotiate attempt. Deliberately
 // broad/neutral — this flow doesn't know the specifics of an arbitrary
@@ -128,6 +138,7 @@ export function useHireAgent() {
   const { switchChainAsync } = useSwitchChain();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+  const { signTypedDataAsync } = useSignTypedData();
 
   const [step, setStep] = useState(null); // null | 'creating' | 'registering' | 'budgeting' | 'approving' | 'funding' | 'done'
   const [jobId, setJobId] = useState(null);
@@ -135,6 +146,7 @@ export function useHireAgent() {
   const [completedSteps, setCompletedSteps] = useState([]); // step keys that really finished this run
   const [skippedSteps, setSkippedSteps] = useState([]);      // step keys genuinely not needed this run
   const [stepHashes, setStepHashes] = useState({});          // { [stepKey]: realTxHash }
+  const [notifySkipReason, setNotifySkipReason] = useState(null); // real reason the 'notifying' step didn't complete, if any
 
   // Wraps a write + receipt-wait so a step that never reaches the network
   // (wallet-side drop — the exact real failure mode this was built for)
@@ -179,6 +191,7 @@ export function useHireAgent() {
     setCompletedSteps([]);
     setSkippedSteps([]);
     setStepHashes({});
+    setNotifySkipReason(null);
     setJobId(null);
 
     try {
@@ -204,6 +217,7 @@ export function useHireAgent() {
       let finalDescription = description;
       let finalBudgetRaw = budgetRaw;
       let negotiationSucceeded = false;
+      let requiresNotifyAuthorization = false;
       try {
         const negotiationResult = await negotiateJob(providerAddress, description, DEFAULT_NEGOTIATE_TERMS);
         const price = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
@@ -213,6 +227,7 @@ export function useHireAgent() {
           // budget >= price); respect a higher user-chosen spend cap as-is.
           finalBudgetRaw = budgetRaw > price ? budgetRaw : price;
           negotiationSucceeded = true;
+          requiresNotifyAuthorization = negotiationResult.response?.terms?.success_criteria === NOTIFY_CONTEXT_REQUIRED_CRITERION;
         }
       } catch (e) {
         // Real, non-fatal: treat a malformed/unexpected negotiate response
@@ -303,16 +318,34 @@ export function useHireAgent() {
       // delivery, never a failed hire.
       setStep('notifying');
       let notifySucceeded = false;
+      let notifyReason = null;
       try {
-        notifySucceeded = await notifyFunded(providerAddress, newJobId);
+        // Real, confirmed requirement (2026-08-24, see NOTIFY_CONTEXT_REQUIRED_CRITERION's
+        // own comment above): some sellers unconditionally reject notify_funded
+        // without a real EIP-712-signed authorization envelope. Build + sign one
+        // ONLY when the negotiated terms actually asked for it — no unnecessary
+        // wallet prompt for the many sellers (like our own explainer agent) that
+        // don't need this.
+        const authorization = requiresNotifyAuthorization
+          ? await buildNotifyAuthorization({
+              chainId: bsc.id, verifyingContract: contracts.commerce, jobId: newJobId, signTypedDataAsync,
+            })
+          : null;
+        const result = await notifyFunded(providerAddress, newJobId, authorization);
+        notifySucceeded = result.notified;
+        notifyReason = result.reason;
       } catch (e) {
-        // Real, non-fatal: same treatment as a negotiate failure.
+        // Real, non-fatal: same treatment as a negotiate failure — most
+        // likely cause here is the wallet rejecting the EIP-712 signature
+        // prompt, not a network/agent problem.
+        notifyReason = e.message || String(e);
       }
       if (notifySucceeded) {
         setCompletedSteps((prev) => [...prev, 'notifying']);
       } else {
         setSkippedSteps((prev) => [...prev, 'notifying']);
       }
+      setNotifySkipReason(notifyReason);
 
       setStep('done');
       return { jobId: newJobId, txHash: fundHash };
@@ -335,7 +368,7 @@ export function useHireAgent() {
     return { ...job, statusLabel: JOB_STATUS[job.status] ?? 'UNKNOWN' };
   }, [chainId, publicClient]);
 
-  return { hire, getRealJobStatus, step, jobId, error, completedSteps, skippedSteps, stepHashes };
+  return { hire, getRealJobStatus, step, jobId, error, completedSteps, skippedSteps, stepHashes, notifySkipReason };
 }
 
 // Honest, wallet-matched copy per step — exactly what each real
@@ -355,7 +388,7 @@ const HIRE_STEP_COPY = {
  * useHireAgent's own state — no invented progress. `budgetUnits` fills in
  * the {amount} placeholder in the approve/fund copy so the user sees the
  * real number they're approving/spending, not a generic amount. */
-export function buildHireStepList({ step, completedSteps, skippedSteps, stepHashes, error, budgetUnits }) {
+export function buildHireStepList({ step, completedSteps, skippedSteps, stepHashes, error, budgetUnits, notifySkipReason }) {
   const amount = budgetUnits != null ? `${budgetUnits} ` : '';
   return HIRE_STEPS.map((key) => {
     const copy = HIRE_STEP_COPY[key];
@@ -370,7 +403,7 @@ export function buildHireStepList({ step, completedSteps, skippedSteps, stepHash
       hash: stepHashes[key] || null,
       reason: key === 'approving' && status === 'skipped' ? 'Already allowed — skipped'
         : key === 'negotiating' && status === 'skipped' ? "This agent doesn't need to confirm a price — skipped"
-        : key === 'notifying' && status === 'skipped' ? "Couldn't reach the agent directly — it'll still pick this job up on its own, just possibly slower"
+        : key === 'notifying' && status === 'skipped' ? (notifySkipReason ? `Not delivered yet: ${notifySkipReason}` : "Couldn't reach the agent directly — it'll still pick this job up on its own, just possibly slower")
         : null,
       errorMessage: status === 'error' ? error : null,
     };

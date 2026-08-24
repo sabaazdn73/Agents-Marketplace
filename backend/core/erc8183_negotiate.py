@@ -168,7 +168,7 @@ async def negotiate(
     return data
 
 
-async def notify_funded(service_endpoint: str, job_id: int) -> dict | None:
+async def notify_funded(service_endpoint: str, job_id: int, authorization: dict | None = None) -> dict | None:
     """Real A2A `notify_funded` push: "I funded job X — please deliver."
 
     Real, confirmed gap (2026-08-24): this marketplace's own hire flow
@@ -182,17 +182,33 @@ async def notify_funded(service_endpoint: str, job_id: int) -> dict | None:
     other buyer ever notifying, a job funded through this marketplace could
     sit forever.
 
-    Best-effort by design, same as `negotiate`: returns the accepted-status
-    dict on success, or None on ANY failure (no endpoint, agent doesn't
-    implement notify_funded, timeout, or a genuine rejection) — the caller
-    must NEVER treat a None here as the hire itself failing. The job is
-    already funded on-chain regardless; a missed notify only means slower
-    delivery (until the agent's own sweep or sufficiently-informed future
-    infra retries it), not a lost payment."""
-    data = await _call_skill(service_endpoint, {"skill": "notify_funded", "job_id": job_id})
+    Best-effort by design, same as `negotiate`: returns None only on a
+    TRANSPORT failure (no endpoint, unreachable, malformed reply) — the
+    caller must NEVER treat that None as the hire itself failing, the job
+    is already funded on-chain regardless. Unlike `negotiate`, a REAL reply
+    from the agent (accepted OR rejected) is returned as-is rather than
+    collapsed to None — a rejection reason (e.g. "authorization_required",
+    "caller_not_job_client") is real, useful signal for the caller/frontend
+    to surface, not something to swallow.
+
+    `authorization` (optional): a real, EIP-712-signed envelope for sellers
+    that require one — real, confirmed example (2026-08-24): the live
+    `stockanalyst-agent` (bnb-chain/stockanalyst-agent-demo pattern)
+    unconditionally rejects notify_funded with "authorization_required"
+    unless this exact dict is present: {"context": <json string>,
+    "expires_at": <int>, "nonce": "0x"+64 hex, "signature": 130 hex (with
+    or without "0x")} — verified against that project's real
+    notify_security.py (server-side EIP-712 recovery + expected-client
+    check). The signature must be produced client-side by the JOB'S OWN
+    CLIENT WALLET (only the frontend, with the connected wallet, can sign
+    it — this function only forwards an already-built envelope, never
+    builds or signs one itself)."""
+    skill_data = {"skill": "notify_funded", "job_id": job_id}
+    if authorization is not None:
+        skill_data["authorization"] = authorization
+    data = await _call_skill(service_endpoint, skill_data)
     if data is None:
         return None
     if data.get("status") != "accepted":
         print(f"[erc8183_negotiate] notify_funded not accepted: {data}")
-        return None
     return data

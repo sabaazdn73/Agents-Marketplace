@@ -59,21 +59,72 @@ export async function negotiateJob(ownerAddress, taskDescription, terms) {
  * delivered (see backend/server.py's /api/agents/notify-funded for the
  * full trace). Best-effort, NEVER throws and NEVER blocks the hire — the
  * job is already funded on-chain by the time this is called, so a failure
- * here means "delivery may be slower", never "the hire failed". Returns
- * true only on a real accepted notification. */
-export async function notifyFunded(ownerAddress, jobId) {
+ * here means "delivery may be slower", never "the hire failed".
+ *
+ * `authorization` (optional): pass the real object buildNotifyAuthorization
+ * (below) returns, for sellers that unconditionally require one (real,
+ * confirmed example: the live stockanalyst-agent). Returns
+ * {notified, reason?} rather than a bare boolean — the real rejection
+ * reason (e.g. "invalid_authorization", "caller_not_job_client") is useful
+ * signal, not something to swallow. */
+export async function notifyFunded(ownerAddress, jobId, authorization = null) {
   try {
+    const body = { owner_address: ownerAddress, job_id: Number(jobId) };
+    if (authorization) body.authorization = authorization;
     const res = await fetch(`${API_BASE_URL}/api/agents/notify-funded`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ owner_address: ownerAddress, job_id: Number(jobId) }),
+      body: JSON.stringify(body),
     });
-    if (!res.ok) return false;
-    const body = await res.json();
-    return body.notified === true;
+    if (!res.ok) return { notified: false, reason: `backend returned HTTP ${res.status}` };
+    const parsed = await res.json();
+    return { notified: parsed.notified === true, reason: parsed.reason };
   } catch (e) {
-    return false;
+    return { notified: false, reason: e.message || String(e) };
   }
+}
+
+/** Real EIP-712 "notify_funded" authorization envelope for sellers that
+ * unconditionally require one — real, confirmed example (2026-08-24): the
+ * live stockanalyst-agent (bnb-chain/stockanalyst-agent-demo pattern)
+ * rejects a named notify_funded call with "authorization_required" unless
+ * this exact envelope is attached. Verified byte-for-byte against that
+ * project's own real source — buyer-client/src/notify-auth.ts (the
+ * envelope shape) and stockanalyst/app/agent/notify_security.py (the
+ * server-side EIP-712 recovery + expected-client check this must satisfy):
+ * domain {name:"stockanalyst-notify-funded", version:"1", chainId,
+ * verifyingContract}, type NotifyFunded{jobId:uint256, context:string,
+ * expiresAt:uint64, nonce:bytes32}.
+ *
+ * `context` defaults to "{}" — every field the seller reads from it
+ * (delivery gateway, portfolio, risk profile) is optional server-side, and
+ * this marketplace has no real portfolio/risk data to honestly sign over.
+ *
+ * `signTypedDataAsync` is wagmi's `useSignTypedData()` return value — only
+ * the connected wallet that actually created/funded the job can produce a
+ * signature the seller's expected_client check accepts (it recovers the
+ * signer and compares against the job's real on-chain `client` address). */
+export async function buildNotifyAuthorization({ chainId, verifyingContract, jobId, signTypedDataAsync, context = '{}' }) {
+  const nonceBytes = new Uint8Array(32);
+  crypto.getRandomValues(nonceBytes);
+  const nonce = `0x${Array.from(nonceBytes).map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+  const expiresAt = Math.floor(Date.now() / 1000) + 300; // 5 min — matches the reference implementation's own window
+
+  const signature = await signTypedDataAsync({
+    domain: { name: 'stockanalyst-notify-funded', version: '1', chainId, verifyingContract },
+    types: {
+      NotifyFunded: [
+        { name: 'jobId', type: 'uint256' },
+        { name: 'context', type: 'string' },
+        { name: 'expiresAt', type: 'uint64' },
+        { name: 'nonce', type: 'bytes32' },
+      ],
+    },
+    primaryType: 'NotifyFunded',
+    message: { jobId: BigInt(jobId), context, expiresAt: BigInt(expiresAt), nonce },
+  });
+
+  return { context, expires_at: expiresAt, nonce, signature };
 }
 
 /** Mirrors bnbagent.erc8183.negotiation._sanitize_for_claim exactly:
