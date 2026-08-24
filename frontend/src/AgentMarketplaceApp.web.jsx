@@ -23,6 +23,7 @@ import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } fr
 import { getReliabilityHint } from './agentReliability';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import Pagination from './Pagination';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
@@ -736,6 +737,27 @@ export default function AgentMarketplaceApp() {
     });
   }, [agents, activeCategory, sortState, showUnclassified, onlyResponding, searchQuery]);
 
+  // Real pagination — client-side, over the already-fully-fetched `filtered`
+  // list (see useMarketplaceAgents: known_agents is fetched once, in full,
+  // and cached; there's nothing server-side left to paginate). 24/page:
+  // measured against this grid's real card height at 3 columns, 24 comes
+  // out to 8 rows — a real single "page" of content, not the sprawling
+  // scroll a higher count would produce (the exact thing this redesign is
+  // meant to fix). Real reference for the page-control shape itself:
+  // mercor.com's own live listing page.
+  const PAGE_SIZE = 24;
+  const [page, setPage] = useState(1);
+  // Any filter/sort/search change must land back on page 1 — staying on
+  // e.g. page 5 after a filter shrinks the real result count to 2 pages
+  // would silently show an empty page instead of the new top results.
+  useEffect(() => { setPage(1); }, [activeCategory, sortState, showUnclassified, onlyResponding, searchQuery]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount); // clamp defensively (e.g. a background refresh shrinking the real list)
+  const paginated = useMemo(
+    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filtered, currentPage]
+  );
+
   // Real, derived stats from actually-fetched agents, replacing the
   // earlier hardcoded numbers (which were 8004scan's own global platform
   // stats from a reference screenshot, not this marketplace's real data).
@@ -940,6 +962,12 @@ export default function AgentMarketplaceApp() {
                 ))}
               </div>
 
+              {!loading && !error && filtered.length > 0 && (
+                <div className="mb-4 text-xs text-gray-400">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length.toLocaleString()} agents
+                </div>
+              )}
+
               {loading && (
                 <div className="flex flex-col items-center justify-center py-32 gap-4 text-sm text-gray-500">
                   <Loader2 size={32} className="animate-spin text-indigo-500" />
@@ -972,7 +1000,7 @@ export default function AgentMarketplaceApp() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                      {filtered.map((agent) => (
+                      {paginated.map((agent) => (
                         <tr key={agent.id} onClick={() => setDetailAgent(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
@@ -1002,7 +1030,7 @@ export default function AgentMarketplaceApp() {
 
               {!loading && !error && marketView === 'grid' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {filtered.map((agent) => (
+                  {paginated.map((agent) => (
                     <div key={agent.id} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
                       <div className="p-6 flex-1 cursor-pointer" onClick={() => setDetailAgent(agent)}>
                         <div className="flex justify-between items-start mb-5">
@@ -1051,6 +1079,8 @@ export default function AgentMarketplaceApp() {
                   ))}
                 </div>
               )}
+
+              {!loading && !error && <Pagination page={currentPage} pageCount={pageCount} onChange={setPage} />}
             </>
           )}
 

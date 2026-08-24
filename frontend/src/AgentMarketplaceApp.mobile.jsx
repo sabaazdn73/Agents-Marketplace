@@ -656,6 +656,20 @@ function AgentMarketplaceMobile() {
     return list;
   }, [agents, activeCategory, searchQuery, onlyResponding]);
 
+  // Real pagination, mobile pattern: "Load more" instead of web's numbered
+  // pages — a narrow single-column layout makes small numbered tap targets
+  // awkward, and appending is the familiar mobile-app convention (vs. a
+  // desktop-style page-jump control). Same underlying real requirement as
+  // web though: don't render the entire filtered list at once. 12/page —
+  // smaller than web's 24 since these cards are full-width and taller
+  // (one column, not three), so 12 already fills a real, substantial
+  // screen's worth before "Load more" is needed. Purely client-side, same
+  // reason as web: the full list is already in memory.
+  const MOBILE_PAGE_SIZE = 12;
+  const [visibleCount, setVisibleCount] = useState(MOBILE_PAGE_SIZE);
+  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeCategory, searchQuery, onlyResponding]);
+  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+
   // Category chips derived from the REAL fetched data, so newly-classified
   // categories (Trading Signals, Research, Payments, …) actually appear and are
   // filterable — the old hardcoded list only had the original 4.
@@ -879,11 +893,17 @@ function AgentMarketplaceMobile() {
                   ))}
                 </div>
 
+                {!loading && filtered.length > 0 && (
+                  <div className="text-xs text-gray-400 mb-3">
+                    Showing {visible.length} of {filtered.length.toLocaleString()} agents
+                  </div>
+                )}
+
                 {loading ? (
                   <div className="flex flex-col items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>
                 ) : (
                   <div className="space-y-4">
-                    {filtered.map((agent) => (
+                    {visible.map((agent) => (
                       <div key={agent.id} onClick={() => setDetailAgent(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
                           <div>
@@ -920,6 +940,15 @@ function AgentMarketplaceMobile() {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {!loading && visibleCount < filtered.length && (
+                  <button
+                    onClick={() => setVisibleCount((v) => v + MOBILE_PAGE_SIZE)}
+                    className="w-full mt-5 py-3.5 rounded-2xl text-sm font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 active:scale-[0.98] transition-transform"
+                  >
+                    Load more agents
+                  </button>
                 )}
               </>
             )}
