@@ -23,6 +23,7 @@ from core import agent_store
 from core import agent_performance
 from core import agent_health
 from core import erc8183_negotiate
+from core import deliverable_proxy
 
 load_dotenv()
 
@@ -553,6 +554,34 @@ async def agent_notify_funded(request: Request):
     if result is None:
         return {"notified": False, "reason": "agent did not accept a real notify_funded call (unsupported, unreachable, or rejected)"}
     return {"notified": True}
+
+
+@app.get("/api/deliverable/proxy")
+async def deliverable_proxy_route(request: Request):
+    """Real, server-side proxy for fetching a job's on-chain deliverable_url.
+
+    Real, confirmed reason this exists (2026-08-24): job #56646's deliverable
+    showed "Couldn't load it automatically here (Failed to fetch)" in the UI
+    even though the content is genuinely fetchable directly. Confirmed live:
+    the agent's endpoint has no CORS support (same real gap as
+    erc8183_negotiate.py's negotiate/notify_funded proxies) — a browser's own
+    direct fetch() to it is blocked by the browser itself before the response
+    body is ever readable. See core/deliverable_proxy.py for the full trace
+    and the SSRF guarding this needs (the URL comes from a job's on-chain
+    provider-published deliverable_url — attacker-influenced input).
+
+    Query: ?url=<the deliverable_url read from the job's on-chain record>.
+    Returns the real fetched bytes with the real content-type, so the
+    frontend's existing content-type-based rendering (JSON/image/text) needs
+    no changes beyond fetching from this URL instead of the direct one."""
+    url = request.query_params.get("url")
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    try:
+        content, content_type, status_code = await deliverable_proxy.fetch_deliverable(url)
+    except deliverable_proxy.DeliverableProxyError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+    return Response(content=content, media_type=content_type, status_code=status_code)
 
 
 # The exact prefixes our own hire flows write into a job's real, immutable

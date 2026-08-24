@@ -52,6 +52,7 @@ import { getJobStatus, getDeliverable } from './altana';
 import { trackJob } from './notifications';
 import { recordFunded, getStartEstimate, getKnownTypicalDelivery } from './jobTiming';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const DELIVERABLE_FETCH_TIMEOUT_MS = 12_000;
 const DELIVERABLE_MAX_CHARS = 4000; // long deliverables get truncated with a "view full" link, not a broken layout
 
@@ -97,10 +98,22 @@ function formatCountdown(ms) {
 
 /** Fetches the real deliverable URL and figures out, from what actually
  * comes back, how to show it honestly: real JSON pretty-printed, a real
- * image shown inline, real plain text as text. If the fetch itself fails
- * (very possible — it's an arbitrary third-party URL and many hosts block
- * cross-origin fetches), that's reported honestly too, with the raw link
- * as the fallback — never silently swallowed into "no deliverable". */
+ * image shown inline, real plain text as text. If the fetch itself fails,
+ * that's reported honestly too, with the raw link as the fallback — never
+ * silently swallowed into "no deliverable".
+ *
+ * Real bug fixed 2026-08-24: this used to fetch() `url` DIRECTLY from the
+ * browser — confirmed live to fail on every marketplace agent built on this
+ * SDK, none of which advertise CORS headers (same real gap
+ * erc8183_negotiate.py's negotiate/notify_funded proxies exist for), always
+ * surfacing as the generic "Failed to fetch" even when the content was
+ * genuinely there (job #56646). Routed through our own backend's
+ * /api/deliverable/proxy instead (see core/deliverable_proxy.py) — same
+ * origin, real CORS headers, same content-type-based rendering below,
+ * unchanged. The one exception: an actual IMAGE still loads via `<img
+ * src={url}>` on the ORIGINAL url in DeliverableViewer below — an <img> tag
+ * isn't subject to CORS the way a script-initiated fetch() read is, so it
+ * needs no proxying. */
 function useDeliverableContent(url) {
   const [state, setState] = useState({ status: 'idle' }); // idle|loading|json|image|text|fetch-failed
   useEffect(() => {
@@ -109,9 +122,16 @@ function useDeliverableContent(url) {
     setState({ status: 'loading' });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DELIVERABLE_FETCH_TIMEOUT_MS);
-    fetch(url, { signal: controller.signal })
+    const proxyUrl = `${API_BASE_URL}/api/deliverable/proxy?url=${encodeURIComponent(url)}`;
+    fetch(proxyUrl, { signal: controller.signal })
       .then(async (res) => {
         if (cancelled) return;
+        if (!res.ok) {
+          let detail = `HTTP ${res.status}`;
+          try { detail = (await res.json()).detail || detail; } catch { /* non-JSON error body */ }
+          setState({ status: 'fetch-failed', error: detail });
+          return;
+        }
         const contentType = res.headers.get('content-type') || '';
         if (contentType.startsWith('image/')) {
           setState({ status: 'image' });
