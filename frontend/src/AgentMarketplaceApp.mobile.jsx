@@ -711,9 +711,15 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       {/* App Header (Sticky) */}
       <header className="shrink-0 flex items-center justify-between px-5 py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg overflow-hidden">
+          <a
+            href="https://f2f-uzh.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="F2F Hub — all three projects in this portfolio"
+            className="w-8 h-8 rounded-lg overflow-hidden block"
+          >
             <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
-          </div>
+          </a>
           <h1 className="text-lg font-bold tracking-tight">Tnega</h1>
         </div>
         <div className="flex items-center gap-3">

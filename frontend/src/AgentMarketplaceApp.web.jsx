@@ -814,9 +814,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
         <div className="sticky top-0 max-h-screen overflow-y-auto">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-8">
-              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
+              <a
+                href="https://f2f-uzh.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="F2F Hub — all three projects in this portfolio"
+                className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20 block"
+              >
                 <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
-              </div>
+              </a>
               <h1 className="text-lg font-bold tracking-tight flex-1">Tnega</h1>
               <button
                 onClick={() => setShowOnboarding(true)}
