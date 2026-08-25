@@ -933,7 +933,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
                   <h2 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
-                    Agent Marketplace
+                    Marketplace
                     {refreshing && <Loader2 size={16} className="animate-spin text-gray-400" />}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Browse AI agents, check them out, and hire one with a spending limit you control.</p>

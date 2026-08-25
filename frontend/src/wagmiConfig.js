@@ -9,7 +9,7 @@ import { bsc } from 'wagmi/chains';
 // configured chain. Testnet is no longer used anywhere.
 
 export const wagmiConfig = getDefaultConfig({
-  appName: 'F2F Agents',
+  appName: 'Tnega',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
   chains: [bsc],
   ssr: false,

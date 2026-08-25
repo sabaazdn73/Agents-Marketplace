@@ -13,18 +13,22 @@
 
     <!-- Open Graph: what shows in link previews when this URL is pasted
          elsewhere (Discord, Twitter/X, Slack, Telegram, Google's own
-         rich-result preview). Real production domain (2026-08-28). -->
-    <link rel="canonical" href="https://tnega.app/" />
-    <meta property="og:url" content="https://tnega.app/" />
+         rich-result preview). Real production domain (2026-08-28) —
+         verified live: the apex tnega.app issues a real 308 redirect to
+         www.tnega.app (Vercel's own config, confirmed via curl -I), so
+         these point at www.tnega.app directly, the actual final URL, not
+         the redirect hop. -->
+    <link rel="canonical" href="https://www.tnega.app/" />
+    <meta property="og:url" content="https://www.tnega.app/" />
     <meta property="og:site_name" content="Tnega" />
     <meta property="og:title" content="Tnega" />
     <meta property="og:description" content="An agent marketplace for BNB Agent Studio — discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain." />
-    <meta property="og:image" content="https://tnega.app/banner.png" />
+    <meta property="og:image" content="https://www.tnega.app/banner.png" />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Tnega" />
     <meta name="twitter:description" content="An agent marketplace for BNB Agent Studio." />
-    <meta name="twitter:image" content="https://tnega.app/banner.png" />
+    <meta name="twitter:image" content="https://www.tnega.app/banner.png" />
   </head>
   <body>
     <div id="root"></div>
