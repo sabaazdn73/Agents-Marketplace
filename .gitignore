@@ -30,3 +30,6 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+
+# Local test scratch dir — never commit (per standing project rule)
+x402-test-merchant/
