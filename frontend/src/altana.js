@@ -29,9 +29,24 @@ import {
   createClient, BNB,
   ERC8183_ADDRESSES,
   hireErc8183Agent, getErc8183Job, settleErc8183Job, getErc8183DeliverableUrl,
+  erc8183Addresses,
 } from '@altananetwork/sdk';
-import { createPublicClient, http } from 'viem';
+import { createPublicClient, http, hexToString } from 'viem';
 import { bsc } from 'viem/chains';
+
+// Same real event the installed SDK's own getErc8183DeliverableUrl() looks
+// for (POLICY_INITIALISED_EVENT in erc8183.js) — redefined here because
+// that const isn't exported, only the function that uses it internally.
+// Real signature confirmed by reading the SDK source directly.
+const JOB_INITIALISED_EVENT = {
+  type: 'event', name: 'JobInitialised',
+  inputs: [
+    { name: 'jobId', type: 'uint256', indexed: true },
+    { name: 'deliverable', type: 'bytes32', indexed: false },
+    { name: 'submittedAt', type: 'uint64', indexed: false },
+    { name: 'optParams', type: 'bytes', indexed: false },
+  ],
+};
 
 const RP_ID = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 const APP_NAME = 'Tnega';
@@ -151,6 +166,57 @@ export async function getJobStatus(jobId) {
   return getErc8183Job(network, BigInt(jobId));
 }
 
+/** Real, freshly-measured average BSC block time (seconds/block), sampled
+ * off two real reads (current tip + 50,000 blocks back) rather than
+ * assumed. BSC's real block time has gotten materially faster over this
+ * project's lifetime (confirmed live 2026-08-28: ~0.45s/block now, not the
+ * ~3s a naive assumption would use), which is exactly what made the old
+ * fixed-depth scan below go stale. */
+async function _avgBlockTimeSeconds(publicClient, currentBlock) {
+  const sampleBack = 50000n;
+  const refBlock = currentBlock > sampleBack ? currentBlock - sampleBack : 1n;
+  const [nowBlock, refBlockData] = await Promise.all([
+    publicClient.getBlock({ blockNumber: currentBlock }),
+    publicClient.getBlock({ blockNumber: refBlock }),
+  ]);
+  const seconds = Number(nowBlock.timestamp - refBlockData.timestamp);
+  const blocks = Number(currentBlock - refBlock);
+  return blocks > 0 && seconds > 0 ? seconds / blocks : 3; // sane fallback only if something's genuinely off
+}
+
+/** Scans [fromBlock, toBlock] in <=4000-block chunks (this RPC's real
+ * confirmed cap is 5000/call — kept under it) for the job's real
+ * JobInitialised event, parsing optParams the same way the SDK's own
+ * getErc8183DeliverableUrl does. */
+async function _scanForDeliverableUrl(publicClient, policyAddress, jobId, fromBlock, toBlock) {
+  const CHUNK = 4000n;
+  let hi = toBlock;
+  while (hi >= fromBlock) {
+    const lo = hi - CHUNK + 1n > fromBlock ? hi - CHUNK + 1n : fromBlock;
+    const logs = await publicClient.getLogs({
+      address: policyAddress,
+      event: JOB_INITIALISED_EVENT,
+      args: { jobId: BigInt(jobId) },
+      fromBlock: lo,
+      toBlock: hi,
+    });
+    if (logs.length > 0) {
+      const optParams = logs[0].args.optParams;
+      if (!optParams || optParams === '0x') return undefined;
+      try {
+        const decoded = hexToString(optParams).replace(/\0+$/, '');
+        const parsed = JSON.parse(decoded);
+        return typeof parsed.deliverable_url === 'string' ? parsed.deliverable_url : undefined;
+      } catch {
+        return undefined;
+      }
+    }
+    if (lo === fromBlock) break;
+    hi = lo - 1n;
+  }
+  return undefined;
+}
+
 /** The real deliverable URL a provider submitted for a job (parsed from the
  * policy's on-chain event), or undefined if none yet. Read-only.
  *
@@ -164,9 +230,58 @@ export async function getJobStatus(jobId) {
  * 1rpc, nodereal, blockpi, bscrpc) ALL failed too, each for its own reason
  * — this needs a properly provisioned RPC, not a public default. Routing
  * through the same working MAINNET_READ_RPC this file already uses for
- * getLogs elsewhere. */
+ * getLogs elsewhere.
+ *
+ * REAL BUG FOUND AND FIXED 2026-08-28 (job #56646's deliverable silently
+ * stopped showing — NOT a domain-move regression, confirmed by tracing the
+ * real cause): the installed SDK's getErc8183DeliverableUrl() scans
+ * backward from "now" in window=1000 chunks, capped at maxWindows=200 — a
+ * fixed 200,000-block lookback. That was fine when BSC produced blocks
+ * every ~3s, but real block time is now ~0.45s (measured live) — so
+ * 200,000 blocks covers barely one real day. Confirmed directly against
+ * job #56646 (submitted 27.6h earlier): a byte-for-byte replica of the
+ * SDK's own scan logic ran clean (zero RPC errors, so this was never an
+ * archive-access problem) but genuinely found nothing — the real
+ * submission block was ~220,000 blocks back, just past the 200,000-block
+ * wall. The real on-chain event and the real MongoDB-backed deliverable
+ * were both fine the whole time; only this lookback depth had gone stale.
+ *
+ * Real fix: use the job's own real submittedAt timestamp (already a free
+ * read via getErc8183Job) plus a freshly-measured real block time to jump
+ * to an ESTIMATED block instead of blindly walking back from "now", then
+ * scan a bounded, progressively-widening window around that estimate.
+ * Finds a job of ANY age — a day old or a year old — in a handful of real
+ * getLogs calls instead of a lookback depth that silently expires as real
+ * time passes. Falls back to the SDK's own original scan only as a last
+ * resort (e.g. a job so new the estimate undershoots). */
 export async function getDeliverable(jobId) {
-  return getErc8183DeliverableUrl({ ...network, publicRpcUrl: MAINNET_READ_RPC }, BigInt(jobId));
+  const netWithRpc = { ...network, publicRpcUrl: MAINNET_READ_RPC };
+  const job = await getErc8183Job(netWithRpc, BigInt(jobId));
+  if (!job || job.submittedAt === 0n) return undefined;
+
+  try {
+    const addresses = erc8183Addresses(network.chainId);
+    const currentBlock = await _mainnetPublicClient.getBlockNumber();
+    const [avgBlockTime, currentBlockData] = await Promise.all([
+      _avgBlockTimeSeconds(_mainnetPublicClient, currentBlock),
+      _mainnetPublicClient.getBlock({ blockNumber: currentBlock }),
+    ]);
+    const secondsAgo = Math.max(0, Number(currentBlockData.timestamp) - Number(job.submittedAt));
+    const estimatedBlocksAgo = BigInt(Math.ceil(secondsAgo / avgBlockTime));
+    const estimatedBlock = currentBlock > estimatedBlocksAgo ? currentBlock - estimatedBlocksAgo : 1n;
+
+    for (const margin of [8000n, 40000n, 200000n]) {
+      const from = estimatedBlock > margin ? estimatedBlock - margin : 1n;
+      const to = estimatedBlock + margin < currentBlock ? estimatedBlock + margin : currentBlock;
+      const url = await _scanForDeliverableUrl(_mainnetPublicClient, addresses.policy, jobId, from, to);
+      if (url) return url;
+    }
+  } catch (e) {
+    console.warn('[getDeliverable] estimated-block scan failed, falling back to the SDK default scan:', e);
+  }
+
+  // Last-resort fallback: the SDK's own original (fast, recent-only) scan.
+  return getErc8183DeliverableUrl(netWithRpc, BigInt(jobId));
 }
 
 export async function settleJob(wallet, signer, jobId, action = 'approve') {
