@@ -31,7 +31,9 @@ import re
 from collections import Counter
 from dataclasses import dataclass, asdict
 
-from adapters.bsc import list_bsc_agents
+import httpx
+
+from adapters.bsc import list_bsc_agents, fetch_agent_detail, augmented_classification_text
 from adapters.bsc_balance import fetch_owner_bnb_balances
 from adapters.defillama import fetch_bsc_ai_agent_protocols, try_match_agent_to_protocol
 from core.categorize import classify_agent
@@ -201,12 +203,52 @@ async def get_marketplace_agents(
               f"(field shown as None): {e}")
         owner_balances = {}
 
+    # Real re-classification pass for agents the cheap name+description
+    # classifier couldn't place — wired in for real 2026-08-25, now that
+    # Pro-tier access to the richer /api/v1/public/* surface is confirmed
+    # live (3000/min, 3,000,000/day; the extra per-agent detail call this
+    # needs is nowhere near that budget even for several hundred agents a
+    # refresh). Measured, real result on 489 real previously-Unclassified
+    # agents: 21 (4.3%) got a real category from this richer text
+    # (tags/categories/offchain description/service names) that plain
+    # name+description missed — zero of those were Grid Trading
+    # specifically, an honest negative from the same real check.
+    initial_classifications = [classify_agent(a.get("name", ""), a.get("description", "")) for a in raw_agents]
+    unclassified_indices = [i for i, c in enumerate(initial_classifications) if c.category is None]
+    reclassified: dict[int, "ClassificationResult"] = {}
+    if unclassified_indices:
+        sem = asyncio.Semaphore(20)
+
+        async def _try_reclassify(i: int):
+            token_id = raw_agents[i].get("token_id")
+            if not token_id:
+                return
+            async with sem:
+                detail = await fetch_agent_detail(client, api_key, int(token_id))
+            if not detail:
+                return
+            augmented = augmented_classification_text(detail)
+            result = classify_agent(raw_agents[i].get("name", ""), augmented)
+            if result.category is not None:
+                reclassified[i] = result
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                await asyncio.gather(*(_try_reclassify(i) for i in unclassified_indices))
+        except Exception as e:
+            print(f"[aggregate] richer-data re-classification pass failed, "
+                  f"continuing with the cheap classification only: {e}")
+        if reclassified:
+            print(f"[aggregate] richer-data re-classification: {len(reclassified)}/"
+                  f"{len(unclassified_indices)} previously-Unclassified real agents "
+                  f"got a real category from tags/categories/offchain description/service names")
+
     results = []
-    for agent in raw_agents:
+    for idx, agent in enumerate(raw_agents):
         name = agent.get("name", "")
         description = agent.get("description", "")
 
-        classification = classify_agent(name, description)
+        classification = reclassified.get(idx) or initial_classifications[idx]
         matched_protocol = try_match_agent_to_protocol(name, defillama_protocols)
 
         chain_id = agent.get("chain_id")

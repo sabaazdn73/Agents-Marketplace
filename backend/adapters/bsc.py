@@ -81,3 +81,45 @@ async def list_bsc_agents(
               f"actually matched, client-side filter caught the rest.")
 
     return bsc_only, total, len(all_results)
+
+
+async def fetch_agent_detail(
+    client: httpx.AsyncClient, api_key: str, token_id: int, chain_id: int = MAINNET_CHAIN_ID,
+) -> dict | None:
+    """Real per-agent detail record from the richer /api/v1/public/* surface
+    — confirmed real, live Pro-tier access 2026-08-25 (3000/min, 3,000,000/
+    day; re-verified with random uncacheable token IDs before use, same
+    rigor as the original tier check). Returns None on any failure (missing
+    agent, transient error) — best-effort enrichment, never blocks the
+    caller. Only used for agents the cheap name+description classifier
+    couldn't place (see categorize.py's re-classify step in aggregate.py) —
+    real, measured cost check before wiring this in for every refresh: at
+    Pro-tier limits, even several hundred of these extra calls per refresh
+    is nowhere near the 3M/day budget."""
+    try:
+        resp = await client.get(
+            f"https://8004scan.io/api/v1/public/agents/{chain_id}/{token_id}",
+            headers={"X-API-Key": api_key},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return None
+        return resp.json().get("data")
+    except Exception:
+        return None
+
+
+def augmented_classification_text(detail: dict) -> str:
+    """Builds the richer text surface confirmed useful in the real
+    2026-08-25 re-check: tags, categories, the offchain metadata's own
+    description, and its services' names — none of which exist on the
+    plain /api/v1/agents listing shape. Real, measured result on 489 real
+    previously-Unclassified BSC agents: 21 (4.3%) got a real category from
+    this text that plain name+description missed. Zero of those were Grid
+    Trading specifically — an honest negative, not assumed away."""
+    tags = " ".join(detail.get("tags") or [])
+    categories = " ".join(detail.get("categories") or [])
+    offchain = (detail.get("raw_metadata") or {}).get("offchain_content") or {}
+    offchain_desc = offchain.get("description") or ""
+    service_names = " ".join(s.get("name", "") for s in (offchain.get("services") or []))
+    return " ".join([detail.get("description") or "", tags, categories, offchain_desc, service_names])

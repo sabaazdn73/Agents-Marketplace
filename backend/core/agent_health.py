@@ -204,11 +204,28 @@ async def _resolve_services(uri: str, client: httpx.AsyncClient) -> tuple[list[d
 
 
 def _first_http_endpoint(services: list[dict] | None) -> str | None:
+    """Real bug found and fixed 2026-08-25, via a genuine cross-check against
+    8004scan's own richer /api/v1/public/* health_status field (now real,
+    Pro-tier — see core/status_checks.py / the aggregate.py Pro-tier note):
+    a large real cluster of Termix-platform agents registers service
+    endpoints with a LITERAL, unsubstituted "{agentId}" template placeholder
+    still in the URL (e.g. ".../api/v1/a2a/agents/{agentId}/card") — their
+    own on-chain metadata's mistake, not a resolution failure on our side.
+    That URL is real and DOES answer (platform-backend.prod.termix.live is a
+    real, live host), so our old "any real HTTP response, even a 404, counts
+    as responding" rule mislabeled the entire cluster "responding" — 21 real
+    agents checked cross-referencing 8004scan's own health_status all showed
+    this exact pattern, and 8004scan itself correctly reports the same real
+    404 as unhealthy/degraded rather than responding. A URL containing an
+    unsubstituted template placeholder can never resolve to anything real,
+    so it's rejected here up front (falls through no_endpoint, same as
+    genuinely having no service at all) instead of being "checked" at all."""
     if not services:
         return None
     for svc in services:
         ep = (svc or {}).get("endpoint")
-        if isinstance(ep, str) and (ep.startswith("http://") or ep.startswith("https://")):
+        if isinstance(ep, str) and (ep.startswith("http://") or ep.startswith("https://")) \
+                and "{" not in ep and "}" not in ep:
             return ep
     return None
 
