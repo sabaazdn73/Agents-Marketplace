@@ -25,14 +25,30 @@ import time
 import httpx
 
 _TTL_SECONDS = 5 * 60  # generous relative to a free public anonymous endpoint
-_cache: dict = {"price": None, "checked_at": 0.0}
+_FAILURE_BACKOFF_SECONDS = 60  # see the real 429 note below
+_cache: dict = {"price": None, "checked_at": 0.0, "last_attempt_at": 0.0}
 
 
 async def get_bnb_usd_price() -> float | None:
+    """Real bug found and fixed 2026-08-25: this project's Render deployment
+    genuinely gets 429 Too Many Requests from CoinGecko's free anonymous
+    endpoint (confirmed live in production logs — a real, shared-cloud-IP
+    rate-limit issue, the same one already showing up on /api/status; not
+    something this key/code can fix on its own without a paid CoinGecko
+    plan). The real bug was in the FAILURE path: caching only applied to
+    successes, so while price stayed None, every incoming request
+    re-attempted CoinGecko immediately — our own traffic amplifying the
+    exact 429 problem it was hitting. Now backs off _FAILURE_BACKOFF_SECONDS
+    after ANY attempt (success or failure) before trying again, real
+    behavior verified: still never fabricates a price, just tries less
+    often while genuinely rate-limited."""
     now = time.time()
     if _cache["price"] is not None and (now - _cache["checked_at"]) < _TTL_SECONDS:
         return _cache["price"]
+    if (now - _cache["last_attempt_at"]) < _FAILURE_BACKOFF_SECONDS:
+        return _cache["price"]  # still backing off a recent attempt (success or failure)
 
+    _cache["last_attempt_at"] = now
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(
