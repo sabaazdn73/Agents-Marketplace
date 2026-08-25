@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
+  Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle
@@ -51,6 +51,7 @@ function QrToMobile() {
 }
 import { useHireAgent, buildHireStepList, useAgentQuote } from './useHireAgent';
 import AltanaSessionPanel from './AltanaSessionPanel';
+import SessionModesExplainer from './SessionModesExplainer';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
@@ -177,6 +178,7 @@ const LEARN_TOPICS = [
     { h: 'Settlement is automatic, or disputable', p: 'Settling a job is permissionless — anyone can trigger it once the review window passes, releasing escrow to the provider. If the delivered work looks wrong, you dispute() during that window instead.', plain: 'Do nothing and the agent gets paid after the review window; object in time and it\'s contested.', src: SRC.sdk },
     { h: 'The real safety net: claimRefund', p: "If a job is never settled (agent went dark, nothing delivered) and its deadline passes, you call claimRefund() and get your escrowed funds back. It's the guaranteed exit — always available after expiry.", plain: 'Worst case, you wait out the deadline and take your money back.', src: SRC.sdk },
   ]},
+  { custom: SessionModesExplainer },
   { title: 'The stages a hire goes through, one by one', body: [
     { h: 'OPEN', p: 'Job created, no budget escrowed yet.', plain: "You've started a job, but haven't paid for it yet." },
     { h: 'FUNDED', p: 'Budget escrowed. The provider can now start work.', plain: 'Your payment is on hold and the agent can now start the work.' },
@@ -1154,12 +1156,17 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <AgentAvatar agent={selectedAgent} size={56} />
                   <div>
                     <h2 className="text-2xl font-bold">Hire {selectedAgent.name}</h2>
-                    <p className="text-gray-500 text-sm mt-1">There are two ways to pay for this — pick whichever you prefer.</p>
+                    <p className="text-gray-500 text-sm mt-1">There are two ways to pay for this — Always Ask or Autonomous, pick whichever you prefer.</p>
                   </div>
                 </div>
 
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 mb-8 text-sm text-amber-800 dark:text-amber-300">
-                  Both options put real money on hold for this agent to do the work — you're not just browsing anymore. "Pay directly" below asks you to approve each step in your wallet. The other option, further down, lets you set up a spending limit once so you don't have to approve every future hire — handy if you plan to use this agent again.
+                  Both options put real money on hold for this agent to do the work — you're not just browsing anymore. <strong>Always Ask</strong> below has you approve each step yourself, in your wallet, every time. <strong>Autonomous</strong>, further down, lets you set a spending limit once so the agent can act on its own within it — handy if you plan to use this agent again.
+                </div>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <ShieldCheck size={16} className="text-indigo-500" />
+                  <span className="text-xs font-bold uppercase tracking-wide opacity-70">Always Ask</span>
                 </div>
 
                 <div className="mb-6">
@@ -1236,7 +1243,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 )}
 
                 <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'done' && !hireError} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'PAY DIRECTLY'}
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'ALWAYS ASK'}
                 </button>
               </div>
 
@@ -1292,6 +1299,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
               <div className="space-y-6">
                 {LEARN_TOPICS.map((topic, i) => (
+                  topic.custom ? (
+                    <topic.custom key={i} />
+                  ) : (
                   <div key={i} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
                     <div className="px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
                       <h3 className="font-bold text-lg">{topic.title}</h3>
@@ -1322,6 +1332,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       ))}
                     </div>
                   </div>
+                  )
                 ))}
               </div>
             </div>

@@ -7,7 +7,7 @@
 // on-chain Altana SDK call, nothing simulated.
 
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Loader2, ExternalLink, XCircle } from 'lucide-react';
+import { Sparkles, Loader2, ExternalLink, XCircle } from 'lucide-react';
 import {
   getOrCreateAltanaWallet, grantMarketplaceSession, revokeMarketplaceSession,
   hireAgentWithSession, explorerLinkForWallet, ALTANA_EXPLORER_URL,
@@ -127,7 +127,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
       errorMessage: step === 'creating_wallet' && error ? error : null,
     },
     {
-      key: 'granting', label: 'Turn on the spending limit',
+      key: 'granting', label: 'Turn on Autonomous mode',
       description: "Permanently recording this mini-wallet's spending limit and expiry, so it can act on your behalf within those limits",
       status: completedSessionSteps.includes('granting') ? 'complete'
         : step === 'granting' ? (error ? 'error' : 'active') : 'pending',
@@ -139,16 +139,17 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
   return (
     <div className={`rounded-2xl border p-5 ${mutedBorder}`} style={{ background: surface }}>
       <div className="flex items-center gap-2 mb-3">
-        <ShieldCheck size={16} style={{ color: accent }} />
-        <span className="text-xs font-bold uppercase tracking-wide opacity-70">Set a spending limit instead</span>
+        <Sparkles size={16} style={{ color: accent }} />
+        <span className="text-xs font-bold uppercase tracking-wide opacity-70">Autonomous</span>
       </div>
 
       {!session ? (
         <div className="space-y-3">
           <p className="text-xs opacity-60">
-            Sets up a separate mini-wallet that unlocks with Face ID or a fingerprint — no password.
-            You set the daily limit and when it expires, and can cancel anytime. Every hire it makes
-            is recorded and visible here.
+            <strong>Autonomous</strong> mode sets up a separate mini-wallet that unlocks with Face ID or a
+            fingerprint — no password. You set the daily limit and when it expires, and the agent can act
+            on its own within those limits, without asking you every time. Cancel anytime, and every hire
+            it makes is recorded and visible here.
           </p>
           <div className="flex gap-3">
             <div className="flex-1">
@@ -173,7 +174,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
 
           <button onClick={handleCreateWalletAndSession} disabled={!!step && !error}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-            {error && (step === 'creating_wallet' || step === 'granting') ? 'Try again' : 'Set up spending limit'}
+            {error && (step === 'creating_wallet' || step === 'granting') ? 'Try again' : 'Turn on Autonomous mode'}
           </button>
         </div>
       ) : (
@@ -213,7 +214,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
 
           <button onClick={handleRevoke} disabled={!!step && !error}
             className="w-full py-2 rounded-xl text-xs font-semibold text-red-500 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1">
-            <XCircle size={13} /> {step === 'revoking' ? 'Turning off access…' : error && step === 'revoking' ? 'Try turning off again' : 'Turn off this limit'}
+            <XCircle size={13} /> {step === 'revoking' ? 'Turning off Autonomous mode…' : error && step === 'revoking' ? 'Try turning off again' : 'Turn off Autonomous mode'}
           </button>
         </div>
       )}

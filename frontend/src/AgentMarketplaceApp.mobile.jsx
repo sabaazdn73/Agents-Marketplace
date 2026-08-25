@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Sun, Moon, ShieldAlert, FileBarChart, CheckCircle2, XCircle,
+  Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, CheckCircle2, XCircle,
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu, ScanFace,
@@ -34,6 +34,7 @@ import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
 import DocsFooter from './DocsFooter';
+import SessionModesExplainer from './SessionModesExplainer';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
 import OnboardingTour from './OnboardingTour';
 import { hasSeenOnboarding } from './onboarding';
@@ -69,6 +70,7 @@ const LEARN_TOPICS = [
   { h: 'The agent\'s ID card (ERC-8004)', p: "Every agent gets a permanent, public identity anyone can look up — like an ID card. Free to register.", tech: 'An on-chain ERC-721 identity token + a discoverable profile (name, description, endpoints).', src: SRC.sdk },
   { h: 'The payment rulebook (ERC-8183)', p: "A set of automatic rules that hold the money and enforce the deal, so neither you nor the agent has to just trust the other.", tech: 'Three contracts: AgenticCommerce (job + escrow), EvaluatorRouter (routes to a settlement policy), OptimisticPolicy (silence past the review window = approved).', src: SRC.sdk },
   { h: 'Hiring = one job, not a subscription', p: "You fund one specific job, once. The agent can never dip into your wallet again on its own.", tech: 'createJob → registerJob → setBudget → approve $U → fund, each signed by your wallet.', src: SRC.sdk },
+  { custom: SessionModesExplainer },
   { h: 'The stages a hire goes through', p: 'Not paid yet → Payment on hold → Delivered → Finished (paid) — or Refunded, if you cancel, dispute successfully, or the deadline passes with nothing delivered.', tech: 'OPEN → FUNDED → SUBMITTED → COMPLETED, or REJECTED / EXPIRED.', src: SRC.sdk },
   { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry — always available, guaranteed by the contract.', src: SRC.sdk },
   { h: "If something looks wrong", p: "You get a short window after delivery to flag a problem before payment is automatically released.", tech: 'Call dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
@@ -755,7 +757,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 <AgentAvatar agent={selectedAgent} size={64} />
               </div>
               <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
-              <p className="text-gray-500 text-sm mb-6">You'll approve a few quick steps in your wallet — tracked below as they happen.</p>
+              <p className="text-gray-500 text-sm mb-4">This is <strong>Always Ask</strong> — you'll approve a few quick steps in your wallet, tracked below as they happen.</p>
+
+              <div className="flex items-center gap-2 mb-4">
+                <ShieldCheck size={16} className="text-indigo-500" />
+                <span className="text-xs font-bold uppercase tracking-wide opacity-70">Always Ask</span>
+              </div>
 
               <div className="space-y-6">
                 <div>
@@ -824,7 +831,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 )}
 
                 <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'done' && !hireError} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'PAY DIRECTLY'}
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'ALWAYS ASK'}
                 </button>
               </div>
             </div>
@@ -1029,6 +1036,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="space-y-3">
                   {LEARN_TOPICS.map((item, i) => (
+                    item.custom ? (
+                      <item.custom key={i} />
+                    ) : (
                     <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                       <div className="font-bold text-sm mb-1">{item.h}</div>
                       <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{item.p}</div>
@@ -1040,6 +1050,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       )}
                       {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
                     </div>
+                    )
                   ))}
                 </div>
               </div>
