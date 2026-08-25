@@ -121,7 +121,7 @@ function fibonacciSpherePoints(n) {
   return points;
 }
 
-function RotatingGlobe({ counts, total }) {
+export function RotatingGlobe({ counts, total }) {
   const groupRef = React.useRef();
   useFrame((_, delta) => {
     if (groupRef.current) groupRef.current.rotation.y += delta * 0.12;
@@ -170,8 +170,18 @@ export default function EcosystemGlobePage({ onBack }) {
   const { loading, error, counts, total } = useCategoryCounts();
 
   return (
-    <div className="min-h-screen bg-[#0B1120] text-white flex flex-col">
-      <div className="flex items-center justify-between px-6 py-5">
+    // h-screen (a DEFINITE height), not min-h-screen (only a floor) — real
+    // bug found and fixed here: <Canvas> renders nested `width:100%;
+    // height:100%` wrapper divs (confirmed by reading @react-three/fiber's
+    // own source), and percentage-height children don't reliably resolve
+    // inside a flex column whose own height comes only from min-height.
+    // Combined with flex items defaulting to `min-height: auto` (not 0),
+    // that collapsed the canvas's measured size to 0×0: WebGL had nothing
+    // to draw (invisible sphere), and every <Html> marker's screen
+    // projection (x * width/2, y * height/2) collapsed to the same (0,0)
+    // point — exactly the reported "overlapping stacked text" bug.
+    <div className="h-screen overflow-hidden bg-[#0B1120] text-white flex flex-col">
+      <div className="flex items-center justify-between px-6 py-5 shrink-0">
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
@@ -186,7 +196,12 @@ export default function EcosystemGlobePage({ onBack }) {
         </div>
       </div>
 
-      <div className="flex-1 relative">
+      {/* min-h-0 overrides the flex item's default min-height:auto — the
+          other half of the real fix: without it, this flex-1 child refuses
+          to shrink/resolve below the Canvas's percentage-based content
+          size, which is exactly backwards (it needs to constrain the
+          Canvas, not be constrained by it). */}
+      <div className="flex-1 min-h-0 relative">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Loader2 size={28} className="animate-spin text-indigo-400" />
@@ -210,7 +225,7 @@ export default function EcosystemGlobePage({ onBack }) {
         )}
       </div>
 
-      <div className="px-6 pb-6 text-center text-[11px] text-gray-500">
+      <div className="px-6 pb-6 text-center text-[11px] text-gray-500 shrink-0">
         Drag to rotate, scroll/pinch to zoom. Marker size reflects each category's real, current agent count — not a fixed layout.
       </div>
     </div>
