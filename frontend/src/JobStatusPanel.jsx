@@ -251,16 +251,29 @@ function RawDeliverableBlock({ content, url }) {
   );
 }
 
-/** Polished view (default) + a small, clearly-labeled "View raw" toggle
- * that reveals the exact original content underneath — never replaces it. */
+/** Polished view (default) + two SEPARATE, always-visible affordances:
+ * "View raw" (reveals the exact original content inline, on this page) and
+ * "Open original" (a real, direct link to the actual deliverable URL,
+ * un-proxied, for independent/external verification). Real regression fixed
+ * 2026-08-28: when this polished view was added, "Open original" ended up
+ * nested INSIDE the "View raw" toggle's revealed content — before that, the
+ * plain raw-content view (still real, and still what renders below when
+ * there's no polished text to show) always had this link visible
+ * immediately, no toggle needed. Real fix: promote it back to its own
+ * always-visible link here, independent of whether "View raw" is open. */
 function PolishedDeliverable({ text, raw, url }) {
   const [showRaw, setShowRaw] = useState(false);
   return (
     <div className="space-y-2">
       <LightMarkdown text={text} />
-      <button onClick={() => setShowRaw((v) => !v)} className="text-indigo-500 hover:underline text-[10px] pt-1 border-t border-gray-100 dark:border-gray-800/50 w-full text-left">
-        {showRaw ? '− Hide raw' : '+ View raw'}
-      </button>
+      <div className="flex items-center gap-3 pt-1 border-t border-gray-100 dark:border-gray-800/50">
+        <button onClick={() => setShowRaw((v) => !v)} className="text-indigo-500 hover:underline text-[10px]">
+          {showRaw ? '− Hide raw' : '+ View raw'}
+        </button>
+        <a href={url} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1 text-[10px]">
+          Open original <ExternalLink size={10} />
+        </a>
+      </div>
       {showRaw && <RawDeliverableBlock content={raw} url={url} />}
     </div>
   );
