@@ -179,7 +179,7 @@ const HEADING_SIZE_CLASS = {
  * include ahead of their real answer, if present, renders as-is — this is a
  * general-purpose viewer, not a curated excerpt like AdvantageReport.jsx's
  * own hand-picked one). */
-function LightMarkdown({ text }) {
+export function LightMarkdown({ text }) {
   const blocks = React.useMemo(() => parseLightMarkdown(text), [text]);
   return (
     <div className="space-y-2.5 text-[12px] leading-relaxed text-gray-700 dark:text-gray-300">

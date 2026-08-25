@@ -8,6 +8,7 @@ import StatusPage from './StatusPage.jsx';
 import DataSourcesPage from './DataSourcesPage.jsx';
 import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
+import { MAIN_TAB_PATHS, NAV_TO_PATH } from './routePaths.js';
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
 // visitors who actually open /ecosystem — zero cost added to the
@@ -108,11 +109,18 @@ export default function App() {
     );
   }
 
+  // Real tab -> URL sync: an unrecognized path (including plain "/") falls
+  // back to the market tab, same permissive default this app already had
+  // before any tab had its own URL — never a 404, so an old bookmark or a
+  // ?agent= deep link on "/" keeps working exactly as it did.
+  const initialNav = MAIN_TAB_PATHS[path] || 'market';
+  const onNavChange = (id) => navigate(NAV_TO_PATH[id] || '/market');
+
   // Genuinely different components, not one component with responsive
   // CSS, per the earlier design requirement (mobile is its own
   // information architecture, not a shrunk desktop grid).
   return isMobile
-    ? <AgentMarketplaceMobileApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} onOpenDocs={() => navigate('/docs')} />
-    : <AgentMarketplaceApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} onOpenDocs={() => navigate('/docs')} />;
+    ? <AgentMarketplaceMobileApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} onOpenDocs={() => navigate('/docs')} initialNav={initialNav} onNavChange={onNavChange} />
+    : <AgentMarketplaceApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} onOpenDocs={() => navigate('/docs')} initialNav={initialNav} onNavChange={onNavChange} />;
 }
 

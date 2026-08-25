@@ -591,14 +591,26 @@ const NAV_ITEMS = [
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
 ];
 
-export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs } = {}) {
+export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   // Real first-visit orientation — shows automatically once per browser
   // (localStorage-gated, see onboarding.js), reopenable anytime via the "?"
   // header button. Lazy-init so it doesn't flash open-then-closed for a
   // returning visitor.
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
-  const [nav, setNav] = useState('market');
+  // Real per-tab URL routing: `nav` still lives here (every existing
+  // `nav === '...'` check throughout this file keeps working unchanged),
+  // but it's now seeded from — and kept in sync with — the real URL App.jsx
+  // owns, via `initialNav`/`onNavChange`. A user clicking a tab still gets
+  // the same instant local setNav() below; onNavChange (see NAV_ITEMS click
+  // handler) is what pushes that choice into a real, bookmarkable URL.
+  // Browser back/forward changes `initialNav` from outside, which the
+  // effect below resyncs onto `nav`.
+  const [nav, setNav] = useState(initialNav || 'market');
+  useEffect(() => {
+    if (initialNav && initialNav !== nav) setNav(initialNav);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNav]);
   const [marketView, setMarketView] = useState('grid');
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchInput, setSearchInput] = useState('');   // immediate input value
@@ -608,7 +620,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // Real deep-link from the agent guidance panel's "Try in Practice Mode" —
   // switches to Build and pre-opens that specific skill's guided form.
   const [pendingSkillId, setPendingSkillId] = useState(null);
-  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); };
+  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); onNavChange?.('build'); };
   const [hiring, setHiring] = useState(false);
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
@@ -844,7 +856,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 return (
                   <button
                     key={item.id}
-                    onClick={() => { setNav(item.id); setHiring(false); }}
+                    onClick={() => { setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                       active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                     }`}

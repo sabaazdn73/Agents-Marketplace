@@ -536,18 +536,24 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
 }
 
 // Default export: the splash gate wrapping the real app.
-export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs } = {}) {
+export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
   const [unlocked, setUnlocked] = useState(false);
   if (!unlocked) return <SplashScreen onUnlock={() => setUnlocked(true)} />;
-  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} onOpenPartners={onOpenPartners} onOpenDocs={onOpenDocs} />;
+  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} onOpenPartners={onOpenPartners} onOpenDocs={onOpenDocs} initialNav={initialNav} onNavChange={onNavChange} />;
 }
 
-function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs } = {}) {
+function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   // Real first-visit orientation — see AgentMarketplaceApp.web.jsx's
   // matching comment and onboarding.js for the real reasoning.
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
-  const [nav, setNav] = useState('market');
+  // Real per-tab URL routing — see the matching comment in
+  // AgentMarketplaceApp.web.jsx; identical mechanism here.
+  const [nav, setNav] = useState(initialNav || 'market');
+  useEffect(() => {
+    if (initialNav && initialNav !== nav) setNav(initialNav);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNav]);
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -560,7 +566,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // Mirrors web's identical handleTrySkill now that Practice Mode is real
   // on mobile too.
   const [pendingSkillId, setPendingSkillId] = useState(null);
-  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); };
+  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); onNavChange?.('build'); };
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
   const [buildStatus, setBuildStatus] = useState(null);
@@ -1193,7 +1199,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
             return (
               <button
                 key={item.id}
-                onClick={() => { setNav(item.id); setHiring(false); }}
+                onClick={() => { setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
                 className={`flex flex-col items-center justify-center flex-1 max-w-[72px] h-14 rounded-xl transition-colors ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5'}`}
               >
                 <Icon size={20} className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`} />

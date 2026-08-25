@@ -15,8 +15,97 @@
 
 import React from 'react';
 import { CheckCircle2, Clock, AlertTriangle, ExternalLink, ShieldAlert, Coins, GraduationCap } from 'lucide-react';
+import { LightMarkdown } from './JobStatusPanel';
 
 const ACCENT = '#4F46E5';
+
+// Real, complete delivered content for job #56646 — the actual final
+// write-up the agent submitted, pulled via extractDeliverableText() from
+// the real, live deliverable URL and captured here verbatim (only the
+// model's own pre-answer planning notes ahead of the real "# ERC-8004 &
+// ERC-8183..." title are cut, same as job #56620's card used to flag as
+// separate "draft notes" — nothing in the real answer itself is trimmed
+// or reworded). Rendered below through the exact same LightMarkdown
+// component JobStatusPanel's own PolishedDeliverable view uses, not a
+// re-implementation, so what's shown here is byte-identical formatting to
+// what the live job page itself renders.
+const JOB_56646_CONTENT = `# ERC-8004 & ERC-8183, Explained Like You're New Here
+
+## The big picture (two problems, two standards)
+
+Blockchain lets anyone send money and messages without knowing each other. That's great, but it creates **two big problems**:
+
+1. **Who are you, really?** Anyone can say "I'm a great data analyst." How do I know you're the same person who did great work last month?
+2. **How do I pay you safely?** If I pay you upfront, you might vanish. If you work first, I might not pay. Who holds the money while the work happens?
+
+Two standards fix these:
+
+- **ERC-8004** = *Identity*. A way to prove who an agent is.
+- **ERC-8183** = *Escrow hiring*. A way to pay for work safely.
+
+---
+
+## ERC-8004: Your digital I.D. badge
+
+**Analogy:** Imagine a conference with 5,000 people wearing badges. Your badge has your photo, your real name, your employer, and what you do. Everyone can glance at it and know exactly who they're dealing with — and no one else can wear *your* badge because it has your picture and signature on it.
+
+**ERC-8004 is that badge, but on the blockchain for AI agents (and people/companies too).**
+
+On-chain, an "agent" is just software that can do tasks (answer questions, fetch data, write code, whatever). An ERC-8004 record connects three things:
+
+1. **Who owns it** — the wallet address (your signature/photo).
+2. **A unique ID number** — like a badge number, so there's no "two agents, same name" confusion.
+3. **A profile page (URI)** — a link to a description of what the agent offers and how to reach its service.
+
+**Real example from the chain I just checked:** Agent #1157 belongs to wallet \`0xD8c...35f\` and its profile says it's named *"smoke-033-clean"* and it registers a service called *"test"* at a web endpoint. That's the full badge: one ID, one owner, one profile.
+
+**Why it matters:** You can look up an agent's history, see who owns it, and trust that the "agent" you're hiring is the same one that did good work before — not a random impersonator.
+
+---
+
+## ERC-8183: Hiring with an escrow (a referee holding the money)
+
+**Analogy:** You want a roofer, but neither side trusts the other. So you both go to a **neutral lawyer**: you hand the lawyer the payment, the roofer does the roof, the lawyer checks it's done, and *only then* gives the money to the roofer. If the roof is bad, the lawyer returns your money.
+
+**ERC-8183 is that lawyer, as a smart contract.** It's a job board + safety deposit box combined. Here's the flow, step by step:
+
+1. **Client posts a job** — "I need the latest BNB Chain ecosystem news" — and names a budget in a specific token (here, a token called "U").
+2. **Money goes into escrow** — the client's payment is locked in the contract. Neither side can touch it alone. The job is now **FUNDED** (I saw many jobs in this exact state on-chain).
+3. **A provider accepts** — an agent (identified by its ERC-8004 badge) agrees to do the work.
+4. **Provider delivers** — submits their finished work, usually a link to the result (a "deliverable URL"). On the chain I looked at, completed jobs have this field filled in.
+5. **Approval & payout** — an evaluator (the client, or a trusted third party) checks the work. If it's good, the escrow releases the money. The job is now **COMPLETED**.
+6. **Dispute / rejection** — if the work is bad or the deadline passes, the job can be **REJECTED** and the money goes back to the client. No one loses unfairly.
+
+**Real example from the chain:** Job #1 on this network is *"Latest BNB Chain ecosystem news"*, funded with **1 U** (the escrow token), and currently sits in **FUNDED** status — the money is safely locked while the work happens. Job #4 is **COMPLETED**, meaning it went through the whole cycle and the provider got paid.
+
+---
+
+## How the two fit together
+
+Think of hiring an agent like hiring a contractor:
+
+- **ERC-8004** = the contractor's license and business card (who they are, what they do, their track record).
+- **ERC-8183** = the contract you sign *with the referee holding the deposit* (the job, the price, the deadline, and the safe money-handling).
+
+You find an agent via its 8004 badge, check who owns it, then hire it through an 8183 escrow job. The chain keeps proof of *everything*: who was hired, by whom, for how much, whether it was completed or rejected. No one can quietly change the story later.
+
+---
+
+## Plain-English glossary
+
+| Term | Plain meaning |
+|---|---|
+| **Agent** | A software worker that can do tasks for you. |
+| **Wallet address** | A unique account ID on the blockchain — like your email address, but for money. |
+| **ERC-8004** | The standard for an agent's identity badge. |
+| **ERC-8183** | The standard for hiring with money held safely (escrow). |
+| **Escrow** | Money held by a neutral third party until work is done. |
+| **FUNDED** | Job created and payment locked in. |
+| **COMPLETED** | Work approved and payment released. |
+| **REJECTED** | Work refused; money goes back to the client. |
+| **URI** | A web link to the agent's profile/services. |
+
+**In one sentence:** ERC-8004 gives every agent a trustworthy identity card, and ERC-8183 makes every job safe by holding the payment hostage until the work is actually done — so strangers can do business with each other without fear.`;
 
 function TaskCard({ icon: Icon, title, statusLabel, statusColor, children }) {
   return (
@@ -90,16 +179,24 @@ export default function AdvantageReport() {
           <Row label="Build time" value="~50s (scaffold → AI)" />
           <Row label="Price quoted" value="0.1 $U" hint="$U is a type of digital dollar — 1 $U is worth about $1." />
           <Row label="Delivery time" value="~60s (notified → delivered)" />
-          <Row label="Job number" value="#56620" />
+          <Row label="Job number" value="#56646" />
           <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
-            Paid job on BSC mainnet — not a test network. The delivered content's fingerprint matches the on-chain record.
+            Paid job on BSC mainnet — not a test network. The delivered content's fingerprint matches the on-chain record, and the deliverable itself is durably mirrored to MongoDB, not just sitting on the agent's own disk.
           </p>
-          <a href="https://bscscan.com/tx/0xe82346efb104b80afaaff9ba4584c2bcf26ad2d3888e01cf03128459f6d16de7" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mt-1">View the delivery record <ExternalLink size={10} /></a>
-          <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed max-h-40 overflow-y-auto">
-            "ERC-8004 is the agent's official ID card&nbsp;&mdash; like a driver's license: anyone can look it up and confirm who's really behind it before trusting it. ERC-8183 is job escrow&nbsp;&mdash; like buying a house through a title company: payment sits in a neutral locked box until the work is delivered, so neither side can get cheated. Together: ERC-8004 tells you *who* you're hiring, ERC-8183 makes sure the *payment* is safe while they work."
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+            <a href="https://bscscan.com/tx/0x23ba511e3e6d5f4d8bee4071573cef2c41446f6cdfb709de1a12d48d467ffb64" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">View the delivery record <ExternalLink size={10} /></a>
+            <a href="https://explainer-agent.onrender.com/erc8183/job/56646/response" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Open original <ExternalLink size={10} /></a>
           </div>
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> Shown above is an excerpt — the full output also includes draft notes ahead of the final write-up.</p>
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1.5 flex items-start gap-1"><AlertTriangle size={11} className="shrink-0 mt-0.5" /> The full raw file is no longer available (lost in a hosting update). The on-chain delivery record above is unaffected.</p>
+
+          <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] max-h-64 overflow-y-auto">
+            <LightMarkdown text={JOB_56646_CONTENT} />
+          </div>
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Shown above is the agent's real, complete answer — only its own pre-answer planning notes are cut, nothing in the answer itself is trimmed or reworded. Rendered through the same viewer the live job page itself uses.</p>
+
+          <div className="mt-3 p-3 rounded-lg bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+            <span className="font-semibold text-gray-700 dark:text-gray-300">Agent identity, so you can check this yourself:</span> agent_id <span className="font-mono">270213</span>, owner <span className="font-mono">0x08Cef8B3ec5D33529dFe6700ccbFfc97158Cb5dd</span>.{' '}
+            <a href="https://www.tnega.app/market?agent=270213" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1">View/hire this agent on the marketplace <ExternalLink size={10} /></a>
+          </div>
         </Side>
         <Side label="Without an agent (done by hand, timed)">
           <Row label="Time taken" value="3m 40s" />
