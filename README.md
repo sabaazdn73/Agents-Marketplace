@@ -13,6 +13,13 @@ Built for BNB Chain's "Smart Money Era" hackathon.
 > (needs a funded wallet / passkey). ⚠️ = genuine gap / TODO. Nothing here is
 > an aspirational claim — if it wasn't verified, it says so.
 
+**Live pages:** `/status` — real, live pass/fail checks (not cached uptime
+history) against every external integration this project depends on
+(8004scan, Zerion, CoinGecko, the BSC RPC, the explainer-agent service,
+MongoDB). `/ecosystem` — a standalone visual identity page, a rotating 3D
+globe sized by real, live agent-category counts. Both are paths on the
+deployed frontend.
+
 ---
 
 ## Architecture

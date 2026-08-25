@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu, ScanFace,
-  ExternalLink, Zap, Coins, Search, Briefcase
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -30,6 +30,8 @@ import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } fr
 import { getReliabilityHint } from './agentReliability';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import AgentAvatar from './AgentAvatar';
+import DataSourcesFooter from './DataSourcesFooter';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -442,12 +444,15 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
       </div>
       <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
         <div className="flex items-start justify-between gap-3 mb-4">
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
-              {agent.possiblyDelisted && <span title="Not seen active in over a week" className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">may no longer be active</span>}
+          <div className="flex items-center gap-3">
+            <AgentAvatar agent={agent} size={44} />
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
+                {agent.possiblyDelisted && <span title="Not seen active in over a week" className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">may no longer be active</span>}
+              </div>
+              <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</h2>
             </div>
-            <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</h2>
           </div>
           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
         </div>
@@ -517,13 +522,13 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
 }
 
 // Default export: the splash gate wrapping the real app.
-export default function AgentMarketplaceMobileRoot() {
+export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources } = {}) {
   const [unlocked, setUnlocked] = useState(false);
   if (!unlocked) return <SplashScreen onUnlock={() => setUnlocked(true)} />;
-  return <AgentMarketplaceMobile />;
+  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} />;
 }
 
-function AgentMarketplaceMobile() {
+function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   const [nav, setNav] = useState('market');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -698,6 +703,11 @@ function AgentMarketplaceMobile() {
         </div>
         <div className="flex items-center gap-3">
           <NotificationBell />
+          {onOpenEcosystem && (
+            <button onClick={onOpenEcosystem} title="Ecosystem view" className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
+              <Globe size={16} />
+            </button>
+          )}
           <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
@@ -716,8 +726,8 @@ function AgentMarketplaceMobile() {
               <ChevronRight size={18} className="rotate-180" /> Back
             </button>
             <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl mb-4">
-                {selectedAgent.name.charAt(0)}
+              <div className="mb-4">
+                <AgentAvatar agent={selectedAgent} size={64} />
               </div>
               <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
               <p className="text-gray-500 text-sm mb-6">You'll approve a few quick steps in your wallet — tracked below as they happen.</p>
@@ -906,9 +916,12 @@ function AgentMarketplaceMobile() {
                     {visible.map((agent) => (
                       <div key={agent.id} onClick={() => setDetailAgent(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">{agent.category}</span>
-                            <h3 className="text-lg font-bold flex items-center gap-1">{agent.name}{agent.isVerified && <BadgeCheck size={14} className="text-indigo-500" />}</h3>
+                          <div className="flex items-center gap-3">
+                            <AgentAvatar agent={agent} size={36} rounded="rounded-xl" />
+                            <div>
+                              <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">{agent.category}</span>
+                              <h3 className="text-lg font-bold flex items-center gap-1">{agent.name}{agent.isVerified && <BadgeCheck size={14} className="text-indigo-500" />}</h3>
+                            </div>
                           </div>
                           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
                         </div>
@@ -1127,6 +1140,10 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
             )}
           </div>
         )}
+
+        <div className="px-5">
+          <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
+        </div>
       </main>
 
       {/* App-like Bottom Navigation */}

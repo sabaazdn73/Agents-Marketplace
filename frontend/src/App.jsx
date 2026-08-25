@@ -1,8 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useReconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
+import { Loader2 } from 'lucide-react';
 import AgentMarketplaceApp from './AgentMarketplaceApp.web.jsx';
 import AgentMarketplaceMobileApp from './AgentMarketplaceApp.mobile.jsx';
+import StatusPage from './StatusPage.jsx';
+import DataSourcesPage from './DataSourcesPage.jsx';
+
+// Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
+// visitors who actually open /ecosystem — zero cost added to the
+// Marketplace's own default load. See EcosystemGlobePage.jsx for why.
+const EcosystemGlobePage = lazy(() => import('./EcosystemGlobePage.jsx'));
+
+/** No router library added for one real standalone route — a plain
+ * window.location.pathname check, matching this project's existing
+ * preference for small hand-rolled solutions over new dependencies for a
+ * single case. Real distinct URL either way: /ecosystem is reachable
+ * directly, bookmarkable, and not mixed into any tab's state. */
+function useRoute() {
+  const [path, setPath] = useState(window.location.pathname);
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const navigate = (to) => { window.history.pushState({}, '', to); setPath(to); };
+  return [path, navigate];
+}
 
 const MOBILE_BREAKPOINT = 768; // matches Tailwind's `md` breakpoint
 
@@ -51,10 +75,34 @@ function useStaggeredWalletReconnect() {
 
 export default function App() {
   const isMobile = useIsMobile();
+  const [path, navigate] = useRoute();
   useStaggeredWalletReconnect();
+
+  if (path === '/status') {
+    return <StatusPage onBack={() => navigate('/')} />;
+  }
+
+  if (path === '/data-sources') {
+    return <DataSourcesPage onBack={() => navigate('/')} />;
+  }
+
+  if (path === '/ecosystem') {
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#0B1120] flex items-center justify-center">
+          <Loader2 size={28} className="animate-spin text-indigo-400" />
+        </div>
+      }>
+        <EcosystemGlobePage onBack={() => navigate('/')} />
+      </Suspense>
+    );
+  }
+
   // Genuinely different components, not one component with responsive
   // CSS, per the earlier design requirement (mobile is its own
   // information architecture, not a shrunk desktop grid).
-  return isMobile ? <AgentMarketplaceMobileApp /> : <AgentMarketplaceApp />;
+  return isMobile
+    ? <AgentMarketplaceMobileApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} />
+    : <AgentMarketplaceApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} />;
 }
 

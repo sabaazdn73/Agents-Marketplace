@@ -24,6 +24,7 @@ from core import agent_performance
 from core import agent_health
 from core import erc8183_negotiate
 from core import deliverable_proxy
+from core import status_checks
 from adapters import zerion
 
 load_dotenv()
@@ -229,6 +230,16 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
 @app.get("/api/health")
 async def health():
     return {"ok": True}
+
+
+# ── Public status page backing endpoint ──
+# Real, live, right-now reachability of every external integration this
+# project depends on (see core/status_checks.py for the honesty rules and
+# the real per-service checks). No auth — deliberately public so hackathon
+# judges (or anyone) can verify these are real, not claimed.
+@app.get("/api/status")
+async def status():
+    return await status_checks.get_status()
 
 
 # ── Altana Skills Registry proxy ──

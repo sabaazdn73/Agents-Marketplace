@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -57,6 +57,8 @@ import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AgentGuidancePanel from './AgentGuidancePanel';
 import AdvantageReport from './AdvantageReport';
+import AgentAvatar from './AgentAvatar';
+import DataSourcesFooter from './DataSourcesFooter';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -324,7 +326,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
       <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-xl">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">{agent.name.charAt(0)}</div>
+            <AgentAvatar agent={agent} size={56} />
             <div>
               <div className="flex items-center gap-2"><h2 className="text-2xl font-bold">{agent.name}</h2>{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</div>
               <div className="flex items-center gap-2 mt-1">
@@ -567,7 +569,7 @@ const NAV_ITEMS = [
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
 ];
 
-export default function AgentMarketplaceApp() {
+export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   const [nav, setNav] = useState('market');
   const [marketView, setMarketView] = useState('grid');
@@ -812,6 +814,20 @@ export default function AgentMarketplaceApp() {
                 );
               })}
             </nav>
+
+            {/* Separate, non-tab link — a purely visual page, not part of the
+                Market/My Agents/Report/Learn/Build/Sell tab structure. */}
+            {onOpenEcosystem && (
+              <>
+                <div className="my-3 border-t border-white/5" />
+                <button
+                  onClick={onOpenEcosystem}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all duration-200"
+                >
+                  <Globe size={16} className="opacity-70" /> Ecosystem view
+                </button>
+              </>
+            )}
           </div>
 
           {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
@@ -1004,7 +1020,7 @@ export default function AgentMarketplaceApp() {
                         <tr key={agent.id} onClick={() => setDetailAgent(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
-                              <span className={`w-2 h-2 rounded-full ${agent.isVerified ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                              <AgentAvatar agent={agent} size={32} rounded="rounded-xl" />
                               <div>
                                 <div className="text-sm font-semibold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={14} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</div>
                                 <div className="text-[11px] text-gray-500 mt-0.5" title={CATEGORY_HINTS[agent.category]}>{agent.category}</div>
@@ -1034,9 +1050,12 @@ export default function AgentMarketplaceApp() {
                     <div key={agent.id} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
                       <div className="p-6 flex-1 cursor-pointer" onClick={() => setDetailAgent(agent)}>
                         <div className="flex justify-between items-start mb-5">
-                          <div>
-                            <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider mb-1 block">{agent.category}</span>
-                            <h3 className="text-lg font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={16} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</h3>
+                          <div className="flex items-center gap-3">
+                            <AgentAvatar agent={agent} size={40} />
+                            <div>
+                              <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider mb-1 block">{agent.category}</span>
+                              <h3 className="text-lg font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={16} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</h3>
+                            </div>
                           </div>
                           <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
                         </div>
@@ -1093,7 +1112,7 @@ export default function AgentMarketplaceApp() {
 
               <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 md:p-10 border border-gray-200 dark:border-gray-800 shadow-xl mb-6">
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xl">{selectedAgent.name.charAt(0)}</div>
+                  <AgentAvatar agent={selectedAgent} size={56} />
                   <div>
                     <h2 className="text-2xl font-bold">Hire {selectedAgent.name}</h2>
                     <p className="text-gray-500 text-sm mt-1">There are two ways to pay for this — pick whichever you prefer.</p>
@@ -1388,6 +1407,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
             </div>
           )}
 
+          <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
         </div>
       </main>
     </div>
