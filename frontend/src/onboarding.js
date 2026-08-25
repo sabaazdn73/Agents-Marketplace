@@ -28,7 +28,7 @@ export function markOnboardingSeen() {
 // separate maintenance — a clear description reliably does the same job).
 export const ONBOARDING_STEPS = [
   {
-    title: 'Welcome to Agents Marketplace',
+    title: 'Welcome to Tnega',
     body: "A real marketplace of AI agents you can hire on BNB Chain — every agent, every job, every payment is real and on-chain. Here's a 30-second look at what's where.",
   },
   {

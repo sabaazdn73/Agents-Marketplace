@@ -30,7 +30,7 @@ from adapters import coingecko
 
 load_dotenv()
 
-app = FastAPI(title="Agents Marketplace API")
+app = FastAPI(title="Tnega API")
 
 # Wide open for local dev, tighten this (specific origins only) before
 # any real deployment, per this project's security rules. The API serves
@@ -646,7 +646,19 @@ async def deliverable_proxy_route(request: Request):
 # on-chain `description` (useHireAgent.js / AltanaSessionPanel.jsx / mobile
 # app — all three checked and matched here). Keep these in sync if any of
 # those change.
+#
+# Real rebrand note (2026-08-28): the site's brand name changed from "Agents
+# Marketplace" to "Tnega" — useHireAgent.js/AltanaSessionPanel.jsx now write
+# "Hire via Tnega…" for every NEW job. The old "Agents Marketplace" prefixes
+# are kept here too, deliberately NOT removed: they're baked into real,
+# already-existing on-chain job descriptions, which are immutable — a job
+# hired before this rebrand will forever say "Agents Marketplace" on-chain,
+# and removing that prefix here would break _parse_hired_agent_name for
+# every one of those real past jobs. Both prefixes are checked, old jobs and
+# new jobs both resolve correctly.
 _HIRE_DESCRIPTION_PREFIXES = [
+    "Hire via Tnega (Altana session): ",
+    "Hire via Tnega: ",
     "Hire via Agents Marketplace (Altana session): ",
     "Hire via Agents Marketplace: ",
 ]
@@ -698,8 +710,10 @@ async def my_jobs(client_address: str):
 
     Real fix: our own hire flows (useHireAgent.js, AltanaSessionPanel.jsx —
     web and mobile) write the exact agent name into the job's own real,
-    immutable on-chain `description` field ("Hire via Agents Marketplace:
-    {name}"). That string is the authoritative record of which agent was
+    immutable on-chain `description` field ("Hire via Tnega: {name}", or
+    "Hire via Agents Marketplace: {name}" for jobs hired before the
+    2026-08-28 rebrand — see _HIRE_DESCRIPTION_PREFIXES above). That string
+    is the authoritative record of which agent was
     actually hired, sourced from the chain itself, not a guess — parsed and
     preferred over the owner_address lookup, which now only breaks the
     provider/name tie (and supplies agent_id for the link) rather than

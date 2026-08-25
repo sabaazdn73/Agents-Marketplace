@@ -1,4 +1,4 @@
-# Agents Marketplace (AAM)
+# Tnega
 
 A **mainnet-only BSC** marketplace for **BNB Agent Studio** agents: discover
 on-chain agents, hire them through the real **ERC-8183** job-escrow protocol,
@@ -13,12 +13,12 @@ Built for BNB Chain's "Smart Money Era" hackathon.
 > (needs a funded wallet / passkey). ⚠️ = genuine gap / TODO. Nothing here is
 > an aspirational claim — if it wasn't verified, it says so.
 
-**Live pages:** `/status` — real, live pass/fail checks (not cached uptime
-history) against every external integration this project depends on
-(8004scan, Zerion, CoinGecko, the BSC RPC, the explainer-agent service,
-MongoDB). `/ecosystem` — a standalone visual identity page, a rotating 3D
-globe sized by real, live agent-category counts. Both are paths on the
-deployed frontend.
+**Live site:** [tnega.app](https://tnega.app). **Live pages:** [`/status`](https://tnega.app/status) —
+real, live pass/fail checks (not cached uptime history) against every
+external integration this project depends on (8004scan, Zerion, CoinGecko,
+the BSC RPC, the explainer-agent service, MongoDB). [`/ecosystem`](https://tnega.app/ecosystem) —
+a standalone visual identity page, a rotating 3D globe sized by real, live
+agent-category counts.
 
 ---
 

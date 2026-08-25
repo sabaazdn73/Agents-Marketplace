@@ -34,7 +34,7 @@ import { createPublicClient, http } from 'viem';
 import { bsc } from 'viem/chains';
 
 const RP_ID = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-const APP_NAME = 'Agents Marketplace';
+const APP_NAME = 'Tnega';
 
 // One shared client, configured once for BNB mainnet. The same smart-account
 // address is produced on any client configured for this chain, so a single

@@ -100,7 +100,7 @@ export function useAgentQuote(agent) {
     setState({ status: 'loading' });
     (async () => {
       try {
-        const description = `Hire via Agents Marketplace: ${agent.name}`;
+        const description = `Hire via Tnega: ${agent.name}`;
         const negotiationResult = await negotiateJob(agent.ownerAddress, description, DEFAULT_NEGOTIATE_TERMS);
         const priceRaw = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
         if (cancelled) return;

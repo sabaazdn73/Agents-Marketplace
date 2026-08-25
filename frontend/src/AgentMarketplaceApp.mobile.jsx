@@ -110,7 +110,9 @@ const KID_FRIENDLY_FAQ = [
 // CACHE_KEY comment for the real reason (a stale-client-cache theory from
 // investigating a reported web-only missing-button bug that a real
 // headless render proved isn't a code-level divergence).
-const CACHE_KEY = 'agents-marketplace-cache-v2';
+// Renamed to 'tnega-cache-v1' alongside web + EcosystemGlobePage for the
+// Tnega rebrand — see AgentMarketplaceApp.web.jsx's CACHE_KEY comment.
+const CACHE_KEY = 'tnega-cache-v1';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function mapAgent(a) {
@@ -336,7 +338,7 @@ function SplashScreen({ onUnlock }) {
       aria-label="Tap to continue"
     >
       <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full">
-        <img src={agentsHero} alt="Agents Marketplace" className="w-full max-w-xs rounded-3xl border border-white/10 shadow-2xl object-cover" />
+        <img src={agentsHero} alt="Tnega" className="w-full max-w-xs rounded-3xl border border-white/10 shadow-2xl object-cover" />
         {!showControls ? (
           <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading…</div>
         ) : (
@@ -357,7 +359,7 @@ function SplashScreen({ onUnlock }) {
       <div className="w-full flex flex-col items-center gap-2 pb-4 min-h-[48px] justify-end">
         <div className="flex items-center gap-2">
           <img src={iconLogo} alt="" className="w-7 h-7" />
-          <h1 className="text-xl font-bold tracking-tight">Agents Marketplace</h1>
+          <h1 className="text-xl font-bold tracking-tight">Tnega</h1>
         </div>
       </div>
     </div>
@@ -641,7 +643,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
         budgetUnits: Number(spendCap),
         description: (showCustomDescription && customDescription.trim())
           ? customDescription.trim()
-          : `Hire via Agents Marketplace: ${selectedAgent.name}`,
+          : `Hire via Tnega: ${selectedAgent.name}`,
       });
       trackJob(jobId.toString(), 'FUNDED');
       recordFunded(jobId.toString()); // the real moment funding confirmed — see jobTiming.js
@@ -710,9 +712,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       <header className="shrink-0 flex items-center justify-between px-5 py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg overflow-hidden">
-            <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
+            <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-lg font-bold tracking-tight">Agents Marketplace</h1>
+          <h1 className="text-lg font-bold tracking-tight">Tnega</h1>
         </div>
         <div className="flex items-center gap-3">
           <NotificationBell />
@@ -787,7 +789,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         value={customDescription}
                         onChange={(e) => setCustomDescription(e.target.value)}
                         disabled={hireStep && !hireError}
-                        placeholder={`Hire via Agents Marketplace: ${selectedAgent.name}`}
+                        placeholder={`Hire via Tnega: ${selectedAgent.name}`}
                         rows={4}
                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono outline-none disabled:opacity-50"
                       />

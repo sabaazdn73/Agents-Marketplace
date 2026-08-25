@@ -40,7 +40,13 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { CATEGORY_HINTS } from './categoryHints';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const CACHE_KEY = 'agents-marketplace-cache-v1'; // same cache AgentMarketplaceApp writes
+// Real bug found and fixed here during the Tnega rebrand (2026-08-28): this
+// was still 'agents-marketplace-cache-v1' while the main app had already
+// moved on to a '-v2' key (an earlier, unrelated stale-cache fix) — this
+// page was silently never hitting that fast shared-cache path, always
+// falling through to its own live fetch. Renamed to match AgentMarketplaceApp
+// exactly (both now write/read the same real key), and fixes that bug too.
+const CACHE_KEY = 'tnega-cache-v1'; // same cache AgentMarketplaceApp writes
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const GLOBE_RADIUS = 2.6;
 

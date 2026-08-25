@@ -88,7 +88,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
     try {
       const result = await hireAgentWithSession(session, {
         providerAddress: agent.ownerAddress,
-        task: `Hire via Agents Marketplace (Altana session): ${agent.name}`,
+        task: `Hire via Tnega (Altana session): ${agent.name}`,
         budgetUnits: Number(spendCap),
       });
       setHireResult(result);

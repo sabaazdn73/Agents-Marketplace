@@ -78,7 +78,11 @@ const CHAIN_LABELS = { 56: 'BNB Smart Chain' }; // mainnet-only
 // device was tested holding agent data from before some field was
 // correctly populated. Bumping the version forces every client to refetch
 // once, clearing any such stale state regardless of the exact cause.
-const CACHE_KEY = 'agents-marketplace-cache-v2';
+// Renamed to 'tnega-cache-v1' for the Tnega rebrand (2026-08-28) — a fresh
+// key name, not just another version bump, since the old name literally
+// spelled out the old brand. Same real effect as the earlier v1->v2 bump:
+// every client refetches once, cleanly, no stale data carried over.
+const CACHE_KEY = 'tnega-cache-v1';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function mapAgent(a) {
@@ -714,7 +718,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
         budgetUnits: Number(spendCap),
         description: (showCustomDescription && customDescription.trim())
           ? customDescription.trim()
-          : `Hire via Agents Marketplace: ${selectedAgent.name}`,
+          : `Hire via Tnega: ${selectedAgent.name}`,
       });
       trackJob(jobId.toString(), 'FUNDED');
       recordFunded(jobId.toString()); // the real moment funding confirmed — see jobTiming.js
@@ -811,9 +815,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           <div className="p-6">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20">
-                <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
+                <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
               </div>
-              <h1 className="text-lg font-bold tracking-tight flex-1">Agents Marketplace</h1>
+              <h1 className="text-lg font-bold tracking-tight flex-1">Tnega</h1>
               <button
                 onClick={() => setShowOnboarding(true)}
                 title="How this works"
@@ -1196,7 +1200,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         value={customDescription}
                         onChange={(e) => setCustomDescription(e.target.value)}
                         disabled={hireStep && !hireError}
-                        placeholder={`Hire via Agents Marketplace: ${selectedAgent.name}`}
+                        placeholder={`Hire via Tnega: ${selectedAgent.name}`}
                         rows={4}
                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
                       />

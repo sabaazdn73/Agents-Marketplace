@@ -1,4 +1,4 @@
-# Agents Marketplace — Documentation
+# Tnega — Documentation
 
 The single, current, honest reference for how this project fits together, what's
 real, and what isn't. Where this and the older "Partner-track alignment" list in
