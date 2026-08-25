@@ -59,12 +59,23 @@ import AgentGuidancePanel from './AgentGuidancePanel';
 import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
+import HackathonPartnersFooter from './HackathonPartnersFooter';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const CHAIN_LABELS = { 56: 'BNB Smart Chain' }; // mainnet-only
 
-const CACHE_KEY = 'agents-marketplace-cache-v1';
+// Bumped to v2 (2026-08-26): real, decisive investigation into a reported
+// "Zerion portfolio button missing on web" bug found NO code-level
+// divergence between web and mobile — a real headless render of both
+// AgentDetail components with identical mock data produced byte-identical
+// button markup on both. The most plausible remaining explanation is the
+// same failure mode this project has hit before (see mapAgent's own
+// "Parity fix" comment below): a stale 24h client cache on whichever
+// device was tested holding agent data from before some field was
+// correctly populated. Bumping the version forces every client to refetch
+// once, clearing any such stale state regardless of the exact cause.
+const CACHE_KEY = 'agents-marketplace-cache-v2';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function mapAgent(a) {
@@ -569,7 +580,7 @@ const NAV_ITEMS = [
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
 ];
 
-export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources } = {}) {
+export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   const [nav, setNav] = useState('market');
   const [marketView, setMarketView] = useState('grid');
@@ -1408,6 +1419,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
           )}
 
           <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
+          <HackathonPartnersFooter onOpenPartners={onOpenPartners} />
         </div>
       </main>
     </div>

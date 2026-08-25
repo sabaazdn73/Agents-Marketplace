@@ -132,13 +132,23 @@ export function RotatingGlobe({ counts, total }) {
 
   return (
     <group ref={groupRef}>
+      {/* Base sphere: meshPhysicalMaterial's clearcoat is the 3D equivalent
+          of AgentArchitectureDiagrams.jsx's top-lit sheen gradient overlay —
+          a subtle glossy highlight rather than the old fully-matte
+          standard material, real refinement not a visual overhaul. */}
       <mesh>
-        <sphereGeometry args={[GLOBE_RADIUS, 48, 48]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.85} metalness={0.1} wireframe={false} />
+        <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
+        <meshPhysicalMaterial
+          color="#1e2a44"
+          roughness={0.55}
+          metalness={0.05}
+          clearcoat={0.35}
+          clearcoatRoughness={0.25}
+        />
       </mesh>
       <mesh>
-        <sphereGeometry args={[GLOBE_RADIUS + 0.01, 48, 48]} />
-        <meshBasicMaterial color="#4f46e5" wireframe transparent opacity={0.12} />
+        <sphereGeometry args={[GLOBE_RADIUS + 0.012, 48, 48]} />
+        <meshBasicMaterial color="#6366f1" wireframe transparent opacity={0.09} />
       </mesh>
       {counts.map((c, i) => {
         const [x, y, z] = positions[i];
@@ -150,9 +160,23 @@ export function RotatingGlobe({ counts, total }) {
         const pos = [x * (GLOBE_RADIUS + 0.05), y * (GLOBE_RADIUS + 0.05), z * (GLOBE_RADIUS + 0.05)];
         return (
           <group key={c.category} position={pos}>
+            {/* Soft halo behind the marker — a low-opacity, larger sphere of
+                the same color — reads as a smooth glow rather than a hard
+                flat dot, without any post-processing/bloom pipeline. */}
             <mesh>
-              <sphereGeometry args={[markerRadius, 16, 16]} />
-              <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.5} />
+              <sphereGeometry args={[markerRadius * 1.9, 16, 16]} />
+              <meshBasicMaterial color={color} transparent opacity={0.18} depthWrite={false} />
+            </mesh>
+            <mesh>
+              <sphereGeometry args={[markerRadius, 24, 24]} />
+              <meshPhysicalMaterial
+                color={color}
+                emissive={color}
+                emissiveIntensity={0.55}
+                roughness={0.3}
+                clearcoat={0.6}
+                clearcoatRoughness={0.15}
+              />
             </mesh>
             <Html distanceFactor={8} center style={{ pointerEvents: 'none' }}>
               <div className="px-2 py-1 rounded-lg bg-gray-900/90 text-white text-[10px] font-medium whitespace-nowrap shadow-lg border border-white/10">
@@ -213,14 +237,23 @@ export default function EcosystemGlobePage({ onBack }) {
           </div>
         )}
         {!loading && !error && counts.length > 0 && (
-          <Canvas camera={{ position: [0, 0, 7], fov: 45 }}>
-            <ambientLight intensity={0.6} />
-            <pointLight position={[8, 8, 8]} intensity={1.2} />
-            <pointLight position={[-8, -4, -6]} intensity={0.4} color="#6366f1" />
+          // Zoomed out for real breathing room (was position.z=7, now 9.5 —
+          // the globe used to nearly fill the frame; minDistance/maxDistance
+          // widened to match so zooming in/out never re-creates that
+          // cramped feel). Lighting swapped from a flat ambient + two point
+          // lights to a soft top-down hemisphere light (a real gradient —
+          // cool sky-blue fading to the dark navy "ground" — the 3D
+          // equivalent of the 2D diagrams' top-lit sheen) plus a single
+          // warmer key light from above-front and a dim indigo rim light
+          // for depth, instead of two competing point lights.
+          <Canvas camera={{ position: [0, 0, 9.5], fov: 42 }}>
+            <hemisphereLight args={['#c7d2fe', '#0b1120', 0.55]} />
+            <directionalLight position={[6, 9, 6]} intensity={1.15} color="#f8fafc" />
+            <pointLight position={[-7, -3, -5]} intensity={0.3} color="#6366f1" />
             <Suspense fallback={null}>
               <RotatingGlobe counts={counts} total={total} />
             </Suspense>
-            <OrbitControls enablePan={false} minDistance={4} maxDistance={12} autoRotate={false} />
+            <OrbitControls enablePan={false} minDistance={6.5} maxDistance={16} autoRotate={false} />
           </Canvas>
         )}
       </div>

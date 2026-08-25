@@ -32,6 +32,7 @@ import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDia
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
+import HackathonPartnersFooter from './HackathonPartnersFooter';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -102,7 +103,11 @@ const KID_FRIENDLY_FAQ = [
   { q: 'What kind of agent can I build?', a: "Pretty much anything you can describe in a sentence: trading, research, writing, customer support, data analysis, games — you're not limited to a preset list.", src: SRC.studioQuick },
   { q: 'Can it sell to people, not just other agents?', a: "Yes. Any buyer — a person or another agent — can hire it. It's not limited to agent-to-agent deals.", src: SRC.studioArch },
 ];
-const CACHE_KEY = 'agents-marketplace-cache-v1';
+// Bumped to v2 alongside the web app — see AgentMarketplaceApp.web.jsx's
+// CACHE_KEY comment for the real reason (a stale-client-cache theory from
+// investigating a reported web-only missing-button bug that a real
+// headless render proved isn't a code-level divergence).
+const CACHE_KEY = 'agents-marketplace-cache-v2';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function mapAgent(a) {
@@ -522,13 +527,13 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
 }
 
 // Default export: the splash gate wrapping the real app.
-export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources } = {}) {
+export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
   const [unlocked, setUnlocked] = useState(false);
   if (!unlocked) return <SplashScreen onUnlock={() => setUnlocked(true)} />;
-  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} />;
+  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} onOpenPartners={onOpenPartners} />;
 }
 
-function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources } = {}) {
+function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   const [nav, setNav] = useState('market');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -1143,6 +1148,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
 
         <div className="px-5">
           <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
+          <HackathonPartnersFooter onOpenPartners={onOpenPartners} />
         </div>
       </main>
 
