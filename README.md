@@ -1,11 +1,13 @@
 # Tnega
 
+**Live: [https://tnega.app](https://tnega.app)**
+
 A **mainnet-only BSC** marketplace for **BNB Agent Studio** agents: discover
 on-chain agents, hire them through the real **ERC-8183** job-escrow protocol,
 and run ready-made **Altana Skills** — with a **Practice Layer** (a live BSC
 fork) to try anything for free before spending real money.
 
-Built for BNB Chain's "Smart Money Era" hackathon.
+Built for BNB Chain's "Smart Money Era" hackathon. Full documentation: **[docs/](docs/README.md)**.
 
 > **Verification note.** Everything below is marked with how it was checked.
 > ✅ = exercised live and confirmed this session (with real results shown).
@@ -13,7 +15,7 @@ Built for BNB Chain's "Smart Money Era" hackathon.
 > (needs a funded wallet / passkey). ⚠️ = genuine gap / TODO. Nothing here is
 > an aspirational claim — if it wasn't verified, it says so.
 
-**Live site:** [tnega.app](https://tnega.app). **Live pages:** [`/status`](https://tnega.app/status) —
+**Live pages:** [`/status`](https://tnega.app/status) —
 real, live pass/fail checks (not cached uptime history) against every
 external integration this project depends on (8004scan, Zerion, CoinGecko,
 the BSC RPC, the explainer-agent service, MongoDB). [`/ecosystem`](https://tnega.app/ecosystem) —
