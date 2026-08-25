@@ -60,6 +60,7 @@ import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
+import DocsFooter from './DocsFooter';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
 import OnboardingTour from './OnboardingTour';
 import { hasSeenOnboarding } from './onboarding';
@@ -588,7 +589,7 @@ const NAV_ITEMS = [
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
 ];
 
-export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
+export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   // Real first-visit orientation — shows automatically once per browser
   // (localStorage-gated, see onboarding.js), reopenable anytime via the "?"
@@ -1447,6 +1448,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
 
           <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
           <HackathonPartnersFooter onOpenPartners={onOpenPartners} />
+          <DocsFooter onOpenDocs={onOpenDocs} />
         </div>
       </main>
     </div>

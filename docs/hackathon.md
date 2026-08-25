@@ -12,6 +12,8 @@ The platform this project is built *for*. Every real transaction runs on BSC mai
 
 Credited as a real, active ecosystem participant: **TermiX's AACP** (Autonomous Agent Capital Protocol) is the real identity/commerce protocol a large share of the agents actually registered in this marketplace use — a real, measured majority of BSC's live ERC-8004 registry is TermiX-originated agents. Tnega indexes and de-duplicates them like any other real agent (a real, necessary step — without de-duplication, one mass-registration campaign can dominate the whole marketplace listing). This is a real data relationship, not a formal API partnership or an integration TermiX built for this project specifically.
 
+The track's own rubric separately asks for a real, same-task comparison report (an agent hired through this marketplace vs. doing the same task by hand, with time/cost/quality and real outputs attached, at least one task from trading/stock/security). That report is real and live today, on the in-app **Advantage Report** tab — see [Features](features.md#advantage-report) for its real, current, honestly-labeled status (2 of 3 tasks complete; the third is genuinely blocked on an external data provider, stated as such rather than hidden or estimated).
+
 ## PancakeSwap
 
 Real, at the skill level: two of the ten Altana Skills this project ships (`pancakeswap-trading`, `pancakeswap-liquidity`) interact directly with real, live PancakeSwap contracts, and were executed on the Practice fork with real, verified before/after balance changes. A technical integration, not a formal partnership.

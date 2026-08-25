@@ -38,6 +38,10 @@ It's also a **shared fork** — every user practices against the same forked sta
 
 Two stats currently read as zero across the entire live marketplace: **is_verified** (zero real agents are marked verified anywhere in 8004scan's registry, across every chain it indexes — a genuine, platform-wide state, confirmed by direct sampling, not a wiring gap on this project's side) and **reviews** (zero real feedback exists for any BSC agent specifically — real feedback does exist elsewhere in 8004scan's registry, on a different chain, just not on BSC yet). Both are reported as real, honest zeros rather than forced into showing something.
 
+## DeFi-specific category representation — thin, but real and improving
+
+The four DeFi-specific categories `core/categorize.py` was originally built around (Rebalancing, Grid Trading, Yield Optimisation, Health Factor Monitoring) are genuinely thin in the live registry relative to the marketplace's ~1,500 total agents — most real agents fall into broader categories (Research, Trading Signals, Smart Contract Auditing) instead. This was a harder, real gap earlier in this project's life (Grid Trading specifically had zero matching real agents in the sample available at the time). Checked fresh: all four now have genuine, non-zero real representation (Grid Trading included), helped in part by later re-classifying previously-Unclassified agents against 8004scan's richer per-agent data once Pro-tier access made that affordable to do for every refresh. Still real, still thin — not claimed as solved, just no longer a hard zero.
+
 ## x402 pay-per-call — configuration only
 
 The x402 pay-per-call pricing model on AgentAccessMarket saves a creator's configuration (including a spec-accurate B402 Bazaar discovery blob), but wiring a creator's actual endpoint as a live x402 resource is the creator's own deployment step outside this project's control. Real settlement through this path has not been exercised end to end.

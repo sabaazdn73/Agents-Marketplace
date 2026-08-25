@@ -33,6 +33,7 @@ import WalletPortfolioPanel from './WalletPortfolioPanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
+import DocsFooter from './DocsFooter';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
 import OnboardingTour from './OnboardingTour';
 import { hasSeenOnboarding } from './onboarding';
@@ -533,13 +534,13 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
 }
 
 // Default export: the splash gate wrapping the real app.
-export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
+export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs } = {}) {
   const [unlocked, setUnlocked] = useState(false);
   if (!unlocked) return <SplashScreen onUnlock={() => setUnlocked(true)} />;
-  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} onOpenPartners={onOpenPartners} />;
+  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} onOpenPartners={onOpenPartners} onOpenDocs={onOpenDocs} />;
 }
 
-function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
+function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs } = {}) {
   const [darkMode, setDarkMode] = useState(false);
   // Real first-visit orientation — see AgentMarketplaceApp.web.jsx's
   // matching comment and onboarding.js for the real reasoning.
@@ -1168,6 +1169,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
         <div className="px-5">
           <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
           <HackathonPartnersFooter onOpenPartners={onOpenPartners} />
+          <DocsFooter onOpenDocs={onOpenDocs} />
         </div>
       </main>
 

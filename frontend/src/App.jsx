@@ -7,6 +7,7 @@ import AgentMarketplaceMobileApp from './AgentMarketplaceApp.mobile.jsx';
 import StatusPage from './StatusPage.jsx';
 import DataSourcesPage from './DataSourcesPage.jsx';
 import HackathonPartnersPage from './HackathonPartnersPage.jsx';
+import DocsPage from './DocsPage.jsx';
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
 // visitors who actually open /ecosystem — zero cost added to the
@@ -91,6 +92,10 @@ export default function App() {
     return <HackathonPartnersPage onBack={() => navigate('/')} />;
   }
 
+  if (path === '/docs' || path.startsWith('/docs/') || path.startsWith('/docs#')) {
+    return <DocsPage path={path} navigate={navigate} onBack={() => navigate('/')} isMobile={isMobile} />;
+  }
+
   if (path === '/ecosystem') {
     return (
       <Suspense fallback={
@@ -107,7 +112,7 @@ export default function App() {
   // CSS, per the earlier design requirement (mobile is its own
   // information architecture, not a shrunk desktop grid).
   return isMobile
-    ? <AgentMarketplaceMobileApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} />
-    : <AgentMarketplaceApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} />;
+    ? <AgentMarketplaceMobileApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} onOpenDocs={() => navigate('/docs')} />
+    : <AgentMarketplaceApp onOpenEcosystem={() => navigate('/ecosystem')} onOpenDataSources={() => navigate('/data-sources')} onOpenPartners={() => navigate('/partners')} onOpenDocs={() => navigate('/docs')} />;
 }
 

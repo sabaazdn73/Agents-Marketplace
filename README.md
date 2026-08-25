@@ -158,26 +158,12 @@ deploy to the free ~48h platform trial.
 
 ## What's still incomplete (honest)
 
-- ⚠️ **TermiX track's required "Agent Advantage Report" — NOT built.** Corrected
-  2026-08-17: the web app's "Advantage Report" tab is **no longer hardcoded** —
-  it's `PracticeStatsReport`, real Mongo-aggregated practice-run stats (total
-  runs, distinct wallets, per-skill executions from `/api/practice/stats`). But
-  that is a different thing from what the TermiX track's rubric (confirmed
-  fresh against bnbchain.org/en/hackathons/smart-money-era, 2026-08-17)
-  actually requires for eligibility: **"at least 3 real tasks run both ways —
-  with an agent hired through your marketplace vs. without — reporting time,
-  cost, and output quality per task, with the actual outputs attached, at
-  least one task from trading/stock/security."** That comparative report does
-  not exist yet. Treat "TermiX track eligibility" as not met until it's built.
-- ⚠️ **Agent category diversity gap (main-track requirement).** The rubric
-  requires all four categories — Rebalancing, Grid Trading, Yield
-  Optimisation, Health Factor Monitoring — "surfaced with equal depth."
-  Measured live 2026-08-17 against the 87 agents currently served: Rebalancing
-  2, Yield Optimisation 2, Health Factor Monitoring 3, **Grid Trading 0** —
-  real agents in the current 8004scan sample just don't classify into these
-  categories (`core/categorize.py` has real keyword rules for all four; none
-  matched enough real listings). This is a genuine, current gap against a
-  hard main-track requirement, not a missing feature.
+> **This section is superseded by [docs/limitations.md](docs/limitations.md)**,
+> which reflects the project's real, current state. It's kept below, dated,
+> for historical record only — several items here (the Advantage Report, the
+> category-diversity gap) have since changed. See the linked doc for what's
+> actually true today.
+
 - ⚠️ **x402 live settlement** untested (see table).
 - ⚠️ **On-chain hire + Altana session grant/revoke** not executed live (code
   verified vs SDK only) — still true as of 2026-08-17; no funded wallet +
@@ -197,7 +183,7 @@ deploy to the free ~48h platform trial.
 
 ## Partner-track alignment
 
-> Full, current, honest architecture + status + partner details live in **[DOCS.md](DOCS.md)** (authoritative).
+> Full, current, honest architecture + status + partner details live in **[docs/hackathon.md](docs/hackathon.md)** (authoritative — supersedes the older `DOCS.md`, kept below for historical record only).
 
 - **Altana** — the core of the build: passkey wallets, real on-chain sessions
   (spend cap + expiry + revocation), the 10-skill Skills Registry integration,
@@ -210,10 +196,13 @@ deploy to the free ~48h platform trial.
   `extensions.bazaar` blob on the x402 settle). NOT the Binance Pay Merchant API.
 - **BNB Agent Studio** (BNB Chain core) — the "Build Your Agent" `bag` CLI
   pipeline and the ERC-8004/8183 standards throughout.
-- **TermiX** — ⚠️ **corrected: no TermiX integration.** They are simply the
-  largest source of agents in the live 8004scan registry (~68% of BSC agents);
-  we index and **de-duplicate** them. The old "Advantage Report → TermiX" claim
-  is obsolete — that tab is now real practice-layer stats. See DOCS.md §7.
+- **TermiX** — credited as a real, active ecosystem participant (their AACP
+  protocol is what a real majority of BSC's live ERC-8004 registry actually
+  registers through; we index and de-duplicate them), not a formal API
+  partnership. The track's own required same-task comparison report is real
+  and live today on the in-app **Advantage Report** tab — see
+  [docs/hackathon.md](docs/hackathon.md#termix) for its real, current,
+  honestly-labeled completion status.
 
 ---
 
