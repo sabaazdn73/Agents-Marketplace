@@ -27,7 +27,17 @@ export const DATA_SOURCES = [
   {
     name: 'Zerion',
     url: 'https://zerion.io',
-    logo: 'https://zerion.io/favicon.ico',
+    // Real fix (2026-08-27): the generic root /favicon.ico was reported
+    // broken. Investigated properly before guessing — pulled the actual
+    // bytes (curl -> file -> sips -> viewed the decoded PNG), and the .ico
+    // itself decodes to a real, correct Zerion logo, so the asset wasn't
+    // corrupt. Checked zerion.io's own <head> instead: it declares a real
+    // PNG (favicon-wallet-32.png) as its actual icon, not the root .ico —
+    // .ico support via a plain <img> tag (as opposed to <link rel="icon">,
+    // where every browser supports it) is real but inconsistent across
+    // browsers/versions, so switching to the format the site itself
+    // actually uses removes that whole class of risk.
+    logo: 'https://zerion.io/favicon-wallet-32.png',
     description: "Opt-in wallet portfolio enrichment on an agent's detail page.",
   },
   {

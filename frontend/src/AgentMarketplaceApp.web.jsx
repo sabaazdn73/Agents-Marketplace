@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -61,6 +61,8 @@ import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
+import OnboardingTour from './OnboardingTour';
+import { hasSeenOnboarding } from './onboarding';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -584,6 +586,11 @@ const NAV_ITEMS = [
 
 export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
   const [darkMode, setDarkMode] = useState(false);
+  // Real first-visit orientation — shows automatically once per browser
+  // (localStorage-gated, see onboarding.js), reopenable anytime via the "?"
+  // header button. Lazy-init so it doesn't flash open-then-closed for a
+  // returning visitor.
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const [nav, setNav] = useState('market');
   const [marketView, setMarketView] = useState('grid');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -792,7 +799,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
   return (
     <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
-      
+      {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
+
       {/* Sidebar: Deep Dark Navy, scrolls together with the page now, no independent region */}
       <aside className="w-[28rem] shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
         {/* Sticky wrapper: this content stays visible near the top of the
@@ -806,6 +814,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <img src={iconLogo} alt="Agents Marketplace" className="w-full h-full object-contain" />
               </div>
               <h1 className="text-lg font-bold tracking-tight flex-1">Agents Marketplace</h1>
+              <button
+                onClick={() => setShowOnboarding(true)}
+                title="How this works"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <HelpCircle size={16} />
+              </button>
               <NotificationBell variant="dark" />
             </div>
             

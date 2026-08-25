@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu, ScanFace,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -34,6 +34,8 @@ import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
+import OnboardingTour from './OnboardingTour';
+import { hasSeenOnboarding } from './onboarding';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -537,6 +539,9 @@ export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenData
 
 function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners } = {}) {
   const [darkMode, setDarkMode] = useState(false);
+  // Real first-visit orientation — see AgentMarketplaceApp.web.jsx's
+  // matching comment and onboarding.js for the real reasoning.
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const [nav, setNav] = useState('market');
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchInput, setSearchInput] = useState('');
@@ -699,7 +704,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
   return (
     <div className={`flex flex-col h-[100dvh] font-sans ${darkMode ? 'dark bg-[#0B101B] text-white' : 'bg-[#F4F5F8] text-gray-900'}`}>
-      
+      {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
+
       {/* App Header (Sticky) */}
       <header className="shrink-0 flex items-center justify-between px-5 py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
         <div className="flex items-center gap-2">
@@ -715,6 +721,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <Globe size={16} />
             </button>
           )}
+          <button onClick={() => setShowOnboarding(true)} title="How this works" className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
+            <HelpCircle size={16} />
+          </button>
           <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>

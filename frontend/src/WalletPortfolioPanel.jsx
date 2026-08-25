@@ -36,8 +36,20 @@
 
 import React, { useState } from 'react';
 import { Wallet, Loader2, ChevronDown, ShieldCheck, CircleDashed } from 'lucide-react';
+import { DATA_SOURCES } from './dataSources';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// Reuses dataSources.js's Zerion entry (single source of truth for the
+// logo URL, real fix already applied there — see that file's comment) so
+// this stays correct automatically if that URL ever needs to change again.
+const ZERION_LOGO = DATA_SOURCES.find((s) => s.name === 'Zerion')?.logo;
+
+function ZerionLogo() {
+  const [failed, setFailed] = useState(false);
+  if (!ZERION_LOGO || failed) return null;
+  return <img src={ZERION_LOGO} alt="" width={12} height={12} onError={() => setFailed(true)} className="rounded-sm shrink-0" />;
+}
 
 // The real, original "DeFi-specific" categories — see categorize.py's own
 // comment: "Original DeFi-specific set (hackathon's named examples)". Kept
@@ -159,7 +171,10 @@ export default function WalletPortfolioPanel({ ownerAddress, category }) {
           ))}
         </div>
       )}
-      <p className="text-[10px] text-gray-400 mt-2">Real data from Zerion, checked just now — every priced token this wallet holds on BNB Chain, not just BNB.</p>
+      <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1.5">
+        <ZerionLogo />
+        Real data from Zerion, checked just now — every priced token this wallet holds on BNB Chain, not just BNB.
+      </p>
     </div>
   );
 }
