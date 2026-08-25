@@ -33,6 +33,7 @@ import WalletPortfolioPanel from './WalletPortfolioPanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
+import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -432,6 +433,7 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
 // everything the aggregated data holds for one agent.
 function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
   const [copied, setCopied] = useState(false);
+  const bnbUsdPrice = useBnbPrice();
   const onShare = async () => {
     const ok = await copyShareLink(agentShareUrl(agent));
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
@@ -506,7 +508,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
             confused with one another. */}
         <div className="mt-3 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
           <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
-          <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? `${agent.ownerBnbBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} BNB` : <span className="text-gray-400 font-normal">n/a</span>}</span>
+          <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
         <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
 

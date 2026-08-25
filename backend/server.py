@@ -26,6 +26,7 @@ from core import erc8183_negotiate
 from core import deliverable_proxy
 from core import status_checks
 from adapters import zerion
+from adapters import coingecko
 
 load_dotenv()
 
@@ -175,6 +176,16 @@ async def _background_refresh():
         print(f"[server] Background refresh failed: {e}")
     finally:
         _refresh_in_progress = False
+
+
+@app.get("/api/market/bnb-price")
+async def bnb_price():
+    """Real, live BNB/USD price from CoinGecko's public endpoint (5-min
+    server-side cache) — backs the USD context shown next to every agent's
+    owner-wallet BNB balance. {"usd": null} (never a fabricated number) if
+    CoinGecko couldn't be reached and no prior real price is cached yet."""
+    price = await coingecko.get_bnb_usd_price()
+    return {"usd": price}
 
 
 @app.get("/api/agents")

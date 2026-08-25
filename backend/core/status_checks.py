@@ -74,7 +74,9 @@ async def _check_8004scan() -> str:
         raise RuntimeError("SCAN_8004_API_KEY not set")
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
-            "https://8004scan.io/api/v1/agents",
+            # Real host migration 2026-08-27 — see adapters/bsc.py's module
+            # docstring for the live verification.
+            "https://api.8004scan.io/api/v1/agents",
             params={"chainId": 56, "offset": 0, "limit": 1},
             headers={"X-API-Key": key},
         )

@@ -14,12 +14,30 @@ live response (offset/limit, an {items, total, limit, offset} envelope,
 total≈714k across all chains as of 8 Aug 2026). Chain filtering is done
 client-side (chain_id == 56) because server-side chainId filtering was never
 verified reliable for this endpoint.
+
+REAL HOST MIGRATION (2026-08-27, verified live, not assumed): 8004scan moved
+their API to api.8004scan.io. Confirmed live before switching:
+  - The list endpoint (/api/v1/agents) is unchanged in path and response
+    shape on the new host (real {items, total, limit, offset} envelope).
+  - The detail endpoint moved too, and NOT just the domain — the path
+    dropped the "/public/" segment (was /api/v1/public/agents/{chain}/{id},
+    now /api/v1/agents/{chain}/{id} — confirmed live: the old /public/ path
+    genuinely 404s on the new host), AND the response is no longer wrapped
+    in {"success": true, "data": {...}} — the agent object is now the
+    top-level response body directly (confirmed live against a real known
+    agent: same real fields, tags/categories/health_status/raw_metadata all
+    present, just unwrapped).
+  - The old host (8004scan.io, no "api." subdomain) still answered both
+    endpoints correctly when checked, so this wasn't a hard cutover at
+    verification time — moved anyway, to track the real, current endpoint
+    rather than an about-to-be-deprecated one.
 """
 
 import asyncio
 import httpx
 
 MAINNET_CHAIN_ID = 56
+_8004SCAN_BASE = "https://api.8004scan.io"
 
 
 async def list_bsc_agents(
@@ -52,7 +70,7 @@ async def list_bsc_agents(
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 resp = await client.get(
-                    "https://8004scan.io/api/v1/agents",
+                    f"{_8004SCAN_BASE}/api/v1/agents",
                     params={"chainId": MAINNET_CHAIN_ID, "offset": offset, "limit": limit},
                     headers=headers,
                 )
@@ -86,7 +104,7 @@ async def list_bsc_agents(
 async def fetch_agent_detail(
     client: httpx.AsyncClient, api_key: str, token_id: int, chain_id: int = MAINNET_CHAIN_ID,
 ) -> dict | None:
-    """Real per-agent detail record from the richer /api/v1/public/* surface
+    """Real per-agent detail record from the richer per-agent detail surface
     — confirmed real, live Pro-tier access 2026-08-25 (3000/min, 3,000,000/
     day; re-verified with random uncacheable token IDs before use, same
     rigor as the original tier check). Returns None on any failure (missing
@@ -95,16 +113,23 @@ async def fetch_agent_detail(
     couldn't place (see categorize.py's re-classify step in aggregate.py) —
     real, measured cost check before wiring this in for every refresh: at
     Pro-tier limits, even several hundred of these extra calls per refresh
-    is nowhere near the 3M/day budget."""
+    is nowhere near the 3M/day budget.
+
+    Real host migration (2026-08-27): this path used to be
+    /api/v1/public/agents/{chain}/{id} on the old host, wrapped in
+    {"success": true, "data": {...}}. The new host dropped both the
+    "/public/" path segment and the wrapper — confirmed live, not assumed
+    — so this now hits /api/v1/agents/{chain}/{id} and returns the parsed
+    body directly."""
     try:
         resp = await client.get(
-            f"https://8004scan.io/api/v1/public/agents/{chain_id}/{token_id}",
+            f"{_8004SCAN_BASE}/api/v1/agents/{chain_id}/{token_id}",
             headers={"X-API-Key": api_key},
             timeout=15,
         )
         if resp.status_code != 200:
             return None
-        return resp.json().get("data")
+        return resp.json()
     except Exception:
         return None
 
