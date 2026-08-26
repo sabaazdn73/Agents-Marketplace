@@ -26,15 +26,6 @@ import {
 } from './erc8183';
 import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded, buildNotifyAuthorization } from './erc8183Negotiate';
 
-// The one real, confirmed seller-side convention (2026-08-24, live
-// stockanalyst-agent) for "this job's notify_funded call MUST carry a real
-// EIP-712-signed authorization or it's unconditionally rejected" — see
-// buildNotifyAuthorization's own docstring in erc8183Negotiate.js for the
-// full trace. Read off the NEGOTIATED terms (echoed back in the on-chain
-// description via buildJobDescription), not hardcoded to one agent —
-// general on purpose, any seller using this same convention gets the same
-// real treatment automatically.
-const NOTIFY_CONTEXT_REQUIRED_CRITERION = 'uomp_notify_context_required_v1';
 
 // Generic quality terms sent with every real negotiate attempt. Deliberately
 // broad/neutral — this flow doesn't know the specifics of an arbitrary
@@ -217,7 +208,6 @@ export function useHireAgent() {
       let finalDescription = description;
       let finalBudgetRaw = budgetRaw;
       let negotiationSucceeded = false;
-      let requiresNotifyAuthorization = false;
       try {
         const negotiationResult = await negotiateJob(providerAddress, description, DEFAULT_NEGOTIATE_TERMS);
         const price = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
@@ -227,7 +217,6 @@ export function useHireAgent() {
           // budget >= price); respect a higher user-chosen spend cap as-is.
           finalBudgetRaw = budgetRaw > price ? budgetRaw : price;
           negotiationSucceeded = true;
-          requiresNotifyAuthorization = negotiationResult.response?.terms?.success_criteria === NOTIFY_CONTEXT_REQUIRED_CRITERION;
         }
       } catch (e) {
         // Real, non-fatal: treat a malformed/unexpected negotiate response
@@ -320,13 +309,31 @@ export function useHireAgent() {
       let notifySucceeded = false;
       let notifyReason = null;
       try {
-        // Real, confirmed requirement (2026-08-24, see NOTIFY_CONTEXT_REQUIRED_CRITERION's
-        // own comment above): some sellers unconditionally reject notify_funded
-        // without a real EIP-712-signed authorization envelope. Build + sign one
-        // ONLY when the negotiated terms actually asked for it — no unnecessary
-        // wallet prompt for the many sellers (like our own explainer agent) that
-        // don't need this.
-        const authorization = requiresNotifyAuthorization
+        // Real fix, 2026-08-26: job #56659's real, live rejection
+        // ({'status':'rejected','reason':'authorization_required'}) proved the
+        // OLD gate here — building the authorization only when the negotiated
+        // terms echoed back a specific `success_criteria` string — was a real
+        // bug, not a real seller-side convention. Confirmed against the real
+        // reference source (stockanalyst-agent-demo's seller_core.py, read
+        // directly): the authorization requirement is NOT conditional on any
+        // negotiated term at all — a notify_funded call with no real
+        // authorization dict is rejected unconditionally, before any
+        // success_criteria check ever runs. There is no real, reliable signal
+        // in a negotiate response that announces "this seller needs one", so
+        // the only correct policy is to always attach one whenever we have the
+        // means to: a real negotiation succeeded, meaning this seller speaks
+        // the stricter A2A convention and newJobId/contracts.commerce are
+        // already on hand. Confirmed SAFE for sellers that don't need it, not
+        // just assumed — read our own explainer-agent's real notify_funded
+        // handler (explainer-agent/seller_core.py) directly: it only ever
+        // reads `data["job_id"]`, never inspects `authorization` at all, so an
+        // unused envelope is silently, harmlessly ignored there, and a real,
+        // live call against the current stockanalyst-agent negotiate response
+        // confirmed it never advertises this need via any response field
+        // either — the only sellers this now costs an extra signature prompt
+        // are ones that genuinely speak the strict negotiate convention, a
+        // real, worthwhile tradeoff against a job silently never delivering.
+        const authorization = negotiationSucceeded
           ? await buildNotifyAuthorization({
               chainId: bsc.id, verifyingContract: contracts.commerce, jobId: newJobId, signTypedDataAsync,
             })
