@@ -49,7 +49,7 @@ A real, 3-task, same-task comparison — each task run **twice**, once with an a
 
 - **Task 1 — security/trading risk check**: complete. A real Practice Mode Token Radar lookup (0.216s, $0) versus the same manual DexScreener check by hand (2m 00s) — the agent caught a real red flag (98× volume-to-liquidity) in a fraction of the time.
 - **Task 2 — DeFi execution (Venus Lending supply)**: honestly **blocked**, not hidden — an intermittent outside data-provider issue has kept this from completing reliably enough to record final numbers, stated as such in-app rather than filled in with an estimate.
-- **Task 3 — knowledge/content (the explainer agent)**: complete, with a real, paid mainnet delivery (job #56620, BSC mainnet, not a testnet) — the agent's real ~110-second build-to-delivery time and its real delivered content are both shown, alongside the same explanation written by hand for comparison.
+- **Task 3 — knowledge/content (the explainer agent)**: complete, with a real, paid mainnet delivery (job #56646, BSC mainnet, not a testnet) — the agent's real build-to-delivery time and its real, complete delivered content (real analogies, real on-chain examples, a plain-English glossary) are both shown, alongside the same explanation written by hand for comparison. Includes a real link to the exact agent (agent_id 270213) so its identity can be independently checked.
 
 A separate, real Practice Mode Activity panel on the same tab shows Mongo-aggregated stats across *all* practice runs (not this specific 3-task comparison) — kept as its own section since it answers a genuinely different question (general testing activity vs. one controlled comparison).
 
