@@ -1,6 +1,7 @@
 // useJobActions.js
 //
-// Real, direct-wagmi post-hire actions (dispute, claim refund) for jobs
+// Real, direct-wagmi post-hire actions (dispute, approve early, claim
+// refund) for jobs
 // hired through the DIRECT wagmi path (useHireAgent.js) — as opposed to
 // AltanaSessionPanel's jobs, which go through the Altana SDK relay
 // (settleErc8183Job/buildClaimRefundCall) because THAT wallet is an Altana
@@ -18,7 +19,7 @@
 import { useCallback } from 'react';
 import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
 import { bsc } from 'wagmi/chains';
-import { getContracts, AGENTIC_COMMERCE_ABI, OPTIMISTIC_POLICY_ABI } from './erc8183';
+import { getContracts, AGENTIC_COMMERCE_ABI, OPTIMISTIC_POLICY_ABI, EVALUATOR_ROUTER_ABI } from './erc8183';
 
 const RECEIPT_TIMEOUT_MS = 90_000; // same honest timeout as useHireAgent.js
 
@@ -59,6 +60,29 @@ export function useJobActions() {
     });
   }, [address, ensureChain, writeAndConfirm]);
 
+  /** Real, confirmed gap fixed here (full hire-flow audit, 2026-08-28): the
+   * router's own real `settle(jobId, evidence)` — a real, client-callable
+   * "approve early" action letting a satisfied buyer release payment
+   * immediately instead of waiting out the rest of the dispute window —
+   * was never wired to ANY button in this app, on either hire path, despite
+   * docs/README.md openly advertising "or you approve early" as a real
+   * feature. Confirmed by grep: zero call sites for router.settle anywhere
+   * in the actual UI before this fix (altana.js's own settleJob export was
+   * dead code, same gap on the Altana session path — see
+   * AltanaSessionPanel.jsx). Real, permanent action: once called, the job
+   * moves to COMPLETED and can no longer be disputed — the contract itself
+   * enforces the real eligibility rule (job must be SUBMITTED), not
+   * pre-guessed here, same discipline as claimRefundDirect below. */
+  const approveDirect = useCallback(async (jobId) => {
+    if (!address) throw new Error('Connect a wallet first.');
+    await ensureChain();
+    const contracts = getContracts(bsc.id);
+    return writeAndConfirm({
+      address: contracts.router, abi: EVALUATOR_ROUTER_ABI, functionName: 'settle',
+      args: [BigInt(jobId), '0x'],
+    });
+  }, [address, ensureChain, writeAndConfirm]);
+
   /** Real on-chain call to AgenticCommerce.claimRefund(jobId) — the
    * guaranteed exit for a FUNDED job whose deadline passed with no
    * delivery. Reverts if the job isn't actually eligible; we don't
@@ -75,5 +99,5 @@ export function useJobActions() {
     });
   }, [address, ensureChain, writeAndConfirm]);
 
-  return { disputeDirect, claimRefundDirect };
+  return { disputeDirect, approveDirect, claimRefundDirect };
 }

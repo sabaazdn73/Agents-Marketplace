@@ -11,7 +11,7 @@ import { Sparkles, Loader2, ExternalLink, XCircle } from 'lucide-react';
 import {
   getOrCreateAltanaWallet, grantMarketplaceSession, revokeMarketplaceSession,
   hireAgentWithSession, explorerLinkForWallet, ALTANA_EXPLORER_URL,
-  disputeJob,
+  disputeJob, settleJob,
 } from './altana';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
@@ -207,6 +207,16 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
                 onDispute={async (jobId) => {
                   await disputeJob(wallet, wallet.signer, jobId);
                   addNotification(`Job #${jobId}: Disputed`, "You've flagged this delivery as a problem; waiting on the outcome.");
+                }}
+                onApprove={async (jobId) => {
+                  // Real, confirmed gap fixed here (full hire-flow audit,
+                  // 2026-08-28): settleJob (altana.js) already wrapped the
+                  // SDK's real settleErc8183Job('approve') correctly but was
+                  // never actually called from anywhere — see
+                  // useJobActions.js's approveDirect for the matching fix on
+                  // the direct-wagmi path.
+                  await settleJob(wallet, wallet.signer, jobId, 'approve');
+                  addNotification(`Job #${jobId}: Payment released`, "You approved early — the agent has been paid.");
                 }}
               />
             </>

@@ -337,7 +337,7 @@ export const STATUS_DISPLAY_LABEL = {
 
 export default function JobStatusPanel({
   jobId, initialStatus, mutedBorder, accent,
-  onDispute, onClaimRefund,
+  onDispute, onApprove, onClaimRefund,
   agentLabel, agentLink,
 }) {
   const [status, setStatus] = useState(initialStatus || null);
@@ -427,6 +427,26 @@ export default function JobStatusPanel({
     try {
       await onDispute(jobId);
       await refresh(); // read the real status back — don't optimistically assume
+    } catch (e) {
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Real, confirmed gap fixed here (full hire-flow audit, 2026-08-28): the
+  // real "or you approve early" release-payment-now action was described in
+  // docs/README.md but never actually offered anywhere in the product — see
+  // useJobActions.js's approveDirect for the full trace. A real, permanent
+  // action (moves the job straight to COMPLETED, no more dispute after),
+  // so it's offered but never assumed — the contract enforces real
+  // eligibility, we just surface whatever it reports back.
+  const handleApprove = async () => {
+    if (!onApprove) return;
+    setBusy(true); setError(null);
+    try {
+      await onApprove(jobId);
+      await refresh();
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -597,6 +617,14 @@ export default function JobStatusPanel({
             </div>
           ) : (
             <div className="flex items-center gap-1.5 opacity-60"><FileText size={12} /> We can't find a result from the agent yet.</div>
+          )}
+          {submitted && onApprove && (
+            <>
+              <button onClick={handleApprove} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ color: accent, borderColor: accent + '4D' }}>
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Looks good — release payment now
+              </button>
+              <p className="text-[10px] opacity-50">Skips the rest of the waiting period and pays the agent immediately. Permanent — you can't dispute after this, so only do this once you're actually satisfied.</p>
+            </>
           )}
           {submitted && onDispute && (
             <>

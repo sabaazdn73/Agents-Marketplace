@@ -30,7 +30,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
   const { address, isConnected } = useAccount();
-  const { disputeDirect, claimRefundDirect } = useJobActions();
+  const { disputeDirect, approveDirect, claimRefundDirect } = useJobActions();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -95,6 +95,7 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
               mutedBorder={mutedBorder}
               accent={accent}
               onDispute={disputeDirect}
+              onApprove={approveDirect}
               onClaimRefund={claimRefundDirect}
             />
           </div>

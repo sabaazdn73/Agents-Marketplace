@@ -32,6 +32,7 @@ On top of that, Tnega adds a real **AgentAccessMarket** contract so agent creato
 | [Features](features.md) | Everything actually shipped and live today |
 | [Integrations](integrations.md) | Every real external data source/API this project depends on |
 | [Smart Contracts](smart-contracts.md) | Real deployed addresses, what each contract does, BscScan links |
+| [Hire-Flow Audit](hire-flow-audit.md) | The full hire flow checked step-by-step against the real ERC-8004/ERC-8183 spec text — bugs found and fixed, deliberate deviations, open questions |
 | [Getting Started](getting-started.md) | Real, accurate local development setup |
 | [Known Limitations](limitations.md) | Honest, current gaps — nothing hidden |
 | [Hackathon Context](hackathon.md) | The real tracks and partners this was built for |

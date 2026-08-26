@@ -33,6 +33,34 @@ import {
 } from '@altananetwork/sdk';
 import { createPublicClient, http, hexToString } from 'viem';
 import { bsc } from 'viem/chains';
+import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded } from './erc8183Negotiate';
+
+// Real, confirmed structural bug (full hire-flow audit, 2026-08-28): this
+// Altana "Autonomous" session path NEVER called negotiate or notify_funded —
+// not "missed the same fix" the direct path got, it never had EITHER
+// mechanism at all. Confirmed by reading the installed SDK's own
+// hireErc8183Agent (node_modules/@altananetwork/sdk/dist/erc8183.js):
+// buildHireCalls() sets the on-chain `description` to `params.task`
+// VERBATIM — a plain string, exactly the shape that caused job #56636's
+// PERMANENT rejection on the direct path before negotiate existed. Any
+// strict ERC-8183 seller (our own explainer-agent included — see
+// bnbagent_studio_core.erc8183.verify.verify_signed_job) would reject
+// every Autonomous-mode hire the same way. And since hireErc8183Agent only
+// ever does the 5 on-chain calls, notify_funded was never sent either — a
+// seller's own background sweep is the only remaining trigger, which per
+// explainer-agent/seller_core.py's own docstring only runs as a side effect
+// of ANOTHER buyer's notify landing first.
+//
+// This had never surfaced in a real incident because no real, complete hire
+// has gone through this path yet (see docs/limitations.md's own honest
+// note on that). Fixed below by mirroring useHireAgent.js's real sequence:
+// negotiate first (build the same signed-quote description a strict seller
+// requires), then notify_funded (best-effort, non-fatal) right after the
+// atomic on-chain batch confirms.
+const DEFAULT_NEGOTIATE_TERMS = {
+  deliverables: 'A completed response to the task described above.',
+  quality_standards: 'Accurate, on-topic, and responsive to what was asked.',
+};
 
 // Same real event the installed SDK's own getErc8183DeliverableUrl() looks
 // for (POLICY_INITIALISED_EVENT in erc8183.js) — redefined here because
@@ -150,14 +178,61 @@ export async function grantMarketplaceSession(wallet, adminSigner, { spendCapUni
 /**
  * Hires a real agent THROUGH the granted session (session path of
  * hireErc8183Agent), not the admin key. One atomic relay intent
- * (createJob + registerJob + setBudget + approve + fund).
+ * (createJob + registerJob + setBudget + approve + fund) — negotiated
+ * first, notified after, exactly like the direct-wagmi path (see this
+ * module's own top-of-file note for the real gap this closes).
+ *
+ * Real, honest limitation NOT fixed here, documented rather than silently
+ * glossed over (see docs/hire-flow-audit.md for the full trace): a seller
+ * that requires the STRICTER EIP-712-signed notify_funded authorization
+ * (e.g. the live stockanalyst-agent) verifies that signature with plain
+ * ecrecover against an EOA (confirmed by reading its real
+ * notify_security.py). An Altana session wallet is a passkey-controlled
+ * smart account — its only typed-data signing method
+ * (client.signOrderTypedData) produces an ERC-1271-WRAPPED signature meant
+ * for an on-chain isValidSignature() call, which an off-chain ecrecover
+ * check can never validate; there is no raw EOA key this flow could sign
+ * with instead. So notify_funded is sent here WITHOUT an authorization
+ * envelope — safe for sellers that don't require one (same reasoning as
+ * useHireAgent.js: our own explainer-agent never reads that field), but a
+ * seller that unconditionally requires one will still reject the
+ * notification (non-fatal — the job is already funded regardless, and its
+ * own background sweep may still pick it up).
  */
 export async function hireAgentWithSession(session, { providerAddress, task, budgetUnits }) {
-  return hireErc8183Agent(session, {
+  let finalTask = task;
+  let finalBudgetUnits = budgetUnits;
+  try {
+    const negotiationResult = await negotiateJob(providerAddress, task, DEFAULT_NEGOTIATE_TERMS);
+    const priceRaw = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
+    if (negotiationResult && priceRaw != null) {
+      finalTask = buildJobDescription(negotiationResult);
+      // Never fund less than the agreed price — same rule as the direct
+      // path. $U is confirmed 18 decimals (ERC8183_ADDRESSES.paymentToken).
+      const priceUnits = Number(priceRaw) / 1e18;
+      finalBudgetUnits = budgetUnits > priceUnits ? budgetUnits : priceUnits;
+    }
+  } catch (e) {
+    // Real, non-fatal — same fallback rule as the direct path: any failure
+    // here (agent doesn't support negotiate, isn't reachable, or genuinely
+    // rejected the terms) just means the plain description is used, same
+    // as before this fix.
+  }
+
+  const result = await hireErc8183Agent(session, {
     provider: providerAddress,
-    task,
-    budget: BigInt(Math.round(budgetUnits * 1e18)),
+    task: finalTask,
+    budget: BigInt(Math.round(finalBudgetUnits * 1e18)),
   }, { network });
+
+  try {
+    await notifyFunded(providerAddress, result.jobId, null);
+  } catch (e) {
+    // Real, non-fatal — the job is already funded on-chain regardless; see
+    // this function's own docstring for why no authorization is attempted.
+  }
+
+  return result;
 }
 
 export async function getJobStatus(jobId) {
