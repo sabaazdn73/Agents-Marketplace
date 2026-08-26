@@ -39,19 +39,17 @@ Everything below is real and live on [tnega.app](https://tnega.app) as of this w
 - **"Sell Your Agent"** (`AgentAccessMarket`) — list an agent you own for sale under one of two real pricing models (one-time license or subscription), in a choice of three real tokens (native BNB, USDT, `$U`), with a live-read, owner-tunable platform fee (currently 2.5%). See [Smart Contracts](smart-contracts.md).
 - **Creator earnings panel** — real, on-chain, pull-based withdrawable balances per token.
 
-## Practice Mode
+## Altana Skills
 
-A live fork of BSC mainnet with free faucet funds, so any of the ten real Altana Skills (PancakeSwap trading/liquidity, Venus/Aave lending, Lista staking, four.meme, copy-trade detection, wallet tracking, token radar, x402 payments) can be tried against real contract state at zero cost. Every real practice run is permanently recorded in MongoDB, keyed by wallet, and viewable in-app regardless of whether the underlying fork itself has since reset. See [Architecture](architecture.md#practice-layer).
+Ten real, pre-built, fork-tested Skills from Altana's public registry (PancakeSwap trading/liquidity, Venus/Aave lending, Lista staking, four.meme, copy-trade detection, wallet tracking, token radar, x402 payments) — no building required. Running a transaction Skill for real creates a passkey wallet and grants a scoped, revocable on-chain Altana session (a spend cap, an expiry, and an allow-list of exactly which contracts it may touch); read-only/detection Skills need no wallet at all.
 
 ## Advantage Report
 
 A real, 3-task, same-task comparison — each task run **twice**, once with an agent and once by hand, timed and costed both ways, on the "Report" tab. Real, current status per task, honestly labeled in-app (not averaged or estimated away):
 
-- **Task 1 — security/trading risk check**: complete. A real Practice Mode Token Radar lookup (0.216s, $0) versus the same manual DexScreener check by hand (2m 00s) — the agent caught a real red flag (98× volume-to-liquidity) in a fraction of the time.
+- **Task 1 — security/trading risk check**: complete. A real Token Radar skill lookup (0.216s, $0) versus the same manual DexScreener check by hand (2m 00s) — the agent caught a real red flag (98× volume-to-liquidity) in a fraction of the time.
 - **Task 2 — DeFi execution (Venus Lending supply)**: honestly **blocked**, not hidden — an intermittent outside data-provider issue has kept this from completing reliably enough to record final numbers, stated as such in-app rather than filled in with an estimate.
 - **Task 3 — knowledge/content (the explainer agent)**: complete, with a real, paid mainnet delivery (job #56646, BSC mainnet, not a testnet) — the agent's real build-to-delivery time and its real, complete delivered content (real analogies, real on-chain examples, a plain-English glossary) are both shown, alongside the same explanation written by hand for comparison. Includes a real link to the exact agent (agent_id 270213) so its identity can be independently checked.
-
-A separate, real Practice Mode Activity panel on the same tab shows Mongo-aggregated stats across *all* practice runs (not this specific 3-task comparison) — kept as its own section since it answers a genuinely different question (general testing activity vs. one controlled comparison).
 
 ## Standalone pages
 

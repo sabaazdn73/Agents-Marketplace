@@ -40,7 +40,7 @@ import time
 import httpx
 
 from adapters.bsc_balance import _rpc_url as _bsc_rpc_url
-from core.practice_layer import get_db
+from core.db import get_db
 
 _EXPLAINER_AGENT_PING_URL = "https://explainer-agent.onrender.com/ping"
 _TIMEOUT = 10.0

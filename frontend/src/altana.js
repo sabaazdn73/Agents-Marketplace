@@ -87,11 +87,9 @@ export function getMainnetReadClient() {
 }
 
 /**
- * Real-mode executor. Same shape the skill modules consume in practice mode
- * ({ walletAddress, publicClient, execute(calls) }), but writes go through the
- * granted Altana session (one atomic relay intent) and reads use BSC mainnet.
- * This is the abstraction that lets one skill implementation serve both the
- * real Altana path and the Anvil practice path with no branching in the skill.
+ * Real executor ({ walletAddress, publicClient, execute(calls) }) — writes go
+ * through the granted Altana session (one atomic relay intent), reads use
+ * BSC mainnet.
  */
 export function getAltanaExecutor(session) {
   return {

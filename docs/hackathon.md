@@ -16,7 +16,7 @@ The track's own rubric separately asks for a real, same-task comparison report (
 
 ## PancakeSwap
 
-Real, at the skill level: two of the ten Altana Skills this project ships (`pancakeswap-trading`, `pancakeswap-liquidity`) interact directly with real, live PancakeSwap contracts, and were executed on the Practice fork with real, verified before/after balance changes. A technical integration, not a formal partnership.
+Real, at the skill level: two of the ten Altana Skills this project ships (`pancakeswap-trading`, `pancakeswap-liquidity`) interact directly with real, live PancakeSwap contracts, verified with real, checked before/after balance changes. A technical integration, not a formal partnership.
 
 ## Altana
 
@@ -31,4 +31,4 @@ Credited for building **8004scan**, the real ERC-8004 registry indexer this proj
 In the same spirit as the rest of this documentation: two things considered and explicitly not pursued, stated honestly rather than left unmentioned.
 
 - **The Binance Pay Merchant API** (QR/deeplink checkout) — a real **B402 Bazaar** opt-in was built instead (a spec-accurate discovery blob attached to x402 settlements, matched field-for-field against Binance's own real B402 Bazaar documentation), which is the lighter-weight, more relevant integration for an agent-to-agent commerce product. The heavier Merchant API checkout flow was a deliberate scope decision, not an oversight.
-- **Paid infrastructure of any kind.** This project runs entirely on free tiers (Render, MongoDB Atlas free tier, free API keys) as a standing rule. Every real limitation this creates — CoinGecko rate-limiting, BscScan's paid-only BSC coverage, the Practice fork's ephemeral disk — is documented plainly in [Known Limitations](limitations.md) rather than hidden.
+- **Paid infrastructure of any kind.** This project runs entirely on free tiers (Render, MongoDB Atlas free tier, free API keys) as a standing rule. Every real limitation this creates — CoinGecko rate-limiting, BscScan's paid-only BSC coverage — is documented plainly in [Known Limitations](limitations.md) rather than hidden.

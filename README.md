@@ -4,8 +4,7 @@
 
 A **mainnet-only BSC** marketplace for **BNB Agent Studio** agents: discover
 on-chain agents, hire them through the real **ERC-8183** job-escrow protocol,
-and run ready-made **Altana Skills** — with a **Practice Layer** (a live BSC
-fork) to try anything for free before spending real money.
+and run ready-made **Altana Skills**.
 
 Built for BNB Chain's "Smart Money Era" hackathon. Full documentation: **[docs/](docs/README.md)**.
 
@@ -38,9 +37,8 @@ agent-category counts.
   connected wallet (wagmi/RainbowKit/Privy) or **Altana's passkey wallet SDK**
   (`@altananetwork/sdk`) with on-chain, scoped, revocable sessions. The backend
   never holds a private key.
-- **Layout:** a FastAPI backend (read-only data + the Practice Layer proxy) and
-  a Vite/React frontend (web + a separate mobile app). A single Docker service
-  hosts the Anvil practice fork.
+- **Layout:** a FastAPI backend (read-only data + hire-adjacent writes) and a
+  Vite/React frontend (web + a separate mobile app).
 
 ---
 
@@ -93,11 +91,10 @@ own `SKILL.md` and BscScan this session.
 | Token Radar (DexScreener) | read-only | ✅ live: returned 20 trending BSC tokens |
 | x402 API Payments | pay (real session) | 🔷 wiring verified; **live payment settlement not tested** (needs a real x402-protected URL + facilitator) |
 
-- The six **tx** skills were each executed on the Practice fork with **real
-  before/after balance proofs**. (Five were driven at the exact on-chain
-  call-sequence level via `cast`; **Venus** was additionally run through the
-  actual React UI end-to-end — the same executor → proxy → Anvil path the other
-  five share.)
+- The six **tx** skills were each verified with **real before/after balance
+  proofs** at the exact on-chain call-sequence level via `cast`, against a
+  real forked copy of BSC mainnet used only for that verification pass (not
+  a live product feature).
 - **Copy Trade is wired detection-only (mirroring not connected)**; Wallet
   Tracker and Token Radar are read-only by design. They detect/read a wallet's
   trades from RPC logs. Copy Trade and Wallet Tracker were fixed this session (a
@@ -107,41 +104,13 @@ own `SKILL.md` and BscScan this session.
   refuses these queries). Scan depth is `VITE_SKILL_SCAN_BLOCKS` (default 1000
   blocks).
 
-### Practice Layer (the "try before you spend" fork)
-A **self-hosted Anvil fork of live BSC mainnet**, so users can run any
-agent/skill with free faucet funds against real contracts/liquidity, at zero
-cost and zero risk. Every practice run is **permanently recorded in MongoDB**,
-keyed by wallet address, and viewable in-app (`AltanaSkillsPanel` history
-panel).
-
-**Deployment & security model** — packaged as **one public Docker Web Service**
-(Render free tier). Inside the container:
-- **Anvil** binds `127.0.0.1:8545` only (never public).
-- A tiny stdlib gateway (`anvil/gateway.py`) is the only thing on the public
-  port, with two doors:
-  - **Public door** (`/`): forwards to Anvil **only** for allow-listed safe
-    methods (`eth_*`, `eth_sendRawTransaction`). Admin cheats
-    (`anvil_*`/`hardhat_*`/`evm_*`) are **refused (403)**.
-  - **Authenticated door** (`/admin/rpc`): requires `X-Admin-Key` (shared
-    secret, constant-time compare); forwards **anvil_\* cheats unfiltered**.
-    Only the backend knows the key — this is how funding runs.
-- Funding: native BNB via `anvil_setBalance`; ERC-20 via **whale impersonation**
-  (`anvil_impersonateAccount` a Binance hot wallet → transfer), since Anvil has
-  no `setErc20Balance`.
-
-Status: ✅ **verified live this session** — the Docker image builds and runs;
-the public door refuses `anvil_setBalance` (403) while the authenticated door
-funds successfully (real +1000 USDT delta on-chain); a full run through the
-**real React UI** (Practice Mode toggle → Venus supply) landed on-chain and
-recorded to MongoDB with zero console errors; funding, persistence across
-calls, and the Mongo record→history round-trip all confirmed.
-
-⚠️ **Free-tier caveats (honest):** no persistent disk → the fork **re-forks
-fresh on every restart/idle-spin-down** (in-fork positions reset; the MongoDB
-history is unaffected). One **shared** fork for all users (griefable, fake
-money). ~512 MB RAM → possible OOM under load. `FORK_RPC_URL` **must be an
-archive-capable BSC RPC** (e.g. dRPC) — pruned public endpoints crash Anvil
-with "missing trie node".
+> **Removed, 2026-08-26:** this project previously also included a Practice
+> Layer (a self-hosted Anvil fork of BSC mainnet, so users could try any
+> agent/skill with free faucet funds). It has been fully removed — real
+> user decision, given repeated free-tier infrastructure instability on
+> the fork that risked giving a fake/unreliable impression outweighing its
+> real trust value. See [docs/limitations.md](docs/limitations.md) for
+> what's true today.
 
 ### Build Your Agent (bag CLI)
 `core/agent_builder.py` shells out to the real **`bag` CLI** (`bnbagent-studio`)
@@ -172,18 +141,12 @@ deploy to the free ~48h platform trial.
   (`VITE_MAINNET_READ_RPC`); they won't work on the default public RPC.
 - ⚠️ **8004scan agent discovery** not re-called live this session (needs an API
   key); relies on an earlier session's confirmation.
-- ⚠️ **Practice funding (`/api/practice/fund`) is broken live again**, as of
-  2026-08-17 — a *different* failure than the 08-14 admin-key mismatch (that
-  part now authenticates fine): `anvil_setBalance` is failing with a
-  "Temporary internal error" from the fork's upstream archive RPC
-  (`FORK_RPC_URL`, dRPC free tier), reproduced twice with fresh trace IDs.
-  Reads/records still work; only funding is affected.
 
 ---
 
 ## Partner-track alignment
 
-> Full, current, honest architecture + status + partner details live in **[docs/hackathon.md](docs/hackathon.md)** (authoritative — supersedes the older `DOCS.md`, kept below for historical record only).
+> Full, current, honest architecture + status + partner details live in **[docs/hackathon.md](docs/hackathon.md)** (authoritative).
 
 - **Altana** — the core of the build: passkey wallets, real on-chain sessions
   (spend cap + expiry + revocation), the 10-skill Skills Registry integration,
@@ -218,10 +181,9 @@ cp .env.example .env                      # fill in real values (see below)
 uvicorn server:app --reload --port 8000
 ```
 Real backend env (`backend/.env.example`): `SCAN_8004_API_KEY`, `MONGODB_URI`,
-`MONGODB_DB_NAME`, and the Practice Layer vars `PRACTICE_RPC_URL` /
-`PRACTICE_ADMIN_URL` / `PRACTICE_ADMIN_KEY`. (Optional: `AGENT_BUILDS_ROOT`,
-`BAG_BIN` for the build feature — both have defaults.) `bnbagent-studio` (the
-`bag` CLI) is only needed for "Build Your Agent".
+`MONGODB_DB_NAME`. (Optional: `AGENT_BUILDS_ROOT`, `BAG_BIN` for the build
+feature — both have defaults.) `bnbagent-studio` (the `bag` CLI) is only
+needed for "Build Your Agent".
 
 ### Frontend (Vite + React)
 ```bash
@@ -231,18 +193,8 @@ cp .env.example .env                      # optional in local dev; defaults assu
 npm run dev                               # or: npm run build
 ```
 Frontend env (`frontend/.env.example`): `VITE_API_BASE_URL`,
-`VITE_PRACTICE_RPC_URL`, `VITE_MAINNET_READ_RPC`, `VITE_SKILL_SCAN_BLOCKS`,
-`VITE_PRIVY_APP_ID`, `VITE_WALLETCONNECT_PROJECT_ID`.
-
-### Practice fork (Anvil)
-- **Local:** run `anvil --fork-url <archive-BSC-RPC> --host 127.0.0.1 --port
-  8545 --chain-id 56`, then `PORT=8546 PRACTICE_ADMIN_KEY=<secret> python3
-  anvil/gateway.py`. Point the backend's `PRACTICE_RPC_URL` at the gateway.
-- **Deploy (Render Blueprint):** `render.yaml` defines a public Docker **Web
-  Service** from `anvil/Dockerfile`. Set `FORK_RPC_URL` (archive BSC RPC, e.g.
-  dRPC) and `PRACTICE_ADMIN_KEY`. Then on the backend set `PRACTICE_RPC_URL` =
-  the service's public URL, `PRACTICE_ADMIN_URL` = `<url>/admin/rpc`, and the
-  same `PRACTICE_ADMIN_KEY`.
+`VITE_MAINNET_READ_RPC`, `VITE_SKILL_SCAN_BLOCKS`, `VITE_PRIVY_APP_ID`,
+`VITE_WALLETCONNECT_PROJECT_ID`.
 
 ---
 
@@ -250,28 +202,23 @@ Frontend env (`frontend/.env.example`): `VITE_API_BASE_URL`,
 
 ```
 backend/
-  server.py                FastAPI app: /api/agents, /api/practice/*, /api/build/*
+  server.py                FastAPI app: /api/agents, /api/build/*, hire-adjacent routes
   core/
     aggregate.py           combines 8004scan + categorize + DefiLlama (mainnet-only)
     categorize.py          18-category keyword taxonomy (no LLM)
     agent_builder.py       real `bag` CLI pipeline (Build Your Agent)
-    practice_layer.py      Anvil-fork funding (admin door) + MongoDB history
+    db.py                  the one shared MongoDB client
   adapters/
     bsc.py                 8004scan mainnet agent reads
     defillama.py           TVL enrichment
   requirements.txt
-anvil/
-  Dockerfile               foundry + python3, one public Web Service
-  gateway.py               public-filtered + authenticated-admin RPC gateway
-  entrypoint.sh            starts Anvil (localhost) + gateway (public port)
 frontend/src/
   AgentMarketplaceApp.web.jsx / .mobile.jsx    the two apps
   altana.js                Altana SDK: passkey wallet, sessions, hire, executors
   erc8183.js / useHireAgent.js                 direct wagmi ERC-8183 hire
-  AltanaSkillsPanel.jsx    the 10 skills UI + Practice Mode + history viewer
+  AltanaSkillsPanel.jsx    the 10 Altana Skills UI
   AltanaSessionPanel.jsx   Altana session grant/hire/revoke UI
-  practiceWallet.js        practice burner wallet + executor
   defiSkills.js / fourMemeSkill.js / pancakeswapSkill.js   tx skills
   copyTradeSkill.js / researchSkills.js / x402Skill.js     read-only + pay skills
-render.yaml                Render Blueprint for the Anvil practice fork
+render.yaml                Render Blueprint for the explainer-agent service
 ```

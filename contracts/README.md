@@ -48,7 +48,7 @@ Run the fork tests (real BSC state — real USDT + real ERC-8004 registry):
 ```
 forge test --fork-url https://bsc-dataseed.binance.org -vv
 ```
-Real deploy + real purchase on a local Anvil fork (the Practice Layer):
+Real deploy + real purchase on a local Anvil fork (Foundry's own test tooling, unrelated to any product feature):
 ```
 BSC_RPC=https://bsc-dataseed.binance.org bash script/fork_demo.sh
 ```

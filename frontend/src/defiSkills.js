@@ -7,9 +7,8 @@
 // transaction alone doesn't mean the operation succeeded".
 //
 // Execution is done through an injected `executor` ({ walletAddress,
-// publicClient, execute(calls) }) so the SAME skill logic serves both the
-// real Altana session path (altana.js getAltanaExecutor) and the Anvil
-// practice path (practiceWallet.js getPracticeExecutor) with no branching.
+// publicClient, execute(calls) }) — the real Altana session path
+// (altana.js getAltanaExecutor).
 
 import { encodeFunctionData, parseAbi } from 'viem';
 

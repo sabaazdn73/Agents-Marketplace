@@ -4,8 +4,7 @@
 // function behavior copied exactly from the skill's own SKILL.md.
 //
 // Execution goes through an injected `executor` ({ walletAddress,
-// publicClient, execute(calls) }), so the same logic serves both the real
-// Altana session path and the Anvil practice path with no branching.
+// publicClient, execute(calls) }) — the real Altana session path.
 
 import { encodeFunctionData, parseAbi } from 'viem';
 

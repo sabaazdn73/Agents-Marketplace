@@ -2,9 +2,7 @@
 agent_performance.py
 
 Real per-agent track record, read from on-chain ERC-8183 job history — the
-answer to "how well has THIS agent performed when people actually hire it",
-which is different from the Practice-Layer report (general Practice-Mode testing
-activity, not a specific agent's real hires).
+answer to "how well has THIS agent performed when people actually hire it".
 
 Also the real backing for "My Agents" (get_my_jobs) — same scan, same window,
 just indexed by job.client instead of job.provider. Investigated honestly before

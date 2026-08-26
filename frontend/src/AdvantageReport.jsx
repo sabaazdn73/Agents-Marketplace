@@ -8,10 +8,10 @@
 // was actually measured, with honest gaps left as TODOs rather than filled
 // with placeholder-looking fake data.
 //
-// Real, deliberate scoping: this replaced nothing — it's new content added
-// above the existing real Practice-Layer stats (general testing activity
-// across all users), which is a genuinely different, still-real, still-
-// useful report that stays as its own section below.
+// Real, deliberate scoping: this is the entire Report tab's content — the
+// Practice Layer this once sat above (general testing activity across all
+// users) was fully removed 2026-08-26, real user decision given repeated
+// free-tier infrastructure instability on its Anvil fork.
 
 import React from 'react';
 import { CheckCircle2, Clock, AlertTriangle, ExternalLink, ShieldAlert, Coins, GraduationCap } from 'lucide-react';
@@ -147,7 +147,7 @@ export default function AdvantageReport() {
 
       {/* Task 1 — COMPLETE */}
       <TaskCard icon={ShieldAlert} title="Task 1 — Security/trading risk check" statusLabel="Complete" statusColor="#10B981">
-        <Side label="With an agent (Practice Mode's Token Radar skill)">
+        <Side label="With an agent (Token Radar skill)">
           <Row label="Target" value="犇犇/WBNB" />
           <Row label="Time taken" value="0.216s" />
           <Row label="Cost" value="$0 (just looked something up)" />
@@ -163,7 +163,7 @@ export default function AdvantageReport() {
 
       {/* Task 2 — BLOCKED, honestly */}
       <TaskCard icon={Coins} title="Task 2 — DeFi execution (Venus Lending supply)" statusLabel="Blocked" statusColor="#F59E0B">
-        <Side label="With an agent (Practice Mode's Venus skill)">
+        <Side label="With an agent (Venus skill)">
           <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Blocked — intermittent outside data provider</div>
           <p className="text-[11px] text-gray-400 leading-relaxed">Has succeeded twice but not reliably enough yet to record final numbers.</p>
         </Side>

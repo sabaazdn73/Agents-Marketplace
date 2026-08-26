@@ -67,7 +67,7 @@ const SRC = {
 const LEARN_TOPICS = [
   { h: 'A wallet', p: 'An account that holds your crypto and approves payments — like a bank card, but only you control it. Here you can make one with Face ID, no password to write down.', tech: 'A wallet signs on-chain approvals. This app supports passkey wallets (WebAuthn/Face ID), so there\'s no seed phrase.', src: SRC.altana },
   { h: 'Gas', p: "The tiny fee normally paid to record something permanently — like a stamp on a letter. Registering an agent here is free; we cover that fee for you.", tech: 'A "paymaster" (MegaFuel) sponsors registration gas on BNB Chain.', src: SRC.sdk },
-  { h: 'Mainnet vs. practice', p: "Mainnet is the real network, where real money moves. Practice Mode is a free copy of it loaded with fake money, so you can try anything first at zero risk.", tech: 'Practice Mode runs against a "fork" — a live copy of mainnet state.' },
+  { h: 'Mainnet', p: "Mainnet is the real network, where real money moves — everything on this site happens on mainnet, not a test network.", tech: 'This is the real network. Nothing here is a simulation.' },
   { h: 'Escrow', p: 'When you hire an agent, your payment is held by the system, not the agent — it only gets paid once the work is accepted, and you can get it back if nothing is delivered.', tech: 'Your payment sits in an on-chain vault (AgenticCommerce) until settlement.', src: SRC.sdk },
   { h: 'The agent\'s ID card (ERC-8004)', p: "Every agent gets a permanent, public identity anyone can look up — like an ID card. Free to register.", tech: 'An on-chain ERC-721 identity token + a discoverable profile (name, description, endpoints).', src: SRC.sdk },
   { h: 'The payment rulebook (ERC-8183)', p: "A set of automatic rules that hold the money and enforce the deal, so neither you nor the agent has to just trust the other.", tech: 'Three contracts: AgenticCommerce (job + escrow), EvaluatorRouter (routes to a settlement policy), OptimisticPolicy (silence past the review window = approved).', src: SRC.sdk },
@@ -76,7 +76,7 @@ const LEARN_TOPICS = [
   { h: 'The stages a hire goes through', p: 'Not paid yet → Payment on hold → Delivered → Finished (paid) — or Refunded, if you cancel, dispute successfully, or the deadline passes with nothing delivered.', tech: 'OPEN → FUNDED → SUBMITTED → COMPLETED, or REJECTED / EXPIRED.', src: SRC.sdk },
   { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry — always available, guaranteed by the contract.', src: SRC.sdk },
   { h: "If something looks wrong", p: "You get a short window after delivery to flag a problem before payment is automatically released.", tech: 'Call dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
-  { h: 'Ready-made Skills + Practice Mode', p: "Skills are pre-built recipes an agent can run for you — no building required. You can try any of them for free first with practice money before using your own.", tech: "Fork-tested Skills from Altana's public registry, run via a passkey wallet + a capped, expiring session.", src: SRC.skills },
+  { h: 'Ready-made Skills', p: "Skills are pre-built recipes an agent can run for you — no building required, just a passkey wallet and a spending limit you set.", tech: "Fork-tested Skills from Altana's public registry, run via a passkey wallet + a capped, expiring session.", src: SRC.skills },
   { h: 'How agents are built: single agent', p: 'One agent handles the whole task itself, start to finish — reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here actually use — including our own explainer agent on the Advantage Report tab.', Diagram: SingleAgentDiagram, src: SRC.adk },
   { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another — each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
   { h: 'How agents are built: parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
@@ -104,7 +104,6 @@ const BUILD_STEPS = [
 // Beginner FAQ — mirrors the web app's, kept in sync.
 const KID_FRIENDLY_FAQ = [
   { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences; to build a custom agent you mostly edit one instruction paragraph, and to use a ready-made Skill you just fill in a form.', src: SRC.studioQuick },
-  { q: 'What is Practice Mode?', a: 'A free rehearsal. It runs a Skill on a live copy of BNB Chain with fake money, so you can see exactly what would happen before spending anything real. Your run history is saved even though the practice copy can reset.', src: SRC.venusSkill },
   { q: 'Can it spend my money without asking?', a: "No. Hiring funds one specific job you set and fund yourself; a Skill's spending permission has a cap, an expiry, and a limited list of what it can touch. Neither is a standing permission it can dip into freely.", src: SRC.sdk },
   { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes — but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
   { q: 'Do I need my own cloud hosting account to build one?', a: 'No. The build button uses a free trial (about 2 days) on a temporary practice wallet — no hosting account, no real money involved.', src: SRC.studio },
@@ -172,77 +171,6 @@ function useMarketplaceAgents() {
   }, []);
 
   return { agents, setAgents, loading, error };
-}
-
-const REPORT_ACCENT = '#4F46E5'; // app indigo — no green here (matches web)
-
-function reportTimeAgo(iso) {
-  if (!iso) return '—';
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '—';
-  const s = Math.floor((Date.now() - t) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-}
-
-// Mobile equivalent of the web PracticeStatsReport — same real endpoint, same
-// honest framing, same indigo accent. Functionally equivalent, not pixel-equal.
-function PracticeStatsReportMobile() {
-  const [stats, setStats] = useState(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_BASE_URL}/api/practice/stats`)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((d) => { if (!cancelled) { setStats(d); setLoading(false); } })
-      .catch((e) => { if (!cancelled) { setError(e.message); setLoading(false); } });
-    return () => { cancelled = true; };
-  }, []);
-
-  if (loading) return <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading practice stats…</div>;
-  if (error) return <div className="p-4 rounded-xl border border-red-500/30 bg-red-500/5 text-sm text-red-500">Couldn't load practice stats: {error}</div>;
-
-  const skills = stats?.skills || [];
-  const cards = [
-    { label: 'Runs', value: stats?.total_runs ?? 0, icon: Activity },
-    { label: 'Wallets', value: stats?.distinct_wallets ?? 0, icon: Users },
-    { label: 'Skills', value: stats?.skill_count ?? 0, icon: Zap },
-  ];
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-3 gap-3">
-        {cards.map((c) => {
-          const Icon = c.icon;
-          return (
-            <div key={c.label} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
-              <Icon size={16} className="mx-auto mb-1" style={{ color: REPORT_ACCENT }} />
-              <div className="text-lg font-bold">{c.value}</div>
-              <div className="text-[10px] text-gray-500">{c.label}</div>
-            </div>
-          );
-        })}
-      </div>
-      {skills.length === 0 ? (
-        <div className="p-4 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm text-gray-500">No practice runs yet. Try a skill in Practice Mode and its stats will show up here.</div>
-      ) : skills.map((s) => (
-        <div key={s.skill_id} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-between mb-2">
-            <div><div className="font-bold text-sm">{s.agent_name}</div><div className="text-[10px] font-mono text-gray-400">{s.skill_id}</div></div>
-            <span className="text-[9px] font-semibold uppercase px-2 py-1 rounded-full" style={{ background: 'rgba(79,70,229,0.10)', color: REPORT_ACCENT }}>{reportTimeAgo(s.last_ran_at)}</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <div><span className="font-bold" style={{ color: REPORT_ACCENT }}>{s.executions}</span> <span className="text-[10px] text-gray-500 uppercase">runs</span></div>
-            <div><span className="font-bold">{s.distinct_wallets}</span> <span className="text-[10px] text-gray-500 uppercase">wallets</span></div>
-            <div className="flex flex-wrap gap-1">{(s.actions || []).map((a) => <span key={a} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">{a}</span>)}</div>
-          </div>
-        </div>
-      ))}
-      {stats?.note && <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-200 dark:border-gray-800 pt-3">{stats.note}</p>}
-    </div>
-  );
 }
 
 const NAV_ITEMS = [
@@ -409,8 +337,6 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
       )}
       {state === 'ready' && (!perf || !perf.hired) ? (
         <>
-          {/* Practice Mode is now real on mobile (2026-08-19 port) — the real
-              working "try this skill" deep-link renders here too. */}
           <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" onTrySkill={onTrySkill} />
           {perf && <p className="text-[10px] text-gray-400 mt-1.5">We checked the last {perf.scanned_window} jobs on the whole marketplace and found none for this agent — it may just be new.</p>}
         </>
@@ -525,10 +451,6 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
-        <div className="mt-4 p-3 rounded-xl border border-gray-200 dark:border-gray-800 text-[11px] text-gray-500 dark:text-gray-400">
-          We don't yet track practice-run history per agent — only by which practice tool you tried under Build → Practice Mode. So there's nothing agent-specific to show here yet.
-        </div>
-
         <button onClick={() => onHire(agent)} className="w-full mt-5 py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform">
           Hire this agent →
         </button>
@@ -571,10 +493,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
-  // Real deep-link from the agent guidance panel's "Try in Practice Mode" —
+  // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
-  // Mirrors web's identical handleTrySkill now that Practice Mode is real
-  // on mobile too.
+  // Mirrors web's identical handleTrySkill.
   const [pendingSkillId, setPendingSkillId] = useState(null);
   const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); onNavChange?.('build'); };
   const [buildDescription, setBuildDescription] = useState('');
@@ -1076,13 +997,6 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <p className="text-sm text-gray-500">3 tasks, each done two ways — once using an agent, once by hand — so you can see the real time, cost, and quality difference for yourself.</p>
                 </div>
                 <AdvantageReport />
-
-                <div className="pt-4">
-                  <h2 className="text-2xl font-bold mb-1">Practice Mode Activity</h2>
-                  <p className="text-sm text-gray-500">Combined stats from actual Practice Mode runs on our live practice copy of the network.</p>
-                  <p className="text-[11px] text-gray-400 mt-1">Note: general Practice Mode <em>testing</em> activity, not a specific agent's real hire record — for that, open an agent and look for "Past Hires".</p>
-                </div>
-                <PracticeStatsReportMobile />
               </div>
             )}
 

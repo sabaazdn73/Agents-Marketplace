@@ -4,7 +4,7 @@ This project's whole development process has run on one rule: never hide a real 
 
 ## BSC mainnet only, by design
 
-Every user-facing part of Tnega — the marketplace, the hire flow, Practice Mode, Sell Your Agent — is scoped to BSC mainnet (chain 56). This is a deliberate scope decision, not an oversight, but it's worth being explicit about: agents registered on other chains ERC-8004 covers (Ethereum, Base, Arbitrum, and others) are not shown here.
+Every user-facing part of Tnega — the marketplace, the hire flow, Sell Your Agent — is scoped to BSC mainnet (chain 56). This is a deliberate scope decision, not an oversight, but it's worth being explicit about: agents registered on other chains ERC-8004 covers (Ethereum, Base, Arbitrum, and others) are not shown here.
 
 Real groundwork exists for expanding this: a separate background job fetches and durably stores real Ethereum-mainnet agent data (62 real agents at time of writing) into its own MongoDB collection, `future_multichain_agents` — deliberately isolated from the live-serving `known_agents` collection and never read by any route the frontend calls, so this cannot leak into the current BSC-only display even accidentally. It's a real, verified starting point for future multi-chain work, not yet a feature.
 
@@ -28,11 +28,9 @@ The BNB/USD price feature depends on CoinGecko's free, anonymous API tier, which
 
 A real BscScan API key is present in this project's configuration, but was deliberately never wired into any live feature: BscScan's legacy API is deprecated, and the current, unified Etherscan API requires a **paid plan for BSC coverage specifically** (confirmed live — the same key works fine against Ethereum's free tier, isolating this as a BSC-specific paid gate). BscScan is used only as a real block-explorer link target in the UI, never as a data source.
 
-## Practice Layer — free-tier, ephemeral fork state
+## Practice Mode — removed
 
-The Practice Layer's Anvil fork runs on Render's free tier, which has no persistent disk. The fork re-forks fresh from the latest real BSC block on every restart or idle spin-down — any in-fork position from a previous practice run resets. This is a real, accepted tradeoff of free hosting, not a bug: what's permanent is the *record* of what a user tried (every real practice run is written to MongoDB the moment it happens), which survives a fork reset even though the fork's own on-chain state doesn't.
-
-It's also a **shared fork** — every user practices against the same forked state, which means it's technically griefable (another user's practice transactions could affect what you see), though the funds involved are never real.
+This project previously included a Practice Layer: a self-hosted Anvil fork of live BSC mainnet, so users could try any agent/Skill with free faucet funds before spending anything real. It was fully removed 2026-08-26 — a real, deliberate product decision, not an oversight: the fork ran on Render's free tier with no persistent disk, re-forking fresh (and occasionally landing in a genuinely unreliable state) on every restart or idle spin-down, and that repeated infrastructure instability risked giving a fake/unreliable impression that outweighed the real trust value of a "try before you spend" sandbox. Every real Skill still runs for real, with a real, user-set spending limit — see [Features](features.md#altana-skills).
 
 ## Platform-wide zeros that are honest, not bugs
 

@@ -37,7 +37,6 @@ sys.stdout.reconfigure(line_buffering=True)
 
 from core.aggregate import get_marketplace_agents_as_dicts
 from core import agent_builder
-from core import practice_layer
 from core import agent_store
 from core import agent_performance
 from core import agent_health
@@ -53,9 +52,8 @@ app = FastAPI(title="Tnega API")
 
 # Wide open for local dev, tighten this (specific origins only) before
 # any real deployment, per this project's security rules. The API serves
-# both GET (agents, performance/history) and POST (practice init/fund/record
-# and the /api/practice/rpc proxy the browser's practice wallet depends on),
-# so cross-origin POST + its OPTIONS preflight must be allowed.
+# both GET (agents, performance/history) and POST (build, hire-adjacent
+# writes), so cross-origin POST + its OPTIONS preflight must be allowed.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -67,61 +65,29 @@ app.add_middleware(
 import time
 import asyncio
 
-# Real, best-effort keep-alive for this project's two other Render free-tier
-# services. Started 2026-08-21 for explainer-agent alone, after a real,
+# Real, best-effort keep-alive for the explainer-agent's own Render free-tier
+# instance (srv-da2api9t0dsc7392afdg) — added 2026-08-21 after a real,
 # confirmed incident: a user's /ping check and a real hire attempt both hit
 # the agent mid-idle-spindown-restart (a ~25-40s window where uvicorn isn't
 # accepting connections yet), even though nothing had crashed or regressed —
 # confirmed via direct Render log inspection (clean, repeating
 # shutdown/restart cycles, no OOM/error/rate-limit anywhere). Render's free
-# tier scales to zero after ~15 min of no traffic; a loop below pings each
-# target every 10 minutes (comfortably under that threshold) so neither
-# instance ideally ever goes idle long enough to spin down during real usage.
+# tier scales to zero after ~15 min of no traffic; this loop pings /ping every
+# 10 minutes (comfortably under that threshold) so the instance ideally never
+# goes idle long enough to spin down during real marketplace usage.
 #
-# Extended 2026-08-26 to also cover anvil-practice-fork, after Practice
-# Mode's reactive "wake it on demand" pattern (practice_layer.py's
-# single-flight coalescing) hit a THIRD real, confirmed 429/503 outage
-# despite two rounds of genuine fixes (a coalescing lock, then true
-# single-flight coalescing) — both correctly reduced redundant concurrent
-# requests, but real Render logs from this exact incident (2026-08-25
-# 19:35-19:39, cross-checked against three separate wake-probe cycles)
-# showed the fork returning a 429 on every single one of the shared probe's
-# 8 retries, all three times, over a ~4-minute span — a sustained
-# rate-limit on Render's end, not a coordination problem this backend's own
-# code can retry its way out of. The real, working fix already proven here
-# for explainer-agent is the right one: stop waking the fork reactively
-# on-demand (which is what produces the retry burst Render rate-limits in
-# the first place) and instead keep it from ever going fully cold during
-# normal usage. This is ADDITIVE to the coalescing fix, not a replacement
-# for it — a real user can still land in the rare genuinely-cold window
-# (e.g. right after this backend itself restarts, before the first ping
-# fires), and single-flight coalescing is still what makes that case
-# recover gracefully instead of a retry storm.
-#
-# Target's health endpoint, not a real RPC call: gateway.py's GET /health
-# is answered directly by the gateway process itself (no forward to Anvil),
-# so this ping is as lightweight as explainer-agent's /ping — enough to
-# keep the container's inbound-traffic clock from hitting Render's 15-min
-# idle threshold, without adding any real RPC load to Anvil.
+# Real removal, 2026-08-26: this briefly also covered anvil-practice-fork
+# (Practice Mode's Anvil fork), removed along with the rest of Practice
+# Mode — see git history if that's ever needed again.
 #
 # Honest limitation, stated plainly: THIS backend is also on Render's free
 # tier, so this loop only runs while server.py itself happens to be awake —
-# it reduces, but cannot fully eliminate, either target's cold-start window
-# (this server's own traffic pattern keeps it warm far more reliably than
-# either target's own low-traffic norm, but there is no guarantee). The
-# already-existing mitigations (agent_health.py's retry-with-backoff for
-# explainer-agent, and practice_layer.py's single-flight coalescing for the
-# fork) remain the real backstop for whatever this can't prevent.
-#
-# Interval: kept at the same 10 minutes as the original, proven
-# explainer-agent loop, deliberately NOT shortened for the fork. The 15-min
-# spin-down threshold is a Render platform constant, identical for both
-# services — it does not depend on either app's own cold-BOOT duration
-# (which only matters for the retry/backoff schedule once something IS
-# cold, a separate concern already handled in practice_layer.py). 10
-# minutes leaves the same 5-minute real margin under that threshold proven
-# to work for explainer-agent, with no real reason for the fork to need a
-# tighter one.
+# it reduces, but cannot fully eliminate, the explainer-agent's cold-start
+# window (this server's own traffic pattern keeps it warm far more reliably
+# than the explainer-agent's low-traffic norm, but there is no guarantee).
+# The already-existing mitigations (agent_health.py's retry-with-backoff,
+# and the explainer-agent's own pre-warm-on-startup) remain the real backstop
+# for whatever this can't prevent.
 _KEEPALIVE_TARGETS: list[tuple[str, str]] = [
     ("explainer-agent", "https://explainer-agent.onrender.com/ping"),
 ]
@@ -146,17 +112,7 @@ async def _keepalive_loop(name: str, url: str):
 
 @app.on_event("startup")
 async def _start_keepalive_pingers():
-    targets = list(_KEEPALIVE_TARGETS)
-    # anvil-practice-fork's URL is sourced from the same real
-    # PRACTICE_RPC_URL this backend already uses for every other practice
-    # call (practice_layer.get_practice_rpc()) — not a second hardcoded
-    # copy that could silently drift from what's actually configured.
-    try:
-        practice_rpc = practice_layer.get_practice_rpc()
-        targets.append(("anvil-practice-fork", practice_rpc.rstrip("/") + "/health"))
-    except RuntimeError as e:
-        print(f"[keepalive] skipping anvil-practice-fork (PRACTICE_RPC_URL not set): {e}")
-    for name, url in targets:
+    for name, url in _KEEPALIVE_TARGETS:
         asyncio.create_task(_keepalive_loop(name, url))
 
 
@@ -389,8 +345,12 @@ async def skills_registry():
 # hash-verified). It's just no longer exposed as a site widget.
 
 # NOTE: the old paper-trade feature (Tenderly simulate-and-persist) and its
-# read endpoints were removed — the Practice Layer (POST /api/practice/*) with
-# permanent MongoDB history is the real "try before you spend" mechanism now.
+# later replacement, the Practice Layer (self-hosted Anvil fork,
+# POST /api/practice/*), have both been removed — real user decision,
+# 2026-08-26: the fork's repeated free-tier infrastructure instability
+# risked giving a fake/unreliable impression that outweighed the real
+# trust value of a "try before you spend" sandbox. There is no
+# simulate-before-hire mechanism on this project anymore.
 
 
 # ── Hiring an agent (ERC-8183) now happens entirely CLIENT-SIDE ──
@@ -472,110 +432,6 @@ async def build_status(slug: str):
     if status is None:
         raise HTTPException(status_code=404, detail="Unknown build slug.")
     return status
-
-
-# ── Practice Layer (self-hosted Anvil fork of live BSC mainnet) ──
-# One long-lived Anvil instance (a Render Private Service) IS the shared,
-# persistent fork — it keeps state across separate calls, so no per-user
-# vnet is created. Its admin RPC (PRACTICE_RPC_URL) exposes anvil_* cheat
-# methods and stays SERVER-SIDE ONLY; the browser reaches the fork through
-# the allow-listed proxy below, never the admin RPC directly.
-
-
-_COLD_START_DETAIL = (
-    "Our practice system takes a nap when nobody's using it, and it's just waking "
-    "back up — that usually takes under a minute. We already tried a few times on "
-    "our end. Please try again in a few seconds; it should be ready now."
-)
-
-
-@app.post("/api/practice/init")
-async def practice_init():
-    """Confirms the Anvil practice fork is alive and returns its chain id and
-    current forked block. No vnet creation — Anvil is the persistent fork."""
-    try:
-        return await practice_layer.get_practice_status()
-    except practice_layer.PracticeForkWaking:
-        raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Couldn't reach the practice system right now: {e}")
-
-
-@app.post("/api/practice/fund")
-async def practice_fund(address: str, bnb_amount: float = 10.0):
-    """Real faucet funding on the persistent fork: native BNB via
-    anvil_setBalance, plus a starter USDT balance via whale impersonation
-    (BSC-USD, the token nearly every skill here actually uses)."""
-    try:
-        result = await practice_layer.fund_practice_wallet(
-            address, bnb_amount=bnb_amount,
-            tokens={practice_layer.USDT_BSC: 1000.0},  # generous starter USDT
-        )
-        return {"ok": True, "result": result}
-    except practice_layer.PracticeForkWaking:
-        raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Couldn't add practice money right now: {e}")
-
-
-# The browser's practice-mode wallet (viem) talks to the fork ONLY through
-# this proxy. Admin cheat methods (anvil_*, hardhat_*, evm_*) and unsigned
-# eth_sendTransaction are refused; the browser signs locally and submits via
-# eth_sendRawTransaction.
-_PRACTICE_RPC_ALLOWED = {
-    "eth_chainId", "eth_blockNumber", "eth_gasPrice", "eth_maxPriorityFeePerGas",
-    "eth_feeHistory", "eth_estimateGas", "eth_call", "eth_getBalance",
-    "eth_getCode", "eth_getStorageAt", "eth_getTransactionCount",
-    "eth_getTransactionByHash", "eth_getTransactionReceipt", "eth_getLogs",
-    "eth_getBlockByNumber", "eth_getBlockByHash", "eth_sendRawTransaction",
-    "net_version", "web3_clientVersion",
-}
-
-
-@app.post("/api/practice/rpc")
-async def practice_rpc(request: Request):
-    """Allow-listed JSON-RPC passthrough to the Anvil fork for the browser's
-    practice wallet, keeping the admin RPC and its cheat methods off the
-    public internet.
-
-    Real fix, 2026-08-24: this used to do a raw one-shot httpx call with NO
-    cold-start retry and NO coalescing — a real, confirmed cause of a
-    RECURRING version of the outage the earlier init/funding-only fix was
-    built for (see practice_layer.rpc_passthrough's own docstring for the
-    full trace). Now shares the exact same retry+coalescing core as
-    /api/practice/init and /api/practice/fund, so a 503 here carries the
-    same honest "still waking up" message instead of a raw 502 for what's
-    really just an ordinary cold start."""
-    body = await request.json()
-    calls = body if isinstance(body, list) else [body]
-    for call in calls:
-        method = call.get("method") if isinstance(call, dict) else None
-        if method not in _PRACTICE_RPC_ALLOWED:
-            raise HTTPException(status_code=403, detail=f"That action isn't allowed here: {method}")
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await practice_layer.rpc_passthrough(client, body)
-    except practice_layer.PracticeForkWaking:
-        raise HTTPException(status_code=503, detail=_COLD_START_DETAIL)
-    except httpx.HTTPError as e:
-        # Upstream Anvil fork unreachable — surface a clean 502 rather than an
-        # unhandled 500, so the browser can show "practice fork is down".
-        raise HTTPException(status_code=502, detail=f"Couldn't reach the practice system right now: {e}")
-    return Response(content=resp.content, media_type="application/json", status_code=resp.status_code)
-
-
-@app.post("/api/practice/record")
-async def practice_record(wallet_address: str, agent_id: str, agent_name: str, skill_id: str, action: str, result: dict):
-    """Persists one real practice run to MongoDB, keyed by wallet
-    address, per Saba's explicit requirement that history survive."""
-    await practice_layer.record_practice_run(wallet_address, agent_id, agent_name, skill_id, action, result)
-    return {"ok": True}
-
-
-@app.get("/api/practice/history/{wallet_address}")
-async def practice_history(wallet_address: str):
-    """Real, persisted practice history for one wallet."""
-    return await practice_layer.get_practice_history(wallet_address)
 
 
 @app.get("/api/agents/performance")
@@ -864,14 +720,3 @@ async def my_jobs(client_address: str):
             job["agent_name"] = None
 
     return result
-
-
-@app.get("/api/practice/stats")
-async def practice_stats():
-    """Real, aggregated practice-layer execution stats (per skill: real run
-    count, distinct wallets, actions exercised, last run). Powers the rebuilt
-    Advantage Report tab — real data, not the old fabricated comparison array."""
-    try:
-        return await practice_layer.get_practice_stats()
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Couldn't load practice stats right now: {e}")

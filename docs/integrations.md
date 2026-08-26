@@ -50,4 +50,4 @@ Every real external service Tnega depends on, what it's actually used for, and i
 
 ## MongoDB (Atlas)
 
-Not a third-party API in the same sense as the above, but a real, load-bearing piece of infrastructure: the durable store behind the agent listing, Practice Mode history, and the explainer-agent's deliverable durability fix. See [Architecture](architecture.md#data-layer) for the real collection list.
+Not a third-party API in the same sense as the above, but a real, load-bearing piece of infrastructure: the durable store behind the agent listing and the explainer-agent's deliverable durability fix. See [Architecture](architecture.md#data-layer) for the real collection list.

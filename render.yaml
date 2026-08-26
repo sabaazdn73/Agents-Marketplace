@@ -1,74 +1,37 @@
-# Render Blueprint for the Practice Layer's Anvil fork.
+# Render Blueprint for this project's standalone services.
 #
-# ONE public Docker WEB SERVICE (free tier — no card required). Inside the
-# container, Anvil binds 127.0.0.1:8545 (never public) and a tiny gateway on the
-# public port fronts it: a PUBLIC method-filtered door + an AUTHENTICATED
-# /admin/rpc door (shared secret). See anvil/Dockerfile and anvil/gateway.py.
-#
-# We use a Web Service (not a Private Service) because Render's FREE tier is
-# Web-Services-only; Private Services are paid. Localhost-bound Anvil + the
-# filtering gateway give equivalent safety at no cost.
-#
-# EPHEMERAL STATE (free tier): no persistent disk, so on every restart/redeploy
-# (including Render's ~15-min idle spin-down) the container re-forks FRESH from
-# the latest BSC block — in-fork practice positions reset. The PERMANENT record
-# of what each user tried lives in MongoDB (the practice_runs collection, served
-# by /api/practice/history) and is UNAFFECTED — it never lived on the fork.
-#
-# After deploy, on your BACKEND service set:
-#   PRACTICE_RPC_URL   = https://<this-service>.onrender.com        (public door)
-#   PRACTICE_ADMIN_URL = https://<this-service>.onrender.com/admin/rpc
-#   PRACTICE_ADMIN_KEY = <the SAME secret you set below>
-# The browser still talks only to the backend proxy (/api/practice/rpc); it
-# never sees this URL or the admin key.
-services:
-  - type: web
-    name: anvil-practice-fork
-    runtime: docker
-    dockerfilePath: ./anvil/Dockerfile
-    dockerContext: ./anvil
-    plan: free               # free Web Service; anvil forking is memory-hungry,
-                             # so watch for OOM on the 512MB free instance.
-    autoDeploy: false
-    healthCheckPath: /health  # gateway.py answers GET /health with 200
-    envVars:
-      # REQUIRED: an ARCHIVE-capable BSC RPC (see Dockerfile). Recommended: dRPC
-      # (drpc.org — confirmed free-tier BSC archive, ~210M compute units/month).
-      # Do NOT use pruned public endpoints (bsc-dataseed*, publicnode, ankr
-      # public) — they crash Anvil with "missing trie node".
-      - key: FORK_RPC_URL
-        sync: false
-      # Shared secret guarding the /admin/rpc door. Set the SAME value here and
-      # in the backend service's PRACTICE_ADMIN_KEY (any long random string).
-      - key: PRACTICE_ADMIN_KEY
-        sync: false
-    # No persistent disk (free tier): fork state is ephemeral and resets on
-    # restart — see EPHEMERAL STATE above. Add a `disk:` at /data (paid) plus
-    # `--state /data/anvil-state.json` in the entrypoint to make it durable.
+# Real removal, 2026-08-26: the Practice Layer's self-hosted Anvil fork
+# (service `anvil-practice-fork`) has been fully removed from this project
+# — real user decision, given repeated free-tier infrastructure
+# instability that risked giving a fake/unreliable impression outweighing
+# the real trust value of a "try before you spend" sandbox. If you deployed
+# that service on Render from an earlier version of this blueprint, delete
+# or suspend it manually from the Render dashboard — this file no longer
+# manages it, and it will not be recreated on a future blueprint sync.
 
+services:
   # Task 3's explainer agent (TermiX Advantage Report Q&A bot), self-hosted
   # on real BSC MAINNET — a real BNB Agent Studio seller agent, deliberately
   # NOT deployed via `bag deploy agent`'s AWS AgentCore path (this project's
   # standing rule: no paid/unknown-cost infrastructure anywhere). See
   # explainer-agent/Dockerfile's header comment for the real investigation
   # that confirmed this app has no hard AWS runtime dependency — it's a
-  # plain Starlette app served by plain uvicorn, same Web-Service pattern as
-  # the Anvil fork above.
+  # plain Starlette app served by plain uvicorn.
   #
-  # EPHEMERAL STATE (free tier, same real tradeoff as the Anvil fork):
-  # studio.toml's [storage].kind = "local" — a submitted deliverable lives on
-  # the container's own disk and would become unreadable across a
-  # restart/idle-cycle, even though its on-chain reference survives.
-  # Accepted for now; revisit if it becomes a real problem in practice.
+  # EPHEMERAL STATE (free tier): studio.toml's [storage].kind = "local" — a
+  # submitted deliverable lives on the container's own disk and would
+  # become unreadable across a restart/idle-cycle, even though its
+  # on-chain reference survives. Accepted for now; revisit if it becomes a
+  # real problem in practice.
   #
   # Real infrastructure kept intact for the TermiX Advantage Report (Task 3
-  # — real jobs #56611/#56616/#56620, hash-verified). No longer exposed as a
-  # site widget: the backend's /api/explainer-agent/ask endpoint + the
-  # frontend's "Ask our explainer agent" widget were removed 2026-08-20
-  # (real user feedback: paying + waiting up to 10 real minutes just to see
-  # a signed quote, no visible answer without payment, was confusing UX).
-  # This service, its own ERC8183_AGENT_URL below, and its real ERC-8004
-  # registration (agent_id 270213) are unaffected.
+  # — real jobs #56611/#56616/#56620/#56646, hash-verified). No longer
+  # exposed as a site widget: the backend's /api/explainer-agent/ask
+  # endpoint + the frontend's "Ask our explainer agent" widget were removed
+  # 2026-08-20 (real user feedback: paying + waiting up to 10 real minutes
+  # just to see a signed quote, no visible answer without payment, was
+  # confusing UX). This service, its own ERC8183_AGENT_URL below, and its
+  # real ERC-8004 registration (agent_id 270213) are unaffected.
   - type: web
     name: explainer-agent
     runtime: docker

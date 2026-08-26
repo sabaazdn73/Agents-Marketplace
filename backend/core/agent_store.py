@@ -51,7 +51,7 @@ philosophy above (flag soft and reversible, never erase).
 import re
 from datetime import datetime, timezone, timedelta
 
-from core.practice_layer import get_db  # reuse the one shared Mongo client
+from core.db import get_db
 from core.aggregate import _diversify   # same cluster-cap used at fetch time
 
 STALE_DAYS = 7          # not seen in any refresh for a week => possibly delisted

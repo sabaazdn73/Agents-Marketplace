@@ -32,7 +32,7 @@ import asyncio
 from datetime import datetime, timezone
 
 from adapters.multichain_agents import list_chain_agents
-from core.practice_layer import get_db
+from core.db import get_db
 
 # Real, current 8004scan coverage — see module docstring. Solana isn't
 # here on purpose: confirmed absent, not an oversight.

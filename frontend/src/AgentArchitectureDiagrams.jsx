@@ -11,8 +11,8 @@
 // the same real structural conventions, redrawn to match this site's own
 // indigo palette and dark mode.
 //
-// No diagramming/charting library pulled in for this — same call as
-// PracticeRunMarketContext.jsx's own hand-rolled sparkline: not worth a new
+// No diagramming/charting library pulled in for this — matching this
+// project's general preference for hand-rolled solutions over a new
 // dependency for a few shapes.
 //
 // Each diagram takes a `compact` prop (passed true on mobile's narrower

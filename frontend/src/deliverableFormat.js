@@ -3,8 +3,7 @@
 // Turns a delivered JSON payload's real content field into a light, safe
 // block structure for readable rendering. Not a full markdown-spec parser
 // — no library pulled in for this, matching this project's existing
-// hand-rolled-over-a-library choices elsewhere (e.g.
-// PracticeRunMarketContext.jsx's own sparkline) — just enough to handle
+// hand-rolled-over-a-library choices elsewhere — just enough to handle
 // what real agent output on this marketplace actually contains: headers,
 // bold/italic, bullet/numbered lists, simple tables, horizontal rules, and
 // paragraphs (confirmed against a real delivered payload — the explainer

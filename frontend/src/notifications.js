@@ -1,7 +1,7 @@
-// In-app notifications — scoped honestly to what the app can actually detect:
-// hired-job status changes (from polling getErc8183Job) and practice-mode runs
-// completing. No push/email; recent notifications persist in localStorage so
-// they survive a refresh. A window event keeps every mounted bell in sync.
+// In-app notifications — scoped honestly to what the app can actually
+// detect: hired-job status changes (from polling getErc8183Job). No push/
+// email; recent notifications persist in localStorage so they survive a
+// refresh. A window event keeps every mounted bell in sync.
 import { useState, useEffect } from 'react';
 
 const N_KEY = 'aam_notifications_v1';

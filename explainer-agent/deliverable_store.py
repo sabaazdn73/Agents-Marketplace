@@ -39,7 +39,7 @@ read Mongo FIRST (survives any restart/resume/redeploy) and only fall back to
 the (ephemeral) local copy for the narrow window before a Mongo write lands.
 
 Same MongoDB deployment the main backend already uses
-(``backend/core/practice_layer.py``) — ``MONGODB_URI`` / ``MONGODB_DB_NAME``,
+(``backend/core/db.py``) — ``MONGODB_URI`` / ``MONGODB_DB_NAME``,
 added to THIS service's own Render env (it had neither before this fix; the
 two services are otherwise independent). A dedicated collection
 (``explainer_deliverables``) so this never collides with the backend's own
