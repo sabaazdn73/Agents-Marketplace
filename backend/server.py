@@ -588,6 +588,20 @@ async def agent_perf(owner_address: str):
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
 
 
+@app.get("/api/agents/performance/bulk")
+async def agent_perf_bulk():
+    """Real, bulk on-chain track record for every provider seen in the
+    current scan window — the real data behind the marketplace's "Most
+    hired" / "Highest success rate" sort options. Same cache and window as
+    /api/agents/performance, just every owner at once instead of one at a
+    time, so sorting the whole marketplace doesn't mean one request per
+    agent."""
+    try:
+        return await agent_performance.get_all_agent_performance()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
+
+
 @app.get("/api/agents/wallet-portfolio")
 async def agent_wallet_portfolio(owner_address: str):
     """Real, OPT-IN wallet portfolio via Zerion (core/adapters/zerion.py) —

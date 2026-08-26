@@ -209,6 +209,54 @@ async def get_agent_performance(owner_address: str) -> dict:
     }
 
 
+def _win_rate(p: dict) -> float | None:
+    """Real win rate for the marketplace's "Highest success rate" sort —
+    a DIFFERENT, deliberately more lenient metric than get_agent_performance's
+    own `completion_rate` above (COMPLETED / (COMPLETED+REJECTED+EXPIRED)),
+    which is what the agent detail page's "Success Rate" stat already shows
+    and is left untouched here. This one counts SUBMITTED as a real success
+    signal too, not just COMPLETED: settlement is permissionless and
+    optimistic (silence past the review window auto-resolves to COMPLETED),
+    so an un-disputed SUBMITTED job is already a real, successful delivery,
+    just not yet formally settled on-chain — exactly the honest situation
+    job #56646 (the Advantage Report's own Task 3) was in. OPEN/FUNDED are
+    excluded from both sides: nothing has been delivered yet, so there's no
+    real verdict to count either way."""
+    successes = p["COMPLETED"] + p["SUBMITTED"]
+    failures = p["REJECTED"] + p["EXPIRED"]
+    total = successes + failures
+    return (successes / total) if total else None
+
+
+async def get_all_agent_performance() -> dict:
+    """Bulk version of get_agent_performance — the real data backing the
+    marketplace's "Most hired" / "Highest success rate" sort options.
+    Reuses the exact same cached scan (_ensure_fresh/_cache["by_provider"])
+    the single-owner lookup above already reads — zero extra RPC calls, just
+    exposes the whole index at once instead of one owner at a time, since a
+    marketplace-wide sort needs every real provider's numbers together, not
+    N sequential single-owner requests."""
+    await _ensure_fresh()
+    by_owner: dict[str, dict] = {}
+    for owner, p in _cache["by_provider"].items():
+        by_owner[owner] = {
+            "hire_count": p["total"],
+            "completed": p["COMPLETED"],
+            "submitted": p["SUBMITTED"],
+            "rejected": p["REJECTED"],
+            "expired": p["EXPIRED"],
+            "active": p["OPEN"] + p["FUNDED"],
+            "win_rate": _win_rate(p),
+        }
+    return {
+        "by_owner": by_owner,
+        "scanned_window": WINDOW,
+        "job_counter": _cache["job_counter"],
+        "window_from": _cache["window_from"],
+        "window_to": _cache["window_to"],
+    }
+
+
 async def get_my_jobs(client_address: str) -> dict:
     """Real ERC-8183 jobs where this wallet is the CLIENT (the "My Agents" tab),
     from the same recent-WINDOW scan used for agent performance — same honest

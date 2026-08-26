@@ -1,0 +1,70 @@
+// agentRanking.js
+//
+// Real ranking logic for the marketplace's "Most hired" / "Highest success
+// rate" sort options — built entirely on real, already-computed on-chain
+// data (agent_performance.py, via useAgentPerformanceBulk.js). No LLM
+// guessing, no fabricated composite score: these two sorts each rank by
+// exactly one real number, honestly labeled. Shared by web and mobile so
+// the tiering logic can't silently drift between them.
+//
+// Real handling for agents with zero or very few jobs (most agents right
+// now — per this session's own earlier findings, the large majority have
+// no real hires yet): a plain numeric sort would silently mix a genuine
+// 0-hire agent in among real track records wherever a tie lands, which
+// both crowds out the few agents that DO have a real history AND makes a
+// brand-new agent look ranked/judged on nothing. Real fix: TWO tiers, not
+// one sort — every agent with real history (by the chosen metric) ranked
+// first among themselves, every agent with none listed after, in the
+// marketplace's own default order (real score, the same baseline ranking
+// used everywhere else) — clearly distinguished by AgentCard/table row
+// (see hasRealHistory below), never silently interleaved.
+//
+// hireCount vs winRate treat "no real history" differently, both for real
+// reasons: 0 hires genuinely means nothing has happened yet, so hireCount
+// = 0 IS the no-history case. But for winRate, 0% (every resolved job
+// failed) is real, meaningful, bad-but-real history — genuinely different
+// from null (no job has resolved either way yet). Collapsing those two
+// would hide a real bad track record inside "no data yet", the opposite
+// of honest.
+
+export function agentHasRealHistory(agent, key) {
+  if (key === 'winRate') return agent.winRate != null;
+  return (agent.hireCount ?? 0) > 0;
+}
+
+/** Real tiered comparator for Array.prototype.sort — every agent WITH real
+ * history for `key` sorts first (best real number first); within that,
+ * winRate breaks ties by hireCount (a 100% record on 1 job doesn't
+ * outrank a 96% record on 50 jobs just because they'd otherwise tie on
+ * the rounded real percentage). Every agent with no real history for this
+ * metric sorts after, by the marketplace's own default order (real
+ * score) — never scored on a metric it has no real data for. */
+export function performanceComparator(key) {
+  return (a, b) => {
+    const aHas = agentHasRealHistory(a, key);
+    const bHas = agentHasRealHistory(b, key);
+    if (aHas !== bHas) return aHas ? -1 : 1;
+    if (aHas) {
+      const diff = (b[key] ?? 0) - (a[key] ?? 0);
+      if (diff !== 0) return diff;
+      if (key === 'winRate') {
+        const hireDiff = (b.hireCount ?? 0) - (a.hireCount ?? 0);
+        if (hireDiff !== 0) return hireDiff;
+      }
+    }
+    return (b.totalScore ?? -Infinity) - (a.totalScore ?? -Infinity);
+  };
+}
+
+/** Merges real bulk performance data (useAgentPerformanceBulk's byOwner)
+ * onto a mapped agent list — hireCount defaults to 0 (a real, honest
+ * "hasn't been hired" state, matching agent_performance.py's own
+ * zero-history response), winRate stays null when nothing has resolved
+ * yet (see the module docstring for why that's not the same as 0). */
+export function withPerformance(agents, byOwner) {
+  if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null }));
+  return agents.map((a) => {
+    const p = byOwner[(a.ownerAddress || '').toLowerCase()];
+    return { ...a, hireCount: p?.hire_count ?? 0, winRate: p?.win_rate ?? null };
+  });
+}

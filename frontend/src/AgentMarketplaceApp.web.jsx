@@ -21,6 +21,8 @@ import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './Servi
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
+import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
+import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import Pagination from './Pagination';
@@ -693,6 +695,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   const [showUnclassified, setShowUnclassified] = useState(true);
   const [onlyResponding, setOnlyResponding] = useState(false);
 
+  // Real, marketplace-wide on-chain track record (agent_performance.py via
+  // the bulk endpoint) — one fetch, merged onto every agent so "Most
+  // hired" / "Highest success rate" can sort the whole list. See
+  // agentRanking.js for the real tiering (real history first, no-history
+  // agents after, never silently mixed in).
+  const perfByOwner = useAgentPerformanceBulk();
+  const agentsWithPerf = useMemo(() => withPerformance(agents, perfByOwner), [agents, perfByOwner]);
+  const PERFORMANCE_SORT_KEYS = new Set(['hireCount', 'winRate']);
+
   const { isConnected: wagmiConnected } = useAccount();
   const { ready, authenticated } = usePrivy();
   const walletConnected = wagmiConnected || (ready && authenticated);
@@ -750,6 +761,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   };
 
   const handleSort = (key) => setSortState((prev) => ({ key, dir: prev.key === key && prev.dir === 'desc' ? 'asc' : 'desc' }));
+  // "Most hired" / "Highest success rate" are one-directional real rankings
+  // (best real number first), not toggleable asc/desc like the table's own
+  // column-header sort above — picking one from the dropdown always means
+  // "show me the best first".
+  const handleSortSelect = (key) => setSortState({ key, dir: 'desc' });
 
   // Debounce the search so filtering doesn't run on every keystroke.
   useEffect(() => {
@@ -759,7 +775,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
   const filtered = useMemo(() => {
     const hasRealContent = (a) => a.name && a.name.trim().length > 2;
-    let list = agents.filter(hasRealContent);
+    let list = agentsWithPerf.filter(hasRealContent);
     if (!showUnclassified) list = list.filter((a) => a.category !== 'Unclassified');
     // Search AND category both apply together.
     list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
@@ -770,13 +786,19 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     // health-check (see core/agent_health.py) — the requested "let a user
     // filter to only see agents with a currently-responding endpoint".
     if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
+    // "Most hired" / "Highest success rate" use the real tiered comparator
+    // (agentRanking.js) — real history first, no-history agents after.
+    // Every other sort keeps the original simple numeric sort, unchanged.
+    if (PERFORMANCE_SORT_KEYS.has(sortState.key)) {
+      return [...list].sort(performanceComparator(sortState.key));
+    }
     return [...list].sort((a, b) => {
       const av = a[sortState.key] ?? -Infinity;
       const bv = b[sortState.key] ?? -Infinity;
       const mult = sortState.dir === 'desc' ? -1 : 1;
       return (av - bv) * mult;
     });
-  }, [agents, activeCategory, sortState, showUnclassified, onlyResponding, searchQuery]);
+  }, [agentsWithPerf, activeCategory, sortState, showUnclassified, onlyResponding, searchQuery]);
 
   // Real pagination — client-side, over the already-fully-fetched `filtered`
   // list (see useMarketplaceAgents: known_agents is fetched once, in full,
@@ -960,6 +982,16 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <p className="text-sm text-gray-500 dark:text-gray-400">Browse AI agents, check them out, and hire one with a spending limit you control.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <select
+                    value={sortState.key}
+                    onChange={(e) => handleSortSelect(e.target.value)}
+                    title="Ranks agents with a real hire history first; agents with none yet are listed after, not mixed in"
+                    className="px-3 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] dark:text-gray-300 outline-none"
+                  >
+                    <option value="totalScore">Sort: Top score</option>
+                    <option value="hireCount">Sort: Most hired</option>
+                    <option value="winRate">Sort: Highest success rate</option>
+                  </select>
                   <button
                     onClick={() => setOnlyResponding((v) => !v)}
                     className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
@@ -991,6 +1023,22 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {/* Real, honest disclosure for the two performance sorts — see
+                  agentRanking.js: agents with real on-chain hire history for
+                  the chosen metric rank first (by that real number); agents
+                  with none yet are listed after, in the marketplace's usual
+                  default order, never silently mixed in among real track
+                  records. */}
+              {PERFORMANCE_SORT_KEYS.has(sortState.key) && (
+                <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                  <Activity size={13} className="shrink-0 mt-0.5 text-indigo-500" />
+                  <span>
+                    Ranked by real on-chain hire history{sortState.key === 'hireCount' ? " — total real completed/in-progress jobs, most first" : " — real completed-or-delivered vs. rejected/expired jobs, highest rate first"}.
+                    Agents with no real hires yet are listed after those with one, not mixed in.
+                  </span>
+                </div>
+              )}
 
               {/* Hire-by-address escape hatch — for an agent not yet indexed
                   as a card (e.g. just registered). Builds a synthetic agent
@@ -1064,6 +1112,16 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         <th className="p-4"><SortHeader label="Score" hint="How trustworthy this agent looks, based on real past feedback — higher is better" sortKey="totalScore" sortState={sortState} onSort={handleSort} /></th>
                         <th className="p-4"><SortHeader label="Stars" hint="How many people rated this agent, like a star rating on a store" sortKey="starCount" sortState={sortState} onSort={handleSort} /></th>
                         <th className="p-4"><SortHeader label="Online?" hint="Whether we could reach this agent just now" sortKey="serviceRank" sortState={sortState} onSort={handleSort} /></th>
+                        <th className="p-4">
+                          <button
+                            onClick={() => handleSortSelect('hireCount')}
+                            title="Real ERC-8183 hire history for this agent — click to rank by most hired"
+                            className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-semibold transition-colors ${PERFORMANCE_SORT_KEYS.has(sortState.key) ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                          >
+                            <ArrowUpDown size={12} className={PERFORMANCE_SORT_KEYS.has(sortState.key) ? 'opacity-100' : 'opacity-40'} />
+                            Track record
+                          </button>
+                        </th>
                         <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider" title="Written comments people left after hiring this agent">Feedback</th>
                         <th className="p-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
                       </tr>
@@ -1084,6 +1142,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           <td className="p-4 text-sm font-semibold">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</td>
                           <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{agent.starCount ?? '—'}</td>
                           <td className="p-4"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></td>
+                          <td className="p-4 text-xs">
+                            {agentHasRealHistory(agent, 'hireCount')
+                              ? <span className="text-gray-700 dark:text-gray-300 font-medium">{agent.hireCount} hire{agent.hireCount === 1 ? '' : 's'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}%` : ''}</span>
+                              : <span className="text-gray-400">No hires yet</span>}
+                          </td>
                           <td className="p-4 text-sm text-gray-500">{agent.totalFeedbacks ?? '—'}</td>
                           <td className="p-4 text-right">
                             <button onClick={(e) => { e.stopPropagation(); agent.session ? (setSelectedAgent(agent), setHiring(true)) : handleHireClick(agent); }} className={`text-xs font-semibold px-4 py-2 rounded-xl transition-all ${agent.session ? 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 opacity-0 group-hover:opacity-100'}`}>
@@ -1122,7 +1185,17 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           <div className="text-center border-l border-gray-200 dark:border-gray-700" title="How many people rated this agent"><span className="block text-[10px] text-gray-500 uppercase mb-1">Stars</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.starCount ?? '—'}</span></div>
                           <div className="text-center border-l border-gray-200 dark:border-gray-700" title="Total money this agent currently manages for people"><span className="block text-[10px] text-gray-500 uppercase mb-1">Funds</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.financialDataAvailable ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : <span className="text-gray-400 font-normal">-</span>}</span></div>
                         </div>
-                        
+
+                        {/* Real on-chain hire track record — same data the
+                            "Most hired"/"Highest success rate" sort ranks
+                            by, shown plainly here so it's visible
+                            regardless of which sort is active. */}
+                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title="Real ERC-8183 job history for this agent, from the last 1,500 marketplace-wide jobs">
+                          {agentHasRealHistory(agent, 'hireCount')
+                            ? <>{agent.hireCount} real {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
+                            : <span className="text-gray-400 dark:text-gray-500">No real hires yet</span>}
+                        </div>
+
                         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">{agent.strategy}</p>
                       </div>
                       

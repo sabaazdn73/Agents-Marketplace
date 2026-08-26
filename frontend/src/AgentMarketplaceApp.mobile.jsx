@@ -28,6 +28,8 @@ import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './Servi
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
+import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
+import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import AgentAvatar from './AgentAvatar';
@@ -558,6 +560,15 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyResponding, setOnlyResponding] = useState(false);
+  // Real sort — mobile had no sort control at all before this (the list
+  // just showed the backend's own default, score-sorted order). 'default'
+  // keeps that; 'hireCount'/'winRate' switch to the real tiered comparator
+  // (agentRanking.js — same logic web uses, see its own comment for why
+  // real history sorts first and no-history agents are listed after,
+  // never mixed in).
+  const [sortKey, setSortKey] = useState('default');
+  const perfByOwner = useAgentPerformanceBulk();
+  const agentsWithPerf = useMemo(() => withPerformance(agents, perfByOwner), [agents, perfByOwner]);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
@@ -673,7 +684,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   }, [searchInput]);
 
   const filtered = useMemo(() => {
-    let list = agents.filter(a => a.name && a.name.trim().length > 2);
+    let list = agentsWithPerf.filter(a => a.name && a.name.trim().length > 2);
     // Search AND category both apply together.
     list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
     if (searchQuery) list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
@@ -681,8 +692,13 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     // health-check (see core/agent_health.py) — the requested "let a user
     // filter to only see agents with a currently-responding endpoint".
     if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
+    // "Most hired" / "Highest success rate" — real tiered comparator; any
+    // other value ('default') keeps the backend's own already-sorted order.
+    if (sortKey === 'hireCount' || sortKey === 'winRate') {
+      return [...list].sort(performanceComparator(sortKey));
+    }
     return list;
-  }, [agents, activeCategory, searchQuery, onlyResponding]);
+  }, [agentsWithPerf, activeCategory, searchQuery, onlyResponding, sortKey]);
 
   // Real pagination, mobile pattern: "Load more" instead of web's numbered
   // pages — a narrow single-column layout makes small numbered tap targets
@@ -695,7 +711,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // reason as web: the full list is already in memory.
   const MOBILE_PAGE_SIZE = 12;
   const [visibleCount, setVisibleCount] = useState(MOBILE_PAGE_SIZE);
-  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeCategory, searchQuery, onlyResponding]);
+  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeCategory, searchQuery, onlyResponding, sortKey]);
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
   // Category chips derived from the REAL fetched data, so newly-classified
@@ -889,6 +905,27 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search agents…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
                 </div>
 
+                <select
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value)}
+                  title="Ranks agents with a real hire history first; agents with none yet are listed after, not mixed in"
+                  className="mb-3 w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none"
+                >
+                  <option value="default">Sort: Top score</option>
+                  <option value="hireCount">Sort: Most hired</option>
+                  <option value="winRate">Sort: Highest success rate</option>
+                </select>
+
+                {(sortKey === 'hireCount' || sortKey === 'winRate') && (
+                  <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                    <Activity size={13} className="shrink-0 mt-0.5 text-indigo-500" />
+                    <span>
+                      Ranked by real on-chain hire history{sortKey === 'hireCount' ? ' — most real jobs first' : ' — highest real success rate first'}.
+                      Agents with no real hires yet are listed after those with one, not mixed in.
+                    </span>
+                  </div>
+                )}
+
                 <button
                   onClick={() => setOnlyResponding((v) => !v)}
                   className={`mb-4 px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
@@ -968,9 +1005,18 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                           <div className="mb-3"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></div>
                         )}
 
-                        <div className="flex gap-4 mb-4">
+                        <div className="flex gap-4 mb-2">
                           <div title="How trustworthy this agent looks, based on real past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
                           <div title="Total money this agent currently manages for people"><span className="text-[10px] text-gray-500 uppercase block">Funds</span><span className="font-bold text-sm">{agent.tvlUsd ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '-'}</span></div>
+                        </div>
+
+                        {/* Real on-chain hire track record — same data the
+                            sort dropdown ranks by, shown here regardless of
+                            which sort is active. */}
+                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title="Real ERC-8183 job history for this agent, from the last 1,500 marketplace-wide jobs">
+                          {agentHasRealHistory(agent, 'hireCount')
+                            ? <>{agent.hireCount} real {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
+                            : <span className="text-gray-400 dark:text-gray-500">No real hires yet</span>}
                         </div>
 
                         {agent.session ? (
