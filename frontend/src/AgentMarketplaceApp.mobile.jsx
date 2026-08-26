@@ -24,14 +24,15 @@ import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
-import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './ServiceHealthBadge';
+import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
-import VerificationBadge, { VerificationTierDivider, VerificationExplainer } from './VerificationBadge';
+import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
+import InfoTooltip from './InfoTooltip';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
@@ -851,10 +852,17 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <p className="text-sm text-gray-500">Browse AI agents and hire one with a spending limit you control.</p>
                 </div>
 
-                {/* Real stat cards (parity with web) */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
+                {/* Real stat cards (parity with web). The diversity-limit note and
+                    badge legend used to each be a permanent paragraph stacked below
+                    here — now behind small on-demand (i) icons instead, same real
+                    meaning, no permanent space. */}
+                <div className="grid grid-cols-3 gap-3 mb-3">
                   {[
-                    { label: 'Listed', value: stats.total, icon: Activity, color: '#2563EB', hint: 'How many agents are shown below' },
+                    { label: 'Listed', value: stats.total, icon: Activity, color: '#2563EB', info: (
+                      <>This is a varied mix, not every agent that exists. Most agents here were created in a few
+                      big signup batches and look nearly identical, so we limit how many near-duplicates show up —
+                      there are more agents out there, we're just not cluttering your view with lookalikes.</>
+                    ) },
                     { label: 'Reviews', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'Total written reviews left across all these agents' },
                     { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Registered on-chain — not a quality rating" },
                   ].map((c) => {
@@ -863,20 +871,23 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       <div key={c.label} title={c.hint} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
                         <Icon size={16} className="mx-auto mb-1" style={{ color: c.color }} />
                         <div className="text-lg font-bold">{c.value.toLocaleString()}</div>
-                        <div className="text-[10px] text-gray-500">{c.label}</div>
+                        <div className="text-[10px] text-gray-500 flex items-center justify-center gap-0.5">
+                          {c.label}
+                          {c.info && <InfoTooltip label="" size={11} align="right">{c.info}</InfoTooltip>}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
 
-                {/* #3 — honest data-ceiling note */}
-                <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
-                  <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-500" />
-                  <span>We're showing you a varied mix, not every agent that exists. Most agents here were created in a few big batches and look almost identical, so we limit how many lookalikes show up — that's why this list is short on purpose.</span>
+                <div className="mb-4">
+                  <InfoTooltip label="What do the badges below mean?" size={12}>
+                    <div className="space-y-2">
+                      <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal.</p>
+                      <p><strong>Verified working</strong> — has at least one real, on-chain-confirmed delivered job, not just a health check. <strong>Responding, unproven</strong> means the endpoint answered but hasn't confirmed a real delivery yet. Neither badge showing isn't "broken" — just nothing to judge yet.</p>
+                    </div>
+                  </InfoTooltip>
                 </div>
-
-                <ServiceHealthExplainer className="mb-3" />
-                <VerificationExplainer className="mb-4" />
 
                 <div className="mb-3 relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -904,10 +915,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                <div className="mb-4 flex flex-wrap gap-2">
+                <div className="mb-4 flex items-center gap-2 flex-wrap pt-3 border-t border-gray-100 dark:border-gray-800">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-1 shrink-0 w-full">Filters</span>
                   <button
                     onClick={() => setOnlyVerified((v) => !v)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                    className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyVerified
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
                         : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
@@ -918,7 +930,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </button>
                   <button
                     onClick={() => setOnlyResponding((v) => !v)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                    className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyResponding
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
                         : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'

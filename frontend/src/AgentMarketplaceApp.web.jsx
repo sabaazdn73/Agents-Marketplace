@@ -17,15 +17,16 @@ import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
-import ServiceHealthBadge, { ServiceHealthExplainer, serviceRank } from './ServiceHealthBadge';
+import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerificationTierFirst } from './agentVerification';
-import VerificationBadge, { VerificationTierDivider, VerificationExplainer } from './VerificationBadge';
+import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
+import InfoTooltip from './InfoTooltip';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import Pagination from './Pagination';
@@ -907,12 +908,27 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
           {nav === 'market' && !hiring && !detailAgent && (
             <>
-              {/* Real stats derived from actually-fetched agents, not global platform numbers */}
-              <div className="flex flex-col lg:flex-row gap-4 mb-10 items-stretch">
+              {/* Real stats derived from actually-fetched agents, not global platform numbers.
+                  The diversity-limit note (why this list is shorter than the full real
+                  registry) and the badge legend used to each be a permanent paragraph
+                  stacked below here — real information, but competing for attention
+                  whether or not anyone needed it right now. Both now live behind small,
+                  on-demand (i) icons instead, same real meaning, no permanent space. */}
+              <div className="flex flex-col lg:flex-row gap-4 mb-6 items-stretch">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
-                  <div title="How many agents are shown below" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                  <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
-                    <div><div className="text-2xl font-bold">{stats.total.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Agents Listed</div></div>
+                    <div>
+                      <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
+                      <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                        Agents Listed
+                        <InfoTooltip label="" size={12}>
+                          This is a varied mix, not every agent that exists. Most agents here were created in a few
+                          big signup batches and look nearly identical, so we limit how many near-duplicates show up —
+                          there are more agents out there, we're just not cluttering your view with lookalikes.
+                        </InfoTooltip>
+                      </div>
+                    </div>
                   </div>
                   <div title="Total written reviews left across all these agents" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
@@ -926,38 +942,52 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <QrToMobile />
               </div>
 
-              {/* #3 — honest data-ceiling note. Stated plainly rather than leaving
-                  the user to wonder why the list is short. */}
-              <div className="mb-8 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
-                <AlertTriangle size={13} className="shrink-0 mt-0.5 text-amber-500" />
-                <span>We're showing you a varied mix, not every agent that exists. Most of the agents signed up here were created in a few big batches and look almost identical to each other, so we limit how many near-duplicates show up. That's why this list is short on purpose — there really are more agents out there, we're just not cluttering your view with lookalikes.</span>
+              <div className="mb-8">
+                <InfoTooltip label="What do the badges below mean?" size={12}>
+                  <div className="space-y-2">
+                    <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal.</p>
+                    <p><strong>Verified working</strong> — has at least one real, on-chain-confirmed delivered job, not just a health check. <strong>Responding, unproven</strong> means the endpoint answered but hasn't confirmed a real delivery yet. Neither badge showing isn't "broken" — just nothing to judge yet.</p>
+                  </div>
+                </InfoTooltip>
               </div>
 
-              <ServiceHealthExplainer className="mb-4" />
-              <VerificationExplainer className="mb-8" />
-
-              <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                <div>
-                  <h2 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
-                    Marketplace
-                    {refreshing && <Loader2 size={16} className="animate-spin text-gray-400" />}
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Browse AI agents, check them out, and hire one with a spending limit you control.</p>
+              {/* Real tidiness pass (2026-08-28): sort/view (how the list is
+                  displayed) get their own row, next to the heading; the 3
+                  filter toggles (what's IN the list) get a second row of
+                  their own, clearly labeled, instead of all 5 controls
+                  running together in one cramped line. */}
+              <div className="mb-8 flex flex-col gap-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
+                      Marketplace
+                      {refreshing && <Loader2 size={16} className="animate-spin text-gray-400" />}
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Browse AI agents, check them out, and hire one with a spending limit you control.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <select
+                      value={sortState.key}
+                      onChange={(e) => handleSortSelect(e.target.value)}
+                      title="Verified working agents always rank first (see the badges info above); ranks agents with a real hire history first within that, agents with none yet listed after, not mixed in"
+                      className="px-3 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] dark:text-gray-300 outline-none"
+                    >
+                      <option value="totalScore">Sort: Top score</option>
+                      <option value="hireCount">Sort: Most hired</option>
+                      <option value="winRate">Sort: Highest success rate</option>
+                    </select>
+                    <div className="flex bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 rounded-xl p-1">
+                      <button onClick={() => setMarketView('grid')} className={`p-2 rounded-lg transition-all ${marketView === 'grid' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><LayoutGrid size={16} /></button>
+                      <button onClick={() => setMarketView('table')} className={`p-2 rounded-lg transition-all ${marketView === 'table' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><Table2 size={16} /></button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <select
-                    value={sortState.key}
-                    onChange={(e) => handleSortSelect(e.target.value)}
-                    title="Verified working agents always rank first (see the note above); ranks agents with a real hire history first within that, agents with none yet listed after, not mixed in"
-                    className="px-3 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] dark:text-gray-300 outline-none"
-                  >
-                    <option value="totalScore">Sort: Top score</option>
-                    <option value="hireCount">Sort: Most hired</option>
-                    <option value="winRate">Sort: Highest success rate</option>
-                  </select>
+
+                <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-gray-100 dark:border-gray-800">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-1 shrink-0">Filters</span>
                   <button
                     onClick={() => setOnlyVerified((v) => !v)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                    className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyVerified
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
                         : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -968,7 +998,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   </button>
                   <button
                     onClick={() => setOnlyResponding((v) => !v)}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                    className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyResponding
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
                         : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
@@ -977,13 +1007,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   >
                     {onlyResponding ? '✓ ' : ''}Only show online agents
                   </button>
-                  <button onClick={() => setShowUnclassified((v) => !v)} className="px-4 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <button onClick={() => setShowUnclassified((v) => !v)} className="px-3.5 py-2 rounded-xl text-[11px] font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     {showUnclassified ? 'Hide' : 'Show'} unclassified
                   </button>
-                  <div className="flex bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 rounded-xl p-1">
-                    <button onClick={() => setMarketView('grid')} className={`p-2 rounded-lg transition-all ${marketView === 'grid' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><LayoutGrid size={16} /></button>
-                    <button onClick={() => setMarketView('table')} className={`p-2 rounded-lg transition-all ${marketView === 'table' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><Table2 size={16} /></button>
-                  </div>
                 </div>
               </div>
 
