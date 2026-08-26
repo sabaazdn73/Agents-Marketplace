@@ -30,6 +30,9 @@ import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } fr
 import { getReliabilityHint } from './agentReliability';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
+import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
+import VerificationBadge, { VerificationTierDivider, VerificationExplainer } from './VerificationBadge';
+import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import AgentAvatar from './AgentAvatar';
@@ -482,6 +485,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyResponding, setOnlyResponding] = useState(false);
+  // Real, honest opt-in filter (see agentVerification.js) — off by default.
+  const [onlyVerified, setOnlyVerified] = useState(false);
+  // Two-tier category filter (categoryGroups.js) — matches web.
+  const [activeGroup, setActiveGroup] = useState('All');
   // Real sort — mobile had no sort control at all before this (the list
   // just showed the backend's own default, score-sorted order). 'default'
   // keeps that; 'hireCount'/'winRate' switch to the real tiered comparator
@@ -615,6 +622,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
   const filtered = useMemo(() => {
     let list = agentsWithPerf.filter(a => a.name && a.name.trim().length > 2);
+    // Group first (categoryGroups.js), then the specific category within it.
+    if (activeGroup === 'Unclassified') {
+      list = list.filter((a) => a.category === 'Unclassified' || groupForCategory(a.category) == null);
+    } else if (activeGroup !== 'All') {
+      list = list.filter((a) => groupForCategory(a.category) === activeGroup);
+    }
     // Search AND category both apply together.
     list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
     if (searchQuery) list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
@@ -622,13 +635,18 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     // health-check (see core/agent_health.py) — the requested "let a user
     // filter to only see agents with a currently-responding endpoint".
     if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
+    // Real, honest opt-in narrowing to agents with a confirmed delivered
+    // job (see agentVerification.js) — off by default.
+    if (onlyVerified) list = list.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED);
     // "Most hired" / "Highest success rate" — real tiered comparator; any
     // other value ('default') keeps the backend's own already-sorted order.
-    if (sortKey === 'hireCount' || sortKey === 'winRate') {
-      return [...list].sort(performanceComparator(sortKey));
-    }
-    return list;
-  }, [agentsWithPerf, activeCategory, searchQuery, onlyResponding, sortKey]);
+    const secondary = (sortKey === 'hireCount' || sortKey === 'winRate')
+      ? performanceComparator(sortKey)
+      : () => 0; // 'default': preserve the backend's own already-sorted order within each tier
+    // Real verification tier ALWAYS sorts first — see the matching comment
+    // in AgentMarketplaceApp.web.jsx (kept in sync).
+    return [...list].sort(withVerificationTierFirst(secondary));
+  }, [agentsWithPerf, activeGroup, activeCategory, searchQuery, onlyResponding, onlyVerified, sortKey]);
 
   // Real pagination, mobile pattern: "Load more" instead of web's numbered
   // pages — a narrow single-column layout makes small numbered tap targets
@@ -641,16 +659,45 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // reason as web: the full list is already in memory.
   const MOBILE_PAGE_SIZE = 12;
   const [visibleCount, setVisibleCount] = useState(MOBILE_PAGE_SIZE);
-  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeCategory, searchQuery, onlyResponding, sortKey]);
+  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeGroup, activeCategory, searchQuery, onlyResponding, onlyVerified, sortKey]);
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
-  // Category chips derived from the REAL fetched data, so newly-classified
-  // categories (Trading Signals, Research, Payments, …) actually appear and are
-  // filterable — the old hardcoded list only had the original 4.
-  const categories = useMemo(
-    () => ['All', ...Array.from(new Set(agents.map((a) => a.category).filter(Boolean))).sort()],
-    [agents]
-  );
+  // Real per-group counts (categoryGroups.js) — matches web.
+  const groupCounts = useMemo(() => {
+    const counts = { Unclassified: 0 };
+    for (const g of CATEGORY_GROUPS) counts[g.id] = 0;
+    for (const a of agents) {
+      const g = groupForCategory(a.category);
+      if (g) counts[g] += 1; else counts.Unclassified += 1;
+    }
+    return counts;
+  }, [agents]);
+
+  // Fine-grained category chips scoped to the active group — matches web.
+  const activeGroupCategories = useMemo(() => {
+    if (activeGroup === 'All' || activeGroup === 'Unclassified') return [];
+    const groupCats = CATEGORY_GROUPS.find((g) => g.id === activeGroup)?.categories || [];
+    const present = new Set(agents.map((a) => a.category));
+    return ['All', ...groupCats.filter((c) => present.has(c))];
+  }, [agents, activeGroup]);
+  useEffect(() => { setActiveCategory('All'); }, [activeGroup]);
+
+  // Real, marketplace-wide tier counts + per-card tier-break markers — see
+  // the matching comment in AgentMarketplaceApp.web.jsx (kept in sync).
+  const tierCounts = useMemo(() => {
+    const counts = { [VERIFICATION_TIER.VERIFIED]: 0, [VERIFICATION_TIER.RESPONDING]: 0, [VERIFICATION_TIER.UNPROVEN]: 0 };
+    for (const a of filtered) counts[getVerificationTier(a)] += 1;
+    return counts;
+  }, [filtered]);
+  const visibleTierBreaks = useMemo(() => {
+    let lastTier = null;
+    return visible.map((agent) => {
+      const tier = getVerificationTier(agent);
+      const isNewTier = tier !== lastTier;
+      lastTier = tier;
+      return isNewTier ? tier : null;
+    });
+  }, [visible]);
 
   // Same real stat cards as web (Agents Shown / Feedback / Verified).
   const stats = useMemo(() => ({
@@ -828,7 +875,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <span>We're showing you a varied mix, not every agent that exists. Most agents here were created in a few big batches and look almost identical, so we limit how many lookalikes show up — that's why this list is short on purpose.</span>
                 </div>
 
-                <ServiceHealthExplainer className="mb-4" />
+                <ServiceHealthExplainer className="mb-3" />
+                <VerificationExplainer className="mb-4" />
 
                 <div className="mb-3 relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -856,16 +904,29 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                <button
-                  onClick={() => setOnlyResponding((v) => !v)}
-                  className={`mb-4 px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
-                    onlyResponding
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
-                      : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
-                  }`}
-                >
-                  {onlyResponding ? '✓ ' : ''}Only show online agents
-                </button>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setOnlyVerified((v) => !v)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                      onlyVerified
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
+                        : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
+                    }`}
+                    title="Only show agents with at least one real, confirmed delivered job"
+                  >
+                    {onlyVerified ? '✓ ' : ''}Only verified working
+                  </button>
+                  <button
+                    onClick={() => setOnlyResponding((v) => !v)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                      onlyResponding
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
+                        : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
+                    }`}
+                  >
+                    {onlyResponding ? '✓ ' : ''}Only show online agents
+                  </button>
+                </div>
 
                 {/* Hire-by-address escape hatch — see the matching block in
                     AgentMarketplaceApp.web.jsx. */}
@@ -897,16 +958,38 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   )}
                 </div>
 
-                {/* Horizontal Scroll Categories */}
-                <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
-                  {categories.map((cat) => (
-                    <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
-                      activeCategory === cat ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                {/* Two-tier category filter (categoryGroups.js) — group
+                    first, real fine-grained categories only shown once a
+                    group is picked. Matches web. */}
+                <div className="flex overflow-x-auto pb-3 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
+                  <button onClick={() => setActiveGroup('All')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
+                    activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                  }`}>All</button>
+                  {CATEGORY_GROUPS.map((g) => (
+                    <button key={g.id} onClick={() => setActiveGroup(g.id)} title={g.categories.join(', ')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
+                      activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                     }`}>
-                      {cat}
+                      {g.label} ({groupCounts[g.id] || 0})
                     </button>
                   ))}
+                  <button onClick={() => setActiveGroup('Unclassified')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
+                    activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                  }`}>
+                    Unclassified ({groupCounts.Unclassified || 0})
+                  </button>
                 </div>
+
+                {activeGroupCategories.length > 0 && (
+                  <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
+                    {activeGroupCategories.map((cat) => (
+                      <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium snap-start transition-colors ${
+                        activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400'
+                      }`}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {!loading && filtered.length > 0 && (
                   <div className="text-xs text-gray-400 mb-3">
@@ -918,8 +1001,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <div className="flex flex-col items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>
                 ) : (
                   <div className="space-y-4">
-                    {visible.map((agent) => (
-                      <div key={agent.id} onClick={() => setDetailAgent(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
+                    {visible.map((agent, i) => (
+                      <React.Fragment key={agent.id}>
+                        {visibleTierBreaks[i] && (
+                          <VerificationTierDivider tier={visibleTierBreaks[i]} count={tierCounts[visibleTierBreaks[i]]} className={i === 0 ? '' : 'pt-2'} />
+                        )}
+                      <div onClick={() => setDetailAgent(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
                             <AgentAvatar agent={agent} size={36} rounded="rounded-xl" />
@@ -931,9 +1018,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
                         </div>
 
-                        {agent.serviceStatus && agent.serviceStatus !== 'unknown' && (
-                          <div className="mb-3"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></div>
-                        )}
+                        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                          {agent.serviceStatus && agent.serviceStatus !== 'unknown' && (
+                            <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} />
+                          )}
+                          <VerificationBadge agent={agent} />
+                        </div>
 
                         <div className="flex gap-4 mb-2">
                           <div title="How trustworthy this agent looks, based on real past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
@@ -965,6 +1055,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                           </button>
                         )}
                       </div>
+                      </React.Fragment>
                     ))}
                   </div>
                 )}

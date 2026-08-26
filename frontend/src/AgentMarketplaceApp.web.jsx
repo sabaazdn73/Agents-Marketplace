@@ -23,6 +23,9 @@ import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } fr
 import { getReliabilityHint } from './agentReliability';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
+import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerificationTierFirst } from './agentVerification';
+import VerificationBadge, { VerificationTierDivider, VerificationExplainer } from './VerificationBadge';
+import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import Pagination from './Pagination';
@@ -590,6 +593,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   const [sortState, setSortState] = useState({ key: 'totalScore', dir: 'desc' });
   const [showUnclassified, setShowUnclassified] = useState(true);
   const [onlyResponding, setOnlyResponding] = useState(false);
+  // Real, honest opt-in filter (see agentVerification.js) — off by default
+  // so browsing stays broad; a buyer who specifically wants confirmed
+  // delivery history can narrow to it.
+  const [onlyVerified, setOnlyVerified] = useState(false);
+  // Two-tier category filter (categoryGroups.js): pick a group first, then
+  // optionally narrow to one of its real fine-grained categories.
+  // 'All' = no group restriction. 'Unclassified' = the ungrouped bucket.
+  const [activeGroup, setActiveGroup] = useState('All');
 
   // Real, marketplace-wide on-chain track record (agent_performance.py via
   // the bulk endpoint) — one fetch, merged onto every agent so "Most
@@ -673,6 +684,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     const hasRealContent = (a) => a.name && a.name.trim().length > 2;
     let list = agentsWithPerf.filter(hasRealContent);
     if (!showUnclassified) list = list.filter((a) => a.category !== 'Unclassified');
+    // Group first (categoryGroups.js — presentation-only grouping of the
+    // real fine-grained categories), then the specific category within it.
+    if (activeGroup === 'Unclassified') {
+      list = list.filter((a) => a.category === 'Unclassified' || groupForCategory(a.category) == null);
+    } else if (activeGroup !== 'All') {
+      list = list.filter((a) => groupForCategory(a.category) === activeGroup);
+    }
     // Search AND category both apply together.
     list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
     if (searchQuery) {
@@ -682,19 +700,27 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     // health-check (see core/agent_health.py) — the requested "let a user
     // filter to only see agents with a currently-responding endpoint".
     if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
+    // Real, honest opt-in narrowing to agents with a confirmed delivered
+    // job (see agentVerification.js) — off by default.
+    if (onlyVerified) list = list.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED);
     // "Most hired" / "Highest success rate" use the real tiered comparator
     // (agentRanking.js) — real history first, no-history agents after.
     // Every other sort keeps the original simple numeric sort, unchanged.
-    if (PERFORMANCE_SORT_KEYS.has(sortState.key)) {
-      return [...list].sort(performanceComparator(sortState.key));
-    }
-    return [...list].sort((a, b) => {
-      const av = a[sortState.key] ?? -Infinity;
-      const bv = b[sortState.key] ?? -Infinity;
-      const mult = sortState.dir === 'desc' ? -1 : 1;
-      return (av - bv) * mult;
-    });
-  }, [agentsWithPerf, activeCategory, sortState, showUnclassified, onlyResponding, searchQuery]);
+    const secondary = PERFORMANCE_SORT_KEYS.has(sortState.key)
+      ? performanceComparator(sortState.key)
+      : (a, b) => {
+          const av = a[sortState.key] ?? -Infinity;
+          const bv = b[sortState.key] ?? -Infinity;
+          const mult = sortState.dir === 'desc' ? -1 : 1;
+          return (av - bv) * mult;
+        };
+    // Real verification tier ALWAYS sorts first (see agentVerification.js)
+    // — a confirmed delivery outranks any other sort criterion, so
+    // "Verified working" agents are never buried behind an unproven one on
+    // a different metric. Every sort option keeps its own ordering WITHIN
+    // each tier.
+    return [...list].sort(withVerificationTierFirst(secondary));
+  }, [agentsWithPerf, activeGroup, activeCategory, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
 
   // Real pagination — client-side, over the already-fully-fetched `filtered`
   // list (see useMarketplaceAgents: known_agents is fetched once, in full,
@@ -709,13 +735,35 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // Any filter/sort/search change must land back on page 1 — staying on
   // e.g. page 5 after a filter shrinks the real result count to 2 pages
   // would silently show an empty page instead of the new top results.
-  useEffect(() => { setPage(1); }, [activeCategory, sortState, showUnclassified, onlyResponding, searchQuery]);
+  useEffect(() => { setPage(1); }, [activeGroup, activeCategory, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount); // clamp defensively (e.g. a background refresh shrinking the real list)
   const paginated = useMemo(
     () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [filtered, currentPage]
   );
+
+  // Real, marketplace-wide tier counts (not just this page) — `filtered` is
+  // always tier-sorted (withVerificationTierFirst), so this is an honest
+  // tally of the real 3-tier split under the current filters.
+  const tierCounts = useMemo(() => {
+    const counts = { [VERIFICATION_TIER.VERIFIED]: 0, [VERIFICATION_TIER.RESPONDING]: 0, [VERIFICATION_TIER.UNPROVEN]: 0 };
+    for (const a of filtered) counts[getVerificationTier(a)] += 1;
+    return counts;
+  }, [filtered]);
+  // Marks the first row/card of each new tier on THIS page, so a divider
+  // only renders where the tier actually changes — `paginated` is a
+  // contiguous slice of the already tier-sorted `filtered` list, so a tier
+  // never reappears once it's passed.
+  const paginatedTierBreaks = useMemo(() => {
+    let lastTier = null;
+    return paginated.map((agent) => {
+      const tier = getVerificationTier(agent);
+      const isNewTier = tier !== lastTier;
+      lastTier = tier;
+      return isNewTier ? tier : null;
+    });
+  }, [paginated]);
 
   // Real, derived stats from actually-fetched agents, replacing the
   // earlier hardcoded numbers (which were 8004scan's own global platform
@@ -726,13 +774,32 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     totalFeedbacks: agents.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
   }), [agents]);
 
-  // Category chips derived from the REAL fetched data, so the newly-classified
-  // categories (Trading Signals, Research, Payments, …) actually appear and are
-  // filterable — the old hardcoded CATEGORIES only listed the original 4.
-  const categories = useMemo(
-    () => ['All', ...Array.from(new Set(agents.map((a) => a.category).filter(Boolean))).sort()],
-    [agents]
-  );
+  // Real per-group counts (categoryGroups.js), so the group chips show an
+  // actual tally rather than an unlabeled bucket — anything not mapped to a
+  // group (including literal 'Unclassified') counts toward 'Unclassified'.
+  const groupCounts = useMemo(() => {
+    const counts = { Unclassified: 0 };
+    for (const g of CATEGORY_GROUPS) counts[g.id] = 0;
+    for (const a of agents) {
+      const g = groupForCategory(a.category);
+      if (g) counts[g] += 1; else counts.Unclassified += 1;
+    }
+    return counts;
+  }, [agents]);
+
+  // Fine-grained category chips, scoped to whichever group is active — only
+  // real categories that actually have at least one agent are shown.
+  const activeGroupCategories = useMemo(() => {
+    if (activeGroup === 'All' || activeGroup === 'Unclassified') return [];
+    const groupCats = CATEGORY_GROUPS.find((g) => g.id === activeGroup)?.categories || [];
+    const present = new Set(agents.map((a) => a.category));
+    return ['All', ...groupCats.filter((c) => present.has(c))];
+  }, [agents, activeGroup]);
+
+  // Picking a different group must clear any leftover fine-category pick
+  // from the previous group — otherwise switching groups could silently
+  // keep filtering on a category that isn't even in the new group.
+  useEffect(() => { setActiveCategory('All'); }, [activeGroup]);
 
   return (
     <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
@@ -866,7 +933,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <span>We're showing you a varied mix, not every agent that exists. Most of the agents signed up here were created in a few big batches and look almost identical to each other, so we limit how many near-duplicates show up. That's why this list is short on purpose — there really are more agents out there, we're just not cluttering your view with lookalikes.</span>
               </div>
 
-              <ServiceHealthExplainer className="mb-8" />
+              <ServiceHealthExplainer className="mb-4" />
+              <VerificationExplainer className="mb-8" />
 
               <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
@@ -876,17 +944,28 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Browse AI agents, check them out, and hire one with a spending limit you control.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <select
                     value={sortState.key}
                     onChange={(e) => handleSortSelect(e.target.value)}
-                    title="Ranks agents with a real hire history first; agents with none yet are listed after, not mixed in"
+                    title="Verified working agents always rank first (see the note above); ranks agents with a real hire history first within that, agents with none yet listed after, not mixed in"
                     className="px-3 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] dark:text-gray-300 outline-none"
                   >
                     <option value="totalScore">Sort: Top score</option>
                     <option value="hireCount">Sort: Most hired</option>
                     <option value="winRate">Sort: Highest success rate</option>
                   </select>
+                  <button
+                    onClick={() => setOnlyVerified((v) => !v)}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
+                      onlyVerified
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
+                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                    title="Only show agents with at least one real, confirmed delivered job"
+                  >
+                    {onlyVerified ? '✓ ' : ''}Only verified working
+                  </button>
                   <button
                     onClick={() => setOnlyResponding((v) => !v)}
                     className={`px-4 py-2.5 rounded-xl text-xs font-medium border transition-colors ${
@@ -966,13 +1045,35 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 )}
               </div>
 
-              <div className="mb-8 flex flex-wrap gap-2">
-                {categories.map((cat) => (
-                  <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                    activeCategory === cat ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
-                  }`}>{cat}</button>
+              {/* Two-tier category filter (categoryGroups.js): pick a real
+                  top-level group first — the fine-grained categories inside
+                  it (categorize.py's own, unchanged) only appear once a
+                  group is picked, so browsing starts at 5 real choices
+                  instead of 18+. */}
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button onClick={() => setActiveGroup('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                  activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                }`}>All</button>
+                {CATEGORY_GROUPS.map((g) => (
+                  <button key={g.id} onClick={() => setActiveGroup(g.id)} title={g.categories.join(', ')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                    activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                  }`}>{g.label} ({groupCounts[g.id] || 0})</button>
                 ))}
+                <button onClick={() => setActiveGroup('Unclassified')} title="Agents whose description didn't clearly match a real category" className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                  activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                }`}>Unclassified ({groupCounts.Unclassified || 0})</button>
               </div>
+
+              {activeGroupCategories.length > 0 && (
+                <div className="mb-8 flex flex-wrap gap-2 pl-2 border-l-2 border-gray-200 dark:border-gray-800">
+                  {activeGroupCategories.map((cat) => (
+                    <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${
+                      activeCategory === cat ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-400 dark:border-gray-700'
+                    }`}>{cat}</button>
+                  ))}
+                </div>
+              )}
+              {activeGroupCategories.length === 0 && <div className="mb-8" />}
 
               {!loading && !error && filtered.length > 0 && (
                 <div className="mb-4 text-xs text-gray-400">
@@ -1022,8 +1123,16 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                      {paginated.map((agent) => (
-                        <tr key={agent.id} onClick={() => setDetailAgent(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
+                      {paginated.map((agent, i) => (
+                        <React.Fragment key={agent.id}>
+                          {paginatedTierBreaks[i] && (
+                            <tr>
+                              <td colSpan={8} className="px-4 pt-5 pb-2 bg-gray-50/50 dark:bg-gray-800/20">
+                                <VerificationTierDivider tier={paginatedTierBreaks[i]} count={tierCounts[paginatedTierBreaks[i]]} />
+                              </td>
+                            </tr>
+                          )}
+                          <tr onClick={() => setDetailAgent(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <AgentAvatar agent={agent} size={32} rounded="rounded-xl" />
@@ -1036,7 +1145,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           <td className="p-4"><span className="text-[10px] px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200/50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 font-medium tracking-wide">{CHAIN_LABELS[agent.chainId] || agent.network}</span></td>
                           <td className="p-4 text-sm font-semibold">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</td>
                           <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{agent.starCount ?? '—'}</td>
-                          <td className="p-4"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></td>
+                          <td className="p-4">
+                            <div className="flex flex-col gap-1 items-start">
+                              <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} />
+                              <VerificationBadge agent={agent} />
+                            </div>
+                          </td>
                           <td className="p-4 text-xs">
                             {agentHasRealHistory(agent, 'hireCount')
                               ? <span className="text-gray-700 dark:text-gray-300 font-medium">{agent.hireCount} hire{agent.hireCount === 1 ? '' : 's'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}%` : ''}</span>
@@ -1048,7 +1162,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                               {agent.session ? 'Manage' : 'Hire'}
                             </button>
                           </td>
-                        </tr>
+                          </tr>
+                        </React.Fragment>
                       ))}
                     </tbody>
                   </table>
@@ -1057,8 +1172,16 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
               {!loading && !error && marketView === 'grid' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {paginated.map((agent) => (
-                    <div key={agent.id} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
+                  {paginated.map((agent, i) => (
+                    <React.Fragment key={agent.id}>
+                      {paginatedTierBreaks[i] && (
+                        <VerificationTierDivider
+                          tier={paginatedTierBreaks[i]}
+                          count={tierCounts[paginatedTierBreaks[i]]}
+                          className={`col-span-full ${i === 0 ? '' : 'mt-2'}`}
+                        />
+                      )}
+                    <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
                       <div className="p-6 flex-1 cursor-pointer" onClick={() => setDetailAgent(agent)}>
                         <div className="flex justify-between items-start mb-5">
                           <div className="flex items-center gap-3">
@@ -1071,9 +1194,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
                         </div>
 
-                        {agent.serviceStatus && agent.serviceStatus !== 'unknown' && (
-                          <div className="mb-3"><ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} /></div>
-                        )}
+                        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                          {agent.serviceStatus && agent.serviceStatus !== 'unknown' && (
+                            <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} />
+                          )}
+                          <VerificationBadge agent={agent} />
+                        </div>
 
                         <div className="grid grid-cols-3 gap-2 p-3 mb-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
                           <div className="text-center" title="How trustworthy this agent looks, based on real past feedback"><span className="block text-[10px] text-gray-500 uppercase mb-1">Score</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'}</span></div>
@@ -1116,6 +1242,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         )}
                       </div>
                     </div>
+                    </React.Fragment>
                   ))}
                 </div>
               )}

@@ -60,11 +60,25 @@ export function performanceComparator(key) {
  * onto a mapped agent list — hireCount defaults to 0 (a real, honest
  * "hasn't been hired" state, matching agent_performance.py's own
  * zero-history response), winRate stays null when nothing has resolved
- * yet (see the module docstring for why that's not the same as 0). */
+ * yet (see the module docstring for why that's not the same as 0).
+ *
+ * jobsCompleted/jobsSubmitted are the raw real counts (not the win_rate
+ * ratio) — added 2026-08-26 as the real basis for agentVerification.js's
+ * "Verified working" tier, which needs to know whether a real
+ * SUBMITTED/COMPLETED delivery has ever happened, not just a rate. An
+ * agent with hires but zero of either (e.g. all REJECTED/EXPIRED) must
+ * NOT count as verified — winRate alone can't distinguish that case from
+ * "no real history yet" the way these raw counts can. */
 export function withPerformance(agents, byOwner) {
-  if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null }));
+  if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null, jobsCompleted: 0, jobsSubmitted: 0 }));
   return agents.map((a) => {
     const p = byOwner[(a.ownerAddress || '').toLowerCase()];
-    return { ...a, hireCount: p?.hire_count ?? 0, winRate: p?.win_rate ?? null };
+    return {
+      ...a,
+      hireCount: p?.hire_count ?? 0,
+      winRate: p?.win_rate ?? null,
+      jobsCompleted: p?.completed ?? 0,
+      jobsSubmitted: p?.submitted ?? 0,
+    };
   });
 }
