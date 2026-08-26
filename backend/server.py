@@ -45,6 +45,7 @@ from core import deliverable_proxy
 from core import status_checks
 from adapters import zerion
 from adapters import coingecko
+from adapters import termix
 
 load_dotenv()
 
@@ -472,6 +473,31 @@ async def agent_wallet_portfolio(owner_address: str):
     unreachable) rather than a 5xx — this is a nice-to-have enrichment, never
     something that should break the detail page."""
     return await zerion.get_wallet_portfolio(owner_address)
+
+
+@app.get("/api/agents/termix-performance")
+async def agent_termix_performance(owner_address: str):
+    """Real, independent, protocol-wide track record for one agent, from
+    TermiX's own real AACP registry — NOT this marketplace's data. See
+    adapters/termix.py's own docstring for the full real investigation
+    (including the live, confirmed token-id match this proxy relies on to
+    know it found the RIGHT agent, not just a same-named one).
+
+    Real reason this exists (2026-08-28): our own /api/agents/performance
+    stat is young and has had real bugs (the notify_funded authorization-
+    gate bug) fail real jobs for reasons unrelated to an agent's actual
+    quality. This gives the agent detail page ("Past Hires") a second, real,
+    less-biased data point to show alongside our own — never blended into
+    one number, always honestly labeled and separately sourced.
+
+    Always returns 200 with an honest {"available": false, "reason": ...} on
+    any real failure (not on TermiX's registry, network error, malformed
+    reply) — this is a supplementary enrichment, never something that should
+    break the detail page."""
+    agent = await agent_store.get_agent_by_owner(owner_address)
+    if not agent:
+        return {"available": False, "reason": "no agent on record for this owner address"}
+    return await termix.get_termix_stats(agent.get("token_id"), agent.get("name"))
 
 
 @app.post("/api/agents/negotiate")

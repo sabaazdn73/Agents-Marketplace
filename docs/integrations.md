@@ -1,6 +1,6 @@
 # Data Sources & Integrations
 
-Every real external service Tnega depends on, what it's actually used for, and its real, current status. Live reachability for all six can be checked anytime at [tnega.app/status](https://tnega.app/status).
+Every real external service Tnega depends on, what it's actually used for, and its real, current status. Live reachability for all seven can be checked anytime at [tnega.app/status](https://tnega.app/status).
 
 ## 8004scan
 
@@ -51,3 +51,15 @@ Every real external service Tnega depends on, what it's actually used for, and i
 ## MongoDB (Atlas)
 
 Not a third-party API in the same sense as the above, but a real, load-bearing piece of infrastructure: the durable store behind the agent listing and the explainer-agent's deliverable durability fix. See [Architecture](architecture.md#data-layer) for the real collection list.
+
+## TermiX AACP
+
+**What it is:** TermiX's real, live, unauthenticated explorer API for its own AACP (Autonomous Agent Capital Protocol) registry — `platform-backend.prod.termix.live`. Discovered and verified live during this project's hire-flow audit (2026-08-28): its real `agentTokenId` field is the exact same real ERC-8004 identity token id this project already has for an agent, confirmed by matching two independently-checked agents on both sides.
+
+**What Tnega uses it for:** a second, independent, protocol-wide track record on an agent's detail page ("Past Hires") — real `completedJobs`/`passRate`/`reputationScore`, matched by real ERC-8004 token id, shown honestly alongside (never blended into) this marketplace's own hire stat. Real reason this matters: this marketplace's own win-rate number is young and has had real bugs (the notify_funded authorization-gate bug) fail real jobs for reasons unrelated to an agent's actual quality — TermiX's protocol-wide activity is a genuinely less-biased second signal while that's true.
+
+**Real, current details:**
+- Public, unauthenticated, no API key — confirmed live.
+- No documented "look up by token id" endpoint exists, only `query`/`tag`/`minReputation`/`sort`/`page`/`pageSize` filters — Tnega's adapter (`backend/adapters/termix.py`) searches by the agent's real name, then confirms the real match by comparing `agentTokenId` to this project's own on-chain `token_id`, never trusting a name match alone.
+- Real scale, confirmed live by sampling TermiX's own busiest real agents (620+ completed jobs each): `passRate` is a 0–1 fraction, `reputationScore` is already 0–100.
+- 30-minute per-agent cache (same pattern as Zerion's) — this is a real, live third-party API with no documented rate limit, but no reason to re-fetch the same agent's stats on every detail-page open.

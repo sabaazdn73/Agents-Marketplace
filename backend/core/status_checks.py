@@ -4,7 +4,8 @@ status_checks.py
 Backs the public /api/status endpoint (and the frontend /status page):
 real, live, right-now reachability checks against every external
 integration this project actually depends on — 8004scan, Zerion, CoinGecko,
-the BSC RPC, the explainer-agent service, and MongoDB.
+the BSC RPC, the explainer-agent service, MongoDB, and TermiX's AACP
+registry (added 2026-08-28 — see adapters/termix.py for what it's used for).
 
 Honesty rules, matching this project's standing discipline elsewhere:
   - Every check is a REAL network/DB call made at request time (through the
@@ -131,6 +132,19 @@ async def _check_mongodb() -> str:
     return "ping ok"
 
 
+async def _check_termix() -> str:
+    # Real, unauthenticated public API — no key needed. See
+    # adapters/termix.py's own docstring for the full real investigation
+    # behind why this integration exists.
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.get(
+            "https://platform-backend.prod.termix.live/api/v1/explorer/agents",
+            params={"pageSize": 1},
+        )
+        resp.raise_for_status()
+        return f"HTTP {resp.status_code}"
+
+
 async def get_status(force_refresh: bool = False) -> dict:
     """Returns {checked_at, cache_age_seconds, services: [...]}. Cached for
     _CACHE_TTL_SECONDS so repeated real visitors don't each burn a fresh
@@ -150,6 +164,7 @@ async def get_status(force_refresh: bool = False) -> dict:
         _timed("BSC RPC", _check_bsc_rpc()),
         _timed("explainer-agent", _check_explainer_agent()),
         _timed("MongoDB", _check_mongodb()),
+        _timed("TermiX AACP", _check_termix()),
     )
 
     _cache["data"] = list(results)

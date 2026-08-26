@@ -33,6 +33,7 @@ import { withPerformance, performanceComparator, agentHasRealHistory } from './a
 import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import InfoTooltip from './InfoTooltip';
+import TermixPerformancePanel from './TermixPerformancePanel';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
@@ -346,6 +347,7 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
         </>
       ) : state === 'ready' && perf?.hired ? (
         <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">On this marketplace</div>
           <div className="flex items-center gap-4 mb-1">
             <div title="How many times people have hired this agent"><span className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</span> <span className="text-[10px] text-gray-500 uppercase">hires</span></div>
             <div title="Out of finished jobs, how many succeeded"><span className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</span> <span className="text-[10px] text-gray-500 uppercase">succeeded</span></div>
@@ -362,8 +364,17 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
               </div>
             ) : null;
           })()}
+          {/* Real, honest context (2026-08-28) — see the matching comment on
+              AgentPerformance (web). */}
+          <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
+            This marketplace is new — a low number here may reflect limited activity or platform issues rather than the agent's real quality. Check the protocol-wide numbers below too.
+          </p>
         </div>
       ) : null}
+
+      {/* Real, independent, protocol-wide data point — see the matching
+          comment on AgentPerformance (web). */}
+      <TermixPerformancePanel ownerAddress={ownerAddress} className="mt-2.5" />
     </div>
   );
 }

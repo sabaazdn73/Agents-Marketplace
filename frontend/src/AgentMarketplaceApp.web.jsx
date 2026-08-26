@@ -27,6 +27,7 @@ import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerific
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import InfoTooltip from './InfoTooltip';
+import TermixPerformancePanel from './TermixPerformancePanel';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import Pagination from './Pagination';
@@ -304,6 +305,7 @@ function AgentPerformance({ agent, onTrySkill }) {
         </>
       ) : state === 'ready' && perf?.hired ? (
         <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">On this marketplace</div>
           <div className="grid grid-cols-3 gap-3 mb-2">
             <div title="How many times people have hired this agent"><div className="text-[10px] uppercase text-gray-500">Times Hired</div><div className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</div></div>
             <div title="Out of the jobs that finished, how many were successfully completed"><div className="text-[10px] uppercase text-gray-500">Success Rate</div><div className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</div></div>
@@ -322,8 +324,22 @@ function AgentPerformance({ agent, onTrySkill }) {
               </div>
             ) : null;
           })()}
+          {/* Real, honest context (2026-08-28): this marketplace's own stat
+              is young and has had real bugs (the notify_funded
+              authorization-gate bug) fail real jobs for reasons unrelated
+              to an agent's actual quality — say so plainly rather than let
+              a low number here be read as a verdict on its own. */}
+          <p className="mt-2.5 text-[10px] text-gray-400 leading-relaxed">
+            This marketplace is new — a low number here may reflect limited activity or platform issues rather than the agent's real quality. Check the protocol-wide numbers below too.
+          </p>
         </div>
       ) : null}
+
+      {/* Real, independent, protocol-wide data point (TermiX's own AACP
+          registry) — shown regardless of whether this marketplace itself
+          has any hires for this agent yet, since that's exactly when it's
+          most useful. Never blended with the numbers above. */}
+      <TermixPerformancePanel ownerAddress={ownerAddress} className="mt-3" />
     </div>
   );
 }
