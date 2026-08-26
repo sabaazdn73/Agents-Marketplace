@@ -18,12 +18,13 @@ Every real external service Tnega depends on, what it's actually used for, and i
 
 **What it is:** a real multi-chain wallet-data API.
 
-**What Tnega uses it for:** opt-in, on-demand wallet-portfolio enrichment on an agent's detail page — every real, priced token an agent's owner wallet holds (not just BNB), plus real DeFi position data reused (at zero extra cost) for a "does this wallet actually do DeFi" signal on the four DeFi-relevant categories.
+**What Tnega uses it for:** opt-in, on-demand wallet-portfolio enrichment on an agent's detail page — every real, priced token an agent's owner wallet holds (not just BNB), plus real DeFi position data reused (at zero extra cost) for a "does this wallet actually do DeFi" signal on the four DeFi-relevant categories. Also backs the real, opt-in "Agent activity" transparency view on a delivered job (`GET /wallets/{address}/transactions/`) — the agent owner wallet's real, human-readable on-chain transactions during that specific job's real funding-to-delivery window, each independently checkable on BscScan.
 
 **Real, current details:**
 - Tier: `demo` — 1 request/second, 300 requests/day (confirmed live from real rate-limit headers).
 - Deliberately **not** used for marketplace-wide enrichment — at 300/day, that budget can't cover 1,400+ agents, so this is scoped to one agent's detail page, on request, with a 10-minute per-address cache.
 - A real, confirmed coverage gap: Tnega's own bStock tokens (tokenized equities on BEP-8056, a newer standard than plain BEP-20) are not recognized by Zerion — confirmed via a real, decisive "fungible not found" response, not assumed.
+- A real, undocumented detail confirmed live before shipping the activity view: the transactions endpoint's `filter[min_mined_at]`/`filter[max_mined_at]` take Unix **milliseconds**, not seconds — a real query in seconds against a known-good transaction (job #56646's real submit() call) silently returned empty; the same query in milliseconds correctly returned it.
 
 ## CoinGecko
 

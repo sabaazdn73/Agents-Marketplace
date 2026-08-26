@@ -123,3 +123,89 @@ async def get_wallet_portfolio(address: str) -> dict:
     result = {"available": True, "total_usd_value": round(total_usd, 2), "positions": positions}
     _cache[addr] = (time.time(), result)
     return result
+
+
+# Real, opt-in per-job "agent activity" transparency view (2026-08-28) — see
+# JobStatusPanel.jsx's own docstring for the full real feature. Real
+# investigation before building this, not assumed: Zerion's own
+# /wallets/{address}/transactions/ real filter params
+# (filter[min_mined_at]/filter[max_mined_at]) take Unix MILLISECONDS, not
+# seconds — confirmed live: a real query using raw Unix seconds against a
+# known, exact real transaction (job #56646's real on-chain submit() call,
+# provider 0x08cef8...b5dd, mined 2026-08-24T10:46:32Z) came back EMPTY, the
+# same query in milliseconds correctly returned that exact real transaction
+# (operation_type "execute", sent_to the real AgenticCommerce contract
+# address, hash matching the on-chain record). Not documented clearly enough
+# to trust on faith — verified against real, known-good data first.
+_activity_cache: dict[str, tuple[float, dict]] = {}
+_ACTIVITY_TTL_SECONDS = 10 * 60
+
+
+async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_ms: int) -> dict:
+    """Real, human-readable on-chain activity for one wallet, scoped to a
+    real time window (Unix milliseconds) — built for "what did this agent's
+    wallet actually do between funding and delivery", not a general
+    portfolio/history dump. Returns {"available": False, "reason": ...}
+    honestly on any failure (missing key, rate limit, network error, or a
+    real, genuine "nothing happened in this window") — never a fabricated
+    transaction. Same 10-minute per-window cache discipline as
+    get_wallet_portfolio, opt-in and per-job by design (never called in
+    bulk — see this module's own header)."""
+    addr = (address or "").lower()
+    if not addr.startswith("0x") or len(addr) != 42:
+        return {"available": False, "reason": "not a valid EVM address"}
+    if not isinstance(min_mined_at_ms, int) or not isinstance(max_mined_at_ms, int) or min_mined_at_ms >= max_mined_at_ms:
+        return {"available": False, "reason": "invalid time window"}
+
+    cache_key = f"{addr}:{min_mined_at_ms}:{max_mined_at_ms}"
+    cached = _activity_cache.get(cache_key)
+    if cached and time.time() - cached[0] < _ACTIVITY_TTL_SECONDS:
+        return cached[1]
+
+    key = _get_key()
+    if not key:
+        return {"available": False, "reason": "ZERION_API_KEY not set"}
+
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            resp = await client.get(
+                f"{_BASE_URL}/wallets/{addr}/transactions/",
+                params={
+                    "currency": "usd",
+                    "filter[chain_ids]": _BSC_CHAIN_ID,
+                    "filter[min_mined_at]": min_mined_at_ms,
+                    "filter[max_mined_at]": max_mined_at_ms,
+                    "page[size]": 50,
+                },
+                auth=(key, ""),
+            )
+    except httpx.HTTPError as e:
+        result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
+        _activity_cache[cache_key] = (time.time(), result)
+        return result
+
+    if resp.status_code == 429:
+        result = {"available": False, "reason": "rate limited — try again later"}
+        _activity_cache[cache_key] = (time.time(), result)
+        return result
+    if not resp.is_success:
+        result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
+        _activity_cache[cache_key] = (time.time(), result)
+        return result
+
+    body = resp.json()
+    transactions = []
+    for item in body.get("data", []) or []:
+        a = item.get("attributes", {}) or {}
+        transactions.append({
+            "hash": a.get("hash"),
+            "operation_type": a.get("operation_type"),
+            "mined_at": a.get("mined_at"),  # real ISO-8601 UTC timestamp, straight from Zerion
+            "sent_to": a.get("sent_to"),
+            "status": a.get("status"),
+        })
+    # Real, already-descending order from Zerion (confirmed live) — kept as-is.
+
+    result = {"available": True, "transactions": transactions}
+    _activity_cache[cache_key] = (time.time(), result)
+    return result

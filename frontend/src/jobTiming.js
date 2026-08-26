@@ -87,3 +87,78 @@ export function getKnownTypicalDelivery(providerAddress) {
   if (!providerAddress) return null;
   return KNOWN_TYPICAL_DELIVERY_SECONDS[providerAddress.toLowerCase()] || null;
 }
+
+// Real, confirmed on-chain constant — OptimisticPolicy.disputeWindow(),
+// read live via eth_call multiple times this project's life, always 604800
+// seconds (7 days). Not re-read per job here (an extra RPC round trip for a
+// value that's never actually changed) — same treatment as useHireAgent.js's
+// own comment on this exact number. If the deployed policy's window is ever
+// reconfigured, this constant (and that comment) both need updating.
+const DISPUTE_WINDOW_SECONDS = 604800;
+// The LARGER of the two real hire paths' own default expiry buffers —
+// useHireAgent.js's direct path defaults to 65 minutes; the Altana session
+// path's hireErc8183Agent defaults to 30 minutes. Used only as a real,
+// conservative fallback below (see getActivityWindow) when neither hire
+// path is distinguishable from the other — over-estimating the buffer by
+// up to ~35 minutes means the computed window starts slightly EARLIER than
+// necessary, which just means a few extra minutes of real, honestly-search
+// on-chain activity, never a missed one.
+const DEFAULT_EXPIRY_BUFFER_SECONDS = 65 * 60;
+
+/** Real time window for the "Agent activity" transparency view
+ * (AgentActivityPanel.jsx) — from when a job was (as best we can tell)
+ * really funded to when it was really delivered. Returns null when there's
+ * no real window to search (the job was never submitted) or when NEITHER a
+ * real recorded estimate NOR a sane computed fallback exists — callers must
+ * not render the feature at all in that case, not show an empty/broken one.
+ *
+ * Three real, honestly-distinguished tiers, in order:
+ *   1. `exact`       — this browser recorded the real fund() moment itself.
+ *   2. `estimated`    — no exact record, but a real "first seen funded"
+ *                       lower bound exists AND is chronologically sane
+ *                       (before the real submittedAt) — an honest
+ *                       approximation, not a fabrication.
+ *   3. `approximate`  — neither of the above is usable (e.g. a fresh
+ *                       browser/session opening an already-old, already-
+ *                       delivered job, where "first seen" would incorrectly
+ *                       land AFTER delivery) — falls back to a real,
+ *                       DETERMINISTIC estimate computed from this job's own
+ *                       on-chain `expiredAt` and the real, confirmed
+ *                       disputeWindow constant, not an arbitrary guess
+ *                       unrelated to this specific job.
+ */
+// Real, small pad applied to both ends of every computed window — found to
+// be genuinely necessary, not cosmetic: a live test against job #56646's
+// own real, known submit() transaction (mined_at exactly equal to the
+// job's on-chain submittedAt, to the second) came back EMPTY from Zerion's
+// real API when max_mined_at was set to that exact same second, and
+// correctly included it once padded by a few seconds — Zerion's own
+// min/max_mined_at bounds are not reliably inclusive at the exact
+// boundary. 2 minutes is generous enough to absorb that without
+// meaningfully changing what "this job's real window" means.
+const WINDOW_PAD_SECONDS = 120;
+
+export function getActivityWindow(jobId, job) {
+  const submittedAtSec = job?.submittedAt != null ? Number(job.submittedAt) : 0;
+  if (!submittedAtSec) return null; // never delivered — nothing real to search
+  const toMs = (submittedAtSec + WINDOW_PAD_SECONDS) * 1000;
+
+  const estimate = getStartEstimate(jobId);
+  const estimateSec = estimate.atMs / 1000;
+  if (estimateSec < submittedAtSec) {
+    return {
+      fromMs: estimate.atMs - WINDOW_PAD_SECONDS * 1000,
+      toMs,
+      precision: estimate.precise ? 'exact' : 'estimated',
+    };
+  }
+
+  if (job?.expiredAt != null) {
+    const expiredAtSec = Number(job.expiredAt);
+    const approxCreatedAtSec = expiredAtSec - DISPUTE_WINDOW_SECONDS - DEFAULT_EXPIRY_BUFFER_SECONDS;
+    if (approxCreatedAtSec < submittedAtSec) {
+      return { fromMs: (approxCreatedAtSec - WINDOW_PAD_SECONDS) * 1000, toMs, precision: 'approximate' };
+    }
+  }
+  return null;
+}

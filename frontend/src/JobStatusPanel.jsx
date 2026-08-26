@@ -50,8 +50,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Sparkles, Clock, Hourglass, CheckCircle2, XCircle } from 'lucide-react';
 import { getJobStatus, getDeliverable } from './altana';
 import { trackJob } from './notifications';
-import { recordFunded, getStartEstimate, getKnownTypicalDelivery } from './jobTiming';
+import { recordFunded, getStartEstimate, getKnownTypicalDelivery, getActivityWindow } from './jobTiming';
 import { extractDeliverableText, parseLightMarkdown } from './deliverableFormat';
+import AgentActivityPanel from './AgentActivityPanel';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const DELIVERABLE_FETCH_TIMEOUT_MS = 12_000;
@@ -479,6 +480,11 @@ export default function JobStatusPanel({
   const nowSec = Math.floor(Date.now() / 1000);
   const canClaimRefund = status === 'FUNDED' && job?.expiredAt != null && nowSec > Number(job.expiredAt);
 
+  // Real time window for the "Agent activity" transparency view — null
+  // (renders nothing) when there's no real, sane window to search. See
+  // jobTiming.js's getActivityWindow for the full real tiering.
+  const activityWindow = job ? getActivityWindow(jobId, job) : null;
+
   // Live-waiting numbers — all derived from real state (startEstimate,
   // job.expiredAt, lastCheckedAtMs) re-evaluated every tick, never a fake
   // incrementing counter running independently of reality.
@@ -618,6 +624,12 @@ export default function JobStatusPanel({
           ) : (
             <div className="flex items-center gap-1.5 opacity-60"><FileText size={12} /> We can't find a result from the agent yet.</div>
           )}
+
+          {/* Real "what is this agent actually doing" transparency view —
+              see AgentActivityPanel.jsx's own docstring. Renders nothing
+              when there's no real window to search. */}
+          <AgentActivityPanel ownerAddress={job?.provider} window={activityWindow} />
+
           {submitted && onApprove && (
             <>
               <button onClick={handleApprove} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ color: accent, borderColor: accent + '4D' }}>

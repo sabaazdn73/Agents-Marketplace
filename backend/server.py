@@ -475,6 +475,25 @@ async def agent_wallet_portfolio(owner_address: str):
     return await zerion.get_wallet_portfolio(owner_address)
 
 
+@app.get("/api/agents/activity")
+async def agent_activity(owner_address: str, min_mined_at: int, max_mined_at: int):
+    """Real, opt-in "what is this agent actually doing" transparency view
+    for one job — the agent owner's real on-chain activity (via Zerion,
+    core/adapters/zerion.py's get_wallet_activity) scoped to a real time
+    window in Unix MILLISECONDS, not the wallet's entire history. See
+    JobStatusPanel.jsx for the real UI this backs, and zerion.py's own
+    docstring for the real, live-verified filter format (milliseconds, not
+    seconds — confirmed against job #56646's real, known submit() tx before
+    this shipped).
+
+    Deliberately per-job, opt-in, on request (never called in bulk) — the
+    same real rate-budget discipline as /api/agents/wallet-portfolio.
+    Always returns 200 with an honest {"available": false, "reason": ...}
+    on any real failure or genuine "nothing happened in this window" —
+    never a fabricated transaction."""
+    return await zerion.get_wallet_activity(owner_address, min_mined_at, max_mined_at)
+
+
 @app.get("/api/agents/termix-performance")
 async def agent_termix_performance(owner_address: str):
     """Real, independent, protocol-wide track record for one agent, from
