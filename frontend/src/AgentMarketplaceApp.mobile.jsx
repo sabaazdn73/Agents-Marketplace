@@ -568,7 +568,6 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
   const perfByOwner = useAgentPerformanceBulk();
-  const agentsWithPerf = useMemo(() => withPerformance(agents, perfByOwner), [agents, perfByOwner]);
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
@@ -624,6 +623,16 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [manualAddress, setManualAddress] = useState('');
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
   const { agents, setAgents, loading, error } = useMarketplaceAgents();
+  // Real bug fix, 2026-08-26: this used to sit up near `sortKey` (right
+  // after the state declarations, before `agents` itself existed yet) —
+  // `agents` is a `const` from useMarketplaceAgents() below, and JS's
+  // temporal dead zone means referencing a `const` before its own
+  // declaration line throws ReferenceError, on every single render. That
+  // crashed the ENTIRE mobile app (web was fine — there, `agents` happens
+  // to be destructured near the top, before its own agentsWithPerf line,
+  // so the same code never hit this). Real fix: declare it here, right
+  // after `agents` itself, matching web's real ordering.
+  const agentsWithPerf = useMemo(() => withPerformance(agents, perfByOwner), [agents, perfByOwner]);
 
   // Deep link: ?agent=<tokenId|id> opens that agent once agents load.
   const deepLinkIdRef = useRef(readDeepLinkAgentId());
