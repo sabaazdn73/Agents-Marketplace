@@ -9,12 +9,31 @@ Run locally: uvicorn server:app --reload --port 8000
 """
 
 import os
+import sys
 import json
 import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
+# Real fix, found while investigating the practice-fork 429 outage below:
+# Render's log timestamps for this exact incident (2026-08-25 19:35-19:39)
+# showed print() lines that should be seconds apart (the retry loop's own
+# 2s/3s/5s/8s/12s/15s/15s/15s backoff) landing within microseconds of each
+# other, in clusters, after real multi-second gaps with nothing logged at
+# all — the signature of Python's default block-buffered stdout under a
+# non-TTY container (stdout isn't a terminal here, so print() doesn't
+# flush per line by default; it waits for its internal buffer to fill).
+# The retries themselves were firing on schedule the whole time — only the
+# LOG LINES describing them were delayed, sometimes by minutes, which
+# would have made "monitor real logs afterward to confirm" below
+# unreliable. reconfigure(line_buffering=True) makes every print() flush
+# immediately, same effect as `PYTHONUNBUFFERED=1` but expressed in code
+# (this service's env vars are set directly in Render's dashboard, not
+# via a render.yaml this repo controls) so it's covered by a normal commit
+# instead of an out-of-band dashboard change.
+sys.stdout.reconfigure(line_buffering=True)
 
 from core.aggregate import get_marketplace_agents_as_dicts
 from core import agent_builder
@@ -48,46 +67,97 @@ app.add_middleware(
 import time
 import asyncio
 
-# Real, best-effort keep-alive for the explainer-agent's own Render free-tier
-# instance (srv-da2api9t0dsc7392afdg) — added 2026-08-21 after a real,
+# Real, best-effort keep-alive for this project's two other Render free-tier
+# services. Started 2026-08-21 for explainer-agent alone, after a real,
 # confirmed incident: a user's /ping check and a real hire attempt both hit
 # the agent mid-idle-spindown-restart (a ~25-40s window where uvicorn isn't
 # accepting connections yet), even though nothing had crashed or regressed —
 # confirmed via direct Render log inspection (clean, repeating
 # shutdown/restart cycles, no OOM/error/rate-limit anywhere). Render's free
-# tier scales to zero after ~15 min of no traffic; this loop pings /ping every
-# 10 minutes (comfortably under that threshold) so the instance ideally never
-# goes idle long enough to spin down during real marketplace usage.
+# tier scales to zero after ~15 min of no traffic; a loop below pings each
+# target every 10 minutes (comfortably under that threshold) so neither
+# instance ideally ever goes idle long enough to spin down during real usage.
+#
+# Extended 2026-08-26 to also cover anvil-practice-fork, after Practice
+# Mode's reactive "wake it on demand" pattern (practice_layer.py's
+# single-flight coalescing) hit a THIRD real, confirmed 429/503 outage
+# despite two rounds of genuine fixes (a coalescing lock, then true
+# single-flight coalescing) — both correctly reduced redundant concurrent
+# requests, but real Render logs from this exact incident (2026-08-25
+# 19:35-19:39, cross-checked against three separate wake-probe cycles)
+# showed the fork returning a 429 on every single one of the shared probe's
+# 8 retries, all three times, over a ~4-minute span — a sustained
+# rate-limit on Render's end, not a coordination problem this backend's own
+# code can retry its way out of. The real, working fix already proven here
+# for explainer-agent is the right one: stop waking the fork reactively
+# on-demand (which is what produces the retry burst Render rate-limits in
+# the first place) and instead keep it from ever going fully cold during
+# normal usage. This is ADDITIVE to the coalescing fix, not a replacement
+# for it — a real user can still land in the rare genuinely-cold window
+# (e.g. right after this backend itself restarts, before the first ping
+# fires), and single-flight coalescing is still what makes that case
+# recover gracefully instead of a retry storm.
+#
+# Target's health endpoint, not a real RPC call: gateway.py's GET /health
+# is answered directly by the gateway process itself (no forward to Anvil),
+# so this ping is as lightweight as explainer-agent's /ping — enough to
+# keep the container's inbound-traffic clock from hitting Render's 15-min
+# idle threshold, without adding any real RPC load to Anvil.
 #
 # Honest limitation, stated plainly: THIS backend is also on Render's free
 # tier, so this loop only runs while server.py itself happens to be awake —
-# it reduces, but cannot fully eliminate, the explainer-agent's cold-start
-# window (this server's own traffic pattern keeps it warm far more reliably
-# than the explainer-agent's low-traffic norm, but there is no guarantee).
-# The already-existing mitigations (agent_health.py's retry-with-backoff,
-# and the explainer-agent's own pre-warm-on-startup) remain the real backstop
-# for whatever this can't prevent.
-_EXPLAINER_AGENT_PING_URL = "https://explainer-agent.onrender.com/ping"
+# it reduces, but cannot fully eliminate, either target's cold-start window
+# (this server's own traffic pattern keeps it warm far more reliably than
+# either target's own low-traffic norm, but there is no guarantee). The
+# already-existing mitigations (agent_health.py's retry-with-backoff for
+# explainer-agent, and practice_layer.py's single-flight coalescing for the
+# fork) remain the real backstop for whatever this can't prevent.
+#
+# Interval: kept at the same 10 minutes as the original, proven
+# explainer-agent loop, deliberately NOT shortened for the fork. The 15-min
+# spin-down threshold is a Render platform constant, identical for both
+# services — it does not depend on either app's own cold-BOOT duration
+# (which only matters for the retry/backoff schedule once something IS
+# cold, a separate concern already handled in practice_layer.py). 10
+# minutes leaves the same 5-minute real margin under that threshold proven
+# to work for explainer-agent, with no real reason for the fork to need a
+# tighter one.
+_KEEPALIVE_TARGETS: list[tuple[str, str]] = [
+    ("explainer-agent", "https://explainer-agent.onrender.com/ping"),
+]
 _KEEPALIVE_INTERVAL_SECONDS = 10 * 60
 
 
-async def _explainer_agent_keepalive_loop():
+async def _keepalive_loop(name: str, url: str):
+    path = url.split("://", 1)[-1].split("/", 1)[-1]
+    path = "/" + path if not path.startswith("/") else path
     async with httpx.AsyncClient(timeout=15) as client:
         while True:
             try:
-                resp = await client.get(_EXPLAINER_AGENT_PING_URL)
-                print(f"[keepalive] explainer-agent /ping -> {resp.status_code} "
+                resp = await client.get(url)
+                print(f"[keepalive] {name} {path} -> {resp.status_code} "
                       f"({resp.elapsed.total_seconds():.2f}s)")
             except Exception as e:
                 # Real, expected outcome during an actual cold start (the
                 # ping itself is what wakes it up) — not fatal, just logged.
-                print(f"[keepalive] explainer-agent /ping failed (likely mid cold-start): {e}")
+                print(f"[keepalive] {name} {path} failed (likely mid cold-start): {e}")
             await asyncio.sleep(_KEEPALIVE_INTERVAL_SECONDS)
 
 
 @app.on_event("startup")
-async def _start_explainer_agent_keepalive():
-    asyncio.create_task(_explainer_agent_keepalive_loop())
+async def _start_keepalive_pingers():
+    targets = list(_KEEPALIVE_TARGETS)
+    # anvil-practice-fork's URL is sourced from the same real
+    # PRACTICE_RPC_URL this backend already uses for every other practice
+    # call (practice_layer.get_practice_rpc()) — not a second hardcoded
+    # copy that could silently drift from what's actually configured.
+    try:
+        practice_rpc = practice_layer.get_practice_rpc()
+        targets.append(("anvil-practice-fork", practice_rpc.rstrip("/") + "/health"))
+    except RuntimeError as e:
+        print(f"[keepalive] skipping anvil-practice-fork (PRACTICE_RPC_URL not set): {e}")
+    for name, url in targets:
+        asyncio.create_task(_keepalive_loop(name, url))
 
 
 _cache: dict = {"data": None, "fetched_at": 0}
