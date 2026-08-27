@@ -18,6 +18,7 @@ import MyJobsPanel from './MyJobsPanel';
 import AgentGuidancePanel from './AgentGuidancePanel';
 import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
+import AltanaSessionPanel from './AltanaSessionPanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
@@ -33,6 +34,7 @@ import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
+import VerificationExplainerSection from './VerificationExplainerSection';
 import InfoTooltip from './InfoTooltip';
 import TermixPerformancePanel from './TermixPerformancePanel';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
@@ -483,6 +485,12 @@ export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenData
 }
 
 function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
+  // Real bug found and fixed (2026-08-27, full mobile/web parity audit):
+  // this file referenced an undefined `REPORT_ACCENT` (never defined or
+  // imported anywhere in the codebase) on the Build tab's AltanaSkillsPanel
+  // — a guaranteed ReferenceError crash the moment a user opened that tab.
+  // Same real accent value web uses (AgentMarketplaceApp.web.jsx).
+  const accent = '#6366F1';
   const [darkMode, setDarkMode] = useState(false);
   // Real first-visit orientation — see AgentMarketplaceApp.web.jsx's
   // matching comment and onboarding.js for the real reasoning.
@@ -717,11 +725,17 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   }, [visible]);
 
   // Same real stat cards as web (Agents Shown / Feedback / Verified).
+  //
+  // Real bug found and fixed (2026-08-27), matching web: `verified` used
+  // isVerified (8004scan's own raw is_verified field, confirmed always
+  // false across the real registry — always showed 0). Fixed to use
+  // agentVerification.js's getVerificationTier over agentsWithPerf (has the
+  // real jobsCompleted/jobsSubmitted signal merged in).
   const stats = useMemo(() => ({
-    total: agents.length,
-    verified: agents.filter((a) => a.isVerified).length,
-    totalFeedbacks: agents.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
-  }), [agents]);
+    total: agentsWithPerf.length,
+    verified: agentsWithPerf.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED).length,
+    totalFeedbacks: agentsWithPerf.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
+  }), [agentsWithPerf]);
 
   return (
     <div className={`flex flex-col h-[100dvh] font-sans ${darkMode ? 'dark bg-[#0B101B] text-white' : 'bg-[#F4F5F8] text-gray-900'}`}>
@@ -850,6 +864,21 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'ALWAYS ASK'}
                 </button>
               </div>
+
+              {/* Real gap found and fixed (2026-08-27, full mobile/web
+                  parity audit): mobile's hire flow never rendered
+                  AltanaSessionPanel at all — "Autonomous mode" (Altana's
+                  passkey mini-wallet + spend-capped session hiring, the
+                  partner-track requirement) was entirely unreachable on
+                  mobile, not just visually different. Same component web
+                  uses, verbatim — its own JSX is already touch-friendly. */}
+              <AltanaSessionPanel
+                accent={accent}
+                surface={darkMode ? '#1E293B' : '#FFFFFF'}
+                mutedBorder="border-gray-200 dark:border-gray-800"
+                darkMode={darkMode}
+                agent={selectedAgent}
+              />
             </div>
           </div>
         ) : detailAgent ? (
@@ -880,7 +909,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       there are more agents out there, we're just not cluttering your view with lookalikes.</>
                     ) },
                     { label: 'Reviews', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'Total written reviews left across all these agents' },
-                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Registered on-chain — not a quality rating" },
+                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Has at least one real, on-chain-confirmed delivered job — not just registered on-chain (see 'How we verify agents' below)" },
                   ].map((c) => {
                     const Icon = c.icon;
                     return (
@@ -896,11 +925,14 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   })}
                 </div>
 
+                {/* Real, permanently-accessible explainer (2026-08-27) —
+                    parity with web. See VerificationExplainerSection.jsx. */}
+                <VerificationExplainerSection className="mb-4" />
+
                 <div className="mb-4">
-                  <InfoTooltip label="What do the badges below mean?" size={12}>
+                  <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
                     <div className="space-y-2">
-                      <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal.</p>
-                      <p><strong>Verified working</strong> — has at least one real, on-chain-confirmed delivered job, not just a health check. <strong>Responding, unproven</strong> means the endpoint answered but hasn't confirmed a real delivery yet. Neither badge showing isn't "broken" — just nothing to judge yet.</p>
+                      <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal by itself — see "How we verify agents" above for what actually counts as proof.</p>
                     </div>
                   </InfoTooltip>
                 </div>
@@ -1173,7 +1205,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     component in this app (BuyAccessPanel, StepChecklist,
                     JobStatusPanel, MyJobsPanel all work the same way). */}
                 <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
-                  <AltanaSkillsPanel accent={REPORT_ACCENT} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
+                  <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
                 </div>
 
                 <div className="flex items-center gap-3 py-1">

@@ -26,6 +26,7 @@ import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
+import VerificationExplainerSection from './VerificationExplainerSection';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import InfoTooltip from './InfoTooltip';
 import TermixPerformancePanel from './TermixPerformancePanel';
@@ -790,11 +791,20 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // Real, derived stats from actually-fetched agents, replacing the
   // earlier hardcoded numbers (which were 8004scan's own global platform
   // stats from a reference screenshot, not this marketplace's real data).
+  //
+  // Real bug found and fixed (2026-08-27): `verified` used to be
+  // `agents.filter(a => a.isVerified).length`, where isVerified is
+  // 8004scan's own raw is_verified field — confirmed live to be false
+  // across the entire real registry, so this always showed 0 no matter how
+  // many agents had passed our own real "Verified working" tier. Fixed to
+  // use agentVerification.js's getVerificationTier (real on-chain-confirmed
+  // delivered job), over agentsWithPerf (the performance-merged list — the
+  // raw jobsCompleted/jobsSubmitted signal isn't on `agents` yet).
   const stats = useMemo(() => ({
-    total: agents.length,
-    verified: agents.filter((a) => a.isVerified).length,
-    totalFeedbacks: agents.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
-  }), [agents]);
+    total: agentsWithPerf.length,
+    verified: agentsWithPerf.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED).length,
+    totalFeedbacks: agentsWithPerf.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
+  }), [agentsWithPerf]);
 
   // Real per-group counts (categoryGroups.js), so the group chips show an
   // actual tally rather than an unlabeled bucket — anything not mapped to a
@@ -955,7 +965,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
                     <div><div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Reviews</div></div>
                   </div>
-                  <div title="Registered on-chain — not a quality rating" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                  <div title="Has at least one real, on-chain-confirmed delivered job — not just registered on-chain (see 'How we verify agents' below)" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
                     <div><div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Verified Agents</div></div>
                   </div>
@@ -963,11 +973,19 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <QrToMobile />
               </div>
 
+              {/* Real, permanently-accessible explainer (2026-08-27) — the
+                  tier legend used to live ONLY behind the small tooltip
+                  below, which only covered 2 of the 4 real tiers and
+                  required already knowing to hover/click a small (i) icon.
+                  This is a real, always-visible section instead (collapsed
+                  by default to stay out of the way, but the toggle itself
+                  is never hidden). See VerificationExplainerSection.jsx. */}
+              <VerificationExplainerSection className="mb-4" />
+
               <div className="mb-8">
-                <InfoTooltip label="What do the badges below mean?" size={12}>
+                <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
                   <div className="space-y-2">
-                    <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal.</p>
-                    <p><strong>Verified working</strong> — has at least one real, on-chain-confirmed delivered job, not just a health check. <strong>Responding, unproven</strong> means the endpoint answered but hasn't confirmed a real delivery yet. Neither badge showing isn't "broken" — just nothing to judge yet.</p>
+                    <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal by itself — see "How we verify agents" above for what actually counts as proof.</p>
                   </div>
                 </InfoTooltip>
               </div>
