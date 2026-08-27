@@ -27,6 +27,22 @@ import StepChecklist from './StepChecklist';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const DEFAULT_TEST_BUDGET = 0.1; // $U — matches backend/core/canary.py's own default
 
+// Real bug found and fixed (2026-08-27): this fetch had NO client-side
+// timeout at all — same real structural gap already found once this
+// session in AgentMarketplaceApp.web.jsx's AgentPerformance component (see
+// its own AGENT_PERFORMANCE_FETCH_TIMEOUT_MS comment for the full real
+// investigation). /api/canary/candidates calls select_candidates(), which
+// reads the full known_agents store (get_stored_agents()) AND does a real
+// on-chain performance scan (get_all_agent_performance()) — real, measured
+// at ~4-7s even after fixing get_stored_agents()'s own real O(k^2)
+// clustering slowdown (see core/clustering.py). Without a timeout, any
+// real connection stall (a real, observed failure mode on this free-tier
+// host, same as the AgentPerformance investigation found) left
+// `candidates` stuck at its initial `null` forever — rendering the
+// "Loading real candidates…" spinner indefinitely, exactly the real
+// symptom reported. Fixed with the same real timeout + retry pattern.
+const CANARY_FETCH_TIMEOUT_MS = 20_000;
+
 function useCanaryData() {
   const [candidates, setCandidates] = useState(null);
   const [budget, setBudget] = useState(null);
@@ -34,15 +50,21 @@ function useCanaryData() {
 
   const load = useCallback(() => {
     setError(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), CANARY_FETCH_TIMEOUT_MS);
     Promise.all([
-      fetch(`${API_BASE_URL}/api/canary/candidates`).then((r) => r.json()),
-      fetch(`${API_BASE_URL}/api/canary/budget-status`).then((r) => r.json()),
+      fetch(`${API_BASE_URL}/api/canary/candidates`, { signal: controller.signal })
+        .then((r) => { if (!r.ok) throw new Error(`Backend returned ${r.status}`); return r.json(); }),
+      fetch(`${API_BASE_URL}/api/canary/budget-status`, { signal: controller.signal })
+        .then((r) => { if (!r.ok) throw new Error(`Backend returned ${r.status}`); return r.json(); }),
     ])
       .then(([c, b]) => { setCandidates(c.candidates || []); setBudget(b); })
-      .catch((e) => setError(e.message || String(e)));
+      .catch((e) => setError(e.name === 'AbortError' ? 'Timed out reaching the backend — it may be slow right now.' : (e.message || String(e))))
+      .finally(() => clearTimeout(timeout));
+    return () => { controller.abort(); clearTimeout(timeout); };
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => load(), [load]);
   return { candidates, budget, error, reload: load };
 }
 

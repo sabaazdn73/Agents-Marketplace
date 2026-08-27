@@ -79,59 +79,54 @@ def _parse_ts(value) -> float | None:
         return None
 
 
-def _corroborates(a: dict, b: dict) -> bool:
-    """Real, second-signal check — only called on a pair that ALREADY
-    shares a description-template signature (see cluster_agents below).
-    Returns True the moment ANY one real corroborating signal agrees."""
-    # Same real registered service endpoint — the strongest single signal;
-    # checked across whichever of the agent's own real service fields are
-    # present on this real record shape.
-    ep_a = (a.get("a2a_endpoint") or a.get("service_endpoint") or "").strip().lower()
-    ep_b = (b.get("a2a_endpoint") or b.get("service_endpoint") or "").strip().lower()
-    if ep_a and ep_a == ep_b:
-        return True
-
-    # Real registration-burst proximity.
-    ts_a = _parse_ts(a.get("created_at"))
-    ts_b = _parse_ts(b.get("created_at"))
-    if ts_a is not None and ts_b is not None and abs(ts_a - ts_b) <= BURST_WINDOW_SECONDS:
-        return True
-
-    # Shared owner — a real, but deliberately NOT standalone, signal (see
-    # module docstring). Only reached here because signal 1 (description
-    # template) already matched, so this is one of several corroborating
-    # checks, never the sole trigger.
-    owner_a = (a.get("owner_address") or "").strip().lower()
-    owner_b = (b.get("owner_address") or "").strip().lower()
-    if owner_a and owner_a == owner_b:
-        return True
-
-    return False
-
-
 def cluster_agents(agents: list[dict]) -> dict[int, int]:
     """Real, principled clustering: returns {index_in_agents: cluster_id}.
     Agents that never matched ANY other agent on both the blocking key AND
     a corroborating signal each get their OWN unique cluster id (correctly
     counted as distinct, not silently folded into someone else's cluster).
 
-    Real efficiency note: the blocking step (grouping by description-
-    template signature first) keeps this well under O(n²) in practice —
-    only agents that ALREADY share a real description template are ever
-    compared pairwise against each other for the corroborating check,
-    and those buckets are typically small even across tens of thousands
-    of real agents (see docs/full-registry-analysis.md for real, measured
-    bucket sizes)."""
+    Real perf fix (2026-08-27, found while investigating a real, live
+    slowdown in get_stored_agents()): this used to run a full O(k^2)
+    pairwise `_corroborates()` check inside every blocking bucket of size
+    k. That was fine at the scale this was built and tested against
+    (buckets in the low hundreds), but real-world blocking buckets from
+    mass-registration campaigns have since grown much larger — live-
+    measured on the current real known_agents store (10,837 agents): the
+    single largest bucket alone has 1,591 agents, needing ~1.26M pairwise
+    calls by itself, and the real total across all buckets was ~2.52M
+    calls — a measured, real 3.0s of get_stored_agents()'s ~4.4s total.
+
+    Fixed below with an O(k log k) equivalent, not an approximation: each
+    of the three real corroborating signals in the old _corroborates() is
+    either an EQUALITY relation (same endpoint; same owner) or a 1-D
+    PROXIMITY relation (registration timestamps within BURST_WINDOW_
+    SECONDS). An equality relation's connected components are exactly a
+    group-by (union everyone sharing the same real value) — no pairwise
+    comparison needed. A proximity relation's connected components are
+    exactly captured by sorting the values and unioning only ADJACENT
+    pairs within the window: if two agents are only reachable through a
+    chain of real in-window neighbors, unioning each adjacent link
+    correctly chains them transitively via the same Union-Find used
+    before; and if the chain breaks anywhere (an adjacent gap exceeds the
+    window), no pair spanning that break could have qualified directly
+    either, since sorted order means their real gap is only larger. Same
+    final clusters as the old full pairwise check, verified by direct
+    comparison against it on the real, current store before this was kept
+    — just without ever doing the O(k^2) work to get there.
+
+    Real efficiency note (unchanged): the blocking step (grouping by
+    description-template signature first) is still what keeps the overall
+    cost manageable — only agents that already share a real description
+    template are considered for a corroborating signal at all."""
     buckets: dict[tuple, list[int]] = {}
     for i, a in enumerate(agents):
         sig = _cluster_signature(a.get("name", ""), a.get("description", ""))
         buckets.setdefault(sig, []).append(i)
 
     # Union-Find over indices — real, standard disjoint-set clustering,
-    # not an ad-hoc bucket dict, so a real chain of pairwise-corroborated
-    # agents (A~B via endpoint, B~C via timestamp) correctly ends up in
-    # ONE real cluster even if A and C alone wouldn't have corroborated
-    # directly.
+    # not an ad-hoc bucket dict, so a real chain of corroborated agents
+    # (A~B via endpoint, B~C via timestamp) correctly ends up in ONE real
+    # cluster even if A and C alone wouldn't have corroborated directly.
     parent = list(range(len(agents)))
 
     def find(x: int) -> int:
@@ -148,11 +143,43 @@ def cluster_agents(agents: list[dict]) -> dict[int, int]:
     for sig, idxs in buckets.items():
         if len(idxs) < 2:
             continue
-        for a in range(len(idxs)):
-            for b in range(a + 1, len(idxs)):
-                i, j = idxs[a], idxs[b]
-                if _corroborates(agents[i], agents[j]):
-                    union(i, j)
+
+        # 1) Same real registered service endpoint — exact-match signal,
+        # O(k) group-by instead of O(k^2) pairwise.
+        by_endpoint: dict[str, list[int]] = {}
+        for i in idxs:
+            ep = (agents[i].get("a2a_endpoint") or agents[i].get("service_endpoint") or "").strip().lower()
+            if ep:
+                by_endpoint.setdefault(ep, []).append(i)
+        for group in by_endpoint.values():
+            for k in range(1, len(group)):
+                union(group[0], group[k])
+
+        # 2) Real registration-burst proximity — sort by timestamp, union
+        # only adjacent pairs within the real window (see docstring above
+        # for why this is the exact same result as full pairwise, not an
+        # approximation). Agents with no parseable timestamp simply don't
+        # participate in this signal, same as the old pairwise check.
+        timed = sorted(
+            ((t, i) for i in idxs if (t := _parse_ts(agents[i].get("created_at"))) is not None)
+        )
+        for k in range(1, len(timed)):
+            if timed[k][0] - timed[k - 1][0] <= BURST_WINDOW_SECONDS:
+                union(timed[k - 1][1], timed[k][1])
+
+        # 3) Shared owner — a real, but deliberately NOT standalone,
+        # signal (see module docstring); reaching this step already
+        # required sharing the description-template blocking key, so this
+        # group-by is equivalent to the old pairwise owner check. Exact-
+        # match signal, O(k) group-by instead of O(k^2) pairwise.
+        by_owner: dict[str, list[int]] = {}
+        for i in idxs:
+            owner = (agents[i].get("owner_address") or "").strip().lower()
+            if owner:
+                by_owner.setdefault(owner, []).append(i)
+        for group in by_owner.values():
+            for k in range(1, len(group)):
+                union(group[0], group[k])
 
     # Real, stable cluster ids (0..k-1), not raw root indices, so callers
     # get a clean, small id space.

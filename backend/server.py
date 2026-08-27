@@ -38,6 +38,7 @@ sys.stdout.reconfigure(line_buffering=True)
 from core.aggregate import get_marketplace_agents_as_dicts, get_agents_from_full_registry_as_dicts
 from core import agent_builder
 from core import agent_store
+from core.db import get_db
 from core import agent_performance
 from core import agent_health
 from core import erc8183_negotiate
@@ -116,6 +117,23 @@ async def _keepalive_loop(name: str, url: str):
 async def _start_keepalive_pingers():
     for name, url in _KEEPALIVE_TARGETS:
         asyncio.create_task(_keepalive_loop(name, url))
+
+
+@app.on_event("startup")
+async def _ensure_indexes():
+    """Real fix (2026-08-27): known_agents had no index beyond the default
+    _id, so agent_store.get_stored_agents()'s real sort-by-total_score ran
+    as a COLLSCAN + in-memory SORT (confirmed live via .explain() before
+    this fix) — not the dominant real cost at today's ~10,800-agent scale
+    (20ms), but a real, growing risk as the collection keeps being upserted
+    by every refresh. create_index is idempotent (a no-op if the index
+    already exists), so this is safe to run on every boot rather than
+    depending on a one-off manual step against this specific real database."""
+    try:
+        db = get_db()
+        await db.known_agents.create_index([("total_score", -1)])
+    except Exception as e:
+        print(f"[server] Could not ensure known_agents index (non-fatal): {e}")
 
 
 _cache: dict = {"data": None, "fetched_at": 0}

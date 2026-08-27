@@ -1172,14 +1172,21 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <button onClick={() => setActiveGroup('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                   activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
                 }`}>All</button>
+                {/* Real fix (2026-08-27): same confirmedFresh gate as the
+                    header stats — these counts come from the same `agents`
+                    array, so showing them before a real fetch has settled
+                    risked the exact same stale-cache-then-jump mismatch
+                    (e.g. a stale cached total summing to far less than the
+                    real, current known_agents count). '…' instead of a
+                    number that might be wrong. */}
                 {CATEGORY_GROUPS.map((g) => (
                   <button key={g.id} onClick={() => setActiveGroup(g.id)} title={g.categories.join(', ')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                     activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
-                  }`}>{g.label} ({groupCounts[g.id] || 0})</button>
+                  }`}>{g.label} ({confirmedFresh ? (groupCounts[g.id] || 0) : '…'})</button>
                 ))}
                 <button onClick={() => setActiveGroup('Unclassified')} title="Agents whose description didn't clearly match a real category" className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                   activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
-                }`}>Unclassified ({groupCounts.Unclassified || 0})</button>
+                }`}>Unclassified ({confirmedFresh ? (groupCounts.Unclassified || 0) : '…'})</button>
               </div>
 
               {activeGroupCategories.length > 0 && (

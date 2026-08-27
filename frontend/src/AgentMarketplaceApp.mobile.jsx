@@ -1057,17 +1057,20 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <button onClick={() => setActiveGroup('All')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
                     activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                   }`}>All</button>
+                  {/* Real fix (2026-08-27), matches web: same
+                      confirmedFresh gate as the header stats — '…' instead
+                      of a count that might be a stale, pre-fetch number. */}
                   {CATEGORY_GROUPS.map((g) => (
                     <button key={g.id} onClick={() => setActiveGroup(g.id)} title={g.categories.join(', ')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
                       activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                     }`}>
-                      {g.label} ({groupCounts[g.id] || 0})
+                      {g.label} ({confirmedFresh ? (groupCounts[g.id] || 0) : '…'})
                     </button>
                   ))}
                   <button onClick={() => setActiveGroup('Unclassified')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
                     activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                   }`}>
-                    Unclassified ({groupCounts.Unclassified || 0})
+                    Unclassified ({confirmedFresh ? (groupCounts.Unclassified || 0) : '…'})
                   </button>
                 </div>
 
