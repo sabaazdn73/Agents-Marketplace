@@ -15,7 +15,7 @@
 // says so explicitly rather than leaving it unstated.
 
 import React from 'react';
-import { ShieldCheck, Radio } from 'lucide-react';
+import { ShieldCheck, ShieldHalf, Radio } from 'lucide-react';
 import { VERIFICATION_TIER, getVerificationTier, VERIFICATION_LABEL, VERIFICATION_HINT } from './agentVerification';
 
 export default function VerificationBadge({ agent, size = 'sm', className = '' }) {
@@ -30,6 +30,16 @@ export default function VerificationBadge({ agent, size = 'sm', className = '' }
         className={`inline-flex items-center gap-1 ${textCls} font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 ${className}`}
       >
         <ShieldCheck size={sizePx} /> {VERIFICATION_LABEL[tier]}
+      </span>
+    );
+  }
+  if (tier === VERIFICATION_TIER.CANARY_VERIFIED) {
+    return (
+      <span
+        title={VERIFICATION_HINT[tier]}
+        className={`inline-flex items-center gap-1 ${textCls} font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400 ${className}`}
+      >
+        <ShieldHalf size={sizePx} /> {VERIFICATION_LABEL[tier]}
       </span>
     );
   }
@@ -70,8 +80,10 @@ export function VerificationExplainer({ className = '' }) {
       <ShieldCheck size={13} className="shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
       <span>
         <strong>"Verified working"</strong> means this agent has at least one real, on-chain-confirmed
-        delivered job — not just a health check. <strong>"Responding, unproven"</strong> means its endpoint
-        answered just now but hasn't confirmed a real delivery yet. Agents with neither aren't shown as
+        delivered job for a real buyer — not just a health check. <strong>"Canary-verified"</strong> means
+        no real buyer job yet, but a small, real test job we funded ourselves was actually delivered — real
+        proof, just not from real demand yet. <strong>"Responding, unproven"</strong> means its endpoint
+        answered just now but hasn't confirmed a real delivery yet. Agents with none of these aren't shown as
         broken — there's just nothing yet to judge them on.
       </span>
     </div>

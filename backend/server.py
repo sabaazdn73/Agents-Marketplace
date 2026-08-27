@@ -46,6 +46,7 @@ from core import status_checks
 from adapters import zerion
 from adapters import coingecko
 from adapters import termix
+from core import canary
 
 load_dotenv()
 
@@ -492,6 +493,66 @@ async def agent_activity(owner_address: str, min_mined_at: int, max_mined_at: in
     on any real failure or genuine "nothing happened in this window" —
     never a fabricated transaction."""
     return await zerion.get_wallet_activity(owner_address, min_mined_at, max_mined_at)
+
+
+@app.get("/api/canary/candidates")
+async def canary_candidates(limit: int = canary.DEFAULT_WEEKLY_SAMPLE_SIZE):
+    """Real, read-only candidate list for a human operator to review before
+    choosing to canary-test one — see core/canary.py's own docstring for
+    the full real selection rule and the real safety boundary (this never
+    spends anything; only a human's own connected wallet, clicking through
+    the normal hire flow, ever does)."""
+    return {"candidates": await canary.select_candidates(limit=limit)}
+
+
+@app.get("/api/canary/budget-status")
+async def canary_budget_status():
+    """Real, current canary spend vs the real weekly cap — read-only."""
+    return await canary.get_budget_status()
+
+
+@app.get("/api/canary/status-bulk")
+async def canary_status_bulk():
+    """Real, bulk canary-verification status for every agent that's ever
+    been canary-tested — the real data behind the 'Canary-verified' tier."""
+    return {"by_owner": await canary.get_canary_status_bulk()}
+
+
+@app.get("/api/canary/history")
+async def canary_history(owner_address: str):
+    """Real, full canary test history for one agent — every real attempt,
+    success or failure, surfaced transparently."""
+    return {"history": await canary.get_canary_history(owner_address)}
+
+
+@app.post("/api/canary/record")
+async def canary_record(request: Request):
+    """Records a real canary hire a human operator's OWN connected wallet
+    just executed through the normal, real hire flow (useHireAgent.js) —
+    this route never signs or spends anything itself, it only logs a real
+    transaction that already happened on-chain. Body: {owner_address,
+    agent_name, job_id, budget_units, tx_hash?}."""
+    body = await request.json()
+    owner_address = body.get("owner_address")
+    job_id = body.get("job_id")
+    if not owner_address or job_id is None:
+        raise HTTPException(status_code=400, detail="owner_address and job_id are required")
+    return await canary.record_canary_test(
+        owner_address=owner_address,
+        agent_name=body.get("agent_name") or "",
+        job_id=job_id,
+        budget_units=float(body.get("budget_units") or canary.DEFAULT_TEST_BUDGET_UNITS),
+        tx_hash=body.get("tx_hash"),
+    )
+
+
+@app.post("/api/canary/check-pending")
+async def canary_check_pending():
+    """Real, read-only re-check of every still-pending canary test's actual
+    on-chain status. Never touches money — safe to call on any real
+    schedule (unlike the funding step, which always requires a real,
+    connected human wallet)."""
+    return await canary.check_pending_results()
 
 
 @app.get("/api/agents/termix-performance")

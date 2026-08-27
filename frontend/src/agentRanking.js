@@ -82,3 +82,24 @@ export function withPerformance(agents, byOwner) {
     };
   });
 }
+
+/** Merges real bulk canary-test data (useCanaryStatus's byOwner — see
+ * backend/core/canary.py) onto a mapped agent list — the real basis for
+ * agentVerification.js's "Canary-verified" tier. canaryDelivered counts
+ * only real, actually-'delivered' canary tests, never 'pending'/'failed'
+ * ones (see canary.py's own non-punitive-failure design). Separate pass
+ * from withPerformance so a page that doesn't need canary data (nothing
+ * uses it yet) doesn't have to thread a second byOwner map through. */
+export function withCanaryStatus(agents, canaryByOwner) {
+  if (!canaryByOwner) return agents.map((a) => ({ ...a, canaryDelivered: 0, canaryLastTestedAt: null }));
+  return agents.map((a) => {
+    const c = canaryByOwner[(a.ownerAddress || '').toLowerCase()];
+    return {
+      ...a,
+      canaryDelivered: c?.delivered ?? 0,
+      canaryTests: c?.tests ?? 0,
+      canaryFailed: c?.failed ?? 0,
+      canaryLastTestedAt: c?.last_tested_at || null,
+    };
+  });
+}

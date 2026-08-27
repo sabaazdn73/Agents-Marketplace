@@ -29,7 +29,8 @@ import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
-import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
+import { useCanaryStatus } from './useCanaryStatus';
+import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import InfoTooltip from './InfoTooltip';
@@ -509,6 +510,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
   const { byOwner: perfByOwner, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
+  const { byOwner: canaryByOwner } = useCanaryStatus();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
@@ -572,7 +574,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // to be destructured near the top, before its own agentsWithPerf line,
   // so the same code never hit this). Real fix: declare it here, right
   // after `agents` itself, matching web's real ordering.
-  const agentsWithPerf = useMemo(() => withPerformance(agents, perfByOwner), [agents, perfByOwner]);
+  const agentsWithPerf = useMemo(
+    () => withCanaryStatus(withPerformance(agents, perfByOwner), canaryByOwner),
+    [agents, perfByOwner, canaryByOwner]
+  );
 
   // Deep link: ?agent=<tokenId|id> opens that agent once agents load.
   const deepLinkIdRef = useRef(readDeepLinkAgentId());

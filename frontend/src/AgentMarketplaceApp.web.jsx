@@ -22,7 +22,8 @@ import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
 import { getReliabilityHint } from './agentReliability';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
-import { withPerformance, performanceComparator, agentHasRealHistory } from './agentRanking';
+import { useCanaryStatus } from './useCanaryStatus';
+import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
 import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
@@ -625,7 +626,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // agentRanking.js for the real tiering (real history first, no-history
   // agents after, never silently mixed in).
   const { byOwner: perfByOwner, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
-  const agentsWithPerf = useMemo(() => withPerformance(agents, perfByOwner), [agents, perfByOwner]);
+  const { byOwner: canaryByOwner } = useCanaryStatus();
+  const agentsWithPerf = useMemo(
+    () => withCanaryStatus(withPerformance(agents, perfByOwner), canaryByOwner),
+    [agents, perfByOwner, canaryByOwner]
+  );
   const PERFORMANCE_SORT_KEYS = new Set(['hireCount', 'winRate']);
 
   const { isConnected: wagmiConnected } = useAccount();

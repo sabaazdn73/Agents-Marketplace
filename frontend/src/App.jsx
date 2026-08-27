@@ -8,6 +8,7 @@ import StatusPage from './StatusPage.jsx';
 import DataSourcesPage from './DataSourcesPage.jsx';
 import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
+import CanaryTestingPanel from './CanaryTestingPanel.jsx';
 import { MAIN_TAB_PATHS, NAV_TO_PATH } from './routePaths.js';
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
@@ -95,6 +96,10 @@ export default function App() {
 
   if (path === '/docs' || path.startsWith('/docs/') || path.startsWith('/docs#')) {
     return <DocsPage path={path} navigate={navigate} onBack={() => navigate('/')} isMobile={isMobile} />;
+  }
+
+  if (path === '/canary') {
+    return <CanaryTestingPanel onBack={() => navigate('/')} />;
   }
 
   if (path === '/ecosystem') {
