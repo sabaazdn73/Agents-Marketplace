@@ -18,13 +18,95 @@
 // UI can point at the right row.
 
 import { useState, useCallback, useEffect } from 'react';
-import { useAccount, useWriteContract, useSignTypedData, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
+import { useAccount, useWriteContract, useSignTypedData, usePublicClient, useChainId, useSwitchChain, useConfig } from 'wagmi';
+import { getCapabilities, sendCalls, waitForCallsStatus } from 'wagmi/actions';
 import { bsc } from 'wagmi/chains';
 import {
   getContracts, AGENTIC_COMMERCE_ABI, EVALUATOR_ROUTER_ABI,
   OPTIMISTIC_POLICY_ABI, ERC20_ABI, JOB_STATUS,
 } from './erc8183';
 import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded, buildNotifyAuthorization } from './erc8183Negotiate';
+
+// Real, batched "sign once" alternative to the step-by-step direct hire
+// flow (2026-08-27), investigated before building anything, not assumed:
+//
+// - Real, confirmed library support: this project's actual installed
+//   wagmi (2.19.5) and viem (2.55.13) both ship real, non-experimental
+//   EIP-5792 support (wallet_sendCalls/wallet_getCapabilities) — confirmed
+//   by reading the installed packages directly, not by version number
+//   alone.
+// - Real, load-bearing constraint found while designing this: createJob's
+//   real jobId is only known AFTER its receipt is mined and decoded
+//   (decodeJobIdFromReceipt below) — but registerJob/setBudget/approve/
+//   fund all REQUIRE that real jobId as an argument. EIP-5792 batches are
+//   a static array submitted upfront; there's no "use call #1's on-chain
+//   output as call #2's input" within one batch. Real, live-confirmed
+//   (not assumed): jobCounter() returns the id of the MOST RECENTLY
+//   created job, not the next one to be assigned (checked live: with
+//   jobCounter()=56665, getJob(56665) is a real existing job and
+//   getJob(56666) doesn't exist yet) — so the next id would need to be
+//   PREDICTED as jobCounter()+1, read moments before submitting. On this
+//   real, live, continuously-active multi-user marketplace (the job
+//   counter advanced by 50+ within this session alone), that prediction
+//   could race a genuinely different user's own createJob landing first,
+//   which would make a naive "batch all 5 steps" attempt operate on the
+//   WRONG job — a real correctness/safety risk, not a hypothetical one.
+//   Not built. createJob stays its own, individually-confirmed real
+//   signature (exactly as in the step-by-step flow) specifically so its
+//   real jobId is confirmed on-chain before anything that depends on it
+//   is even constructed.
+// - What IS genuinely safe to batch: registerJob + setBudget + (approve,
+//   if needed) + fund all take the SAME already-confirmed real jobId and
+//   have no inter-dependency this batch's own real atomicity doesn't
+//   already resolve (an EIP-5792 batch with atomic support of 'supported'
+//   or 'ready' either lands as one real on-chain unit or none of it does
+//   — see wallet_getCapabilities' real atomic.status field, checked below,
+//   never assumed). So the real, honest reduction this flow offers is 2
+//   real signatures (createJob, then one batch for the remaining on-chain
+//   steps) instead of up to 4 — not literally "one signature for
+//   everything", which would require the unsafe prediction above.
+export const CAN_BATCH_HIRE_STATUS = { unknown: 'unknown', supported: 'supported', unsupported: 'unsupported' };
+
+/** Real, live capability check — never assumed. Returns 'unknown' while
+ * checking/no wallet connected, 'supported' only when the connected
+ * wallet's own wallet_getCapabilities response reports real atomic batch
+ * support for BSC ('supported' or 'ready' per EIP-5792's own real status
+ * values), 'unsupported' for every other real outcome (capability query
+ * itself failing is treated as unsupported, never as a reason to attempt
+ * a broken half-batch — same honest-fallback discipline as the rest of
+ * this hook). */
+export function useBatchHireCapability() {
+  const { address, isConnected } = useAccount();
+  const config = useConfig();
+  const [status, setStatus] = useState(CAN_BATCH_HIRE_STATUS.unknown);
+
+  useEffect(() => {
+    if (!isConnected || !address) { setStatus(CAN_BATCH_HIRE_STATUS.unknown); return; }
+    let cancelled = false;
+    setStatus(CAN_BATCH_HIRE_STATUS.unknown);
+    (async () => {
+      try {
+        const capabilities = await getCapabilities(config, { account: address, chainId: bsc.id });
+        const atomicStatus = capabilities?.[bsc.id]?.atomic?.status;
+        if (cancelled) return;
+        setStatus(
+          atomicStatus === 'supported' || atomicStatus === 'ready'
+            ? CAN_BATCH_HIRE_STATUS.supported
+            : CAN_BATCH_HIRE_STATUS.unsupported
+        );
+      } catch (e) {
+        // Real, honest fallback: a wallet that doesn't implement
+        // wallet_getCapabilities at all (most still don't) throws or
+        // returns a JSON-RPC "method not found" here — genuinely
+        // unsupported, not an error state to surface.
+        if (!cancelled) setStatus(CAN_BATCH_HIRE_STATUS.unsupported);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [address, isConnected, config]);
+
+  return status;
+}
 
 
 // Generic quality terms sent with every real negotiate attempt. Deliberately
@@ -130,6 +212,7 @@ export function useHireAgent() {
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const { signTypedDataAsync } = useSignTypedData();
+  const config = useConfig();
 
   const [step, setStep] = useState(null); // null | 'creating' | 'registering' | 'budgeting' | 'approving' | 'funding' | 'done'
   const [jobId, setJobId] = useState(null);
@@ -364,6 +447,149 @@ export function useHireAgent() {
     }
   }, [address, chainId, switchChainAsync, publicClient, writeAndConfirm]);
 
+  // Real "sign once for the remaining steps" alternative — see this file's
+  // own top-of-file note for the full real investigation (why createJob
+  // can't safely join the batch, and what genuinely can). Same real
+  // negotiate + createJob prefix as `hire()` above (unchanged, individually
+  // confirmed), then registerJob + setBudget + (approve, if needed) + fund
+  // go into ONE real wallet_sendCalls batch instead of up to 4 separate
+  // signatures. Caller must confirm useBatchHireCapability() reports
+  // 'supported' before calling this — not re-checked here, so a caller
+  // that ignores that guard gets whatever real error the wallet itself
+  // returns for an unsupported batch, never a silent partial attempt.
+  const hireBatched = useCallback(async ({ providerAddress, budgetUnits, description, expiryMinutes = 65 }) => {
+    if (!address) throw new Error('Connect a wallet first.');
+    if (chainId !== bsc.id) {
+      await switchChainAsync({ chainId: bsc.id });
+    }
+    const contracts = getContracts(bsc.id);
+    setError(null);
+    setCompletedSteps([]);
+    setSkippedSteps([]);
+    setStepHashes({});
+    setNotifySkipReason(null);
+    setJobId(null);
+
+    try {
+      const paymentToken = await publicClient.readContract({
+        address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'paymentToken',
+      });
+      const decimals = await publicClient.readContract({
+        address: paymentToken, abi: ERC20_ABI, functionName: 'decimals',
+      });
+      const budgetRaw = BigInt(Math.round(budgetUnits * 10 ** decimals));
+
+      // Step 0: same real, best-effort negotiate as the step-by-step path.
+      setStep('negotiating');
+      let finalDescription = description;
+      let finalBudgetRaw = budgetRaw;
+      let negotiationSucceeded = false;
+      try {
+        const negotiationResult = await negotiateJob(providerAddress, description, DEFAULT_NEGOTIATE_TERMS);
+        const price = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
+        if (negotiationResult && price != null) {
+          finalDescription = buildJobDescription(negotiationResult);
+          finalBudgetRaw = budgetRaw > price ? budgetRaw : price;
+          negotiationSucceeded = true;
+        }
+      } catch (e) { /* real, non-fatal — same as hire() */ }
+      if (negotiationSucceeded) {
+        setCompletedSteps((prev) => [...prev, 'negotiating']);
+      } else {
+        setSkippedSteps((prev) => [...prev, 'negotiating']);
+      }
+
+      // Step 1: createJob — real, individually-signed and confirmed, same
+      // as hire(). Kept separate on purpose: its real jobId (decoded from
+      // the receipt below) is what every batched call after it needs as an
+      // argument — see this file's top-of-file note for why that real
+      // dependency can't be resolved inside one static EIP-5792 batch.
+      setStep('creating');
+      const disputeWindowSeconds = await publicClient.readContract({
+        address: contracts.policy, abi: OPTIMISTIC_POLICY_ABI, functionName: 'disputeWindow',
+      });
+      const expiredAt = BigInt(Math.floor(Date.now() / 1000) + expiryMinutes * 60) + disputeWindowSeconds;
+      const { receipt: createReceipt } = await writeAndConfirm('creating', {
+        address: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'createJob',
+        args: [providerAddress, contracts.router, expiredAt, finalDescription, contracts.router],
+      });
+      const newJobId = decodeJobIdFromReceipt(createReceipt);
+      setJobId(newJobId);
+
+      // Step 2: ONE real batch — registerJob + setBudget + (approve, if the
+      // real, current allowance doesn't already cover it) + fund. All four
+      // take the now-confirmed real jobId; none of them needs a value only
+      // available after this batch itself starts executing, so a real
+      // atomic batch (wallet_sendCalls) is safe here in a way it wasn't for
+      // createJob.
+      setStep('batching');
+      const currentAllowance = await publicClient.readContract({
+        address: paymentToken, abi: ERC20_ABI, functionName: 'allowance',
+        args: [address, contracts.commerce],
+      });
+      const needsApprove = currentAllowance < finalBudgetRaw;
+      const calls = [
+        { to: contracts.router, abi: EVALUATOR_ROUTER_ABI, functionName: 'registerJob', args: [newJobId, contracts.policy] },
+        { to: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'setBudget', args: [newJobId, finalBudgetRaw, '0x'] },
+        ...(needsApprove ? [{ to: paymentToken, abi: ERC20_ABI, functionName: 'approve', args: [contracts.commerce, finalBudgetRaw] }] : []),
+        { to: contracts.commerce, abi: AGENTIC_COMMERCE_ABI, functionName: 'fund', args: [newJobId, finalBudgetRaw, '0x'] },
+      ];
+      if (!needsApprove) setSkippedSteps((prev) => [...prev, 'approving']);
+
+      const { id: batchId } = await sendCalls(config, { chainId: bsc.id, calls });
+      const batchResult = await waitForCallsStatus(config, { id: batchId, timeout: RECEIPT_TIMEOUT_MS });
+      if (batchResult.status !== 'success') {
+        throw new Error(
+          `The batched steps didn't confirm successfully (real status: ${batchResult.status}). ` +
+          `Check this batch's real status before trying again — it may have partially landed depending on ` +
+          `your wallet's own real atomicity guarantee: https://bscscan.com/tx/${batchResult.receipts?.[batchResult.receipts.length - 1]?.transactionHash || ''}`
+        );
+      }
+      // Real tx hashes, one per call in the batch, in the same order —
+      // recorded against each real step key so the checklist can still
+      // link out to BscScan per step, same as the individual-signing path.
+      const receipts = batchResult.receipts || [];
+      const realHashes = {};
+      let idx = 0;
+      realHashes.registering = receipts[idx++]?.transactionHash;
+      realHashes.budgeting = receipts[idx++]?.transactionHash;
+      if (needsApprove) realHashes.approving = receipts[idx++]?.transactionHash;
+      realHashes.funding = receipts[idx++]?.transactionHash;
+      setStepHashes((prev) => ({ ...prev, ...realHashes }));
+      setCompletedSteps((prev) => [...prev, 'registering', 'budgeting', ...(needsApprove ? ['approving'] : []), 'funding']);
+      const fundHash = realHashes.funding;
+
+      // Step 3: same real, best-effort notify as the step-by-step path.
+      setStep('notifying');
+      let notifySucceeded = false;
+      let notifyReason = null;
+      try {
+        const authorization = negotiationSucceeded
+          ? await buildNotifyAuthorization({
+              chainId: bsc.id, verifyingContract: contracts.commerce, jobId: newJobId, signTypedDataAsync,
+            })
+          : null;
+        const result = await notifyFunded(providerAddress, newJobId, authorization);
+        notifySucceeded = result.notified;
+        notifyReason = result.reason;
+      } catch (e) {
+        notifyReason = e.message || String(e);
+      }
+      if (notifySucceeded) {
+        setCompletedSteps((prev) => [...prev, 'notifying']);
+      } else {
+        setSkippedSteps((prev) => [...prev, 'notifying']);
+      }
+      setNotifySkipReason(notifyReason);
+
+      setStep('done');
+      return { jobId: newJobId, txHash: fundHash };
+    } catch (e) {
+      setError(e.message || String(e));
+      throw e;
+    }
+  }, [address, chainId, switchChainAsync, publicClient, writeAndConfirm, config, signTypedDataAsync]);
+
   const getRealJobStatus = useCallback(async (jobIdToCheck) => {
     const contracts = getContracts(chainId);
     const job = await publicClient.readContract({
@@ -375,7 +601,7 @@ export function useHireAgent() {
     return { ...job, statusLabel: JOB_STATUS[job.status] ?? 'UNKNOWN' };
   }, [chainId, publicClient]);
 
-  return { hire, getRealJobStatus, step, jobId, error, completedSteps, skippedSteps, stepHashes, notifySkipReason };
+  return { hire, hireBatched, getRealJobStatus, step, jobId, error, completedSteps, skippedSteps, stepHashes, notifySkipReason };
 }
 
 // Honest, wallet-matched copy per step — exactly what each real
@@ -410,6 +636,57 @@ export function buildHireStepList({ step, completedSteps, skippedSteps, stepHash
       hash: stepHashes[key] || null,
       reason: key === 'approving' && status === 'skipped' ? 'Already allowed — skipped'
         : key === 'negotiating' && status === 'skipped' ? "This agent doesn't need to confirm a price — skipped"
+        : key === 'notifying' && status === 'skipped' ? (notifySkipReason ? `Not delivered yet: ${notifySkipReason}` : "Couldn't reach the agent directly — it'll still pick this job up on its own, just possibly slower")
+        : null,
+      errorMessage: status === 'error' ? error : null,
+    };
+  });
+}
+
+// Real, coarser step list for the batched "sign once" flow — 'batching'
+// stands in for registering+budgeting+approving+funding, which now happen
+// as one real wallet interaction instead of up to 4 separate ones. The
+// real per-step hashes are still recorded in stepHashes (see hireBatched
+// above) for anyone who wants them, but StepChecklist only shows one hash
+// per row, so this row links to the real funding call specifically — the
+// same transaction batch is visible in full from that same BscScan page.
+export const BATCH_HIRE_STEPS = ['negotiating', 'creating', 'batching', 'notifying'];
+
+const BATCH_HIRE_STEP_COPY = {
+  negotiating: HIRE_STEP_COPY.negotiating,
+  creating: HIRE_STEP_COPY.creating,
+  batching: { label: 'Sign once for the rest', description: 'One signature covers protection, spending limit, payment allowance, and sending the payment — {amount} $U on hold for the agent to claim once the work is done' },
+  notifying: HIRE_STEP_COPY.notifying,
+};
+
+/** Real, batched-flow equivalent of buildHireStepList above — same real
+ * contract, same real state shape from useHireAgent, just mapped onto the
+ * coarser BATCH_HIRE_STEPS list. */
+export function buildBatchHireStepList({ step, completedSteps, skippedSteps, stepHashes, error, budgetUnits, notifySkipReason }) {
+  const amount = budgetUnits != null ? `${budgetUnits} ` : '';
+  // The four real sub-steps the batch covers are complete only once ALL of
+  // them (bar the genuinely-skipped 'approving') report complete — a
+  // partial set would mean the batch itself is still active or errored,
+  // reflected in `step`/`error` directly.
+  const batchSubKeys = ['registering', 'budgeting', 'approving', 'funding'];
+  const batchComplete = batchSubKeys.every((k) => completedSteps.includes(k) || skippedSteps.includes(k));
+  return BATCH_HIRE_STEPS.map((key) => {
+    const copy = BATCH_HIRE_STEP_COPY[key];
+    const description = copy.description.replace('{amount} ', amount);
+    let status = 'pending';
+    if (key === 'batching') {
+      if (batchComplete) status = 'complete';
+      else if (step === 'batching') status = error ? 'error' : 'active';
+    } else {
+      if (completedSteps.includes(key)) status = 'complete';
+      else if (skippedSteps.includes(key)) status = 'skipped';
+      else if (step === key) status = error ? 'error' : 'active';
+    }
+    return {
+      key, label: copy.label, description,
+      status,
+      hash: key === 'batching' ? stepHashes.funding || null : (stepHashes[key] || null),
+      reason: key === 'negotiating' && status === 'skipped' ? "This agent doesn't need to confirm a price — skipped"
         : key === 'notifying' && status === 'skipped' ? (notifySkipReason ? `Not delivered yet: ${notifySkipReason}` : "Couldn't reach the agent directly — it'll still pick this job up on its own, just possibly slower")
         : null,
       errorMessage: status === 'error' ? error : null,

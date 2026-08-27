@@ -11,7 +11,7 @@ import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
-import { useHireAgent, buildHireStepList, useAgentQuote } from './useHireAgent';
+import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
@@ -627,10 +627,16 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   };
 
   const {
-    hire, step: hireStep, error: hireError,
+    hire, hireBatched, step: hireStep, error: hireError,
     completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps, stepHashes: hireStepHashes,
     notifySkipReason: hireNotifySkipReason,
   } = useHireAgent();
+  // Real "sign once" batched alternative (2026-08-27), parity with web —
+  // see useHireAgent.js's own top-of-file note for the full real
+  // investigation. Step-by-step stays the default.
+  const canBatchHire = useBatchHireCapability();
+  const [signOnceForAllSteps, setSignOnceForAllSteps] = useState(false);
+  const [activeHireMode, setActiveHireMode] = useState('stepwise');
 
   const handleActivateSession = async () => {
     if (!selectedAgent || !walletConnected) return;
@@ -639,7 +645,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       return;
     }
     try {
-      const { jobId } = await hire({
+      const useBatch = signOnceForAllSteps && canBatchHire === CAN_BATCH_HIRE_STATUS.supported;
+      setActiveHireMode(useBatch ? 'batched' : 'stepwise');
+      const hireFn = useBatch ? hireBatched : hire;
+      const { jobId } = await hireFn({
         providerAddress: selectedAgent.ownerAddress,
         budgetUnits: Number(spendCap),
         description: (showCustomDescription && customDescription.trim())
@@ -861,12 +870,41 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   )}
                 </div>
 
+                {/* Real "sign once" toggle (2026-08-27) — parity with web,
+                    only ever shown once canBatchHire genuinely confirms
+                    real batch support for the connected wallet. */}
+                {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.supported && (
+                  <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                    <div>
+                      <div className="text-xs font-semibold">{signOnceForAllSteps ? 'Sign once for all steps' : 'Sign each step individually'}</div>
+                      <div className="text-[11px] text-gray-400 mt-0.5">
+                        {signOnceForAllSteps
+                          ? 'Your wallet supports this — one signature covers the on-chain steps after the job is created.'
+                          : "You'll approve each real on-chain step one at a time — the default."}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSignOnceForAllSteps((v) => !v)}
+                      className={`shrink-0 w-11 h-6 rounded-full transition-colors relative ${signOnceForAllSteps ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                      role="switch" aria-checked={signOnceForAllSteps} aria-label="Sign once for all steps"
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${signOnceForAllSteps ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                )}
+                {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.unsupported && (
+                  <p className="mb-3 text-[11px] text-gray-400">
+                    "Sign once for all steps" isn't available for your connected wallet — signing each step individually below.
+                  </p>
+                )}
+
                 {/* Real step checklist — identical logic to web, via the
-                    same shared buildHireStepList helper (useHireAgent.js),
-                    so the two can't drift on what each step actually means. */}
+                    same shared buildHireStepList/buildBatchHireStepList
+                    helpers (useHireAgent.js), so the two can't drift on
+                    what each step actually means. */}
                 {hireStep && (
                   <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
-                    <StepChecklist steps={buildHireStepList({
+                    <StepChecklist steps={(activeHireMode === 'batched' ? buildBatchHireStepList : buildHireStepList)({
                       step: hireStep, completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps,
                       stepHashes: hireStepHashes, error: hireError, budgetUnits: spendCap,
                       notifySkipReason: hireNotifySkipReason,

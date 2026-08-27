@@ -58,7 +58,7 @@ function QrToMobile() {
     </div>
   );
 }
-import { useHireAgent, buildHireStepList, useAgentQuote } from './useHireAgent';
+import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
 import AltanaSessionPanel from './AltanaSessionPanel';
 import SessionModesExplainer from './SessionModesExplainer';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
@@ -676,10 +676,22 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   const handleRevoke = (agentId) => setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, session: null } : a)));
 
   const {
-    hire, step: hireStep, error: hireError,
+    hire, hireBatched, step: hireStep, error: hireError,
     completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps, stepHashes: hireStepHashes,
     notifySkipReason: hireNotifySkipReason,
   } = useHireAgent();
+  // Real "sign once" batched alternative (2026-08-27) — see useHireAgent.js's
+  // own top-of-file note for the full real investigation. canBatchHire is a
+  // real, live wallet_getCapabilities check, never assumed; the toggle only
+  // ever appears once that check genuinely confirms support. Step-by-step
+  // stays the default (signOnceForAllSteps starts false) — this is an
+  // opt-in alternative, not a replacement.
+  const canBatchHire = useBatchHireCapability();
+  const [signOnceForAllSteps, setSignOnceForAllSteps] = useState(false);
+  // Captured at the moment a hire actually starts, so switching the toggle
+  // mid-flow (or between runs) never changes which step list a run IN
+  // PROGRESS is described by.
+  const [activeHireMode, setActiveHireMode] = useState('stepwise');
 
   const handleHireClick = (agent) => {
     if (!walletConnected) {
@@ -700,8 +712,16 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     try {
       // REAL flow: creates + registers + budgets + approves (if needed) +
       // funds a genuine ERC-8183 job, the user's own connected wallet
-      // signs every step, nothing here is simulated.
-      const { jobId } = await hire({
+      // signs every step, nothing here is simulated. Real, opt-in
+      // alternative: hireBatched() does the exact same real on-chain work,
+      // just with the register/budget/approve/fund steps signed once as a
+      // real EIP-5792 batch instead of individually — only ever used when
+      // signOnceForAllSteps is on AND the connected wallet has genuinely
+      // confirmed real batch support (canBatchHire).
+      const useBatch = signOnceForAllSteps && canBatchHire === CAN_BATCH_HIRE_STATUS.supported;
+      setActiveHireMode(useBatch ? 'batched' : 'stepwise');
+      const hireFn = useBatch ? hireBatched : hire;
+      const { jobId } = await hireFn({
         providerAddress: selectedAgent.ownerAddress,
         budgetUnits: Number(spendCap),
         description: (showCustomDescription && customDescription.trim())
@@ -1455,13 +1475,50 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   )}
                 </div>
 
+                {/* Real "sign once" toggle (2026-08-27) — only ever shown
+                    once canBatchHire has genuinely confirmed real batch
+                    support for the connected wallet (never while still
+                    checking, never as a broken option for a wallet that
+                    doesn't support it). Disabled once a hire is actively
+                    running, same as every other pre-hire control. */}
+                {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.supported && (
+                  <div className="mb-4 flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                    <div>
+                      <div className="text-xs font-semibold">{signOnceForAllSteps ? 'Sign once for all steps' : 'Sign each step individually'}</div>
+                      <div className="text-[11px] text-gray-400 mt-0.5">
+                        {signOnceForAllSteps
+                          ? 'Your wallet supports this — one signature covers the on-chain steps after the job is created.'
+                          : "You'll approve each real on-chain step one at a time — the default, if you'd rather see each one."}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSignOnceForAllSteps((v) => !v)}
+                      className={`shrink-0 w-11 h-6 rounded-full transition-colors relative ${signOnceForAllSteps ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                      role="switch" aria-checked={signOnceForAllSteps} aria-label="Sign once for all steps"
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${signOnceForAllSteps ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                )}
+                {/* Real, honest fallback message — only once the wallet's
+                    real capability check has actually completed and
+                    genuinely doesn't support batching (not while still
+                    unknown, and never a broken half-batched attempt). */}
+                {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.unsupported && (
+                  <p className="mb-4 text-[11px] text-gray-400">
+                    "Sign once for all steps" isn't available for your connected wallet — signing each step individually below.
+                  </p>
+                )}
+
                 {/* Real step checklist — every row's state comes straight from
                     useHireAgent's own tracked state (step/completedSteps/
-                    skippedSteps/stepHashes/error), see buildHireStepList in
-                    useHireAgent.js. Only shown once the flow has started. */}
+                    skippedSteps/stepHashes/error), see buildHireStepList /
+                    buildBatchHireStepList in useHireAgent.js. Only shown once
+                    the flow has started; the batched builder is used only for
+                    a run that actually started in batched mode. */}
                 {hireStep && (
                   <div className="mb-6 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
-                    <StepChecklist steps={buildHireStepList({
+                    <StepChecklist steps={(activeHireMode === 'batched' ? buildBatchHireStepList : buildHireStepList)({
                       step: hireStep, completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps,
                       stepHashes: hireStepHashes, error: hireError, budgetUnits: spendCap,
                       notifySkipReason: hireNotifySkipReason,
