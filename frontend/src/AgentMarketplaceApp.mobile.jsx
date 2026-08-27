@@ -158,6 +158,16 @@ function useMarketplaceAgents() {
   });
   const [loading, setLoading] = useState(agents.length === 0);
   const [error, setError] = useState(null);
+  // Real bug found and fixed (2026-08-27), matching web — see
+  // AgentMarketplaceApp.web.jsx's useMarketplaceAgents for the full real
+  // investigation. Short version: `loading` is already false on the very
+  // first render whenever a warm cache exists (by design, so the agent
+  // list can show cached cards instantly), so the header stat count was
+  // rendering the real-but-possibly-stale cached number on the very first
+  // paint, then flashing to the real, fresh number once this effect's
+  // fetch resolved. `confirmedFresh` starts false on every render (cache
+  // or not) and flips true only once a real fetch actually settles.
+  const [confirmedFresh, setConfirmedFresh] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,17 +178,26 @@ function useMarketplaceAgents() {
         const mapped = (data.agents || []).map(mapAgent);
         setAgents(mapped);
         setLoading(false);
+        setConfirmedFresh(true);
         try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: mapped, savedAt: Date.now() })); } catch (e) {}
       })
       .catch((err) => {
         if (cancelled) return;
         if (agents.length === 0) setError(err.message);
+        setConfirmedFresh(true);
         setLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
 
-  return { agents, setAgents, loading, error };
+  return { agents, setAgents, loading, error, confirmedFresh };
+}
+
+// Real, honest placeholder for a stat number that isn't confirmed-fresh yet
+// (see useMarketplaceAgents' confirmedFresh above) — a pulsing bar, never a
+// number that might be wrong. Parity with web's StatSkeleton.
+function StatSkeleton() {
+  return <div className="h-5 w-10 mx-auto rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />;
 }
 
 const NAV_ITEMS = [
@@ -572,7 +591,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [showManualHire, setShowManualHire] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
-  const { agents, setAgents, loading, error } = useMarketplaceAgents();
+  const { agents, setAgents, loading, error, confirmedFresh } = useMarketplaceAgents();
   // Real bug fix, 2026-08-26: this used to sit up near `sortKey` (right
   // after the state declarations, before `agents` itself existed yet) —
   // `agents` is a `const` from useMarketplaceAgents() below, and JS's
@@ -915,7 +934,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     return (
                       <div key={c.label} title={c.hint} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
                         <Icon size={16} className="mx-auto mb-1" style={{ color: c.color }} />
-                        <div className="text-lg font-bold">{c.value.toLocaleString()}</div>
+                        {/* Real fix (2026-08-27): only render the real,
+                            confirmed-fresh count — a skeleton until then,
+                            never a stale cached number that later jumps. */}
+                        {confirmedFresh ? <div className="text-lg font-bold">{c.value.toLocaleString()}</div> : <StatSkeleton />}
                         <div className="text-[10px] text-gray-500 flex items-center justify-center gap-0.5">
                           {c.label}
                           {c.info && <InfoTooltip label="" size={11} align="right">{c.info}</InfoTooltip>}

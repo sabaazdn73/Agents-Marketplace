@@ -127,6 +127,25 @@ function useMarketplaceAgents() {
   const [loading, setLoading] = useState(agents.length === 0);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Real bug found and fixed (2026-08-27): the header stat cards (Agents
+  // Listed / Reviews / Verified Agents) render unconditionally from
+  // `agents`, with no gate of their own — so on a page load with a warm
+  // localStorage cache, the FIRST paint shows whatever count was cached
+  // (a real number from a real earlier fetch, not literally 0/null — but
+  // possibly stale, e.g. from before a backend fix changed the real total),
+  // then flashes to the real, fresh number once this hook's fetch resolves
+  // a moment later. `loading`/`refreshing` can't gate this cleanly on their
+  // own: `loading` is already false on the very first render whenever a
+  // cache exists (by design, so the agent GRID can show cached cards
+  // instantly), and `refreshing` doesn't flip true until this effect body
+  // runs — which is AFTER the first paint — so relying on either still lets
+  // the stale number paint for at least one real frame first.
+  // `confirmedFresh` fixes this at the root: it starts `false` on every
+  // single render, cache or no cache, and flips true exactly once, the
+  // moment a real fetch actually settles (success or failure) — so the
+  // stat cards can show a skeleton until the real, final count is known,
+  // instead of a wrong intermediate one.
+  const [confirmedFresh, setConfirmedFresh] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,18 +159,31 @@ function useMarketplaceAgents() {
         setLoading(false);
         setRefreshing(false);
         setError(null);
+        setConfirmedFresh(true);
         try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: mapped, savedAt: Date.now() })); } catch (e) {}
       })
       .catch((err) => {
         if (cancelled) return;
         setRefreshing(false);
         if (agents.length === 0) setError(err.message);
+        // Even on a real failure, don't leave the stat cards skeleton-locked
+        // forever: if we have cached data to fall back on, it's the best
+        // real number available; if we don't, the error state below takes
+        // over the whole section instead of the stat cards anyway.
+        setConfirmedFresh(true);
         setLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
 
-  return { agents, setAgents, loading, error, refreshing };
+  return { agents, setAgents, loading, error, refreshing, confirmedFresh };
+}
+
+// Real, honest placeholder for a stat number that isn't confirmed-fresh yet
+// (see useMarketplaceAgents' confirmedFresh above) — a pulsing bar, never a
+// number that might be wrong.
+function StatSkeleton() {
+  return <div className="h-7 w-14 rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />;
 }
 
 // Source: docs.bnbchain.org/developer-kit (BNB Agent SDK + BNB Agent Studio),
@@ -597,7 +629,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   const [showManualHire, setShowManualHire] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
   const [stopLoss, setStopLoss] = useState(5000);
-  const { agents, setAgents, loading, error, refreshing } = useMarketplaceAgents();
+  const { agents, setAgents, loading, error, refreshing, confirmedFresh } = useMarketplaceAgents();
 
   // Deep link: ?agent=<tokenId|id> opens that agent's detail once agents load,
   // so a creator's shared link lands a client straight on their agent.
@@ -950,7 +982,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
                     <div>
-                      <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div>
+                      {/* Real fix (2026-08-27): only ever render the real,
+                          confirmed-fresh count — a skeleton until then,
+                          never a stale cached number that later jumps. */}
+                      {confirmedFresh ? <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div> : <StatSkeleton />}
                       <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
                         Agents Listed
                         <InfoTooltip label="" size={12}>
@@ -963,11 +998,17 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   </div>
                   <div title="Total written reviews left across all these agents" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
-                    <div><div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Reviews</div></div>
+                    <div>
+                      {confirmedFresh ? <div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div> : <StatSkeleton />}
+                      <div className="text-xs text-gray-500 font-medium">Reviews</div>
+                    </div>
                   </div>
                   <div title="Has at least one real, on-chain-confirmed delivered job — not just registered on-chain (see 'How we verify agents' below)" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
-                    <div><div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div><div className="text-xs text-gray-500 font-medium">Verified Agents</div></div>
+                    <div>
+                      {confirmedFresh ? <div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div> : <StatSkeleton />}
+                      <div className="text-xs text-gray-500 font-medium">Verified Agents</div>
+                    </div>
                   </div>
                 </div>
                 <QrToMobile />
