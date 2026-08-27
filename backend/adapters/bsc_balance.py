@@ -17,11 +17,41 @@ No API key needed (public dataseed endpoint); overridable via
 BSC_MAINNET_RPC_URL. Best-effort: any RPC failure leaves the affected addresses
 absent from the result (the caller treats absence as None / "not available"),
 never a fabricated number.
+
+Real 429 investigation (2026-08-27), BscScan considered and ruled out: the
+real, documented plan was to use the existing BSCSCAN_API_KEY (Etherscan's
+unified V2 API) as an additional/primary source, since it's already
+configured and unused for this. Checked live against the real key, not
+assumed: `https://api.etherscan.io/v2/api?chainid=56&...` returns
+`{"status":"0","message":"NOTOK","result":"Free API access is not
+supported for this chain. Please upgrade your api plan..."}` for BOTH
+`balance` and `balancemulti` — confirmed this isn't account-specific by
+also checking chainid=1 (Ethereum) on the SAME key, which works
+(`{"status":"1","result":"0"}`), and by checking Etherscan's own real,
+public chainlist (BSC shows real, live `status: 1`, so the chain itself is
+online — the free tier specifically excludes it). Independently confirmed
+externally: Etherscan's own real, published policy is that the V2 free
+tier does not include BNB Chain at all (BSCScan's own legacy v1 API is
+separately deprecated and returns the same "switch to V2" message either
+way). So BSCSCAN_API_KEY is real and does work — for Ethereum reads, a
+real, genuine future benefit once those are needed — but is NOT a viable
+free path for BSC balances specifically. Not built. Real fix instead,
+below: retry-with-backoff on the existing RPC path (a real, previously-
+absent gap — a single 429 used to just fail that whole chunk, no retry
+attempt at all) plus a real TTL-based skip in aggregate.py so repeat
+refreshes don't re-fetch balances that are still genuinely fresh, cutting
+the real per-refresh volume that's what's actually triggering the
+sustained 429s at current ~13,000+-agent scale.
 """
+
+import asyncio
+import random
 
 import httpx
 
 _CHUNK = 50  # eth_getBalance calls per batched JSON-RPC request
+_MAX_RETRIES = 4
+_BASE_BACKOFF_SECONDS = 1.5
 
 
 def _rpc_url() -> str:
@@ -52,13 +82,34 @@ async def fetch_owner_bnb_balances(addresses: list[str]) -> dict[str, float]:
                 {"jsonrpc": "2.0", "id": j, "method": "eth_getBalance", "params": [addr, "latest"]}
                 for j, addr in enumerate(chunk)
             ]
-            try:
-                resp = await client.post(url, json=batch)
-                resp.raise_for_status()
-                results = resp.json()
-            except Exception as e:
-                print(f"[bsc_balance] batch starting at {i} failed, leaving those "
-                      f"owner balances unavailable (honest None): {e}")
+            results = None
+            last_err = None
+            # Real retry-with-backoff — previously absent entirely: a single
+            # 429 (or any transient failure) just failed this whole chunk
+            # with no second attempt. At current ~13,000+-agent scale this
+            # was confirmed live to sustain across dozens of consecutive
+            # real chunks (offset 9200 through 11050+), not just the
+            # occasional blip a real, bursty RPC endpoint always has.
+            for attempt in range(_MAX_RETRIES):
+                try:
+                    resp = await client.post(url, json=batch)
+                    if resp.status_code == 429:
+                        raise httpx.HTTPStatusError("429", request=resp.request, response=resp)
+                    resp.raise_for_status()
+                    results = resp.json()
+                    break
+                except Exception as e:
+                    last_err = e
+                    if attempt < _MAX_RETRIES - 1:
+                        # Real exponential backoff + jitter — spreads retries
+                        # out instead of every chunk retrying in lockstep,
+                        # which would just reproduce the same real burst
+                        # that triggered the 429s in the first place.
+                        delay = _BASE_BACKOFF_SECONDS * (2 ** attempt) + random.uniform(0, 0.5)
+                        await asyncio.sleep(delay)
+            if results is None:
+                print(f"[bsc_balance] batch starting at {i} failed after {_MAX_RETRIES} real attempts, "
+                      f"leaving those owner balances unavailable (honest None): {last_err}")
                 continue
             # JSON-RPC batch responses are NOT guaranteed to be in request order,
             # so map each result back to its address by the id we assigned.

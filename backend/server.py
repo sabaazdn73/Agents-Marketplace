@@ -184,22 +184,57 @@ async def _refresh_into_store() -> list[dict]:
             detail="SCAN_8004_API_KEY is not set. The /api/v1/agents endpoint "
                    "requires a real key, get one at 8004scan.io/developers.",
         )
+    # Real hardening (2026-08-27, agent-count-flicker investigation): this
+    # used to treat "returned None" and "threw a real exception" the exact
+    # same way — fall back to the small live-fetch path either way. That's
+    # correct for the real, legitimate None case (full_agent_registry
+    # genuinely doesn't have enough data yet — see that function's own
+    # docstring), but was wrong for a genuine transient exception: live-
+    # measured, the live-fetch fallback currently returns ~750 real agents
+    # vs the full-registry path's ~12,700+ — upserting that MUCH smaller
+    # real batch doesn't delete anything from known_agents (upsert_agents
+    # never deletes), but it DOES mean the next get_stored_agents() read
+    # reflects whatever got touched by that smaller, real but
+    # unrepresentative batch, and — confirmed as the real, live root cause
+    # of a reported agent-count flicker between ~13,000 and ~1,900 across
+    # separate page loads — a transient full-registry failure (the same
+    # owner-balance 429 storm fixed in adapters/bsc_balance.py this same
+    # session could plausibly cascade into one) meant SOME real refreshes
+    # served the small fallback's real numbers instead. Now that
+    # full_agent_registry reliably has 60,000+ real BSC docs (function
+    # fully implemented, growing, not a bootstrap concern anymore), a
+    # genuine exception here doesn't need the same "any real fallback is
+    # better than none" reasoning that None-case still deserves — the
+    # existing, already-much-larger persistent store is a real, better
+    # thing to keep serving than a fresh-but-far-thinner live fetch.
+    used_full_registry = True
     try:
         fresh_data = await get_agents_from_full_registry_as_dicts(api_key=api_key)
     except Exception as e:
-        print(f"[server] full-registry-backed refresh failed, falling back to live fetch: {e}")
+        print(f"[server] full-registry-backed refresh failed with a real exception "
+              f"(not the legitimate 'not enough data yet' case) — keeping the "
+              f"existing store as-is rather than falling back to a much smaller "
+              f"live fetch: {e}")
         fresh_data = None
-    if fresh_data is None:
+        used_full_registry = False
+
+    if fresh_data is None and used_full_registry:
+        # The real, legitimate case: full_agent_registry genuinely doesn't
+        # have enough data yet (a fresh/bootstrap deployment) — falling
+        # back to a real live fetch is still the right, honest degrade here.
         fresh_data = await get_marketplace_agents_as_dicts(api_key=api_key)
 
     if fresh_data:
         result = await agent_store.upsert_agents(fresh_data)
         print(f"[server] Upserted refresh into known_agents: {result}")
-    else:
+    elif used_full_registry:
         # A successful-but-empty fetch is treated as suspect (transient network
         # hiccup / a failed page mid-pagination): we do NOT upsert nothing, and
         # the persistent store keeps serving its existing agents untouched.
         print("[server] Refresh returned 0 agents — keeping the persistent store as-is.")
+    else:
+        print("[server] Skipping this refresh cycle after a real exception — "
+              "keeping the persistent store as-is; the next scheduled refresh will try again.")
 
     served = await agent_store.get_stored_agents()
 

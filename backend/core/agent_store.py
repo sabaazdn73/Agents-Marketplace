@@ -64,6 +64,12 @@ READ_CLUSTER_CAP = 3    # keep the served list diverse across accumulation
 # financial_data_available flips to False (or vice versa).
 _DEFILLAMA_FIELD_GROUP = ["tvl_usd", "defillama_slug", "defillama_url", "financial_data_available"]
 _OWNER_BALANCE_FIELD = "owner_bnb_balance"
+# Real fix (2026-08-27, owner-balance 429 investigation): moves together
+# with _OWNER_BALANCE_FIELD, same real "preserve on failure" discipline —
+# see core/aggregate.py's own real TTL-skip logic, which reads this exact
+# timestamp back on the next refresh to decide whether an owner's balance
+# is still fresh enough to skip re-fetching.
+_OWNER_BALANCE_CHECKED_AT_FIELD = "owner_bnb_balance_checked_at"
 
 
 def _merge_preserving_real_data(fresh: dict, existing: dict | None) -> dict:
@@ -78,6 +84,7 @@ def _merge_preserving_real_data(fresh: dict, existing: dict | None) -> dict:
             merged[f] = existing.get(f)
     if fresh.get(_OWNER_BALANCE_FIELD) is None and existing.get(_OWNER_BALANCE_FIELD) is not None:
         merged[_OWNER_BALANCE_FIELD] = existing[_OWNER_BALANCE_FIELD]
+        merged[_OWNER_BALANCE_CHECKED_AT_FIELD] = existing.get(_OWNER_BALANCE_CHECKED_AT_FIELD)
     return merged
 
 

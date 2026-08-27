@@ -27,6 +27,7 @@ share one cluster signature so no single campaign dominates the rendered list.
 """
 
 import asyncio
+import time
 from dataclasses import dataclass, asdict
 
 import httpx
@@ -37,6 +38,14 @@ from adapters.defillama import fetch_bsc_ai_agent_protocols, try_match_agent_to_
 from core.categorize import classify_agent
 from core.pinned_agents import fetch_pinned_agents
 from core.clustering import diversify as _diversify
+
+# Real TTL for a stored owner_bnb_balance to still count as "fresh enough" —
+# see _enrich_and_build's own real 429 investigation below for why this
+# exists. An informational balance display doesn't need to be re-read every
+# single refresh; skipping owners whose balance was confirmed within this
+# window is what actually brings the real per-refresh RPC volume down at
+# current ~13,000+-agent scale, not just backoff/retry on its own.
+OWNER_BALANCE_TTL_SECONDS = 12 * 60 * 60  # 12 hours
 
 
 @dataclass
@@ -77,6 +86,10 @@ class MarketplaceAgent:
     # metric from TVL — the owner wallet's actual native BNB, never conflated
     # with protocol TVL. None if the RPC read was unavailable.
     owner_bnb_balance: float | None
+    # Real Unix timestamp of when owner_bnb_balance was actually last
+    # verified against the chain (not merely last displayed) — the real
+    # freshness clock the TTL-skip logic above reads on the next refresh.
+    owner_bnb_balance_checked_at: float | None
 
 
 # Real, principled multi-signal clustering (2026-08-28) — see
@@ -184,15 +197,72 @@ async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["Marke
         defillama_protocols = []
 
     # Real owner BNB balances (best-effort; a different, honestly-labeled metric
-    # from TVL). One de-duped batched RPC read for the whole diversified set.
+    # from TVL). One de-duped batched RPC read for the whole diversified set —
+    # BUT only for owners whose stored balance genuinely needs a re-check.
+    #
+    # Real 429 investigation (2026-08-27): live production logs confirmed
+    # sustained real 429s from the RPC endpoint across dozens of consecutive
+    # batches (offset 9200 through 11050+) at current ~13,000+-agent scale —
+    # not occasional blips, a real volume problem. BSCSCAN_API_KEY (Etherscan
+    # V2) was investigated as a real alternative/supplement and ruled out —
+    # confirmed live against the real key that BSC (chainid=56) genuinely
+    # isn't covered by its free tier (independently confirmed against
+    # Etherscan's own real, published policy too) — see adapters/bsc_balance.py's
+    # own module docstring for the full real trace. Real fix instead: retry-
+    # with-backoff (bsc_balance.py) closes the "one 429 = permanent failure"
+    # gap, and this real TTL skip below cuts the actual REQUEST VOLUME that's
+    # what's triggering the 429s in the first place — an owner's balance
+    # doesn't need re-reading every single refresh for an informational
+    # display, so only owners missing a real, recent (< OWNER_BALANCE_TTL_
+    # SECONDS old) stored value are fetched at all.
+    owner_balances: dict[str, float] = {}
+    # Real, honest freshness clock per owner — separate from owner_balances
+    # itself on purpose. A reused-from-cache value keeps its REAL original
+    # checked-at timestamp (not "now"); only an address actually fetched
+    # this round gets stamped "now". Re-stamping reused values to "now"
+    # would silently freeze the TTL forever (every refresh would see it as
+    # "just checked" without ever really re-checking it again) — the whole
+    # point of a TTL is that the clock keeps ticking from the real last
+    # verification, not from the last time it happened to be displayed.
+    owner_balance_checked_at: dict[str, float] = {}
     try:
-        owner_balances = await fetch_owner_bnb_balances(
-            [a.get("owner_address", "") for a in raw_agents]
-        )
+        from core.db import get_db
+        owner_addrs = sorted({
+            (a.get("owner_address") or "").lower() for a in raw_agents
+            if a.get("owner_address")
+        })
+        now = time.time()
+        stale_or_missing = set(owner_addrs)
+        if owner_addrs:
+            db = get_db()
+            cursor = db.known_agents.find(
+                {"owner_address": {"$in": owner_addrs}},
+                {"owner_address": 1, "owner_bnb_balance": 1, "owner_bnb_balance_checked_at": 1},
+            )
+            async for doc in cursor:
+                owner = (doc.get("owner_address") or "").lower()
+                checked_at = doc.get("owner_bnb_balance_checked_at")
+                if (
+                    owner in stale_or_missing
+                    and doc.get("owner_bnb_balance") is not None
+                    and checked_at is not None
+                    and (now - checked_at) < OWNER_BALANCE_TTL_SECONDS
+                ):
+                    owner_balances[owner] = doc["owner_bnb_balance"]
+                    owner_balance_checked_at[owner] = checked_at  # real original timestamp, preserved
+                    stale_or_missing.discard(owner)
+        print(f"[aggregate] owner balances: {len(owner_addrs) - len(stale_or_missing)} real, "
+              f"recent values reused from the store; fetching {len(stale_or_missing)} real, "
+              f"missing/stale ones now.")
+        if stale_or_missing:
+            fresh = await fetch_owner_bnb_balances(list(stale_or_missing))
+            fetched_at = time.time()
+            owner_balances.update(fresh)
+            for owner in fresh:
+                owner_balance_checked_at[owner] = fetched_at  # a real read just happened
     except Exception as e:
-        print(f"[aggregate] owner-balance RPC failed, continuing without it "
-              f"(field shown as None): {e}")
-        owner_balances = {}
+        print(f"[aggregate] owner-balance lookup failed, continuing without it "
+              f"(field shown as None for anything not already cached): {e}")
 
     # Real re-classification pass for agents the cheap name+description
     # classifier couldn't place — wired in for real 2026-08-25, now that
@@ -287,6 +357,7 @@ async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["Marke
             defillama_slug=matched_protocol.get("slug") if matched_protocol else None,
             defillama_url=matched_protocol.get("url") if matched_protocol else None,
             owner_bnb_balance=owner_balances.get((owner_address or "").lower()),
+            owner_bnb_balance_checked_at=owner_balance_checked_at.get((owner_address or "").lower()),
         ))
 
     return results
