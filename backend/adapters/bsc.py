@@ -45,10 +45,25 @@ async def list_bsc_agents(
     offset: int = 0,
     limit: int = 20,
     max_retries: int = 4,
+    timeout: float = 15.0,
 ) -> tuple[list[dict], int, int]:
     """Reads one page of BSC MAINNET agents from 8004scan. Returns
     (bsc_agents, total_reported_by_server, raw_page_len) so callers can
-    paginate correctly. Retries on 429 with exponential backoff.
+    paginate correctly. Retries on 429 AND on a real transient network/
+    timeout failure, both with exponential backoff — the latter added
+    2026-08-27 after a real, confirmed incident: core/full_registry_ingest.py
+    hit a genuine ReadTimeout at offset ~13,900 that propagated uncaught,
+    because the old retry logic only handled httpx.HTTPStatusError (429),
+    not httpx.TransportError/TimeoutException. That gap used to be
+    survivable at this function's normal offsets (aggregate.py's marketplace
+    refresh never pages deep enough for latency to matter — see
+    full_registry_ingest.py's own docstring for the real, measured
+    offset-vs-latency curve that makes a timeout a real, EXPECTED outcome at
+    depth, not a rare fluke worth crashing the whole ingest run over).
+
+    `timeout` defaults to 15s (unchanged, fine for aggregate.py's shallow-
+    offset marketplace refresh); full_registry_ingest.py passes a much
+    longer real value for its own deep-offset pages.
 
     raw_page_len is the number of agents the server returned for this page
     BEFORE the client-side chain filter. Callers MUST use raw_page_len (not
@@ -68,7 +83,7 @@ async def list_bsc_agents(
     last_error = None
     for attempt in range(max_retries):
         try:
-            async with httpx.AsyncClient(timeout=15) as client:
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 resp = await client.get(
                     f"{_8004SCAN_BASE}/api/v1/agents",
                     params={"chainId": MAINNET_CHAIN_ID, "offset": offset, "limit": limit},
@@ -82,6 +97,15 @@ async def list_bsc_agents(
                 wait_seconds = 8 * (2 ** attempt)
                 print(f"[list_bsc_agents] 429 at offset {offset}, attempt "
                       f"{attempt + 1}/{max_retries}, waiting {wait_seconds}s")
+                last_error = e
+                await asyncio.sleep(wait_seconds)
+                continue
+            raise
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            if attempt < max_retries - 1:
+                wait_seconds = 4 * (2 ** attempt)
+                print(f"[list_bsc_agents] real transient {type(e).__name__} at offset {offset}, "
+                      f"attempt {attempt + 1}/{max_retries}, waiting {wait_seconds}s")
                 last_error = e
                 await asyncio.sleep(wait_seconds)
                 continue
