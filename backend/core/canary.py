@@ -74,7 +74,6 @@ _GROUP_CATEGORIES = {
 }
 
 COMMERCE = "0xEa4DAa3100A767e86FDed867729ae7446476EBA6"
-_RPC_URL = "https://bsc.rpc.blxrbdn.com"
 _GETJOB_SEL = function_signature_to_4byte_selector("getJob(uint256)")
 _JOB_TUPLE = "(uint256,address,address,address,string,uint256,uint256,uint8,address,uint256,bytes32)"
 _JOB_STATUS = ["OPEN", "FUNDED", "SUBMITTED", "COMPLETED", "REJECTED", "EXPIRED"]
@@ -211,8 +210,12 @@ async def get_canary_status_bulk() -> dict:
 
 
 async def _read_job(client: httpx.AsyncClient, job_id: int) -> dict | None:
+    # Real fix (2026-08-27 audit): this used to hardcode a bloXroute URL
+    # directly, never reading BSC_MAINNET_RPC_URL at all — see
+    # core/rpc.py's own docstring for the full real finding.
+    from core.rpc import get_bsc_rpc_url
     calldata = "0x" + _GETJOB_SEL.hex() + job_id.to_bytes(32, "big").hex()
-    resp = await client.post(_RPC_URL, json={
+    resp = await client.post(get_bsc_rpc_url(), json={
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": COMMERCE, "data": calldata}, "latest"],
     })

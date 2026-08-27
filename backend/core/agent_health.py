@@ -100,8 +100,11 @@ HEALTH_TTL_SECONDS = 20 * 60
 
 
 def _rpc_url() -> str:
-    import os
-    return os.environ.get("BSC_MAINNET_RPC_URL") or "https://bsc-dataseed.binance.org"
+    # Real fix (2026-08-27 audit): was its own local copy of this fallback,
+    # silently defaulting to the public bsc-dataseed node — see
+    # core/rpc.py's own docstring for the full real finding.
+    from core.rpc import get_bsc_rpc_url
+    return get_bsc_rpc_url()
 
 
 def _tokenuri_calldata(token_id: int) -> bytes:

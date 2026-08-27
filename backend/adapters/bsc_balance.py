@@ -19,15 +19,17 @@ absent from the result (the caller treats absence as None / "not available"),
 never a fabricated number.
 """
 
-import os
 import httpx
 
-DEFAULT_BSC_RPC = "https://bsc-dataseed.binance.org"
 _CHUNK = 50  # eth_getBalance calls per batched JSON-RPC request
 
 
 def _rpc_url() -> str:
-    return os.environ.get("BSC_MAINNET_RPC_URL") or DEFAULT_BSC_RPC
+    # Real fix (2026-08-27 audit): was its own local copy of this fallback,
+    # silently defaulting to the public bsc-dataseed node — see
+    # core/rpc.py's own docstring for the full real finding.
+    from core.rpc import get_bsc_rpc_url
+    return get_bsc_rpc_url()
 
 
 async def fetch_owner_bnb_balances(addresses: list[str]) -> dict[str, float]:
