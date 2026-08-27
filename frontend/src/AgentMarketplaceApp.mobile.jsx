@@ -508,7 +508,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // real history sorts first and no-history agents are listed after,
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
-  const perfByOwner = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
   const [hiring, setHiring] = useState(false);
@@ -950,6 +950,16 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     {onlyResponding ? '✓ ' : ''}Only show online agents
                   </button>
                 </div>
+
+                {/* Real, honest failure state (2026-08-27) — see the
+                    matching comment on AgentMarketplaceApp.web.jsx. */}
+                {perfStatus === 'error' && (
+                  <div className="mb-3 flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                    <AlertTriangle size={12} className="shrink-0" />
+                    Couldn't load real hire-history data — filters/sorts using it may be inaccurate.
+                    <button onClick={retryPerf} className="underline font-medium">Try again</button>
+                  </div>
+                )}
 
                 {/* Hire-by-address escape hatch — see the matching block in
                     AgentMarketplaceApp.web.jsx. */}

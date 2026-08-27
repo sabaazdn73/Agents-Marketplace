@@ -624,7 +624,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // hired" / "Highest success rate" can sort the whole list. See
   // agentRanking.js for the real tiering (real history first, no-history
   // agents after, never silently mixed in).
-  const perfByOwner = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const agentsWithPerf = useMemo(() => withPerformance(agents, perfByOwner), [agents, perfByOwner]);
   const PERFORMANCE_SORT_KEYS = new Set(['hireCount', 'winRate']);
 
@@ -1027,6 +1027,18 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     {showUnclassified ? 'Hide' : 'Show'} unclassified
                   </button>
                 </div>
+
+                {/* Real, honest failure state (2026-08-27) — a genuine
+                    fetch failure here used to be silently indistinguishable
+                    from "zero verified agents exist"; now it says so
+                    plainly and offers a real retry. */}
+                {perfStatus === 'error' && (
+                  <div className="mt-2 flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-400">
+                    <AlertTriangle size={12} className="shrink-0" />
+                    Couldn't load real verification/hire-history data — "Only verified working", "Most hired", and "Highest success rate" may be inaccurate right now.
+                    <button onClick={retryPerf} className="underline font-medium">Try again</button>
+                  </div>
+                )}
               </div>
 
               <div className="mb-4 relative">
