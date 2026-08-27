@@ -4,7 +4,7 @@
 
 This project's own investigation this session (job #56659: a "Responding" agent that silently never delivered a real, funded job) established that a health check answering "online" is not proof an agent actually does paid work. That finding isn't a one-off — it's independently confirmed by a real, published academic study:
 
-> Xihan Xiong, Zelin Li, Wei Wei, Qin Wang, William Knottenbelt, Zhipeng Wang, *"An Empirical Study of ERC-8004"* (arXiv:2606.26028).
+> Xihan Xiong, Zelin Li, Wei Wei, Qin Wang, William Knottenbelt, Zhipeng Wang, *"Can Trustless Agents Be Trusted? An Empirical Study of the ERC-8004 Decentralized AI Agent Ecosystem"* (arXiv:2606.26028, **preprint** — see [Academic References](academic-references.md) for its real, verified publication status and four other related papers, each labeled accurately by what's actually been verified, not assumed).
 
 A real, live measurement of the actual ERC-8004 registries on Ethereum, BSC, and Base through May 2026 found:
 

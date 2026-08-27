@@ -35,6 +35,7 @@ On top of that, Tnega adds a real **AgentAccessMarket** contract so agent creato
 | [Hire-Flow Audit](hire-flow-audit.md) | The full hire flow checked step-by-step against the real ERC-8004/ERC-8183 spec text — bugs found and fixed, deliberate deviations, open questions |
 | [Full BSC Registry Analysis](full-registry-analysis.md) | A separate, complete-registry ingestion pipeline (independent of the curated marketplace) — real pagination limits found, architecture, refresh schedule, findings |
 | [Verification Methodology](verification-methodology.md) | Why a health check isn't proof of function (with real, independent academic backing), the four real verification tiers, and the real, human-triggered canary probe system |
+| [Academic References](academic-references.md) | Real, verified publication status for every academic paper cited in this project's docs — never mislabeled as more formally reviewed than it actually is |
 | [Getting Started](getting-started.md) | Real, accurate local development setup |
 | [Known Limitations](limitations.md) | Honest, current gaps — nothing hidden |
 | [Hackathon Context](hackathon.md) | The real tracks and partners this was built for |

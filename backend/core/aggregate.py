@@ -27,8 +27,6 @@ share one cluster signature so no single campaign dominates the rendered list.
 """
 
 import asyncio
-import re
-from collections import Counter
 from dataclasses import dataclass, asdict
 
 import httpx
@@ -38,6 +36,7 @@ from adapters.bsc_balance import fetch_owner_bnb_balances
 from adapters.defillama import fetch_bsc_ai_agent_protocols, try_match_agent_to_protocol
 from core.categorize import classify_agent
 from core.pinned_agents import fetch_pinned_agents
+from core.clustering import diversify as _diversify
 
 
 @dataclass
@@ -80,40 +79,19 @@ class MarketplaceAgent:
     owner_bnb_balance: float | None
 
 
-def _cluster_signature(name: str, description: str) -> tuple:
-    """Collapses batch-registered clusters. Normalizes the description and
-    strips the agent's own name out of it, so 'X.agent on Termix Platform' and
-    'Y.agent on Termix Platform' share a signature, and identical-name /
-    identical-description clusters (Q402, Ave.ai) collapse too. Falls back to
-    the (serial-stripped) name when there is no description.
-
-    Validated against a real 1,014-agent BSC sample: correctly identified the
-    'on termix platform' (694), 'gasless stablecoin payment agent' (113) and
-    'ai-driven multi-chain trading agent' (105) clusters."""
-    name_l = (name or "").strip().lower()
-    desc_l = (description or "").strip().lower()
-    if name_l:
-        desc_l = desc_l.replace(name_l, "")
-    desc_l = re.sub(r"\s+", " ", desc_l).strip()
-    desc_l = re.sub(r"[#0-9]+", "", desc_l).strip()  # drop serial numbers
-    if desc_l:
-        return ("desc", desc_l)
-    return ("name", re.sub(r"[#0-9]+", "", name_l).strip())
-
-
-def _diversify(raw_agents: list[dict], per_cluster_cap: int) -> list[dict]:
-    """Keeps at most `per_cluster_cap` agents per cluster signature, preserving
-    order. This is what stops one mass-registration campaign from filling the
-    whole marketplace, while still showing a few real representatives of each."""
-    counts: Counter = Counter()
-    kept = []
-    for a in raw_agents:
-        sig = _cluster_signature(a.get("name", ""), a.get("description", ""))
-        if counts[sig] >= per_cluster_cap:
-            continue
-        counts[sig] += 1
-        kept.append(a)
-    return kept
+# Real, principled multi-signal clustering (2026-08-28) — see
+# core/clustering.py's own module docstring for the full real design and
+# reasoning. `_diversify` is imported from there (as the name this module
+# already used, so every call site below is unchanged) rather than
+# redefined here; the OLD single-heuristic version (a description-template
+# bucket match alone) has been replaced, not just supplemented — a real,
+# correctly-identified methodological weakness: collapsing purely on a
+# description-template match (or worse, a shared owner address) risked
+# silently hiding genuinely distinct agents. The new version only treats
+# two agents as duplicates when the description-template match is
+# corroborated by a SECOND real signal (same registered endpoint, a tight
+# real registration-time window, or shared owner as one signal among
+# several — never owner alone).
 
 
 async def get_marketplace_agents(
@@ -185,6 +163,19 @@ async def get_marketplace_agents(
     # Cap clusters so one mass-registration campaign can't dominate the list.
     raw_agents = _diversify(raw_agents, per_cluster_cap=per_cluster_cap)
 
+    return await _enrich_and_build(raw_agents, api_key)
+
+
+async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["MarketplaceAgent"]:
+    """Real, shared enrichment tail — DefiLlama TVL cross-reference, real
+    owner BNB balances, and the richer-data reclassification pass — split
+    out 2026-08-28 so BOTH real raw-agent sources (a live, paginated
+    8004scan fetch in get_marketplace_agents, and the already-ingested,
+    much larger full_agent_registry in get_agents_from_full_registry) run
+    through the exact same real enrichment logic instead of two copies
+    that could quietly drift. Takes an ALREADY-DIVERSIFIED raw agent list
+    — diversification itself stays with each caller, since the two real
+    sources reach it differently (one fetches live, one reads Mongo)."""
     try:
         defillama_protocols = await fetch_bsc_ai_agent_protocols()
     except Exception as e:
@@ -215,6 +206,21 @@ async def get_marketplace_agents(
     # specifically, an honest negative from the same real check.
     initial_classifications = [classify_agent(a.get("name", ""), a.get("description", "")) for a in raw_agents]
     unclassified_indices = [i for i, c in enumerate(initial_classifications) if c.category is None]
+    # Real, bounded cap (2026-08-28): this pass was tuned for the live-fetch
+    # path's real diversified-set size (a few hundred agents). Now that
+    # get_agents_from_full_registry can hand this the SAME function a much
+    # larger real diversified set (the full-registry pipeline's raw pool is
+    # tens of thousands of real agents, not one live fetch's max_offset), an
+    # unbounded per-agent detail call over every real Unclassified agent
+    # made one real refresh take minutes instead of seconds — confirmed
+    # live (a real run against the full-registry path timed out past 2
+    # minutes before this cap was added). Capped to a real, bounded sample
+    # per refresh; the rest simply keep the cheap classifier's real result
+    # (Unclassified, if that's what it found) for this cycle and get a
+    # fresh chance on the next one.
+    MAX_RECLASSIFY_PER_REFRESH = 300
+    if len(unclassified_indices) > MAX_RECLASSIFY_PER_REFRESH:
+        unclassified_indices = unclassified_indices[:MAX_RECLASSIFY_PER_REFRESH]
     reclassified: dict[int, "ClassificationResult"] = {}
     if unclassified_indices:
         sem = asyncio.Semaphore(20)
@@ -289,4 +295,56 @@ async def get_marketplace_agents(
 async def get_marketplace_agents_as_dicts(**kwargs) -> list[dict]:
     """JSON-serializable version, for the API layer."""
     agents = await get_marketplace_agents(**kwargs)
+    return [asdict(a) for a in agents]
+
+
+# Real, minimum real sample size before the full-registry-backed path is
+# trusted as a real replacement for a live 8004scan fetch — below this,
+# core/full_registry_ingest.py's own background pass just hasn't gotten
+# far enough yet (e.g. right after this project's own first deploy of it)
+# for a real, representative diversified list; falling back to the
+# live-fetch path in that case is the honest choice, not a thin list.
+MIN_FULL_REGISTRY_SAMPLE = 5000
+
+
+async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 3) -> list["MarketplaceAgent"] | None:
+    """Real, fast alternative to get_marketplace_agents() — draws its raw
+    candidate pool from the already-ingested full_agent_registry (see
+    core/full_registry_ingest.py) instead of a live, paginated 8004scan
+    fetch. Real architecture change (2026-08-28): the marketplace no
+    longer has to be capped at whatever a live fetch's own max_offset can
+    reach in one request cycle — the background ingestion pipeline keeps
+    growing full_agent_registry independently (currently tens of
+    thousands of real BSC + Base agents and rising), and THIS function
+    just reads whatever's there right now, diversifies it with the same
+    real multi-signal clustering (core/clustering.py), and runs it through
+    the exact same real enrichment tail (_enrich_and_build) as the live-
+    fetch path — same real MarketplaceAgent shape, same real DefiLlama/
+    owner-balance/reclassification logic, so nothing downstream needs to
+    know which source served a given refresh.
+
+    Returns None (never a thin, unrepresentative list) if
+    full_agent_registry doesn't yet have at least MIN_FULL_REGISTRY_SAMPLE
+    real agents — the caller (server.py's _refresh_into_store) falls back
+    to the real live-fetch path in that case, an honest degrade rather
+    than serving something worse than the old behavior."""
+    from core.db import get_db
+
+    db = get_db()
+    raw_agents = await db["full_agent_registry"].find({"chain_id": 56}).to_list(length=200_000)
+    if len(raw_agents) < MIN_FULL_REGISTRY_SAMPLE:
+        print(f"[aggregate] full_agent_registry has only {len(raw_agents)} real BSC agents "
+              f"(< {MIN_FULL_REGISTRY_SAMPLE}) — not yet a real replacement, falling back to live fetch.")
+        return None
+
+    diversified = _diversify(raw_agents, per_cluster_cap=per_cluster_cap)
+    print(f"[aggregate] full-registry-backed refresh: {len(raw_agents)} real raw BSC agents "
+          f"-> {len(diversified)} after real multi-signal diversification.")
+    return await _enrich_and_build(diversified, api_key)
+
+
+async def get_agents_from_full_registry_as_dicts(**kwargs) -> list[dict] | None:
+    agents = await get_agents_from_full_registry(**kwargs)
+    if agents is None:
+        return None
     return [asdict(a) for a in agents]

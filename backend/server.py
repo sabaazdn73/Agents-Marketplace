@@ -35,7 +35,7 @@ from dotenv import load_dotenv
 # instead of an out-of-band dashboard change.
 sys.stdout.reconfigure(line_buffering=True)
 
-from core.aggregate import get_marketplace_agents_as_dicts
+from core.aggregate import get_marketplace_agents_as_dicts, get_agents_from_full_registry_as_dicts
 from core import agent_builder
 from core import agent_store
 from core import agent_performance
@@ -130,11 +130,25 @@ _refresh_in_progress = False  # de-dupes concurrent background refreshes
 
 
 async def _refresh_into_store() -> list[dict]:
-    """One real refresh: fetch a fresh 8004scan sample, UPSERT it into the
-    persistent known_agents store (never deletes), then return the FULL served
-    list read back from the store. The store — not this single fetch — is the
-    source of truth, so agents from earlier refreshes never vanish just because
-    they weren't in this particular paginated sample.
+    """One real refresh: draws a fresh, diversified sample and UPSERTs it into
+    the persistent known_agents store (never deletes), then returns the FULL
+    served list read back from the store. The store — not this single fetch —
+    is the source of truth, so agents from earlier refreshes never vanish just
+    because they weren't in this particular sample.
+
+    Real architecture change (2026-08-28): the raw candidate pool now comes
+    from full_agent_registry (core/aggregate.py's get_agents_from_full_registry
+    — the background ingestion pipeline's own, much larger, continuously-
+    growing dataset — see docs/full-registry-analysis.md) WHEN it has enough
+    real data to be a genuine improvement over a live 8004scan fetch, since
+    reading already-ingested Mongo data is both faster and draws from a real
+    pool orders of magnitude larger than what one live paginated fetch can
+    reach. Falls back to the original real live-fetch path
+    (get_marketplace_agents_as_dicts) when full_agent_registry isn't ready yet
+    — an honest degrade, not a silent regression. Either way, the REST of this
+    function (upsert into known_agents, health-check pass, response shape) is
+    completely unchanged — this is a real change to WHERE the raw sample comes
+    from, not to the serving contract downstream of it.
 
     Also runs the real service-liveness health-check (core/agent_health.py)
     over the served list, on its own shorter TTL — see that module's own
@@ -152,7 +166,14 @@ async def _refresh_into_store() -> list[dict]:
             detail="SCAN_8004_API_KEY is not set. The /api/v1/agents endpoint "
                    "requires a real key, get one at 8004scan.io/developers.",
         )
-    fresh_data = await get_marketplace_agents_as_dicts(api_key=api_key)
+    try:
+        fresh_data = await get_agents_from_full_registry_as_dicts(api_key=api_key)
+    except Exception as e:
+        print(f"[server] full-registry-backed refresh failed, falling back to live fetch: {e}")
+        fresh_data = None
+    if fresh_data is None:
+        fresh_data = await get_marketplace_agents_as_dicts(api_key=api_key)
+
     if fresh_data:
         result = await agent_store.upsert_agents(fresh_data)
         print(f"[server] Upserted refresh into known_agents: {result}")

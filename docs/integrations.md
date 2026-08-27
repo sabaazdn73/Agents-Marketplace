@@ -11,7 +11,7 @@ Every real external service Tnega depends on, what it's actually used for, and i
 **Real, current details:**
 - Host: `api.8004scan.io` (migrated from the old `8004scan.io` host — both the path and response shape changed in that migration; Tnega's adapter was updated and re-verified live against both the old and new hosts before switching).
 - Access tier: **Pro** (3,000 requests/min, 3,000,000/day), confirmed live via real, uncacheable rate-limit-header checks, not assumed from a dashboard claim.
-- Coverage confirmed live: EVM chains only (BSC, Ethereum, Base, Arbitrum, and others) — zero Solana records found across a real, direct sample, consistent with ERC-8004 being an EVM-only standard.
+- The `/api/v1/agents` REST listing this project actually queries covers EVM chains (BSC, Ethereum, Base, Arbitrum, and others) — real, confirmed. **Correction (2026-08-28):** an earlier version of this page concluded from that same real sample that ERC-8004 itself is "EVM-only." That was wrong — 8004scan's own `/networks` page shows a real, live Solana deployment (1,465 real agents, 9,932 real feedbacks) via a genuinely separate technical structure (a real Solana Agent Registry Program and ATOM Engine Program, not chainId-based REST pagination), which the earlier sample never queried. See [Known Limitations](limitations.md) and [Full BSC Registry Analysis](full-registry-analysis.md) for the full real correction.
 - A real, known caveat: the `chainId` query parameter does **not** reliably filter server-side — Tnega's adapter always filters client-side after fetching, and paginates deep enough (not just the first page) to reach a genuinely diverse sample rather than whatever registered most recently.
 
 ## Zerion

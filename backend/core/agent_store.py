@@ -52,7 +52,7 @@ import re
 from datetime import datetime, timezone, timedelta
 
 from core.db import get_db
-from core.aggregate import _diversify   # same cluster-cap used at fetch time
+from core.clustering import diversify as _diversify   # same real multi-signal cluster-cap used at fetch time — see core/clustering.py
 
 STALE_DAYS = 7          # not seen in any refresh for a week => possibly delisted
 READ_CLUSTER_CAP = 3    # keep the served list diverse across accumulation

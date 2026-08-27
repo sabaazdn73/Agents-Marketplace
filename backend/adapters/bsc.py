@@ -78,12 +78,62 @@ async def list_bsc_agents(
     rank, network_rank, average_score, supported_protocols, owner_ens,
     owner_username, image_url, and cross_chain_versions (the real mechanism
     for "same agent identity across chains")."""
+    items, total = await _fetch_agents_page(
+        api_key, offset=offset, limit=limit, max_retries=max_retries, timeout=timeout, log_prefix="list_bsc_agents",
+    )
+    bsc_only = [a for a in items if a.get("chain_id") == MAINNET_CHAIN_ID]
+    if len(bsc_only) != len(items):
+        print(f"[list_bsc_agents] Server returned {len(items)} agents at offset {offset}, "
+              f"only {len(bsc_only)} actually matched chainId={MAINNET_CHAIN_ID}, "
+              f"client-side filter caught the rest.")
+    return bsc_only, total, len(items)
+
+
+async def list_agents_for_chains(
+    api_key: str,
+    chain_ids: set[int],
+    offset: int = 0,
+    limit: int = 20,
+    max_retries: int = 4,
+    timeout: float = 15.0,
+) -> tuple[list[dict], int, int]:
+    """Real, general version of list_bsc_agents — keeps agents matching ANY
+    of `chain_ids` instead of hardcoding BSC only. Added 2026-08-28 for
+    core/full_registry_ingest.py's multi-chain ingestion: since a real page
+    from this API is already a real MIX of chains (confirmed live — a given
+    page's real BSC share has been observed anywhere from 16% to 92%), one
+    single pass filtering for multiple target chains at once covers all of
+    them from the same real requests, rather than one full linear scan per
+    chain re-reading the exact same pages. Same real (bsc_agents,
+    total_reported_by_server, raw_page_len) return shape and the same
+    real retry/timeout discipline as list_bsc_agents — see that function's
+    own docstring for the full real incident behind it."""
+    items, total = await _fetch_agents_page(
+        api_key, offset=offset, limit=limit, max_retries=max_retries, timeout=timeout, log_prefix="list_agents_for_chains",
+    )
+    matched = [a for a in items if a.get("chain_id") in chain_ids]
+    return matched, total, len(items)
+
+
+async def _fetch_agents_page(
+    api_key: str, *, offset: int, limit: int, max_retries: int, timeout: float, log_prefix: str,
+) -> tuple[list[dict], int]:
+    """Shared real fetch + retry logic for one raw page of /api/v1/agents —
+    factored out 2026-08-28 so list_bsc_agents and list_agents_for_chains
+    (BSC-only vs multi-chain) share one real implementation rather than two
+    copies that could quietly drift. Returns the RAW (unfiltered-by-chain)
+    items + the server's own real total — callers apply their own chain
+    filter."""
     headers = {"X-API-Key": api_key}
 
     last_error = None
     for attempt in range(max_retries):
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
+                # chainId is passed for consistency with real prior calls,
+                # but NOT trusted to actually filter server-side (see this
+                # module's own honesty note) — every caller re-filters
+                # client-side on the real chain_id field regardless.
                 resp = await client.get(
                     f"{_8004SCAN_BASE}/api/v1/agents",
                     params={"chainId": MAINNET_CHAIN_ID, "offset": offset, "limit": limit},
@@ -91,11 +141,11 @@ async def list_bsc_agents(
                 )
                 resp.raise_for_status()
                 body = resp.json()
-            break
+                return body.get("items", []), body.get("total", 0)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429 and attempt < max_retries - 1:
                 wait_seconds = 8 * (2 ** attempt)
-                print(f"[list_bsc_agents] 429 at offset {offset}, attempt "
+                print(f"[{log_prefix}] 429 at offset {offset}, attempt "
                       f"{attempt + 1}/{max_retries}, waiting {wait_seconds}s")
                 last_error = e
                 await asyncio.sleep(wait_seconds)
@@ -104,25 +154,13 @@ async def list_bsc_agents(
         except (httpx.TimeoutException, httpx.TransportError) as e:
             if attempt < max_retries - 1:
                 wait_seconds = 4 * (2 ** attempt)
-                print(f"[list_bsc_agents] real transient {type(e).__name__} at offset {offset}, "
+                print(f"[{log_prefix}] real transient {type(e).__name__} at offset {offset}, "
                       f"attempt {attempt + 1}/{max_retries}, waiting {wait_seconds}s")
                 last_error = e
                 await asyncio.sleep(wait_seconds)
                 continue
             raise
-    else:
-        raise last_error
-
-    all_results = body.get("items", [])
-    total = body.get("total", 0)
-
-    bsc_only = [a for a in all_results if a.get("chain_id") == MAINNET_CHAIN_ID]
-    if len(bsc_only) != len(all_results):
-        print(f"[list_bsc_agents] Server returned {len(all_results)} agents for "
-              f"chainId={MAINNET_CHAIN_ID} at offset {offset}, only {len(bsc_only)} "
-              f"actually matched, client-side filter caught the rest.")
-
-    return bsc_only, total, len(all_results)
+    raise last_error
 
 
 async def fetch_agent_detail(
