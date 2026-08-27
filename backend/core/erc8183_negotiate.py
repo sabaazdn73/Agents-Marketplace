@@ -33,6 +33,25 @@ negotiation rejected) so the caller (server.py's endpoint, then
 useHireAgent.js) can fall back to the existing plain-description flow
 exactly as before, rather than break hiring for agents that never supported
 negotiate in the first place.
+
+Real SSRF gap found and fixed (2026-08-27 security audit): unlike
+deliverable_proxy.py (guarded from the start — see that module's own real
+threat-model note), this proxy had NO host-safety validation at all. While
+`service_endpoint` is resolved server-side (server.py never accepts a raw
+URL from the client directly, only an owner_address), its real VALUE is
+still attacker-influenced: whoever registers an agent on-chain sets it, so
+a malicious registrant could point it at internal infrastructure (a cloud
+metadata IP, an internal admin service) and get every real user who tries
+to hire that "agent" to make this backend proxy a request there — the same
+real threat deliverable_proxy.py's own docstring describes, just via
+registration instead of a job's submit(). Worse here: `_jsonrpc_candidates`
+below ALSO trusts a `url` field pulled out of whatever JSON the endpoint's
+own `.well-known/agent-card.json` happens to return — a second,
+attacker-controlled hop that could point anywhere even if the original
+service_endpoint looked benign. Fixed by reusing deliverable_proxy.py's
+already-proven `_is_safe_public_host` guard (DNS-resolve-time private/
+loopback/link-local/reserved/multicast rejection) at BOTH hops: before the
+agent-card fetch, and before trusting any `url` the card itself claims.
 """
 
 from __future__ import annotations
@@ -41,7 +60,19 @@ import uuid
 
 import httpx
 
+from core.deliverable_proxy import _is_safe_public_host
+
 _TIMEOUT = 15.0
+
+
+def _is_safe_url(url: str) -> bool:
+    """Real, shared guard for any URL this module is about to fetch —
+    scheme + resolved-host safety, same standard as deliverable_proxy.py."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    return _is_safe_public_host(parsed.hostname)
 
 
 async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) -> list[str]:
@@ -68,21 +99,29 @@ async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) 
 
     parsed = urlparse(service_endpoint)
     candidates: list[str] = []
-    if parsed.scheme and parsed.netloc:
-        candidates.append(f"{parsed.scheme}://{parsed.netloc}/")
+    same_origin = f"{parsed.scheme}://{parsed.netloc}/" if parsed.scheme and parsed.netloc else None
+    if same_origin and _is_safe_url(same_origin):
+        candidates.append(same_origin)
 
     card_urls = [service_endpoint]
     if parsed.scheme and parsed.netloc:
         card_urls.append(f"{parsed.scheme}://{parsed.netloc}/.well-known/agent-card.json")
     for url in card_urls:
+        # Real SSRF guard, first hop — see module docstring.
+        if not _is_safe_url(url):
+            continue
         try:
-            resp = await client.get(url, timeout=_TIMEOUT)
+            resp = await client.get(url, timeout=_TIMEOUT, follow_redirects=False)
             resp.raise_for_status()
             card = resp.json()
         except Exception:
             continue
         rpc_url = card.get("url")
-        if isinstance(rpc_url, str) and rpc_url and rpc_url not in candidates:
+        # Real SSRF guard, second hop — the card's own claimed `url` is
+        # JUST as attacker-controlled as service_endpoint itself (see
+        # module docstring), so it gets the exact same real check before
+        # ever being added as something we'll later POST to.
+        if isinstance(rpc_url, str) and rpc_url and rpc_url not in candidates and _is_safe_url(rpc_url):
             candidates.append(rpc_url)
         break  # first real card fetch that succeeds is enough
 
@@ -118,8 +157,15 @@ async def _call_skill(service_endpoint: str, skill_data: dict) -> dict | None:
 
         body = None
         for rpc_url in candidates:
+            # Real, defense-in-depth SSRF guard — candidates are already
+            # filtered in _jsonrpc_candidates above, but re-checking here
+            # too means this loop is safe even if a future change ever
+            # adds a candidate through a different path.
+            if not _is_safe_url(rpc_url):
+                print(f"[erc8183_negotiate] candidate {rpc_url} failed the real host-safety check, skipping")
+                continue
             try:
-                resp = await client.post(rpc_url, json=payload, timeout=_TIMEOUT)
+                resp = await client.post(rpc_url, json=payload, timeout=_TIMEOUT, follow_redirects=False)
                 resp.raise_for_status()
                 body = resp.json()
                 break

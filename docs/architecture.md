@@ -46,7 +46,7 @@ Shared logic lives in plain `.js`/`.jsx` modules imported by both apps — the h
 
 A FastAPI service (`backend/server.py`) that does three real jobs:
 
-1. **Aggregates and serves agent data.** `GET /api/agents` serves instantly from a MongoDB-backed store (`core/agent_store.py`), refreshed in the background from 8004scan + DefiLlama + a real on-chain BNB balance read — never blocking a page load on a live upstream fetch.
+1. **Aggregates and serves agent data.** `GET /api/agents` serves instantly from a MongoDB-backed store (`core/agent_store.py`), refreshed in the background — preferentially from `full_agent_registry` (see below; a real fix landed 2026-08-27), falling back to a live 8004scan + DefiLlama + a real on-chain BNB balance read when that registry isn't populated enough yet — never blocking a page load on a live upstream fetch.
 2. **Proxies a handful of real, CORS-blocked reads** that a browser can't make directly — deliverable content fetches, and ERC-8183 negotiate/notify-funded calls.
 3. **Drives the "Build Your Agent" pipeline**, which needs server-side state (a running build process) a browser can't hold.
 
@@ -55,9 +55,12 @@ The full, current list of real routes is in [Getting Started](getting-started.md
 ## Data layer
 
 **MongoDB** (one Atlas deployment, several collections):
-- `known_agents` — the durable agent store `GET /api/agents` serves from (never deleted, only upserted, so a slow/rate-limited 8004scan refresh never makes agents disappear).
+- `known_agents` — the durable, curated agent store `GET /api/agents` serves from (never deleted, only upserted, so a slow/rate-limited 8004scan refresh never makes agents disappear). ~12,300 real agents as of 2026-08-27, up sharply since being wired to `full_agent_registry` below rather than a small live-fetch sample.
+- `full_agent_registry` — a real, separate, much larger, continuously-growing multi-chain dataset (BSC + Base; ~64,100 real docs as of 2026-08-27), built by its own background ingestion/analysis pipeline (`core/full_registry_ingest.py`, `core/full_registry_analysis.py`) for real analysis, and — as of 2026-08-27 — the preferred real source `known_agents` refreshes are diversified from. See [Full Agent Registry Analysis](full-registry-analysis.md) for the full real design.
 - `explainer_deliverables` — a durable mirror of the explainer-agent's own delivered content (see [Limitations](limitations.md) for why this exists — Render's free-tier disk is ephemeral, so this collection is what survives a restart).
-- `future_multichain_agents` — real Ethereum-mainnet agent data collected for future multi-chain expansion, deliberately isolated from `known_agents` and never read by any live-serving route (see [Limitations](limitations.md)).
+- `canary_tests` — real log of every human-triggered canary test hire (`core/canary.py`); never a spend record on its own, just an after-the-fact log of a real, already-broadcast transaction. See [Verification Methodology](verification-methodology.md).
+- `future_multichain_agents` (superseded, real but inert) — an earlier, much smaller (62-doc) real attempt at multi-chain data, predating `full_agent_registry` above and never read by any live-serving route. Left in place rather than deleted, but genuinely superseded — `full_agent_registry` is the real, current mechanism.
+- `practice_runs` (dead, real but orphaned) — leftover data from the removed Practice Mode feature (see [Limitations](limitations.md)); confirmed zero real code references anywhere in the current backend. Not read, not written, harmless, just not yet cleaned up.
 
 ## Smart contracts
 

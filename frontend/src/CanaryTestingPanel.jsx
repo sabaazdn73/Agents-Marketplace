@@ -181,7 +181,7 @@ export default function CanaryTestingPanel({ onBack }) {
           <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center"><Loader2 size={16} className="animate-spin" /> Loading real candidates…</div>
         ) : candidates.length === 0 ? (
           <div className="p-8 rounded-2xl border border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500">
-            No real candidates right now — either nothing in the allowed scope is currently "Responding, unproven", or everything eligible was tested within the last {30} days.
+            No real candidates right now — either nothing in the allowed scope is currently "Responding, unproven", or everything eligible was tested within the last {budget?.recent_test_cooldown_days ?? 30} days.
           </div>
         ) : (
           <div className="space-y-3">

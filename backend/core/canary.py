@@ -96,6 +96,12 @@ async def get_budget_status(period_days: int = PERIOD_DAYS) -> dict:
         "cap_units": DEFAULT_WEEKLY_CAP_UNITS,
         "remaining_units": round(max(0.0, DEFAULT_WEEKLY_CAP_UNITS - spent), 4),
         "tests_this_period": count,
+        # Real fix (2026-08-27 audit): CanaryTestingPanel.jsx used to
+        # hardcode the real RECENT_TEST_COOLDOWN_DAYS value as a literal
+        # `{30}` in its "no candidates" copy — currently correct, but a
+        # duplicate, not a live read, so it'd silently go stale if this
+        # constant ever changed. Exposed here so the frontend can read it.
+        "recent_test_cooldown_days": RECENT_TEST_COOLDOWN_DAYS,
     }
 
 

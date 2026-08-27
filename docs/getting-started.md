@@ -29,14 +29,16 @@ The values actually read by `backend/server.py` and its `core`/`adapters` module
 
 ### Real backend routes
 
-The full, current list of routes in `backend/server.py` (grepped directly, not from an older count):
+The full, current list of routes in `backend/server.py` (2026-08-27 audit — grepped directly via `@app.get`/`@app.post`, not from an older count; the previous version of this table predated the canary/termix/activity routes below):
 
 ```
 GET  /api/health
 GET  /api/status
 GET  /api/agents
+GET  /api/agents/activity
 GET  /api/agents/performance
 GET  /api/agents/performance/bulk
+GET  /api/agents/termix-performance
 GET  /api/agents/wallet-portfolio
 POST /api/agents/negotiate
 POST /api/agents/notify-funded
@@ -46,6 +48,12 @@ GET  /api/deliverable/proxy
 GET  /api/my-jobs
 POST /api/build
 GET  /api/build/{slug}/status
+GET  /api/canary/candidates
+GET  /api/canary/budget-status
+GET  /api/canary/status-bulk
+GET  /api/canary/history
+POST /api/canary/record
+POST /api/canary/check-pending
 ```
 
 ## Frontend (Vite + React)

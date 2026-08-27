@@ -40,7 +40,22 @@ async function _fetchOnce() {
   return res.json();
 }
 
-/** Returns { byOwner, status, retry }.
+// Real, honest fallback for scannedWindow (2026-08-27 audit finding):
+// AgentMarketplaceApp's own "from the last 1,500 marketplace-wide jobs"
+// tooltip text used to hardcode 1500 as a plain string, duplicating
+// backend/core/agent_performance.py's own real WINDOW constant rather than
+// reading the real, live value this same endpoint already returns
+// (scanned_window). Not a live bug (the two values still matched), but a
+// real latent drift risk — if WINDOW is ever changed backend-side, the
+// frontend string would silently go stale with no error to catch it. Fixed
+// by threading the real value through this hook instead. This constant is
+// ONLY the fallback shown before the real fetch resolves (or if it fails
+// with nothing cached yet) — matches WINDOW's current real value so there's
+// no visible flash, but the source of truth is the live response once it
+// lands.
+const FALLBACK_SCANNED_WINDOW = 1500;
+
+/** Returns { byOwner, scannedWindow, status, retry }.
  * `status`: 'loading' | 'ready' | 'error' — real, honest state, not just
  * inferred from whether `byOwner` is null (loading and error both start
  * that way, but callers that care about the difference — e.g. showing
@@ -48,11 +63,16 @@ async function _fetchOnce() {
  * verified agents exist — now can). `retry()` forces a fresh attempt. */
 export function useAgentPerformanceBulk() {
   const [state, setState] = useState(() =>
-    _cached ? { status: 'ready', byOwner: _cached.by_owner } : { status: 'loading', byOwner: null }
+    _cached
+      ? { status: 'ready', byOwner: _cached.by_owner, scannedWindow: _cached.scanned_window ?? FALLBACK_SCANNED_WINDOW }
+      : { status: 'loading', byOwner: null, scannedWindow: FALLBACK_SCANNED_WINDOW }
   );
 
   const load = useCallback(() => {
-    if (_cached) { setState({ status: 'ready', byOwner: _cached.by_owner }); return () => {}; }
+    if (_cached) {
+      setState({ status: 'ready', byOwner: _cached.by_owner, scannedWindow: _cached.scanned_window ?? FALLBACK_SCANNED_WINDOW });
+      return () => {};
+    }
     let cancelled = false;
     setState((s) => ({ ...s, status: 'loading' }));
 
@@ -65,7 +85,7 @@ export function useAgentPerformanceBulk() {
           const data = await _fetchOnce();
           if (cancelled) return;
           _cached = data;
-          setState({ status: 'ready', byOwner: data.by_owner || {} });
+          setState({ status: 'ready', byOwner: data.by_owner || {}, scannedWindow: data.scanned_window ?? FALLBACK_SCANNED_WINDOW });
           return;
         } catch (e) {
           lastErr = e;
@@ -73,7 +93,7 @@ export function useAgentPerformanceBulk() {
       }
       // Real, genuine failure after real retries — surfaced honestly, not
       // silently swallowed.
-      if (!cancelled) setState({ status: 'error', byOwner: null, error: lastErr?.message });
+      if (!cancelled) setState({ status: 'error', byOwner: null, scannedWindow: FALLBACK_SCANNED_WINDOW, error: lastErr?.message });
     })();
 
     return () => { cancelled = true; };
@@ -81,5 +101,5 @@ export function useAgentPerformanceBulk() {
 
   useEffect(() => load(), [load]);
 
-  return { byOwner: state.byOwner, status: state.status, retry: load };
+  return { byOwner: state.byOwner, scannedWindow: state.scannedWindow, status: state.status, retry: load };
 }

@@ -48,7 +48,7 @@ A failed canary (never delivered, rejected, or expired) is recorded and shown tr
 | Parameter | Recommended starting value | Why |
 |---|---|---|
 | Per-test budget | 0.1 $U | Small enough to be a trivial real cost per test, as suggested |
-| Scope | Trading & DeFi + Data & Analysis groups only | Real, deliberate narrowing — not all ~1,700 known agents, to control real cost while this is new |
+| Scope | Trading & DeFi + Data & Analysis groups only | Real, deliberate narrowing — not all ~11,700 known agents (2026-08-27), to control real cost while this is new |
 | Weekly sample size | 10 agents | A small, real, deliberate starting cohort — see below for why not larger yet |
 | Weekly hard cap | 5 $U | Enforced in code (`backend/core/canary.py`'s `DEFAULT_WEEKLY_CAP_UNITS`) — a canary hire that would exceed it is refused before a wallet prompt ever appears |
 | Re-test cooldown | 30 days | Don't hammer the same agent repeatedly; treat one result as real but not final |

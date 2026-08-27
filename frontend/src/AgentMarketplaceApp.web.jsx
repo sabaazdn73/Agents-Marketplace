@@ -658,7 +658,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // hired" / "Highest success rate" can sort the whole list. See
   // agentRanking.js for the real tiering (real history first, no-history
   // agents after, never silently mixed in).
-  const { byOwner: perfByOwner, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, scannedWindow: perfScannedWindow, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const agentsWithPerf = useMemo(
     () => withCanaryStatus(withPerformance(agents, perfByOwner), canaryByOwner),
@@ -1336,7 +1336,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                             "Most hired"/"Highest success rate" sort ranks
                             by, shown plainly here so it's visible
                             regardless of which sort is active. */}
-                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title="Real ERC-8183 job history for this agent, from the last 1,500 marketplace-wide jobs">
+                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={`Real ERC-8183 job history for this agent, from the last ${perfScannedWindow.toLocaleString()} marketplace-wide jobs`}>
                           {agentHasRealHistory(agent, 'hireCount')
                             ? <>{agent.hireCount} real {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
                             : <span className="text-gray-400 dark:text-gray-500">No real hires yet</span>}

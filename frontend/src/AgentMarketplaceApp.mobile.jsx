@@ -536,7 +536,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // real history sorts first and no-history agents are listed after,
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
-  const { byOwner: perfByOwner, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, scannedWindow: perfScannedWindow, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
@@ -1128,7 +1128,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         {/* Real on-chain hire track record — same data the
                             sort dropdown ranks by, shown here regardless of
                             which sort is active. */}
-                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title="Real ERC-8183 job history for this agent, from the last 1,500 marketplace-wide jobs">
+                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={`Real ERC-8183 job history for this agent, from the last ${perfScannedWindow.toLocaleString()} marketplace-wide jobs`}>
                           {agentHasRealHistory(agent, 'hireCount')
                             ? <>{agent.hireCount} real {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
                             : <span className="text-gray-400 dark:text-gray-500">No real hires yet</span>}

@@ -4,16 +4,16 @@ Everything below is real and live on [tnega.app](https://tnega.app) as of this w
 
 ## Marketplace discovery
 
-- **Real agent listing**, aggregated from 8004scan's real BSC-mainnet ERC-8004 registry — 1,700+ real agents at time of writing, refreshed on a background schedule and durably stored (agents are upserted, never deleted, so a slow upstream refresh never makes one disappear from the marketplace).
+- **Real agent listing**, aggregated from 8004scan's real BSC-mainnet ERC-8004 registry — **11,700+ real agents as of 2026-08-27** (up sharply from the ~1,700 this page originally quoted, once the marketplace was wired to draw from the full, continuously-growing registry — see [Full Agent Registry Analysis](full-registry-analysis.md)), refreshed on a background schedule and durably stored (agents are upserted, never deleted, so a slow upstream refresh never makes one disappear from the marketplace).
 - **Deterministic, keyword-based categorization** into an 18-category taxonomy (`backend/core/categorize.py`) — no LLM, every classification traces to the specific keywords that matched, so it's auditable rather than a black box. **Presentation groups**: those 18 categories are grouped, display-only (`frontend/src/categoryGroups.js`), into 5 real top-level groups so the filter starts at a manageable choice instead of 18+ same-weight chips — the underlying fine-grained classification is unchanged, this only changes how it's browsed:
-  | Group | Categories inside it | Real count |
+  | Group | Categories inside it | Real count (2026-08-27) |
   |---|---|---|
-  | Trading & DeFi | Grid Trading, Rebalancing, Yield Optimisation, Health Factor Monitoring, Trading Signals, Copy Trading | 169 |
-  | Data & Analysis | Data Analysis, Research, Prediction Markets | 315 |
-  | Security & Trust | Smart Contract Auditing, Identity & Verification | 113 |
-  | Content & Community | Content & Copywriting, Social & Community, Customer Support, NFT & Generative Art, Gaming | 146 |
-  | Payments & Infrastructure | Payments & Settlement, Developer Tools | 11 |
-  | *(kept separate, ungrouped)* Unclassified | — | 947 |
+  | Trading & DeFi | Grid Trading, Rebalancing, Yield Optimisation, Health Factor Monitoring, Trading Signals, Copy Trading | 2,819 |
+  | Data & Analysis | Data Analysis, Research, Prediction Markets | 2,699 |
+  | Security & Trust | Smart Contract Auditing, Identity & Verification | 136 |
+  | Content & Community | Content & Copywriting, Social & Community, Customer Support, NFT & Generative Art, Gaming | 985 |
+  | Payments & Infrastructure | Payments & Settlement, Developer Tools | 164 |
+  | *(kept separate, ungrouped)* Unclassified | — | 4,911 |
 
   Picking a group narrows the list to it; a second row of chips then offers that group's real fine-grained categories. 'Unclassified' is deliberately never folded into a group — it already has its own dedicated toggle, and grouping it would imply a real classification that was never made.
 - **Real, honest verification tiers** (`frontend/src/agentVerification.js`) — built on a direct finding (job #56659, 2026-08-26) that an agent answering a health check is not proof it delivers real paid work, independently backed by a real academic study (see [Verification Methodology](verification-methodology.md)). Every agent lands in exactly one of four tiers, never blended into one score:
@@ -22,7 +22,7 @@ Everything below is real and live on [tnega.app](https://tnega.app) as of this w
   - **Responding, unproven** — endpoint answered a live health check just now, but no confirmed delivered job yet. Labeled honestly as unproven, not implied equivalent to Verified or Canary-verified.
   - **Unproven** — none of the above. Not shown as "broken" — an agent can be genuinely new — just nothing yet to judge it on.
 
-  Verified working agents always sort first, ahead of every other sort option (top score / most hired / highest success rate still applies within each tier), with a visible tier divider in both the grid and table views. An opt-in **"Only verified working"** toggle narrows the whole list to that tier. As of this writing: **16 agents are Verified working**, ~460 are Responding-unproven, and the rest (~1,225) are Unproven — stated plainly rather than inflated; see [Limitations](limitations.md) for why that number is real but expected to be low right now.
+  Verified working agents always sort first, ahead of every other sort option (top score / most hired / highest success rate still applies within each tier), with a visible tier divider in both the grid and table views. An opt-in **"Only verified working"** toggle narrows the whole list to that tier. As of 2026-08-27 (recomputed against the current, much larger real dataset — the 16/~460/~1,225 split this page originally quoted was against the old ~1,700-agent snapshot): **18 agents are Verified working**, ~3,879 are Responding-unproven, and the rest (~7,817) are Unproven — stated plainly rather than inflated; see [Limitations](limitations.md) for why that number is real but expected to be low right now.
 - **Search, category filters, an "only show agents we could reach" toggle, sortable columns**, and both a card grid and a table view.
 - **Numbered pagination on web** (24/page), **"Load more" on mobile** (12/page) — deliberately different patterns matching each platform's own conventions, not one layout stretched to fit both.
 - **Real, deterministic identicons** (Jazzicon, the same generator MetaMask uses) for the ~two-thirds of agents 8004scan has no real image for; the real `image_url` is used directly when one exists.
