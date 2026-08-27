@@ -50,7 +50,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Sparkles, Clock, Hourglass, CheckCircle2, XCircle } from 'lucide-react';
 import { getJobStatus, getDeliverable } from './altana';
 import { trackJob } from './notifications';
-import { recordFunded, getStartEstimate, getKnownTypicalDelivery, getActivityWindow } from './jobTiming';
+import { recordFunded, getStartEstimate, getKnownTypicalDelivery, getActivityWindow, isPastDisputeWindow } from './jobTiming';
 import { extractDeliverableText, parseLightMarkdown } from './deliverableFormat';
 import AgentActivityPanel from './AgentActivityPanel';
 
@@ -485,6 +485,18 @@ export default function JobStatusPanel({
   // jobTiming.js's getActivityWindow for the full real tiering.
   const activityWindow = job ? getActivityWindow(jobId, job) : null;
 
+  // Real, confirmed bug fix (2026-08-27): "Looks good — release payment
+  // now" used to render (and always revert) for ANY submitted job — the
+  // real deployed EvaluatorRouter.settle() has NO early-approval path,
+  // confirmed via eth_call: it reverts for every caller, including the
+  // real job.client, until the dispute window has fully elapsed. Mirror
+  // image for dispute() — real, client-only, and ONLY valid BEFORE that
+  // point. Both buttons now gated on the job's REAL on-chain eligibility
+  // instead of just its status, so neither one is offered when it would
+  // just fail. See jobTiming.js's isPastDisputeWindow + docs/hire-flow-
+  // audit.md's "Correction" section for the full real investigation.
+  const pastDisputeWindow = job ? isPastDisputeWindow(job) : false;
+
   // Live-waiting numbers — all derived from real state (startEstimate,
   // job.expiredAt, lastCheckedAtMs) re-evaluated every tick, never a fake
   // incrementing counter running independently of reality.
@@ -630,21 +642,32 @@ export default function JobStatusPanel({
               when there's no real window to search. */}
           <AgentActivityPanel ownerAddress={job?.provider} window={activityWindow} />
 
-          {submitted && onApprove && (
-            <>
-              <button onClick={handleApprove} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ color: accent, borderColor: accent + '4D' }}>
-                {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Looks good — release payment now
-              </button>
-              <p className="text-[10px] opacity-50">Skips the rest of the waiting period and pays the agent immediately. Permanent — you can't dispute after this, so only do this once you're actually satisfied.</p>
-            </>
+          {/* Real, honest state once the review window has genuinely
+              passed uncontested — confirmed live (2026-08-27) that
+              settle() becomes callable by ANY address at this point, not
+              just the original buyer, so this is stated plainly rather
+              than implied as "your job to finish". */}
+          {submitted && pastDisputeWindow && (
+            <div className="flex items-start gap-1.5 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/50 text-[11px] text-emerald-800 dark:text-emerald-300">
+              <CheckCircle2 size={13} className="shrink-0 mt-0.5" />
+              <span>The 7-day review window passed with no dispute — this job is now eligible for settlement. Releasing payment is permissionless on-chain at this point, so anyone can do it, not just you.</span>
+            </div>
           )}
-          {submitted && onDispute && (
+          {submitted && pastDisputeWindow && onApprove && (
+            <button onClick={handleApprove} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ color: accent, borderColor: accent + '4D' }}>
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Settle now — release payment
+            </button>
+          )}
+          {submitted && !pastDisputeWindow && onDispute && (
             <>
               <button onClick={handleDispute} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold text-red-600 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1.5">
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />} This isn't right — dispute it
               </button>
-              <p className="text-[10px] opacity-50">You can only do this for a short window after the agent delivers. If that window has closed, this won't work — you'll see a message explaining why.</p>
+              <p className="text-[10px] opacity-50">You can do this within the real 7-day review window after delivery. Once that passes without a dispute, this can no longer be disputed — it becomes eligible for settlement instead.</p>
             </>
+          )}
+          {submitted && pastDisputeWindow && onDispute && (
+            <p className="text-[10px] opacity-50">The review window has closed, so this can no longer be disputed.</p>
           )}
         </div>
       )}

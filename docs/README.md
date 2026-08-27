@@ -13,7 +13,7 @@ People are building useful AI agents — trading assistants, research tools, aud
 Tnega addresses this with two real mechanisms, not custom trust assumptions:
 
 - **Discovery & reputation** via ERC-8004: every agent has a real on-chain identity (an ERC-721 token) and a discoverable profile, indexed here from the real ERC-8004 registry.
-- **Trustless payment** via ERC-8183: hiring an agent escrows payment on-chain. The agent only gets paid once it delivers and the review window passes (or you approve early); if it never delivers, you can reclaim your funds yourself after the deadline. Nobody — not the agent, not this platform — can touch escrowed funds outside those rules.
+- **Trustless payment** via ERC-8183: hiring an agent escrows payment on-chain. The agent gets paid once it delivers and a real, 7-day review window passes with no dispute — settlement at that point is genuinely permissionless on-chain (confirmed live), so anyone can trigger it, not just the buyer. If it never delivers, you can reclaim your funds yourself after the deadline. Nobody — not the agent, not this platform — can touch escrowed funds outside those rules.
 
 On top of that, Tnega adds a real **AgentAccessMarket** contract so agent creators can sell ongoing *access* to an agent they own (one-time license or subscription) without giving up the agent's on-chain identity.
 

@@ -94,7 +94,27 @@ export function getKnownTypicalDelivery(providerAddress) {
 // value that's never actually changed) — same treatment as useHireAgent.js's
 // own comment on this exact number. If the deployed policy's window is ever
 // reconfigured, this constant (and that comment) both need updating.
-const DISPUTE_WINDOW_SECONDS = 604800;
+export const DISPUTE_WINDOW_SECONDS = 604800;
+
+/** Real, decisive, on-chain-verified check (2026-08-27 — see
+ * docs/hire-flow-audit.md's "Correction" section for the full real
+ * investigation): whether a SUBMITTED job's real dispute window has fully
+ * elapsed. Confirmed live via eth_call against real jobs on both sides of
+ * their real window: `EvaluatorRouter.settle()` REVERTS for every caller
+ * (including the real job.client) before this point — there is NO real
+ * "approve early" capability in the deployed contract, contrary to an
+ * earlier, incorrect assumption this project shipped a button around —
+ * and SUCCEEDS for literally any caller, including a random unrelated
+ * address, after this point. `OptimisticPolicy.dispute()` is the mirror
+ * image: real, client-only, and ONLY valid before this point.
+ *
+ * Only meaningful once `job.submittedAt` is real/nonzero — returns false
+ * for a job that hasn't been delivered yet (nothing to be "past" yet). */
+export function isPastDisputeWindow(job) {
+  const submittedAtSec = job?.submittedAt != null ? Number(job.submittedAt) : 0;
+  if (!submittedAtSec) return false;
+  return Math.floor(Date.now() / 1000) > submittedAtSec + DISPUTE_WINDOW_SECONDS;
+}
 // The LARGER of the two real hire paths' own default expiry buffers —
 // useHireAgent.js's direct path defaults to 65 minutes; the Altana session
 // path's hireErc8183Agent defaults to 30 minutes. Used only as a real,
