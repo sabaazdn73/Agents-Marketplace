@@ -52,6 +52,27 @@ combined pass — the shallow end of the real latency curve above is cheap,
 so re-covering it once more to also pick up Base agents from those same
 pages is a real, worthwhile, bounded cost, not wasted work.
 
+Real, Ethereum added to the same repeatable pipeline (2026-08-27): Ethereum
+was deliberately scoped OUT of the 2026-08-28 extension above (BSC/Base
+only) even though its real per-chain figures were already known at the
+time. Its only real data before this fix lived in `future_multichain_agents`
+— a genuinely separate, one-time pull (all 62 real docs share the exact
+same real `fetched_at` timestamp, 2026-08-25T12:29:29Z — confirmed live,
+not assumed — written by an older, different mechanism, never touched by
+this pipeline's own checkpoint/resume machinery, and never refreshed
+since). Real, honest gap: that made Ethereum's real data stale in a way
+BSC's and Base's genuinely isn't, since only they were on this real,
+repeatable ingest+analyze cycle. Fixed by adding Ethereum's chain_id (1)
+to TARGET_CHAIN_IDS below — the same real per-page-mix efficiency
+argument applies again: every raw page this pipeline already scans for
+BSC/Base may also contain real Ethereum agents, so adding a third chain_id
+to the same filter costs zero additional real API calls, just captures
+more of what's already being read past. `future_multichain_agents` is
+left in place as real, historical data (not deleted), but is no longer
+the only real source for Ethereum — this pipeline now accumulates real,
+repeatable Ethereum coverage into `full_agent_registry` the same way it
+already does for BSC and Base.
+
 Real, explicit non-scope: Solana (1,465 real agents per the same real
 /networks page, via a genuinely different technical structure — a real
 Agent Registry Program `8oo4dC4JvBLwy5tGgiH3WwK4B9PWxL9Z4XjA2jzkQMbQ` and
@@ -78,11 +99,12 @@ PROGRESS_COLLECTION = "full_registry_ingest_progress"
 PROGRESS_DOC_ID = "multi_chain_evm"
 
 # Real, confirmed-live target chains (see module docstring for the real
-# per-chain figures behind this choice). Solana is explicitly excluded —
-# it isn't reachable through this same chainId-based REST pagination at
-# all, not a scope choice made for cost reasons like Base's own real
-# addition here.
-TARGET_CHAIN_IDS = {56, 8453}
+# per-chain figures behind this choice, and for why Ethereum — chain 1 —
+# was added 2026-08-27 after starting out BSC/Base-only). Solana is
+# explicitly excluded — it isn't reachable through this same chainId-based
+# REST pagination at all, not a scope choice made for cost reasons like
+# Ethereum's and Base's own real additions here.
+TARGET_CHAIN_IDS = {1, 56, 8453}
 
 PAGE_SIZE = 100  # real, confirmed server-enforced max — see module docstring
 REQUEST_TIMEOUT = 90.0  # generous — real, measured deep-offset requests already take 45s+
