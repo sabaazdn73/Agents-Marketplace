@@ -66,7 +66,17 @@
 # full_agent_registry collection, not surfaced on the live BSC-only
 # marketplace yet.
 
-name: Full-registry batch (ingest + analyze + job index + health check + solana)
+# Real, fifth step added (2026-08-28): a real, persistent, resumable
+# escrow-compatibility audit (POST /api/admin/escrow-compat-audit-batch)
+# — built after a real, confirmed incident (Sentinels Audit, a genuinely
+# compatible agent, shown live as incompatible due to a real owner-lookup
+# bug) raised the honest question of whether other real misclassifications
+# were live too. Walks the entire real, currently-responding marketplace
+# population over repeated real runs (own real checkpoint, own real
+# per-agent persisted result — see core/escrow_compat_audit.py) rather
+# than relying on a live, on-demand probe per page view alone.
+
+name: Full-registry batch (ingest + analyze + job index + health check + solana + escrow audit)
 
 on:
   schedule:
@@ -154,5 +164,24 @@ jobs:
           cat response4.json
           if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
             echo "::error::Real Solana batch trigger failed with HTTP $http_status"
+            exit 1
+          fi
+
+      - name: Call the real /api/admin/escrow-compat-audit-batch endpoint
+        env:
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
+          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
+        run: |
+          echo "Calling $BACKEND_BASE_URL/api/admin/escrow-compat-audit-batch ..."
+          http_status=$(curl -sS -o response5.json -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
+            "${BACKEND_BASE_URL}/api/admin/escrow-compat-audit-batch")
+          echo "Real HTTP status: $http_status"
+          echo "Real response body:"
+          cat response5.json
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Real escrow-compat-audit batch trigger failed with HTTP $http_status"
             exit 1
           fi
