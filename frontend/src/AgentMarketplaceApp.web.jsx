@@ -350,7 +350,7 @@ function AgentPerformance({ agent, onTrySkill }) {
             <p className="text-[10px] text-gray-400 mt-1.5">
               {escrowData?.escrow_incompatible
                 ? "This agent doesn't operate through Tnega's on-chain escrow, so no real hire history is expected here — see below for how we evaluate it instead."
-                : `We checked the last ${perf.scanned_window} jobs on the whole marketplace and found none for this agent — it may just be new.`}
+                : (perf.note || "No real hire history found for this agent yet — it may just be new.")}
             </p>
           )}
         </>
@@ -362,7 +362,7 @@ function AgentPerformance({ agent, onTrySkill }) {
             <div title="Out of the jobs that finished, how many were successfully completed"><div className="text-[10px] uppercase text-gray-500">Success Rate</div><div className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</div></div>
             <div title="Jobs currently underway, not finished yet"><div className="text-[10px] uppercase text-gray-500">In Progress</div><div className="text-lg font-bold">{perf.active}</div></div>
           </div>
-          <div className="text-[11px] text-gray-500 dark:text-gray-400" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished before the deadline.">Finished {perf.completed} · Work rejected by buyer {perf.rejected} · Missed deadline {perf.expired}{perf.completion_rate == null ? ' — none finished yet, so no rate to show' : ''}. Based on the last {perf.scanned_window} jobs across the whole marketplace.</div>
+          <div className="text-[11px] text-gray-500 dark:text-gray-400" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished before the deadline.">Finished {perf.completed} · Work rejected by buyer {perf.rejected} · Missed deadline {perf.expired}{perf.completion_rate == null ? ' — none finished yet, so no rate to show' : ''}. {perf.note}</div>
           {/* Real, data-driven reliability hint — see agentReliability.js for
               the exact thresholds and reasoning. No LLM guessing, no
               fabricated score, just the real EXPIRED/settled ratio. */}
@@ -689,7 +689,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // hired" / "Highest success rate" can sort the whole list. See
   // agentRanking.js for the real tiering (real history first, no-history
   // agents after, never silently mixed in).
-  const { byOwner: perfByOwner, scannedWindow: perfScannedWindow, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const agentsWithPerf = useMemo(
     () => withCanaryStatus(withPerformance(agents, perfByOwner), canaryByOwner),
@@ -1391,7 +1391,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                             "Most hired"/"Highest success rate" sort ranks
                             by, shown plainly here so it's visible
                             regardless of which sort is active. */}
-                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={`Real ERC-8183 job history for this agent, from the last ${perfScannedWindow.toLocaleString()} marketplace-wide jobs`}>
+                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={perfIndexComplete ? "Real ERC-8183 job history for this agent — complete, real on-chain history, not a recent-only window" : "Real ERC-8183 job history for this agent — a real, one-time backfill of the complete history is still catching up"}>
                           {agentHasRealHistory(agent, 'hireCount')
                             ? <>{agent.hireCount} real {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
                             : <span className="text-gray-400 dark:text-gray-500">No real hires yet</span>}

@@ -378,7 +378,7 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
             <p className="text-[10px] text-gray-400 mt-1.5">
               {escrowData?.escrow_incompatible
                 ? "This agent doesn't operate through Tnega's on-chain escrow, so no real hire history is expected here — see below for how we evaluate it instead."
-                : `We checked the last ${perf.scanned_window} jobs on the whole marketplace and found none for this agent — it may just be new.`}
+                : (perf.note || "No real hire history found for this agent yet — it may just be new.")}
             </p>
           )}
         </>
@@ -390,7 +390,7 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
             <div title="Out of finished jobs, how many succeeded"><span className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</span> <span className="text-[10px] text-gray-500 uppercase">succeeded</span></div>
             <div title="Jobs still underway"><span className="text-lg font-bold">{perf.active}</span> <span className="text-[10px] text-gray-500 uppercase">in progress</span></div>
           </div>
-          <div className="text-[10px] text-gray-500" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished by the deadline.">Finished {perf.completed} · Rejected by buyer {perf.rejected} · Missed deadline {perf.expired}. From the last {perf.scanned_window} jobs marketplace-wide.</div>
+          <div className="text-[10px] text-gray-500" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished by the deadline.">Finished {perf.completed} · Rejected by buyer {perf.rejected} · Missed deadline {perf.expired}. {perf.note}</div>
           {/* Real, data-driven reliability hint — see agentReliability.js. */}
           {(() => {
             const hint = getReliabilityHint(perf);
@@ -560,7 +560,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // real history sorts first and no-history agents are listed after,
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
-  const { byOwner: perfByOwner, scannedWindow: perfScannedWindow, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
@@ -1198,7 +1198,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         {/* Real on-chain hire track record — same data the
                             sort dropdown ranks by, shown here regardless of
                             which sort is active. */}
-                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={`Real ERC-8183 job history for this agent, from the last ${perfScannedWindow.toLocaleString()} marketplace-wide jobs`}>
+                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={perfIndexComplete ? "Real ERC-8183 job history for this agent — complete, real on-chain history, not a recent-only window" : "Real ERC-8183 job history for this agent — a real, one-time backfill of the complete history is still catching up"}>
                           {agentHasRealHistory(agent, 'hireCount')
                             ? <>{agent.hireCount} real {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
                             : <span className="text-gray-400 dark:text-gray-500">No real hires yet</span>}

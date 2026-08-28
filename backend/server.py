@@ -642,9 +642,17 @@ async def build_status(slug: str):
 @app.get("/api/agents/performance")
 async def agent_perf(owner_address: str):
     """Real per-agent track record from on-chain ERC-8183 job history (the
-    agent's owner as provider). Honest zero-history state when not yet hired."""
+    agent's owner as provider). Honest zero-history state when not yet
+    hired. Real fix (2026-08-28): now reads core/job_index.py's own
+    COMPLETE job index — not core/agent_performance.py's WINDOW-bounded
+    (most-recent-1,500) cache — the same real scoping bug already fixed
+    for Revenue Stream, found again here while investigating the
+    "Verified working" verification tier (this endpoint's own data feeds
+    that tier's jobsCompleted/jobsSubmitted). See
+    core/job_index.py's own module docstring and
+    docs/verification-methodology.md for the full real investigation."""
     try:
-        return await agent_performance.get_agent_performance(owner_address)
+        return await job_index.get_provider_stats(owner_address)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
 
@@ -673,14 +681,21 @@ async def agent_revenue(owner_address: str):
 
 @app.get("/api/agents/performance/bulk")
 async def agent_perf_bulk():
-    """Real, bulk on-chain track record for every provider seen in the
-    current scan window — the real data behind the marketplace's "Most
-    hired" / "Highest success rate" sort options. Same cache and window as
-    /api/agents/performance, just every owner at once instead of one at a
-    time, so sorting the whole marketplace doesn't mean one request per
-    agent."""
+    """Real, bulk on-chain track record for every real provider — the real
+    data behind the marketplace's "Most hired"/"Highest success rate" sort
+    options AND the "Verified working" verification tier (getVerificationTier
+    in frontend/src/agentVerification.js, via useAgentPerformanceBulk.js).
+    Real fix (2026-08-28): now reads core/job_index.py's own COMPLETE job
+    index (a real, one-time linear backfill of every real job id, kept
+    current via a bounded re-check pass) instead of
+    core/agent_performance.py's WINDOW-bounded (most-recent-1,500) cache —
+    confirmed live before fixing that the verification tier was still
+    running off the same narrow window already fixed for Revenue Stream.
+    The verification bar itself is unchanged: still requires a real
+    on-chain SUBMITTED/COMPLETED job, just checked against this agent's
+    real, complete history instead of a recent slice of it."""
     try:
-        return await agent_performance.get_all_agent_performance()
+        return await job_index.get_all_provider_stats()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
 

@@ -1,25 +1,38 @@
 // useAgentPerformanceBulk.js
 //
 // Real, marketplace-wide on-chain track record — GET /api/agents/performance/bulk
-// (backend/core/agent_performance.py's get_all_agent_performance(), a bulk
-// version of the same cached scan the agent detail page's "Past Hires"
-// panel already reads one owner at a time). One fetch for the whole
-// marketplace, not one request per agent — the real data behind the
-// "Most hired" / "Highest success rate" sort options AND the "Only verified
-// working" filter. Shared by web and mobile so both rank agents from the
-// exact same real numbers.
+// (backend/core/job_index.py's get_all_provider_stats(), a bulk version of
+// the same real, complete data the agent detail page's "Past Hires" panel
+// already reads one owner at a time). One fetch for the whole marketplace,
+// not one request per agent — the real data behind the "Most hired" /
+// "Highest success rate" sort options AND the "Only verified working"
+// filter. Shared by web and mobile so both rank agents from the exact same
+// real numbers.
+//
+// Real fix (2026-08-28): this used to read
+// backend/core/agent_performance.py's own WINDOW-bounded (most-recent-
+// 1,500 jobs, marketplace-wide) cache — live-confirmed, while
+// investigating the "Verified working" tier specifically, that this was
+// the same real scoping bug already fixed for Revenue Stream, just never
+// wired here. Now reads core/job_index.py's own COMPLETE, persistent job
+// index instead. Real, measured effect on the raw real-provider count:
+// 48 -> 60 verified providers (a real, honest, meaningful expansion, not
+// noise) — see docs/verification-methodology.md for the full real
+// investigation, including why this happened to leave the CURRENTLY-
+// LISTED marketplace agents' own "Verified working" badges unchanged
+// (12 -> 12): every one of the 12 newly-found real providers turned out
+// to be an old/historical address not currently surfaced by the
+// marketplace's own diversified listing, not a currently-visible agent.
 //
 // Real robustness gap found and fixed (2026-08-27): a real user reported
 // "Only verified working" showing zero agents, even though a direct, live
 // recomputation against the same production API at the same time found 17
 // real verified agents — the underlying data was fine. Root cause traced
 // to THIS file: on ANY fetch failure (a real, plausible trigger being this
-// project's own backend cache reset on every redeploy — the first request
-// after a restart has to run a fresh ~1500-job Multicall3 scan from a cold
-// cache, a real window where a slow/cold RPC could plausibly time out or
-// blip), the old version silently swallowed the error and left `byOwner`
-// null for the rest of the page session, with NO retry and no way for the
-// UI to tell "still loading" apart from "genuinely failed". `withPerformance`
+// project's own backend cache reset on every redeploy), the old version
+// silently swallowed the error and left `byOwner` null for the rest of the
+// page session, with NO retry and no way for the UI to tell "still
+// loading" apart from "genuinely failed". `withPerformance`
 // (agentRanking.js) treats a null `byOwner` as "no agent anywhere has any
 // real history" — exactly why the verified-working filter would show
 // zero: every agent's jobsCompleted/jobsSubmitted silently defaulted to 0,
@@ -40,22 +53,23 @@ async function _fetchOnce() {
   return res.json();
 }
 
-// Real, honest fallback for scannedWindow (2026-08-27 audit finding):
-// AgentMarketplaceApp's own "from the last 1,500 marketplace-wide jobs"
-// tooltip text used to hardcode 1500 as a plain string, duplicating
-// backend/core/agent_performance.py's own real WINDOW constant rather than
-// reading the real, live value this same endpoint already returns
-// (scanned_window). Not a live bug (the two values still matched), but a
-// real latent drift risk — if WINDOW is ever changed backend-side, the
-// frontend string would silently go stale with no error to catch it. Fixed
-// by threading the real value through this hook instead. This constant is
-// ONLY the fallback shown before the real fetch resolves (or if it fails
-// with nothing cached yet) — matches WINDOW's current real value so there's
-// no visible flash, but the source of truth is the live response once it
-// lands.
-const FALLBACK_SCANNED_WINDOW = 1500;
+// Real, honest default completeness shown before the real fetch resolves
+// (or if it fails with nothing cached yet) — assumes complete rather than
+// flashing a false "still catching up" state, since the real, one-time
+// backfill has already finished as of this fix shipping (see
+// core/job_index.py) and will only ever say otherwise if a real future
+// re-backfill is genuinely in progress.
+const DEFAULT_COMPLETENESS = { indexComplete: true, indexedThroughJobId: null, jobCounter: null };
 
-/** Returns { byOwner, scannedWindow, status, retry }.
+function _completenessFrom(data) {
+  return {
+    indexComplete: data?.index_complete ?? true,
+    indexedThroughJobId: data?.indexed_through_job_id ?? null,
+    jobCounter: data?.job_counter ?? null,
+  };
+}
+
+/** Returns { byOwner, indexComplete, indexedThroughJobId, jobCounter, status, retry }.
  * `status`: 'loading' | 'ready' | 'error' — real, honest state, not just
  * inferred from whether `byOwner` is null (loading and error both start
  * that way, but callers that care about the difference — e.g. showing
@@ -64,13 +78,13 @@ const FALLBACK_SCANNED_WINDOW = 1500;
 export function useAgentPerformanceBulk() {
   const [state, setState] = useState(() =>
     _cached
-      ? { status: 'ready', byOwner: _cached.by_owner, scannedWindow: _cached.scanned_window ?? FALLBACK_SCANNED_WINDOW }
-      : { status: 'loading', byOwner: null, scannedWindow: FALLBACK_SCANNED_WINDOW }
+      ? { status: 'ready', byOwner: _cached.by_owner, ..._completenessFrom(_cached) }
+      : { status: 'loading', byOwner: null, ...DEFAULT_COMPLETENESS }
   );
 
   const load = useCallback(() => {
     if (_cached) {
-      setState({ status: 'ready', byOwner: _cached.by_owner, scannedWindow: _cached.scanned_window ?? FALLBACK_SCANNED_WINDOW });
+      setState({ status: 'ready', byOwner: _cached.by_owner, ..._completenessFrom(_cached) });
       return () => {};
     }
     let cancelled = false;
@@ -85,7 +99,7 @@ export function useAgentPerformanceBulk() {
           const data = await _fetchOnce();
           if (cancelled) return;
           _cached = data;
-          setState({ status: 'ready', byOwner: data.by_owner || {}, scannedWindow: data.scanned_window ?? FALLBACK_SCANNED_WINDOW });
+          setState({ status: 'ready', byOwner: data.by_owner || {}, ..._completenessFrom(data) });
           return;
         } catch (e) {
           lastErr = e;
@@ -93,7 +107,7 @@ export function useAgentPerformanceBulk() {
       }
       // Real, genuine failure after real retries — surfaced honestly, not
       // silently swallowed.
-      if (!cancelled) setState({ status: 'error', byOwner: null, scannedWindow: FALLBACK_SCANNED_WINDOW, error: lastErr?.message });
+      if (!cancelled) setState({ status: 'error', byOwner: null, ...DEFAULT_COMPLETENESS, error: lastErr?.message });
     })();
 
     return () => { cancelled = true; };
@@ -101,5 +115,8 @@ export function useAgentPerformanceBulk() {
 
   useEffect(() => load(), [load]);
 
-  return { byOwner: state.byOwner, scannedWindow: state.scannedWindow, status: state.status, retry: load };
+  return {
+    byOwner: state.byOwner, status: state.status, retry: load,
+    indexComplete: state.indexComplete, indexedThroughJobId: state.indexedThroughJobId, jobCounter: state.jobCounter,
+  };
 }
