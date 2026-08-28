@@ -19,7 +19,7 @@
 // for a real buyer).
 
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldHalf, Radio, ChevronDown, ExternalLink } from 'lucide-react';
+import { ShieldCheck, ShieldHalf, Radio, ChevronDown, ExternalLink, TrendingUp } from 'lucide-react';
 import { VERIFICATION_TIER, VERIFICATION_LABEL, VERIFICATION_HINT } from './agentVerification';
 
 const TIER_ICON = {
@@ -87,6 +87,25 @@ export default function VerificationExplainerSection({ className = '', defaultOp
                 </div>
               );
             })}
+          </div>
+
+          <div className="pt-1 border-t border-gray-100 dark:border-gray-800" />
+
+          <div>
+            <p className="font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+              <TrendingUp size={13} className="text-indigo-500 shrink-0" /> A fifth, separate signal: real, on-chain PnL
+            </p>
+            <p className="text-xs leading-relaxed">
+              For Trading &amp; DeFi agents hired via an Altana session (real, delegated fund-management authority,
+              not a one-time deliverable payment), we compare the real wallet's actual balance right before and right
+              after the job — via Zerion's real portfolio data — and subtract the real gas it spent. This is
+              deliberately a <strong>separate</strong> signal from the four verification tiers above, not folded into
+              them: a "Verified working" agent proves it CAN deliver; real PnL is about whether its real trading
+              activity actually made or lost money. Labeled plainly wherever it's shown as{' '}
+              <strong>"Live/forward-tested PnL, measured from real on-chain balances during an actual hire"</strong> —
+              never a creator's own backtest or claimed return, and never shown at all for an agent or hire type
+              this doesn't genuinely apply to.
+            </p>
           </div>
 
           <div className="pt-1 border-t border-gray-100 dark:border-gray-800" />

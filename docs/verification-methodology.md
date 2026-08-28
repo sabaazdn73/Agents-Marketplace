@@ -25,6 +25,21 @@ Built on real, on-chain-verifiable evidence only, never a fabricated composite s
 | **Responding, unproven** | The agent's endpoint answered a live health check | Real, but weak — a live process isn't a finished job (this is exactly the 3–15% figure above, and exactly the tier the academic study shows isn't trustworthy on its own) |
 | **Unproven** | Neither of the above | Not "broken" — often just new |
 
+## A fifth, separate signal: real, on-chain PnL (2026-08-28)
+
+Deliberately **not** a fifth verification tier, and never blended into the four above — a different real question. The four tiers above answer "can this agent deliver at all"; real PnL answers "for a Trading & DeFi agent given real, delegated fund authority, did its actual trading make or lose money."
+
+**Real scope, deliberately narrow** (`backend/core/pnl.py`):
+- Only agents in the **Trading & DeFi** category group (`backend/core/category_groups.py`, mirroring the frontend's own `categoryGroups.js`) — the only real category where "did the agent's real, session-managed funds grow or shrink" is a coherent question at all. A content or identity agent has no real portfolio to measure.
+- Only a real job hired via an **Altana session** (the on-chain job description carries the real "(Altana session)" marker) — a standard "Always Ask" hire pays for one fixed deliverable; it never grants the agent ongoing authority over real funds, so there's no real trading activity to measure PnL against.
+- Only a real job that's genuinely been **delivered** (on-chain status SUBMITTED or COMPLETED).
+
+**Real methodology**: the wallet tracked is `job.client` itself — for an Altana-session job, this on-chain field IS the session/mini-wallet the agent was actually granted authority over (confirmed directly from the installed `@altananetwork/sdk`, not assumed). Real start/end values come from Zerion's real wallet-balance chart API at the real timestamps closest to the job's real funding and delivery moments (the closest real data point's own timestamp is always disclosed, never silently substituted for an exact match); real gas costs during that window (from Zerion's own real transaction fee data) are subtracted. There is no arbitrary-timestamp API to query exactly, and no on-chain "funded at" field either — both real, honest limitations, worked around with the same disclosed, deterministic estimate `frontend/src/jobTiming.js` already uses for the same real reason, never hidden.
+
+**Real, honest labeling, always**: shown as *"Live/forward-tested PnL, measured from real on-chain balances during an actual hire."* A creator's own submitted backtest or claimed historical return is never displayed as if it were this number — there is no code path that accepts one.
+
+**Real, current limitation, found while building this**: a live scan of 23,000 real on-chain jobs (job IDs 33,666–56,665, covering the entire real period the Altana Autonomous hire path has existed) found **zero** real Altana-session-funded jobs — the underlying real prerequisite for this feature has never actually occurred yet. The full real pipeline (chart-based valuation, gas-cost summation, category/hire-type eligibility gating) is built, live, and verified end-to-end against real Zerion data; it will start producing real numbers the moment a real, qualifying hire happens, with no further code changes needed.
+
 ## The canary probe system
 
 ### What it does

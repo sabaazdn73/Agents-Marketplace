@@ -48,6 +48,8 @@ from adapters import zerion
 from adapters import coingecko
 from adapters import termix
 from core import canary
+from core import pnl
+from core import rpc
 
 load_dotenv()
 
@@ -567,6 +569,39 @@ async def agent_activity(owner_address: str, min_mined_at: int, max_mined_at: in
     on any real failure or genuine "nothing happened in this window" —
     never a fabricated transaction."""
     return await zerion.get_wallet_activity(owner_address, min_mined_at, max_mined_at)
+
+
+@app.get("/api/agents/pnl")
+async def agent_pnl(job_id: int):
+    """Real, on-chain-balance Profit & Loss for one completed real job —
+    see core/pnl.py's own module docstring for the full real methodology,
+    scope, and honesty tiers. Resolves the job's real provider (on-chain)
+    to its real, current category via known_agents (same source the
+    Marketplace's own category groups use), then delegates the real
+    eligibility/computation to core/pnl.py. Always returns 200 with a
+    real, honest {"available": ..., "applicable": ..., "reason": ...}
+    shape — never a fabricated number, and 404 only for a job_id that
+    genuinely doesn't exist on-chain at all."""
+    job = await rpc.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"No real job #{job_id} found on-chain.")
+    agent = await agent_store.get_agent_by_owner(job["provider"])
+    category = agent.get("category") if agent else None
+    return await pnl.compute_job_pnl(job_id, category=category)
+
+
+@app.get("/api/agents/pnl-summary")
+async def agent_pnl_summary(owner_address: str):
+    """Real, aggregate on-chain PnL across one agent's own recent,
+    PnL-eligible real jobs — see core/pnl.py's own compute_agent_pnl_summary
+    docstring for the full real methodology. What the agent detail page
+    actually renders (a real, honest picture across an agent's own real
+    history, not one arbitrary job). Always 200 with a real, honest
+    {"applicable": ..., "jobs": [...], "total_pnl_usd": ..., "reason": ...}
+    shape — never a fabricated number."""
+    agent = await agent_store.get_agent_by_owner(owner_address)
+    category = agent.get("category") if agent else None
+    return await pnl.compute_agent_pnl_summary(owner_address, category=category)
 
 
 @app.get("/api/canary/candidates")

@@ -40,6 +40,7 @@ import TermixPerformancePanel from './TermixPerformancePanel';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import PnLPanel from './PnLPanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
@@ -483,6 +484,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
         <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
+        <PnLPanel ownerAddress={agent.ownerAddress} category={agent.category} />
 
         <AgentPerformanceMobile agent={agent} onTrySkill={onTrySkill} />
 

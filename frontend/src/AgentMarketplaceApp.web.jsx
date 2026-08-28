@@ -32,6 +32,7 @@ import InfoTooltip from './InfoTooltip';
 import TermixPerformancePanel from './TermixPerformancePanel';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import PnLPanel from './PnLPanel';
 import Pagination from './Pagination';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
@@ -463,6 +464,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
           </span>
         </div>
         <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
+        <PnLPanel ownerAddress={agent.ownerAddress} category={agent.category} />
 
         <AgentPerformance agent={agent} onTrySkill={onTrySkill} />
 

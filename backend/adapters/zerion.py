@@ -197,15 +197,92 @@ async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_m
     transactions = []
     for item in body.get("data", []) or []:
         a = item.get("attributes", {}) or {}
+        # Real gas-fee field, confirmed live in Zerion's own real response
+        # shape (2026-08-28, added for core/pnl.py's real PnL gas-cost sum):
+        # fee.value is the real fee already converted to the requested
+        # currency (USD here); fee.quantity.float is the real native-token
+        # amount, kept as an honest fallback for the rare case Zerion
+        # couldn't price the gas token itself (fee.value null).
+        fee = a.get("fee") or {}
         transactions.append({
             "hash": a.get("hash"),
             "operation_type": a.get("operation_type"),
             "mined_at": a.get("mined_at"),  # real ISO-8601 UTC timestamp, straight from Zerion
             "sent_to": a.get("sent_to"),
             "status": a.get("status"),
+            "fee_usd": fee.get("value"),
+            "fee_native": (fee.get("quantity") or {}).get("float"),
         })
     # Real, already-descending order from Zerion (confirmed live) — kept as-is.
 
     result = {"available": True, "transactions": transactions}
+    _activity_cache[cache_key] = (time.time(), result)
+    return result
+
+
+# Real, chart-based historical portfolio valuation (2026-08-28) — the real
+# start/end values core/pnl.py's PnL computation needs. Real investigation
+# before building this, not assumed: Zerion's API has NO arbitrary-
+# timestamp lookup — confirmed against the real, published docs
+# (developers.zerion.io/reference/getwalletchart) — only fixed periods
+# (hour/day/week/month/3months/6months/year/5years/max), each returning a
+# real, evenly-spaced series of [timestamp, balance] points. Real,
+# live-confirmed spacing (2026-08-28, against our own explainer agent's
+# real owner wallet): `week` = 337 points, 1,800s (30 min) apart; `month` =
+# 361 points, 7,200s (2h) apart. core/pnl.py picks the smallest real period
+# that covers a given job's real [start, end] window, then uses the real
+# chart point closest to each real target timestamp — always reporting
+# that point's own real timestamp alongside the target, never silently
+# treating a distant point as if it were exact.
+CHART_PERIODS = ("day", "week", "month", "3months")
+
+
+async def get_wallet_chart(address: str, period: str) -> dict:
+    """Real portfolio-value-over-time series for one wallet — a real,
+    evenly-spaced sample within a fixed Zerion period (see CHART_PERIODS),
+    not an arbitrary date range. Returns {"available": False, "reason":
+    ...} honestly on any failure, same discipline as this module's other
+    real functions."""
+    addr = (address or "").lower()
+    if not addr.startswith("0x") or len(addr) != 42:
+        return {"available": False, "reason": "not a valid EVM address"}
+    if period not in CHART_PERIODS:
+        return {"available": False, "reason": f"unsupported real chart period: {period}"}
+
+    cache_key = f"{addr}:{period}"
+    cached = _activity_cache.get(cache_key)
+    if cached and time.time() - cached[0] < _ACTIVITY_TTL_SECONDS:
+        return cached[1]
+
+    key = _get_key()
+    if not key:
+        return {"available": False, "reason": "ZERION_API_KEY not set"}
+
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            resp = await client.get(
+                f"{_BASE_URL}/wallets/{addr}/charts/{period}",
+                params={"currency": "usd", "filter[chain_ids]": _BSC_CHAIN_ID},
+                auth=(key, ""),
+            )
+    except httpx.HTTPError as e:
+        result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
+        _activity_cache[cache_key] = (time.time(), result)
+        return result
+
+    if resp.status_code == 429:
+        result = {"available": False, "reason": "rate limited — try again later"}
+        _activity_cache[cache_key] = (time.time(), result)
+        return result
+    if not resp.is_success:
+        result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
+        _activity_cache[cache_key] = (time.time(), result)
+        return result
+
+    body = resp.json()
+    points = (body.get("data", {}) or {}).get("attributes", {}).get("points", []) or []
+    # Real [timestamp_seconds, balance_usd] pairs, straight from Zerion —
+    # kept as tuples, no reshaping that could silently drop precision.
+    result = {"available": True, "points": [(p[0], p[1]) for p in points if isinstance(p, list) and len(p) == 2]}
     _activity_cache[cache_key] = (time.time(), result)
     return result

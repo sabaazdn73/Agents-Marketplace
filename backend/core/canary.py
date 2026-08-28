@@ -45,10 +45,9 @@ from __future__ import annotations
 import time
 
 import httpx
-from eth_abi import decode as abi_decode
-from eth_utils import function_signature_to_4byte_selector
 
 from core.db import get_db
+from core import category_groups
 
 CANARY_TESTS_COLLECTION = "canary_tests"
 
@@ -62,20 +61,20 @@ DEFAULT_WEEKLY_SAMPLE_SIZE = 10     # real, small starting cohort
 RECENT_TEST_COOLDOWN_DAYS = 30      # don't re-test the same real agent sooner than this
 PERIOD_DAYS = 7
 
-# Real, deliberate starting scope (categoryGroups.js's own group ids) —
-# kept small and explicit rather than "every Responding agent" to control
-# real cost while this is new. Mirrored manually from
-# frontend/src/categoryGroups.js (a small, stable list — not worth a
-# cross-language shared module for this one read-only selector).
+# Real, deliberate starting scope — kept small and explicit rather than
+# "every Responding agent" to control real cost while this is new.
+# Real fix (2026-08-28): _GROUP_CATEGORIES used to be its own private,
+# partial (2-of-5-group) copy of frontend/src/categoryGroups.js's real
+# mapping; core/pnl.py needed the same real "Trading & DeFi" group too, so
+# this is now the one, real, shared core/category_groups.py instead of a
+# second/third independent copy.
 ALLOWED_GROUPS = {"trading-defi", "data-analysis"}
-_GROUP_CATEGORIES = {
-    "trading-defi": {"Grid Trading", "Rebalancing", "Yield Optimisation", "Health Factor Monitoring", "Trading Signals", "Copy Trading"},
-    "data-analysis": {"Data Analysis", "Research", "Prediction Markets"},
-}
+_GROUP_CATEGORIES = category_groups.CATEGORY_GROUPS
 
-COMMERCE = "0xEa4DAa3100A767e86FDed867729ae7446476EBA6"
-_GETJOB_SEL = function_signature_to_4byte_selector("getJob(uint256)")
-_JOB_TUPLE = "(uint256,address,address,address,string,uint256,uint256,uint8,address,uint256,bytes32)"
+# Real, numeric on-chain status enum order — kept here (not re-imported
+# from core/rpc.py, which uses the string-label form) since _read_job's own
+# real contract below returns the numeric index other code in this file
+# already expects.
 _JOB_STATUS = ["OPEN", "FUNDED", "SUBMITTED", "COMPLETED", "REJECTED", "EXPIRED"]
 
 
@@ -210,27 +209,22 @@ async def get_canary_status_bulk() -> dict:
 
 
 async def _read_job(client: httpx.AsyncClient, job_id: int) -> dict | None:
-    # Real fix (2026-08-27 audit): this used to hardcode a bloXroute URL
-    # directly, never reading BSC_MAINNET_RPC_URL at all — see
-    # core/rpc.py's own docstring for the full real finding.
-    from core.rpc import get_bsc_rpc_url
-    calldata = "0x" + _GETJOB_SEL.hex() + job_id.to_bytes(32, "big").hex()
-    resp = await client.post(get_bsc_rpc_url(), json={
-        "jsonrpc": "2.0", "id": 1, "method": "eth_call",
-        "params": [{"to": COMMERCE, "data": calldata}, "latest"],
-    })
-    resp.raise_for_status()
-    body = resp.json()
-    if "error" in body and body["error"]:
+    # Real fix (2026-08-28): delegates to the one, shared, full-tuple
+    # core/rpc.py's get_job() now (see that module's own docstring — this
+    # used to be its own partial, independent decode). Keeps this
+    # function's own narrower {status, expiredAt, submittedAt} contract so
+    # every existing real call site here is unaffected — status here is
+    # the real numeric enum index other code in this file already expects,
+    # not get_job()'s own string label, so it's re-derived rather than
+    # passed through directly.
+    from core.rpc import get_job as _shared_get_job
+    job = await _shared_get_job(job_id, client=client)
+    if job is None:
         return None
-    raw = bytes.fromhex(body["result"][2:])
-    if not raw:
-        return None
-    try:
-        (job,) = abi_decode([_JOB_TUPLE], raw)
-        return {"status": job[7], "expiredAt": job[6], "submittedAt": job[9]}
-    except Exception:
-        return None
+    return {
+        "status": _JOB_STATUS.index(job["status"]) if job["status"] in _JOB_STATUS else None,
+        "expiredAt": job["expiredAt"], "submittedAt": job["submittedAt"],
+    }
 
 
 async def check_pending_results() -> dict:
