@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Loader2, ExternalLink, XCircle } from 'lucide-react';
 import {
-  getOrCreateAltanaWallet, grantMarketplaceSession, revokeMarketplaceSession,
+  recoverAltanaWallet, createNewAltanaWallet, grantMarketplaceSession, revokeMarketplaceSession,
   hireAgentWithSession, explorerLinkForWallet, ALTANA_EXPLORER_URL,
   disputeJob, settleJob,
 } from './altana';
@@ -29,6 +29,11 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
   const [step, setStep] = useState(null); // null | 'creating_wallet' | 'granting' | 'hiring' | 'revoking' | 'error'
   const [error, setError] = useState(null);
   const [hireResult, setHireResult] = useState(null);
+  // Real, added 2026-08-28 — see altana.js's own docstring for the full
+  // real incident this fixes: recovery failing is no longer silently
+  // treated as "create a brand-new wallet" — this flags that a real
+  // choice is needed instead, surfaced explicitly in the UI below.
+  const [needsWalletChoice, setNeedsWalletChoice] = useState(false);
 
   // Real persisted session, matching the docs' explicit requirement to
   // "persist the Session object verbatim" for byte-exact execute later.
@@ -62,20 +67,49 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
   // get overwritten with the literal string 'error' on failure, losing which
   // of the real steps was active. Now `step` always stays the real last-
   // active step name; `error` (already existed) is the separate signal.
+  // Real continuation after a real wallet (recovered OR freshly created) is
+  // in hand — factored out so both handleCreateWalletAndSession and
+  // handleConfirmNewWallet below share the exact same real granting step.
+  const grantSessionForWallet = async (w) => {
+    setWallet(w);
+    setCompletedSessionSteps(['creating_wallet']);
+    setStep('granting');
+    const s = await grantMarketplaceSession(w, w.signer, { spendCapUnits: Number(spendCap), expiryHours: Number(expiryHours) });
+    persistSession(s);
+    setCompletedSessionSteps(['creating_wallet', 'granting']);
+    setStep(null);
+  };
+
   const handleCreateWalletAndSession = async () => {
     setError(null);
+    setNeedsWalletChoice(false);
     setCompletedSessionSteps([]);
     try {
       setStep('creating_wallet');
-      const w = await getOrCreateAltanaWallet();
-      setWallet(w);
-      setCompletedSessionSteps(['creating_wallet']);
+      // Real, deliberate: ONLY ever tries to recover an existing real
+      // wallet here — never auto-creates a new one on failure (see
+      // altana.js's own docstring for the real incident this fixes).
+      const w = await recoverAltanaWallet();
+      await grantSessionForWallet(w);
+    } catch (e) {
+      // Real, honest fork: this failure means recovery genuinely didn't
+      // land on a usable real wallet — could be no passkey saved yet, the
+      // wrong one of several picked, or a cancelled prompt (the raw
+      // WebAuthn API can't tell us which). Never guess — ask.
+      setNeedsWalletChoice(true);
+      setError(e.message || String(e));
+    }
+  };
 
-      setStep('granting');
-      const s = await grantMarketplaceSession(w, w.signer, { spendCapUnits: Number(spendCap), expiryHours: Number(expiryHours) });
-      persistSession(s);
-      setCompletedSessionSteps(['creating_wallet', 'granting']);
-      setStep(null);
+  // Real, explicit, user-confirmed action — the ONLY real path that ever
+  // creates a brand-new wallet now, never an automatic fallback.
+  const handleConfirmNewWallet = async () => {
+    setError(null);
+    setNeedsWalletChoice(false);
+    try {
+      setStep('creating_wallet');
+      const w = await createNewAltanaWallet();
+      await grantSessionForWallet(w);
     } catch (e) {
       setError(e.message || String(e));
     }
@@ -175,8 +209,22 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
 
           <button onClick={handleCreateWalletAndSession} disabled={!!step && !error}
             className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-            {error && (step === 'creating_wallet' || step === 'granting') ? 'Try again' : 'Turn on Autonomous mode'}
+            {needsWalletChoice ? 'Try again' : (error && (step === 'creating_wallet' || step === 'granting') ? 'Try again' : 'Turn on Autonomous mode')}
           </button>
+
+          {/* Real, added 2026-08-28 — see altana.js's own docstring for the
+              full real incident this fixes. Never auto-creates a new
+              wallet on a recovery failure anymore; this is the one, real,
+              explicit, user-confirmed path that does. */}
+          {needsWalletChoice && (
+            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-xs space-y-2">
+              <p className="text-amber-600 dark:text-amber-400 whitespace-pre-wrap">{error}</p>
+              <p className="opacity-70">If you've set up a wallet here before, tap "Try again" above and pick that SAME saved passkey. Only tap below if this is genuinely your first time — it creates a brand-new, empty wallet.</p>
+              <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-xs font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
+                This is genuinely my first time — create a new wallet
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -230,7 +278,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
         </div>
       )}
 
-      {error && step !== 'creating_wallet' && step !== 'granting' && (
+      {error && !needsWalletChoice && step !== 'creating_wallet' && step !== 'granting' && (
         <div className="mt-3 p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs text-red-500 whitespace-pre-wrap">{error}</div>
       )}
     </div>

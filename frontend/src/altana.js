@@ -229,19 +229,49 @@ export function getAltanaExecutor(session) {
 export const ALTANA_EXPLORER_URL = BNB.explorer;
 
 /**
- * Creates (or recovers) a passkey-backed Altana wallet via the real client
- * methods. First call on a device creates a new passkey; a returning user is
- * offered the OS passkey picker instead. Browser-only (uses navigator.credentials).
- * Returns the SDK's wallet result, which includes `.signer` (a PasskeySigner).
+ * Real, confirmed bug fix (2026-08-28): `getOrCreateAltanaWallet()` used to
+ * be one function — try `recoverFromPasskey`, and on ANY failure (a bare
+ * `catch`), silently call `createPasskeyWallet()` instead. That conflated
+ * two genuinely different real situations the installed SDK's own
+ * `recoverFromPasskey.js` explicitly distinguishes: a real "nothing to
+ * recover" case (no passkey exists) vs. a real "recovery ran, but the
+ * result isn't usable" case — most concretely, its own documented error:
+ * "Picked passkey resolves to wallet X, but that wallet has no keys
+ * registered in KeyStore yet. Either: (a) you picked the wrong passkey
+ * (the OS keychain has multiple with similar names...), or (b)...". Real,
+ * confirmed live incident this caused: a user with several identically-
+ * labeled saved passkeys for this site (all just "Tnega") picked a
+ * different one than her originally-funded wallet on a retry — the SDK
+ * correctly threw the error above — and this project's own bare `catch`
+ * silently created YET ANOTHER brand-new, empty, session-less wallet in
+ * response, rather than surfacing that real, specific, actionable error.
+ * Repeated across several real attempts, this is exactly how one real
+ * user ended up with four separate real saved passkeys for one site, at
+ * least some of them real, orphaned, zero-balance wallets — and exactly
+ * why a later Venus Lending attempt reverted with no on-chain reason: a
+ * fresh wallet has no real USDT, no real BNB, and no real granted session
+ * at all, regardless of what's being called.
+ *
+ * Real, honest limitation this fix works within: the raw WebAuthn API
+ * itself does not reliably distinguish "no passkey saved at all" from
+ * "user cancelled the picker" — both surface as the same real
+ * `NotAllowedError`. Not fixable purely in our own code (a real, standard
+ * platform ambiguity), so the safe, honest fix is to never auto-create on
+ * ANY recovery failure — only on the deliberate, EXPLICIT choice below.
+ *
+ * Real, new shape: `recoverAltanaWallet()` only ever recovers (throws its
+ * own real, specific error on failure, never silently creates anything);
+ * `createNewAltanaWallet()` is a separate, explicit action a caller must
+ * deliberately choose — every real UI call site now requires the user to
+ * see the real recovery error first and consciously pick "create a new
+ * wallet instead", never an automatic, invisible fallback.
  */
-export async function getOrCreateAltanaWallet() {
-  try {
-    // Real, existing passkey on this device for this origin.
-    return await client.recoverFromPasskey({ rpId: RP_ID });
-  } catch {
-    // No existing passkey, create a fresh one.
-    return await client.createPasskeyWallet({ name: APP_NAME, rpId: RP_ID });
-  }
+export async function recoverAltanaWallet() {
+  return await client.recoverFromPasskey({ rpId: RP_ID });
+}
+
+export async function createNewAltanaWallet() {
+  return await client.createPasskeyWallet({ name: APP_NAME, rpId: RP_ID });
 }
 
 /**

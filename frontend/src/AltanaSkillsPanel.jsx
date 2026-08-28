@@ -14,7 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
 import { PERMIT2_ADDRESS } from '@altananetwork/sdk';
-import { getOrCreateAltanaWallet, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
+import { recoverAltanaWallet, createNewAltanaWallet, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
 import { executeEnterPosition, PANCAKESWAP_ROUTER, WBNB, USDT_BSC } from './pancakeswapSkill';
 import { venusSupply, venusSupplyPreflight, aaveSupply, listaStake, pancakeAddLiquidity, VENUS_VUSDT, AAVE_POOL, LISTA_MANAGER } from './defiSkills';
 import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeSkill';
@@ -185,6 +185,11 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const [step, setStep] = useState(null); // null | 'funding' | 'wallet' | 'granting' | 'executing' | 'done' | 'error'
   const [error, setError] = useState(null);
   const [execResult, setExecResult] = useState(null);
+  // Real, added 2026-08-28 — see altana.js's own docstring for the full
+  // real incident this fixes: wallet recovery failing no longer silently
+  // creates a brand-new wallet. This flags that a real, explicit choice
+  // is needed from the user instead.
+  const [needsWalletChoice, setNeedsWalletChoice] = useState(false);
 
   // Execution config for this skill. All 10 registry skills are wired; a skill
   // id not in SKILL_EXEC (shouldn't happen for the real registry) is disclosed
@@ -196,9 +201,64 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const play = exec?.play || 'enter-position';
   const relevantInputs = (skill.inputs || []).filter((inp) => !inp.plays || inp.plays.includes(play));
 
+  // Real continuation once a real wallet (recovered OR freshly, explicitly
+  // created) is in hand — shared by both the normal recovery path and
+  // handleConfirmNewWallet below, for 'pay' and 'tx' skills alike.
+  const runWithWallet = async (wallet) => {
+    if (kind === 'pay') {
+      setStep('granting');
+      const s = await grantSkillSession(wallet, wallet.signer, {
+        contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
+        spendCapUnits: Number(spendCap), expiryHours: 24,
+      });
+      setSession(s);
+      setStep('executing');
+      const result = await exec.run(s, values);
+      setExecResult(result);
+      setStep('done');
+      return;
+    }
+
+    // Real, added 2026-08-28 — see defiSkills.js's own docstring for the
+    // full real incident this came from. A real, read-only check against
+    // this exact wallet's own real on-chain state, before spending a
+    // real session grant + relay attempt on something already known to
+    // fail. Stops here ONLY on a real, high-confidence finding (this
+    // exact wallet's own real balance is genuinely insufficient) — real,
+    // wasted gas/relay cost otherwise, for an attempt that couldn't have
+    // succeeded regardless. Doesn't rule out every real cause (e.g. a
+    // session-scope rejection isn't checkable this way), so a clean
+    // preflight never claims the real attempt WILL succeed, only that
+    // this specific, checkable real reason isn't why it would fail.
+    if (exec.preflight) {
+      const pre = await exec.preflight(getMainnetReadClient(), wallet.address, values);
+      if (!pre.ok) {
+        setStep('error');
+        setError(`Real, current issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+        return;
+      }
+    }
+
+    setStep('granting');
+    const s = await grantSkillSession(wallet, wallet.signer, {
+      contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
+      spendCapUnits: Number(spendCap), expiryHours: 24,
+    });
+    setSession(s);
+    const executor = getAltanaExecutor(s);
+
+    if (exec.ready(values)) {
+      setStep('executing');
+      const result = await exec.run(executor, values);
+      setExecResult(result);
+    }
+    setStep('done');
+  };
+
   const handleGrantAndRun = async () => {
     setError(null);
     setExecResult(null);
+    setNeedsWalletChoice(false);
     try {
       // ── Read-only / detection skills: no wallet, no session, no funding ──
       if (kind === 'read') {
@@ -209,61 +269,23 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         return;
       }
 
-      // ── x402 payment: real Altana session ──
-      if (kind === 'pay') {
-        setStep('wallet');
-        const wallet = await getOrCreateAltanaWallet();
-        setStep('granting');
-        const s = await grantSkillSession(wallet, wallet.signer, {
-          contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
-          spendCapUnits: Number(spendCap), expiryHours: 24,
-        });
-        setSession(s);
-        setStep('executing');
-        const result = await exec.run(s, values);
-        setExecResult(result);
-        setStep('done');
+      // ── 'pay' and 'tx' skills both need a real wallet first. Real,
+      // deliberate: ONLY ever tries to recover an existing real wallet
+      // here — never auto-creates a new one on failure (see altana.js's
+      // own docstring for the real incident this fixes: several
+      // identically-labeled saved passkeys leading to real, orphaned,
+      // empty wallets being silently created on every recovery hiccup). ──
+      setStep('wallet');
+      let wallet;
+      try {
+        wallet = await recoverAltanaWallet();
+      } catch (e) {
+        setStep('error');
+        setNeedsWalletChoice(true);
+        setError(e.message || String(e));
         return;
       }
-
-      // ── Transaction skills: passkey wallet + a real, scoped on-chain Altana session ──
-      setStep('wallet');
-      const wallet = await getOrCreateAltanaWallet();
-
-      // Real, added 2026-08-28 — see defiSkills.js's own docstring for the
-      // full real incident this came from. A real, read-only check against
-      // this exact wallet's own real on-chain state, before spending a
-      // real session grant + relay attempt on something already known to
-      // fail. Stops here ONLY on a real, high-confidence finding (this
-      // exact wallet's own real balance is genuinely insufficient) — real,
-      // wasted gas/relay cost otherwise, for an attempt that couldn't have
-      // succeeded regardless. Doesn't rule out every real cause (e.g. a
-      // session-scope rejection isn't checkable this way), so a clean
-      // preflight never claims the real attempt WILL succeed, only that
-      // this specific, checkable real reason isn't why it would fail.
-      if (exec.preflight) {
-        const pre = await exec.preflight(getMainnetReadClient(), wallet.address, values);
-        if (!pre.ok) {
-          setStep('error');
-          setError(`Real, current issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
-          return;
-        }
-      }
-
-      setStep('granting');
-      const s = await grantSkillSession(wallet, wallet.signer, {
-        contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
-        spendCapUnits: Number(spendCap), expiryHours: 24,
-      });
-      setSession(s);
-      const executor = getAltanaExecutor(s);
-
-      if (exec.ready(values)) {
-        setStep('executing');
-        const result = await exec.run(executor, values);
-        setExecResult(result);
-      }
-      setStep('done');
+      await runWithWallet(wallet);
     } catch (e) {
       setStep('error');
       // Real, added 2026-08-28 (see altana.js's decodeAltanaExecutionError):
@@ -271,6 +293,21 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       // alongside its own original message — shown first when present,
       // since it's the more real, specific, actionable finding; the raw
       // SDK message stays too, never hidden.
+      setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+    }
+  };
+
+  // Real, explicit, user-confirmed action — the ONLY real path that ever
+  // creates a brand-new wallet now, never an automatic fallback.
+  const handleConfirmNewWallet = async () => {
+    setError(null);
+    setNeedsWalletChoice(false);
+    try {
+      setStep('wallet');
+      const wallet = await createNewAltanaWallet();
+      await runWithWallet(wallet);
+    } catch (e) {
+      setStep('error');
       setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
@@ -359,6 +396,18 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
           <button onClick={handleGrantAndRun} className="text-[11px] font-semibold underline" style={{ color: accent }}>
             Try again
           </button>
+          {/* Real, added 2026-08-28 — see altana.js's own docstring for the
+              full real incident this fixes. Never auto-creates a new
+              wallet on a recovery failure anymore; this is the one, real,
+              explicit, user-confirmed path that does. */}
+          {needsWalletChoice && (
+            <div className="pt-2 mt-2 border-t border-red-500/20 space-y-1.5">
+              <p className="text-gray-500 dark:text-gray-400">If you've set up a wallet here before, "Try again" above and pick that SAME saved passkey. Only tap below if this is genuinely your first time — it creates a brand-new, empty wallet.</p>
+              <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-[11px] font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
+                This is genuinely my first time — create a new wallet
+              </button>
+            </div>
+          )}
         </div>
       )}
 
