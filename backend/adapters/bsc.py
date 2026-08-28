@@ -15,6 +15,27 @@ total≈714k across all chains as of 8 Aug 2026). Chain filtering is done
 client-side (chain_id == 56) because server-side chainId filtering was never
 verified reliable for this endpoint.
 
+Real, important correction (2026-08-28): re-investigated while adding real
+Solana ingestion. The real, live OpenAPI spec (api.8004scan.io/openapi.json)
+confirms the real, correct query parameter is `chain_id` (snake_case) — this
+project's own code above sends `chainId` (camelCase), confirmed live to be
+silently ignored by the server. With the real, correct param name,
+server-side filtering DOES work reliably (confirmed live: `chain_id=56` ->
+total 288,865, all items chain_id 56; `chain_id=101` -> total ~1,462, all
+items chain_id 101, real chain_type "solana", real base58 owner addresses).
+The "server-side filtering isn't reliable" belief was itself a real,
+long-standing artifact of the wrong parameter name, not a genuine server
+limitation. Deliberately NOT changed in list_agents_for_chains/
+_fetch_agents_page below — that function's own real, multi-chain
+"natural page mixing" strategy (core/full_registry_ingest.py) depends on
+the chainId param being ignored to pick up BSC/Base/Ethereum from the same
+shared, unfiltered scan; "fixing" the param there would silently narrow it
+back to one chain and break that real, already-working, already-scheduled
+pipeline. See list_agents_by_chain_id below instead — a new, separate,
+correctly-filtered function built for Solana specifically (which, real and
+live-confirmed, never appears in the unfiltered/mixed stream at all, so it
+genuinely needs its own real query path).
+
 REAL HOST MIGRATION (2026-08-27, verified live, not assumed): 8004scan moved
 their API to api.8004scan.io. Confirmed live before switching:
   - The list endpoint (/api/v1/agents) is unchanged in path and response
@@ -113,6 +134,70 @@ async def list_agents_for_chains(
     )
     matched = [a for a in items if a.get("chain_id") in chain_ids]
     return matched, total, len(items)
+
+
+async def list_agents_by_chain_id(
+    api_key: str,
+    chain_id: int,
+    offset: int = 0,
+    limit: int = 20,
+    max_retries: int = 6,
+    timeout: float = 30.0,
+) -> tuple[list[dict], int, int]:
+    """Real, single-chain, SERVER-SIDE-filtered fetch — added 2026-08-28 for
+    Solana ingestion. Unlike list_bsc_agents/list_agents_for_chains above
+    (which send the real, wrong `chainId` param on purpose, relying on it
+    being ignored so a shared unfiltered scan can pick up multiple EVM
+    chains from the same real pages), this sends the real, CORRECT
+    `chain_id` (snake_case) param, confirmed live against 8004scan's own
+    OpenAPI spec and confirmed live to actually filter server-side
+    (`chain_id=101` -> total ~1,462, every returned item real chain_type
+    "solana"; `chain_id=56` -> total 288,865, every item chain_id 56).
+
+    Built specifically because Solana (chain_id=101) was confirmed, via a
+    real, live, ~700-item scan across offsets 0-300,000, to NEVER appear in
+    the default/unfiltered listing the EVM pipeline scans — so unlike
+    Base/Ethereum (which ride along in pages already being fetched for BSC
+    at zero extra cost), Solana genuinely needs its own real, separate
+    query. Since the server does the real filtering here, `total` is
+    already the true real total for just this one chain, and every
+    returned item already matches `chain_id` — no client-side re-filter
+    needed (returned as `(items, total, len(items))` for shape parity with
+    the other two list_* functions above)."""
+    headers = {"X-API-Key": api_key}
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.get(
+                    f"{_8004SCAN_BASE}/api/v1/agents",
+                    params={"chain_id": chain_id, "offset": offset, "limit": limit},
+                    headers=headers,
+                )
+                resp.raise_for_status()
+                body = resp.json()
+                items = body.get("items", [])
+                total = body.get("total", 0)
+                return items, total, len(items)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                wait_seconds = 8 * (2 ** attempt)
+                print(f"[list_agents_by_chain_id] 429 at offset {offset} (chain_id={chain_id}), "
+                      f"attempt {attempt + 1}/{max_retries}, waiting {wait_seconds}s")
+                last_error = e
+                await asyncio.sleep(wait_seconds)
+                continue
+            raise
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            if attempt < max_retries - 1:
+                wait_seconds = 4 * (2 ** attempt)
+                print(f"[list_agents_by_chain_id] real transient {type(e).__name__} at offset {offset} "
+                      f"(chain_id={chain_id}), attempt {attempt + 1}/{max_retries}, waiting {wait_seconds}s")
+                last_error = e
+                await asyncio.sleep(wait_seconds)
+                continue
+            raise
+    raise last_error
 
 
 async def _fetch_agents_page(

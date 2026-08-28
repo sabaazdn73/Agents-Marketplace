@@ -73,16 +73,31 @@ the only real source for Ethereum — this pipeline now accumulates real,
 repeatable Ethereum coverage into `full_agent_registry` the same way it
 already does for BSC and Base.
 
-Real, explicit non-scope: Solana (1,465 real agents per the same real
-/networks page, via a genuinely different technical structure — a real
-Agent Registry Program `8oo4dC4JvBLwy5tGgiH3WwK4B9PWxL9Z4XjA2jzkQMbQ` and
-ATOM Engine Program `AToMw53aiPQ8j7iHVb4fGt6nzUNxUhcPc3tbPBZuzVVb`, not
-chain_id-based REST calls at all) is deliberately NOT forced into this
-same pipeline shape — it needs its own real, separate integration
-(Solana RPC / program-account queries), scoped as a real follow-up, not
-built here. See docs/full-registry-analysis.md.
+Real, honest correction (2026-08-28): the paragraph that used to be here
+claimed Solana needed "its own real, separate integration (Solana RPC /
+program-account queries)" because it supposedly wasn't reachable via
+chain_id-based REST calls at all. That was WRONG, and was never actually
+tested — 8004scan's own real, live API already indexes Solana through the
+exact same `/api/v1/agents` REST endpoint used for the EVM chains above,
+just filtered with `chain_id=101` (confirmed live: total ~1,462, real
+chain_type "solana", real base58 owner addresses, real Solana program
+address in `contract_address`). What genuinely IS different, confirmed
+live via a real ~700-item scan across offsets 0-300,000: Solana items
+NEVER appear in the default/unfiltered listing this module's own
+TARGET_CHAIN_IDS filtering relies on — so unlike Base/Ethereum (which ride
+along for free in pages already being fetched for BSC), Solana can't be
+added to TARGET_CHAIN_IDS and picked up the same way; it genuinely needs
+its own real, separate, `chain_id`-filtered query
+(adapters/bsc.py's list_agents_by_chain_id). See run_solana_ingest_batch
+below — same real collection (`full_agent_registry`), same real resumable/
+checkpointed discipline, just its own progress doc and its own real fetch
+path, since Solana's real total (~1,462) is tiny next to the combined EVM
+pool and doesn't share TARGET_CHAIN_IDS's page-mixing efficiency argument
+at all (it would cost real, wasted requests scanning EVM-heavy pages that
+never contain a Solana item). See docs/full-registry-analysis.md.
 
-Real max page size, confirmed live: 100 (server-enforced 422 above that).
+Real max page size, confirmed live: 100 (server-enforced 422 above that),
+same limit for the Solana-specific query path.
 """
 
 from __future__ import annotations
@@ -98,25 +113,38 @@ FULL_REGISTRY_COLLECTION = "full_agent_registry"
 PROGRESS_COLLECTION = "full_registry_ingest_progress"
 PROGRESS_DOC_ID = "multi_chain_evm"
 
-# Real, confirmed-live target chains (see module docstring for the real
-# per-chain figures behind this choice, and for why Ethereum — chain 1 —
-# was added 2026-08-27 after starting out BSC/Base-only). Solana is
-# explicitly excluded — it isn't reachable through this same chainId-based
-# REST pagination at all, not a scope choice made for cost reasons like
-# Ethereum's and Base's own real additions here.
+# Real, confirmed-live target chains for the SHARED, unfiltered-page-mixing
+# scan (see module docstring for the real per-chain figures behind this
+# choice, and for why Ethereum — chain 1 — was added 2026-08-27 after
+# starting out BSC/Base-only). Solana is deliberately NOT in this set, even
+# though it's real and reachable (see module docstring's real, honest
+# correction) — it never appears in this shared unfiltered scan no matter
+# how long it runs, so it's ingested by its own separate real path instead
+# (run_solana_ingest_batch below), not by adding 101 here.
 TARGET_CHAIN_IDS = {1, 56, 8453}
+
+# Real, dedicated Solana chain_id + its own real progress checkpoint —
+# deliberately separate from PROGRESS_DOC_ID above, since this scans a
+# genuinely different, chain_id-filtered query path, not the shared
+# multi-chain page-mixing scan.
+SOLANA_CHAIN_ID = 101
+SOLANA_PROGRESS_DOC_ID = "solana_mainnet"
 
 PAGE_SIZE = 100  # real, confirmed server-enforced max — see module docstring
 REQUEST_TIMEOUT = 90.0  # generous — real, measured deep-offset requests already take 45s+
 
 
-async def _get_progress() -> dict:
+async def _get_progress(doc_id: str = PROGRESS_DOC_ID) -> dict:
+    # Real, generalized 2026-08-28 (took a plain `doc_id` param) so the same
+    # real checkpoint machinery serves both the shared EVM scan
+    # (PROGRESS_DOC_ID) and the separate Solana scan (SOLANA_PROGRESS_DOC_ID)
+    # without duplicating this function.
     db = get_db()
-    doc = await db[PROGRESS_COLLECTION].find_one({"_id": PROGRESS_DOC_ID})
+    doc = await db[PROGRESS_COLLECTION].find_one({"_id": doc_id})
     if doc:
         return doc
     return {
-        "_id": PROGRESS_DOC_ID, "next_offset": 0, "total_ingested": 0,
+        "_id": doc_id, "next_offset": 0, "total_ingested": 0,
         "total_server_reported": None, "started_at": None, "last_run_at": None,
         "completed_at": None, "last_error": None,
     }
@@ -124,12 +152,19 @@ async def _get_progress() -> dict:
 
 async def _save_progress(progress: dict) -> None:
     db = get_db()
-    await db[PROGRESS_COLLECTION].replace_one({"_id": PROGRESS_DOC_ID}, progress, upsert=True)
+    await db[PROGRESS_COLLECTION].replace_one({"_id": progress["_id"]}, progress, upsert=True)
 
 
 async def get_progress() -> dict:
-    """Real, current ingestion progress — for reporting/monitoring."""
-    return await _get_progress()
+    """Real, current EVM (multi-chain, shared-scan) ingestion progress —
+    for reporting/monitoring."""
+    return await _get_progress(PROGRESS_DOC_ID)
+
+
+async def get_solana_progress() -> dict:
+    """Real, current Solana-specific ingestion progress — separate real
+    checkpoint from the shared EVM scan above, see SOLANA_PROGRESS_DOC_ID."""
+    return await _get_progress(SOLANA_PROGRESS_DOC_ID)
 
 
 async def run_ingest_batch(api_key: str, max_seconds: float = 600.0, max_pages: int | None = None) -> dict:
@@ -224,5 +259,95 @@ async def run_ingest_batch(api_key: str, max_seconds: float = 600.0, max_pages: 
     return {
         "pages_done": pages_done, "agents_ingested": agents_this_batch,
         "by_chain": by_chain_this_batch, "next_offset": offset, "reached_end": reached_end,
+        "elapsed_seconds": round(time.time() - t0, 1),
+    }
+
+
+async def run_solana_ingest_batch(api_key: str, max_seconds: float = 60.0, max_pages: int | None = None) -> dict:
+    """Real, resumable Solana-specific ingestion batch — added 2026-08-28
+    once 8004scan's own real `chain_id=101` filtering was confirmed live
+    (see this module's own docstring for the full real correction). Same
+    real resumable/checkpointed shape as run_ingest_batch above (own
+    progress doc, own upserts into the SAME `full_agent_registry`
+    collection per the real "store Solana the same way Base/Ethereum are
+    stored" requirement), but calls adapters/bsc.py's
+    list_agents_by_chain_id (real, correctly server-side-filtered) instead
+    of list_agents_for_chains (real, deliberately-unfiltered page mixing) —
+    Solana never appears in the latter, confirmed live, so reusing it here
+    would silently ingest nothing.
+
+    Real, live-confirmed scale (~1,462 total Solana agents, page size 100)
+    means a full real backfill is only ~15 pages — the default 60s budget
+    is already generous for that in one call; kept resumable/checkpointed
+    regardless, both for real ongoing catch-up as new Solana agents
+    register and for simple, uniform consistency with the EVM path."""
+    db = get_db()
+    progress = await _get_progress(SOLANA_PROGRESS_DOC_ID)
+    if progress.get("started_at") is None:
+        progress["started_at"] = time.time()
+
+    offset = progress["next_offset"]
+    pages_done = 0
+    agents_this_batch = 0
+    t0 = time.time()
+    reached_end = False
+
+    while True:
+        if time.time() - t0 > max_seconds:
+            break
+        if max_pages is not None and pages_done >= max_pages:
+            break
+        try:
+            agents, total, raw_len = await bsc.list_agents_by_chain_id(
+                api_key, SOLANA_CHAIN_ID, offset=offset, limit=PAGE_SIZE,
+                timeout=REQUEST_TIMEOUT, max_retries=6,
+            )
+        except Exception as e:
+            progress["last_error"] = f"{type(e).__name__}: {e}"[:300]
+            progress["last_run_at"] = time.time()
+            await _save_progress(progress)
+            return {
+                "pages_done": pages_done, "agents_ingested": agents_this_batch,
+                "next_offset": offset, "stopped_reason": f"error: {type(e).__name__}: {e}",
+                "elapsed_seconds": round(time.time() - t0, 1),
+            }
+
+        progress["total_server_reported"] = total
+        if agents:
+            ops = []
+            for a in agents:
+                real_id = a.get("id")
+                if not real_id:
+                    continue
+                doc = dict(a)
+                doc["_id"] = real_id
+                doc["_ingested_at"] = time.time()
+                ops.append(doc)
+            if ops:
+                # Same real $set-only merge discipline as run_ingest_batch
+                # above — never wipe a prior real analysis pass's fields.
+                await db[FULL_REGISTRY_COLLECTION].bulk_write(
+                    [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
+                    ordered=False,
+                )
+                agents_this_batch += len(ops)
+
+        offset += PAGE_SIZE
+        pages_done += 1
+        progress["next_offset"] = offset
+        progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
+        progress["last_run_at"] = time.time()
+        progress["last_error"] = None
+        await _save_progress(progress)
+
+        if raw_len < PAGE_SIZE or (total and offset >= total):
+            reached_end = True
+            progress["completed_at"] = time.time()
+            await _save_progress(progress)
+            break
+
+    return {
+        "pages_done": pages_done, "agents_ingested": agents_this_batch,
+        "next_offset": offset, "reached_end": reached_end,
         "elapsed_seconds": round(time.time() - t0, 1),
     }

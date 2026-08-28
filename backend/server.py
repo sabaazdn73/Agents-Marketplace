@@ -523,6 +523,36 @@ async def health_check_batch(request: Request, batch_limit: int = 500):
     }
 
 
+# ── Real, dedicated Solana ingestion batch (2026-08-28) ──
+# Real, urgent correction this closes: earlier assumed Solana "needs its
+# own real, separate integration" and scoped it out entirely. Wrong,
+# confirmed live — 8004scan's own unified /api/v1/agents endpoint already
+# indexes Solana, just needs the real, correct `chain_id=101` param (see
+# core/full_registry_ingest.py's own docstring for the full real
+# correction). What genuinely IS true: Solana never appears in the shared,
+# unfiltered EVM scan the other three chains ride along in for free, so it
+# can't just be added to TARGET_CHAIN_IDS — it needs this own real,
+# separate, cheap batch endpoint (real total is tiny, ~1,462 agents, vs.
+# 787,000+ combined EVM). Stores into the SAME full_agent_registry
+# collection as Base/Ethereum (not surfaced on the live BSC-only
+# marketplace — see agent_store.py, still BSC-only there), same real
+# security model as the sibling batch endpoints.
+@app.post("/api/admin/solana-registry-batch")
+async def solana_registry_batch(request: Request, ingest_seconds: float = 45.0):
+    secret = os.environ.get("BATCH_TRIGGER_SECRET")
+    if not secret:
+        raise HTTPException(status_code=503, detail="BATCH_TRIGGER_SECRET is not configured on this service.")
+    if request.headers.get("X-Batch-Secret") != secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Batch-Secret header.")
+
+    api_key = os.environ.get("SCAN_8004_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="SCAN_8004_API_KEY is not set.")
+
+    result = await full_registry_ingest.run_solana_ingest_batch(api_key, max_seconds=min(ingest_seconds, 120.0))
+    return {"solana_ingest": result, "triggered_at": time.time()}
+
+
 # ── Altana Skills Registry proxy ──
 # Real bug (2026-08-19): the frontend used to fetch
 # raw.githubusercontent.com/altananetwork/skills/main/index.json directly from
