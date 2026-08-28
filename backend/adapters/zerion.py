@@ -141,6 +141,58 @@ _activity_cache: dict[str, tuple[float, dict]] = {}
 _ACTIVITY_TTL_SECONDS = 10 * 60
 
 
+def _parse_transaction_attrs(a: dict) -> dict:
+    """Real, shared per-transaction parser — used by both get_wallet_activity
+    (a bounded time-window view, one page) and get_wallet_full_history
+    (2026-08-28, a bounded-page-count, full-history view, no time window).
+    Real gas-fee field: fee.value is the real fee already converted to the
+    requested currency (USD); fee.quantity.float is the real native-token
+    amount, an honest fallback for the rare case Zerion couldn't price the
+    gas token itself. Real protocol_name: only populated when Zerion has
+    genuinely matched the called contract to a known real protocol
+    (acts[].application_metadata.name) — see core/onchain_pnl.py's own
+    real, live-confirmed investigation into why operation_type ALONE isn't
+    reliable evidence of real protocol interaction.
+
+    Real, added 2026-08-28 for core/onchain_history.py's "Full on-chain
+    history" feature: `transfers` — the real token/native transfers this
+    transaction actually moved (symbol, name, direction in/out, real
+    quantity, counterparty, and whether Zerion's own real `verified` flag
+    is set — an honest, disclosed signal for a real, common case: unverified/
+    spam-airdropped tokens showing up in a real wallet's real transfer
+    history, never silently hidden, just labeled)."""
+    fee = a.get("fee") or {}
+    acts = a.get("acts") or []
+    protocol_name = None
+    if acts:
+        protocol_name = ((acts[0].get("application_metadata") or {}).get("name")) or None
+
+    transfers = []
+    for t in (a.get("transfers") or []):
+        info = t.get("fungible_info") or {}
+        transfers.append({
+            "symbol": info.get("symbol"),
+            "name": info.get("name"),
+            "verified": bool((info.get("flags") or {}).get("verified")),
+            "direction": t.get("direction"),
+            "quantity": (t.get("quantity") or {}).get("float"),
+            "usd_value": t.get("value"),
+            "counterparty": t.get("recipient") if t.get("direction") == "out" else t.get("sender"),
+        })
+
+    return {
+        "hash": a.get("hash"),
+        "operation_type": a.get("operation_type"),
+        "mined_at": a.get("mined_at"),  # real ISO-8601 UTC timestamp, straight from Zerion
+        "sent_to": a.get("sent_to"),
+        "status": a.get("status"),
+        "fee_usd": fee.get("value"),
+        "fee_native": (fee.get("quantity") or {}).get("float"),
+        "protocol_name": protocol_name,
+        "transfers": transfers,
+    }
+
+
 async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_ms: int) -> dict:
     """Real, human-readable on-chain activity for one wallet, scoped to a
     real time window (Unix milliseconds) — built for "what did this agent's
@@ -194,47 +246,7 @@ async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_m
         return result
 
     body = resp.json()
-    transactions = []
-    for item in body.get("data", []) or []:
-        a = item.get("attributes", {}) or {}
-        # Real gas-fee field, confirmed live in Zerion's own real response
-        # shape (2026-08-28, added for core/pnl.py's real PnL gas-cost sum):
-        # fee.value is the real fee already converted to the requested
-        # currency (USD here); fee.quantity.float is the real native-token
-        # amount, kept as an honest fallback for the rare case Zerion
-        # couldn't price the gas token itself (fee.value null).
-        fee = a.get("fee") or {}
-        # Real, honest-detection field (added 2026-08-28 for
-        # core/onchain_pnl.py, after a real, live false-positive
-        # investigation): Zerion's own real `operation_type` (trade/mint/
-        # execute/...) is set for ANY contract call that superficially
-        # matches a method shape, INCLUDING contracts Zerion doesn't
-        # actually recognize — confirmed live: a real "execute"/"mint" to
-        # an unrecognized contract (a competing agent platform's own
-        # escrow/action-router contract, or this project's own ERC-8004
-        # identity-registry self-registration mint) carries no real
-        # protocol name at all. `acts[].application_metadata.name` is the
-        # real, DIFFERENT signal — only ever populated when Zerion has
-        # genuinely matched the target contract to a known real protocol
-        # (confirmed live: a real Uniswap-compatible DEX swap on BSC came
-        # back with `application_metadata: {"name": "Uniswap", ...}`).
-        # Taking the first real act's name — real, live-confirmed shape
-        # only ever has one real act per real transaction in every
-        # example checked.
-        acts = a.get("acts") or []
-        protocol_name = None
-        if acts:
-            protocol_name = ((acts[0].get("application_metadata") or {}).get("name")) or None
-        transactions.append({
-            "hash": a.get("hash"),
-            "operation_type": a.get("operation_type"),
-            "mined_at": a.get("mined_at"),  # real ISO-8601 UTC timestamp, straight from Zerion
-            "sent_to": a.get("sent_to"),
-            "status": a.get("status"),
-            "fee_usd": fee.get("value"),
-            "fee_native": (fee.get("quantity") or {}).get("float"),
-            "protocol_name": protocol_name,
-        })
+    transactions = [_parse_transaction_attrs(item.get("attributes", {}) or {}) for item in body.get("data", []) or []]
     # Real, already-descending order from Zerion (confirmed live) — kept as-is.
 
     result = {"available": True, "transactions": transactions}
@@ -318,3 +330,72 @@ async def get_wallet_chart(address: str, period: str) -> dict:
     result = {"available": True, "points": [(p[0], p[1]) for p in points if isinstance(p, list) and len(p) == 2]}
     _activity_cache[cache_key] = (time.time(), result)
     return result
+
+
+# Real, multi-page "Full on-chain history" fetch (2026-08-28) — built for
+# core/onchain_history.py after live-confirming BSCSCAN_API_KEY's real,
+# current free tier does NOT cover BSC's account module (txlist/tokentx/
+# balance all return a real, live "Free API access is not supported for
+# this chain. Please upgrade your api plan for full chain coverage." —
+# only the unrelated `contract` module, e.g. getsourcecode, works free for
+# BSC). Zerion — already integrated, already proven live on BSC — is the
+# real, working substitute. Real, live-confirmed pagination (2026-08-28):
+# the transactions endpoint's own response includes a real `links.next`
+# cursor URL (a real `page[after]` opaque cursor, not a guessed offset),
+# so a real, complete-as-fetched history beyond the first 50 transactions
+# is genuinely reachable — bounded here to a real, deliberate page cap so
+# one agent's "Full history" view can't consume an outsized share of the
+# real 300-request/day Zerion budget.
+_MAX_HISTORY_PAGES = 4  # up to 200 real transactions per real view — real, deliberate quota discipline
+
+
+async def get_wallet_full_history(address: str) -> dict:
+    """Real, bounded-page, NO time-window wallet history — every real
+    transaction type (sends, receives, approvals, trades, mints, contract
+    calls...), not filtered to DeFi-execution-only the way
+    core/onchain_pnl.py's own real, narrower probe is. Real, honest
+    completeness signal always included: `has_more` (Zerion's own
+    `links.next` still had more after the real page cap) and
+    `pages_fetched` — never implies this is a wallet's full lifetime
+    history when a real, deliberate budget cap cut it short."""
+    addr = (address or "").lower()
+    if not addr.startswith("0x") or len(addr) != 42:
+        return {"available": False, "reason": "not a valid EVM address"}
+
+    key = _get_key()
+    if not key:
+        return {"available": False, "reason": "ZERION_API_KEY not set"}
+
+    transactions: list[dict] = []
+    url = f"{_BASE_URL}/wallets/{addr}/transactions/"
+    params = {"currency": "usd", "filter[chain_ids]": _BSC_CHAIN_ID, "page[size]": 50}
+    pages_fetched = 0
+    has_more = False
+
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            while pages_fetched < _MAX_HISTORY_PAGES:
+                resp = await client.get(url, params=params if pages_fetched == 0 else None, auth=(key, ""))
+                if resp.status_code == 429:
+                    if pages_fetched == 0:
+                        return {"available": False, "reason": "rate limited — try again later"}
+                    break  # real, honest partial result — keep what we already fetched rather than discard it
+                if not resp.is_success:
+                    if pages_fetched == 0:
+                        return {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
+                    break
+                body = resp.json()
+                transactions.extend(_parse_transaction_attrs(item.get("attributes", {}) or {}) for item in body.get("data", []) or [])
+                pages_fetched += 1
+                next_url = (body.get("links") or {}).get("next")
+                if not next_url:
+                    has_more = False
+                    break
+                url = next_url
+                has_more = True
+    except httpx.HTTPError as e:
+        if pages_fetched == 0:
+            return {"available": False, "reason": f"couldn't reach Zerion: {e}"}
+        # real, honest partial result from whatever pages already succeeded
+
+    return {"available": True, "transactions": transactions, "pages_fetched": pages_fetched, "has_more": has_more}

@@ -51,6 +51,7 @@ from adapters import termix
 from core import canary
 from core import pnl
 from core import onchain_pnl
+from core import onchain_history
 from core import revenue
 from core import full_registry_ingest
 from core import full_registry_analysis
@@ -770,6 +771,24 @@ async def agent_onchain_performance(owner_address: str):
     category = agent.get("category") if agent else None
     token_id = agent.get("token_id") if agent else None
     return await onchain_pnl.get_historical_onchain_performance(owner_address, category=category, token_id=token_id)
+
+
+@app.get("/api/agents/onchain-history")
+async def agent_onchain_history(owner_address: str):
+    """Real "Full on-chain history" — every real transaction type this
+    agent's developer wallet has genuinely made on BSC (sends, receives,
+    approvals, trades, mints, contract calls...), via Zerion — see
+    core/onchain_history.py's own module docstring for the full real
+    methodology, including why this is built on Zerion rather than
+    BscScan (live-confirmed: BSCSCAN_API_KEY's real free tier doesn't
+    cover BSC's account/txlist module). Deliberately additional to, never
+    a duplicate of, core/onchain_pnl.py (DeFi-execution only) and
+    core/job_index.py (ERC-8183 job activity only). Always 200 with a
+    real, honest {"available": ..., "has_activity": ..., "has_more": ...}
+    shape — never a fabricated transaction, and never implying
+    completeness beyond the real, deliberate page budget actually
+    fetched."""
+    return await onchain_history.get_full_onchain_history(owner_address)
 
 
 @app.get("/api/canary/candidates")

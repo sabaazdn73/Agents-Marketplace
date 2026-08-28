@@ -32,6 +32,7 @@ import InfoTooltip from './InfoTooltip';
 import TermixPerformancePanel from './TermixPerformancePanel';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import OnchainHistoryPanel from './OnchainHistoryPanel';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import AgentEvaluationSection from './AgentEvaluationSection';
 import PnLPanel from './PnLPanel';
@@ -487,6 +488,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
           </span>
         </div>
         <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
+        <OnchainHistoryPanel ownerAddress={agent.ownerAddress} />
         <PnLPanel ownerAddress={agent.ownerAddress} category={agent.category} />
         <OnchainPerformancePanel ownerAddress={agent.ownerAddress} category={agent.category} />
 

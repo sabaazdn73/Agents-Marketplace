@@ -40,6 +40,7 @@ import TermixPerformancePanel from './TermixPerformancePanel';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import OnchainHistoryPanel from './OnchainHistoryPanel';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import AgentEvaluationSection from './AgentEvaluationSection';
 import PnLPanel from './PnLPanel';
@@ -501,6 +502,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
         <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
+        <OnchainHistoryPanel ownerAddress={agent.ownerAddress} />
         <PnLPanel ownerAddress={agent.ownerAddress} category={agent.category} />
         <OnchainPerformancePanel ownerAddress={agent.ownerAddress} category={agent.category} />
 
