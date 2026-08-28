@@ -285,8 +285,8 @@ async def compute_agent_pnl_summary(owner_address: str, category: str | None) ->
     """Real, aggregate PnL across one agent's own real, recent, PnL-
     eligible jobs — what the agent detail page actually shows (a single
     job's PnL is real but not very meaningful on its own; the real,
-    honest question a buyer asks is "how has this agent's real session-
-    managed trading actually done").
+    honest question a buyer asks is "when people have actually hired
+    this agent, did their own money come out ahead or behind").
 
     Real, honest short-circuit: checks category eligibility ONCE, up
     front — never spends real Zerion quota probing individual jobs for an
@@ -305,29 +305,30 @@ async def compute_agent_pnl_summary(owner_address: str, category: str | None) ->
     checked_ids = job_ids[:MAX_JOBS_PER_SUMMARY]
     results = await asyncio.gather(*(compute_job_pnl(jid, category) for jid in checked_ids))
 
-    # Real, honest split: only jobs that were BOTH applicable (an Altana-
-    # session Trading & DeFi hire) AND successfully computed count toward
-    # the real total — a job that's applicable but data-gapped is
+    # Real, honest split: only jobs that were BOTH applicable (a
+    # delivered Trading & DeFi hire) AND successfully computed count
+    # toward the real total — a job that's applicable but data-gapped is
     # surfaced (so the UI can be honest about a real, partial picture),
     # never silently dropped or treated as $0.
-    session_jobs = [
+    eligible_jobs = [
         {"job_id": jid, **r} for jid, r in zip(checked_ids, results)
         if r.get("applicable")
     ]
-    computed = [j for j in session_jobs if j.get("available")]
+    computed = [j for j in eligible_jobs if j.get("available")]
 
-    if not session_jobs:
+    if not eligible_jobs:
         return {"applicable": True, "jobs": [], "total_pnl_usd": None,
-                "reason": f"None of this agent's last {len(checked_ids)} checked real jobs were hired via an "
-                          f"Altana session — no real session-managed activity to measure PnL against yet."}
+                "reason": f"None of this agent's last {len(checked_ids)} checked real jobs have been delivered "
+                          f"yet — no real hire outcome to measure PnL against yet."}
 
     total_pnl = round(sum(j["pnl_usd"] for j in computed), 2) if computed else None
     return {
         "applicable": True,
-        "jobs": session_jobs,
+        "jobs": eligible_jobs,
         "jobs_checked": len(checked_ids),
         "jobs_with_real_pnl": len(computed),
         "total_pnl_usd": total_pnl,
-        "reason": None if computed else "Found real Altana-session jobs for this agent, but couldn't compute a "
-                                         "real PnL for any of them yet (see each job's own real reason).",
+        "reason": None if computed else "Found real, eligible jobs for this agent, but couldn't compute a "
+                                         "real PnL for any of them yet (see each job's own real reason — "
+                                         "often simply not delivered yet).",
     }
