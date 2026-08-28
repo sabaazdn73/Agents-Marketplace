@@ -12,9 +12,11 @@
 // a real example phrase, before any technical detail.
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight, Wallet, Fingerprint } from 'lucide-react';
 import { PERMIT2_ADDRESS } from '@altananetwork/sdk';
 import { recoverAltanaWallet, createNewAltanaWallet, fetchWalletBalanceSnapshot, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
+import { useDirectWalletExecutor } from './useDirectWalletExecutor';
 import WalletConfirmStep from './WalletConfirmStep';
 import { executeEnterPosition, PANCAKESWAP_ROUTER, WBNB, USDT_BSC } from './pancakeswapSkill';
 import { venusSupply, venusSupplyPreflight, aaveSupply, listaStake, pancakeAddLiquidity, VENUS_VUSDT, AAVE_POOL, LISTA_MANAGER } from './defiSkills';
@@ -192,11 +194,24 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   // is needed from the user instead.
   const [needsWalletChoice, setNeedsWalletChoice] = useState(false);
   // Real, added 2026-08-28 (see WalletConfirmStep.jsx) — a real wallet
-  // that's been recovered/created but not yet confirmed by the user, and
-  // its real, live BNB/USDT balance snapshot. Nothing proceeds to
-  // granting a session until the user explicitly continues past this.
+  // that's been recovered/created/connected but not yet confirmed by the
+  // user, and its real, live BNB/USDT balance snapshot. Nothing proceeds
+  // to granting a session (or, for a direct wallet, to signing anything)
+  // until the user explicitly continues past this. Shape:
+  // { address, mode: 'passkey'|'direct', signer? } — signer only for
+  // passkey wallets.
   const [pendingWallet, setPendingWallet] = useState(null);
   const [walletSnapshot, setWalletSnapshot] = useState(null);
+  // Real, added 2026-08-28 (see useDirectWalletExecutor.js's own docstring
+  // for the full real product question this answers) — which real wallet
+  // approach the user picked for THIS skill: their own already-connected
+  // wallet (direct, single signature per run, no spend-cap session), or a
+  // real, spend-capped Altana passkey wallet (the flow this panel has
+  // always had). Only meaningful for 'tx' skills — 'pay' (x402) stays
+  // passkey-only (Altana-specific settlement infrastructure, not a plain
+  // on-chain call a directly-connected wallet can make).
+  const [walletMode, setWalletMode] = useState(null); // null | 'direct' | 'passkey'
+  const directExecutor = useDirectWalletExecutor();
 
   // Execution config for this skill. All 10 registry skills are wired; a skill
   // id not in SKILL_EXEC (shouldn't happen for the real registry) is disclosed
@@ -208,52 +223,36 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const play = exec?.play || 'enter-position';
   const relevantInputs = (skill.inputs || []).filter((inp) => !inp.plays || inp.plays.includes(play));
 
-  // Real continuation once a real wallet (recovered OR freshly, explicitly
-  // created) is in hand — shared by both the normal recovery path and
-  // handleConfirmNewWallet below, for 'pay' and 'tx' skills alike.
-  const runWithWallet = async (wallet) => {
-    if (kind === 'pay') {
-      setStep('granting');
-      const s = await grantSkillSession(wallet, wallet.signer, {
-        contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
-        spendCapUnits: Number(spendCap), expiryHours: 24,
-      });
-      setSession(s);
-      setStep('executing');
-      const result = await exec.run(s, values);
-      setExecResult(result);
-      setStep('done');
-      return;
-    }
+  // Real, added 2026-08-28 (see WalletConfirmStep.jsx's own docstring for
+  // the full real incident this fixes) — a real wallet was just recovered,
+  // created, or connected; fetch its real, live balance snapshot and
+  // PAUSE here for an explicit user confirmation, rather than silently
+  // proceeding straight to granting a session or signing something
+  // against a wallet the user never actually got to look at first.
+  const presentWalletForConfirmation = async (walletLike) => {
+    setStep(null);
+    const snapshot = await fetchWalletBalanceSnapshot(walletLike.address, USDT_BSC);
+    setPendingWallet(walletLike);
+    setWalletSnapshot(snapshot);
+  };
 
+  // Real, shared "run against whichever real executor we ended up with" —
+  // used by both the passkey path (after granting a session) and the
+  // direct path (no session, no granting, the connected wallet itself).
+  const runAgainstExecutor = async (executor) => {
     // Real, added 2026-08-28 — see defiSkills.js's own docstring for the
     // full real incident this came from. A real, read-only check against
     // this exact wallet's own real on-chain state, before spending a
-    // real session grant + relay attempt on something already known to
-    // fail. Stops here ONLY on a real, high-confidence finding (this
-    // exact wallet's own real balance is genuinely insufficient) — real,
-    // wasted gas/relay cost otherwise, for an attempt that couldn't have
-    // succeeded regardless. Doesn't rule out every real cause (e.g. a
-    // session-scope rejection isn't checkable this way), so a clean
-    // preflight never claims the real attempt WILL succeed, only that
-    // this specific, checkable real reason isn't why it would fail.
+    // real session grant + relay attempt (or a real direct signature) on
+    // something already known to fail.
     if (exec.preflight) {
-      const pre = await exec.preflight(getMainnetReadClient(), wallet.address, values);
+      const pre = await exec.preflight(getMainnetReadClient(), executor.walletAddress, values);
       if (!pre.ok) {
         setStep('error');
         setError(`Real, current issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
     }
-
-    setStep('granting');
-    const s = await grantSkillSession(wallet, wallet.signer, {
-      contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
-      spendCapUnits: Number(spendCap), expiryHours: 24,
-    });
-    setSession(s);
-    const executor = getAltanaExecutor(s);
-
     if (exec.ready(values)) {
       setStep('executing');
       const result = await exec.run(executor, values);
@@ -262,60 +261,65 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
     setStep('done');
   };
 
-  // Real, added 2026-08-28 (see WalletConfirmStep.jsx's own docstring for
-  // the full real incident this fixes) — a real wallet was just recovered
-  // or created; fetch its real, live balance snapshot and PAUSE here for
-  // an explicit user confirmation, rather than silently proceeding
-  // straight to granting a session (and eventually signing something)
-  // against a wallet the user never actually got to look at first.
-  const presentWalletForConfirmation = async (wallet) => {
-    setStep(null);
-    const snapshot = await fetchWalletBalanceSnapshot(wallet.address, USDT_BSC);
-    setPendingWallet(wallet);
-    setWalletSnapshot(snapshot);
-  };
-
-  const handleGrantAndRun = async () => {
+  // Real, explicit choice — the user's own already-connected wallet,
+  // direct signature, no new wallet, no spend-cap session (see
+  // useDirectWalletExecutor.js for the full real tradeoff this trades
+  // away vs. gains).
+  const handleUseDirectWallet = async () => {
     setError(null);
     setExecResult(null);
     setNeedsWalletChoice(false);
-    setWalletSnapshot(null);
-    setPendingWallet(null);
+    setWalletMode('direct');
+    if (!directExecutor) return; // not connected yet — the UI shows a real ConnectButton for this
+    await presentWalletForConfirmation({ address: directExecutor.walletAddress, mode: 'direct' });
+  };
+
+  // Real, explicit choice — a real, spend-capped Altana passkey wallet,
+  // exactly the flow this panel has always had. ONLY ever tries to
+  // recover an existing real wallet — never auto-creates a new one on
+  // failure (see altana.js's own docstring for the real incident this
+  // fixes: several identically-labeled saved passkeys leading to real,
+  // orphaned, empty wallets being silently created on every hiccup).
+  const handleUsePasskeyWallet = async () => {
+    setError(null);
+    setExecResult(null);
+    setNeedsWalletChoice(false);
+    setWalletMode('passkey');
     try {
-      // ── Read-only / detection skills: no wallet, no session, no funding ──
-      if (kind === 'read') {
-        setStep('reading');
+      setStep('wallet');
+      const wallet = await recoverAltanaWallet();
+      await presentWalletForConfirmation({ ...wallet, mode: 'passkey' });
+    } catch (e) {
+      setStep('error');
+      setNeedsWalletChoice(true);
+      setError(e.message || String(e));
+    }
+  };
+
+  // Real, top-level entry point the main button calls. 'read' runs
+  // immediately (no wallet at all); 'pay' is always passkey (x402
+  // settlement is Altana-specific infrastructure); 'tx' re-runs whichever
+  // real mode was already chosen (the choice buttons below are what
+  // choose it the first time).
+  const handleGrantAndRun = async () => {
+    setError(null);
+    setExecResult(null);
+    if (kind === 'read') {
+      setStep('reading');
+      try {
         const result = await exec.run(getMainnetReadClient(), values);
         setExecResult(result);
         setStep('done');
-        return;
-      }
-
-      // ── 'pay' and 'tx' skills both need a real wallet first. Real,
-      // deliberate: ONLY ever tries to recover an existing real wallet
-      // here — never auto-creates a new one on failure (see altana.js's
-      // own docstring for the real incident this fixes: several
-      // identically-labeled saved passkeys leading to real, orphaned,
-      // empty wallets being silently created on every recovery hiccup). ──
-      setStep('wallet');
-      let wallet;
-      try {
-        wallet = await recoverAltanaWallet();
       } catch (e) {
         setStep('error');
-        setNeedsWalletChoice(true);
         setError(e.message || String(e));
-        return;
       }
-      await presentWalletForConfirmation(wallet);
-    } catch (e) {
-      setStep('error');
-      // Real, added 2026-08-28 (see altana.js's decodeAltanaExecutionError):
-      // a real execute() failure now carries a real, decoded `.realReason`
-      // alongside its own original message — shown first when present,
-      // since it's the more real, specific, actionable finding; the raw
-      // SDK message stays too, never hidden.
-      setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+      return;
+    }
+    if (kind === 'pay' || walletMode === 'passkey') {
+      await handleUsePasskeyWallet();
+    } else if (walletMode === 'direct') {
+      await handleUseDirectWallet();
     }
   };
 
@@ -327,24 +331,53 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
     try {
       setStep('wallet');
       const wallet = await createNewAltanaWallet();
-      await presentWalletForConfirmation(wallet);
+      await presentWalletForConfirmation({ ...wallet, mode: 'passkey' });
     } catch (e) {
       setStep('error');
       setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
 
-  // Real, the one place a session actually gets granted/executed now —
-  // only ever reached after the user has seen the real wallet + real
-  // balances above and explicitly clicked through.
+  // Real, the one place a session actually gets granted/executed (or, for
+  // a direct wallet, the one place anything gets signed) — only ever
+  // reached after the user has seen the real wallet + real balances above
+  // and explicitly clicked through.
   const handleContinueWithWallet = async () => {
-    const wallet = pendingWallet;
+    const w = pendingWallet;
     setPendingWallet(null);
     setWalletSnapshot(null);
     try {
-      await runWithWallet(wallet);
+      if (w.mode === 'direct') {
+        await runAgainstExecutor(directExecutor);
+        return;
+      }
+      if (kind === 'pay') {
+        setStep('granting');
+        const s = await grantSkillSession(w, w.signer, {
+          contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
+          spendCapUnits: Number(spendCap), expiryHours: 24,
+        });
+        setSession(s);
+        setStep('executing');
+        const result = await exec.run(s, values);
+        setExecResult(result);
+        setStep('done');
+        return;
+      }
+      setStep('granting');
+      const s = await grantSkillSession(w, w.signer, {
+        contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
+        spendCapUnits: Number(spendCap), expiryHours: 24,
+      });
+      setSession(s);
+      await runAgainstExecutor(getAltanaExecutor(s));
     } catch (e) {
       setStep('error');
+      // Real, added 2026-08-28 (see altana.js's decodeAltanaExecutionError):
+      // a real execute() failure now carries a real, decoded `.realReason`
+      // alongside its own original message — shown first when present,
+      // since it's the more real, specific, actionable finding; the raw
+      // SDK message stays too, never hidden.
       setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
@@ -352,7 +385,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const handleTryDifferentPasskey = () => {
     setPendingWallet(null);
     setWalletSnapshot(null);
-    handleGrantAndRun();
+    handleUsePasskeyWallet();
   };
 
   return (
@@ -363,7 +396,43 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
 
       {kind === 'tx' && (
         <div className="mb-5 p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 text-[11px] text-indigo-700 dark:text-indigo-300">
-          Runs for real: a wallet that unlocks with Face ID, with a spending limit you set — this spends real money, never more than that limit.
+          {walletMode === 'direct'
+            ? 'Runs for real, through your own connected wallet — you sign it yourself, right now, real money.'
+            : walletMode === 'passkey'
+            ? 'Runs for real: a wallet that unlocks with Face ID, with a spending limit you set — this spends real money, never more than that limit.'
+            : 'Runs for real money — pick how below.'}
+        </div>
+      )}
+
+      {/* Real, added 2026-08-28 (see useDirectWalletExecutor.js's own
+          docstring for the full real product question this answers) — a
+          real, upfront choice for 'tx' skills, shown until the user picks
+          one: use an already-connected, already-funded wallet directly
+          (one real signature per run, no new wallet), or a real,
+          spend-capped Altana passkey wallet (seedless, but needs its own
+          real funding if it's a fresh one). Never assumed — the user's
+          own real situation decides which is actually less friction. */}
+      {kind === 'tx' && walletMode === null && !walletSnapshot && (
+        <div className="mb-5 space-y-2">
+          <button
+            onClick={handleUseDirectWallet}
+            className={`w-full p-3 rounded-xl border text-left ${mutedBorder} hover:border-indigo-400 transition-colors`}
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold"><Wallet size={14} style={{ color: accent }} /> Use my connected wallet</div>
+            <p className="text-[11px] opacity-60 mt-0.5">
+              {directExecutor
+                ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly — no new wallet, no funding a second one. You sign each run yourself, right then.`
+                : 'No spend-cap session — you sign each run yourself, right then. Real, no new wallet to fund.'}
+            </p>
+            {!directExecutor && <div className="mt-2"><ConnectButton /></div>}
+          </button>
+          <button
+            onClick={handleUsePasskeyWallet}
+            className={`w-full p-3 rounded-xl border text-left ${mutedBorder} hover:border-indigo-400 transition-colors`}
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold"><Fingerprint size={14} style={{ color: accent }} /> Use a Face ID mini-wallet</div>
+            <p className="text-[11px] opacity-60 mt-0.5">A separate, seedless wallet with a spending limit you set once — good if you don't already have a funded wallet, or want a real, enforced cap.</p>
+          </button>
         </div>
       )}
 
@@ -401,7 +470,10 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         ))}
       </div>
 
-      {kind !== 'read' && (
+      {/* Real, added 2026-08-28: a directly-connected wallet has no
+          on-chain session/spend-cap concept at all — this input only
+          means anything for a real, spend-capped passkey wallet. */}
+      {kind !== 'read' && walletMode !== 'direct' && (
         <div className="mb-5">
           <label className="text-xs font-semibold block mb-1">Your spending limit</label>
           <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={!!step && step !== 'error' && step !== 'done'}
@@ -422,9 +494,9 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
           {step === 'done' && <CheckCircle2 size={13} className="text-green-500" />}
           {{
             reading: 'Looking up the live information...',
-            wallet: 'Setting up your wallet (confirm with Face ID or your fingerprint)...',
+            wallet: 'Setting up your mini-wallet (confirm with Face ID or your fingerprint)...',
             granting: 'Setting your spending limit...',
-            executing: 'Running it for real...',
+            executing: walletMode === 'direct' ? 'Confirm this in your wallet...' : 'Running it for real...',
             done: execResult
               ? (execResult.expectedAmountOut
                   ? `Done. Expected ~${(Number(execResult.expectedAmountOut) / 1e18).toFixed(4)} tokens.`
@@ -464,26 +536,32 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       )}
 
       {/* Real, added 2026-08-28 (see WalletConfirmStep.jsx) — a real wallet
-          was just recovered/created; PAUSE here until the user explicitly
-          confirms it, instead of the main run button below. */}
+          was just recovered/created/connected; PAUSE here until the user
+          explicitly confirms it, instead of the main run button below. */}
       {walletSnapshot ? (
         <div className="mb-4">
           <WalletConfirmStep
             snapshot={walletSnapshot}
             onContinue={handleContinueWithWallet}
-            onTryDifferent={handleTryDifferentPasskey}
+            onTryDifferent={pendingWallet?.mode !== 'direct' ? handleTryDifferentPasskey : undefined}
             continueLabel={kind === 'pay' ? 'Set limit & pay' : 'Set limit & run this'}
           />
         </div>
       ) : (
-        <button onClick={handleGrantAndRun} disabled={(!!step && step !== 'error' && step !== 'done') || !isExecutable} className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-          {step === 'done' ? 'Done ✓'
-            : !isExecutable ? 'Not available'
-            : kind === 'read' ? 'Look it up →'
-            : kind === 'pay' ? 'Set limit & pay →'
-            : session ? 'Run again'
-            : 'Set limit & run this →'}
-        </button>
+        // Real, added 2026-08-28: for 'tx' skills, the real choice buttons
+        // above ARE the entry point on a fresh run — this bottom button
+        // only reappears once a real mode has already been picked (i.e.
+        // for "Run again" after a completed or errored attempt).
+        !(kind === 'tx' && walletMode === null) && (
+          <button onClick={handleGrantAndRun} disabled={(!!step && step !== 'error' && step !== 'done') || !isExecutable} className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+            {step === 'done' ? 'Done ✓'
+              : !isExecutable ? 'Not available'
+              : kind === 'read' ? 'Look it up →'
+              : kind === 'pay' ? 'Set limit & pay →'
+              : (session || execResult) ? 'Run again'
+              : 'Set limit & run this →'}
+          </button>
+        )
       )}
     </div>
   );
