@@ -5,12 +5,31 @@ Real "Revenue Stream" feature: how much has an agent, as a real ERC-8183
 PROVIDER, actually verifiably earned — over time, not just a lifetime
 total. Deliberately simpler than core/pnl.py / core/onchain_pnl.py: no
 Zerion timestamp-matching, no wallet-activity scanning, no session
-tracking. Every real number here comes from the exact same on-chain job
-data core/agent_performance.py already scans (Multicall3, the recent
-WINDOW jobs) — this module adds no new RPC scan of its own, only a new
-read of the one real, global settlement-token identity (address, symbol,
-decimals), and a filter/sum/sort over data agent_performance.py already
-has.
+tracking.
+
+Real, corrected data source (2026-08-28): this used to reuse
+core/agent_performance.py's own in-process cache, which only scans the
+most RECENT WINDOW (1,500) job ids — a deliberate, disclosed tradeoff for
+THAT module's real purpose (instant marketplace page loads), but a real,
+confirmed bug for THIS one. Live-checked before fixing: job_counter =
+56,665 real jobs total on the shared contract; WINDOW = 1,500 — only the
+most recent 2.6% of all real job ids were ever visible, so any agent with
+real, older completed jobs showed an artificially small (or zero) total,
+not because the scan was Tnega-specific (it was already protocol-wide
+within its range) but purely because of job age. Now reads from
+core/job_index.py's own real, complete, persistent index instead — every
+real job id from 1 to the current job_counter, backfilled once and kept
+current via a bounded re-check pass. See job_index.py's own docstring and
+docs/verification-methodology.md for the full real investigation and
+before/after numbers.
+
+Real, honest completeness signal, always included: `index_completeness`
+reports whether job_index.py's own backfill has reached the real,
+current job_counter yet (`complete: true/false`), and exactly how far it
+got (`indexed_through_job_id`). While a backfill is still catching up
+(e.g. right after this fix first shipped), a real, growing number is
+still shown — never hidden behind a loading state — but honestly labeled
+as partial rather than implied final.
 
 Real, deliberate scope on which real jobs count as "earned":
   - SUBMITTED and COMPLETED — the same real pair core/pnl.py's own
@@ -55,7 +74,7 @@ import httpx
 from eth_abi import decode as abi_decode
 from eth_utils import function_signature_to_4byte_selector
 
-from core import agent_performance
+from core import job_index
 from core.rpc import get_bsc_rpc_url, COMMERCE
 
 _EARNING_STATUSES = {"SUBMITTED", "COMPLETED"}
@@ -137,30 +156,38 @@ async def get_revenue_timeline(owner_address: str) -> dict:
       - `timeline`: real, chronological (oldest first) per-job entries —
         job id, real ISO date (from the job's own real submittedAt),
         real amount earned, real running cumulative total, real status.
-      - `scanned_window`/`job_counter`/`window_from`/`window_to`: the
-        same real, honest scan-bound fields agent_performance.py's own
-        functions already report — this data comes from that same scan,
-        so the same real limits apply (a job older than the most recent
-        WINDOW jobs globally won't be found)."""
-    jobs = await agent_performance.get_provider_jobs(owner_address)
+      - `index_completeness`: honest status of the underlying job index
+        itself — see module docstring."""
+    real_index = await job_index.get_provider_revenue_jobs(owner_address)
+    jobs = real_index["jobs"]
     token = await _resolve_payment_token()
-    window = agent_performance.get_scan_window_info()
+    completeness = {
+        "index_completeness": {
+            "complete": real_index["index_complete"],
+            "indexed_through_job_id": real_index["indexed_through_job_id"],
+            "job_counter": real_index["job_counter"],
+        }
+    }
 
     if not jobs:
         return {
             "has_earnings": False,
-            "reason": f"We checked the last {agent_performance.WINDOW} jobs across the whole marketplace and "
-                      "found none for this agent — it hasn't been hired through here yet.",
-            **window,
+            "reason": ("We checked this agent's complete real job history against the shared AgenticCommerce "
+                       "contract and found none — it hasn't been hired (through Tnega or anywhere else using "
+                       "this same contract) yet."
+                       if real_index["index_complete"] else
+                       "No real jobs found for this agent yet in the portion of the shared contract's full "
+                       "history indexed so far — the real, complete backfill is still in progress."),
+            **completeness,
         }
 
-    earning_jobs = [j for j in jobs if j["statusLabel"] in _EARNING_STATUSES]
+    earning_jobs = [j for j in jobs if j["status"] in _EARNING_STATUSES]
     if not earning_jobs:
         return {
             "has_earnings": False,
             "reason": f"This agent has {len(jobs)} real job(s) on record, but none have been delivered "
                       "(SUBMITTED or COMPLETED) yet — no real revenue to show.",
-            **window,
+            **completeness,
         }
 
     if token is None:
@@ -168,7 +195,7 @@ async def get_revenue_timeline(owner_address: str) -> dict:
             "has_earnings": False,
             "reason": "Found real, delivered jobs, but couldn't read the real settlement token's identity from "
                       "the chain right now — try again shortly.",
-            **window,
+            **completeness,
         }
 
     decimals = token["decimals"]
@@ -176,7 +203,7 @@ async def get_revenue_timeline(owner_address: str) -> dict:
     # each job was actually delivered; falls back to job id (also
     # monotonic with real creation order) for the rare real case
     # submittedAt is somehow unset on an otherwise-delivered job.
-    earning_jobs = sorted(earning_jobs, key=lambda j: (j["submittedAt"] or 0, j["id"]))
+    earning_jobs = sorted(earning_jobs, key=lambda j: (j["submittedAt"] or 0, j["_id"]))
 
     timeline = []
     running_total = 0
@@ -184,9 +211,9 @@ async def get_revenue_timeline(owner_address: str) -> dict:
         raw = int(j["budget"])
         running_total += raw
         timeline.append({
-            "job_id": j["id"],
+            "job_id": j["_id"],
             "submitted_at": j["submittedAt"] or None,
-            "status": j["statusLabel"],
+            "status": j["status"],
             "amount_raw": str(raw),
             "amount": raw / (10 ** decimals),
             "running_total_raw": str(running_total),
@@ -204,5 +231,5 @@ async def get_revenue_timeline(owner_address: str) -> dict:
         "total_earned_raw": str(total_raw),
         "total_earned": total_raw / (10 ** decimals),
         "timeline": timeline,
-        **window,
+        **completeness,
     }

@@ -20,11 +20,26 @@ is young and has had real bugs (the notify_funded authorization-gate bug
 just fixed) that failed real jobs for reasons having nothing to do with an
 agent's actual quality. Presenting only "0% on this marketplace" as if it
 reflects an agent's real capability is misleading while our own sample size
-is this small. TermiX's own tracked completedJobs/passRate/reputationScore
-cover REAL activity across the whole protocol, not just hires that happened
-to go through this specific product — a genuinely less-biased second data
-point, shown honestly alongside our own, never blended into one fabricated
-combined number (see AgentPerformance's own real display logic).
+is this small.
+
+Real, important correction (2026-08-28, found while investigating a real
+Revenue Stream scoping bug — see core/job_index.py and
+docs/verification-methodology.md): this module's own original docstring
+claimed TermiX's tracked completedJobs/passRate/reputationScore "cover
+REAL activity across the whole protocol, not just hires that happened to
+go through this specific product." Checked directly, that claim doesn't
+hold up: TermiX's real, live registry reports `completedJobs: 0` and a
+flat default `reputationScore: 50` for the TermiX Advantage Report
+Explainer, despite that exact agent having 2 real, on-chain-confirmed
+COMPLETED jobs on the very same shared AgenticCommerce contract (jobs
+#56619/#56620). TermiX's own numbers appear to reflect activity through
+TermiX's OWN platform/listing specifically, not a genuine, complete index
+of the shared contract as a whole — this is a real, DIFFERENT, additional
+data point (still worth showing, still independent of this marketplace's
+own numbers), never a complete or superior substitute for either this
+marketplace's own real job history or core/job_index.py's own real,
+complete on-chain index. Never present it as "the real, protocol-wide
+total" — it's TermiX's own real, but differently-scoped, view.
 
 No documented "look up by token id" endpoint exists on TermiX's real API —
 only `query`/`tag`/`minReputation`/`sort`/`page`/`pageSize` filters. So this

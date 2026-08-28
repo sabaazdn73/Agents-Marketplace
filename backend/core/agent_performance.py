@@ -109,6 +109,19 @@ async def _multicall_getjobs(client: httpx.AsyncClient, job_ids: list[int]) -> l
     return out
 
 
+async def fetch_jobs_by_id(job_ids: list[int]) -> list[dict]:
+    """Real, public, standalone batched job reader (2026-08-28, added for
+    core/job_index.py) — the exact same real Multicall3 aggregate3 read
+    _scan_recent_window uses internally, exposed here so another module can
+    read arbitrary, non-recent job id ranges without duplicating this real
+    decode logic. This module's own cache stays WINDOW-bounded (by design,
+    for instant marketplace page loads — see this module's own docstring);
+    job_index.py needs the full, un-windowed range, which is exactly what
+    this function (unlike _scan_recent_window) doesn't restrict."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        return await _multicall_getjobs(client, job_ids)
+
+
 async def _scan_recent_window() -> dict:
     """Scan the most-recent WINDOW jobs once and index the real results by
     BOTH provider (agent performance) and client (My Agents) — one scan,

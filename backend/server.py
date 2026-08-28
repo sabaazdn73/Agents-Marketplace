@@ -54,6 +54,7 @@ from core import onchain_pnl
 from core import revenue
 from core import full_registry_ingest
 from core import full_registry_analysis
+from core import job_index
 from core import rpc
 
 load_dotenv()
@@ -446,6 +447,42 @@ async def full_registry_batch(request: Request, ingest_seconds: float = 20.0, an
     }
 
 
+# ── Real, scheduler-driven ERC-8183 job-index batch trigger (2026-08-28) ──
+# Real, standing gap this closes: core/revenue.py's "Revenue Stream" was
+# reusing core/agent_performance.py's WINDOW-bounded (most-recent-1,500)
+# job cache, which — live-confirmed — silently excluded ~97% of all real
+# job history on the shared AgenticCommerce contract (job_counter 56,665
+# vs. WINDOW 1,500). core/job_index.py builds a real, complete, persistent
+# index instead (a real, one-time linear backfill plus ongoing bounded
+# catch-up), same resumable/checkpointed shape as the full-registry
+# pipeline above. Kept as a SEPARATE endpoint/call (not folded into
+# /api/admin/full-registry-batch) so each individual HTTP call stays
+# safely inside the real, observed ~75s failure zone documented above —
+# .github/workflows/full-registry-batch.yml calls this as a second step
+# on the same schedule, same shared secret.
+@app.post("/api/admin/job-index-batch")
+async def job_index_batch(request: Request, index_seconds: float = 20.0, recheck_seconds: float = 10.0):
+    """Real, secret-gated trigger for one bounded batch of
+    core/job_index.py's real, complete ERC-8183 job index — see that
+    module's own docstring for the full real methodology (forward
+    backfill + bounded re-check of non-terminal jobs). Same real security
+    model as /api/admin/full-registry-batch (shared X-Batch-Secret,
+    fail-closed if BATCH_TRIGGER_SECRET isn't configured) — deliberately
+    reuses the exact same secret rather than introducing a second one,
+    since both routes protect the same real concern (an unauthenticated
+    public trigger for real, bounded backend work)."""
+    secret = os.environ.get("BATCH_TRIGGER_SECRET")
+    if not secret:
+        raise HTTPException(status_code=503, detail="BATCH_TRIGGER_SECRET is not configured on this service.")
+    if request.headers.get("X-Batch-Secret") != secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Batch-Secret header.")
+
+    result = await job_index.run_index_batch(
+        max_seconds=min(index_seconds, 120.0), recheck_seconds=min(recheck_seconds, 60.0),
+    )
+    return {"job_index": result, "triggered_at": time.time()}
+
+
 # ── Altana Skills Registry proxy ──
 # Real bug (2026-08-19): the frontend used to fetch
 # raw.githubusercontent.com/altananetwork/skills/main/index.json directly from
@@ -614,14 +651,19 @@ async def agent_perf(owner_address: str):
 @app.get("/api/agents/revenue")
 async def agent_revenue(owner_address: str):
     """Real "Revenue Stream" — how much this agent has actually,
-    verifiably earned as a real ERC-8183 provider, over time. See
-    core/revenue.py's own module docstring for the full real methodology:
-    reuses the exact same on-chain job scan /api/agents/performance
-    already does (zero extra RPC scan), sums real SUBMITTED/COMPLETED
-    job budgets into a real chronological timeline, and reads the real
-    ERC-8183 settlement token's own identity live (never hardcoded).
-    Always 200 with a real, honest {"has_earnings": ..., "reason": ...}
-    shape when there's nothing to show yet — never a fabricated number."""
+    verifiably earned as a real ERC-8183 provider, over time. Real, fixed
+    (2026-08-28): now reads core/job_index.py's own COMPLETE, persistent
+    job index — not core/agent_performance.py's WINDOW-bounded recent-jobs
+    cache /api/agents/performance uses — since a real scoping bug there
+    was confirmed to silently exclude ~97% of all real job history (see
+    core/revenue.py and core/job_index.py's own module docstrings, and
+    docs/verification-methodology.md, for the full real investigation).
+    Sums real SUBMITTED/COMPLETED job budgets into a real chronological
+    timeline, and reads the real ERC-8183 settlement token's own identity
+    live (never hardcoded). Always 200 with a real, honest {"has_earnings":
+    ..., "reason": ..., "index_completeness": {...}} shape — never a
+    fabricated number, and never implying the underlying index is complete
+    when a real backfill is still catching up."""
     try:
         return await revenue.get_revenue_timeline(owner_address)
     except Exception as e:

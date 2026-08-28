@@ -9,10 +9,15 @@
 // Real reason this exists (2026-08-28): this marketplace's own win-rate
 // stat is young and has had real bugs (the notify_funded authorization-
 // gate bug) fail real jobs for reasons unrelated to an agent's actual
-// quality. This gives the "Past Hires" section a second, real,
-// independently-sourced data point — protocol-wide activity, not limited to
-// hires that happened to go through this specific marketplace — shown
-// honestly alongside our own, never blended into one fabricated number.
+// quality. This gives the "Past Hires" (and, since 2026-08-28, Revenue
+// Stream) sections a second, real, independently-sourced data point —
+// shown honestly alongside our own, never blended into one fabricated
+// number. Real, honest correction (2026-08-28): this is NOT a complete
+// protocol-wide total — checked directly, TermiX's own numbers appear
+// scoped to activity through TermiX's own platform specifically (see
+// backend/adapters/termix.py's own docstring for the real, live evidence).
+// Still a real, useful, independent second opinion, just not a superior
+// or more-complete substitute for this marketplace's own on-chain data.
 //
 // Real scale, confirmed live (2026-08-28) by sampling TermiX's own
 // highest-activity real agents (620+ real completed jobs each): passRate is

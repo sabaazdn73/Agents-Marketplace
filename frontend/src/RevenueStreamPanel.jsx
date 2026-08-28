@@ -3,12 +3,19 @@
 // Real "Revenue Stream" — how much an agent has actually, verifiably
 // earned as a real ERC-8183 provider, over time. See
 // backend/core/revenue.py's own module docstring for the full real
-// methodology: reuses the exact same on-chain job scan
-// AgentMarketplaceApp's own "Past Hires" stats already fetch (zero extra
-// RPC scan on the backend), sums real SUBMITTED/COMPLETED job budgets
-// into a real chronological timeline, and shows the real ERC-8183
-// settlement token's own symbol — read live on the backend, never
-// hardcoded or guessed here.
+// methodology: sums real SUBMITTED/COMPLETED job budgets into a real
+// chronological timeline, and shows the real ERC-8183 settlement token's
+// own symbol — read live on the backend, never hardcoded or guessed here.
+//
+// Real, important correction (2026-08-28): this used to reuse
+// AgentMarketplaceApp's own "Past Hires" scan, which only looks at the
+// most recent 1,500 real job ids marketplace-wide — live-confirmed to
+// silently exclude ~97% of all real job history on the shared contract.
+// Now backed by backend/core/job_index.py's own real, COMPLETE job index
+// instead (see docs/verification-methodology.md for the full real
+// investigation and before/after numbers) — `index_completeness` in the
+// real response is always surfaced honestly below rather than implying a
+// number is final while a real backfill is still catching up.
 //
 // Deliberately NOT gated to Trading & DeFi — unlike PnLPanel.jsx and
 // OnchainPerformancePanel.jsx (both DeFi-specific questions: "did this
@@ -25,9 +32,18 @@
 // requirement this was built against: an agent with no real settled jobs
 // shows "$0 earned yet" plainly, never hidden and never a blank/
 // misleading state. Shared verbatim by web and mobile.
+//
+// Real, independent cross-reference (2026-08-28): also surfaces TermiX's
+// own AACP completedJobs/reputationScore for the same agent (reusing the
+// existing useTermixPerformance hook — zero new backend code) as one more
+// real, honestly-labeled data point, per the same "don't rely on our own
+// data alone" principle already applied to Historical on-chain
+// performance. NOT presented as a more-complete or protocol-wide total —
+// see useTermixPerformance.js's own real, corrected header for why.
 
 import React, { useEffect, useState } from 'react';
-import { Coins, Loader2, TrendingUp } from 'lucide-react';
+import { Coins, Loader2, TrendingUp, ShieldQuestion } from 'lucide-react';
+import { useTermixPerformance } from './useTermixPerformance';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -51,6 +67,25 @@ function fmtDate(unixSeconds) {
 // the real bundle-size cost (this app's build already warns about large
 // chunks). A plain SVG polyline over the real, already-computed
 // running_total values is enough to show a real growth trend at a glance.
+// Real, independent cross-reference row — TermiX's own AACP completedJobs
+// + reputationScore for the SAME agent, shown honestly as a differently-
+// scoped second opinion, never implied to be a more-complete or
+// protocol-wide total (see this file's own header, and
+// useTermixPerformance.js's real, corrected docstring, for why).
+function TermixCrossReference({ termix }) {
+  if (termix.status !== 'ready' || !termix.data?.available) return null;
+  const { completed_jobs, reputation_score } = termix.data;
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t border-indigo-100/60 dark:border-indigo-500/10">
+      <ShieldQuestion size={11} className="shrink-0" />
+      <span title="TermiX's own AACP registry, matched by this agent's real ERC-8004 token id — an independent, differently-scoped data point, not a complete protocol-wide total (it appears to reflect activity through TermiX's own platform specifically)">
+        Via TermiX's own registry: <strong className="text-gray-500 dark:text-gray-300">{completed_jobs}</strong> completed job{completed_jobs === 1 ? '' : 's'}
+        {reputation_score != null && <> · reputation <strong className="text-gray-500 dark:text-gray-300">{reputation_score}</strong>/100</>}
+      </span>
+    </div>
+  );
+}
+
 function RevenueSparkline({ timeline }) {
   if (timeline.length < 2) return null;
   const width = 260;
@@ -71,6 +106,7 @@ function RevenueSparkline({ timeline }) {
 
 export default function RevenueStreamPanel({ ownerAddress }) {
   const [state, setState] = useState({ status: 'loading' }); // loading | ready | error
+  const termix = useTermixPerformance(ownerAddress);
 
   const load = () => {
     setState({ status: 'loading' });
@@ -114,11 +150,12 @@ export default function RevenueStreamPanel({ ownerAddress }) {
         <p className="text-[11px] text-gray-400">
           {data?.reason || 'No real completed jobs yet — $0 earned so far.'}
         </p>
+        <TermixCrossReference termix={termix} />
       </div>
     );
   }
 
-  const { total_earned, token_symbol, timeline, jobs_counted, scanned_window } = data;
+  const { total_earned, token_symbol, timeline, jobs_counted, index_completeness } = data;
 
   return (
     <div className="mt-3 p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-500/5">
@@ -129,7 +166,10 @@ export default function RevenueStreamPanel({ ownerAddress }) {
         </span>
       </div>
       <p className="text-[10px] text-gray-400 mb-1">
-        Real, verifiably earned as a provider — {jobs_counted} real delivered job{jobs_counted === 1 ? '' : 's'} (SUBMITTED or COMPLETED), based on the last {scanned_window} jobs across the whole marketplace.
+        Real, verifiably earned as a provider — {jobs_counted} real delivered job{jobs_counted === 1 ? '' : 's'} (SUBMITTED or COMPLETED), against this agent's{' '}
+        {index_completeness?.complete
+          ? 'complete real on-chain job history'
+          : `real job history indexed so far (job #${index_completeness?.indexed_through_job_id?.toLocaleString()} of ${index_completeness?.job_counter?.toLocaleString()} — a real, one-time backfill is still catching up, more may appear as it completes)`}.
       </p>
 
       <RevenueSparkline timeline={timeline} />
@@ -153,6 +193,8 @@ export default function RevenueStreamPanel({ ownerAddress }) {
       <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
         <TrendingUp size={10} /> Real on-chain job budgets, in the real settlement token ({token_symbol}) — no USD conversion applied.
       </p>
+
+      <TermixCrossReference termix={termix} />
     </div>
   );
 }
