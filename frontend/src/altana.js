@@ -31,7 +31,7 @@ import {
   hireErc8183Agent, getErc8183Job, settleErc8183Job, getErc8183DeliverableUrl,
   erc8183Addresses,
 } from '@altananetwork/sdk';
-import { createPublicClient, http, hexToString } from 'viem';
+import { createPublicClient, http, hexToString, decodeAbiParameters, size } from 'viem';
 import { bsc } from 'viem/chains';
 import { negotiateJob, buildJobDescription, negotiatedPriceRaw, notifyFunded } from './erc8183Negotiate';
 
@@ -114,17 +114,113 @@ export function getMainnetReadClient() {
   return _mainnetPublicClient;
 }
 
+// Real, standard Panic(uint256) codes (Solidity's own, per the ABI spec) —
+// used by decodeAltanaExecutionError below so a Panic reason reads as
+// plain English, not a bare integer.
+const _PANIC_REASONS = {
+  0x01n: 'an assert() failed',
+  0x11n: 'arithmetic overflow/underflow',
+  0x12n: 'division or modulo by zero',
+  0x21n: 'an invalid enum value',
+  0x22n: 'invalid storage byte array access',
+  0x31n: 'pop() on an empty array',
+  0x32n: 'an out-of-bounds array/index access',
+  0x41n: 'out of memory',
+  0x51n: 'called an uninitialized internal function',
+};
+
+/**
+ * Real, honest decoding for a real Altana `execute()` failure — added
+ * 2026-08-28 after a real, confirmed incident: the Venus Lending skill
+ * failed with the SDK's own raw "An error occurred while executing
+ * calls. Reason: 0x Details: 0x" — traced (by reading the installed
+ * @altananetwork/sdk's own dist/execute.js and its `porto` dependency)
+ * to `ox`'s generic BaseError formatter, given a genuinely EMPTY revert
+ * (`0x`) by the relay. That's not a decoding gap on our side — `0x` really
+ * is the complete raw revert data the relay received — but this project's
+ * own code was never trying to decode anything BEYOND what the SDK
+ * already prints, so a real, decodable reason (when one exists) was
+ * silently treated the same as a genuinely empty one. This walks every
+ * real hex string found anywhere in the thrown error (message, `.data`,
+ * `.cause.data`, nested causes) and decodes the two real, standard
+ * Solidity revert shapes (`Error(string)` and `Panic(uint256)`) when
+ * present, returning a real, human-readable reason. Genuinely empty
+ * revert data (`0x`, confirmed real length 0) is reported as exactly
+ * that — an honest "no on-chain reason at all" finding, most consistent
+ * with a session/permission-scope rejection or an out-of-gas condition
+ * (see docs/venus-skill-revert-investigation.md), never guessed at
+ * further than the real evidence supports.
+ */
+export function decodeAltanaExecutionError(error) {
+  const rawStrings = [];
+  let cur = error;
+  let depth = 0;
+  while (cur && depth < 6) {
+    if (typeof cur.data === 'string') rawStrings.push(cur.data);
+    if (typeof cur.message === 'string') rawStrings.push(cur.message);
+    if (typeof cur.details === 'string') rawStrings.push(cur.details);
+    cur = cur.cause;
+    depth += 1;
+  }
+
+  // Real hex blobs found anywhere above, longest first (a short "0x" is
+  // never worth preferring over a real, longer, potentially-decodable one).
+  const hexMatches = rawStrings
+    .flatMap((s) => s.match(/0x[0-9a-fA-F]*/g) || [])
+    .filter((h) => h.length > 2) // strip bare "0x" matches here; handled as the explicit empty case below
+    .sort((a, b) => b.length - a.length);
+
+  for (const hex of hexMatches) {
+    try {
+      if (size(hex) < 4) continue;
+      const selector = hex.slice(0, 10);
+      const rest = `0x${hex.slice(10)}`;
+      if (selector === '0x08c379a0') {
+        const [reason] = decodeAbiParameters([{ type: 'string' }], rest);
+        return { decoded: true, reason: `Real, on-chain revert reason: "${reason}"` };
+      }
+      if (selector === '0x4e487b71') {
+        const [code] = decodeAbiParameters([{ type: 'uint256' }], rest);
+        return { decoded: true, reason: `Real Solidity panic (code 0x${code.toString(16)}): ${_PANIC_REASONS[code] || 'an internal check failed'}.` };
+      }
+    } catch {
+      // Not a decodable shape at this hex candidate — real, honest fall-through to the next one.
+    }
+  }
+
+  // Every real hex candidate found was either literally "0x" or an
+  // unrecognized custom-error selector we have no real ABI for.
+  const hadAnyData = rawStrings.some((s) => /0x[0-9a-fA-F]{2,}/.test(s));
+  return {
+    decoded: false,
+    reason: hadAnyData
+      ? 'This call reverted with real revert data we don’t have a matching ABI to decode (a custom error, not a plain string or panic).'
+      : 'This call reverted with genuinely NO on-chain reason at all (empty revert data) — most consistent with the session’s own permission/scope check rejecting the call before it ever reached the target contract, or an out-of-gas condition, rather than the target contract itself rejecting it.',
+  };
+}
+
 /**
  * Real executor ({ walletAddress, publicClient, execute(calls) }) — writes go
  * through the granted Altana session (one atomic relay intent), reads use
- * BSC mainnet.
+ * BSC mainnet. Real, added 2026-08-28: execute() failures now carry a real
+ * `.realReason` (see decodeAltanaExecutionError above) alongside the
+ * SDK's own original message — never replacing it, always additive, so a
+ * genuinely undecodable error still shows the SDK's own real text too.
  */
 export function getAltanaExecutor(session) {
   return {
     mode: 'real',
     walletAddress: session.walletAddress,
     publicClient: _mainnetPublicClient,
-    execute: (calls) => client.execute({ session, calls }),
+    execute: async (calls) => {
+      try {
+        return await client.execute({ session, calls });
+      } catch (e) {
+        const { reason } = decodeAltanaExecutionError(e);
+        e.realReason = reason;
+        throw e;
+      }
+    },
   };
 }
 

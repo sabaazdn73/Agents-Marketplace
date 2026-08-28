@@ -22,7 +22,11 @@ const VENUS_ABI = parseAbi([
   'function redeem(uint256 vTokenAmount) returns (uint256)',
   'function balanceOf(address) view returns (uint256)',
 ]);
-const ERC20_ABI = parseAbi(['function approve(address spender, uint256 amount) returns (bool)']);
+const ERC20_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+]);
 
 export async function venusSupply(executor, { usdtAmount }) {
   const amountRaw = BigInt(Math.round(usdtAmount * 1e18)); // USDT is 18 decimals on BSC, per the skill's own note
@@ -33,6 +37,41 @@ export async function venusSupply(executor, { usdtAmount }) {
   // balances after." This function does the calls; the caller is responsible
   // for the post-call balance check.
   return executor.execute([{ to: USDT_BSC, data: approveCalldata }, { to: VENUS_VUSDT, data: mintCalldata }]);
+}
+
+/**
+ * Real, read-only pre-flight diagnostic — added 2026-08-28 after a real,
+ * confirmed incident: a Venus Lending skill attempt failed with a raw,
+ * reason-less relay revert ("Reason: 0x Details: 0x"). Live investigation
+ * that session (see docs/venus-skill-revert-investigation.md) directly
+ * ruled out a real decimal/amount-encoding mismatch, the real vUSDT
+ * market being paused, and the real supply cap being hit — all confirmed
+ * via live on-chain reads, not assumed — but couldn't check the one real
+ * remaining, wallet-specific hypothesis (insufficient real balance/
+ * allowance) without the actual failing wallet address. This gives that
+ * exact real check, cheaply, BEFORE a real attempt — never blocks a
+ * genuinely-fine attempt, only surfaces a real, concrete, human-readable
+ * warning when the wallet's own real on-chain state would make it fail.
+ */
+export async function venusSupplyPreflight(readClient, walletAddress, usdtAmount) {
+  const amountRaw = BigInt(Math.round(usdtAmount * 1e18));
+  const [realBalance, realBnbBalance] = await Promise.all([
+    readClient.readContract({ address: USDT_BSC, abi: ERC20_ABI, functionName: 'balanceOf', args: [walletAddress] }),
+    readClient.getBalance({ address: walletAddress }),
+  ]);
+  const problems = [];
+  if (realBalance < amountRaw) {
+    problems.push(`This wallet's real USDT balance (${(Number(realBalance) / 1e18).toLocaleString()} USDT) is less than the ${usdtAmount.toLocaleString()} USDT you're trying to supply.`);
+  }
+  if (realBnbBalance === 0n) {
+    problems.push("This wallet's real BNB balance is 0 — even a session-relayed transaction needs some real gas behind it, depending on how the relay sponsors fees.");
+  }
+  return {
+    ok: problems.length === 0,
+    problems,
+    realUsdtBalance: Number(realBalance) / 1e18,
+    realBnbBalance: Number(realBnbBalance) / 1e18,
+  };
 }
 
 export async function venusWithdraw(executor, { usdtAmount, withdrawAll = false }) {

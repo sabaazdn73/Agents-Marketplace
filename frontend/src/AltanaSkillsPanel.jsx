@@ -16,7 +16,7 @@ import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight } from 'lucide-r
 import { PERMIT2_ADDRESS } from '@altananetwork/sdk';
 import { getOrCreateAltanaWallet, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
 import { executeEnterPosition, PANCAKESWAP_ROUTER, WBNB, USDT_BSC } from './pancakeswapSkill';
-import { venusSupply, aaveSupply, listaStake, pancakeAddLiquidity, VENUS_VUSDT, AAVE_POOL, LISTA_MANAGER } from './defiSkills';
+import { venusSupply, venusSupplyPreflight, aaveSupply, listaStake, pancakeAddLiquidity, VENUS_VUSDT, AAVE_POOL, LISTA_MANAGER } from './defiSkills';
 import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeSkill';
 import { detectLeaderTrades } from './copyTradeSkill';
 import { payOnce } from './x402Skill';
@@ -54,6 +54,12 @@ const SKILL_EXEC = {
     play: 'supply', contracts: [VENUS_VUSDT, USDT_BSC], spendToken: USDT_BSC,
     ready: (v) => v.amountUsdt,
     run: (ex, v) => venusSupply(ex, { usdtAmount: Number(v.amountUsdt) }),
+    // Real, added 2026-08-28 (see defiSkills.js's own docstring for the
+    // full real incident this came from) — a real, read-only balance/gas
+    // check right before a real attempt. Never blocks; just surfaces a
+    // real, concrete reason a doomed attempt would fail, instead of
+    // letting it hit the relay and come back as a raw "0x/0x" revert.
+    preflight: (readClient, walletAddress, v) => venusSupplyPreflight(readClient, walletAddress, Number(v.amountUsdt)),
   },
   'aave-v3-lending': {
     play: 'supply', contracts: [AAVE_POOL, USDT_BSC], spendToken: USDT_BSC,
@@ -223,6 +229,27 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       // ── Transaction skills: passkey wallet + a real, scoped on-chain Altana session ──
       setStep('wallet');
       const wallet = await getOrCreateAltanaWallet();
+
+      // Real, added 2026-08-28 — see defiSkills.js's own docstring for the
+      // full real incident this came from. A real, read-only check against
+      // this exact wallet's own real on-chain state, before spending a
+      // real session grant + relay attempt on something already known to
+      // fail. Stops here ONLY on a real, high-confidence finding (this
+      // exact wallet's own real balance is genuinely insufficient) — real,
+      // wasted gas/relay cost otherwise, for an attempt that couldn't have
+      // succeeded regardless. Doesn't rule out every real cause (e.g. a
+      // session-scope rejection isn't checkable this way), so a clean
+      // preflight never claims the real attempt WILL succeed, only that
+      // this specific, checkable real reason isn't why it would fail.
+      if (exec.preflight) {
+        const pre = await exec.preflight(getMainnetReadClient(), wallet.address, values);
+        if (!pre.ok) {
+          setStep('error');
+          setError(`Real, current issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+          return;
+        }
+      }
+
       setStep('granting');
       const s = await grantSkillSession(wallet, wallet.signer, {
         contractAddresses: exec.contracts || [], spendToken: exec.spendToken,
@@ -239,7 +266,12 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       setStep('done');
     } catch (e) {
       setStep('error');
-      setError(e.message || String(e));
+      // Real, added 2026-08-28 (see altana.js's decodeAltanaExecutionError):
+      // a real execute() failure now carries a real, decoded `.realReason`
+      // alongside its own original message — shown first when present,
+      // since it's the more real, specific, actionable finding; the raw
+      // SDK message stays too, never hidden.
+      setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
 
