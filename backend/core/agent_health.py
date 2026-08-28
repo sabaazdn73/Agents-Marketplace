@@ -279,14 +279,23 @@ async def _check_one(agent: dict, uri: str | None, client: httpx.AsyncClient, se
         }
 
 
-async def check_agents_health(agents: list[dict]) -> dict[str, dict]:
+async def check_agents_health(agents: list[dict], limit: int | None = None) -> dict[str, dict]:
     """Real health-check pass over `agents` (each needs id/token_id at
     minimum). Skips any agent whose service_checked_at is still within
     HEALTH_TTL_SECONDS (already fresh — no need to re-probe). Returns a
     dict keyed by agent `id` with the fields to $set on that document;
     agents that were skipped (still fresh) are simply absent from the
     result, so the caller's merge leaves their existing real data alone.
-    """
+
+    Real, added safety bound (2026-08-28, found while building a real,
+    independent health-check batch endpoint): with no `limit`, this is
+    genuinely unbounded — if a real, large share of the store is stale at
+    once (e.g. after a real refresh outage), a single real call could try
+    to probe thousands of real endpoints at once. `limit` (optional, so
+    every existing real caller's behavior is unchanged) caps how many
+    real, stale candidates get checked in ONE call — same bounded-batch
+    discipline already used everywhere else this session
+    (full_registry_ingest.py, job_index.py)."""
     now = time.time()
     to_check = [
         a for a in agents
@@ -295,6 +304,8 @@ async def check_agents_health(agents: list[dict]) -> dict[str, dict]:
     ]
     if not to_check:
         return {}
+    if limit is not None:
+        to_check = to_check[:limit]
 
     id_to_token = {}
     for a in to_check:

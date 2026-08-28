@@ -19,10 +19,10 @@
 // substitution. Every real transaction hash below links out to BscScan's
 // own free, public explorer UI so a user can independently verify it
 // there directly, with no API key needed — the real, honest way this
-// still delivers the original philosophical point (independently
-// verifiable, not filtered through 8004scan's or TermiX's own curated
-// registries) even though the DATA itself comes from Zerion's own real
-// index, not raw BscScan API calls.
+// still delivers the original real point (every real transaction here is
+// independently, directly verifiable on the chain itself) even though
+// this specific view's data comes from Zerion's own real index, not raw
+// BscScan API calls.
 //
 // Deliberately opt-in (a button, not auto-fetched) — same real Zerion-
 // quota discipline as WalletPortfolioPanel.jsx/PnLPanel.jsx/
@@ -129,7 +129,7 @@ export default function OnchainHistoryPanel({ ownerAddress }) {
       </div>
 
       <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
-        Everything this wallet has genuinely done on BSC — not filtered through this marketplace, 8004scan, or TermiX. Each transaction links to BscScan, BNB Chain's own free public explorer, so you can verify it independently yourself.
+        Every real transaction type this wallet has made on BSC — sends, receives, trades, contract calls. Each one links to BscScan, BNB Chain's own free public explorer, so you can verify it directly yourself.
         {has_more && ' Showing the most recent activity fetched — this wallet has more real history beyond what was pulled here.'}
       </p>
 

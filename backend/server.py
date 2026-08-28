@@ -484,6 +484,45 @@ async def job_index_batch(request: Request, index_seconds: float = 20.0, recheck
     return {"job_index": result, "triggered_at": time.time()}
 
 
+# ── Real, independent Live Status reliability pass (2026-08-28) ──
+# Real, confirmed gap this closes: the marketplace's own service-health
+# check (agent_health.check_agents_health) previously only ran as a side
+# effect of _refresh_into_store's own much heavier, real full-registry-
+# backed refresh — the exact same real path confirmed this session to
+# repeatedly OOM-crash under real memory pressure (see
+# core/aggregate.py's own real fix commits). When that heavier refresh
+# fails partway through, the health-check pass never runs either that
+# cycle, silently letting Live Status go stale for however long the
+# crash-loop persists. This endpoint decouples the two: a real, cheap,
+# independent pass over the ALREADY-diversified known_agents store
+# (agent_store.get_stored_agents() — no 64,000+-doc raw pool involved),
+# re-checking only agents whose service_status is stale
+# (agent_health.py's own real 20-minute TTL, unchanged — a safe, cheap
+# no-op for anything already fresh). Same real security model as the
+# sibling batch endpoints (shared X-Batch-Secret).
+@app.post("/api/admin/health-check-batch")
+async def health_check_batch(request: Request, batch_limit: int = 500):
+    secret = os.environ.get("BATCH_TRIGGER_SECRET")
+    if not secret:
+        raise HTTPException(status_code=503, detail="BATCH_TRIGGER_SECRET is not configured on this service.")
+    if request.headers.get("X-Batch-Secret") != secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Batch-Secret header.")
+
+    # Real, deliberate bound (found live: check_agents_health is genuinely
+    # unbounded without one — a real, large stale share of the store could
+    # otherwise try to probe thousands of real endpoints in one call).
+    # 500/run at a 20-minute TTL comfortably keeps pace with a
+    # ~14,000-agent real store on the same 6-hour schedule as the sibling
+    # batch endpoints.
+    served = await agent_store.get_stored_agents()
+    health_results = await agent_health.check_agents_health(served, limit=min(batch_limit, 1000))
+    updated = await agent_store.update_agent_health(health_results) if health_results else 0
+    return {
+        "candidates": len(served), "real_checks_run": len(health_results), "updated": updated,
+        "triggered_at": time.time(),
+    }
+
+
 # ── Altana Skills Registry proxy ──
 # Real bug (2026-08-19): the frontend used to fetch
 # raw.githubusercontent.com/altananetwork/skills/main/index.json directly from

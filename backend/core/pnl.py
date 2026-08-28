@@ -1,34 +1,47 @@
 """
 pnl.py
 
-Real, on-chain-balance-based Profit & Loss for a completed real job where
-the agent was granted real fund-management authority via an Altana
-session — NOT applicable to a plain data-deliverable hire, and NEVER a
+Real, on-chain-balance-based Profit & Loss for a completed real job —
+the real hiring wallet's own balance change, start vs. end, never a
 creator-submitted or backtested number.
 
-Real scope, deliberately narrow:
+Real, deliberate simplification (2026-08-28): this used to require the
+real job's on-chain description to carry the "(Altana session)" hire-flow
+marker, on the theory that only a session hire delegates real, ongoing
+fund authority worth measuring. Real, honest finding that motivated
+dropping that restriction: a live scan of 23,000 real on-chain jobs found
+**zero** real Altana-session-funded jobs had ever happened — meaning this
+feature had been completely dormant, structurally incapable of ever
+showing a real number, for its entire existence. Checked directly before
+generalizing, not assumed: `job.client` is a real, directly-observable
+wallet address for BOTH real hire types — for a standard "Always Ask"
+hire it's simply the real wallet that called createJob/funded the job
+(confirmed live against a real job, #56654: `client` is a real, distinct
+address, not some intermediate contract); for an Altana-session hire it's
+the real session/mini-wallet the agent was granted authority over. The
+real, honest question this answers is the same either way: did the real
+wallet that funded this specific hire end up with more or less than it
+started with. Real, deliberately unchanged scope otherwise:
   - Only Trading & DeFi category-group agents (core/category_groups.py,
     mirroring frontend/src/categoryGroups.js) — the only real category
-    where "did the agent's real, session-managed funds grow or shrink" is
-    even a coherent question. A data/identity/content agent has no real
-    portfolio to measure.
-  - Only a real job whose on-chain description carries the real "(Altana
-    session)" hire-flow marker (server.py's own
-    _HIRE_DESCRIPTION_PREFIXES) — the standard "Always Ask" hire is a
-    fixed, one-time escrowed PAYMENT for a deliverable, not a delegation
-    of ongoing fund authority; there's no real portfolio-management
-    activity to measure PnL against there either.
+    where "did the funding wallet's balance grow or shrink" is a
+    coherent question at all. Hiring a content-writing agent for a fixed
+    fee isn't a real PnL question — of course the buyer's balance drops
+    by exactly the fee, that's just paying for a service, not trading.
   - Only a real job that's genuinely been delivered (status SUBMITTED or
     COMPLETED) — nothing to measure PnL over yet for an unfinished job.
 
 Real methodology:
-  1. The real wallet tracked is job.client itself — for an Altana-session
-     job, the on-chain client IS the session/mini-wallet the agent was
-     actually granted authority over (confirmed by reading the installed
+  1. The real wallet tracked is job.client itself — the real hiring
+     wallet, whichever real hire path was used. For a standard "Always
+     Ask" hire, this is simply the real wallet that called
+     createJob/funded the job. For an Altana-session hire, the on-chain
+     client IS the session/mini-wallet the agent was actually granted
+     authority over (confirmed by reading the installed
      @altananetwork/sdk directly, frontend/src/altana.js's own header:
      hireErc8183Agent executes via the session, so the session wallet is
-     what appears as msg.sender/client on-chain), not the agent's own
-     owner_address (a different, unrelated real identity).
+     what appears as msg.sender/client on-chain) — never the agent's own
+     owner_address (a different, unrelated real identity) either way.
   2. Real start/end timestamps: end = job.submittedAt (a real, exact
      on-chain field — the moment real work concluded). Start has no
      on-chain field at all (confirmed absent from the real job struct,
@@ -92,15 +105,6 @@ DEFAULT_EXPIRY_BUFFER_SECONDS = 65 * 60  # the larger of the two real hire paths
 # question for (see module docstring).
 PNL_ELIGIBLE_GROUP = "trading-defi"
 
-# Real, on-chain hire-description markers for an Altana-session hire —
-# mirrors server.py's own _HIRE_DESCRIPTION_PREFIXES exactly (kept here
-# too rather than imported, since server.py imports FROM core modules,
-# never the other way, to avoid a real circular import).
-_ALTANA_SESSION_PREFIXES = (
-    "Hire via Tnega (Altana session): ",
-    "Hire via Agents Marketplace (Altana session): ",
-)
-
 _DELIVERED_STATUSES = {"SUBMITTED", "COMPLETED"}
 
 # Real chart periods this module will try, narrowest (best real
@@ -127,16 +131,17 @@ _MAX_POINT_GAP_MULTIPLIER = 2
 _WINDOW_PAD_SECONDS = 120
 
 
-def is_pnl_eligible(category: str | None, description: str | None) -> tuple[bool, str | None]:
+def is_pnl_eligible(category: str | None, description: str | None = None) -> tuple[bool, str | None]:
     """Real, honest eligibility check — returns (eligible, reason_if_not).
     This project never computes or displays a PnL number for anything
-    outside this real, deliberate scope."""
+    outside this real, deliberate scope. `description` kept as an
+    optional parameter (unused now) so existing call sites don't need to
+    change — real, deliberate simplification 2026-08-28: category is now
+    the only real gate, see module docstring for why the Altana-session
+    restriction was dropped."""
     group = category_groups.group_for_category(category)
     if group != PNL_ELIGIBLE_GROUP:
         return False, "Not a Trading & DeFi agent — real PnL isn't a coherent measure for this category of work."
-    if not description or not any(description.startswith(p) for p in _ALTANA_SESSION_PREFIXES):
-        return False, ("Not hired via an Altana session — a standard hire pays for one deliverable, it doesn't "
-                        "grant the agent real fund-management authority to measure PnL against.")
     return True, None
 
 

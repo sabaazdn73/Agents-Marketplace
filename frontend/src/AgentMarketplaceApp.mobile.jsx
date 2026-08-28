@@ -15,7 +15,6 @@ import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote,
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
-import AgentGuidancePanel from './AgentGuidancePanel';
 import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import AltanaSessionPanel from './AltanaSessionPanel';
@@ -28,7 +27,6 @@ import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
-import { getReliabilityHint } from './agentReliability';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -36,16 +34,11 @@ import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } fro
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
 import InfoTooltip from './InfoTooltip';
-import TermixPerformancePanel from './TermixPerformancePanel';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
-import WalletPortfolioPanel from './WalletPortfolioPanel';
-import OnchainHistoryPanel from './OnchainHistoryPanel';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import AgentEvaluationSection from './AgentEvaluationSection';
-import PnLPanel from './PnLPanel';
-import OnchainPerformancePanel from './OnchainPerformancePanel';
-import RevenueStreamPanel from './RevenueStreamPanel';
+import AgentInvestigationSection from './AgentInvestigationSection';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
@@ -334,92 +327,6 @@ function SplashScreen({ onUnlock }) {
 
 const BSCSCAN = 'https://bscscan.com';
 
-// Real per-agent track record from on-chain ERC-8183 jobs (mobile equivalent).
-// Real bug fixed 2026-08-21 — see the matching comment on AgentPerformance
-// (web) in AgentMarketplaceApp.web.jsx: this fetch had no client-side
-// timeout, so a slow/stalled response could leave "loading" stuck forever.
-const AGENT_PERFORMANCE_FETCH_TIMEOUT_MS_MOBILE = 20_000;
-
-function AgentPerformanceMobile({ agent, onTrySkill }) {
-  const ownerAddress = agent.ownerAddress;
-  // Real, honest context for the zero-hire state below — see the matching
-  // comment on AgentPerformance (web).
-  const { data: escrowData } = useEscrowCompatibility(ownerAddress);
-  const [perf, setPerf] = useState(null);
-  const [state, setState] = useState('loading');
-  const [retryTick, setRetryTick] = useState(0);
-  useEffect(() => {
-    if (!ownerAddress) { setState('ready'); return; }
-    let cancelled = false;
-    setState('loading');
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), AGENT_PERFORMANCE_FETCH_TIMEOUT_MS_MOBILE);
-    fetch(`${API_BASE_URL}/api/agents/performance?owner_address=${ownerAddress}`, { signal: controller.signal })
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((d) => { if (!cancelled) { setPerf(d); setState('ready'); } })
-      .catch(() => { if (!cancelled) setState('error'); })
-      .finally(() => clearTimeout(timeout));
-    return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
-  }, [ownerAddress, retryTick]);
-  return (
-    <div className="mt-4">
-      <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Activity size={13} /> Past Hires</h3>
-      {state === 'loading' && <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Looking up this agent's hire history…</div>}
-      {state === 'error' && (
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          Couldn't look up this agent's hire history right now.
-          <button onClick={() => setRetryTick((t) => t + 1)} className="text-indigo-500 font-medium underline">Try again</button>
-        </div>
-      )}
-      {state === 'ready' && (!perf || !perf.hired) ? (
-        <>
-          <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" onTrySkill={onTrySkill} />
-          {perf && (
-            <p className="text-[10px] text-gray-400 mt-1.5">
-              {escrowData?.escrow_incompatible
-                ? "This agent doesn't operate through Tnega's on-chain escrow, so no real hire history is expected here — see below for how we evaluate it instead."
-                : (perf.note || "No real hire history found for this agent yet — it may just be new.")}
-            </p>
-          )}
-        </>
-      ) : state === 'ready' && perf?.hired ? (
-        <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">On this marketplace</div>
-          <div className="flex items-center gap-4 mb-1">
-            <div title="How many times people have hired this agent"><span className="text-lg font-bold" style={{ color: '#4F46E5' }}>{perf.hire_count}</span> <span className="text-[10px] text-gray-500 uppercase">hires</span></div>
-            <div title="Out of finished jobs, how many succeeded"><span className="text-lg font-bold">{perf.completion_rate != null ? `${Math.round(perf.completion_rate * 100)}%` : '—'}</span> <span className="text-[10px] text-gray-500 uppercase">succeeded</span></div>
-            <div title="Jobs still underway"><span className="text-lg font-bold">{perf.active}</span> <span className="text-[10px] text-gray-500 uppercase">in progress</span></div>
-          </div>
-          <div className="text-[10px] text-gray-500" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished by the deadline.">Finished {perf.completed} · Rejected by buyer {perf.rejected} · Missed deadline {perf.expired}. {perf.note}</div>
-          {/* Real, data-driven reliability hint — see agentReliability.js. */}
-          {(() => {
-            const hint = getReliabilityHint(perf);
-            return hint ? (
-              <div className="mt-2.5 flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300">
-                <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                <span>{hint.message}</span>
-              </div>
-            ) : null;
-          })()}
-          {/* Real, honest context (2026-08-28) — see the matching comment on
-              AgentPerformance (web). */}
-          <p className="mt-2 text-[10px] text-gray-400 leading-relaxed">
-            This marketplace is new — a low number here may reflect limited activity or platform issues rather than the agent's real quality. Check the protocol-wide numbers below too.
-          </p>
-        </div>
-      ) : null}
-
-      {/* Real "Revenue Stream" — see the matching comment on
-          AgentPerformance (web) / RevenueStreamPanel.jsx's own header. */}
-      <RevenueStreamPanel ownerAddress={ownerAddress} />
-
-      {/* Real, independent, protocol-wide data point — see the matching
-          comment on AgentPerformance (web). */}
-      <TermixPerformancePanel ownerAddress={ownerAddress} className="mt-2.5" />
-    </div>
-  );
-}
-
 // Full agent detail — a full-screen push (matching the hire flow), showing
 // everything the aggregated data holds for one agent.
 function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
@@ -501,12 +408,10 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
-        <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
-        <OnchainHistoryPanel ownerAddress={agent.ownerAddress} />
-        <PnLPanel ownerAddress={agent.ownerAddress} category={agent.category} />
-        <OnchainPerformancePanel ownerAddress={agent.ownerAddress} category={agent.category} />
-
-        <AgentPerformanceMobile agent={agent} onTrySkill={onTrySkill} />
+        {/* Real, unified "Agent Investigation" — see the matching comment
+            on AgentDetail (web) / AgentInvestigationSection.jsx's own
+            header for the full real redesign rationale. */}
+        <AgentInvestigationSection agent={agent} onTrySkill={onTrySkill} />
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
