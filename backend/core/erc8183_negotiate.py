@@ -184,13 +184,49 @@ async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) 
             card = resp.json()
         except Exception:
             continue
-        rpc_url = card.get("url")
-        # Real SSRF guard, second hop — the card's own claimed `url` is
-        # JUST as attacker-controlled as service_endpoint itself (see
-        # module docstring), so it gets the exact same real check before
-        # ever being added as something we'll later POST to.
-        if isinstance(rpc_url, str) and rpc_url and rpc_url not in candidates and _is_safe_url(rpc_url):
-            candidates.append(rpc_url)
+
+        # Real, genuine bug found and fixed (2026-08-28, during the full
+        # marketplace-wide escrow-compatibility audit that followed the
+        # Sentinels Audit incident): only ever read a real card's
+        # TOP-LEVEL `url` field. Real, confirmed live miss: BNB Lending
+        # Guardian's and BNB Yield Optimizer's own real, live agent-cards
+        # (both fully functioning, real HTTP 200 JSON-RPC endpoints,
+        # confirmed live) don't have a top-level `url` at all — they use
+        # the real, also-valid `supportedInterfaces: [{url, ...}]` card
+        # shape instead, a genuinely different real convention this
+        # module never accounted for. Both agents were being flagged
+        # escrow-incompatible (a real HTTP 404 on the registered
+        # `service_endpoint` and the bare origin — neither is the real,
+        # correct endpoint) purely because this parsing gap meant their
+        # own card's real, correct URL was never even tried. Now checks
+        # both real shapes: the top-level `url` (unchanged, still tried
+        # first) and every real, safe URL found in `supportedInterfaces`.
+        candidate_urls = []
+        top_level_url = card.get("url")
+        if isinstance(top_level_url, str) and top_level_url:
+            candidate_urls.append(top_level_url)
+        for iface in (card.get("supportedInterfaces") or []):
+            if isinstance(iface, dict):
+                iface_url = iface.get("url")
+                if isinstance(iface_url, str) and iface_url:
+                    candidate_urls.append(iface_url)
+
+        for rpc_url in candidate_urls:
+            # Real, genuine fix found alongside the supportedInterfaces gap
+            # above: BNB Lending Guardian's/BNB Yield Optimizer's own real
+            # card declares its interface as a plain `http://` URL even
+            # though the real, live service only actually answers over
+            # https (confirmed live: the plain http:// URL 301-redirects
+            # straight to the https one). Upgrading the scheme here when
+            # the ORIGINAL service_endpoint was already https is a real,
+            # safe heuristic — never downgrades security, and avoids
+            # relying on probe_a2a_protocol's own (also real, separately
+            # fixed below) 3xx handling to recover the same real result
+            # the hard way.
+            if rpc_url.startswith("http://") and parsed.scheme == "https":
+                rpc_url = "https://" + rpc_url[len("http://"):]
+            if rpc_url not in candidates and _is_safe_url(rpc_url):
+                candidates.append(rpc_url)
         break  # first real card fetch that succeeds is enough
 
     return candidates
@@ -387,6 +423,26 @@ async def probe_a2a_protocol(service_endpoint: str) -> dict:
                 if resp.status_code in _AUTH_GATED_STATUSES:
                     saw_only_transport_or_rejection = False
                     evidence.append(f"{rpc_url} ({shape} part): real HTTP {resp.status_code} — real auth-gated, not a protocol rejection")
+                    continue
+                if 300 <= resp.status_code < 400:
+                    # Real, genuine bug found and fixed (2026-08-28, full
+                    # marketplace audit): a real 3xx (this probe never
+                    # follows redirects — see follow_redirects=False above
+                    # and the module docstring's own SSRF reasoning) used
+                    # to fall straight into the "non-JSON body" except
+                    # branch below and get counted as a real, hard
+                    # rejection — wrong. A redirect says nothing about
+                    # whether the protocol is understood, only that this
+                    # exact URL/scheme isn't the final one (real, confirmed
+                    # live example: BNB Lending Guardian's card-declared
+                    # http:// interface 301-redirecting to a real, working
+                    # https:// endpoint — now separately handled by a real
+                    # scheme-upgrade in _jsonrpc_candidates above, but this
+                    # endpoint's own real HARD REJECTION verdict must never
+                    # depend on that heuristic catching every real case).
+                    # Genuinely ambiguous, same treatment as auth-gated.
+                    saw_only_transport_or_rejection = False
+                    evidence.append(f"{rpc_url} ({shape} part): real HTTP {resp.status_code} redirect (not followed) — inconclusive, not a protocol rejection")
                     continue
 
                 try:

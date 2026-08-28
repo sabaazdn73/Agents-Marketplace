@@ -43,6 +43,7 @@ from core import agent_performance
 from core import agent_health
 from core import erc8183_negotiate
 from core import protocol_compat
+from core import escrow_compat_audit
 from core import deliverable_proxy
 from core import status_checks
 from adapters import zerion
@@ -551,6 +552,31 @@ async def solana_registry_batch(request: Request, ingest_seconds: float = 45.0):
 
     result = await full_registry_ingest.run_solana_ingest_batch(api_key, max_seconds=min(ingest_seconds, 120.0))
     return {"solana_ingest": result, "triggered_at": time.time()}
+
+
+# ── Real, marketplace-wide escrow-compatibility audit batch (2026-08-28) ──
+# Real, urgent gap this closes: the Sentinels Audit incident (a genuinely
+# escrow-compatible agent shown live as incompatible, root-caused to a
+# real owner-lookup bug — see _resolve_agent above) raised the real,
+# honest question of whether it was the only real misclassification live
+# on the site. There was no way to answer that: /api/agents/escrow-
+# compatibility only ever computed one agent's result, live, on request —
+# nothing persisted a marketplace-wide picture. This batch does, the same
+# real, resumable, checkpointed way as the sibling batch endpoints above
+# — see core/escrow_compat_audit.py's own docstring for the full real
+# scale/ordering reasoning (6,846 real, currently-responding agents,
+# 6,287 real distinct endpoints, long-tail agents always audited before
+# the two dominant mass-registration platforms).
+@app.post("/api/admin/escrow-compat-audit-batch")
+async def escrow_compat_audit_batch(request: Request, audit_seconds: float = 90.0):
+    secret = os.environ.get("BATCH_TRIGGER_SECRET")
+    if not secret:
+        raise HTTPException(status_code=503, detail="BATCH_TRIGGER_SECRET is not configured on this service.")
+    if request.headers.get("X-Batch-Secret") != secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Batch-Secret header.")
+
+    result = await escrow_compat_audit.run_audit_batch(max_seconds=min(audit_seconds, 120.0))
+    return {"escrow_compat_audit": result, "triggered_at": time.time()}
 
 
 # ── Altana Skills Registry proxy ──
@@ -1152,10 +1178,32 @@ async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = 
     which real agent it means — see _resolve_agent above. Every real
     frontend call site was updated to always send it; owner_address-only
     callers still get a real, best-effort (if ambiguous) answer rather
-    than a hard break."""
+    than a hard break.
+
+    Real, added serving path (2026-08-28, see core/escrow_compat_audit.py):
+    if this exact agent has already been covered by the real, persistent,
+    marketplace-wide audit batch (a real `escrow_compat_checked_at` on its
+    own known_agents doc, still within that module's own real TTL), serve
+    that ALREADY-COMPUTED real result directly — instant, no live network
+    probe needed on this request at all. Falls back to a real, live
+    compute (unchanged from before) for any agent the batch hasn't reached
+    yet, or whose persisted result has gone stale — this endpoint's real,
+    honest behavior for an unaudited agent is exactly what it always was."""
     agent = await _resolve_agent(owner_address, agent_id)
     if not agent:
         return {"escrow_incompatible": False, "confidence": None, "evidence": ["No agent on record for this owner_address."], "external_link": None}
+
+    checked_at = agent.get("escrow_compat_checked_at")
+    if checked_at is not None and time.time() - checked_at < escrow_compat_audit.AUDIT_TTL_SECONDS:
+        return {
+            "escrow_incompatible": agent.get("escrow_compat_incompatible", False),
+            "confidence": "high" if agent.get("escrow_compat_incompatible") else None,
+            "evidence": agent.get("escrow_compat_evidence", []),
+            "external_link": agent.get("escrow_compat_external_link"),
+            "auth_gated": agent.get("escrow_compat_auth_gated", False),
+            "different_protocol": agent.get("escrow_compat_different_protocol", False),
+            "offers_x402_alternative": agent.get("escrow_compat_offers_x402", False),
+        }
 
     service_endpoint = agent.get("service_endpoint")
     description = agent.get("description")
