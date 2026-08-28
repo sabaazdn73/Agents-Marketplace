@@ -50,6 +50,7 @@ from adapters import coingecko
 from adapters import termix
 from core import canary
 from core import pnl
+from core import onchain_pnl
 from core import rpc
 
 load_dotenv()
@@ -603,6 +604,26 @@ async def agent_pnl_summary(owner_address: str):
     agent = await agent_store.get_agent_by_owner(owner_address)
     category = agent.get("category") if agent else None
     return await pnl.compute_agent_pnl_summary(owner_address, category=category)
+
+
+@app.get("/api/agents/onchain-performance")
+async def agent_onchain_performance(owner_address: str):
+    """Real, standalone "Historical on-chain performance" signal — see
+    core/onchain_pnl.py's own module docstring for the full real
+    methodology. Deliberately INDEPENDENT of /api/agents/pnl-summary
+    above: that endpoint only ever looks at real jobs that went through
+    Tnega's own Altana-session hire flow; this one looks directly at the
+    agent's own real, on-chain execution history (real trades, deposits,
+    withdrawals, LP mint/burn, claims) on its own real operating wallet —
+    whether or not that activity ever happened through this marketplace.
+    Always 200 with a real, honest {"applicable": ..., "has_activity":
+    ..., "attribution_confidence": ..., ...} shape — never a fabricated
+    number, and never a claim of certainty this project's real data
+    can't actually back."""
+    agent = await agent_store.get_agent_by_owner(owner_address)
+    category = agent.get("category") if agent else None
+    token_id = agent.get("token_id") if agent else None
+    return await onchain_pnl.get_historical_onchain_performance(owner_address, category=category, token_id=token_id)
 
 
 @app.get("/api/canary/candidates")

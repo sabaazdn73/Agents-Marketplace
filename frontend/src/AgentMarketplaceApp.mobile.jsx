@@ -42,6 +42,7 @@ import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDia
 import WalletPortfolioPanel from './WalletPortfolioPanel';
 import { EscrowCompatibilityNotice, useHireFlowEscrowGate } from './EscrowCompatibilityWarning';
 import PnLPanel from './PnLPanel';
+import OnchainPerformancePanel from './OnchainPerformancePanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
@@ -486,6 +487,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         </div>
         <WalletPortfolioPanel ownerAddress={agent.ownerAddress} category={agent.category} />
         <PnLPanel ownerAddress={agent.ownerAddress} category={agent.category} />
+        <OnchainPerformancePanel ownerAddress={agent.ownerAddress} category={agent.category} />
 
         <AgentPerformanceMobile agent={agent} onTrySkill={onTrySkill} />
 

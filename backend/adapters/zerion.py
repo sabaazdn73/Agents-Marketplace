@@ -204,6 +204,27 @@ async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_m
         # amount, kept as an honest fallback for the rare case Zerion
         # couldn't price the gas token itself (fee.value null).
         fee = a.get("fee") or {}
+        # Real, honest-detection field (added 2026-08-28 for
+        # core/onchain_pnl.py, after a real, live false-positive
+        # investigation): Zerion's own real `operation_type` (trade/mint/
+        # execute/...) is set for ANY contract call that superficially
+        # matches a method shape, INCLUDING contracts Zerion doesn't
+        # actually recognize — confirmed live: a real "execute"/"mint" to
+        # an unrecognized contract (a competing agent platform's own
+        # escrow/action-router contract, or this project's own ERC-8004
+        # identity-registry self-registration mint) carries no real
+        # protocol name at all. `acts[].application_metadata.name` is the
+        # real, DIFFERENT signal — only ever populated when Zerion has
+        # genuinely matched the target contract to a known real protocol
+        # (confirmed live: a real Uniswap-compatible DEX swap on BSC came
+        # back with `application_metadata: {"name": "Uniswap", ...}`).
+        # Taking the first real act's name — real, live-confirmed shape
+        # only ever has one real act per real transaction in every
+        # example checked.
+        acts = a.get("acts") or []
+        protocol_name = None
+        if acts:
+            protocol_name = ((acts[0].get("application_metadata") or {}).get("name")) or None
         transactions.append({
             "hash": a.get("hash"),
             "operation_type": a.get("operation_type"),
@@ -212,6 +233,7 @@ async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_m
             "status": a.get("status"),
             "fee_usd": fee.get("value"),
             "fee_native": (fee.get("quantity") or {}).get("float"),
+            "protocol_name": protocol_name,
         })
     # Real, already-descending order from Zerion (confirmed live) — kept as-is.
 
@@ -234,7 +256,17 @@ async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_m
 # chart point closest to each real target timestamp — always reporting
 # that point's own real timestamp alongside the target, never silently
 # treating a distant point as if it were exact.
-CHART_PERIODS = ("day", "week", "month", "3months")
+#
+# Real extension (2026-08-28, for core/onchain_pnl.py's "Historical
+# on-chain performance" signal): added "6months" and "year" — both real,
+# documented Zerion periods (developers.zerion.io), live-confirmed here
+# too before use, not assumed: "6months" = 361 points, 43,200s (12h)
+# apart; "year" = 366 points, 86,400s (24h) apart. core/pnl.py's original,
+# Tnega-hire-job-scoped window never needed more than "3months"; a real
+# agent's own independent on-chain execution history can genuinely span
+# longer, so the option set grew rather than forcing that signal to
+# silently give up past 90 real days.
+CHART_PERIODS = ("day", "week", "month", "3months", "6months", "year")
 
 
 async def get_wallet_chart(address: str, period: str) -> dict:
