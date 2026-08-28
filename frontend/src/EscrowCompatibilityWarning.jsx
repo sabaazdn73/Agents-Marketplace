@@ -43,7 +43,7 @@
 // complete' failure mode." This only ever touches the hire/fund flow.
 
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, ExternalLink, ChevronDown } from 'lucide-react';
+import { AlertTriangle, ExternalLink, ChevronDown, ShieldQuestion } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -124,22 +124,50 @@ export function EscrowCompatibilityNotice({ ownerAddress }) {
   );
 }
 
+/** Real, non-blocking caution (2026-08-28, from the full interaction-
+ * pattern investigation — see docs/agent-interaction-patterns.md) for the
+ * real, distinct auth-gated case: a genuine 401/403, real and previously
+ * invisible at this last-chance step, but genuinely inconclusive rather
+ * than a confirmed hard rejection — so it's shown plainly, without the
+ * harder checkbox-gate below reserved for confirmed-incompatible agents.
+ * Matches the explicit "default to the most cautious real action" intent
+ * without over-blocking on evidence this project has always treated as
+ * real but inconclusive. */
+function AuthGatedCaution({ data }) {
+  return (
+    <div className="mb-6 p-4 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10">
+      <div className="flex items-start gap-2.5">
+        <ShieldQuestion size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+          <p className="font-semibold mb-1">Before you fund this job: this agent's endpoint genuinely requires a credential we don't have.</p>
+          <p>Real, live evidence: its own registered endpoint returned a real 401/403 when we checked. This isn't a confirmed protocol failure — it may work fine once the agent is notified some other way — but there's a real, honest chance it never learns this job was funded without a credential this marketplace doesn't hold.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** The real, harder gate — used inside the actual funding modal, right
  * before money moves on-chain. When this agent is flagged, returns
  * `blocked: true` until the buyer explicitly checks an acknowledgment box
  * (never a silent, un-skippable hard block — this is real, evidence-based
  * detection, not infallible — but never the default, accidental path
  * either). `node` is the warning JSX to render above the fund controls;
- * null when the agent isn't flagged. */
+ * null when the agent isn't flagged. Real, auth-gated agents (2026-08-28)
+ * get the real, non-blocking caution above instead — genuinely
+ * inconclusive evidence, never treated as harshly as a confirmed
+ * rejection, but never silently invisible either. */
 export function useHireFlowEscrowGate(ownerAddress) {
   const { status, data } = useEscrowCompatibility(ownerAddress);
   const [acknowledged, setAcknowledged] = useState(false);
   const flagged = status === 'ready' && !!data?.escrow_incompatible;
+  const authGated = status === 'ready' && !flagged && !!data?.auth_gated;
 
   // Real, deliberate reset — a fresh agent (or reopening the modal for a
   // different one) must never inherit a previous agent's acknowledgment.
   useEffect(() => { setAcknowledged(false); }, [ownerAddress]);
 
+  if (authGated) return { blocked: false, node: <AuthGatedCaution data={data} /> };
   if (!flagged) return { blocked: false, node: null };
 
   const node = (

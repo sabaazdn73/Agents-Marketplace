@@ -1065,7 +1065,17 @@ async def agent_escrow_compatibility(owner_address: str):
     discipline). Always returns 200 with an honest, conservative
     `escrow_incompatible: false` on any missing/unreachable data — this is
     a safety warning surfaced ON TOP of the real hire flow, never something
-    that itself blocks the page from loading."""
+    that itself blocks the page from loading.
+
+    Real, additive fields (2026-08-28, from a full, ground-up interaction-
+    pattern investigation — see docs/agent-interaction-patterns.md):
+    `auth_gated` (a real 401/403 — inconclusive, not a hard rejection, but
+    real and previously invisible), `different_protocol` (a real, live
+    JSON API that just doesn't speak A2A, distinct from a plain website),
+    `offers_x402_alternative` (the agent's own description explicitly
+    mentions x402 pay-per-call access). None of these change the meaning
+    of `escrow_incompatible` itself — existing callers of this endpoint
+    are unaffected."""
     agent = await agent_store.get_agent_by_owner(owner_address)
     if not agent:
         return {"escrow_incompatible": False, "confidence": None, "evidence": ["No agent on record for this owner_address."], "external_link": None}

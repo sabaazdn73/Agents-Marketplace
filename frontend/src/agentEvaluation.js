@@ -18,6 +18,21 @@
 // group's hypothesis (e.g. "Security & Trust is naturally a continuous-
 // monitoring category") wasn't supported by its own real, current agents
 // and so no bespoke method was invented for it.
+//
+// Real, systematic extension (2026-08-28) — see
+// docs/agent-interaction-patterns.md for the full real, ground-up
+// investigation (every real category group including Unclassified, a full
+// census of the real reachable population, live multi-format probing, ten
+// hypothesized patterns explicitly checked against the real data). Found
+// the plain escrow-compatible/incompatible binary was hiding two more
+// real, distinct, evidence-backed states — a real auth-gate (previously
+// indistinguishable from "just works") and a real "different protocol,
+// not actually broken" case — plus a small, real, additive x402 signal.
+// Nothing else from that investigation justified a new axis: governance/
+// DAO-delegation, vault/custodial deposit, subscription/alert-monitoring,
+// NFT/token-gating, and session-key delegation beyond Altana were all
+// explicitly checked and found to have zero or near-zero genuine real
+// examples in the current dataset — not built for.
 
 import { groupForCategory } from './categoryGroups';
 
@@ -28,6 +43,12 @@ export const NATIVE_METHOD = {
 
 export const PRIMARY_CTA = {
   HIRE: 'hire',
+  // Real, new (2026-08-28) — an agent whose real probe result was
+  // genuinely inconclusive because of a real 401/403, not a hard
+  // rejection. "Hire" is still the real, honest primary action (there's
+  // no strong evidence it's broken), but the buyer should see a real,
+  // distinct caution first — see docs/agent-interaction-patterns.md.
+  HIRE_CAUTION: 'hire_caution',
   VISIT_WEBSITE: 'visit_website',
 };
 
@@ -42,14 +63,26 @@ const FUND_PERFORMANCE_GROUP = 'trading-defi';
  * defaults to the escrow-delivery lens (never assumes an agent is
  * incompatible without the real, strong protocol signal — matches
  * core/protocol_compat.py's own conservative default).
+ *
+ * `authGated`/`differentProtocol`/`offersX402Alternative` come from the
+ * same real probe result (core/protocol_compat.py's own additive fields —
+ * see that module's docstring and docs/agent-interaction-patterns.md).
  */
-export function evaluateAgent({ escrowIncompatible, category }) {
+export function evaluateAgent({ escrowIncompatible, authGated, differentProtocol, offersX402Alternative, category }) {
   const incompatible = !!escrowIncompatible;
+  const cautioned = !incompatible && !!authGated;
   const group = groupForCategory(category);
+  let primaryCta = PRIMARY_CTA.HIRE;
+  if (incompatible) primaryCta = PRIMARY_CTA.VISIT_WEBSITE;
+  else if (cautioned) primaryCta = PRIMARY_CTA.HIRE_CAUTION;
   return {
     group,
     nativeMethod: incompatible ? NATIVE_METHOD.SAAS_REACHABILITY : NATIVE_METHOD.ESCROW_DELIVERY,
-    primaryCta: incompatible ? PRIMARY_CTA.VISIT_WEBSITE : PRIMARY_CTA.HIRE,
+    primaryCta,
+    // Real, additive, independent of primaryCta above — see module
+    // header comment and docs/agent-interaction-patterns.md.
+    differentProtocol: incompatible && !!differentProtocol,
+    offersX402Alternative: !!offersX402Alternative,
     // Real, evidence-based (see docs/category-evaluation.md) — only
     // Trading & DeFi showed a genuine real need for these panels. Doesn't
     // depend on escrowIncompatible: core/onchain_pnl.py's own "Historical
