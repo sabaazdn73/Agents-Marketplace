@@ -1,0 +1,102 @@
+# full-registry-batch.yml
+#
+# Real, scheduled trigger for one bounded batch of the full-registry
+# ingestion + analysis pipeline (backend/core/full_registry_ingest.py,
+# backend/core/full_registry_analysis.py), via the real, secret-gated
+# backend/server.py POST /api/admin/full-registry-batch endpoint.
+#
+# Real, standing gap this closes: that pipeline had no scheduler at all —
+# Render Cron Jobs are a paid-plan feature, out of scope per this project's
+# own standing "no paid/unknown-cost infrastructure without an explicit
+# decision" rule (see docs/full-registry-analysis.md) — so it only ever
+# advanced when a human ran scripts/full_registry_scan.py by hand. GitHub
+# Actions' scheduled workflows are genuinely free for this: confirmed live
+# (2026-08-28) this repository is real, public (github.com API:
+# `"private": false, "visibility": "public"`), and GitHub's own current
+# docs state plainly — "GitHub Actions usage is free for standard
+# GitHub-hosted runners in public repositories" — no minute cap at all,
+# unlike the 2,000 min/month a private repo on the Free plan would get.
+# This workflow's real, expected usage (one ~10-second HTTP call every 6
+# hours) is nowhere close to mattering even under that private-repo figure,
+# but it's genuinely, unconditionally free here either way.
+#
+# Real schedule chosen: every 6 hours. The pipeline's own script docstring
+# already recommended "repeated every few hours" for ingestion and "daily
+# is more than enough" for analysis (health-check TTL is 20 minutes, so
+# more frequent analysis mostly just re-checks already-fresh agents); every
+# 6 hours runs both together on the same real, cheap trigger, comfortably
+# inside that guidance, without being needlessly aggressive on a resumable
+# pipeline where a short, frequent batch makes exactly as much real
+# progress over time as a long, rare one.
+#
+# Real security: the actual ingest/analyze work happens ONLY behind the
+# backend's own real X-Batch-Secret check (BATCH_TRIGGER_SECRET, an env var
+# set identically here as a GitHub Actions repository secret and on the
+# Render backend service) — this workflow never holds real database or
+# 8004scan credentials itself, only the one shared trigger secret.
+#
+# Real, second step added (2026-08-28): core/job_index.py's own real,
+# complete ERC-8183 job index — the fix for a real, confirmed bug where
+# core/revenue.py's "Revenue Stream" was silently excluding ~97% of all
+# real job history (see docs/verification-methodology.md). Kept as its
+# own step (own endpoint call) rather than folded into the first one, so
+# each individual HTTP call stays safely inside the real, observed ~75s
+# Render timeout zone documented in backend/server.py.
+
+name: Full-registry batch (ingest + analyze + job index)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6 hours, real UTC times: 00:00, 06:00, 12:00, 18:00
+  workflow_dispatch: {}       # real, manual trigger — used to verify this end-to-end
+
+jobs:
+  trigger-batch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the real /api/admin/full-registry-batch endpoint
+        env:
+          # Real, confirmed-live backend URL (Render API, 2026-08-28) —
+          # the "Agents-Marketplace" web service, not a guess. Overridable
+          # via a real repository VARIABLE (Settings -> Secrets and
+          # variables -> Actions -> Variables) without touching this file,
+          # should the backend's real URL ever change.
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
+          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
+        run: |
+          if [ -z "$BATCH_TRIGGER_SECRET" ]; then
+            echo "::error::BATCH_TRIGGER_SECRET repository secret is not set — see docs/full-registry-analysis.md for setup."
+            exit 1
+          fi
+          echo "Calling $BACKEND_BASE_URL/api/admin/full-registry-batch ..."
+          http_status=$(curl -sS -o response.json -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
+            "${BACKEND_BASE_URL}/api/admin/full-registry-batch")
+          echo "Real HTTP status: $http_status"
+          echo "Real response body:"
+          cat response.json
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Real batch trigger failed with HTTP $http_status"
+            exit 1
+          fi
+
+      - name: Call the real /api/admin/job-index-batch endpoint
+        env:
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
+          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
+        run: |
+          echo "Calling $BACKEND_BASE_URL/api/admin/job-index-batch ..."
+          http_status=$(curl -sS -o response2.json -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
+            "${BACKEND_BASE_URL}/api/admin/job-index-batch")
+          echo "Real HTTP status: $http_status"
+          echo "Real response body:"
+          cat response2.json
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Real job-index batch trigger failed with HTTP $http_status"
+            exit 1
+          fi
