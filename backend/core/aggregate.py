@@ -378,7 +378,7 @@ async def get_marketplace_agents_as_dicts(**kwargs) -> list[dict]:
 MIN_FULL_REGISTRY_SAMPLE = 5000
 
 
-async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 3) -> list["MarketplaceAgent"] | None:
+async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 2) -> list["MarketplaceAgent"] | None:
     """Real, fast alternative to get_marketplace_agents() — draws its raw
     candidate pool from the already-ingested full_agent_registry (see
     core/full_registry_ingest.py) instead of a live, paginated 8004scan
@@ -402,7 +402,27 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 3) 
     from core.db import get_db
 
     db = get_db()
-    raw_agents = await db["full_agent_registry"].find({"chain_id": 56}).to_list(length=200_000)
+    # Real, memory-safety fix (2026-08-28, emergency stabilization after a
+    # real, confirmed, repeated OOM kill — Render's own event log,
+    # oomKilled: {memoryLimit: "512Mi"}, three separate real times in one
+    # session): only project the real fields this pipeline's own
+    # clustering/diversify/enrichment/MarketplaceAgent-building actually
+    # reads (audited directly against this module's own real .get() calls
+    # and clustering.py's), excluding real fields never used here
+    # (owner_id, owner_avatar_url, owner_publisher_tier,
+    # owner_certified_name, chain_type, contract_address, is_testnet,
+    # rank, network_rank, average_score, updated_at, _ingested_at) — cuts
+    # real per-document memory for all 64,000+ raw docs without touching
+    # any real business logic.
+    _RAW_AGENT_PROJECTION = {
+        "id": 1, "agent_id": 1, "chain_id": 1, "created_at": 1, "cross_chain_versions": 1,
+        "description": 1, "health_score": 1, "image_url": 1, "is_verified": 1, "name": 1,
+        "owner_address": 1, "owner_ens": 1, "owner_username": 1, "star_count": 1,
+        "supported_protocols": 1, "token_id": 1, "total_feedbacks": 1, "total_score": 1,
+        "x402_supported": 1, "category": 1, "service_endpoint": 1, "service_status": 1,
+        "service_checked_at": 1,
+    }
+    raw_agents = await db["full_agent_registry"].find({"chain_id": 56}, _RAW_AGENT_PROJECTION).to_list(length=200_000)
     if len(raw_agents) < MIN_FULL_REGISTRY_SAMPLE:
         print(f"[aggregate] full_agent_registry has only {len(raw_agents)} real BSC agents "
               f"(< {MIN_FULL_REGISTRY_SAMPLE}) — not yet a real replacement, falling back to live fetch.")
@@ -427,7 +447,19 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 3) 
     # peak, rather than holding both simultaneously for no real reason —
     # the raw list was already fully consumed by diversify(), nothing below
     # this line ever reads it again.
+    #
+    # Real, added emergency stabilization (2026-08-28, after this exact
+    # OOM recurred a further two real times even with the fix above — a
+    # real SIGKILL/oomKilled with nothing heavy running in the logs right
+    # before it, consistent with CPython's own allocator not always
+    # returning freed arenas to the OS promptly on a long-lived process).
+    # A real, explicit gc.collect() right after dropping the reference
+    # forces an immediate real sweep instead of waiting on the generational
+    # collector's own lazy schedule — cheap (a few ms), and directly
+    # targeted at the real structure that was just freed.
     del raw_agents
+    import gc
+    gc.collect()
 
     return await _enrich_and_build(diversified, api_key)
 
