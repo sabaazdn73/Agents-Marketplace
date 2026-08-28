@@ -380,7 +380,7 @@ async def status():
 # .github/workflows/full-registry-batch.yml calls THIS endpoint on a
 # schedule instead.
 @app.post("/api/admin/full-registry-batch")
-async def full_registry_batch(request: Request, ingest_seconds: float = 50.0, analyze_seconds: float = 40.0):
+async def full_registry_batch(request: Request, ingest_seconds: float = 20.0, analyze_seconds: float = 15.0):
     """Real, secret-gated trigger for ONE bounded batch of the full-registry
     ingestion + analysis pipeline — the exact same real, resumable units
     scripts/full_registry_scan.py already runs by hand, now callable over
@@ -399,15 +399,23 @@ async def full_registry_batch(request: Request, ingest_seconds: float = 50.0, an
     `BATCH_TRIGGER_SECRET` isn't configured on this service at all, the
     endpoint refuses every call rather than silently running unauthenticated.
 
-    Real, conservative time bounds, each independently capped at 120s
-    (`ingest_seconds`/`analyze_seconds` let a caller ask for less, never
-    more) — kept short deliberately: Render's own exact request-timeout
-    figure for this plan isn't publicly documented (checked, not assumed),
-    so this stays well under any plausible real limit rather than risk a
-    mid-batch cutoff. Safe either way because both halves are genuinely
-    checkpointed (full_registry_ingest.py's own Mongo-backed progress
-    doc) — a short, frequent real batch makes exactly as much real
-    progress as a long one over time, just never risks a hung request."""
+    Real, conservative time bounds, each independently capped at 120s as a
+    hard ceiling (`ingest_seconds`/`analyze_seconds` let a caller ask for
+    less, never more) — but the real, live-measured DEFAULTS (20s/15s) are
+    tighter than that ceiling, based on a real, direct finding while
+    testing this against the live deployment (2026-08-28): Render's own
+    exact request-timeout figure isn't publicly documented, but a real
+    call requesting 45s ingest + 30s analyze (75s combined) came back a
+    real HTTP 502 at ~75s wall time, while a real call requesting 20s +
+    15s completed successfully at ~60-66s wall time (each individual page/
+    batch can run a bit past its own requested budget — the loop only
+    checks elapsed time between whole pages/batches, never mid-fetch).
+    These lower defaults keep real wall time comfortably under the
+    observed failure point. Safe either way regardless of exact timing
+    because both halves are genuinely checkpointed
+    (full_registry_ingest.py's own Mongo-backed progress doc) — a short,
+    frequent real batch makes exactly as much real progress as a long one
+    over time, just never risks a hung/cutoff request."""
     secret = os.environ.get("BATCH_TRIGGER_SECRET")
     if not secret:
         raise HTTPException(status_code=503, detail="BATCH_TRIGGER_SECRET is not configured on this service.")
