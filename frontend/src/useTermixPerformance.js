@@ -34,7 +34,13 @@ import { useState, useEffect } from 'react';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const TERMIX_FETCH_TIMEOUT_MS = 15_000;
 
-export function useTermixPerformance(ownerAddress) {
+// `agentId` (optional, real, added 2026-08-28): real, confirmed bug fix —
+// backend/server.py's own lookup used to resolve "the agent" by
+// owner_address ALONE, genuinely ambiguous whenever one real owner
+// operates more than one registered agent (confirmed live: 1,457 real
+// owners currently do) — this could silently send a completely different,
+// wrong agent's real token_id to TermiX. Always pass it when available.
+export function useTermixPerformance(ownerAddress, agentId) {
   const [state, setState] = useState({ status: 'idle' }); // idle | loading | ready | error
 
   useEffect(() => {
@@ -43,13 +49,14 @@ export function useTermixPerformance(ownerAddress) {
     setState({ status: 'loading' });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), TERMIX_FETCH_TIMEOUT_MS);
-    fetch(`${API_BASE_URL}/api/agents/termix-performance?owner_address=${ownerAddress}`, { signal: controller.signal })
+    const qs = new URLSearchParams({ owner_address: ownerAddress, ...(agentId ? { agent_id: agentId } : {}) });
+    fetch(`${API_BASE_URL}/api/agents/termix-performance?${qs}`, { signal: controller.signal })
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((d) => { if (!cancelled) setState({ status: 'ready', data: d }); })
       .catch(() => { if (!cancelled) setState({ status: 'error' }); })
       .finally(() => clearTimeout(timeout));
     return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
-  }, [ownerAddress]);
+  }, [ownerAddress, agentId]);
 
   return state;
 }

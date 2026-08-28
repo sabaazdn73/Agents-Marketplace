@@ -54,7 +54,7 @@ function X402Note({ show }) {
 }
 
 export default function AgentEvaluationSection({ agent, onHire }) {
-  const { status, data } = useEscrowCompatibility(agent.ownerAddress);
+  const { status, data } = useEscrowCompatibility(agent.ownerAddress, agent.id);
   const [showEvidence, setShowEvidence] = useState(false);
   const evaluation = evaluateAgent({
     escrowIncompatible: data?.escrow_incompatible,

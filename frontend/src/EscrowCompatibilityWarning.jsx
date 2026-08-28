@@ -51,28 +51,45 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 // already keeps its own real 24h cache; this just avoids a redundant
 // round trip when both the detail page and the funding modal mount for
 // the same agent back to back in one visit.
+//
+// Real, confirmed bug fix (2026-08-28): this used to be keyed by
+// ownerAddress ALONE — exactly the same real collision as the backend's
+// own now-fixed owner-only lookup (see server.py's _resolve_agent), just
+// client-side. Real, confirmed, publicly-visible incident: opening
+// Sentinels Audit's detail page after AIDA's (same real owner,
+// SmartSentinels) had already been fetched in the same session served
+// AIDA's cached, wrong result right back. Now keyed by agentId when
+// available (every real caller has one), falling back to ownerAddress
+// only for the rare legacy call that doesn't.
 const _cache = new Map();
 
-export function useEscrowCompatibility(ownerAddress) {
+function _cacheKey(ownerAddress, agentId) {
+  return agentId ? `id:${agentId}` : `owner:${ownerAddress}`;
+}
+
+export function useEscrowCompatibility(ownerAddress, agentId) {
+  const key = ownerAddress ? _cacheKey(ownerAddress, agentId) : null;
   const [state, setState] = useState(() =>
-    ownerAddress && _cache.has(ownerAddress) ? { status: 'ready', data: _cache.get(ownerAddress) } : { status: 'idle' }
+    key && _cache.has(key) ? { status: 'ready', data: _cache.get(key) } : { status: 'idle' }
   );
 
   useEffect(() => {
     if (!ownerAddress) { setState({ status: 'idle' }); return undefined; }
-    if (_cache.has(ownerAddress)) { setState({ status: 'ready', data: _cache.get(ownerAddress) }); return undefined; }
+    const k = _cacheKey(ownerAddress, agentId);
+    if (_cache.has(k)) { setState({ status: 'ready', data: _cache.get(k) }); return undefined; }
     let cancelled = false;
     setState({ status: 'loading' });
-    fetch(`${API_BASE_URL}/api/agents/escrow-compatibility?owner_address=${ownerAddress}`)
+    const qs = new URLSearchParams({ owner_address: ownerAddress, ...(agentId ? { agent_id: agentId } : {}) });
+    fetch(`${API_BASE_URL}/api/agents/escrow-compatibility?${qs}`)
       .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
       .then((body) => {
         if (cancelled) return;
-        _cache.set(ownerAddress, body);
+        _cache.set(k, body);
         setState({ status: 'ready', data: body });
       })
       .catch((e) => { if (!cancelled) setState({ status: 'error', message: e.message || String(e) }); });
     return () => { cancelled = true; };
-  }, [ownerAddress]);
+  }, [ownerAddress, agentId]);
 
   return state;
 }
@@ -91,8 +108,8 @@ const WARNING_BODY = "We tested this agent's real, registered endpoint directly,
  * "Hire this agent" button, never replaces it (the detail page still lets
  * a buyer proceed to the funding modal; the real, harder gate lives there
  * instead — see useHireFlowEscrowGate below). */
-export function EscrowCompatibilityNotice({ ownerAddress }) {
-  const { status, data } = useEscrowCompatibility(ownerAddress);
+export function EscrowCompatibilityNotice({ ownerAddress, agentId }) {
+  const { status, data } = useEscrowCompatibility(ownerAddress, agentId);
   const [showEvidence, setShowEvidence] = useState(false);
   if (status !== 'ready' || !data?.escrow_incompatible) return null;
 
@@ -157,15 +174,15 @@ function AuthGatedCaution({ data }) {
  * get the real, non-blocking caution above instead — genuinely
  * inconclusive evidence, never treated as harshly as a confirmed
  * rejection, but never silently invisible either. */
-export function useHireFlowEscrowGate(ownerAddress) {
-  const { status, data } = useEscrowCompatibility(ownerAddress);
+export function useHireFlowEscrowGate(ownerAddress, agentId) {
+  const { status, data } = useEscrowCompatibility(ownerAddress, agentId);
   const [acknowledged, setAcknowledged] = useState(false);
   const flagged = status === 'ready' && !!data?.escrow_incompatible;
   const authGated = status === 'ready' && !flagged && !!data?.auth_gated;
 
   // Real, deliberate reset — a fresh agent (or reopening the modal for a
   // different one) must never inherit a previous agent's acknowledgment.
-  useEffect(() => { setAcknowledged(false); }, [ownerAddress]);
+  useEffect(() => { setAcknowledged(false); }, [ownerAddress, agentId]);
 
   if (authGated) return { blocked: false, node: <AuthGatedCaution data={data} /> };
   if (!flagged) return { blocked: false, node: null };

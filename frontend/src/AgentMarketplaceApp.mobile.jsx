@@ -557,7 +557,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
   // Real, last-chance escrow-compatibility gate, parity with web — see
   // EscrowCompatibilityWarning.jsx.
-  const hireEscrowGate = useHireFlowEscrowGate(selectedAgent?.ownerAddress);
+  const hireEscrowGate = useHireFlowEscrowGate(selectedAgent?.ownerAddress, selectedAgent?.id);
 
   const {
     hire, hireBatched, step: hireStep, error: hireError,
@@ -583,6 +583,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       const hireFn = useBatch ? hireBatched : hire;
       const { jobId } = await hireFn({
         providerAddress: selectedAgent.ownerAddress,
+        providerAgentId: selectedAgent.id,
         budgetUnits: Number(spendCap),
         description: (showCustomDescription && customDescription.trim())
           ? customDescription.trim()

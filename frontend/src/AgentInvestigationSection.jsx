@@ -163,18 +163,23 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
 }
 
 // ── FINANCIAL TRACK RECORD (Trading & DeFi only) ────────────────────
-function FinancialTrackRecord({ ownerAddress, category }) {
+function FinancialTrackRecord({ ownerAddress, agentId, category }) {
   const [showSecondary, setShowSecondary] = useState(false);
   const eligible = groupForCategory(category) === FUND_PERFORMANCE_GROUP;
+  // Real, confirmed bug fix (2026-08-28): agent_id disambiguates which
+  // specific real agent this is, for the same real reason documented in
+  // server.py's _resolve_agent — owner_address alone is genuinely
+  // ambiguous whenever one real owner has more than one registered agent.
+  const idQs = agentId ? `&agent_id=${agentId}` : '';
 
   const pnl = useResilientFetch(
-    eligible && ownerAddress ? `${API_BASE_URL}/api/agents/pnl-summary?owner_address=${ownerAddress}` : null,
-    () => fetchJson(`${API_BASE_URL}/api/agents/pnl-summary?owner_address=${ownerAddress}`),
+    eligible && ownerAddress ? `${API_BASE_URL}/api/agents/pnl-summary?owner_address=${ownerAddress}${idQs}` : null,
+    () => fetchJson(`${API_BASE_URL}/api/agents/pnl-summary?owner_address=${ownerAddress}${idQs}`),
     { enabled: eligible && !!ownerAddress },
   );
   const onchain = useResilientFetch(
-    showSecondary && eligible && ownerAddress ? `${API_BASE_URL}/api/agents/onchain-performance?owner_address=${ownerAddress}` : null,
-    () => fetchJson(`${API_BASE_URL}/api/agents/onchain-performance?owner_address=${ownerAddress}`),
+    showSecondary && eligible && ownerAddress ? `${API_BASE_URL}/api/agents/onchain-performance?owner_address=${ownerAddress}${idQs}` : null,
+    () => fetchJson(`${API_BASE_URL}/api/agents/onchain-performance?owner_address=${ownerAddress}${idQs}`),
     { enabled: showSecondary && eligible && !!ownerAddress },
   );
 
@@ -227,11 +232,13 @@ function FinancialTrackRecord({ ownerAddress, category }) {
 }
 
 // ── INDEPENDENT CORROBORATION ────────────────────────────────────────
-function IndependentCorroboration({ ownerAddress, category }) {
+function IndependentCorroboration({ ownerAddress, agentId, category }) {
   const [showMore, setShowMore] = useState(false);
+  // Real, confirmed bug fix (2026-08-28) — see FinancialTrackRecord above.
+  const idQs = agentId ? `&agent_id=${agentId}` : '';
   const termix = useResilientFetch(
-    ownerAddress ? `${API_BASE_URL}/api/agents/termix-performance?owner_address=${ownerAddress}` : null,
-    () => fetchJson(`${API_BASE_URL}/api/agents/termix-performance?owner_address=${ownerAddress}`),
+    ownerAddress ? `${API_BASE_URL}/api/agents/termix-performance?owner_address=${ownerAddress}${idQs}` : null,
+    () => fetchJson(`${API_BASE_URL}/api/agents/termix-performance?owner_address=${ownerAddress}${idQs}`),
     { enabled: !!ownerAddress },
   );
 
@@ -291,14 +298,14 @@ function LiveStatus({ agent, escrowData }) {
 
 // ── The unified section ──────────────────────────────────────────────
 export default function AgentInvestigationSection({ agent, onTrySkill }) {
-  const { data: escrowData } = useEscrowCompatibility(agent.ownerAddress);
+  const { data: escrowData } = useEscrowCompatibility(agent.ownerAddress, agent.id);
 
   return (
     <div className="mt-6 space-y-5">
       <h3 className="text-sm font-bold flex items-center gap-1.5"><Blocks size={14} /> Agent Investigation</h3>
       <DeliveryRecord agent={agent} onTrySkill={onTrySkill} escrowIncompatible={escrowData?.escrow_incompatible} />
-      <FinancialTrackRecord ownerAddress={agent.ownerAddress} category={agent.category} />
-      <IndependentCorroboration ownerAddress={agent.ownerAddress} category={agent.category} />
+      <FinancialTrackRecord ownerAddress={agent.ownerAddress} agentId={agent.id} category={agent.category} />
+      <IndependentCorroboration ownerAddress={agent.ownerAddress} agentId={agent.id} category={agent.category} />
       <LiveStatus agent={agent} escrowData={escrowData} />
     </div>
   );

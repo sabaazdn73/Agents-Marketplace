@@ -199,11 +199,11 @@ export async function grantMarketplaceSession(wallet, adminSigner, { spendCapUni
  * notification (non-fatal — the job is already funded regardless, and its
  * own background sweep may still pick it up).
  */
-export async function hireAgentWithSession(session, { providerAddress, task, budgetUnits }) {
+export async function hireAgentWithSession(session, { providerAddress, providerAgentId, task, budgetUnits }) {
   let finalTask = task;
   let finalBudgetUnits = budgetUnits;
   try {
-    const negotiationResult = await negotiateJob(providerAddress, task, DEFAULT_NEGOTIATE_TERMS);
+    const negotiationResult = await negotiateJob(providerAddress, providerAgentId, task, DEFAULT_NEGOTIATE_TERMS);
     const priceRaw = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
     if (negotiationResult && priceRaw != null) {
       finalTask = buildJobDescription(negotiationResult);
@@ -226,7 +226,7 @@ export async function hireAgentWithSession(session, { providerAddress, task, bud
   }, { network });
 
   try {
-    await notifyFunded(providerAddress, result.jobId, null);
+    await notifyFunded(providerAddress, providerAgentId, result.jobId, null);
   } catch (e) {
     // Real, non-fatal — the job is already funded on-chain regardless; see
     // this function's own docstring for why no authorization is attempted.

@@ -36,13 +36,21 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
  * (useHireAgent.js) falls back to the plain-description flow on null,
  * exactly the same way whether the agent doesn't support negotiate, isn't
  * reachable, or genuinely rejected the terms — that distinction doesn't
- * change what the buyer should do next. */
-export async function negotiateJob(ownerAddress, taskDescription, terms) {
+ * change what the buyer should do next.
+ *
+ * `agentId` (optional, real, added 2026-08-28): real, confirmed bug fix —
+ * without it, the backend used to resolve "the agent" by owner_address
+ * ALONE, which is genuinely ambiguous whenever one real owner operates
+ * more than one registered agent (confirmed live: 1,457 real owners
+ * currently do) — a real hire could silently negotiate against a
+ * completely different, wrong agent that just happens to share an owner.
+ * Always pass it when the caller has it (every real caller here does). */
+export async function negotiateJob(ownerAddress, agentId, taskDescription, terms) {
   try {
     const res = await fetch(`${API_BASE_URL}/api/agents/negotiate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ owner_address: ownerAddress, task_description: taskDescription, terms }),
+      body: JSON.stringify({ owner_address: ownerAddress, agent_id: agentId, task_description: taskDescription, terms }),
     });
     if (!res.ok) return null;
     const body = await res.json();
@@ -66,10 +74,15 @@ export async function negotiateJob(ownerAddress, taskDescription, terms) {
  * confirmed example: the live stockanalyst-agent). Returns
  * {notified, reason?} rather than a bare boolean — the real rejection
  * reason (e.g. "invalid_authorization", "caller_not_job_client") is useful
- * signal, not something to swallow. */
-export async function notifyFunded(ownerAddress, jobId, authorization = null) {
+ * signal, not something to swallow.
+ *
+ * `agentId` (optional, real, added 2026-08-28): same real fix as
+ * negotiateJob above — without it, the backend's owner-only lookup could
+ * notify a completely different, wrong same-owner agent, leaving the
+ * real, correct one never told its job was funded. */
+export async function notifyFunded(ownerAddress, agentId, jobId, authorization = null) {
   try {
-    const body = { owner_address: ownerAddress, job_id: Number(jobId) };
+    const body = { owner_address: ownerAddress, agent_id: agentId, job_id: Number(jobId) };
     if (authorization) body.authorization = authorization;
     const res = await fetch(`${API_BASE_URL}/api/agents/notify-funded`, {
       method: 'POST',

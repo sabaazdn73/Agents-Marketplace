@@ -88,6 +88,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
     try {
       const result = await hireAgentWithSession(session, {
         providerAddress: agent.ownerAddress,
+        providerAgentId: agent.id,
         task: `Hire via Tnega (Altana session): ${agent.name}`,
         budgetUnits: Number(spendCap),
       });

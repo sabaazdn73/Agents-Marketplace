@@ -174,7 +174,7 @@ export function useAgentQuote(agent) {
     (async () => {
       try {
         const description = `Hire via Tnega: ${agent.name}`;
-        const negotiationResult = await negotiateJob(agent.ownerAddress, description, DEFAULT_NEGOTIATE_TERMS);
+        const negotiationResult = await negotiateJob(agent.ownerAddress, agent.id, description, DEFAULT_NEGOTIATE_TERMS);
         const priceRaw = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
         if (cancelled) return;
         if (!negotiationResult || priceRaw == null) {
@@ -200,7 +200,7 @@ export function useAgentQuote(agent) {
       }
     })();
     return () => { cancelled = true; };
-  }, [agent?.ownerAddress, agent?.name, publicClient]);
+  }, [agent?.ownerAddress, agent?.id, agent?.name, publicClient]);
 
   return state;
 }
@@ -246,7 +246,7 @@ export function useHireAgent() {
     return { hash, receipt };
   }, [writeContractAsync, publicClient]);
 
-  const hire = useCallback(async ({ providerAddress, budgetUnits, description, expiryMinutes = 65 }) => {
+  const hire = useCallback(async ({ providerAddress, providerAgentId, budgetUnits, description, expiryMinutes = 65 }) => {
     if (!address) throw new Error('Connect a wallet first.');
 
     // Real guard, added 2026-08-17: previously nothing checked the wallet's
@@ -292,7 +292,7 @@ export function useHireAgent() {
       let finalBudgetRaw = budgetRaw;
       let negotiationSucceeded = false;
       try {
-        const negotiationResult = await negotiateJob(providerAddress, description, DEFAULT_NEGOTIATE_TERMS);
+        const negotiationResult = await negotiateJob(providerAddress, providerAgentId, description, DEFAULT_NEGOTIATE_TERMS);
         const price = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
         if (negotiationResult && price != null) {
           finalDescription = buildJobDescription(negotiationResult);
@@ -421,7 +421,7 @@ export function useHireAgent() {
               chainId: bsc.id, verifyingContract: contracts.commerce, jobId: newJobId, signTypedDataAsync,
             })
           : null;
-        const result = await notifyFunded(providerAddress, newJobId, authorization);
+        const result = await notifyFunded(providerAddress, providerAgentId, newJobId, authorization);
         notifySucceeded = result.notified;
         notifyReason = result.reason;
       } catch (e) {
@@ -457,7 +457,7 @@ export function useHireAgent() {
   // 'supported' before calling this — not re-checked here, so a caller
   // that ignores that guard gets whatever real error the wallet itself
   // returns for an unsupported batch, never a silent partial attempt.
-  const hireBatched = useCallback(async ({ providerAddress, budgetUnits, description, expiryMinutes = 65 }) => {
+  const hireBatched = useCallback(async ({ providerAddress, providerAgentId, budgetUnits, description, expiryMinutes = 65 }) => {
     if (!address) throw new Error('Connect a wallet first.');
     if (chainId !== bsc.id) {
       await switchChainAsync({ chainId: bsc.id });
@@ -485,7 +485,7 @@ export function useHireAgent() {
       let finalBudgetRaw = budgetRaw;
       let negotiationSucceeded = false;
       try {
-        const negotiationResult = await negotiateJob(providerAddress, description, DEFAULT_NEGOTIATE_TERMS);
+        const negotiationResult = await negotiateJob(providerAddress, providerAgentId, description, DEFAULT_NEGOTIATE_TERMS);
         const price = negotiationResult ? negotiatedPriceRaw(negotiationResult) : null;
         if (negotiationResult && price != null) {
           finalDescription = buildJobDescription(negotiationResult);
@@ -569,7 +569,7 @@ export function useHireAgent() {
               chainId: bsc.id, verifyingContract: contracts.commerce, jobId: newJobId, signTypedDataAsync,
             })
           : null;
-        const result = await notifyFunded(providerAddress, newJobId, authorization);
+        const result = await notifyFunded(providerAddress, providerAgentId, newJobId, authorization);
         notifySucceeded = result.notified;
         notifyReason = result.reason;
       } catch (e) {

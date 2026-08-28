@@ -618,7 +618,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
   // Real, last-chance escrow-compatibility gate for whichever agent the
   // funding modal is currently open for — see EscrowCompatibilityWarning.jsx.
-  const hireEscrowGate = useHireFlowEscrowGate(selectedAgent?.ownerAddress);
+  const hireEscrowGate = useHireFlowEscrowGate(selectedAgent?.ownerAddress, selectedAgent?.id);
 
   const handleActivateSession = async () => {
     if (!selectedAgent || !walletConnected) return;
@@ -640,6 +640,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       const hireFn = useBatch ? hireBatched : hire;
       const { jobId } = await hireFn({
         providerAddress: selectedAgent.ownerAddress,
+        providerAgentId: selectedAgent.id,
         budgetUnits: Number(spendCap),
         description: (showCustomDescription && customDescription.trim())
           ? customDescription.trim()

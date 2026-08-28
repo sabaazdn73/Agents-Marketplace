@@ -154,7 +154,25 @@ async def get_agent_by_owner(owner_address: str) -> dict | None:
     Returns the freshest-scored match if an owner somehow has more than one
     (real, if rare) known agent; None if genuinely not in the store yet, or
     if the input isn't even a well-formed address (also guards the regex
-    query below against anything but a real hex address reaching Mongo)."""
+    query below against anything but a real hex address reaching Mongo).
+
+    Real, honest, confirmed-live limitation (2026-08-28): "if rare" above
+    was wrong — checked directly, 1,457 real owner addresses in the
+    current, live known_agents have MORE than one registered agent. This
+    function's own "freshest-scored" tie-break is a genuine coin flip
+    among them, and a real, visible bug traced back to exactly this:
+    SmartSentinels (one real owner, three real, structurally different
+    agents — AIDA, Sentinels Audit, Sentinels Prediction) got AIDA's
+    escrow-compatibility data served for a Sentinels Audit lookup, a
+    real, wrong, publicly-visible result. Prefer get_agent_by_id below
+    wherever the caller already knows which SPECIFIC real agent it means
+    (every real frontend call site does — the UI always already has the
+    exact agent's own real id). This function stays as a real, honest
+    best-effort fallback for the one caller that genuinely can't know a
+    specific listing id (server.py's job-PnL-by-provider path, which only
+    has a completed real job's on-chain provider wallet to go on — a
+    genuine, structural limitation of that on-chain data itself, not
+    fixable by a better lookup here)."""
     if not owner_address or not _ADDRESS_RE.match(owner_address):
         return None
     db = get_db()
@@ -165,6 +183,22 @@ async def get_agent_by_owner(owner_address: str) -> dict | None:
         return None
     docs.sort(key=lambda d: (d.get("total_score") or 0), reverse=True)
     return docs[0]
+
+
+async def get_agent_by_id(agent_id: str) -> dict | None:
+    """Real, UNAMBIGUOUS lookup for one exact, specific real agent by its
+    own real, unique id (the same value known_agents stores each real
+    agent's document under as `_id` — see upsert_agents above). Added
+    2026-08-28 as the real fix for the real bug documented on
+    get_agent_by_owner above: this is the one real key that's never
+    ambiguous, since it's the exact agent a real user is actually looking
+    at, not "some agent owned by this wallet". Every real caller that has
+    a specific agent in hand (which is every real frontend call site —
+    the UI already has the agent's own id) should prefer this."""
+    if not agent_id:
+        return None
+    db = get_db()
+    return await db.known_agents.find_one({"_id": agent_id})
 
 
 async def get_stored_agents(limit: int = 50_000) -> list[dict]:

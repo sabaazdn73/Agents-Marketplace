@@ -814,7 +814,24 @@ async def agent_pnl(job_id: int):
     eligibility/computation to core/pnl.py. Always returns 200 with a
     real, honest {"available": ..., "applicable": ..., "reason": ...}
     shape — never a fabricated number, and 404 only for a job_id that
-    genuinely doesn't exist on-chain at all."""
+    genuinely doesn't exist on-chain at all.
+
+    Real, honest, KNOWN limitation (2026-08-28, found while fixing the
+    real owner-ambiguity bug elsewhere in this file — see _resolve_agent
+    below): this specific lookup genuinely can't be made unambiguous the
+    same way. A completed real job's on-chain record only ever carries
+    its real provider WALLET address, never a specific listing id — if
+    that wallet operates more than one real, distinct agent (a real,
+    confirmed, non-rare situation), which one actually fulfilled this
+    job is genuinely not recoverable from on-chain data alone. Real,
+    low-consequence in practice: this category value only steers PnL
+    ELIGIBILITY (Trading & DeFi or not), never money or delivery — worst
+    case is an honest "not applicable" shown when it arguably should be,
+    or vice versa, not a wrong dollar figure or a misdirected real
+    request. Left as the same real, best-effort owner lookup; a genuine
+    fix would need a real, different data source (e.g. matching the
+    job's own funded description back to a specific negotiate/listing),
+    not built here."""
     job = await rpc.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"No real job #{job_id} found on-chain.")
@@ -823,22 +840,49 @@ async def agent_pnl(job_id: int):
     return await pnl.compute_job_pnl(job_id, category=category)
 
 
+async def _resolve_agent(owner_address: str | None, agent_id: str | None) -> dict | None:
+    """Real, shared resolver — added 2026-08-28 as the real fix for a
+    real, confirmed bug: every one of this endpoint's siblings below used
+    to look an agent up by owner_address ALONE, which is genuinely
+    ambiguous whenever one real owner wallet has more than one registered
+    agent (confirmed live: 1,457 real owners currently do — not rare).
+    Real, confirmed incident: SmartSentinels' Sentinels Audit (escrow-
+    compatible) was served AIDA's (escrow-incompatible) data on the live
+    site, because both share one owner and the old lookup just picked
+    whichever scored higher. Prefers the real, unambiguous agent_id
+    lookup whenever the caller supplies one (every real frontend call
+    site now does); falls back to the real, best-effort owner-only lookup
+    only for older callers that haven't been updated, or genuinely don't
+    have a specific agent_id to give (never a hard break)."""
+    if agent_id:
+        agent = await agent_store.get_agent_by_id(agent_id)
+        if agent:
+            return agent
+    if owner_address:
+        return await agent_store.get_agent_by_owner(owner_address)
+    return None
+
+
 @app.get("/api/agents/pnl-summary")
-async def agent_pnl_summary(owner_address: str):
+async def agent_pnl_summary(owner_address: str, agent_id: str | None = None):
     """Real, aggregate on-chain PnL across one agent's own recent,
     PnL-eligible real jobs — see core/pnl.py's own compute_agent_pnl_summary
     docstring for the full real methodology. What the agent detail page
     actually renders (a real, honest picture across an agent's own real
     history, not one arbitrary job). Always 200 with a real, honest
     {"applicable": ..., "jobs": [...], "total_pnl_usd": ..., "reason": ...}
-    shape — never a fabricated number."""
-    agent = await agent_store.get_agent_by_owner(owner_address)
+    shape — never a fabricated number.
+
+    `agent_id` (optional, real, 2026-08-28): see _resolve_agent above —
+    disambiguates which specific real agent's category this uses when
+    owner_address alone would be ambiguous."""
+    agent = await _resolve_agent(owner_address, agent_id)
     category = agent.get("category") if agent else None
     return await pnl.compute_agent_pnl_summary(owner_address, category=category)
 
 
 @app.get("/api/agents/onchain-performance")
-async def agent_onchain_performance(owner_address: str):
+async def agent_onchain_performance(owner_address: str, agent_id: str | None = None):
     """Real, standalone "Historical on-chain performance" signal — see
     core/onchain_pnl.py's own module docstring for the full real
     methodology. Deliberately INDEPENDENT of /api/agents/pnl-summary
@@ -850,8 +894,10 @@ async def agent_onchain_performance(owner_address: str):
     Always 200 with a real, honest {"applicable": ..., "has_activity":
     ..., "attribution_confidence": ..., ...} shape — never a fabricated
     number, and never a claim of certainty this project's real data
-    can't actually back."""
-    agent = await agent_store.get_agent_by_owner(owner_address)
+    can't actually back.
+
+    `agent_id` (optional, real, 2026-08-28): see _resolve_agent above."""
+    agent = await _resolve_agent(owner_address, agent_id)
     category = agent.get("category") if agent else None
     token_id = agent.get("token_id") if agent else None
     return await onchain_pnl.get_historical_onchain_performance(owner_address, category=category, token_id=token_id)
@@ -936,7 +982,7 @@ async def canary_check_pending():
 
 
 @app.get("/api/agents/termix-performance")
-async def agent_termix_performance(owner_address: str):
+async def agent_termix_performance(owner_address: str, agent_id: str | None = None):
     """Real, independent, protocol-wide track record for one agent, from
     TermiX's own real AACP registry — NOT this marketplace's data. See
     adapters/termix.py's own docstring for the full real investigation
@@ -953,8 +999,12 @@ async def agent_termix_performance(owner_address: str):
     Always returns 200 with an honest {"available": false, "reason": ...} on
     any real failure (not on TermiX's registry, network error, malformed
     reply) — this is a supplementary enrichment, never something that should
-    break the detail page."""
-    agent = await agent_store.get_agent_by_owner(owner_address)
+    break the detail page.
+
+    `agent_id` (optional, real, 2026-08-28): see _resolve_agent above —
+    without it, an owner with more than one real registered agent could
+    get the WRONG agent's real token_id sent to TermiX here."""
+    agent = await _resolve_agent(owner_address, agent_id)
     if not agent:
         return {"available": False, "reason": "no agent on record for this owner address"}
     return await termix.get_termix_stats(agent.get("token_id"), agent.get("name"))
@@ -974,18 +1024,25 @@ async def agent_negotiate(request: Request):
     for the full investigation (including why this must run server-side: the
     agent's endpoint has no CORS support, confirmed live).
 
-    Body: {"owner_address": "0x...", "task_description": "...", "terms": {...}}.
-    Returns the raw negotiation-result envelope on a real accepted quote, or
-    a clean {"available": false} the frontend can fall back on — never a
+    Body: {"owner_address": "0x...", "task_description": "...", "terms": {...},
+    "agent_id": "..."?}. `agent_id` is optional but real, important
+    (2026-08-28, see _resolve_agent above): without it, a real hire
+    against an agent whose owner has MORE than one registered agent (a
+    real, confirmed, non-rare situation — 1,457 real owners currently do)
+    could negotiate against a completely different, WRONG real agent's
+    endpoint that just happens to share the same owner. Returns the raw
+    negotiation-result envelope on a real accepted quote, or a clean
+    {"available": false} the frontend can fall back on — never a
     fabricated/synthesized quote."""
     body = await request.json()
     owner_address = body.get("owner_address")
+    agent_id = body.get("agent_id")
     task_description = body.get("task_description")
     terms = body.get("terms") or {}
     if not owner_address or not task_description:
         raise HTTPException(status_code=400, detail="owner_address and task_description are required")
 
-    agent = await agent_store.get_agent_by_owner(owner_address)
+    agent = await _resolve_agent(owner_address, agent_id)
     service_endpoint = (agent or {}).get("service_endpoint")
     if not service_endpoint:
         return {"available": False, "reason": "no registered service_endpoint on record for this agent"}
@@ -1010,24 +1067,30 @@ async def agent_notify_funded(request: Request):
     notify_funded() for the full trace; same server-side requirement as
     negotiate (the agent's endpoint has no CORS support).
 
-    Body: {"owner_address": "0x...", "job_id": 123, "authorization": {...}?}.
-    `authorization` is optional — real, confirmed need (2026-08-24): some
-    sellers (e.g. the live stockanalyst-agent) unconditionally require a
-    real, EIP-712-signed envelope here (see core/erc8183_negotiate.py's
-    notify_funded() docstring for the exact real shape); most don't and
-    this is simply omitted/forwarded as None for them. Returns a clean
-    {"notified": false} on ANY failure (no endpoint, agent doesn't
-    implement notify_funded, timeout, rejection) — the caller must treat
-    that as "delivery may be slower, not that funding failed": the job is
-    already funded on-chain by the time this is ever called."""
+    Body: {"owner_address": "0x...", "job_id": 123, "authorization": {...}?,
+    "agent_id": "..."?}. `authorization` is optional — real, confirmed need
+    (2026-08-24): some sellers (e.g. the live stockanalyst-agent)
+    unconditionally require a real, EIP-712-signed envelope here (see
+    core/erc8183_negotiate.py's notify_funded() docstring for the exact
+    real shape); most don't and this is simply omitted/forwarded as None
+    for them. `agent_id` is optional but real, important (2026-08-28, see
+    _resolve_agent above) — the same real reason as /api/agents/negotiate:
+    without it, this could notify a completely different, WRONG real
+    agent that just happens to share an owner with the one actually hired,
+    leaving the real, correct agent never notified its job was funded.
+    Returns a clean {"notified": false} on ANY failure (no endpoint, agent
+    doesn't implement notify_funded, timeout, rejection) — the caller must
+    treat that as "delivery may be slower, not that funding failed": the
+    job is already funded on-chain by the time this is ever called."""
     body = await request.json()
     owner_address = body.get("owner_address")
+    agent_id = body.get("agent_id")
     job_id = body.get("job_id")
     authorization = body.get("authorization")
     if not owner_address or job_id is None:
         raise HTTPException(status_code=400, detail="owner_address and job_id are required")
 
-    agent = await agent_store.get_agent_by_owner(owner_address)
+    agent = await _resolve_agent(owner_address, agent_id)
     service_endpoint = (agent or {}).get("service_endpoint")
     if not service_endpoint:
         return {"notified": False, "reason": "no registered service_endpoint on record for this agent"}
@@ -1041,7 +1104,7 @@ async def agent_notify_funded(request: Request):
 
 
 @app.get("/api/agents/escrow-compatibility")
-async def agent_escrow_compatibility(owner_address: str):
+async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = None):
     """Real, conservative check: can this agent realistically ever fulfill
     a real, escrowed ERC-8183 job through this marketplace's normal hire
     flow, or is it a real, confirmed class of registered-but-off-chain
@@ -1075,8 +1138,22 @@ async def agent_escrow_compatibility(owner_address: str):
     `offers_x402_alternative` (the agent's own description explicitly
     mentions x402 pay-per-call access). None of these change the meaning
     of `escrow_incompatible` itself — existing callers of this endpoint
-    are unaffected."""
-    agent = await agent_store.get_agent_by_owner(owner_address)
+    are unaffected.
+
+    Real, urgent bug fix (2026-08-28): this used to look an agent up by
+    `owner_address` ALONE, which is genuinely ambiguous whenever one real
+    owner has more than one registered agent — confirmed live, 1,457 real
+    owners currently do. Real, confirmed, publicly-visible incident this
+    caused: SmartSentinels' real, escrow-compatible "Sentinels Audit" was
+    shown this marketplace's real "doesn't speak this marketplace's
+    escrow protocol" warning, because the old lookup happened to pick its
+    same-owner sibling "AIDA" (genuinely escrow-incompatible) instead.
+    `agent_id` (optional, real, new) now lets the caller specify EXACTLY
+    which real agent it means — see _resolve_agent above. Every real
+    frontend call site was updated to always send it; owner_address-only
+    callers still get a real, best-effort (if ambiguous) answer rather
+    than a hard break."""
+    agent = await _resolve_agent(owner_address, agent_id)
     if not agent:
         return {"escrow_incompatible": False, "confidence": None, "evidence": ["No agent on record for this owner_address."], "external_link": None}
 
