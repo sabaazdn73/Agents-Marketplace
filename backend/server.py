@@ -42,6 +42,7 @@ from core.db import get_db
 from core import agent_performance
 from core import agent_health
 from core import erc8183_negotiate
+from core import protocol_compat
 from core import deliverable_proxy
 from core import status_checks
 from adapters import zerion
@@ -767,6 +768,41 @@ async def agent_notify_funded(request: Request):
     if result.get("status") != "accepted":
         return {"notified": False, "reason": result.get("reason") or "agent rejected the notification"}
     return {"notified": True}
+
+
+@app.get("/api/agents/escrow-compatibility")
+async def agent_escrow_compatibility(owner_address: str):
+    """Real, conservative check: can this agent realistically ever fulfill
+    a real, escrowed ERC-8183 job through this marketplace's normal hire
+    flow, or is it a real, confirmed class of registered-but-off-chain
+    SaaS/business tool (real, confirmed example: "AIDA — AI Medical
+    Receptionist", which returns a real HTTP 405 on every real A2A/
+    JSON-RPC format tried — it simply doesn't speak the protocol at all)?
+
+    Reuses the exact same real candidate-discovery and multi-format probe
+    logic the actual hire flow's negotiate()/notify_funded() calls depend
+    on (core/erc8183_negotiate.py's probe_a2a_protocol), combined
+    conservatively with supporting-only metadata evidence from the agent's
+    own real, submitted description (core/protocol_compat.py). Only ever
+    flags `escrow_incompatible: true` on a strong, real, hard
+    protocol-level rejection — never on category, reputation, or a
+    keyword match alone.
+
+    24h in-process cache (protocol_compat._cache) — this is a real,
+    live network probe against the agent's own endpoint, not free, and an
+    agent's real protocol support is a structural property that doesn't
+    change minute to minute (matches agent_health.py's own caching
+    discipline). Always returns 200 with an honest, conservative
+    `escrow_incompatible: false` on any missing/unreachable data — this is
+    a safety warning surfaced ON TOP of the real hire flow, never something
+    that itself blocks the page from loading."""
+    agent = await agent_store.get_agent_by_owner(owner_address)
+    if not agent:
+        return {"escrow_incompatible": False, "confidence": None, "evidence": ["No agent on record for this owner_address."], "external_link": None}
+
+    service_endpoint = agent.get("service_endpoint")
+    description = agent.get("description")
+    return await protocol_compat.check_escrow_compatibility(service_endpoint, description)
 
 
 @app.get("/api/deliverable/proxy")

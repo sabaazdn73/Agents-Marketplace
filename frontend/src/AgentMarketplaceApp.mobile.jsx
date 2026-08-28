@@ -40,6 +40,7 @@ import TermixPerformancePanel from './TermixPerformancePanel';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import { EscrowCompatibilityNotice, useHireFlowEscrowGate } from './EscrowCompatibilityWarning';
 import PnLPanel from './PnLPanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
@@ -490,6 +491,11 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
+        {/* Real, auto-checked, conservative warning — see
+            EscrowCompatibilityWarning.jsx (same file web uses). The harder
+            gate lives in the actual funding modal below. */}
+        <EscrowCompatibilityNotice ownerAddress={agent.ownerAddress} />
+
         <button onClick={() => onHire(agent)} className="w-full mt-5 py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform">
           Hire this agent →
         </button>
@@ -627,6 +633,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     setHiring(true);
     setSpendCapTouched(false); // fresh agent — let its real price (if any) pre-fill again
   };
+
+  // Real, last-chance escrow-compatibility gate, parity with web — see
+  // EscrowCompatibilityWarning.jsx.
+  const hireEscrowGate = useHireFlowEscrowGate(selectedAgent?.ownerAddress);
 
   const {
     hire, hireBatched, step: hireStep, error: hireError,
@@ -819,6 +829,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
               <p className="text-gray-500 text-sm mb-4">This is <strong>Always Ask</strong> — you'll approve a few quick steps in your wallet, tracked below as they happen.</p>
 
+              {/* Real, last-chance gate, parity with web — see
+                  EscrowCompatibilityWarning.jsx. */}
+              {hireEscrowGate.node}
+
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck size={16} className="text-indigo-500" />
                 <span className="text-xs font-bold uppercase tracking-wide opacity-70">Always Ask</span>
@@ -919,8 +933,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'done' && !hireError} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'ALWAYS ASK'}
+                <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE' : 'ALWAYS ASK'}
                 </button>
               </div>
 

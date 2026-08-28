@@ -32,6 +32,7 @@ import InfoTooltip from './InfoTooltip';
 import TermixPerformancePanel from './TermixPerformancePanel';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
+import { EscrowCompatibilityNotice, useHireFlowEscrowGate } from './EscrowCompatibilityWarning';
 import PnLPanel from './PnLPanel';
 import Pagination from './Pagination';
 
@@ -470,6 +471,14 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
+        {/* Real, auto-checked, conservative warning for a real, confirmed
+            agent class that never speaks the escrow protocol at all — see
+            EscrowCompatibilityWarning.jsx. Supplements, doesn't replace,
+            the real Hire button below: the harder gate lives in the
+            actual funding modal (handleHireClick → useHireFlowEscrowGate),
+            right before real money moves. */}
+        <EscrowCompatibilityNotice ownerAddress={agent.ownerAddress} />
+
         <button onClick={() => onHire(agent)} className="w-full mt-6 py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
           Hire this agent →
         </button>
@@ -704,6 +713,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     setHiring(true);
     setSpendCapTouched(false); // fresh agent — let its real price (if any) pre-fill again
   };
+
+  // Real, last-chance escrow-compatibility gate for whichever agent the
+  // funding modal is currently open for — see EscrowCompatibilityWarning.jsx.
+  const hireEscrowGate = useHireFlowEscrowGate(selectedAgent?.ownerAddress);
 
   const handleActivateSession = async () => {
     if (!selectedAgent || !walletConnected) return;
@@ -1418,6 +1431,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   Both options put real money on hold for this agent to do the work — you're not just browsing anymore. <strong>Always Ask</strong> below has you approve each step yourself, in your wallet, every time. <strong>Autonomous</strong>, further down, lets you set a spending limit once so the agent can act on its own within it — handy if you plan to use this agent again.
                 </div>
 
+                {/* Real, last-chance gate — see EscrowCompatibilityWarning.jsx.
+                    Only renders (and only blocks the fund button below) when
+                    this specific agent was flagged by a real, live protocol
+                    probe against its own registered endpoint. */}
+                {hireEscrowGate.node}
+
                 <div className="flex items-center gap-2 mb-3">
                   <ShieldCheck size={16} className="text-indigo-500" />
                   <span className="text-xs font-bold uppercase tracking-wide opacity-70">Always Ask</span>
@@ -1533,8 +1552,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   </div>
                 )}
 
-                <button onClick={handleActivateSession} disabled={hireStep && hireStep !== 'done' && !hireError} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : 'ALWAYS ASK'}
+                <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE TO CONTINUE' : 'ALWAYS ASK'}
                 </button>
               </div>
 
