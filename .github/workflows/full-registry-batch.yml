@@ -42,8 +42,31 @@
 # own step (own endpoint call) rather than folded into the first one, so
 # each individual HTTP call stays safely inside the real, observed ~75s
 # Render timeout zone documented in backend/server.py.
+#
+# Real, third step added (2026-08-28): a real, INDEPENDENT Live Status
+# reliability pass (POST /api/admin/health-check-batch) — decoupled from
+# the much heavier full-registry-backed marketplace refresh, which was
+# confirmed this session to repeatedly OOM-crash under real memory
+# pressure (see core/aggregate.py's own real fix commits). When that
+# heavier refresh fails partway through, service-health data used to go
+# stale right along with it, silently. This step keeps Live Status fresh
+# on the same real schedule regardless of whether the heavier refresh
+# succeeds that cycle.
+#
+# Real, fourth step added (2026-08-28): a real, dedicated Solana ingestion
+# pass (POST /api/admin/solana-registry-batch) — real, urgent correction:
+# Solana was wrongly assumed to need a genuinely separate technical
+# integration and left out of this pipeline entirely; confirmed live that
+# 8004scan's own unified API already indexes it via the real, correct
+# `chain_id=101` param, it just never rides along in the shared EVM scan
+# the other three chains use, so it gets its own real, cheap, separate
+# step here rather than joining TARGET_CHAIN_IDS (see
+# core/full_registry_ingest.py's own docstring for the full real
+# correction). Stored the same way Base/Ethereum are — same
+# full_agent_registry collection, not surfaced on the live BSC-only
+# marketplace yet.
 
-name: Full-registry batch (ingest + analyze + job index)
+name: Full-registry batch (ingest + analyze + job index + health check + solana)
 
 on:
   schedule:
@@ -56,11 +79,6 @@ jobs:
     steps:
       - name: Call the real /api/admin/full-registry-batch endpoint
         env:
-          # Real, confirmed-live backend URL (Render API, 2026-08-28) —
-          # the "Agents-Marketplace" web service, not a guess. Overridable
-          # via a real repository VARIABLE (Settings -> Secrets and
-          # variables -> Actions -> Variables) without touching this file,
-          # should the backend's real URL ever change.
           BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
           BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
         run: |
@@ -98,5 +116,43 @@ jobs:
           cat response2.json
           if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
             echo "::error::Real job-index batch trigger failed with HTTP $http_status"
+            exit 1
+          fi
+
+      - name: Call the real /api/admin/health-check-batch endpoint
+        env:
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
+          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
+        run: |
+          echo "Calling $BACKEND_BASE_URL/api/admin/health-check-batch ..."
+          http_status=$(curl -sS -o response3.json -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
+            "${BACKEND_BASE_URL}/api/admin/health-check-batch")
+          echo "Real HTTP status: $http_status"
+          echo "Real response body:"
+          cat response3.json
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Real health-check batch trigger failed with HTTP $http_status"
+            exit 1
+          fi
+
+      - name: Call the real /api/admin/solana-registry-batch endpoint
+        env:
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
+          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
+        run: |
+          echo "Calling $BACKEND_BASE_URL/api/admin/solana-registry-batch ..."
+          http_status=$(curl -sS -o response4.json -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
+            "${BACKEND_BASE_URL}/api/admin/solana-registry-batch")
+          echo "Real HTTP status: $http_status"
+          echo "Real response body:"
+          cat response4.json
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Real Solana batch trigger failed with HTTP $http_status"
             exit 1
           fi
