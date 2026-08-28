@@ -32,7 +32,8 @@ import InfoTooltip from './InfoTooltip';
 import TermixPerformancePanel from './TermixPerformancePanel';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import WalletPortfolioPanel from './WalletPortfolioPanel';
-import { EscrowCompatibilityNotice, useHireFlowEscrowGate } from './EscrowCompatibilityWarning';
+import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
+import AgentEvaluationSection from './AgentEvaluationSection';
 import PnLPanel from './PnLPanel';
 import OnchainPerformancePanel from './OnchainPerformancePanel';
 import RevenueStreamPanel from './RevenueStreamPanel';
@@ -309,6 +310,11 @@ const AGENT_PERFORMANCE_FETCH_TIMEOUT_MS = 20_000;
 
 function AgentPerformance({ agent, onTrySkill }) {
   const ownerAddress = agent.ownerAddress;
+  // Real, honest context for the zero-hire state below — same real probe
+  // AgentEvaluationSection reads (EscrowCompatibilityWarning.jsx's own
+  // session-local cache means this is a cache hit, not a second real
+  // network call, when that section has already fetched it).
+  const { data: escrowData } = useEscrowCompatibility(ownerAddress);
   const [perf, setPerf] = useState(null);
   const [state, setState] = useState('loading'); // loading | ready | error
   const [retryTick, setRetryTick] = useState(0);
@@ -339,7 +345,13 @@ function AgentPerformance({ agent, onTrySkill }) {
       {state === 'ready' && (!perf || !perf.hired) ? (
         <>
           <AgentGuidancePanel agent={agent} mutedBorder="border-gray-200 dark:border-gray-800" onTrySkill={onTrySkill} />
-          {perf && <p className="text-[10px] text-gray-400 mt-1.5">We checked the last {perf.scanned_window} jobs on the whole marketplace and found none for this agent — it may just be new.</p>}
+          {perf && (
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              {escrowData?.escrow_incompatible
+                ? "This agent doesn't operate through Tnega's on-chain escrow, so no real hire history is expected here — see below for how we evaluate it instead."
+                : `We checked the last ${perf.scanned_window} jobs on the whole marketplace and found none for this agent — it may just be new.`}
+            </p>
+          )}
         </>
       ) : state === 'ready' && perf?.hired ? (
         <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
@@ -482,17 +494,12 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
 
-        {/* Real, auto-checked, conservative warning for a real, confirmed
-            agent class that never speaks the escrow protocol at all — see
-            EscrowCompatibilityWarning.jsx. Supplements, doesn't replace,
-            the real Hire button below: the harder gate lives in the
-            actual funding modal (handleHireClick → useHireFlowEscrowGate),
-            right before real money moves. */}
-        <EscrowCompatibilityNotice ownerAddress={agent.ownerAddress} />
-
-        <button onClick={() => onHire(agent)} className="w-full mt-6 py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
-          Hire this agent →
-        </button>
+        {/* Real, unified, category-aware evaluation + primary CTA — see
+            docs/category-evaluation.md and AgentEvaluationSection.jsx.
+            The harder, last-chance gate still lives in the actual funding
+            modal (handleHireClick → useHireFlowEscrowGate), right before
+            real money moves. */}
+        <AgentEvaluationSection agent={agent} onHire={onHire} />
       </div>
     </div>
   );

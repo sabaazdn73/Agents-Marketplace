@@ -18,17 +18,24 @@
 // warn a buyer BEFORE they open the funding flow, not only if they
 // remember to ask. Shared verbatim by web and mobile; used in two real
 // places:
-//   1. The agent detail page (EscrowCompatibilityNotice) — a supplementary
-//      warning next to "Hire this agent", with a real, clearly-labeled
-//      external link when the agent's own submitted data has one (never
-//      fabricated — see protocol_compat.py's _extract_real_external_link).
+//   1. EscrowCompatibilityNotice below — real, standalone warning content
+//      (headline/body/evidence/external link). As of the real
+//      category-aware evaluation generalization (2026-08-28), the agent
+//      detail page no longer renders this directly — it's folded into
+//      AgentEvaluationSection.jsx's own unified native-method/primary-CTA
+//      block instead, so a buyer sees ONE coherent section, not two
+//      separate, back-to-back ones. The component itself stays exported
+//      and unchanged in case anywhere else ever wants the same standalone
+//      warning.
 //   2. The actual funding modal (useHireFlowEscrowGate) — the real,
 //      last-chance placement, right before real money moves on-chain.
 //      Requires an explicit acknowledgment checkbox before the real fund
 //      button is enabled, rather than hard-blocking it outright: this is
 //      real, evidence-based detection, not infallible, so a buyer who has
 //      their own reason to proceed still can — just never as the default,
-//      accidental, one-click path.
+//      accidental, one-click path. Unchanged by this generalization — a
+//      different, still-necessary concern (safety at the moment money
+//      actually moves), not top-level presentation.
 //
 // Never hides the agent from the registry/marketplace listing — per the
 // real, explicit scope this was built to: "don't hide these agents
@@ -70,7 +77,10 @@ export function useEscrowCompatibility(ownerAddress) {
   return state;
 }
 
-function hostnameOf(url) {
+// Exported (2026-08-28) — reused by AgentEvaluationSection.jsx, which
+// folds this file's own warning content into the new, unified evaluation
+// section rather than duplicating the same hostname-extraction logic.
+export function hostnameOf(url) {
   try { return new URL(url).hostname; } catch { return url; }
 }
 
