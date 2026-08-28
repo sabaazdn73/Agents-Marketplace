@@ -114,6 +114,35 @@ export function getMainnetReadClient() {
   return _mainnetPublicClient;
 }
 
+const _USDT_BALANCE_OF_ABI = [{
+  type: 'function', name: 'balanceOf', stateMutability: 'view',
+  inputs: [{ type: 'address' }], outputs: [{ type: 'uint256' }],
+}];
+
+/**
+ * Real, shared "is this the wallet I think it is" snapshot — added
+ * 2026-08-28, the real, direct fix for a real, confirmed UX gap: a user
+ * with several identically-labeled saved passkeys had no way to tell a
+ * real, previously-funded wallet apart from a real, empty, orphaned one
+ * (see docs/venus-skill-revert-investigation.md for the full incident)
+ * without a doomed real attempt first. Real, live reads only — never a
+ * write, never a signature, safe to call before the user commits to
+ * anything. `usdtAddress` is passed in by the caller (defiSkills.js's
+ * USDT_BSC) rather than imported here, so this module doesn't need a
+ * hardcoded opinion about which token matters — every real caller so far
+ * cares about the same real USDT_BSC constant, but this stays real and
+ * general rather than assuming that forever.
+ */
+export async function fetchWalletBalanceSnapshot(address, usdtAddress) {
+  const [bnbRaw, usdtRaw] = await Promise.all([
+    _mainnetPublicClient.getBalance({ address }),
+    _mainnetPublicClient.readContract({ address: usdtAddress, abi: _USDT_BALANCE_OF_ABI, functionName: 'balanceOf', args: [address] }),
+  ]);
+  const bnb = Number(bnbRaw) / 1e18;
+  const usdt = Number(usdtRaw) / 1e18;
+  return { address, bnb, usdt, isEmpty: bnb === 0 && usdt === 0 };
+}
+
 // Real, standard Panic(uint256) codes (Solidity's own, per the ABI spec) —
 // used by decodeAltanaExecutionError below so a Panic reason reads as
 // plain English, not a bare integer.
@@ -270,8 +299,39 @@ export async function recoverAltanaWallet() {
   return await client.recoverFromPasskey({ rpId: RP_ID });
 }
 
+// Real, added 2026-08-28 — the real, direct mitigation for the "four
+// identically-labeled saved passkeys" confusion this whole investigation
+// traced back to. Confirmed live (read the installed
+// @altananetwork/sdk -> its own `porto` dependency's Key.createWebAuthnP256,
+// node_modules/porto/dist/viem/Key.js): the real `name` we pass here maps
+// DIRECTLY to the real WebAuthn credential's own `user.name` AND
+// `user.displayName` fields — exactly what a browser's saved-passkey
+// picker shows to tell multiple credentials for the same site apart. This
+// genuinely was controllable, not assumed.
+//
+// Real, honest limitation found and NOT worked around: the literal real
+// wallet address can't be embedded in this label. `createPasskeyWallet`
+// generates its throwaway EOA (the address that becomes the real smart-
+// account address) INSIDE itself, strictly AFTER the name we pass in is
+// already committed to the WebAuthn ceremony — there is no way to learn
+// the real address first through the SDK's own public API without
+// reimplementing its internal EIP-7702 upgrade sequence ourselves, a real,
+// meaningfully riskier change (duplicated, real money-moving logic that
+// could silently drift from the SDK's own real behavior on a future
+// update) for a cosmetic label. Not done. A real, creation-time label is
+// used instead — genuinely distinguishable in the real browser picker
+// (unlike the flat, identical "Tnega" every prior wallet used), even
+// though it can't carry the address itself.
+function _distinctivePasskeyLabel() {
+  const now = new Date();
+  const stamp = now.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+  return `${APP_NAME} — new wallet, ${stamp}`;
+}
+
 export async function createNewAltanaWallet() {
-  return await client.createPasskeyWallet({ name: APP_NAME, rpId: RP_ID });
+  return await client.createPasskeyWallet({ name: _distinctivePasskeyLabel(), rpId: RP_ID });
 }
 
 /**

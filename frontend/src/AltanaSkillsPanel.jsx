@@ -14,7 +14,8 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Loader2, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
 import { PERMIT2_ADDRESS } from '@altananetwork/sdk';
-import { recoverAltanaWallet, createNewAltanaWallet, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
+import { recoverAltanaWallet, createNewAltanaWallet, fetchWalletBalanceSnapshot, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
+import WalletConfirmStep from './WalletConfirmStep';
 import { executeEnterPosition, PANCAKESWAP_ROUTER, WBNB, USDT_BSC } from './pancakeswapSkill';
 import { venusSupply, venusSupplyPreflight, aaveSupply, listaStake, pancakeAddLiquidity, VENUS_VUSDT, AAVE_POOL, LISTA_MANAGER } from './defiSkills';
 import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeSkill';
@@ -190,6 +191,12 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   // creates a brand-new wallet. This flags that a real, explicit choice
   // is needed from the user instead.
   const [needsWalletChoice, setNeedsWalletChoice] = useState(false);
+  // Real, added 2026-08-28 (see WalletConfirmStep.jsx) — a real wallet
+  // that's been recovered/created but not yet confirmed by the user, and
+  // its real, live BNB/USDT balance snapshot. Nothing proceeds to
+  // granting a session until the user explicitly continues past this.
+  const [pendingWallet, setPendingWallet] = useState(null);
+  const [walletSnapshot, setWalletSnapshot] = useState(null);
 
   // Execution config for this skill. All 10 registry skills are wired; a skill
   // id not in SKILL_EXEC (shouldn't happen for the real registry) is disclosed
@@ -255,10 +262,25 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
     setStep('done');
   };
 
+  // Real, added 2026-08-28 (see WalletConfirmStep.jsx's own docstring for
+  // the full real incident this fixes) — a real wallet was just recovered
+  // or created; fetch its real, live balance snapshot and PAUSE here for
+  // an explicit user confirmation, rather than silently proceeding
+  // straight to granting a session (and eventually signing something)
+  // against a wallet the user never actually got to look at first.
+  const presentWalletForConfirmation = async (wallet) => {
+    setStep(null);
+    const snapshot = await fetchWalletBalanceSnapshot(wallet.address, USDT_BSC);
+    setPendingWallet(wallet);
+    setWalletSnapshot(snapshot);
+  };
+
   const handleGrantAndRun = async () => {
     setError(null);
     setExecResult(null);
     setNeedsWalletChoice(false);
+    setWalletSnapshot(null);
+    setPendingWallet(null);
     try {
       // ── Read-only / detection skills: no wallet, no session, no funding ──
       if (kind === 'read') {
@@ -285,7 +307,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         setError(e.message || String(e));
         return;
       }
-      await runWithWallet(wallet);
+      await presentWalletForConfirmation(wallet);
     } catch (e) {
       setStep('error');
       // Real, added 2026-08-28 (see altana.js's decodeAltanaExecutionError):
@@ -305,11 +327,32 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
     try {
       setStep('wallet');
       const wallet = await createNewAltanaWallet();
+      await presentWalletForConfirmation(wallet);
+    } catch (e) {
+      setStep('error');
+      setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+    }
+  };
+
+  // Real, the one place a session actually gets granted/executed now —
+  // only ever reached after the user has seen the real wallet + real
+  // balances above and explicitly clicked through.
+  const handleContinueWithWallet = async () => {
+    const wallet = pendingWallet;
+    setPendingWallet(null);
+    setWalletSnapshot(null);
+    try {
       await runWithWallet(wallet);
     } catch (e) {
       setStep('error');
       setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
+  };
+
+  const handleTryDifferentPasskey = () => {
+    setPendingWallet(null);
+    setWalletSnapshot(null);
+    handleGrantAndRun();
   };
 
   return (
@@ -420,14 +463,28 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         </div>
       )}
 
-      <button onClick={handleGrantAndRun} disabled={(!!step && step !== 'error' && step !== 'done') || !isExecutable} className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-        {step === 'done' ? 'Done ✓'
-          : !isExecutable ? 'Not available'
-          : kind === 'read' ? 'Look it up →'
-          : kind === 'pay' ? 'Set limit & pay →'
-          : session ? 'Run again'
-          : 'Set limit & run this →'}
-      </button>
+      {/* Real, added 2026-08-28 (see WalletConfirmStep.jsx) — a real wallet
+          was just recovered/created; PAUSE here until the user explicitly
+          confirms it, instead of the main run button below. */}
+      {walletSnapshot ? (
+        <div className="mb-4">
+          <WalletConfirmStep
+            snapshot={walletSnapshot}
+            onContinue={handleContinueWithWallet}
+            onTryDifferent={handleTryDifferentPasskey}
+            continueLabel={kind === 'pay' ? 'Set limit & pay' : 'Set limit & run this'}
+          />
+        </div>
+      ) : (
+        <button onClick={handleGrantAndRun} disabled={(!!step && step !== 'error' && step !== 'done') || !isExecutable} className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+          {step === 'done' ? 'Done ✓'
+            : !isExecutable ? 'Not available'
+            : kind === 'read' ? 'Look it up →'
+            : kind === 'pay' ? 'Set limit & pay →'
+            : session ? 'Run again'
+            : 'Set limit & run this →'}
+        </button>
+      )}
     </div>
   );
 }

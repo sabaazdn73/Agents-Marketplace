@@ -9,15 +9,17 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Loader2, ExternalLink, XCircle } from 'lucide-react';
 import {
-  recoverAltanaWallet, createNewAltanaWallet, grantMarketplaceSession, revokeMarketplaceSession,
+  recoverAltanaWallet, createNewAltanaWallet, fetchWalletBalanceSnapshot, grantMarketplaceSession, revokeMarketplaceSession,
   hireAgentWithSession, explorerLinkForWallet, ALTANA_EXPLORER_URL,
   disputeJob, settleJob,
 } from './altana';
+import { USDT_BSC } from './defiSkills';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import JobStatusPanel from './JobStatusPanel';
+import WalletConfirmStep from './WalletConfirmStep';
 
 const SESSION_STORAGE_KEY = 'altana-marketplace-session-v1';
 
@@ -34,6 +36,12 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
   // treated as "create a brand-new wallet" — this flags that a real
   // choice is needed instead, surfaced explicitly in the UI below.
   const [needsWalletChoice, setNeedsWalletChoice] = useState(false);
+  // Real, added 2026-08-28 (see WalletConfirmStep.jsx) — a real wallet
+  // that's been recovered/created but not yet confirmed by the user, and
+  // its real, live BNB/USDT balance snapshot. Nothing proceeds to
+  // granting a session until the user explicitly continues past this.
+  const [pendingWallet, setPendingWallet] = useState(null);
+  const [walletSnapshot, setWalletSnapshot] = useState(null);
 
   // Real persisted session, matching the docs' explicit requirement to
   // "persist the Session object verbatim" for byte-exact execute later.
@@ -67,9 +75,10 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
   // get overwritten with the literal string 'error' on failure, losing which
   // of the real steps was active. Now `step` always stays the real last-
   // active step name; `error` (already existed) is the separate signal.
-  // Real continuation after a real wallet (recovered OR freshly created) is
-  // in hand — factored out so both handleCreateWalletAndSession and
-  // handleConfirmNewWallet below share the exact same real granting step.
+  // Real continuation after the user has EXPLICITLY confirmed this is the
+  // real wallet they meant to use (see WalletConfirmStep.jsx) — factored
+  // out so handleContinueWithWallet below can call it after that real,
+  // deliberate pause, never automatically right after recovery/creation.
   const grantSessionForWallet = async (w) => {
     setWallet(w);
     setCompletedSessionSteps(['creating_wallet']);
@@ -80,9 +89,24 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
     setStep(null);
   };
 
+  // Real, added 2026-08-28 (see WalletConfirmStep.jsx's own docstring for
+  // the full real incident this fixes) — a real wallet was just recovered
+  // or created; fetch its real, live balance snapshot and PAUSE here for
+  // an explicit user confirmation, rather than silently proceeding
+  // straight to granting a session (and eventually signing something)
+  // against a wallet the user never actually got to look at first.
+  const presentWalletForConfirmation = async (w) => {
+    setStep(null);
+    const snapshot = await fetchWalletBalanceSnapshot(w.address, USDT_BSC);
+    setPendingWallet(w);
+    setWalletSnapshot(snapshot);
+  };
+
   const handleCreateWalletAndSession = async () => {
     setError(null);
     setNeedsWalletChoice(false);
+    setWalletSnapshot(null);
+    setPendingWallet(null);
     setCompletedSessionSteps([]);
     try {
       setStep('creating_wallet');
@@ -90,7 +114,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
       // wallet here — never auto-creates a new one on failure (see
       // altana.js's own docstring for the real incident this fixes).
       const w = await recoverAltanaWallet();
-      await grantSessionForWallet(w);
+      await presentWalletForConfirmation(w);
     } catch (e) {
       // Real, honest fork: this failure means recovery genuinely didn't
       // land on a usable real wallet — could be no passkey saved yet, the
@@ -109,10 +133,30 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
     try {
       setStep('creating_wallet');
       const w = await createNewAltanaWallet();
+      await presentWalletForConfirmation(w);
+    } catch (e) {
+      setError(e.message || String(e));
+    }
+  };
+
+  // Real, the one place a session actually gets granted now — only ever
+  // reached after the user has seen the real wallet + real balances above
+  // and explicitly clicked through.
+  const handleContinueWithWallet = async () => {
+    const w = pendingWallet;
+    setPendingWallet(null);
+    setWalletSnapshot(null);
+    try {
       await grantSessionForWallet(w);
     } catch (e) {
       setError(e.message || String(e));
     }
+  };
+
+  const handleTryDifferentPasskey = () => {
+    setPendingWallet(null);
+    setWalletSnapshot(null);
+    handleCreateWalletAndSession();
   };
 
   const handleHire = async () => {
@@ -207,23 +251,37 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
             </div>
           )}
 
-          <button onClick={handleCreateWalletAndSession} disabled={!!step && !error}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-            {needsWalletChoice ? 'Try again' : (error && (step === 'creating_wallet' || step === 'granting') ? 'Try again' : 'Turn on Autonomous mode')}
-          </button>
-
-          {/* Real, added 2026-08-28 — see altana.js's own docstring for the
-              full real incident this fixes. Never auto-creates a new
-              wallet on a recovery failure anymore; this is the one, real,
-              explicit, user-confirmed path that does. */}
-          {needsWalletChoice && (
-            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-xs space-y-2">
-              <p className="text-amber-600 dark:text-amber-400 whitespace-pre-wrap">{error}</p>
-              <p className="opacity-70">If you've set up a wallet here before, tap "Try again" above and pick that SAME saved passkey. Only tap below if this is genuinely your first time — it creates a brand-new, empty wallet.</p>
-              <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-xs font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
-                This is genuinely my first time — create a new wallet
+          {/* Real, added 2026-08-28 (see WalletConfirmStep.jsx) — a real
+              wallet was just recovered/created; PAUSE here until the user
+              explicitly confirms it, instead of the main button below. */}
+          {walletSnapshot ? (
+            <WalletConfirmStep
+              snapshot={walletSnapshot}
+              onContinue={handleContinueWithWallet}
+              onTryDifferent={handleTryDifferentPasskey}
+              continueLabel="Turn on Autonomous mode"
+            />
+          ) : (
+            <>
+              <button onClick={handleCreateWalletAndSession} disabled={!!step && !error}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+                {needsWalletChoice ? 'Try again' : (error && (step === 'creating_wallet' || step === 'granting') ? 'Try again' : 'Turn on Autonomous mode')}
               </button>
-            </div>
+
+              {/* Real, added 2026-08-28 — see altana.js's own docstring for
+                  the full real incident this fixes. Never auto-creates a
+                  new wallet on a recovery failure anymore; this is the
+                  one, real, explicit, user-confirmed path that does. */}
+              {needsWalletChoice && (
+                <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-xs space-y-2">
+                  <p className="text-amber-600 dark:text-amber-400 whitespace-pre-wrap">{error}</p>
+                  <p className="opacity-70">If you've set up a wallet here before, tap "Try again" above and pick that SAME saved passkey. Only tap below if this is genuinely your first time — it creates a brand-new, empty wallet.</p>
+                  <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-xs font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
+                    This is genuinely my first time — create a new wallet
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       ) : (
