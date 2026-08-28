@@ -52,6 +52,8 @@ from core import canary
 from core import pnl
 from core import onchain_pnl
 from core import revenue
+from core import full_registry_ingest
+from core import full_registry_analysis
 from core import rpc
 
 load_dotenv()
@@ -358,6 +360,82 @@ async def health():
 @app.get("/api/status")
 async def status():
     return await status_checks.get_status()
+
+
+# ── Real, scheduler-driven full-registry batch trigger (2026-08-28) ──
+# Real, standing gap this closes: core/full_registry_ingest.py and
+# core/full_registry_analysis.py are real, bounded, resumable/checkpointed
+# batch units (see scripts/full_registry_scan.py) — but had NO scheduler at
+# all. Render Cron Jobs are a paid-plan feature, out of scope per this
+# project's own standing "no paid/unknown-cost infrastructure without an
+# explicit decision" rule (see docs/full-registry-analysis.md), so this
+# pipeline only ever advanced when a human ran the script by hand — real,
+# confirmed consequence: known_agents/full_agent_registry can go stale for
+# days at a time with nobody noticing. Real fix: GitHub Actions offers
+# genuinely free scheduled workflows for a public repository (confirmed
+# live against this repo's own real visibility via the GitHub API, and
+# against GitHub's own current docs — "GitHub Actions usage is free for
+# standard GitHub-hosted runners in public repositories", no minute cap at
+# all, not the 2,000 min/month private-repo figure) —
+# .github/workflows/full-registry-batch.yml calls THIS endpoint on a
+# schedule instead.
+@app.post("/api/admin/full-registry-batch")
+async def full_registry_batch(request: Request, ingest_seconds: float = 50.0, analyze_seconds: float = 40.0):
+    """Real, secret-gated trigger for ONE bounded batch of the full-registry
+    ingestion + analysis pipeline — the exact same real, resumable units
+    scripts/full_registry_scan.py already runs by hand, now callable over
+    HTTP.
+
+    Real security (the explicit real requirement this was built against):
+    this is the one, deliberate exception to this project's normal "every
+    /api/* route is public, no auth" pattern — this route triggers real,
+    bounded backend work and real 8004scan API quota use, so leaving it
+    open would be a real, exploitable public trigger anyone could hit
+    repeatedly to waste resources. Requires a real shared secret in the
+    `X-Batch-Secret` header, checked against `BATCH_TRIGGER_SECRET` (an
+    env var set only on this backend service and, identically, as a
+    GitHub Actions repository secret — never committed, never logged,
+    never echoed back in any response). Real, fail-closed default: if
+    `BATCH_TRIGGER_SECRET` isn't configured on this service at all, the
+    endpoint refuses every call rather than silently running unauthenticated.
+
+    Real, conservative time bounds, each independently capped at 120s
+    (`ingest_seconds`/`analyze_seconds` let a caller ask for less, never
+    more) — kept short deliberately: Render's own exact request-timeout
+    figure for this plan isn't publicly documented (checked, not assumed),
+    so this stays well under any plausible real limit rather than risk a
+    mid-batch cutoff. Safe either way because both halves are genuinely
+    checkpointed (full_registry_ingest.py's own Mongo-backed progress
+    doc) — a short, frequent real batch makes exactly as much real
+    progress as a long one over time, just never risks a hung request."""
+    secret = os.environ.get("BATCH_TRIGGER_SECRET")
+    if not secret:
+        raise HTTPException(status_code=503, detail="BATCH_TRIGGER_SECRET is not configured on this service.")
+    if request.headers.get("X-Batch-Secret") != secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Batch-Secret header.")
+
+    api_key = os.environ.get("SCAN_8004_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="SCAN_8004_API_KEY is not set.")
+
+    ingest_result = await full_registry_ingest.run_ingest_batch(api_key, max_seconds=min(ingest_seconds, 120.0))
+
+    analyze_checked = 0
+    analyze_done = False
+    t0 = time.time()
+    analyze_budget = min(analyze_seconds, 120.0)
+    while time.time() - t0 < analyze_budget:
+        r = await full_registry_analysis.run_analysis_batch(batch_size=300)
+        analyze_checked += r["checked"]
+        if r.get("done"):
+            analyze_done = True
+            break
+
+    return {
+        "ingest": ingest_result,
+        "analysis": {"checked": analyze_checked, "done": analyze_done},
+        "triggered_at": time.time(),
+    }
 
 
 # ── Altana Skills Registry proxy ──
