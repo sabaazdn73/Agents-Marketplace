@@ -37,8 +37,7 @@ import InfoTooltip from './InfoTooltip';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
-import AgentEvaluationSection from './AgentEvaluationSection';
-import AgentInvestigationSection from './AgentInvestigationSection';
+import AgentMetrics from './AgentMetrics';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
@@ -408,18 +407,14 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
-        {/* Real, unified "Agent Investigation" — see the matching comment
-            on AgentDetail (web) / AgentInvestigationSection.jsx's own
-            header for the full real redesign rationale. */}
-        <AgentInvestigationSection agent={agent} onTrySkill={onTrySkill} />
+        {/* Real, final, unified "Metrics" presentation — see the matching
+            comment on AgentDetail (web) / AgentMetrics.jsx's own header
+            for the full real consolidation rationale (same file web
+            uses). The harder, last-chance gate still lives in the actual
+            funding modal below. */}
+        <AgentMetrics agent={agent} onHire={onHire} onTrySkill={onTrySkill} />
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
-
-        {/* Real, unified, category-aware evaluation + primary CTA — see
-            docs/category-evaluation.md and AgentEvaluationSection.jsx
-            (same file web uses). The harder, last-chance gate still lives
-            in the actual funding modal below. */}
-        <AgentEvaluationSection agent={agent} onHire={onHire} />
       </div>
     </div>
   );

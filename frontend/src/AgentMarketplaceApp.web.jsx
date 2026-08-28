@@ -30,8 +30,7 @@ import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import InfoTooltip from './InfoTooltip';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
-import AgentEvaluationSection from './AgentEvaluationSection';
-import AgentInvestigationSection from './AgentInvestigationSection';
+import AgentMetrics from './AgentMetrics';
 import Pagination from './Pagination';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
@@ -368,22 +367,21 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             {agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">not available</span>}
           </span>
         </div>
-        {/* Real, unified "Agent Investigation" — Delivery Record, Financial
-            Track Record (Trading & DeFi only), Independent Corroboration
-            (TermiX + opt-in full wallet portfolio/history), Live Status.
-            Replaces what used to be six separately-bordered panels; see
-            AgentInvestigationSection.jsx's own header for the full real
-            redesign rationale. */}
-        <AgentInvestigationSection agent={agent} onTrySkill={onTrySkill} />
+        {/* Real, final, unified "Metrics" presentation — real interaction
+            guidance (hire / hire-with-caution / visit-website, per the
+            real, evidence-based per-agent classification) leading, then
+            real metrics routed and ordered by the agent's real nature
+            (fund-management agents lead with real cash flow/profit;
+            everyone else leads with real delivery history). Replaces the
+            two separate sections this session built in sequence
+            (AgentEvaluationSection, AgentInvestigationSection) — see
+            AgentMetrics.jsx's own header for the full real consolidation
+            rationale. The harder, last-chance gate still lives in the
+            actual funding modal (handleHireClick → useHireFlowEscrowGate),
+            right before real money moves. */}
+        <AgentMetrics agent={agent} onHire={onHire} onTrySkill={onTrySkill} />
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
-
-        {/* Real, unified, category-aware evaluation + primary CTA — see
-            docs/category-evaluation.md and AgentEvaluationSection.jsx.
-            The harder, last-chance gate still lives in the actual funding
-            modal (handleHireClick → useHireFlowEscrowGate), right before
-            real money moves. */}
-        <AgentEvaluationSection agent={agent} onHire={onHire} />
       </div>
     </div>
   );

@@ -22,10 +22,12 @@
 //      (headline/body/evidence/external link). As of the real
 //      category-aware evaluation generalization (2026-08-28), the agent
 //      detail page no longer renders this directly — it's folded into
-//      AgentEvaluationSection.jsx's own unified native-method/primary-CTA
-//      block instead, so a buyer sees ONE coherent section, not two
-//      separate, back-to-back ones. The component itself stays exported
-//      and unchanged in case anywhere else ever wants the same standalone
+//      AgentMetrics.jsx's own unified interaction-guidance block instead
+//      (the real, final consolidation of what used to be
+//      AgentEvaluationSection.jsx + AgentInvestigationSection.jsx), so a
+//      buyer sees ONE coherent "Metrics" section, not several separate,
+//      back-to-back ones. The component itself stays exported and
+//      unchanged in case anywhere else ever wants the same standalone
 //      warning.
 //   2. The actual funding modal (useHireFlowEscrowGate) — the real,
 //      last-chance placement, right before real money moves on-chain.
@@ -94,9 +96,9 @@ export function useEscrowCompatibility(ownerAddress, agentId) {
   return state;
 }
 
-// Exported (2026-08-28) — reused by AgentEvaluationSection.jsx, which
-// folds this file's own warning content into the new, unified evaluation
-// section rather than duplicating the same hostname-extraction logic.
+// Exported (2026-08-28) — reused by AgentMetrics.jsx, which folds this
+// file's own warning content into the unified Metrics section rather
+// than duplicating the same hostname-extraction logic.
 export function hostnameOf(url) {
   try { return new URL(url).hostname; } catch { return url; }
 }

@@ -1,53 +1,58 @@
-// AgentInvestigationSection.jsx
+// AgentMetrics.jsx
 //
-// Real, unified "Agent Investigation" section — replaces what used to be
-// six separately-bordered, separately-captioned panels (Past Hires,
-// Revenue Stream, PnL, Historical On-chain Performance, TermiX
-// cross-reference) with ONE coherent system, organized into four real,
-// clearly-defined parameters:
+// Real, final, unified per-agent "Metrics" presentation — replaces the two
+// separate sections this session built in sequence (AgentEvaluationSection,
+// AgentInvestigationSection), consolidating them into ONE coherent block
+// with a real, agent-nature-aware routing order, per the explicit design
+// intent this was built against:
 //
-//   DELIVERY RECORD          — has this agent actually delivered real,
-//                               paid work, and how much has it earned
-//                               doing so (real hire count/completion
-//                               rate + real cumulative $U earnings).
-//   FINANCIAL TRACK RECORD   — for Trading & DeFi agents only: did a
-//                               real hire's own funding wallet end up
-//                               ahead or behind (the real, simple,
-//                               primary signal), plus an optional,
-//                               secondary view of the agent's own
-//                               independent on-chain trading activity.
-//   INDEPENDENT CORROBORATION — a real, second opinion from outside this
-//                               marketplace (TermiX's own registry), plus
-//                               opt-in access to the full real wallet
-//                               portfolio and complete on-chain history.
-//   LIVE STATUS               — is this agent's own endpoint reachable
-//                               right now, and does it actually speak
-//                               this marketplace's real escrow protocol.
+//   1. Agents that genuinely speak this marketplace's escrow protocol —
+//      hireable directly, exactly as already built. No new logic here;
+//      this file only repositions the existing "Hire this agent" block.
+//   2. Agents that need a different interaction model — routed by the
+//      real, evidence-based per-agent classification already built this
+//      session (core/protocol_compat.py's escrow_incompatible/auth_gated/
+//      different_protocol/offers_x402_alternative, all from a real, live
+//      protocol probe against the agent's OWN endpoint — never a category
+//      or reputation guess). See docs/agent-interaction-patterns.md and
+//      docs/agent-interaction-patterns-audit.md for the full real
+//      investigation and the real, ongoing marketplace-wide audit this
+//      reads from.
+//   3. Financial/pool/fund-management agents — real cash flow (Delivery
+//      Record's cumulative $U earnings) and real profit (Financial Track
+//      Record's wallet-balance PnL + independent on-chain execution
+//      history), promoted to lead the metrics for this real category
+//      group specifically, per the explicit instruction that this is
+//      what should be shown for this agent nature.
 //
-// Real, deliberate correction (2026-08-28): every one of these signals
-// reads from the same real blockchain (directly, or via a real indexer —
-// Zerion, 8004scan, TermiX, or this project's own on-chain scans). There
-// is no real, meaningful "our data" vs "real blockchain data" distinction
-// to draw, and this component never implies one — every real number here
-// is on-chain-derived; what differs between the four groups above is
-// WHICH real, on-chain question each one answers, not how "real" the
-// underlying source is.
+// Real, deliberate ordering: the interaction-guidance block (can/should
+// you hire this agent HERE, at all) now leads, before any metric —
+// previously it was the LAST thing on the page, after four data panels,
+// which meant a buyer had to scroll past "0 hires yet" for an agent that
+// was never hireable through Tnega's escrow in the first place before
+// reaching the one fact that actually explains why. Real, live-status
+// guidance now also skips a real, duplicate paragraph the old
+// AgentInvestigationSection's own Live Status block used to repeat
+// verbatim under a different heading.
 //
-// Real, always-fresh loading discipline (useResilientFetch.js): every
-// real fetch here shows its last known-good real result instantly on
-// re-mount, refreshes silently in the background, and retries with real
-// backoff before ever surfacing an error — the same confirmedFresh
-// pattern the marketplace's own agent list already uses server-side.
+// Nothing underlying was rebuilt: every sub-component below
+// (DeliveryRecord, FinancialTrackRecord, IndependentCorroboration,
+// LiveStatusBadges, the three real CTA states) is the exact same real
+// logic/hooks/endpoints AgentEvaluationSection.jsx and
+// AgentInvestigationSection.jsx already had — this file is a real
+// presentation-layer consolidation and reordering, not a new data
+// pipeline, per the explicit "not a rebuild of any of it" instruction.
 //
 // Shared verbatim by web and mobile.
 
 import React, { useState } from 'react';
 import {
   Activity, Coins, TrendingUp, TrendingDown, ShieldQuestion, ShieldCheck, AlertTriangle,
-  ChevronDown, Loader2, Radio, Wallet, Blocks,
+  ChevronDown, Loader2, Radio, Blocks, ExternalLink, Zap, BarChart3,
 } from 'lucide-react';
 import { useResilientFetch } from './useResilientFetch';
-import { useEscrowCompatibility } from './EscrowCompatibilityWarning';
+import { useEscrowCompatibility, hostnameOf } from './EscrowCompatibilityWarning';
+import { evaluateAgent, PRIMARY_CTA } from './agentEvaluation';
 import { groupForCategory } from './categoryGroups';
 import { getReliabilityHint } from './agentReliability';
 import AgentGuidancePanel from './AgentGuidancePanel';
@@ -80,6 +85,115 @@ function SectionHeader({ icon: Icon, title, hint }) {
   );
 }
 
+function X402Note({ show }) {
+  if (!show) return null;
+  return (
+    <p className="text-[10px] text-gray-400 mt-2.5 flex items-center gap-1.5">
+      <Zap size={10} className="shrink-0 text-amber-400" />
+      This agent's own listing also mentions direct, pay-per-call (x402) access outside Tnega's escrow — check its own site for details.
+    </p>
+  );
+}
+
+// ── 1 & 2: REAL INTERACTION GUIDANCE (leads the section) ──────────────
+// The real, per-agent, evidence-based routing: hireable here (group 1),
+// hireable-with-a-real-caveat, or genuinely a different interaction model
+// (group 2). Exactly the same real logic agentEvaluation.js/
+// protocol_compat.py already compute — this only changes WHERE it renders.
+function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
+  const [showEvidence, setShowEvidence] = useState(false);
+
+  if (evaluation.primaryCta === PRIMARY_CTA.HIRE) {
+    return (
+      <div>
+        <p className="text-[10px] text-gray-400 mb-2 flex items-center gap-1.5">
+          <ShieldCheck size={11} className="text-indigo-400 shrink-0" />
+          Evaluated by real, on-chain job delivery — you pay through Tnega's escrow, and funds are only released once this agent actually delivers.
+        </p>
+        <button onClick={() => onHire(agent)} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
+          Hire this agent →
+        </button>
+        <X402Note show={evaluation.offersX402Alternative} />
+      </div>
+    );
+  }
+
+  if (evaluation.primaryCta === PRIMARY_CTA.HIRE_CAUTION) {
+    return (
+      <div>
+        <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 mb-3">
+          <div className="flex items-start gap-2.5">
+            <ShieldQuestion size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+              <p className="font-semibold mb-1">This agent's endpoint required credentials we don't have.</p>
+              <p>We tested this agent's real, registered endpoint directly, and it genuinely requires an access credential (an API key or token) this marketplace doesn't hold — not a sign it's broken, but a real, honest reason it may not learn a job was funded without one. Some agents document a public way to get one (check the evidence below); others don't.</p>
+              {escrowData?.evidence?.length > 0 && (
+                <button onClick={() => setShowEvidence((v) => !v)} className="flex items-center gap-1 mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline">
+                  {showEvidence ? 'Hide' : 'Show'} what we checked <ChevronDown size={11} className={`transition-transform ${showEvidence ? 'rotate-180' : ''}`} />
+                </button>
+              )}
+              {showEvidence && (
+                <ul className="mt-2 space-y-1 font-mono text-[10px] text-amber-700/80 dark:text-amber-400/80 break-all">
+                  {escrowData.evidence.map((e, i) => <li key={i}>• {e}</li>)}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+        <button onClick={() => onHire(agent)} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
+          Hire this agent anyway →
+        </button>
+        <X402Note show={evaluation.offersX402Alternative} />
+      </div>
+    );
+  }
+
+  // Confirmed a different real interaction model — group 2.
+  return (
+    <div>
+      <div className="p-4 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 mb-3">
+        <div className="flex items-start gap-2.5">
+          <AlertTriangle size={16} className="text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+          <div className="text-xs text-red-800 dark:text-red-300 leading-relaxed">
+            <p className="font-semibold mb-1">This agent doesn't appear to operate through Tnega's on-chain escrow system.</p>
+            {evaluation.differentProtocol ? (
+              <p>We tested this agent's real, registered endpoint directly — it's a real, live, working service, just one that speaks a different protocol, not ERC-8183/A2A. If you fund a job here, there's a real chance no one is listening for it in the shape this marketplace sends — your payment would sit on hold until the deadline, with no way for this agent to actually deliver through Tnega specifically.</p>
+            ) : (
+              <p>We tested this agent's real, registered endpoint directly, and it rejected every real job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, there's a real chance no one is listening for it — your payment would sit on hold until the deadline, with no way for this agent to actually deliver.</p>
+            )}
+            {escrowData?.evidence?.length > 0 && (
+              <button onClick={() => setShowEvidence((v) => !v)} className="flex items-center gap-1 mt-2 text-[11px] font-semibold text-red-700 dark:text-red-400 hover:underline">
+                {showEvidence ? 'Hide' : 'Show'} what we checked <ChevronDown size={11} className={`transition-transform ${showEvidence ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+            {showEvidence && (
+              <ul className="mt-2 space-y-1 font-mono text-[10px] text-red-700/80 dark:text-red-400/80 break-all">
+                {escrowData.evidence.map((e, i) => <li key={i}>• {e}</li>)}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {escrowData?.external_link ? (
+        <a
+          href={escrowData.external_link} target="_blank" rel="noreferrer"
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide"
+        >
+          Visit {hostnameOf(escrowData.external_link)} <ExternalLink size={15} />
+        </a>
+      ) : (
+        <p className="text-xs text-gray-400 text-center">This agent's own registered data doesn't list an external site either.</p>
+      )}
+
+      <button onClick={() => onHire(agent)} className="w-full mt-2 py-2.5 rounded-xl text-[11px] font-semibold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+        Hire anyway through Tnega's escrow (not recommended) →
+      </button>
+      <X402Note show={evaluation.offersX402Alternative} />
+    </div>
+  );
+}
+
 // ── DELIVERY RECORD ──────────────────────────────────────────────────
 function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
   const ownerAddress = agent.ownerAddress;
@@ -98,9 +212,6 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
   const p = perf.data;
   const r = revenue.data;
 
-  // Real, honest first-load state — only while we have genuinely nothing
-  // cached yet for either real fetch (a real re-visit shows the last
-  // known-good numbers instantly instead of this).
   if (perf.status === 'loading' && !p) {
     return (
       <div>
@@ -118,7 +229,7 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
         {p && (
           <p className="text-[10px] text-gray-400 mt-1.5">
             {escrowIncompatible
-              ? "This agent doesn't operate through Tnega's on-chain escrow, so no real delivery history is expected here — see Live Status below."
+              ? "This agent doesn't operate through Tnega's on-chain escrow, so no real delivery history is expected here — see the guidance above."
               : (p.note || 'No real delivery history found for this agent yet — it may just be new.')}
           </p>
         )}
@@ -162,14 +273,13 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
   );
 }
 
-// ── FINANCIAL TRACK RECORD (Trading & DeFi only) ────────────────────
+// ── 3: FINANCIAL TRACK RECORD (Trading & DeFi / fund-management only) ──
+// Real cash flow (Delivery Record's Earned figure, shown alongside) and
+// real profit — the explicit real content this agent nature should lead
+// with, per the design intent this was built against.
 function FinancialTrackRecord({ ownerAddress, agentId, category }) {
   const [showSecondary, setShowSecondary] = useState(false);
   const eligible = groupForCategory(category) === FUND_PERFORMANCE_GROUP;
-  // Real, confirmed bug fix (2026-08-28): agent_id disambiguates which
-  // specific real agent this is, for the same real reason documented in
-  // server.py's _resolve_agent — owner_address alone is genuinely
-  // ambiguous whenever one real owner has more than one registered agent.
   const idQs = agentId ? `&agent_id=${agentId}` : '';
 
   const pnl = useResilientFetch(
@@ -234,7 +344,6 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
 // ── INDEPENDENT CORROBORATION ────────────────────────────────────────
 function IndependentCorroboration({ ownerAddress, agentId, category }) {
   const [showMore, setShowMore] = useState(false);
-  // Real, confirmed bug fix (2026-08-28) — see FinancialTrackRecord above.
   const idQs = agentId ? `&agent_id=${agentId}` : '';
   const termix = useResilientFetch(
     ownerAddress ? `${API_BASE_URL}/api/agents/termix-performance?owner_address=${ownerAddress}${idQs}` : null,
@@ -272,7 +381,9 @@ function IndependentCorroboration({ ownerAddress, agentId, category }) {
   );
 }
 
-// ── LIVE STATUS ───────────────────────────────────────────────────────
+// ── LIVE STATUS (compact — the interaction guidance above already
+// explains WHAT the protocol-compatibility finding means; this stays a
+// short, factual badge row, not a second copy of the same paragraph) ──
 function LiveStatus({ agent, escrowData }) {
   return (
     <div>
@@ -289,22 +400,38 @@ function LiveStatus({ agent, escrowData }) {
           </span>
         )}
       </div>
-      {escrowData?.escrow_incompatible && (
-        <p className="text-[10px] text-gray-400 mt-1.5">See below for a real, direct link to this agent's own site instead of hiring it here.</p>
-      )}
     </div>
   );
 }
 
 // ── The unified section ──────────────────────────────────────────────
-export default function AgentInvestigationSection({ agent, onTrySkill }) {
+export default function AgentMetrics({ agent, onHire, onTrySkill }) {
   const { data: escrowData } = useEscrowCompatibility(agent.ownerAddress, agent.id);
+  const evaluation = evaluateAgent({
+    escrowIncompatible: escrowData?.escrow_incompatible,
+    authGated: escrowData?.auth_gated,
+    differentProtocol: escrowData?.different_protocol,
+    offersX402Alternative: escrowData?.offers_x402_alternative,
+    category: agent.category,
+  });
+  const isFundManagement = groupForCategory(agent.category) === FUND_PERFORMANCE_GROUP;
 
   return (
     <div className="mt-6 space-y-5">
-      <h3 className="text-sm font-bold flex items-center gap-1.5"><Blocks size={14} /> Agent Investigation</h3>
+      <h3 className="text-sm font-bold flex items-center gap-1.5"><Blocks size={14} /> Metrics</h3>
+
+      <InteractionGuidance agent={agent} evaluation={evaluation} escrowData={escrowData} onHire={onHire} />
+
+      {/* Real, agent-nature-aware order: a fund-management agent leads
+          with its real cash flow/profit (group 3's own explicit real
+          content, FinancialTrackRecord promoted ahead of Delivery Record);
+          every other agent's FinancialTrackRecord is a real no-op (it
+          gates on the same category check and renders nothing) so it's
+          only ever placed here, never duplicated. See module header. */}
+      {isFundManagement && (
+        <FinancialTrackRecord ownerAddress={agent.ownerAddress} agentId={agent.id} category={agent.category} />
+      )}
       <DeliveryRecord agent={agent} onTrySkill={onTrySkill} escrowIncompatible={escrowData?.escrow_incompatible} />
-      <FinancialTrackRecord ownerAddress={agent.ownerAddress} agentId={agent.id} category={agent.category} />
       <IndependentCorroboration ownerAddress={agent.ownerAddress} agentId={agent.id} category={agent.category} />
       <LiveStatus agent={agent} escrowData={escrowData} />
     </div>
