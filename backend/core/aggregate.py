@@ -411,6 +411,24 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 3) 
     diversified = _diversify(raw_agents, per_cluster_cap=per_cluster_cap)
     print(f"[aggregate] full-registry-backed refresh: {len(raw_agents)} real raw BSC agents "
           f"-> {len(diversified)} after real multi-signal diversification.")
+
+    # Real, memory-safety fix (2026-08-28, found investigating a real,
+    # confirmed OOM kill on this exact call — Render's own event log:
+    # `oomKilled: {memoryLimit: "512Mi"}`, ~9s after this function's own
+    # diversification log line, on this project's real free-tier 512MB
+    # instance). `raw_agents` (now 64,821+ real docs and growing every
+    # real 6h ingestion cycle via .github/workflows/full-registry-batch.yml)
+    # is no longer needed once diversify() has run — only `diversified`
+    # (currently ~12,758, a small fraction) goes into the real, much more
+    # memory-hungry enrichment phase below (DefiLlama fetch, batched owner-
+    # balance RPC reads, building one real MarketplaceAgent object per
+    # agent). Dropping the reference here lets Python's own GC reclaim the
+    # real, large majority of the raw list's memory BEFORE that phase's own
+    # peak, rather than holding both simultaneously for no real reason —
+    # the raw list was already fully consumed by diversify(), nothing below
+    # this line ever reads it again.
+    del raw_agents
+
     return await _enrich_and_build(diversified, api_key)
 
 
