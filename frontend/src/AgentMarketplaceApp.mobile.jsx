@@ -43,6 +43,7 @@ import WalletPortfolioPanel from './WalletPortfolioPanel';
 import { EscrowCompatibilityNotice, useHireFlowEscrowGate } from './EscrowCompatibilityWarning';
 import PnLPanel from './PnLPanel';
 import OnchainPerformancePanel from './OnchainPerformancePanel';
+import RevenueStreamPanel from './RevenueStreamPanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
@@ -396,6 +397,10 @@ function AgentPerformanceMobile({ agent, onTrySkill }) {
           </p>
         </div>
       ) : null}
+
+      {/* Real "Revenue Stream" — see the matching comment on
+          AgentPerformance (web) / RevenueStreamPanel.jsx's own header. */}
+      <RevenueStreamPanel ownerAddress={ownerAddress} />
 
       {/* Real, independent, protocol-wide data point — see the matching
           comment on AgentPerformance (web). */}

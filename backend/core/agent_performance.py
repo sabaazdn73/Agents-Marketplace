@@ -139,13 +139,24 @@ async def _scan_recent_window() -> dict:
                     p = by_provider.setdefault(prov, {
                         "total": 0, "COMPLETED": 0, "REJECTED": 0, "EXPIRED": 0,
                         "OPEN": 0, "FUNDED": 0, "SUBMITTED": 0,
-                        "last_submitted_at": 0, "job_ids": [],
+                        "last_submitted_at": 0, "job_ids": [], "jobs": [],
                     })
                     p["total"] += 1
                     p[st] = p.get(st, 0) + 1
                     p["job_ids"].append(int(job["id"]))
                     if job["submittedAt"] and int(job["submittedAt"]) > p["last_submitted_at"]:
                         p["last_submitted_at"] = int(job["submittedAt"])
+                    # Real, full per-job record (2026-08-28, added for
+                    # core/revenue.py's real "Revenue Stream" feature) —
+                    # same real shape by_client already stores below, kept
+                    # in sync deliberately: this is the same real scan,
+                    # same real job struct, zero extra RPC calls either way.
+                    p["jobs"].append({
+                        "id": int(job["id"]), "client": job["client"],
+                        "description": job["description"], "budget": str(job["budget"]),
+                        "expiredAt": int(job["expiredAt"]), "status": job["status"],
+                        "statusLabel": st, "submittedAt": int(job["submittedAt"]),
+                    })
 
                 cli = (job["client"] or "").lower()
                 if cli and cli != "0x" + "0" * 40:
@@ -257,6 +268,34 @@ async def get_all_agent_performance() -> dict:
         "window_from": _cache["window_from"],
         "window_to": _cache["window_to"],
     }
+
+
+def get_scan_window_info() -> dict:
+    """Real, public accessor for the same real scan-bound fields every
+    function in this module already reports inline — pulled out so other
+    real modules (core/revenue.py) that reuse this module's cached scan
+    via get_provider_jobs don't need to reach into this module's private
+    `_cache` directly. Real, honest values only once a scan has actually
+    run (via _ensure_fresh, called by every real getter above)."""
+    return {
+        "scanned_window": WINDOW,
+        "job_counter": _cache["job_counter"],
+        "window_from": _cache["window_from"],
+        "window_to": _cache["window_to"],
+    }
+
+
+async def get_provider_jobs(owner_address: str) -> list[dict]:
+    """Real, full per-job records for one agent as PROVIDER, from the same
+    cached recent-WINDOW scan every other function here reuses — zero extra
+    RPC calls. Built for core/revenue.py's real "Revenue Stream" feature,
+    which needs each real job's own budget/status/submittedAt, not just the
+    aggregated counts get_agent_performance returns. Same honest bound as
+    everywhere else in this module: a job older than the most recent WINDOW
+    jobs globally won't be found."""
+    owner = (owner_address or "").lower()
+    await _ensure_fresh()
+    return _cache["by_provider"].get(owner, {}).get("jobs", [])
 
 
 async def get_my_jobs(client_address: str) -> dict:

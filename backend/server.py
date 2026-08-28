@@ -51,6 +51,7 @@ from adapters import termix
 from core import canary
 from core import pnl
 from core import onchain_pnl
+from core import revenue
 from core import rpc
 
 load_dotenv()
@@ -522,6 +523,23 @@ async def agent_perf(owner_address: str):
         return await agent_performance.get_agent_performance(owner_address)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
+
+
+@app.get("/api/agents/revenue")
+async def agent_revenue(owner_address: str):
+    """Real "Revenue Stream" — how much this agent has actually,
+    verifiably earned as a real ERC-8183 provider, over time. See
+    core/revenue.py's own module docstring for the full real methodology:
+    reuses the exact same on-chain job scan /api/agents/performance
+    already does (zero extra RPC scan), sums real SUBMITTED/COMPLETED
+    job budgets into a real chronological timeline, and reads the real
+    ERC-8183 settlement token's own identity live (never hardcoded).
+    Always 200 with a real, honest {"has_earnings": ..., "reason": ...}
+    shape when there's nothing to show yet — never a fabricated number."""
+    try:
+        return await revenue.get_revenue_timeline(owner_address)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't look up real revenue history right now: {e}")
 
 
 @app.get("/api/agents/performance/bulk")

@@ -35,6 +35,7 @@ import WalletPortfolioPanel from './WalletPortfolioPanel';
 import { EscrowCompatibilityNotice, useHireFlowEscrowGate } from './EscrowCompatibilityWarning';
 import PnLPanel from './PnLPanel';
 import OnchainPerformancePanel from './OnchainPerformancePanel';
+import RevenueStreamPanel from './RevenueStreamPanel';
 import Pagination from './Pagination';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
@@ -371,6 +372,14 @@ function AgentPerformance({ agent, onTrySkill }) {
           </p>
         </div>
       ) : null}
+
+      {/* Real "Revenue Stream" — how much this agent has actually,
+          verifiably earned as a provider, over time. Deliberately NOT
+          gated to hired/Trading-DeFi — any real, delivered job earns real
+          $U regardless of category; see RevenueStreamPanel.jsx's own
+          header. Shown next to the win-rate/hire-count stats above,
+          always visible (never hidden for a zero-earnings agent). */}
+      <RevenueStreamPanel ownerAddress={ownerAddress} />
 
       {/* Real, independent, protocol-wide data point (TermiX's own AACP
           registry) — shown regardless of whether this marketplace itself
