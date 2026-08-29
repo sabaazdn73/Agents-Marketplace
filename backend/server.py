@@ -330,7 +330,6 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
     since serving an empty list would just be a worse user experience than a
     one-time real wait."""
     now = time.time()
-    is_stale = (now - _cache["fetched_at"]) > _CACHE_TTL_SECONDS
 
     if _cache["data"] is None:
         # Cold in-memory cache (fresh instance boot) — read the persistent
@@ -341,6 +340,27 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
             _cache["fetched_at"] = now
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
+
+    # Real fix (2026-08-29, OOM crash-loop round 4 -- the actual root cause
+    # tying rounds 1-3 together): this used to compute `is_stale` ONCE at the
+    # very top of the function, using whatever `_cache["fetched_at"]` was
+    # BEFORE the cold-boot branch above had a chance to run. `_cache` starts
+    # as {"data": None, "fetched_at": 0}, so on every cold boot (every
+    # restart -- including one caused by a crash) that early computation was
+    # `(now - 0) > 3600`, i.e. always True, even though the cold-boot branch
+    # immediately above had just freshly repopulated the cache in the same
+    # request. Net effect: every single restart's very first /api/agents
+    # request unconditionally queued a full background refresh (the whole
+    # clustering + enrichment + health-check pipeline), regardless of the
+    # 60-minute TTL. Under an active crash loop this is self-reinforcing --
+    # crash -> restart -> first request immediately re-triggers the same
+    # expensive refresh -> crash again, each cycle leaving known_agents
+    # larger than before (confirmed live: total_known grew 26,736 -> 34,374
+    # -> 38,033 in under 15 minutes, restarts landing every ~2-3 minutes).
+    # Fixed by checking staleness fresh, against whatever `_cache["fetched_at"]`
+    # actually is at this point -- post cold-boot fill, not a stale snapshot
+    # from before it.
+    is_stale = (time.time() - _cache["fetched_at"]) > _CACHE_TTL_SECONDS
 
     if not _cache["data"]:
         # Truly nothing anywhere yet (first-ever boot, empty store) — the
