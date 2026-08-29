@@ -100,7 +100,21 @@ export function useDirectWalletExecutor() {
       const transactionHashes = [];
       for (const call of calls) {
         const hash = await sendTransaction(config, { to: call.to, data: call.data, chainId: bsc.id });
-        await waitForTransactionReceipt(config, { hash, timeout: RECEIPT_TIMEOUT_MS });
+        try {
+          await waitForTransactionReceipt(config, { hash, timeout: RECEIPT_TIMEOUT_MS });
+        } catch (e) {
+          // Real, added 2026-08-29 after a real, live incident: viem's own
+          // timeout error here is easy to misread as "the transaction
+          // failed" when it usually just means the confirmation-polling
+          // gave up, not that the transaction itself did anything wrong.
+          // Wrapped with an honest, checkable next step instead of
+          // showing viem's raw technical string on its own.
+          e.message = `Sent (hash ${hash}), but didn't confirm within ${RECEIPT_TIMEOUT_MS / 1000}s. ` +
+            `Check this exact hash on BscScan (https://bscscan.com/tx/${hash}) before retrying — ` +
+            `if it shows up there as successful, don't run this again; if BscScan has never heard of it either, ` +
+            `it likely never left your wallet and it's safe to retry. Original: ${e.message}`;
+          throw e;
+        }
         transactionHashes.push(hash);
       }
       return { mode: 'direct-sequential', status: 'success', transactionHashes };
