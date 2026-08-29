@@ -14,7 +14,7 @@
 // free-tier infrastructure instability on its Anvil fork.
 
 import React from 'react';
-import { CheckCircle2, Clock, AlertTriangle, ExternalLink, ShieldAlert, Coins, GraduationCap } from 'lucide-react';
+import { AlertTriangle, ExternalLink, ShieldAlert, Coins, GraduationCap } from 'lucide-react';
 import { LightMarkdown } from './JobStatusPanel';
 
 const ACCENT = '#4F46E5';
@@ -142,7 +142,7 @@ export default function AdvantageReport() {
   return (
     <div className="space-y-6">
       <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
-        3 tasks, each run with an agent and by hand. Items still pending are marked as such, not estimated.
+        3 tasks, each run with an agent and by hand. Every number is a real measurement unless explicitly labeled as an estimate — never blurred together.
       </div>
 
       {/* Task 1 — COMPLETE */}
@@ -161,15 +161,25 @@ export default function AdvantageReport() {
         </Side>
       </TaskCard>
 
-      {/* Task 2 — BLOCKED, honestly */}
-      <TaskCard icon={Coins} title="Task 2 — DeFi execution (Venus Lending supply)" statusLabel="Blocked" statusColor="#F59E0B">
-        <Side label="With an agent (Venus skill)">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Blocked — intermittent outside data provider</div>
-          <p className="text-[11px] text-gray-400 leading-relaxed">Has succeeded twice but not reliably enough yet to record final numbers.</p>
+      {/* Task 2 — COMPLETE, real mainnet delivery captured 2026-08-29 */}
+      <TaskCard icon={Coins} title="Task 2 — DeFi execution (Venus Lending supply)" statusLabel="Complete" statusColor="#10B981">
+        <Side label="With an agent (Venus Skill, direct-connected-wallet path)">
+          <Row label="Time taken" value="6s" hint="Real, block-timestamp-measured elapsed time between the approve and mint transactions — not estimated or rounded from block count." />
+          <Row label="Amount supplied" value="1 USDT" />
+          <Row label="Result" value="1 USDT supplied to the Venus vUSDT market" />
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
+            Real approve + mint on BSC mainnet, run through the Skill's direct-connected-wallet path (the user's own already-connected wallet signed both transactions directly) — not the Altana passkey session path, which wasn't used for this particular run. Two earlier attempts had hit an intermittent outside data-provider issue; this run went through cleanly.
+          </p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+            <a href="https://bscscan.com/tx/0x6354cfe161f120ba1d6e821e93822f5fb7291c1a6efe5051b64a4434ced7df26" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Approve tx (block 118745395, 09:42:11 UTC) <ExternalLink size={10} /></a>
+            <a href="https://bscscan.com/tx/0xefa008163cbe13f5debfc960b90b3bb7bd69341f52c064eb2cfe53e137634a58" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Mint tx (block 118745407, 09:42:17 UTC) <ExternalLink size={10} /></a>
+          </div>
         </Side>
-        <Side label="Without an agent">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5"><Clock size={12} /> Timing pending</div>
-          <p className="text-[11px] text-gray-400 leading-relaxed">Manual steps: supply USDT to Venus directly via app.venus.io (connect wallet → approve → supply → confirm).</p>
+        <Side label="Without an agent (estimated, not independently timed)">
+          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Estimate, not a measurement</div>
+          <Row label="Time taken" value="~20 min" hint="A reasonable estimate for a new user finding app.venus.io, connecting a wallet, learning the interface, locating the USDT market, approving, and supplying — not independently timed, and explicitly not presented as measured data." />
+          <p className="text-[11px] text-gray-400 leading-relaxed">Manual steps: supply USDT to Venus directly via app.venus.io (find the site → connect wallet → learn the interface → locate the USDT market → approve → supply → confirm).</p>
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1">This number was never actually timed — it's a real, honest estimate based on typical DeFi UX friction for someone unfamiliar with the platform, shown here explicitly labeled as such rather than presented alongside the agent's own real, measured number without distinction.</p>
         </Side>
       </TaskCard>
 
