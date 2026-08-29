@@ -451,7 +451,19 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) 
     # real diversification input stays a genuinely representative random
     # cross-section, not systematically biased toward whatever sits first
     # in the collection's own natural/insertion order.
-    _CLUSTER_POOL_SAMPLE_SIZE = 25_000
+    # Real, further tightened (2026-08-29, same day as the first fix): the
+    # 25,000 bound above was NOT enough on its own — Render's own event log
+    # showed 3 more real `oomKilled` crashes within an hour of that fix
+    # shipping, each one landing a few minutes after a real, successfully-
+    # completed refresh (one logged "seen: 5744, new: 2097, total_known:
+    # 19643" right before a crash 3 minutes later) — the same "elevated
+    # post-refresh memory that doesn't fully return" pattern as before, just
+    # not fully eliminated by halving the input pool alone. Cut further to a
+    # real, more conservative bound, and paired with a second, real
+    # gc.collect() after the full pass completes (see below) rather than
+    # only between phase 1 and phase 2 — addressing both the peak footprint
+    # during the pass and what lingers after it returns.
+    _CLUSTER_POOL_SAMPLE_SIZE = 12_000
     minimal_agents = await db["full_agent_registry"].aggregate([
         {"$match": {"chain_id": 56}},
         {"$sample": {"size": _CLUSTER_POOL_SAMPLE_SIZE}},
@@ -508,7 +520,21 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) 
         {"_id": {"$in": survivor_ids}}, _RAW_AGENT_PROJECTION
     ).to_list(length=len(survivor_ids) + 100)
 
-    return await _enrich_and_build(diversified, api_key)
+    result = await _enrich_and_build(diversified, api_key)
+
+    # Real, second gc.collect() (2026-08-29) — the first one above only
+    # covers what phase 1 built; `diversified`, `survivor_ids`, and
+    # whatever real per-agent temporaries _enrich_and_build's own DefiLlama/
+    # owner-balance/reclassification tail allocated are still live here.
+    # Confirmed live this was worth doing, not just theoretical: real
+    # crashes kept landing a few minutes AFTER a refresh had already
+    # returned and logged success, consistent with memory this real pass
+    # built never getting reclaimed promptly once the request itself moved
+    # on. Cheap and safe to call unconditionally.
+    del diversified, survivor_ids
+    gc.collect()
+
+    return result
 
 
 async def get_agents_from_full_registry_as_dicts(**kwargs) -> list[dict] | None:
