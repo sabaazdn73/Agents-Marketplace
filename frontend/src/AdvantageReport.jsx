@@ -14,7 +14,7 @@
 // free-tier infrastructure instability on its Anvil fork.
 
 import React from 'react';
-import { AlertTriangle, ExternalLink, ShieldAlert, Coins, GraduationCap } from 'lucide-react';
+import { ExternalLink, ShieldAlert, Coins, GraduationCap } from 'lucide-react';
 import { LightMarkdown } from './JobStatusPanel';
 
 const ACCENT = '#4F46E5';
@@ -176,10 +176,8 @@ export default function AdvantageReport() {
           </div>
         </Side>
         <Side label="Without an agent (estimated, not independently timed)">
-          <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 mb-1"><AlertTriangle size={12} /> Estimate, not a measurement</div>
           <Row label="Time taken" value="~20 min" hint="A reasonable estimate for a new user finding app.venus.io, connecting a wallet, learning the interface, locating the USDT market, approving, and supplying — not independently timed, and explicitly not presented as measured data." />
           <p className="text-[11px] text-gray-400 leading-relaxed">Manual steps: supply USDT to Venus directly via app.venus.io (find the site → connect wallet → learn the interface → locate the USDT market → approve → supply → confirm).</p>
-          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mt-1">This number was never actually timed — it's a real, honest estimate based on typical DeFi UX friction for someone unfamiliar with the platform, shown here explicitly labeled as such rather than presented alongside the agent's own real, measured number without distinction.</p>
         </Side>
       </TaskCard>
 
