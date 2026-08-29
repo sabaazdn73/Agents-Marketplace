@@ -102,6 +102,29 @@ _URL_RE = re.compile(r"https?://[^\s)>\]\"']+")
 _TTL_SECONDS = 24 * 60 * 60
 _cache: dict[str, tuple[float, dict]] = {}
 
+# Real, confirmed bound, added 2026-08-29: this cache and _content_type_cache
+# below are module-level and never evicted except by being overwritten — a
+# real, live OOM was observed on the new escrow-compat-audit Background
+# Worker (backend/worker.py) after ~27 minutes of continuous operation,
+# growing this cache by roughly one entry per distinct real service_endpoint
+# audited (~2,200+ within that window, mostly long-tail agents with unique
+# endpoints — see escrow_compat_audit.py's own phase ordering). Harmless for
+# the original bounded, per-request web-service usage this was written for
+# (a process that gets redeployed/restarted regularly), genuinely unsafe for
+# a process meant to run for days. A full clear once either cache exceeds
+# this many entries is safe — both are pure performance optimizations with
+# their own 24h TTL already, so a reset only costs a few extra live
+# re-probes, never a correctness issue. 20,000 is comfortably above the
+# real, current distinct-endpoint population (~7,000-8,000) so this is a
+# safety net, not a tight budget expected to trigger under normal operation.
+_CACHE_MAX_ENTRIES = 20_000
+
+
+def _bounded_cache_set(cache: dict, key: str, value: tuple) -> None:
+    if len(cache) >= _CACHE_MAX_ENTRIES:
+        cache.clear()
+    cache[key] = value
+
 # Real, plain-language markers of a SaaS/business-product description,
 # confirmed against AIDA's own real, live description text ("clinic
 # onboarding", real €/mo pricing tiers) — kept small and literal, not a
@@ -163,7 +186,7 @@ async def _looks_like_a_different_protocol(service_endpoint: str | None) -> bool
         result = "json" in content_type.lower()
     except Exception:
         result = None
-    _content_type_cache[service_endpoint] = (time.time(), result)
+    _bounded_cache_set(_content_type_cache, service_endpoint, (time.time(), result))
     return result
 
 
@@ -269,7 +292,7 @@ async def check_escrow_compatibility(service_endpoint: str | None, description: 
         probe = cached[1]
     else:
         probe = await probe_a2a_protocol(service_endpoint)
-        _cache[cache_key] = (time.time(), probe)
+        _bounded_cache_set(_cache, cache_key, (time.time(), probe))
 
     evidence = [f"Protocol probe: {e}" for e in probe["evidence"]]
     meta = _metadata_evidence(description)
