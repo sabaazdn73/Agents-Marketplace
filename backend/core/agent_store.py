@@ -257,10 +257,33 @@ async def get_stored_agents(limit: int = 15_000) -> list[dict]:
     15,000 would need either a smaller per-doc read (a real field
     projection here, not yet done) or a genuinely smaller known_agents
     (real pruning of stale/never-hired agents, not yet built) -- raising
-    the raw number alone was tested and does not hold."""
+    the raw number alone was tested and does not hold.
+
+    Real field projection added (2026-08-29, same investigation): checked
+    every field this query returns against every real consumer of its
+    output -- the whole frontend (web + mobile, grep'd directly) and every
+    backend module that reads get_stored_agents()'s result (core/
+    clustering.py's diversify(), core/canary.py, core/future_chains.py).
+    `created_at` looked like a dead candidate from the frontend alone but
+    is genuinely read by clustering.py's registration-burst signal, so it
+    stays. Four fields are confirmed write-only from this read path's
+    perspective -- set by core/aggregate.py at ingest time, never read
+    back by anything downstream of get_stored_agents(): category_matched_
+    keywords (classification debug detail), cross_chain_versions (never
+    actually read anywhere, only ever set to a value or None), health_score
+    (same), and defillama_slug (only read back by agent_store.upsert_agents'
+    own preservation logic, which queries known_agents independently of
+    this function, not from this function's output). Excluding these four
+    reduces real per-document transfer/deserialize/memory cost with no
+    functional change -- confirmed zero consumers, not a guess."""
     db = get_db()
     cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
-    docs = await db.known_agents.find({}).sort("total_score", -1).to_list(length=limit)
+    # Real, confirmed-unused-downstream fields excluded from this read only
+    # (upsert_agents' own separate query is untouched, so preservation of
+    # e.g. defillama_slug across refreshes still works normally).
+    _EXCLUDE_FIELDS = ("category_matched_keywords", "cross_chain_versions", "health_score", "defillama_slug")
+    projection = {f: 0 for f in _EXCLUDE_FIELDS}
+    docs = await db.known_agents.find({}, projection).sort("total_score", -1).to_list(length=limit)
 
     # Already sorted by total_score at the DB level above — re-stating the
     # sort key here (cheap, a no-op on already-sorted data) keeps this
