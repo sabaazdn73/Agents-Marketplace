@@ -9,6 +9,7 @@
 * [Hire-Flow Audit](hire-flow-audit.md)
 * [Direct-Wallet Skill Execution](direct-wallet-skills.md)
 * [Full BSC Registry Analysis](full-registry-analysis.md)
+* [Universal Search Fallback](universal-search.md)
 * [Category-Aware Evaluation](category-evaluation.md)
 * [Skills vs. Marketplace](skills-vs-marketplace.md)
 * [Agent Interaction Patterns](agent-interaction-patterns.md)

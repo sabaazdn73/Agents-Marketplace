@@ -30,6 +30,7 @@ import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import InfoTooltip from './InfoTooltip';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
+import UniversalSearchFallback from './UniversalSearchFallback';
 import AgentMetrics from './AgentMetrics';
 import Pagination from './Pagination';
 
@@ -1059,7 +1060,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search agents by name or description…"
+                  placeholder="Search by name, or paste an agent id / wallet / contract address…"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -1151,6 +1152,31 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               {!loading && !error && filtered.length > 0 && (
                 <div className="mb-4 text-xs text-gray-400">
                   Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length.toLocaleString()} agents
+                </div>
+              )}
+
+              {/* Real, live search fallback (2026-08-29) — see
+                  UniversalSearchFallback.jsx and docs/universal-search.md.
+                  Only ever renders when the local name search came up
+                  empty AND there's real search text to check — never
+                  replaces the plain "nothing matched" case below for an
+                  ordinary mistyped name. */}
+              {!loading && !error && filtered.length === 0 && searchQuery && (
+                <div className="mb-6">
+                  <UniversalSearchFallback
+                    query={searchQuery}
+                    agentsWithPerf={agentsWithPerf}
+                    onOpenAgent={(agent) => setDetailAgent(agent)}
+                    accent={accent}
+                    mutedBorder="border-gray-200 dark:border-gray-800"
+                    darkMode={darkMode}
+                    // Real, plain fallback for anything that doesn't look
+                    // like an id/address at all (an ordinary mistyped
+                    // name) — the component itself renders nothing for
+                    // that case, so without this the empty grid used to
+                    // just show nothing, no message at all.
+                    plainEmptyMessage={`Nothing matches "${searchInput.trim()}" by name. If you're looking for a specific agent, try its exact id instead of its name — or paste a wallet or contract address.`}
+                  />
                 </div>
               )}
 

@@ -37,6 +37,7 @@ import InfoTooltip from './InfoTooltip';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
+import UniversalSearchFallback from './UniversalSearchFallback';
 import AgentMetrics from './AgentMetrics';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
@@ -942,7 +943,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="mb-3 relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search agents…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
+                  <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search by name, id, or address…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
                 </div>
 
                 <select
@@ -1070,6 +1071,23 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {!loading && filtered.length > 0 && (
                   <div className="text-xs text-gray-400 mb-3">
                     Showing {visible.length} of {filtered.length.toLocaleString()} agents
+                  </div>
+                )}
+
+                {/* Real, live search fallback (2026-08-29) — mirrors web
+                    exactly, see UniversalSearchFallback.jsx and
+                    docs/universal-search.md. */}
+                {!loading && filtered.length === 0 && searchQuery && (
+                  <div className="mb-5">
+                    <UniversalSearchFallback
+                      query={searchQuery}
+                      agentsWithPerf={agentsWithPerf}
+                      onOpenAgent={(agent) => setDetailAgent(agent)}
+                      accent={accent}
+                      mutedBorder="border-gray-200 dark:border-gray-800"
+                      darkMode={darkMode}
+                      plainEmptyMessage={`Nothing matches "${searchInput.trim()}" by name. If you're looking for a specific agent, try its exact id instead of its name — or paste a wallet or contract address.`}
+                    />
                   </div>
                 )}
 

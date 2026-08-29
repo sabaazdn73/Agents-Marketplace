@@ -58,6 +58,7 @@ from core import full_registry_ingest
 from core import full_registry_analysis
 from core import job_index
 from core import rpc
+from core import universal_search
 
 load_dotenv()
 
@@ -348,6 +349,37 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         "cached_at": _cache["fetched_at"],
         "cache_age_seconds": int(now - _cache["fetched_at"]),
     }
+
+
+@app.get("/api/search/resolve")
+async def search_resolve(q: str):
+    """Real, live search fallback (2026-08-29) — see
+    docs/universal-search.md for the full real investigation and design
+    reasoning. The site's own marketplace search is a plain client-side
+    name filter over the local known_agents cache; when a user pastes
+    something structured (an agent id, or any 0x address) that filter
+    can't answer, this endpoint gives a real, honest, live answer instead
+    of a dead "not found" — local-first, then a real, live 8004scan/RPC
+    call on a genuine cache miss, never fabricated.
+
+    Deliberately narrow trigger: only classifies input that already looks
+    like an agent id (a plain number, or 8004scan's own internal UUID) or
+    an address (0x...) — a free-text name search that just doesn't match
+    anything gets the honest "doesn't look like an id or address" answer
+    below, never a guess at what the user meant.
+
+    Always returns 200 with a real, categorized `found`/`reason` shape —
+    never a 404. A genuinely nonexistent id/address is itself a real,
+    honest, useful answer, not a failure. 5-minute in-process cache per
+    query (core/universal_search.py) — a real, live lookup at search
+    time, not a permanent one, and bounded so it can't grow unchecked."""
+    if not q or not q.strip():
+        return {"input_kind": "unrecognized", "found": False, "reason": "Nothing entered to search for."}
+    try:
+        return await universal_search.resolve_search_fallback(q)
+    except Exception as e:
+        return {"input_kind": "error", "found": False,
+                "reason": f"Couldn't complete a real, live check for this right now: {e}. Try again shortly."}
 
 
 @app.get("/api/health")
