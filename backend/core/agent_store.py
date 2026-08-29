@@ -201,7 +201,7 @@ async def get_agent_by_id(agent_id: str) -> dict | None:
     return await db.known_agents.find_one({"_id": agent_id})
 
 
-async def get_stored_agents(limit: int = 25_000) -> list[dict]:
+async def get_stored_agents(limit: int = 15_000) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
@@ -242,17 +242,22 @@ async def get_stored_agents(limit: int = 25_000) -> list[dict]:
     stability, matching the same tradeoff already accepted for the
     clustering pool.
 
-    Real, cautious raise (2026-08-29, same day): 15,000 was picked fast
-    while three separate bugs (rounds 3, 4, and this one) were compounding
-    at once. With rounds 3-4 confirmed live-stable for 1h47m straight under
-    real traffic (the actual dominant causes -- the unbounded health-check
-    pass and the stale-cache bug re-triggering a full refresh on every
-    restart), raised the cap to 25,000: still a real, permanent ceiling
-    (known_agents was 42,281 and climbing at the time, so this does NOT
-    revert to "cover the whole store"), same number already proven safe for
-    the full_agent_registry clustering pool elsewhere in this file's sibling
-    module. Only raise further after another real, live stability window --
-    do not jump straight back to 50,000 without the same evidence."""
+    Real attempt to raise, tested live and reverted (2026-08-29, same day):
+    after rounds 3-4 held stable for 1h47m, tried raising this to 25,000
+    (known_agents was 42,281 and climbing at the time) on the reasoning that
+    the dominant causes were already fixed elsewhere. Deployed, then forced
+    the exact refresh path immediately (`?force_refresh=true`) rather than
+    waiting -- a real oomKilled event landed 31 seconds after that refresh's
+    own "Upserted refresh" log line (total_known 45,730 at that point).
+    Reverted back to 15,000 the same session. Honest conclusion: at the
+    real, current store size, this function's own uncapped `.find({})` (no
+    field projection, fetches every full doc) is still expensive enough on
+    its own that 15,000 is closer to the real live ceiling than 25,000 --
+    not just a conservative guess made under pressure. A real raise above
+    15,000 would need either a smaller per-doc read (a real field
+    projection here, not yet done) or a genuinely smaller known_agents
+    (real pruning of stale/never-hired agents, not yet built) -- raising
+    the raw number alone was tested and does not hold."""
     db = get_db()
     cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
     docs = await db.known_agents.find({}).sort("total_score", -1).to_list(length=limit)
