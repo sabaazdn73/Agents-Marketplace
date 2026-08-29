@@ -39,6 +39,7 @@ import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDia
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import UniversalSearchFallback from './UniversalSearchFallback';
 import AgentMetrics from './AgentMetrics';
+import QualityCenterPanel from './QualityCenterPanel';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
@@ -421,6 +422,8 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
             uses). The harder, last-chance gate still lives in the actual
             funding modal below. */}
         <AgentMetrics agent={agent} onHire={onHire} onTrySkill={onTrySkill} />
+
+        {agent.id && <QualityCenterPanel agentId={agent.id} />}
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
       </div>

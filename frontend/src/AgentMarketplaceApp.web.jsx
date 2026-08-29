@@ -32,6 +32,7 @@ import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDia
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import UniversalSearchFallback from './UniversalSearchFallback';
 import AgentMetrics from './AgentMetrics';
+import QualityCenterPanel from './QualityCenterPanel';
 import Pagination from './Pagination';
 
 // QR linking to this same (responsive) site — a phone opens the mobile app.
@@ -381,6 +382,8 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             actual funding modal (handleHireClick → useHireFlowEscrowGate),
             right before real money moves. */}
         <AgentMetrics agent={agent} onHire={onHire} onTrySkill={onTrySkill} />
+
+        {agent.id && <QualityCenterPanel agentId={agent.id} />}
 
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
       </div>

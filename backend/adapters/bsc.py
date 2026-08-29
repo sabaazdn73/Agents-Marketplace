@@ -281,6 +281,39 @@ async def fetch_agent_detail(
         return None
 
 
+async def fetch_agent_quality(
+    client: httpx.AsyncClient, api_key: str, token_id: int, chain_id: int = MAINNET_CHAIN_ID,
+) -> dict | None:
+    """8004scan's own real, independently-computed 'Quality Center' score
+    breakdown for one agent -- confirmed real and live 2026-08-29, before
+    building this: sampled 15 real, actually-scored BSC agents, all 15 had
+    at least one real nonzero dimension (engagement/service/publisher/
+    compliance/momentum), so this is genuinely populated for the agents
+    it matters for, not a placeholder. Its score_history/score_trend field
+    was 'insufficient_data' for all 15 sampled (the registry is too young
+    for it yet) -- deliberately NOT surfaced by this adapter's caller;
+    re-check real prevalence before adding it later.
+
+    Detail-page-only by design: costs one real, uncacheable-here API call
+    per agent, so unlike the bulk /api/v1/agents listing this is never
+    called during ingestion or the marketplace refresh -- only when a real
+    user opens one specific agent's detail view (see server.py's
+    /api/agents/{agent_id}/quality-center route). Returns None on any
+    failure (missing agent, transient error, agent never scored) -- a
+    real, honest 'not available' rather than a fabricated zero."""
+    try:
+        resp = await client.get(
+            f"{_8004SCAN_BASE}/api/v1/agents/{chain_id}/{token_id}/quality",
+            headers={"X-API-Key": api_key},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return None
+        return resp.json()
+    except Exception:
+        return None
+
+
 def augmented_classification_text(detail: dict) -> str:
     """Builds the richer text surface confirmed useful in the real
     2026-08-25 re-check: tags, categories, the offchain metadata's own

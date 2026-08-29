@@ -49,6 +49,7 @@ from core import status_checks
 from adapters import zerion
 from adapters import coingecko
 from adapters import termix
+from adapters import bsc
 from core import canary
 from core import pnl
 from core import onchain_pnl
@@ -1306,6 +1307,98 @@ async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = 
     service_endpoint = agent.get("service_endpoint")
     description = agent.get("description")
     return await protocol_compat.check_escrow_compatibility(service_endpoint, description)
+
+
+# Real, in-process TTL cache (2026-08-29) -- 8004scan's own Quality Center
+# score is a periodic scoring-cycle output, not a real-time value (its own
+# `last_scored_at` field in a live sample moved on an hours-scale cadence,
+# not per-request), so re-fetching it on every single detail-page open
+# would be pure waste, not freshness. Same discipline as
+# protocol_compat._cache and agent_health's HEALTH_TTL_SECONDS elsewhere in
+# this codebase -- a short real TTL, not "cache forever".
+_QUALITY_CENTER_CACHE: dict[str, tuple[float, dict]] = {}
+_QUALITY_CENTER_CACHE_TTL_SECONDS = 60 * 60
+
+
+@app.get("/api/agents/{agent_id}/quality-center")
+async def agent_quality_center(agent_id: str):
+    """Real, on-demand fetch of 8004scan's own independent 'Quality Center'
+    assessment for ONE specific agent -- confirmed real and live before
+    building this (2026-08-29): sampled 15 real, actually-scored BSC
+    agents via the live API, all 15 had at least one real nonzero
+    dimension score, and 4/4 checked had real, structured risk_flags. Its
+    score_history/trend is 'insufficient_data' for every agent checked
+    (0/15) -- the registry is too young for it yet -- so that field is
+    deliberately NOT surfaced here; worth re-checking real prevalence
+    later rather than shipping an always-empty field now.
+
+    Deliberately detail-page-only, not part of the bulk marketplace
+    refresh: this costs one real, live 8004scan API call per agent, so
+    calling it for the whole ~12,000-agent served list on every refresh
+    would be a real, unbounded-with-scale cost this backend has already
+    been burned by twice this same day (see core/agent_store.py's
+    get_stored_agents() history). A human opening one specific agent's
+    detail view is a real, naturally-bounded, human-paced trigger instead.
+
+    Deliberate design choice, stated for anyone extending this later:
+    this is surfaced as 8004scan's OWN, separately-labeled assessment
+    (`source` field below), never merged into Tnega's own total_score or
+    any other Tnega-computed number. The two scores come from different
+    methodologies measuring different things -- blending them into one
+    opaque number without a real, principled reason to do so would be
+    exactly the kind of un-scientific shortcut this was built to avoid.
+
+    Always returns 200 with an honest `available: false` + `reason` on
+    any failure (agent not found, no token_id on record, 8004scan has no
+    assessment yet, live call failed) -- never a fabricated score, and
+    never blocks the detail page from rendering everything else."""
+    agent = await agent_store.get_agent_by_id(agent_id)
+    if not agent or not agent.get("token_id"):
+        return {"available": False, "reason": "No 8004scan token_id on record for this agent."}
+
+    try:
+        token_id = int(agent["token_id"])
+    except (TypeError, ValueError):
+        return {"available": False, "reason": "This agent's token_id isn't a real, usable numeric id."}
+    chain_id = agent.get("chain_id") or 56
+
+    cache_key = f"{chain_id}:{token_id}"
+    cached = _QUALITY_CENTER_CACHE.get(cache_key)
+    now = time.time()
+    if cached and (now - cached[0]) < _QUALITY_CENTER_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    api_key = os.environ.get("SCAN_8004_API_KEY")
+    if not api_key:
+        return {"available": False, "reason": "SCAN_8004_API_KEY is not set."}
+
+    async with httpx.AsyncClient() as client:
+        raw = await bsc.fetch_agent_quality(client, api_key, token_id, chain_id)
+
+    if not raw:
+        result = {"available": False, "reason": "8004scan has no Quality Center assessment for this agent yet."}
+    else:
+        score = raw.get("score") or {}
+        result = {
+            "available": True,
+            "source": "8004scan's own independent Quality Center assessment — a separate signal from Tnega's own verification, not blended into it.",
+            "generated_at": raw.get("generated_at"),
+            "total_score": score.get("total_score"),
+            "last_scored_at": score.get("last_scored_at"),
+            "dimensions": [
+                {
+                    "key": d.get("key"), "label": d.get("label"), "score": d.get("score"),
+                    "weight": d.get("weight"), "explanation": d.get("explanation"),
+                }
+                for d in (score.get("dimensions") or [])
+            ],
+            "risk_flags": [
+                {"severity": f.get("severity"), "title": f.get("title"), "description": f.get("description")}
+                for f in (raw.get("risk_flags") or [])
+            ],
+        }
+    _QUALITY_CENTER_CACHE[cache_key] = (now, result)
+    return result
 
 
 @app.get("/api/deliverable/proxy")
