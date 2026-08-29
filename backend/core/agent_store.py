@@ -201,7 +201,7 @@ async def get_agent_by_id(agent_id: str) -> dict | None:
     return await db.known_agents.find_one({"_id": agent_id})
 
 
-async def get_stored_agents(limit: int = 50_000) -> list[dict]:
+async def get_stored_agents(limit: int = 15_000) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
@@ -218,12 +218,29 @@ async def get_stored_agents(limit: int = 50_000) -> list[dict]:
     10,837+. Fixed two ways: (1) sort by total_score at the DB level BEFORE
     limiting, so if the cap is ever actually hit again, it keeps the
     objectively best-scoring agents, not an arbitrary slice; (2) raised the
-    default cap to 50,000 — comfortably above the current real store size,
-    so for the foreseeable future this cap doesn't bind at all. Live-
-    confirmed post-fix: returns 10,506 real diversified agents in 5.4s
-    (10,837 raw docs fetched in 2.3s, diversify in 3.1s) — a one-time cost
-    only paid on cold boot or inside the background refresh, never on a
-    warm-cache request."""
+    default cap to 50,000 — comfortably above the real store size at the time
+    (10,837), so the cap didn't bind at all.
+
+    Real fix (2026-08-29, OOM crash-loop round 5): that 50,000 comfort margin
+    eroded fast -- known_agents is upsert-only/never-delete, and every
+    refresh (each one now also pulling from the much larger full_agent_
+    registry pipeline) grows it further. Live-confirmed the same day:
+    10,837 -> 26,736 -> 34,374 -> 38,033+ within about an hour of real
+    refreshes, on a real trajectory toward the 50,000 cap itself, not just
+    toward "large". This function has no field projection (fetches every
+    full known_agents doc) and is called on every cold boot and inside every
+    background refresh -- its cost was rising every single time known_agents
+    grew, with no ceiling. Lowered the default cap to 15,000 (sorted by
+    total_score first, so this always keeps the objectively best-scoring
+    agents, same as before) to put a real, permanent bound back under this
+    call regardless of how large known_agents keeps growing -- the same
+    "bound the pool, not just hope it stays small" discipline already
+    applied to the full_agent_registry clustering pool and the health-check
+    pass. Real, honest tradeoff: once known_agents exceeds 15,000, the
+    lowest-scoring agents stop being served even though they're still in the
+    store -- an intentional trade of completeness for actual service
+    stability, matching the same tradeoff already accepted for the
+    clustering pool."""
     db = get_db()
     cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
     docs = await db.known_agents.find({}).sort("total_score", -1).to_list(length=limit)
