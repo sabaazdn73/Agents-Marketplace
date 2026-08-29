@@ -81,6 +81,29 @@ class MarketplaceAgent:
     tvl_usd: float | None
     defillama_slug: str | None
     defillama_url: str | None
+    # Real, added 2026-08-29 (API-data investigation) -- all four already
+    # arrive in the exact same /protocols response tvl_usd/slug/url come
+    # from, zero extra real API calls. tvl_change_7d_pct: real TVL momentum
+    # (capital flowing in vs out), directly relevant to evaluating a
+    # Trading & DeFi agent's real financial health, not just its snapshot
+    # size. audit_count: DefiLlama's own real, disclosed count of security
+    # audits the protocol has had (0 is a real, honest risk signal, not an
+    # absence of data). tvl_data_flagged: DefiLlama's OWN real
+    # misrepresentedTokens flag -- their own disclosed "this protocol's TVL
+    # may not be trustworthy" signal, directly an accuracy/scientific-rigor
+    # signal, not invented here. mcap_usd: real market cap, when the
+    # protocol has a real, priced token (None is common and honest -- most
+    # of these real BSC AI-agent protocols don't have one).
+    #
+    # Real, live-caught quirk (2026-08-29): DefiLlama's own `audits` field
+    # is a STRING ("0", "2", ...), not an int, confirmed against a real
+    # live response before typing this -- stored here as a real, parsed
+    # int (None if genuinely unparseable) so nothing downstream silently
+    # compares/sorts a string where a number was expected.
+    tvl_change_7d_pct: float | None
+    audit_count: int | None
+    tvl_data_flagged: bool
+    mcap_usd: float | None
 
     # From a real BSC mainnet RPC read (adapters/bsc_balance.py). A DIFFERENT
     # metric from TVL — the owner wallet's actual native BNB, never conflated
@@ -105,6 +128,20 @@ class MarketplaceAgent:
 # corroborated by a SECOND real signal (same registered endpoint, a tight
 # real registration-time window, or shared owner as one signal among
 # several — never owner alone).
+
+
+def _parse_defillama_audit_count(raw) -> int | None:
+    """DefiLlama's own `audits` field is a real, live-confirmed STRING
+    ("0", "2", ...), not an int (see the MarketplaceAgent.audit_count
+    field comment above) -- parsed defensively here so a future,
+    unannounced format change on their end degrades to an honest None
+    rather than crashing the whole refresh."""
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 async def get_marketplace_agents(
@@ -356,6 +393,10 @@ async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["Marke
             tvl_usd=matched_protocol.get("tvl") if matched_protocol else None,
             defillama_slug=matched_protocol.get("slug") if matched_protocol else None,
             defillama_url=matched_protocol.get("url") if matched_protocol else None,
+            tvl_change_7d_pct=matched_protocol.get("change_7d") if matched_protocol else None,
+            audit_count=_parse_defillama_audit_count(matched_protocol.get("audits")) if matched_protocol else None,
+            tvl_data_flagged=bool(matched_protocol.get("misrepresentedTokens")) if matched_protocol else False,
+            mcap_usd=matched_protocol.get("mcap") if matched_protocol else None,
             owner_bnb_balance=owner_balances.get((owner_address or "").lower()),
             owner_bnb_balance_checked_at=owner_balance_checked_at.get((owner_address or "").lower()),
         ))

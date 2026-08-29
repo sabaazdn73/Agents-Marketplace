@@ -62,7 +62,16 @@ READ_CLUSTER_CAP = 3    # keep the served list diverse across accumulation
 # describe ONE outcome (the DefiLlama match) — preserved or overwritten
 # together, never partially, so tvl_usd can't end up stale while
 # financial_data_available flips to False (or vice versa).
-_DEFILLAMA_FIELD_GROUP = ["tvl_usd", "defillama_slug", "defillama_url", "financial_data_available"]
+#
+# Real, added 2026-08-29 (API-data investigation): tvl_change_7d_pct,
+# audit_count, tvl_data_flagged, mcap_usd all come from the exact same
+# DefiLlama match as the four fields above — added to this same group so
+# a transient DefiLlama fetch failure can't silently regress THEM to None/
+# False either, while leaving tvl_usd/defillama_slug/url looking fine.
+_DEFILLAMA_FIELD_GROUP = [
+    "tvl_usd", "defillama_slug", "defillama_url", "financial_data_available",
+    "tvl_change_7d_pct", "audit_count", "tvl_data_flagged", "mcap_usd",
+]
 _OWNER_BALANCE_FIELD = "owner_bnb_balance"
 # Real fix (2026-08-27, owner-balance 429 investigation): moves together
 # with _OWNER_BALANCE_FIELD, same real "preserve on failure" discipline —

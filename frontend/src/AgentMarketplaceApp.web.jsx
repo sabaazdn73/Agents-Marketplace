@@ -106,6 +106,13 @@ function mapAgent(a) {
     imageUrl: a.image_url, strategy: a.description || 'No description provided.',
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
     defillamaUrl: a.defillama_url, ownerBnbBalance: a.owner_bnb_balance,
+    // Real, added 2026-08-29 — same DefiLlama match, zero extra API calls.
+    // tvlChange7dPct: real TVL momentum. auditCount: DefiLlama's own real
+    // disclosed audit count (0 is a real, honest signal, not missing data).
+    // tvlDataFlagged: DefiLlama's own real misrepresentedTokens flag —
+    // their own "this TVL may not be trustworthy" signal, surfaced as-is.
+    tvlChange7dPct: a.tvl_change_7d_pct, auditCount: a.audit_count,
+    tvlDataFlagged: a.tvl_data_flagged, mcapUsd: a.mcap_usd,
     possiblyDelisted: a.possibly_delisted, session: null,
     // Real, server-checked service-liveness signal — see core/agent_health.py.
     serviceStatus: a.service_status || null, serviceEndpoint: a.service_endpoint || null,
@@ -328,7 +335,27 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
           <DetailStat label="Funds" hint="Total money this agent currently manages for people" value={agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—'} />
         </div>
         {agent.financialDataAvailable && agent.defillamaUrl && (
-          <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1 mb-5">Where this money number comes from: DefiLlama <ExternalLink size={11} /></a>
+          <div className="mb-5">
+            <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Where this money number comes from: DefiLlama <ExternalLink size={11} /></a>
+            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+              {agent.tvlChange7dPct != null && (
+                <span title="How this protocol's total funds have changed over the last 7 real days — money flowing in vs out">
+                  {agent.tvlChange7dPct >= 0 ? '▲' : '▼'} {Math.abs(agent.tvlChange7dPct).toFixed(1)}% (7d)
+                </span>
+              )}
+              {agent.auditCount != null && (
+                <span title="How many independent security audits this protocol has had, per DefiLlama's own records">
+                  {agent.auditCount > 0 ? `${agent.auditCount} security audit${agent.auditCount === 1 ? '' : 's'}` : 'No security audits on record'}
+                </span>
+              )}
+            </div>
+            {agent.tvlDataFlagged && (
+              <div className="mt-2 flex items-start gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                <span>DefiLlama flags this protocol's reported funds as possibly not representative of its real value.</span>
+              </div>
+            )}
+          </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2 my-5">
