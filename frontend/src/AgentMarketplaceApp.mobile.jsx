@@ -200,6 +200,13 @@ function StatSkeleton() {
 
 const NAV_ITEMS = [
   { id: 'market', label: 'Market', icon: Store },
+  // Real, deliberate placement (2026-08-29, product/UX audit) — mirrors
+  // web's identical NAV_ITEMS change; see that file's own comment for the
+  // full reasoning. A Skill isn't a registered ERC-8004 agent being hired
+  // for delivered work — it's a real, direct, self-executed on-chain
+  // action, promoted out of the "Build" tab (a different feature) into
+  // its own top-level tab.
+  { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'report', label: 'Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
@@ -430,9 +437,11 @@ export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenData
 function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
   // Real bug found and fixed (2026-08-27, full mobile/web parity audit):
   // this file referenced an undefined `REPORT_ACCENT` (never defined or
-  // imported anywhere in the codebase) on the Build tab's AltanaSkillsPanel
-  // — a guaranteed ReferenceError crash the moment a user opened that tab.
-  // Same real accent value web uses (AgentMarketplaceApp.web.jsx).
+  // imported anywhere in the codebase) on AltanaSkillsPanel — a guaranteed
+  // ReferenceError crash the moment a user opened that tab. (At the time,
+  // AltanaSkillsPanel lived on the Build tab; it moved to its own Skills
+  // tab 2026-08-29 — see NAV_ITEMS' own comment above.) Same real accent
+  // value web uses (AgentMarketplaceApp.web.jsx).
   const accent = '#6366F1';
   const [darkMode, setDarkMode] = useState(false);
   // Real first-visit orientation — see AgentMarketplaceApp.web.jsx's
@@ -469,7 +478,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // switches to Build and pre-opens that specific skill's guided form.
   // Mirrors web's identical handleTrySkill.
   const [pendingSkillId, setPendingSkillId] = useState(null);
-  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); onNavChange?.('build'); };
+  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('skills'); setPendingSkillId(skillId); onNavChange?.('skills'); };
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
   const [buildStatus, setBuildStatus] = useState(null);
@@ -1189,27 +1198,24 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               </div>
             )}
 
-            {nav === 'build' && (
+            {/* Real, own top-level tab (2026-08-29) — see NAV_ITEMS' own
+                comment above for the full reasoning this was moved out of
+                "Build" for. Same AltanaSkillsPanel web uses, verbatim. */}
+            {nav === 'skills' && (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold mb-1">Build Your Agent</h2>
+                <h2 className="text-2xl font-bold mb-1">Skills</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Real, pre-built, audited on-chain actions you run yourself — supply into Venus, trade on PancakeSwap, and more — through your own connected wallet or a spend-capped mini-wallet.</p>
+                <p className="text-[11px] text-gray-400">Different from hiring an agent from the Market tab: there's no job, no delivery to wait on, and no third party doing the work on your behalf — this runs the real action directly, right now, within a limit you set.</p>
 
-                {/* Real, fork-tested skills from Altana's public registry —
-                    the same AltanaSkillsPanel web uses, verbatim (2026-08-19
-                    port). Its own JSX was already touch/mobile-friendly
-                    Tailwind (rounded-2xl cards, compact text, single-column
-                    grid on narrow widths) — no separate mobile rewrite of
-                    the execution logic, matching every other shared
-                    component in this app (BuyAccessPanel, StepChecklist,
-                    JobStatusPanel, MyJobsPanel all work the same way). */}
                 <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                   <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
                 </div>
+              </div>
+            )}
 
-                <div className="flex items-center gap-3 py-1">
-                  <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-                  <span className="text-[10px] opacity-40 font-semibold uppercase">Or build something custom</span>
-                  <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-                </div>
+            {nav === 'build' && (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold mb-1">Build Your Agent</h2>
 
                 <div className="bg-indigo-600 text-white p-6 rounded-3xl shadow-lg shadow-indigo-600/20">
                   <Sparkles size={24} className="mb-3" />

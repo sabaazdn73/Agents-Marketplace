@@ -10,6 +10,7 @@
 * [Direct-Wallet Skill Execution](direct-wallet-skills.md)
 * [Full BSC Registry Analysis](full-registry-analysis.md)
 * [Category-Aware Evaluation](category-evaluation.md)
+* [Skills vs. Marketplace](skills-vs-marketplace.md)
 * [Agent Interaction Patterns](agent-interaction-patterns.md)
 * [Verification Methodology](verification-methodology.md)
 * [Agent Metrics](agent-metrics.md)

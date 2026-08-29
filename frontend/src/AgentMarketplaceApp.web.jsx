@@ -447,6 +447,18 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
 
 const NAV_ITEMS = [
   { id: 'market', label: 'Marketplace', icon: Store },
+  // Real, deliberate placement (2026-08-29, product/UX audit) — see
+  // docs/skills-vs-marketplace.md for the full reasoning. A Skill (Venus
+  // Lending, PancakeSwap, etc.) isn't a registered ERC-8004 agent being
+  // hired for delivered work — it's a real, direct, self-executed on-chain
+  // action, with no counterparty to evaluate and no job/delivery cycle.
+  // Used to live buried inside the "Build Your Agent" tab, under a header
+  // entirely about a different feature (scaffolding a NEW custom agent),
+  // with no real presence in the marketplace's own primary navigation.
+  // Promoted to its own top-level tab, a peer of Marketplace rather than a
+  // sub-panel of Build, so "hire someone" vs "run this yourself" reads as
+  // the real, first-level choice it actually is.
+  { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
@@ -483,7 +495,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
   const [pendingSkillId, setPendingSkillId] = useState(null);
-  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('build'); setPendingSkillId(skillId); onNavChange?.('build'); };
+  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('skills'); setPendingSkillId(skillId); onNavChange?.('skills'); };
   const [hiring, setHiring] = useState(false);
   const [buildDescription, setBuildDescription] = useState('');
   const [showBuildCommand, setShowBuildCommand] = useState(false);
@@ -1543,6 +1555,22 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           )}
 
           {/* Build Tab */}
+          {/* Real, own top-level tab (2026-08-29) — see NAV_ITEMS' own
+              comment above for the full reasoning this was moved out of
+              "Build Your Agent" for. */}
+          {nav === 'skills' && (
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Zap size={24} /></div>
+                <h2 className="text-3xl font-bold tracking-tight">Skills</h2>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 mb-2">Real, pre-built, audited on-chain actions you run yourself — supply into Venus, trade on PancakeSwap, and more — through your own connected wallet or a spend-capped mini-wallet.</p>
+              <p className="text-xs text-gray-400 mb-10">Different from hiring an agent from the Marketplace: there's no job, no delivery to wait on, and no third party doing the work on your behalf — this runs the real action directly, right now, within a limit you set.</p>
+
+              <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
+            </div>
+          )}
+
           {nav === 'build' && (
             <div className="max-w-3xl">
               <div className="flex items-center gap-3 mb-2">
@@ -1552,16 +1580,6 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               <p className="text-gray-600 dark:text-gray-300 mb-2">No coding required. If you can describe what you want in a sentence, you can build this.</p>
               <p className="text-xs text-gray-400 mb-1">Built on BNB Agent Studio (bnbagent-studio) and the ERC-8004/ERC-8183 standards.</p>
               <a href="https://docs.bnbchain.org/developer-kit" target="_blank" rel="noreferrer" className="text-xs text-indigo-500 underline mb-10 inline-block">Source: docs.bnbchain.org/developer-kit →</a>
-
-              <div className="mb-10">
-                <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
-              </div>
-
-              <div className="flex items-center gap-3 mb-8">
-                <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-                <span className="text-xs opacity-40 font-semibold uppercase">Or build something custom</span>
-                <div className={`flex-1 h-px ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`} />
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 {BUILD_STEPS.map((step, i) => (
