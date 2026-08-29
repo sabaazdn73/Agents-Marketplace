@@ -382,6 +382,36 @@ async def search_resolve(q: str):
                 "reason": f"Couldn't complete a real, live check for this right now: {e}. Try again shortly."}
 
 
+@app.get("/api/full-registry-progress")
+async def full_registry_progress():
+    """Real, live, public snapshot of the full-registry pipeline's own
+    real progress — added 2026-08-29 specifically so the "every ingested
+    agent gets fully evaluated eventually, in bounded real time"
+    guarantee (see docs/full-registry-analysis.md's own "Evaluation
+    coverage guarantee" section) is always checkable, never something
+    that has to be taken on faith or dug out of a script. Public, not
+    secret-gated — this is read-only aggregate counts, nothing sensitive,
+    consistent with this project's normal "every route is public" default
+    (the batch-TRIGGER endpoints stay gated; this one only reads).
+
+    `unanalyzed_backlog` is the real, live number the Background Worker's
+    ingestion loop itself pauses/resumes against (worker.py's
+    INGEST_BACKLOG_PAUSE_THRESHOLD/INGEST_BACKLOG_RESUME_THRESHOLD) — the
+    same real number, not a separate estimate."""
+    ingest_progress = await full_registry_ingest.get_progress()
+    solana_progress = await full_registry_ingest.get_solana_progress()
+    analysis_stats = await full_registry_analysis.compute_full_registry_stats()
+    audit_progress = await escrow_compat_audit.get_audit_progress()
+    backlog = await full_registry_analysis.get_unanalyzed_backlog()
+    return {
+        "ingestion": ingest_progress,
+        "solana_ingestion": solana_progress,
+        "analysis": {k: v for k, v in analysis_stats.items() if k not in ("by_category", "by_chain")},
+        "unanalyzed_backlog": backlog,
+        "escrow_compat_audit_on_marketplace": audit_progress,
+    }
+
+
 @app.get("/api/health")
 async def health():
     return {"ok": True}

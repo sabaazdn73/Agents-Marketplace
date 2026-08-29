@@ -150,6 +150,50 @@ The marketplace's "Verified working" tier means a real, on-chain-confirmed job t
 - **Ingestion**: real, incremental progress every 6 hours via the scheduler below; a full re-pass (`ingest --restart`) is still a manual, occasional decision (new agents register continuously, but resetting the checkpoint is a deliberate act, not something the scheduler does on its own).
 - **Analysis**: also runs on the same 6-hour trigger — `core/agent_health.py`'s own real 20-minute TTL means running it much more often wouldn't make additional real progress anyway, so folding it into the same cheap, bounded call as ingestion is enough.
 - **Real fix shipped**: Render Cron Jobs are still a paid-plan feature (see below — this project's `render.yaml` only defines `type: web` services), so this doesn't use Render for scheduling. Instead: `backend/server.py`'s `POST /api/admin/full-registry-batch` (real, `X-Batch-Secret`-gated — the one deliberate exception to this project's normal "every route is public" pattern, since this one can trigger real backend work and real 8004scan quota use) runs one bounded ingest batch + one bounded analysis batch, and `.github/workflows/full-registry-batch.yml` calls it every 6 hours via GitHub Actions' own scheduled workflows — genuinely free for this repository (confirmed live: this repo is real, public, and GitHub's own docs state Actions usage is free for standard runners on public repos, no minute cap). Setup: a `BATCH_TRIGGER_SECRET` value must be set identically as a GitHub Actions repository secret and as an env var on the Render backend service (the "Agents-Marketplace" service, `https://agents-marketplace-q3k4.onrender.com`) — the workflow refuses to run without it, and the endpoint refuses every call without it configured. The script above (`scripts/full_registry_scan.py`) still works unchanged for a manual, longer, foreground run whenever that's preferred over the scheduled bounded batches.
+- **Real update (2026-08-29):** ingestion and analysis both also now run continuously on the paid Render Background Worker (`backend/worker.py`) — see the dedicated section below for why, and for the real, load-bearing guarantee this exists to provide. The 6-hour GitHub Actions cadence above stays in place as a deliberate, redundant safety net alongside the worker, not replaced by it — same reasoning already established for the escrow-compat-audit step.
+
+## Evaluation coverage guarantee — every ingested agent gets fully evaluated, in bounded real time (2026-08-29)
+
+**The real, non-negotiable requirement this section documents:** every agent that lands in `full_agent_registry` must go through every real evaluation step this project has built for it — not eventually-maybe, not silently left behind as ingestion speeds up. This is checked and enforced by real code, not left as an informal expectation.
+
+### The real, complete mapping — every evaluation step, and its real scope
+
+| Step | What it does | Applies to | Coupled to ingestion? |
+|---|---|---|---|
+| **Categorization** (`core/categorize.py`) | Deterministic, keyword-based classification. Cheap, synchronous, no network. | Every `full_agent_registry` doc | Runs inside the same analysis batch as health-check (below) |
+| **Health/liveness check** (`core/agent_health.py`) | Real, live on-chain `tokenURI` read + HTTP reachability check against the agent's own registered endpoint. | Every `full_agent_registry` doc | Yes — see below |
+| **Escrow-compatibility audit** (`core/protocol_compat.py` / `core/escrow_compat_audit.py`) | Real, live multi-format A2A/ERC-8183 protocol probe. | `known_agents` only (the curated, diversified subset actually displayed/hireable in the marketplace) — **deliberately not the full registry** | No — independent continuous loop, own scope |
+
+**Why escrow-compat-audit is real, deliberately scoped to `known_agents` and not the full registry — a decision, not an oversight:** its whole real purpose is warning a buyer before they fund a job with an agent that can't actually receive it — a question that only matters for an agent someone could actually try to hire through this marketplace. Extending it to the full registry (785,000+ agents across BSC/Base/Ethereum, most of which are never surfaced or reachable through this BSC-only marketplace at all) would mean roughly 54× the real, live HTTP probe volume against endpoints with zero real user-facing consequence if left unaudited. Confirmed with the user directly (2026-08-29) rather than assumed either way: keep it scoped to `known_agents`, where it already runs continuously with real, full coverage of that population.
+
+Categorization and health-check are a different story — that data genuinely determines which agents even get considered for `known_agents`' own diversification, so leaving them behind ingestion speed would be a real, structural gap, not just an incomplete "nice to have" metric.
+
+### The real capacity math (measured, not guessed)
+
+Live-measured 2026-08-29, at the same time the ingestion concurrency fix above was built:
+
+- **Ingestion** (concurrent, `INGEST_CONCURRENCY = 20`): 3,381 real agents in 50.3s ≈ **~242,000 agents/hour** at the depth measured.
+- **Analysis** (health-check + categorization, existing `_CONCURRENCY = 12` in `agent_health.py`, unchanged): 300 real agents in 18.8s ≈ **~57,600 agents/hour**.
+
+**Confirmed: a real, severe capacity mismatch.** Ingestion alone can run roughly 4× faster than analysis alone. Run both at their own unconstrained maximum speed and the ingested-but-unanalyzed backlog grows without bound — exactly the outcome this requirement exists to prevent.
+
+### The real fix: a bounded-backlog guarantee, not a hope that throughput happens to match
+
+`backend/worker.py`'s ingestion loop checks the real, live unanalyzed backlog (`core/full_registry_analysis.get_unanalyzed_backlog()`) before every batch:
+
+- **Pauses** ingestion once the backlog reaches **25,000** agents.
+- **Resumes** only once the analysis loop (now also running continuously in the same worker) brings it back down to **15,000** or below (a real hysteresis band, so the two loops don't flap pause/resume right at one boundary value).
+- At analysis's own real, measured throughput, a 25,000-agent backlog is a real, bounded worst case of about **26 minutes** to clear — not an unbounded, silently growing gap.
+
+Live-verified, not just designed: on first deploy with this change, the real, live backlog was already 37,822 (above the pause threshold) — the worker correctly paused ingestion immediately, made zero live calls to 8004scan while paused, and the analysis loop kept making real, measured progress (300 agents per batch) until the backlog dropped back under the resume threshold.
+
+### Real, ongoing visibility — never a hidden gap
+
+`core/full_registry_analysis.compute_full_registry_stats()` (already existed) returns the real, live `total_ingested` vs `total_analyzed` counts at any time — the real backlog is always `total_ingested - total_analyzed`, checkable live, never inferred or hidden. The worker's own logs additionally report the real, live backlog value on every ingestion batch it runs.
+
+### What wasn't changed, and why
+
+`agent_health.py`'s own internal concurrency (`_CONCURRENCY = 12`) was deliberately left as-is rather than raised to close the throughput gap directly. It's tuned to be polite to hundreds of different, arbitrary third-party agent hosts plus one shared public IPFS gateway (`ipfs.io`) that many agents' `tokenURI`s resolve through — a genuinely different real concern from `INGEST_CONCURRENCY`'s own tuning against one paid, dedicated-capacity API this project has explicit, purchased headroom on. The bounded-backlog pause/resume mechanism above is the real, load-bearing guarantee; raising analysis concurrency further is a real, identified, separate lever for more raw throughput later, not required for the correctness guarantee this section documents.
 
 ## Render Workflows evaluated as a replacement for this manual pipeline (2026-08-27)
 

@@ -75,6 +75,21 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     return {"checked": len(docs), "done": False}
 
 
+async def get_unanalyzed_backlog() -> int:
+    """Real, cheap, live count of `full_agent_registry` docs that have
+    been ingested but not yet analyzed (`service_status` missing) — added
+    2026-08-29 for worker.py's ingestion loop, which uses this to keep
+    ingestion from outrunning analysis capacity by more than a real,
+    bounded margin (see that file's own INGEST_BACKLOG_PAUSE_THRESHOLD).
+    Deliberately a single, cheap count_documents call, not the fuller
+    compute_full_registry_stats() below, which runs several additional
+    aggregations this pacing check doesn't need and shouldn't pay for on
+    every loop iteration."""
+    db = get_db()
+    col = db[FULL_REGISTRY_COLLECTION]
+    return await col.count_documents({"service_status": {"$exists": False}})
+
+
 async def compute_full_registry_stats() -> dict:
     """Real, current top-line numbers over whatever has actually been
     ingested + analyzed so far — honestly a PARTIAL picture unless

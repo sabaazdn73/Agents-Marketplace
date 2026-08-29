@@ -52,6 +52,8 @@ GET  /api/market/bnb-price
 GET  /api/skills-registry
 GET  /api/deliverable/proxy
 GET  /api/my-jobs
+GET  /api/search/resolve
+GET  /api/full-registry-progress
 POST /api/build
 GET  /api/build/{slug}/status
 GET  /api/canary/candidates
@@ -67,7 +69,7 @@ POST /api/admin/solana-registry-batch
 POST /api/admin/escrow-compat-audit-batch
 ```
 
-The five `/api/admin/*-batch` routes are secret-gated (`X-Batch-Secret` header checked against `BATCH_TRIGGER_SECRET`) — see `full-registry-analysis.md` for what each one does. All five run on the same 6-hour GitHub Actions schedule; the escrow-compatibility one additionally runs continuously on a dedicated Render Background Worker, kept deliberately redundant with the scheduled step rather than replacing it — see `full-registry-batch.yml`'s own header comment.
+The five `/api/admin/*-batch` routes are secret-gated (`X-Batch-Secret` header checked against `BATCH_TRIGGER_SECRET`) — see `full-registry-analysis.md` for what each one does. All five run on the same 6-hour GitHub Actions schedule; full-registry ingestion, full-registry analysis, and escrow-compatibility auditing additionally run continuously on a dedicated Render Background Worker (`backend/worker.py`, three concurrent loops in one process), kept deliberately redundant with the scheduled steps rather than replacing them — see `full-registry-batch.yml`'s own header comment and `docs/full-registry-analysis.md`'s "Evaluation coverage guarantee" section. `GET /api/full-registry-progress` gives a real, live, public snapshot of all of it at any time.
 
 ## Frontend (Vite + React)
 
