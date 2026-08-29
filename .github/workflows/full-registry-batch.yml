@@ -67,16 +67,22 @@
 # marketplace yet.
 
 # A fifth step, calling the escrow-compatibility audit
-# (POST /api/admin/escrow-compat-audit-batch), was added 2026-08-28 and
-# removed 2026-08-29: that audit now runs continuously on its own
-# dedicated Render Background Worker (backend/worker.py, service
-# escrow-compat-audit-worker), which isn't bounded by this workflow's
-# per-call time limit and covers the backlog far faster. The
-# /api/admin/escrow-compat-audit-batch endpoint itself stays in server.py
-# as a manual fallback (e.g. via workflow_dispatch or a direct curl) if
-# the worker is ever paused, but it no longer needs a recurring step here.
+# (POST /api/admin/escrow-compat-audit-batch), was added 2026-08-28,
+# removed 2026-08-29 when a dedicated Render Background Worker
+# (backend/worker.py, service escrow-compat-audit-worker) took over running
+# the same audit continuously, and restored the same day as a deliberate,
+# real, redundant safety net — NOT an oversight or a sign the worker is
+# assumed broken. The worker had two real, distinct crashes in its first
+# ~35 minutes (a missing-file startup error, then an OOM from an unbounded
+# in-process cache), both found and fixed; it's since run clean, but a
+# single background process is still a single point of failure, and this
+# step costs nothing extra to keep running alongside it. If the worker
+# ever silently stalls or dies for a reason not yet seen, this scheduled,
+# request-cycle-bound step keeps real progress moving regardless — slower
+# than the worker at full throughput, but never fully stopped. Both are
+# intentionally kept; this is not choosing one over the other.
 
-name: Full-registry batch (ingest + analyze + job index + health check + solana)
+name: Full-registry batch (ingest + analyze + job index + health check + solana + escrow audit)
 
 on:
   schedule:
@@ -164,5 +170,24 @@ jobs:
           cat response4.json
           if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
             echo "::error::Real Solana batch trigger failed with HTTP $http_status"
+            exit 1
+          fi
+
+      - name: Call the real /api/admin/escrow-compat-audit-batch endpoint
+        env:
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
+          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
+        run: |
+          echo "Calling $BACKEND_BASE_URL/api/admin/escrow-compat-audit-batch ..."
+          http_status=$(curl -sS -o response5.json -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
+            "${BACKEND_BASE_URL}/api/admin/escrow-compat-audit-batch")
+          echo "Real HTTP status: $http_status"
+          echo "Real response body:"
+          cat response5.json
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Real escrow-compat-audit batch trigger failed with HTTP $http_status"
             exit 1
           fi
