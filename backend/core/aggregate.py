@@ -431,7 +431,32 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) 
         "name": 1, "description": 1, "service_endpoint": 1, "a2a_endpoint": 1,
         "created_at": 1, "owner_address": 1,
     }
-    minimal_agents = await db["full_agent_registry"].find({"chain_id": 56}, _MINIMAL_CLUSTER_PROJECTION).to_list(length=200_000)
+    # Real, urgent fix (2026-08-29): this used to fetch the ENTIRE real BSC
+    # pool uncapped (`.to_list(length=200_000)`) — safe when this two-phase
+    # design was first verified (peak RSS 217.6MB at whatever the real BSC
+    # count was then), genuinely unsafe now that the real pool has grown to
+    # 64,821 BSC docs (this project's own accelerated ingestion, built the
+    # same day, is a direct real cause of that growth). Confirmed live, not
+    # assumed: Render's own event log shows a real `oomKilled` (512Mi) crash
+    # roughly 9 minutes after a real, successfully-completed refresh logged
+    # exactly "64821 real raw BSC agents -> 7944 after real multi-signal
+    # diversification" — consistent with this pass leaving an elevated real
+    # memory baseline that doesn't fully return, not necessarily OOMing mid-
+    # pass every time. Fixed with a real, FIXED-size random sample
+    # (MongoDB's own `$sample` stage) instead of the full, ever-growing
+    # pool — this bounds real memory for this pass permanently, regardless
+    # of how large full_agent_registry keeps growing, rather than being a
+    # today-specific patch that would need revisiting again at the next
+    # real growth milestone. `$sample` (not an arbitrary `.limit()`) so the
+    # real diversification input stays a genuinely representative random
+    # cross-section, not systematically biased toward whatever sits first
+    # in the collection's own natural/insertion order.
+    _CLUSTER_POOL_SAMPLE_SIZE = 25_000
+    minimal_agents = await db["full_agent_registry"].aggregate([
+        {"$match": {"chain_id": 56}},
+        {"$sample": {"size": _CLUSTER_POOL_SAMPLE_SIZE}},
+        {"$project": _MINIMAL_CLUSTER_PROJECTION},
+    ]).to_list(length=_CLUSTER_POOL_SAMPLE_SIZE)
     if len(minimal_agents) < MIN_FULL_REGISTRY_SAMPLE:
         print(f"[aggregate] full_agent_registry has only {len(minimal_agents)} real BSC agents "
               f"(< {MIN_FULL_REGISTRY_SAMPLE}) — not yet a real replacement, falling back to live fetch.")
