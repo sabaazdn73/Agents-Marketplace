@@ -15,6 +15,7 @@
 * [Skills vs. Marketplace](skills-vs-marketplace.md)
 * [Agent Interaction Patterns](agent-interaction-patterns.md)
 * [Verification Methodology](verification-methodology.md)
+* [GitHub Signal Investigation](github-signal-investigation.md)
 * [Agent Metrics](agent-metrics.md)
 * [Agent Investigation Panel](agent-investigation.md)
 * [Venus Lending Investigation](venus-skill-revert-investigation.md)
