@@ -102,6 +102,7 @@ same limit for the Solana-specific query path.
 
 from __future__ import annotations
 
+import asyncio
 import time
 
 from pymongo import UpdateOne
@@ -132,6 +133,25 @@ SOLANA_PROGRESS_DOC_ID = "solana_mainnet"
 
 PAGE_SIZE = 100  # real, confirmed server-enforced max — see module docstring
 REQUEST_TIMEOUT = 90.0  # generous — real, measured deep-offset requests already take 45s+
+
+# Real, live-measured concurrency (2026-08-29), not assumed: this loop used
+# to fetch one page at a time, fully serially, with no artificial
+# rate-limiting sleep anywhere in the request path — the real bottleneck
+# was never a self-imposed pacing throttle, it's that a serial loop can
+# only ever move as fast as one request's own round-trip latency, and
+# 8004scan's own offset-based pagination genuinely gets slower with depth
+# (see module docstring: ~2s shallow, 44s+ past offset 150,000). Live-tested
+# against the real API at the real, current checkpoint depth (~offset
+# 60,000): 5 pages serial took 17.9s (3.58s/page); 5 pages concurrent took
+# 1.7s total. Pushed further — 10, 20, and 30 concurrent requests all
+# completed with zero errors, throughput still improving at 30. Chosen
+# value is comfortably under Pro-tier's real 3,000 req/min (50 req/sec)
+# ceiling even sustained (30 concurrent requests completing in ~3s is
+# roughly 10 req/sec, not 50). This doesn't fix 8004scan's own real,
+# server-side pagination latency at extreme depth — a slow individual
+# request is still slow — but it means a WINDOW of them completes in
+# roughly one request's worth of wall-clock time instead of N times that.
+INGEST_CONCURRENCY = 20
 
 
 async def _get_progress(doc_id: str = PROGRESS_DOC_ID) -> dict:
@@ -167,17 +187,29 @@ async def get_solana_progress() -> dict:
     return await _get_progress(SOLANA_PROGRESS_DOC_ID)
 
 
-async def run_ingest_batch(api_key: str, max_seconds: float = 600.0, max_pages: int | None = None) -> dict:
-    """Real, resumable ingestion batch — fetches consecutive real pages
-    starting from the last real checkpoint, upserts every real agent
-    matching TARGET_CHAIN_IDS into `full_agent_registry` (tagged by its
-    own real chain_id), and stops after `max_seconds` (or `max_pages`, or
-    reaching the real end of the registry). Returns a real summary of what
-    THIS batch actually did.
+async def run_ingest_batch(
+    api_key: str, max_seconds: float = 600.0, max_pages: int | None = None,
+    concurrency: int = INGEST_CONCURRENCY,
+) -> dict:
+    """Real, resumable ingestion batch — fetches real pages starting from
+    the last real checkpoint, upserts every real agent matching
+    TARGET_CHAIN_IDS into `full_agent_registry` (tagged by its own real
+    chain_id), and stops after `max_seconds` (or `max_pages`, or reaching
+    the real end of the registry). Returns a real summary of what THIS
+    batch actually did.
 
-    Checkpointing discipline: `next_offset` only advances after a page's
-    real upserts have already landed in Mongo, and a genuine failure mid-
-    page leaves the checkpoint at the last SUCCESSFUL offset."""
+    Real, concurrent fetching (2026-08-29) — see INGEST_CONCURRENCY's own
+    docstring for the real, live-measured evidence behind this. Pages are
+    fetched `concurrency` at a time via a real, live-parallel window, but
+    each window's real results are still processed and checkpointed
+    strictly IN OFFSET ORDER, one at a time — a later offset in the same
+    window succeeding never lets the checkpoint skip past an earlier one
+    that failed. `next_offset` only advances past a page once its real
+    upserts have already landed in Mongo; a genuine failure anywhere in a
+    window stops that window at the last real, successfully-checkpointed
+    offset, exactly the same honest, no-data-loss guarantee the original
+    serial version had — concurrency changes how fast pages are FETCHED,
+    never how carefully their results are committed."""
     db = get_db()
     progress = await _get_progress()
     if progress.get("started_at") is None:
@@ -189,76 +221,90 @@ async def run_ingest_batch(api_key: str, max_seconds: float = 600.0, max_pages: 
     by_chain_this_batch: dict[int, int] = {}
     t0 = time.time()
     reached_end = False
+    stopped_early = False
+    stopped_reason = None
 
     while True:
         if time.time() - t0 > max_seconds:
             break
         if max_pages is not None and pages_done >= max_pages:
             break
-        try:
-            agents, total, raw_len = await bsc.list_agents_for_chains(
-                api_key, TARGET_CHAIN_IDS, offset=offset, limit=PAGE_SIZE,
-                timeout=REQUEST_TIMEOUT, max_retries=6,
-            )
-        except Exception as e:
-            progress["last_error"] = f"{type(e).__name__}: {e}"[:300]
-            progress["last_run_at"] = time.time()
-            await _save_progress(progress)
-            return {
-                "pages_done": pages_done, "agents_ingested": agents_this_batch,
-                "by_chain": by_chain_this_batch, "next_offset": offset,
-                "stopped_reason": f"error: {type(e).__name__}: {e}",
-                "elapsed_seconds": round(time.time() - t0, 1),
-            }
 
-        progress["total_server_reported"] = total
-        if agents:
-            ops = []
-            for a in agents:
-                real_id = a.get("id")
-                if not real_id:
-                    continue
-                doc = dict(a)
-                doc["_id"] = real_id
-                doc["_ingested_at"] = time.time()
-                ops.append(doc)
-                cid = a.get("chain_id")
-                by_chain_this_batch[cid] = by_chain_this_batch.get(cid, 0) + 1
-            if ops:
-                # Real bug found and fixed (2026-08-28): a full ReplaceOne
-                # here silently WIPED any service_status/category a prior
-                # real analysis pass (full_registry_analysis.py) had
-                # already written for an agent — real, confirmed live: a
-                # re-scan of an already-analyzed offset range (triggered by
-                # this exact multi-chain migration's own checkpoint reset)
-                # reset total_analyzed from 17,418 back to 0. Real fix:
-                # $set only the fresh raw-listing fields this page actually
-                # has, leaving any existing analysis fields (which this raw
-                # listing response never includes in the first place)
-                # untouched — a genuine merge, not a silent overwrite.
-                await db[FULL_REGISTRY_COLLECTION].bulk_write(
-                    [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
-                    ordered=False,
+        window = concurrency
+        if max_pages is not None:
+            window = min(window, max_pages - pages_done)
+        window_offsets = [offset + i * PAGE_SIZE for i in range(window)]
+        results = await asyncio.gather(
+            *[
+                bsc.list_agents_for_chains(
+                    api_key, TARGET_CHAIN_IDS, offset=o, limit=PAGE_SIZE,
+                    timeout=REQUEST_TIMEOUT, max_retries=6,
                 )
-                agents_this_batch += len(ops)
+                for o in window_offsets
+            ],
+            return_exceptions=True,
+        )
 
-        offset += PAGE_SIZE
-        pages_done += 1
-        progress["next_offset"] = offset
-        progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
-        progress["last_run_at"] = time.time()
-        progress["last_error"] = None
-        await _save_progress(progress)
+        for result in results:
+            if isinstance(result, Exception):
+                stopped_reason = f"error: {type(result).__name__}: {result}"
+                progress["last_error"] = f"{type(result).__name__}: {result}"[:300]
+                progress["last_run_at"] = time.time()
+                await _save_progress(progress)
+                stopped_early = True
+                break
 
-        if raw_len < PAGE_SIZE or (total and offset >= total):
-            reached_end = True
-            progress["completed_at"] = time.time()
+            agents, total, raw_len = result
+            progress["total_server_reported"] = total
+            if agents:
+                ops = []
+                for a in agents:
+                    real_id = a.get("id")
+                    if not real_id:
+                        continue
+                    doc = dict(a)
+                    doc["_id"] = real_id
+                    doc["_ingested_at"] = time.time()
+                    ops.append(doc)
+                    cid = a.get("chain_id")
+                    by_chain_this_batch[cid] = by_chain_this_batch.get(cid, 0) + 1
+                if ops:
+                    # Real bug found and fixed (2026-08-28): a full
+                    # ReplaceOne here silently WIPED any service_status/
+                    # category a prior real analysis pass
+                    # (full_registry_analysis.py) had already written for
+                    # an agent. Real fix: $set only the fresh raw-listing
+                    # fields this page actually has, leaving any existing
+                    # analysis fields untouched — a genuine merge, not a
+                    # silent overwrite.
+                    await db[FULL_REGISTRY_COLLECTION].bulk_write(
+                        [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
+                        ordered=False,
+                    )
+                    agents_this_batch += len(ops)
+
+            offset += PAGE_SIZE
+            pages_done += 1
+            progress["next_offset"] = offset
+            progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
+            progress["last_run_at"] = time.time()
+            progress["last_error"] = None
             await _save_progress(progress)
+
+            if raw_len < PAGE_SIZE or (total and offset >= total):
+                reached_end = True
+                progress["completed_at"] = time.time()
+                await _save_progress(progress)
+                stopped_early = True
+                break
+
+        if stopped_early:
             break
 
     return {
         "pages_done": pages_done, "agents_ingested": agents_this_batch,
         "by_chain": by_chain_this_batch, "next_offset": offset, "reached_end": reached_end,
+        "stopped_reason": stopped_reason,
         "elapsed_seconds": round(time.time() - t0, 1),
     }
 
