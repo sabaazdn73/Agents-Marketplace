@@ -1,5 +1,7 @@
 # Agent Investigation — the unified redesign (2026-08-28)
 
+> This page is a dated investigation record. `AgentInvestigationSection.jsx` described below was itself folded into `frontend/src/AgentMetrics.jsx` the same day, alongside `AgentEvaluationSection.jsx` — see [Agent Metrics](agent-metrics.md) for the current, live component and presentation. The four-parameter design and real data sources this page describes are still accurate; only the file/component name changed.
+
 ## The real problems this fixes
 
 1. **False "our data vs. blockchain data" framing.** Every real signal built this session — job history, PnL, revenue, on-chain performance, TermiX cross-reference — ultimately reads from the same real blockchain, either directly (RPC) or via a real indexer (Zerion, 8004scan, TermiX). There was never a meaningful "Tnega's own data" vs "real blockchain data" distinction to draw; several panels' own copy implied one anyway. That framing has been removed from every panel's user-facing text and code comments — what differs between signals is *which* real on-chain question each one answers, never how "real" its source is.

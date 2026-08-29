@@ -1464,6 +1464,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 mutedBorder="border-gray-200 dark:border-gray-800"
                 darkMode={darkMode}
                 agent={selectedAgent}
+                escrowBlocked={hireEscrowGate.blocked}
               />
             </div>
           )}

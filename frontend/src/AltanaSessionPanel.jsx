@@ -5,6 +5,17 @@
 // real spend caps and expiries registered onchain, and revocation
 // the user can see in the product." Every action here is a real,
 // on-chain Altana SDK call, nothing simulated.
+//
+// `escrowBlocked` (added 2026-08-29, full coherence audit): the hire
+// modal's own escrow-compatibility gate (see EscrowCompatibilityWarning.jsx's
+// useHireFlowEscrowGate) renders once at the top of the modal, above both
+// the Always Ask and Autonomous sections, so its warning and acknowledgment
+// checkbox visually read as covering the whole modal. Its `blocked` flag was
+// only ever wired into the Always Ask button, though — this panel's own
+// hire button had no way to see it, so a buyer could ignore the checkbox
+// and still fund a flagged agent's job frictionlessly through Autonomous.
+// The caller now passes `hireEscrowGate.blocked` through here so both real
+// hire paths honor the same gate.
 
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Loader2, ExternalLink, XCircle } from 'lucide-react';
@@ -23,7 +34,7 @@ import WalletConfirmStep from './WalletConfirmStep';
 
 const SESSION_STORAGE_KEY = 'altana-marketplace-session-v1';
 
-export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkMode, agent }) {
+export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkMode, agent, escrowBlocked = false }) {
   const [wallet, setWallet] = useState(null);
   const [session, setSession] = useState(null);
   const [spendCap, setSpendCap] = useState(5);
@@ -297,10 +308,10 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
           </a>
 
           {agent && (
-            <button onClick={handleHire} disabled={!!step && !error}
+            <button onClick={handleHire} disabled={(!!step && !error) || escrowBlocked}
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
               {step === 'hiring' ? <Loader2 size={14} className="animate-spin inline mr-1" /> : null}
-              {error && step === 'hiring' ? 'Try hire again' : `Hire ${agent.name} using this limit`}
+              {escrowBlocked ? 'Check the box above to continue' : error && step === 'hiring' ? 'Try hire again' : `Hire ${agent.name} using this limit`}
             </button>
           )}
 

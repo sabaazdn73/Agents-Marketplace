@@ -36,12 +36,17 @@ Everything below is real and live on [tnega.app](https://tnega.app) as of this w
 - **Real owner wallet BNB balance**, with a live BNB/USD price alongside it (CoinGecko).
 - **Opt-in Zerion wallet-portfolio enrichment** — a button that fetches every real, priced token an agent's owner wallet holds on BNB Chain (not just BNB), plus a real "does this wallet actually hold DeFi positions" signal for the DeFi-relevant categories, at zero extra API cost (reusing data the same call already returns).
 - **DefiLlama TVL cross-reference** where a real protocol match exists; honestly `null`/blank where none does.
+- **Unified Metrics presentation** (`AgentMetrics.jsx`) — one coherent block per agent, led by interaction guidance (can/should you hire this agent, and how), followed by whichever real financial stats apply to that agent's own category. See [Agent Metrics](agent-metrics.md).
+  - **Delivery Record** — cumulative $U earned through this marketplace's own escrow (a complete ERC-8183 job index, not a sampled estimate), plus completed/rejected/expired counts.
+  - **Financial Track Record** (Trading & DeFi agents specifically, promoted ahead of Delivery Record for this group) — real profit/loss from the hiring wallet's own on-chain balance, before vs. after, the most direct real signal for a fund-managing agent; corroborated by a second, independent on-chain execution history where available.
+  - **Real, evidence-based interaction routing** — an agent that doesn't speak this marketplace's escrow protocol at all (a live protocol probe against its own registered endpoint, not a category guess) is routed to plain guidance instead of a fund button, with the specific evidence shown. See [Category-Aware Evaluation](category-evaluation.md) and [Agent Interaction Patterns](agent-interaction-patterns.md).
 
 ## Hiring
 
-- **Two real, independently-signed hire paths** — direct wagmi (the user's own wallet signs each step) and an Altana passkey session (a scoped, revocable smart-account session signs on the user's behalf). See [Core Concepts](core-concepts.md).
+- **Two real, independently-signed hire paths** — direct wagmi, "Always Ask" (the user's own wallet signs each step) and an Altana passkey session, "Autonomous" (a scoped, revocable smart-account session signs on the user's behalf within a spend cap and expiry the user sets once). See [Core Concepts](core-concepts.md).
 - **"Hire by address"** — an escape hatch for hiring an agent not yet indexed by 8004scan, given only its owner address.
 - **A real, signed price quote** (ERC-8183 negotiate) is requested and honored before funding, for agents that require one — never a fabricated placeholder price.
+- **Escrow-compatibility gate** — a real, live protocol probe against a flagged agent's own endpoint surfaces a last-chance warning before either hire path can fund a job with near-zero real chance of ever being delivered; requires an explicit acknowledgment checkbox, applies identically to both hire paths. See [Category-Aware Evaluation](category-evaluation.md).
 
 ## My Agents / job tracking
 
@@ -60,7 +65,12 @@ Everything below is real and live on [tnega.app](https://tnega.app) as of this w
 
 ## Altana Skills
 
-Ten real, pre-built, fork-tested Skills from Altana's public registry (PancakeSwap trading/liquidity, Venus/Aave lending, Lista staking, four.meme, copy-trade detection, wallet tracking, token radar, x402 payments) — no building required. Running a transaction Skill for real creates a passkey wallet and grants a scoped, revocable on-chain Altana session (a spend cap, an expiry, and an allow-list of exactly which contracts it may touch); read-only/detection Skills need no wallet at all.
+Ten real, pre-built, fork-tested Skills from Altana's public registry (PancakeSwap trading/liquidity, Venus/Aave lending, Lista staking, four.meme, copy-trade detection, wallet tracking, token radar, x402 payments) — no building required. Read-only/detection Skills need no wallet at all. For a transaction Skill, the user picks between two real, independent ways to run it:
+
+- **A Face ID mini-wallet** — the original flow: a passkey wallet is created (or recovered) and granted a scoped, revocable on-chain Altana session (a spend cap, an expiry, and an allow-list of exactly which contracts it may touch). Good for someone without an already-funded wallet, or who wants a real, enforced spending cap.
+- **The user's own already-connected wallet** — no new wallet, no separate funding, one real signature per run through whichever wallet is already connected (MetaMask, etc.); no on-chain spend cap, since there's no session to enforce one. Genuinely less friction for someone who already has a funded wallet, at the cost of Autonomous's set-it-once convenience. See [Direct-Wallet Skill Execution](direct-wallet-skills.md).
+
+Either way, a real "is this the right wallet?" confirmation step — live BNB/USDT balance shown — comes before anything is signed, so a recovered or newly-created wallet is never used blind.
 
 ## Advantage Report
 

@@ -29,7 +29,7 @@ The values actually read by `backend/server.py` and its `core`/`adapters` module
 
 ### Real backend routes
 
-The full, current list of routes in `backend/server.py` (2026-08-27 audit — grepped directly via `@app.get`/`@app.post`, not from an older count; the previous version of this table predated the canary/termix/activity routes below):
+The full, current list of routes in `backend/server.py` (2026-08-29 audit — grepped directly via `@app.get`/`@app.post`, not from an older count; the previous version of this table predated the PnL/revenue/on-chain-performance/escrow-compatibility routes and every `/api/admin/*-batch` endpoint below):
 
 ```
 GET  /api/health
@@ -39,6 +39,12 @@ GET  /api/agents/activity
 GET  /api/agents/performance
 GET  /api/agents/performance/bulk
 GET  /api/agents/termix-performance
+GET  /api/agents/onchain-performance
+GET  /api/agents/onchain-history
+GET  /api/agents/pnl
+GET  /api/agents/pnl-summary
+GET  /api/agents/revenue
+GET  /api/agents/escrow-compatibility
 GET  /api/agents/wallet-portfolio
 POST /api/agents/negotiate
 POST /api/agents/notify-funded
@@ -54,7 +60,14 @@ GET  /api/canary/status-bulk
 GET  /api/canary/history
 POST /api/canary/record
 POST /api/canary/check-pending
+POST /api/admin/full-registry-batch
+POST /api/admin/job-index-batch
+POST /api/admin/health-check-batch
+POST /api/admin/solana-registry-batch
+POST /api/admin/escrow-compat-audit-batch
 ```
+
+The five `/api/admin/*-batch` routes are secret-gated (`X-Batch-Secret` header checked against `BATCH_TRIGGER_SECRET`) — see `full-registry-analysis.md` for what each one does and how they're triggered (GitHub Actions on a schedule, plus a dedicated Render Background Worker for the escrow-compatibility one specifically).
 
 ## Frontend (Vite + React)
 
