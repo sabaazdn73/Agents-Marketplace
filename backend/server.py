@@ -250,7 +250,23 @@ async def _refresh_into_store() -> list[dict]:
     served = await agent_store.get_stored_agents()
 
     try:
-        health_results = await agent_health.check_agents_health(served)
+        # Real fix (2026-08-29, OOM crash-loop round 3): this call used to pass
+        # no `limit`, so every refresh cycle re-checked EVERY stale agent in the
+        # entire known_agents store in one shot — a genuinely unbounded read,
+        # separate from (and missed by) the two earlier OOM fixes this session,
+        # which only bounded the full_agent_registry clustering pool. known_agents
+        # is upsert-only/never-delete and had grown past comfort (10,837 when
+        # get_stored_agents()'s own 50,000 cap was set -> 26,736 and climbing
+        # ~4,000/hour by the time this was caught live), so this pass grew
+        # unbounded every single refresh. Live-confirmed root cause: both real
+        # oomKilled crashes after the round-2 fix landed at 18:02 and 19:03 hit
+        # within seconds of the "Upserted refresh" log line, i.e. right where
+        # this health-check pass runs, not during the already-bounded clustering
+        # step. `limit` already existed on check_agents_health() for exactly this
+        # (built 2026-08-28) and is already used at the /api/agents/health-check
+        # route below (limit=1000) -- it just was never wired in here, the one
+        # call site that runs on every real refresh. Same bound applied here.
+        health_results = await agent_health.check_agents_health(served, limit=1000)
         if health_results:
             updated = await agent_store.update_agent_health(health_results)
             print(f"[server] Real health-check pass: {len(health_results)} agents "
