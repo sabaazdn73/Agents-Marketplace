@@ -67,7 +67,7 @@ POST /api/admin/solana-registry-batch
 POST /api/admin/escrow-compat-audit-batch
 ```
 
-The five `/api/admin/*-batch` routes are secret-gated (`X-Batch-Secret` header checked against `BATCH_TRIGGER_SECRET`) — see `full-registry-analysis.md` for what each one does and how they're triggered (GitHub Actions on a schedule, plus a dedicated Render Background Worker for the escrow-compatibility one specifically).
+The five `/api/admin/*-batch` routes are secret-gated (`X-Batch-Secret` header checked against `BATCH_TRIGGER_SECRET`) — see `full-registry-analysis.md` for what each one does. All five run on the same 6-hour GitHub Actions schedule; the escrow-compatibility one additionally runs continuously on a dedicated Render Background Worker, kept deliberately redundant with the scheduled step rather than replacing it — see `full-registry-batch.yml`'s own header comment.
 
 ## Frontend (Vite + React)
 
