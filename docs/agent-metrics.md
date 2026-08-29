@@ -1,5 +1,62 @@
 # Agent Metrics — the final, unified per-agent presentation (2026-08-28)
 
+## Metrics methodology — a plain-language reference (2026-08-29)
+
+This section explains how the Metrics system actually works today, cross-checked directly against the live code while writing it (`categoryGroups.js`, `categorize.py`, `protocol_compat.py`, `agentEvaluation.js`, `AgentMetrics.jsx`, `agentVerification.js`) — nothing described here is planned or aspirational.
+
+### 1. Categorization
+
+Every real agent gets a fine-grained category from `backend/core/categorize.py` — one of **18 categories** (Grid Trading, Rebalancing, Yield Optimisation, Health Factor Monitoring, Trading Signals, Copy Trading, Smart Contract Auditing, Data Analysis, Research, Content & Copywriting, Identity & Verification, Customer Support, NFT & Generative Art, Gaming, Prediction Markets, Social & Community, Payments & Settlement, Developer Tools), assigned by deterministic keyword matching against the agent's own real, on-chain name and description — no LLM, and every match is traceable back to the exact keyword that triggered it. An agent whose name/description matches nothing gets **Unclassified** honestly, rather than forced into a guess.
+
+For browsing, those 18 categories nest under **5 top-level groups** (`frontend/src/categoryGroups.js`), built to reflect what the real data actually contains rather than a generic taxonomy imposed on it:
+
+| Group | Fine-grained categories inside it |
+|---|---|
+| Trading & DeFi | Grid Trading, Rebalancing, Yield Optimisation, Health Factor Monitoring, Trading Signals, Copy Trading |
+| Data & Analysis | Data Analysis, Research, Prediction Markets |
+| Security & Trust | Smart Contract Auditing, Identity & Verification |
+| Content & Community | Content & Copywriting, Social & Community, Customer Support, NFT & Generative Art, Gaming |
+| Payments & Infrastructure | Payments & Settlement, Developer Tools |
+
+**Unclassified is deliberately never folded into a group** — it has its own separate filter toggle, so it's never misrepresented as a real classification that was actually made.
+
+### 2. Nature-based evaluation — why this replaced a one-size-fits-all bar
+
+Every real agent gets a live, evidence-based verdict on **how it can actually be interacted with**, computed by `backend/core/protocol_compat.py` from a real, direct probe against that specific agent's own registered endpoint (never guessed from its category or reputation). The real states this produces:
+
+- **Escrow-compatible** — the endpoint genuinely speaks this marketplace's ERC-8183/A2A protocol. Hireable directly, no caveat.
+- **Auth-gated** — the endpoint returned a real 401/403. Genuinely inconclusive, not a confirmed failure — still hireable, but the buyer is shown a real, honest caution first (the agent may not learn a job was funded without a credential this marketplace doesn't hold).
+- **SaaS/off-chain-incompatible** — a clean, hard protocol-level rejection (404/405/501, or a non-JSON response) across every real format tried. Structurally can't fulfill an escrow job; the buyer is routed to the agent's own site instead (extracted from its own real, submitted data — never fabricated), with hiring anyway still available but de-emphasized.
+- **Different-protocol** (a sub-flavor of the above) — the endpoint is confirmed to be a real, live, working API, just not one that speaks A2A (detected via a real GET returning JSON rather than an HTML page). The copy shown says exactly that, rather than implying the site is dead.
+- **Offers x402** — an independent, additive flag (not a gate) set when the agent's own description explicitly mentions x402 pay-per-call access, shown as a small supplementary note regardless of which state above applies.
+
+One pattern was explicitly investigated and **not** built: a distinct "agent-to-agent" interaction mode. A full, dedicated investigation (`docs/agent-interaction-patterns.md`) found no real, evidence-backed reason for it — every real agent already accepts a hire from a person or another agent identically, through the same escrow flow; that's a fact about who's allowed to buy, not a different way an agent's endpoint needs to be talked to.
+
+### 3. Personalized, per-agent execution — not a batch score
+
+The classification above is not a template applied uniformly to a category. Each real agent's own registered endpoint is individually probed (or, increasingly, read from a persisted result already computed the same way — see `core/escrow_compat_audit.py`), with its own real evidence trail (exact HTTP statuses, exact candidate URLs tried) stored and shown. Two agents in the identical fine-grained category, even from the same owner, can and do land in different real states — confirmed, concrete example: `AIDA` (SaaS-incompatible) and `Sentinels Audit` (escrow-compatible) share one real owner wallet, and are correctly classified differently because their own real endpoints behave differently.
+
+### 4. The real parameters shown, and how to read them
+
+Once the interaction-guidance verdict above is shown, `AgentMetrics.jsx` shows up to four further real parameters, ordered by the agent's own category group:
+
+- **Delivery Record** — how many times this agent has actually been hired, its real completion rate, and its real, cumulative $U earned — computed from the complete, real ERC-8183 job index (`core/job_index.py`), not a recent-window sample. For an agent that's never been hired, this honestly says so, distinguishing "genuinely new" from "structurally can't be hired here" (the SaaS-incompatible case) rather than showing an unexplained zero either way.
+- **Financial Track Record** — shown only for Trading & DeFi agents, promoted ahead of Delivery Record for them since real cash flow is the more relevant question for a fund-managing agent. Two real, separate signals: **Revenue Stream** (the same real, complete job-index earnings Delivery Record shows) and **PnL** (the hiring wallet's own real on-chain balance, before vs. after a delivered hire — the simplest, most direct real profit/loss signal, with an opt-in secondary view of the agent's own independent on-chain trading activity via Zerion).
+- **Independent Corroboration** — a real, second opinion from TermiX's own AACP registry, matched by the same real ERC-8004 token id, explicitly labeled as differently-scoped rather than blended into this marketplace's own numbers. Expandable into a real, full wallet portfolio and complete on-chain transaction history.
+- **Live Status** — is the agent's own endpoint reachable right now (a real, direct HTTP check, TTL'd), shown alongside the same real escrow-protocol-compatibility badge as the guidance section above.
+
+**Verification tiers** (`frontend/src/agentVerification.js`) are a separate, real, ranked summary badge used for sorting and filtering, not a duplicate of Delivery Record. In order, strongest first:
+
+| Tier | Real, exact condition | What it actually proves |
+|---|---|---|
+| **Verified working** | At least one real job for this agent reached COMPLETED or SUBMITTED, anywhere in the complete, on-chain job index | Hard proof — a real buyer's money was placed and the work was actually delivered |
+| **Canary-verified** | No organic buyer job yet, but a small, real, self-funded proactive test job was delivered | Real, independent proof the agent works, just not from real demand yet |
+| **Responding, unproven** | The endpoint answered a live reachability check just now, but has no delivered or test job on record | Being online isn't proof it finishes paid work |
+| **Unproven** | Neither of the above | Nothing yet to judge the agent's real function on |
+
+As of 2026-08-29, re-verified live against the complete job index: **18 real known_agents listings are Verified working** — a genuinely small fraction of the ~14,400 currently listed, and expected to be small this early rather than smoothed over (see `docs/limitations.md`).
+
+
 ## The real design intent this was built against
 
 Three real agent natures, three real needs — never one generic bar:
