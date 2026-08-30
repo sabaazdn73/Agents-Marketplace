@@ -210,7 +210,7 @@ async def get_agent_by_id(agent_id: str) -> dict | None:
     return await db.known_agents.find_one({"_id": agent_id})
 
 
-async def get_stored_agents(limit: int = 15_000) -> list[dict]:
+async def get_stored_agents(limit: int = 20_000) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
@@ -284,7 +284,18 @@ async def get_stored_agents(limit: int = 15_000) -> list[dict]:
     own preservation logic, which queries known_agents independently of
     this function, not from this function's output). Excluding these four
     reduces real per-document transfer/deserialize/memory cost with no
-    functional change -- confirmed zero consumers, not a guess."""
+    functional change -- confirmed zero consumers, not a guess.
+
+    Real, second retry (2026-08-30), now WITH the field projection above
+    already live and confirmed (25+ real minutes stable under real traffic
+    at 15,000, ~7.5% smaller real response size than before the
+    projection). known_agents had grown to 58,439 by the time of this
+    retry -- raised to 20,000 (a real, moderate step, not straight back to
+    25,000 or the original 50,000), deployed, force-tested via
+    `?force_refresh=true` immediately, then watched for a real oomKilled
+    in the following minutes, same discipline as the first attempt. See
+    the real, live result recorded at the point this note was written for
+    whether it held."""
     db = get_db()
     cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
     # Real, confirmed-unused-downstream fields excluded from this read only
