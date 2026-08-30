@@ -50,6 +50,7 @@ from adapters import zerion
 from adapters import coingecko
 from adapters import termix
 from adapters import bsc
+from adapters import contract_verification
 from core import canary
 from core import pnl
 from core import onchain_pnl
@@ -1399,6 +1400,27 @@ async def agent_quality_center(agent_id: str):
         }
     _QUALITY_CENTER_CACHE[cache_key] = (now, result)
     return result
+
+
+@app.get("/api/agents/{agent_id}/contract-verification")
+async def agent_contract_verification(agent_id: str):
+    """Real, on-demand check of whether this agent's registered
+    owner_address is a plain wallet or an actual smart contract — and if
+    a contract, whether its source is verified. See
+    adapters/contract_verification.py's own module docstring for the
+    full real prevalence check behind this (~8% of real, sampled agent
+    owner addresses are contracts at all) and the two-step real data flow
+    (a free eth_getCode RPC check, then BscScan's real, free `contract`
+    module only if actually needed).
+
+    Detail-page-only by design, same reasoning as /quality-center above:
+    real, per-address cost, gated by a human opening one specific agent.
+    Always 200; `is_contract: false` is the honest, overwhelmingly common
+    real result, not an error state."""
+    agent = await agent_store.get_agent_by_id(agent_id)
+    if not agent or not agent.get("owner_address"):
+        return {"is_contract": None, "reason": "No owner_address on record for this agent."}
+    return await contract_verification.check_owner_contract_verification(agent["owner_address"])
 
 
 @app.get("/api/deliverable/proxy")

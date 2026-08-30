@@ -40,6 +40,7 @@ import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibi
 import UniversalSearchFallback from './UniversalSearchFallback';
 import AgentMetrics from './AgentMetrics';
 import QualityCenterPanel from './QualityCenterPanel';
+import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import HackathonPartnersFooter from './HackathonPartnersFooter';
@@ -422,7 +423,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <h3 className="text-sm font-bold mb-1">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
 
-        <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Who owns this agent <PasskeyBadge ownerAddress={agent.ownerAddress} /></h3>
+        <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Who owns this agent <PasskeyBadge ownerAddress={agent.ownerAddress} /> {agent.id && <ContractVerificationBadge agentId={agent.id} />}</h3>
         {agent.ownerAddress ? (
           <>
             <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 inline-flex items-center gap-1 break-all">{agent.ownerAddress} <ExternalLink size={11} className="shrink-0" /></a>
