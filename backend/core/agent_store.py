@@ -340,7 +340,35 @@ async def get_stored_agents(limit: int = 15_000) -> list[dict]:
     # Real, confirmed-unused-downstream fields excluded from this read only
     # (upsert_agents' own separate query is untouched, so preservation of
     # e.g. defillama_slug across refreshes still works normally).
-    _EXCLUDE_FIELDS = ("category_matched_keywords", "cross_chain_versions", "health_score", "defillama_slug")
+    #
+    # Real, second exclusion pass (2026-08-30, following up on the "is
+    # 15,000 permanent" investigation): traced every remaining field's
+    # FULL real usage path -- every .jsx/.js file, and every backend
+    # module reading get_stored_agents()'s output -- before adding each
+    # one here, same discipline as the first pass. All 11 confirmed zero
+    # real consumers of THIS specific read:
+    #   escrow_compat_* (7 fields, including evidence -- a real, up-to-6-
+    #     item list, the biggest single field found in this pass): only
+    #     ever read via the separate GET /api/agents/escrow-compatibility
+    #     endpoint, which queries known_agents independently
+    #     (_resolve_agent -> get_agent_by_id, no projection) -- confirmed
+    #     zero references anywhere in the frontend's marketplace-list
+    #     mapping.
+    #   owner_bnb_balance_checked_at: read back only by
+    #     core/aggregate.py's own separate, minimal-projection query
+    #     (line ~277), never through this function's output.
+    #   first_seen_at: write-only ($setOnInsert in upsert_agents), never
+    #     read back anywhere -- not here, not in aggregate.py, not in the
+    #     frontend.
+    #   service_http_status / service_error: write-only diagnostic
+    #     fields from core/agent_health.py, never read back anywhere.
+    _EXCLUDE_FIELDS = (
+        "category_matched_keywords", "cross_chain_versions", "health_score", "defillama_slug",
+        "escrow_compat_auth_gated", "escrow_compat_checked_at", "escrow_compat_different_protocol",
+        "escrow_compat_evidence", "escrow_compat_external_link", "escrow_compat_incompatible",
+        "escrow_compat_offers_x402", "owner_bnb_balance_checked_at", "first_seen_at",
+        "service_http_status", "service_error",
+    )
     projection = {f: 0 for f in _EXCLUDE_FIELDS}
     docs = await db.known_agents.find({}, projection).sort("total_score", -1).to_list(length=limit)
 
