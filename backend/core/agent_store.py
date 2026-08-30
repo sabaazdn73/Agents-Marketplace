@@ -210,7 +210,7 @@ async def get_agent_by_id(agent_id: str) -> dict | None:
     return await db.known_agents.find_one({"_id": agent_id})
 
 
-async def get_stored_agents(limit: int = 40_000) -> list[dict]:
+async def get_stored_agents(limit: int = 30_000) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
