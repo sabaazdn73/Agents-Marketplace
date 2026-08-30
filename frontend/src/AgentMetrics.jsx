@@ -333,7 +333,16 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
           ) : !onchain.data?.has_activity ? (
             <p className="text-gray-400">{onchain.data?.reason || 'No independent real DeFi execution activity found.'}</p>
           ) : (
-            <p>{onchain.data.defi_tx_count} real DeFi transaction{onchain.data.defi_tx_count === 1 ? '' : 's'} found, independent of any hire{onchain.data.real_protocols_seen?.length > 0 && ` (${onchain.data.real_protocols_seen.join(', ')})`}. {onchain.data.pnl ? `${onchain.data.pnl.pnl_usd >= 0 ? '+' : ''}$${onchain.data.pnl.pnl_usd.toFixed(2)} over that window.` : onchain.data.pnl_reason}</p>
+            <p>{onchain.data.defi_tx_count} real DeFi transaction{onchain.data.defi_tx_count === 1 ? '' : 's'} found, independent of any hire{onchain.data.real_protocols_seen?.length > 0 && ` (${onchain.data.real_protocols_seen.join(', ')})`}. {onchain.data.pnl ? `${onchain.data.pnl.pnl_usd >= 0 ? '+' : ''}$${onchain.data.pnl.pnl_usd.toFixed(2)} over that window.` : onchain.data.pnl_reason}
+              {/* Real, independent second PnL number (2026-08-30) — Zerion's
+                  own dedicated FIFO cost-basis calculation over the same
+                  window, deliberately shown separate rather than blended
+                  into the number above (different real methodology, can
+                  legitimately disagree). */}
+              {onchain.data.zerion_pnl?.available && (
+                <> {' '}(Zerion's own FIFO-based number: {onchain.data.zerion_pnl.total_pnl_usd >= 0 ? '+' : ''}${onchain.data.zerion_pnl.total_pnl_usd.toFixed(2)})</>
+              )}
+            </p>
           )}
         </div>
       )}

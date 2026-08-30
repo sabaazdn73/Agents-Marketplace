@@ -167,6 +167,24 @@ export default function OnchainPerformancePanel({ ownerAddress, category }) {
           <p className="text-[10px] text-gray-400">{data.pnl_reason || "Found real activity, but couldn't compute a real value change for it yet."}</p>
         </div>
       )}
+
+      {/* Real, independent second PnL signal (2026-08-30) — Zerion's own
+          dedicated FIFO cost-basis calculation over the same real window,
+          deliberately shown SEPARATE from the number above rather than
+          replacing it: the two use genuinely different real methodologies
+          and can legitimately disagree for a wallet with real in-window
+          trading — showing both, clearly labeled, is more honest than
+          picking one. */}
+      {data.zerion_pnl?.available && (
+        <div className="flex items-center justify-between gap-2 pt-2 mt-2 border-t border-dashed border-indigo-100 dark:border-indigo-500/10">
+          <span className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1" title={data.zerion_pnl.methodology}>
+            Zerion's own PnL (FIFO cost basis) — a second, independent number
+          </span>
+          <span className={`font-mono text-sm font-bold shrink-0 ${data.zerion_pnl.total_pnl_usd >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+            {fmtUsd(data.zerion_pnl.total_pnl_usd)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

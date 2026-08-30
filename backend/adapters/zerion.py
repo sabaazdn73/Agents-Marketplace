@@ -349,6 +349,96 @@ async def get_wallet_chart(address: str, period: str) -> dict:
 _MAX_HISTORY_PAGES = 4  # up to 200 real transactions per real view — real, deliberate quota discipline
 
 
+_PNL_CACHE_TTL_SECONDS = 10 * 60
+_pnl_cache: dict[str, tuple[float, dict]] = {}
+
+
+async def get_wallet_pnl(address: str, since_ms: int | None = None, till_ms: int | None = None) -> dict:
+    """Real, dedicated Zerion PnL endpoint (GET /wallets/{address}/pnl) —
+    added 2026-08-30 as a real, additional, INDEPENDENTLY-computed cross-
+    check for core/onchain_pnl.py's own manual chart-nearest-point
+    calculation, not a replacement for it (see that module's own real
+    surfacing of both side by side — two independently-derived numbers
+    that can be compared is more scientifically honest than silently
+    swapping one for the other).
+
+    Real, disclosed methodology (confirmed against Zerion's own real,
+    published docs before using this, not assumed): FIFO (First In,
+    First Out) cost-basis matching of purchases against sales. This is a
+    real, different, arguably more rigorous methodology than this
+    project's own start/end-portfolio-value approach — FIFO PnL accounts
+    for real trades executed WITHIN the window, not just where the
+    portfolio's total value ended up; the two can legitimately disagree
+    for a wallet with real, active in-window trading, and that
+    disagreement itself is useful, honest information, not a bug in
+    either number.
+
+    `since_ms`/`till_ms` (optional, real Unix milliseconds, same real
+    unit Zerion's other endpoints use — confirmed live, not assumed):
+    scopes the real PnL window; omitted entirely fetches the wallet's
+    real all-time PnL instead.
+
+    10-minute cache per (address, window) — same rationing discipline as
+    every other real call in this module, this project's Zerion key is
+    still confirmed on the `demo` tier (300 real calls/day, live-checked
+    2026-08-29)."""
+    addr = (address or "").lower()
+    if not addr.startswith("0x") or len(addr) != 42:
+        return {"available": False, "reason": "not a valid EVM address"}
+
+    cache_key = f"{addr}:{since_ms}:{till_ms}"
+    cached = _pnl_cache.get(cache_key)
+    if cached and time.time() - cached[0] < _PNL_CACHE_TTL_SECONDS:
+        return cached[1]
+
+    key = _get_key()
+    if not key:
+        return {"available": False, "reason": "ZERION_API_KEY not set"}
+
+    params = {"currency": "usd", "filter[chain_ids]": _BSC_CHAIN_ID}
+    if since_ms is not None:
+        params["since"] = since_ms
+    if till_ms is not None:
+        params["till"] = till_ms
+
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            resp = await client.get(f"{_BASE_URL}/wallets/{addr}/pnl", params=params, auth=(key, ""))
+    except httpx.HTTPError as e:
+        result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
+        _pnl_cache[cache_key] = (time.time(), result)
+        return result
+
+    if resp.status_code == 429:
+        result = {"available": False, "reason": "rate limited — try again later"}
+        _pnl_cache[cache_key] = (time.time(), result)
+        return result
+    if not resp.is_success:
+        result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
+        _pnl_cache[cache_key] = (time.time(), result)
+        return result
+
+    try:
+        a = (resp.json().get("data") or {}).get("attributes") or {}
+    except Exception:
+        result = {"available": False, "reason": "Zerion returned an unexpected response shape"}
+        _pnl_cache[cache_key] = (time.time(), result)
+        return result
+
+    result = {
+        "available": True,
+        "methodology": "FIFO (First In, First Out) cost-basis matching, per Zerion's own real, published methodology",
+        "total_pnl_usd": a.get("total_gain"),
+        "realized_pnl_usd": a.get("realized_gain"),
+        "unrealized_pnl_usd": a.get("unrealized_gain"),
+        "total_invested_usd": a.get("total_invested"),
+        "net_invested_usd": a.get("net_invested"),
+        "total_fees_usd": a.get("total_fee"),
+    }
+    _pnl_cache[cache_key] = (time.time(), result)
+    return result
+
+
 async def get_wallet_full_history(address: str) -> dict:
     """Real, bounded-page, NO time-window wallet history — every real
     transaction type (sends, receives, approvals, trades, mints, contract

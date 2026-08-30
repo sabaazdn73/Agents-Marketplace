@@ -263,6 +263,19 @@ async def get_historical_onchain_performance(
         "oldest_defi_tx_ts": int(oldest_ts),
     }
 
+    # Real, independent second PnL signal (2026-08-30) — Zerion's own
+    # dedicated, FIFO-cost-basis PnL endpoint, over the SAME real window as
+    # the chart-based calculation below. Deliberately kept SEPARATE from
+    # `result["pnl"]` rather than replacing it: the two use genuinely
+    # different real methodologies (FIFO trade-matching here vs.
+    # portfolio-value-at-two-points below), can legitimately disagree for a
+    # wallet with real in-window trading, and showing both, clearly
+    # labeled, is more scientifically honest than silently picking one.
+    # Never blocks or degrades the rest of this function — a failure here
+    # just leaves zerion_pnl unavailable, same honest-failure discipline as
+    # everything else in this module.
+    result["zerion_pnl"] = await zerion.get_wallet_pnl(wallet, since_ms=int(oldest_ts * 1000), till_ms=now_ms)
+
     # Real, best-effort PnL over that real window — same real methodology
     # as core/pnl.py (chart-based start/end value, minus real gas), just
     # windowed by the agent's own real activity instead of a Tnega job's
