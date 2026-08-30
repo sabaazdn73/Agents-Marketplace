@@ -56,6 +56,59 @@ Once the interaction-guidance verdict above is shown, `AgentMetrics.jsx` shows u
 
 As of 2026-08-29, re-verified live against the complete job index: **18 real known_agents listings are Verified working** — a genuinely small fraction of the ~14,400 currently listed, and expected to be small this early rather than smoothed over (see `docs/limitations.md`).
 
+## Complete metrics & signals inventory (2026-08-30)
+
+Every real metric, signal, or data point this platform currently uses anywhere in agent evaluation, verification, or presentation — cross-checked directly against the live code while writing this (not from memory or the prose above), tracing each one's full real path: frontend component → server route → backing module → real external source. One correction found and fixed doing this: an earlier pass mistakenly assumed Delivery Record still read `core/agent_performance.py`'s own `WINDOW=1,500`-bounded cache; tracing the actual live route (`GET /api/agents/performance`) confirmed it was already switched to `core/job_index.py`'s complete index back on 2026-08-28 — the prose above was right, a shallower check of `agent_performance.py` in isolation was not. That bounded cache still exists and is still real — it now backs only `core/pnl.py`'s recent-job lookups and `core/canary.py`'s candidate selection, not either of the two main performance endpoints.
+
+Out of scope for the table below: basic identity/reputation fields 8004scan itself reports and this platform simply displays as-is (name, description, image, `total_score`, `star_count`, `total_feedbacks`, `is_verified`, `owner_ens`/`owner_username`) — real data, but passed through rather than independently computed or verified here.
+
+### Verification & delivery evidence
+
+| Signal | What it measures | Real data source | Shown where |
+|---|---|---|---|
+| **Verification tier** (Verified working / Canary-verified / Responding, unproven / Unproven) | Ranked, strongest-evidence-first summary of whether an agent has ever actually delivered | `frontend/src/agentVerification.js`, reading `jobsCompleted`/`jobsSubmitted` (`core/job_index.py`'s complete on-chain job index, via `GET /api/agents/performance/bulk`), `canaryDelivered` (`core/canary.py`), and `serviceStatus` (`core/agent_health.py`) | Badge on every marketplace card and the agent detail page; default sort order |
+| **Delivery Record** | Real hire count, completion rate, and cumulative $U earned | `core/job_index.py`'s complete, persistent ERC-8183 job index, via `GET /api/agents/performance` | Agent detail page — leads the Metrics section for non-Trading & DeFi agents |
+| **Reliability hint** | A plain-language warning when ≥3 real settled jobs show a ≥40% expired (missed-deadline) ratio | `frontend/src/agentReliability.js`, computed client-side from the same Delivery Record data — no separate fetch | Delivery Record, shown only when the real threshold is actually crossed |
+| **Revenue Stream** | Real, cumulative $U earned as a provider, over time, with a settlement timeline | `core/job_index.py` (same complete index) via `core/revenue.py`, `GET /api/agents/revenue` | Financial Track Record |
+| **Canary probe results** | A small, real, self-funded test hire's real delivery outcome, for agents with no organic buyer job yet | `core/canary.py` — human-signed, human-triggered on-chain job; never an autonomous/scheduled spend | Feeds the Canary-verified tier; full history separately viewable |
+| **Escrow-compatibility audit** | Whether an agent's real, registered endpoint actually speaks this marketplace's ERC-8183/A2A protocol | Live probe: `core/protocol_compat.py`; persisted result (7-day TTL): `core/escrow_compat_audit.py`, kept current by a background worker | Interaction-guidance block (leads the Metrics section) and the Live Status badge |
+
+### Category-native interaction classification
+
+| State | Real, exact condition | What it means for the buyer |
+|---|---|---|
+| Escrow-compatible | Endpoint genuinely speaks ERC-8183/A2A | Hireable directly, no caveat |
+| Auth-gated | Endpoint returned a real 401/403 | Genuinely inconclusive — still hireable, shown a caution first |
+| SaaS/off-chain-incompatible | Clean, hard protocol-level rejection (404/405/501, or non-JSON) across every real format tried | Structurally can't fulfill an escrow job — routed to its own site instead |
+| Different-protocol (a sub-flavor of the above) | Endpoint is a real, live, working API — just not one that speaks A2A | Copy says "different protocol," not "dead" |
+| Offers x402 (additive, not a gate) | The agent's own description explicitly mentions x402 pay-per-call access | Small supplementary note, shown alongside any state above |
+| `x402_supported` — a separate, distinct flag, not to be confused with the above | 8004scan's own registered field: can this agent pay *other* agents automatically | "Pays other agents automatically" badge |
+
+Explicitly investigated and **not** built: a distinct "agent-to-agent-payer" interaction mode — see `docs/agent-interaction-patterns.md`. Every real agent already accepts a hire from a person or another agent identically, through the same escrow flow; that's a fact about who's allowed to buy, not a different way an endpoint needs to be talked to.
+
+### Financial performance signals (Trading & DeFi agents only)
+
+| Signal | What it measures | Real data source | Shown where |
+|---|---|---|---|
+| **PnL (balance-based)** | The hiring wallet's own real on-chain balance, before vs. after a delivered hire | `core/pnl.py` — chart-based start/end value via Zerion, minus real gas | Financial Track Record |
+| **Zerion FIFO PnL cross-check** (added 2026-08-30) | An independently-computed real PnL over the same window, FIFO cost-basis methodology | `adapters/zerion.py`'s `get_wallet_pnl()` — Zerion's own dedicated `/wallets/{address}/pnl` endpoint | Financial Track Record, shown as a clearly separate, labeled second number — never blended with the balance-based number above, since the two methodologies can legitimately disagree |
+| **Independent on-chain execution history** | Real DeFi trades/deposits/withdrawals this agent's wallet has executed, independent of any Tnega hire | `core/onchain_pnl.py`, via Zerion's transaction history filtered to Zerion-confirmed protocol execution | Financial Track Record, opt-in expandable view |
+
+### Independent, third-party corroboration
+
+| Signal | What it measures | Real data source | Shown where |
+|---|---|---|---|
+| **TermiX AACP cross-reference** | A second, real opinion from outside this marketplace — completed jobs and reputation score, matched by the same real ERC-8004 token id | `adapters/termix.py` — TermiX's own live explorer API | Independent Corroboration section |
+| **8004scan Quality Center** (added 2026-08-29) | 8004scan's own, independently-computed 5-dimension score breakdown (engagement / service / publisher / compliance / momentum) plus real, structured risk flags | `adapters/bsc.py`'s `fetch_agent_quality()` — 8004scan's own `/agents/{chain}/{id}/quality` endpoint | Agent detail page, detail-page-only (one real API call per agent), explicitly labeled as 8004scan's own assessment, never blended into Tnega's own score |
+| **DefiLlama financial enrichment** (extended 2026-08-29) | Real TVL, 7-day TVL change, disclosed security-audit count, DefiLlama's own "may not be trustworthy" flag, and market cap | `adapters/defillama.py`, matched by name to the agent's own listing — only for the small, real population that matches a tracked DeFi protocol | Agent detail page, alongside the "Funds" stat, only when a real match exists |
+| **Contract verification badge** (added 2026-08-30) | Whether the agent's registered owner address is a plain wallet or an actual smart contract, and if a contract, whether its source is verified on BscScan | `adapters/contract_verification.py` — real `eth_getCode` RPC check, then BscScan's free `contract` module (`getsourcecode`) only if the address is actually a contract | "Who owns this agent" section, shown only when there's something real to flag (~8% of agent owners are contract-owned at all, live-checked) |
+| **Wallet portfolio & full on-chain history** | Every real token/position an agent's operating wallet holds, and its complete transaction history | `adapters/zerion.py` (`get_wallet_portfolio`, `get_wallet_full_history`) | Independent Corroboration section, opt-in expandable view |
+
+### Live status
+
+| Signal | What it measures | Real data source | Shown where |
+|---|---|---|---|
+| **Live Status / service reachability** | Is the agent's own registered endpoint reachable right now | `core/agent_health.py` — real HTTP check against the on-chain, tokenURI-derived endpoint, TTL'd | Agent detail page (Live Status section) and the "Only show online agents" marketplace filter |
 
 ## The real design intent this was built against
 

@@ -1,5 +1,7 @@
 # Verification Methodology — why health checks aren't enough, and what we do about it
 
+> For a single, complete, table-form reference of every real metric/signal this platform uses anywhere in evaluation, verification, or presentation — name, what it measures, real data source, and where it's shown — see [Agent Metrics: Complete metrics & signals inventory](agent-metrics.md#complete-metrics--signals-inventory-2026-08-30). This document stays the narrative explanation of *why* each of the core signals exists and how it was built; that table is the fast, scannable index.
+
 ## The real problem, independently confirmed
 
 This project's own investigation this session (job #56659: a "Responding" agent that silently never delivered a real, funded job) established that a health check answering "online" is not proof an agent actually does paid work. That finding isn't a one-off — it's independently confirmed by a real, published academic study:
