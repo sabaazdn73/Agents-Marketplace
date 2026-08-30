@@ -210,7 +210,7 @@ async def get_agent_by_id(agent_id: str) -> dict | None:
     return await db.known_agents.find_one({"_id": agent_id})
 
 
-async def get_stored_agents(limit: int = 50_000) -> list[dict]:
+async def get_stored_agents(limit: int = 40_000) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
@@ -290,12 +290,34 @@ async def get_stored_agents(limit: int = 50_000) -> list[dict]:
     already live and confirmed (25+ real minutes stable under real traffic
     at 15,000, ~7.5% smaller real response size than before the
     projection). known_agents had grown to 58,439 by the time of this
-    retry -- raised to 20,000 (a real, moderate step, not straight back to
-    25,000 or the original 50,000), deployed, force-tested via
-    `?force_refresh=true` immediately, then watched for a real oomKilled
-    in the following minutes, same discipline as the first attempt. See
-    the real, live result recorded at the point this note was written for
-    whether it held."""
+    retry. A genuinely UNRELATED real blocker hit partway through: the
+    shared MongoDB Atlas cluster hit its 512MB storage cap (shared with
+    other, unrelated databases on the same account -- confirmed live,
+    `sample_mflix`, a generic public sample dataset, alone was using as
+    much room as this entire project), blocking every write cluster-wide.
+    Not a memory/OOM issue at all -- freed by clearing that unrelated
+    database (confirmed safe by the user first), which unblocked writes
+    and let real testing resume.
+
+    Real, step-by-step ladder actually run, each step deployed and force-
+    tested via `?force_refresh=true` immediately, watched for a real
+    oomKilled in the following minutes before moving on -- per explicit
+    instruction, not jumping straight to a large number:
+      20,000 -- clean (store ~62k at test time)
+      25,000 -- clean (store ~66k)
+      30,000 -- clean (store ~70k)
+      35,000 -- clean (store ~74k)
+      40,000 -- clean (store ~77k)
+      50,000 -- REAL oomKilled, ~17 seconds after that refresh's own
+                "Upserted refresh" log line (store 80,466 at that point)
+
+    Real, final, proven-safe ceiling: 40,000 -- confirmed clean at every
+    step below it, reverted from 50,000 the same session after finding
+    its real failure. A meaningfully higher real ceiling than the 15,000
+    this session started at today, entirely attributable to the field
+    projection above (cutting real per-document cost) -- not a guess,
+    a real, step-tested result with a real, found failure point one step
+    above it, not just stopped early because it seemed fine."""
     db = get_db()
     cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
     # Real, confirmed-unused-downstream fields excluded from this read only
