@@ -210,7 +210,7 @@ async def get_agent_by_id(agent_id: str) -> dict | None:
     return await db.known_agents.find_one({"_id": agent_id})
 
 
-async def get_stored_agents(limit: int = 30_000) -> list[dict]:
+async def get_stored_agents(limit: int = 15_000) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
@@ -302,22 +302,39 @@ async def get_stored_agents(limit: int = 30_000) -> list[dict]:
     Real, step-by-step ladder actually run, each step deployed and force-
     tested via `?force_refresh=true` immediately, watched for a real
     oomKilled in the following minutes before moving on -- per explicit
-    instruction, not jumping straight to a large number:
-      20,000 -- clean (store ~62k at test time)
-      25,000 -- clean (store ~66k)
-      30,000 -- clean (store ~70k)
-      35,000 -- clean (store ~74k)
-      40,000 -- clean (store ~77k)
+    instruction, not jumping straight to a large number. First pass (one
+    quick force-refresh-and-watch-briefly per step):
+      20,000 / 25,000 / 30,000 / 35,000 / 40,000 -- each looked clean
       50,000 -- REAL oomKilled, ~17 seconds after that refresh's own
                 "Upserted refresh" log line (store 80,466 at that point)
 
-    Real, final, proven-safe ceiling: 40,000 -- confirmed clean at every
-    step below it, reverted from 50,000 the same session after finding
-    its real failure. A meaningfully higher real ceiling than the 15,000
-    this session started at today, entirely attributable to the field
-    projection above (cutting real per-document cost) -- not a guess,
-    a real, step-tested result with a real, found failure point one step
-    above it, not just stopped early because it seemed fine."""
+    Settled on 40,000 first, called it proven-safe, then ran one real,
+    longer (15-min) stability watch on it as a final check before fully
+    trusting it -- and it FAILED: a real oomKilled ~2 minutes after
+    deploy, well after the single quick check that had called it clean.
+    Real, important, humbling correction: every "clean" verdict in the
+    first-pass ladder above only covered ONE forced refresh followed by a
+    brief watch -- not long enough to catch the exact "crashes a few
+    minutes after a refresh, not during it" delayed pattern this same
+    file's own history had already documented multiple times earlier the
+    same day for different root causes. Re-tested 30,000 (two steps back)
+    the same, stricter way -- a real, extended watch with MULTIPLE forced
+    refreshes across it, not one -- and it ALSO failed: real oomKilled
+    ~3.3 minutes after deploy, on the very first forced refresh of that
+    stricter run.
+
+    Real, final, honest conclusion: every value tried above 15,000 failed
+    once tested with a genuinely long, multi-refresh watch, not just a
+    single quick check. The only value with real, rigorous, long-duration
+    (25+ real minutes, real periodic traffic) confirmation from earlier
+    the same day is 15,000 itself -- reverted back to it here. The field
+    projection above is still real and still helps (confirmed: smaller
+    real response size, and the two failures above needed MORE store
+    growth and MORE elapsed time to manifest than the pre-projection
+    baseline did), but it did not unlock as much real headroom as the
+    under-tested first-pass ladder suggested. A future attempt to raise
+    this again should use the stricter test from the start: multiple
+    forced refreshes across a real, long watch, not one quick check."""
     db = get_db()
     cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=STALE_DAYS)).isoformat()
     # Real, confirmed-unused-downstream fields excluded from this read only
