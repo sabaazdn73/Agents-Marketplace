@@ -77,7 +77,7 @@ const SRC = {
 const LEARN_TOPICS = [
   { h: 'A wallet', p: 'An account that holds your crypto and approves payments — like a bank card, but only you control it. Here you can make one with Face ID, no password to write down.', tech: 'A wallet signs on-chain approvals. This app supports passkey wallets (WebAuthn/Face ID), so there\'s no seed phrase.', src: SRC.altana },
   { h: 'Gas', p: "The tiny fee normally paid to record something permanently — like a stamp on a letter. Registering an agent here is free; we cover that fee for you.", tech: 'A "paymaster" (MegaFuel) sponsors registration gas on BNB Chain.', src: SRC.sdk },
-  { h: 'Mainnet', p: "Mainnet is the real network, where real money moves — everything on this site happens on mainnet, not a test network.", tech: 'This is the real network. Nothing here is a simulation.' },
+  { h: 'Mainnet', p: "Mainnet is the live network, where money moves for real. Everything on this site runs on mainnet, not a test network.", tech: 'This is the live network. Nothing here is a simulation.' },
   { h: 'Escrow', p: 'When you hire an agent, your payment is held by the system, not the agent — it only gets paid once the work is accepted, and you can get it back if nothing is delivered.', tech: 'Your payment sits in an on-chain vault (AgenticCommerce) until settlement.', src: SRC.sdk },
   { h: 'The agent\'s ID card (ERC-8004)', p: "Every agent gets a permanent, public identity anyone can look up — like an ID card. Free to register.", tech: 'An on-chain ERC-721 identity token + a discoverable profile (name, description, endpoints).', src: SRC.sdk },
   { h: 'The payment rulebook (ERC-8183)', p: "A set of automatic rules that hold the money and enforce the deal, so neither you nor the agent has to just trust the other.", tech: 'Three contracts: AgenticCommerce (job + escrow), EvaluatorRouter (routes to a settlement policy), OptimisticPolicy (silence past the review window = approved).', src: SRC.sdk },
@@ -91,7 +91,7 @@ const LEARN_TOPICS = [
   { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another — each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
   { h: 'How agents are built: parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
   { h: 'How agents are built: hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
-  { h: "What's actually here right now", p: 'Honestly: fewer than 2% of the agents listed on this marketplace even mention multi-agent or orchestration language in their own description — the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace; the other three patterns are real, valid ways to build an agent, just not yet common among what\'s registered here today.' },
+  { h: "What's actually here right now", p: 'Fewer than 2% of the agents listed on this marketplace mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
 ];
 
 // Real bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
@@ -107,7 +107,7 @@ const BUILD_STEPS = [
   { h: '1. Describe your agent, in plain English', p: 'You type a sentence describing what you want; a tool writes the starter code for you.', tech: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a working project.', src: SRC.studioQuick },
   { h: '2. It builds two things, not one', p: 'The part that holds the keys to real money stays private; a separate public part takes requests from the outside world.', tech: 'Layer A (the Agent) holds the wallet + LLM and is the only thing that ever signs. Layer B (the Service) is public, keyless, and just relays requests.', src: SRC.studioArch },
   { h: '3. You edit the instructions, not the plumbing', p: "You rewrite one paragraph telling the agent its job — not the technical wiring around it.", tech: 'Wallet setup and the on-chain registration/payment wiring are already there. What you change is the instruction string in main.py describing what it should do when a funded job asks it to work.', src: SRC.studioArch },
-  { h: '4. Test it before it touches real money', p: 'Run it on your own computer first, with a free AI model, before deploying or spending anything.', tech: 'bag dev runs both layers on your machine. You can hit the real negotiate step, get a real signed price quote, and confirm the whole flow first.', src: SRC.studioQuick },
+  { h: '4. Test it before it touches real money', p: 'Run it on your own computer first, with a free AI model, before deploying or spending anything.', tech: 'bag dev runs both layers on your machine. You can hit the live negotiate step, get an actual signed price quote, and confirm the whole flow first.', src: SRC.studioQuick },
   { h: '5. Register, then publish it', p: 'Try it free for about 2 days with one click, or host it yourself permanently later.', tech: 'bag erc8004 register makes your agent discoverable. The one-click "Build it for real" button uses a free trial (no cloud hosting account needed).', src: SRC.studioArch },
 ];
 
@@ -215,10 +215,11 @@ const NAV_ITEMS = [
   // for delivered work — it's a real, direct, self-executed on-chain
   // action, promoted out of the "Build" tab (a different feature) into
   // its own top-level tab.
-  { id: 'skills', label: 'Skills', icon: Zap },
   // Real, own top-level tab (2026-09-01) — mirrors web's identical
   // NAV_ITEMS change; see that file's own comment for the full reasoning.
+  // Ordered ahead of Skills (2026-09-02, explicit tab-order request).
   { id: 'native', label: 'Native Agents', icon: Bot },
+  { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'report', label: 'Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
@@ -374,7 +375,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
                 <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
                 {agent.possiblyDelisted && <span title="Not seen active in over a week" className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">may no longer be active</span>}
               </div>
-              <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Registered on-chain — not a quality rating" />}</h2>
+              <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Registered on-chain, not a quality rating" />}</h2>
             </div>
           </div>
           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
@@ -396,7 +397,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
             <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 inline-flex items-center gap-1">Where this money number comes from: DefiLlama <ExternalLink size={11} /></a>
             <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
               {agent.tvlChange7dPct != null && (
-                <span title="How this protocol's total funds have changed over the last 7 real days">{agent.tvlChange7dPct >= 0 ? '▲' : '▼'} {Math.abs(agent.tvlChange7dPct).toFixed(1)}% (7d)</span>
+                <span title="How this protocol's total funds have changed over the last 7 days">{agent.tvlChange7dPct >= 0 ? '▲' : '▼'} {Math.abs(agent.tvlChange7dPct).toFixed(1)}% (7d)</span>
               )}
               {agent.auditCount != null && (
                 <span title="Independent security audits, per DefiLlama">{agent.auditCount > 0 ? `${agent.auditCount} security audit${agent.auditCount === 1 ? '' : 's'}` : 'No security audits on record'}</span>
@@ -412,7 +413,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         )}
 
         <div className="flex flex-wrap items-center gap-2 my-4">
-          {agent.isVerified && <span title="Registered on-chain — not a quality rating" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
+          {agent.isVerified && <span title="Registered on-chain, not a quality rating" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
           {agent.x402Supported && <span title="Can pay other agents automatically for tools or data it needs, without a person approving each payment" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />Pays other agents automatically</span>}
           {(agent.supportedProtocols || []).map((p) => <span key={p} title={`Works with ${p}, a real app it can act on for you`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
           <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
@@ -978,7 +979,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
-                  title="Ranks agents with a real hire history first; agents with none yet are listed after, not mixed in"
+                  title="Ranks agents with an actual hire history first; agents with none yet are listed after, not mixed in"
                   className="mb-3 w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none"
                 >
                   <option value="default">Sort: Top score</option>
@@ -990,8 +991,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
                     <Activity size={13} className="shrink-0 mt-0.5 text-indigo-500" />
                     <span>
-                      Ranked by real on-chain hire history{sortKey === 'hireCount' ? ' — most real jobs first' : ' — highest real success rate first'}.
-                      Agents with no real hires yet are listed after those with one, not mixed in.
+                      Ranked by on-chain hire history{sortKey === 'hireCount' ? ', most jobs first' : ', highest success rate first'}.
+                      Agents with no hires yet are listed after those with one, not mixed in.
                     </span>
                   </div>
                 )}
@@ -1005,7 +1006,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
                         : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
                     }`}
-                    title="Only show agents with at least one real, confirmed delivered job"
+                    title="Only show agents with at least one confirmed delivered job"
                   >
                     {onlyVerified ? '✓ ' : ''}Only verified working
                   </button>
@@ -1149,17 +1150,17 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         </div>
 
                         <div className="flex gap-4 mb-2">
-                          <div title="How trustworthy this agent looks, based on real past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
+                          <div title="How trustworthy this agent looks, based on past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
                           <div title="Total money this agent currently manages for people"><span className="text-[10px] text-gray-500 uppercase block">Funds</span><span className="font-bold text-sm">{agent.tvlUsd ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '-'}</span></div>
                         </div>
 
                         {/* Real on-chain hire track record — same data the
                             sort dropdown ranks by, shown here regardless of
                             which sort is active. */}
-                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={perfIndexComplete ? "Real ERC-8183 job history for this agent — complete, real on-chain history, not a recent-only window" : "Real ERC-8183 job history for this agent — a real, one-time backfill of the complete history is still catching up"}>
+                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={perfIndexComplete ? "ERC-8183 job history for this agent: the complete on-chain history, not a recent-only window" : "ERC-8183 job history for this agent: a one-time backfill of the complete history is still catching up"}>
                           {agentHasRealHistory(agent, 'hireCount')
-                            ? <>{agent.hireCount} real {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
-                            : <span className="text-gray-400 dark:text-gray-500">No real hires yet</span>}
+                            ? <>{agent.hireCount} {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
+                            : <span className="text-gray-400 dark:text-gray-500">No hires yet</span>}
                         </div>
 
                         {agent.session ? (
@@ -1208,7 +1209,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <div className="space-y-5">
                 <div>
                   <h2 className="text-2xl font-bold mb-1">Advantage Report</h2>
-                  <p className="text-sm text-gray-500">3 tasks, each done two ways — once using an agent, once by hand — so you can see the real time, cost, and quality difference for yourself.</p>
+                  <p className="text-sm text-gray-500">3 tasks, each done two ways: once using an agent, once by hand, so you can see the actual time, cost, and quality difference for yourself.</p>
                 </div>
                 <AdvantageReport />
               </div>
@@ -1251,8 +1252,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'skills' && (
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold mb-1">Skills</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Real, pre-built, audited on-chain actions you run yourself — supply into Venus, trade on PancakeSwap, and more — through your own connected wallet or a spend-capped mini-wallet.</p>
-                <p className="text-[11px] text-gray-400">Different from hiring an agent from the Market tab: there's no job, no delivery to wait on, and no third party doing the work on your behalf — this runs the real action directly, right now, within a limit you set.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
+                <p className="text-[11px] text-gray-400">Different from hiring an agent from the Market tab: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
 
                 <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                   <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
@@ -1265,8 +1266,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'native' && (
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold mb-1">Native Agent Marketplace</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Tnega's own designed agents — real, autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
-                <p className="text-[11px] text-gray-400">Each agent evaluates real candidate protocols itself (real liquidity/risk first, real yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Tnega's own designed agents: autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
+                <p className="text-[11px] text-gray-400">Each agent evaluates candidate protocols itself (liquidity/risk first, yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
 
                 <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                   <NativeAgentMarketplace accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} />
@@ -1308,7 +1309,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Good to know</span></div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Right now, this tool only builds agents that earn money by doing jobs for others (not ones that hire other agents themselves). The free build trial runs on a practice network; hiring agents in the Marketplace uses real money on the real network.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Right now, this tool only builds agents that earn money by doing jobs for others (not ones that hire other agents themselves). The free build trial runs on a practice network; hiring agents in the Marketplace spends actual money on mainnet.</p>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">

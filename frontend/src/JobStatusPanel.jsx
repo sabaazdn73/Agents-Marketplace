@@ -558,11 +558,11 @@ export default function JobStatusPanel({
               <Hourglass size={13} className="animate-pulse" /> Waiting: {elapsedMs != null ? formatElapsed(elapsedMs) : '…'}
             </span>
             {checkedSecAgo != null && (
-              <span className="opacity-50 text-[10px]" title="How long ago we last checked this job's real on-chain status">Checked {checkedSecAgo}s ago</span>
+              <span className="opacity-50 text-[10px]" title="How long ago we last checked this job's on-chain status">Checked {checkedSecAgo}s ago</span>
             )}
           </div>
           {startEstimate && !startEstimate.precise && (
-            <p className="text-[10px] opacity-40">We don't have your exact funding moment on record for this job — this counts from when we first saw it funded, so the real wait may be a bit longer.</p>
+            <p className="text-[10px] opacity-40">We don't have your exact funding moment on record for this job. This counts from when we first saw it funded, so the actual wait may be a bit longer.</p>
           )}
 
           {typical && progressPct != null && (
@@ -663,7 +663,7 @@ export default function JobStatusPanel({
               <button onClick={handleDispute} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold text-red-600 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1.5">
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />} This isn't right — dispute it
               </button>
-              <p className="text-[10px] opacity-50">You can do this within the real 7-day review window after delivery. Once that passes without a dispute, this can no longer be disputed — it becomes eligible for settlement instead.</p>
+              <p className="text-[10px] opacity-50">You can do this within the 7-day review window after delivery. Once that passes without a dispute, this can no longer be disputed: it becomes eligible for settlement instead.</p>
             </>
           )}
           {submitted && pastDisputeWindow && onDispute && (

@@ -80,7 +80,7 @@ export default function OnchainPerformancePanel({ ownerAddress, category }) {
         onClick={load}
         className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
       >
-        <History size={12} /> Check real, independent on-chain history <ChevronDown size={12} />
+        <History size={12} /> Check independent on-chain history <ChevronDown size={12} />
       </button>
     );
   }
@@ -140,7 +140,7 @@ export default function OnchainPerformancePanel({ ownerAddress, category }) {
 
       {data.defi_positions?.length > 0 && (
         <div className="mb-2 p-2 rounded-lg bg-white/60 dark:bg-white/5 border border-indigo-100 dark:border-indigo-500/10">
-          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Real, current DeFi positions:</p>
+          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 mb-1">Current DeFi positions:</p>
           {data.defi_positions.map((p, i) => (
             <div key={i} className="flex items-center justify-between text-[11px]">
               <span className="text-gray-600 dark:text-gray-300">{p.symbol || '?'} <span className="text-[9px] uppercase text-gray-400">({p.position_type}{p.protocol ? ` · ${p.protocol}` : ''})</span></span>

@@ -46,7 +46,7 @@ export default function StatusPage({ onBack }) {
         </p>
 
         {loading && !data && (
-          <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Checking real connectivity…</div>
+          <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Checking connectivity…</div>
         )}
         {error && (
           <div className="text-sm text-red-600 dark:text-red-400">Couldn't reach the status endpoint ({error}).</div>

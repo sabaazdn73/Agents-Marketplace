@@ -112,7 +112,7 @@ export default function OnchainHistoryPanel({ ownerAddress }) {
   if (!data.has_activity) {
     return (
       <div className="mt-2 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40">
-        <p className="text-[11px] text-gray-400">No real on-chain activity found for this wallet on BSC.</p>
+        <p className="text-[11px] text-gray-400">No on-chain activity found for this wallet on BSC.</p>
       </div>
     );
   }

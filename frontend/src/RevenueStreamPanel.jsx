@@ -78,7 +78,7 @@ function TermixCrossReference({ termix }) {
   return (
     <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t border-indigo-100/60 dark:border-indigo-500/10">
       <ShieldQuestion size={11} className="shrink-0" />
-      <span title="TermiX's own AACP registry, matched by this agent's real ERC-8004 token id — an independent, differently-scoped data point, not a complete protocol-wide total (it appears to reflect activity through TermiX's own platform specifically)">
+      <span title="TermiX's own AACP registry, matched by this agent's ERC-8004 token id: an independent, differently-scoped data point, not a complete protocol-wide total (it appears to reflect activity through TermiX's own platform specifically)">
         Via TermiX's own registry: <strong className="text-gray-500 dark:text-gray-300">{completed_jobs}</strong> completed job{completed_jobs === 1 ? '' : 's'}
         {reputation_score != null && <> · reputation <strong className="text-gray-500 dark:text-gray-300">{reputation_score}</strong>/100</>}
       </span>

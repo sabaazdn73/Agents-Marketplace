@@ -202,11 +202,11 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
           <div className="flex items-start gap-2.5">
             <Wallet size={18} className="text-gray-400 shrink-0 mt-0.5" />
             <div className="text-sm flex-1">
-              <div className="font-semibold text-gray-900 dark:text-white">A real wallet — not a registered agent</div>
+              <div className="font-semibold text-gray-900 dark:text-white">A wallet, not a registered agent</div>
               <p className="text-gray-500 dark:text-gray-400 mt-0.5">{data.reason}</p>
               <div className="mt-2 text-xs space-y-1">
-                {data.bnb_balance != null && <div><span className="opacity-60">Real BNB balance:</span> <span className="font-mono font-semibold">{data.bnb_balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} BNB</span></div>}
-                {data.transaction_count != null && <div><span className="opacity-60">Real transaction count:</span> <span className="font-mono font-semibold">{data.transaction_count.toLocaleString()}</span></div>}
+                {data.bnb_balance != null && <div><span className="opacity-60">BNB balance:</span> <span className="font-mono font-semibold">{data.bnb_balance.toLocaleString(undefined, { maximumFractionDigits: 6 })} BNB</span></div>}
+                {data.transaction_count != null && <div><span className="opacity-60">Transaction count:</span> <span className="font-mono font-semibold">{data.transaction_count.toLocaleString()}</span></div>}
               </div>
               <a href={explorerLinkForWallet(query.trim())} target="_blank" rel="noreferrer"
                 className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">

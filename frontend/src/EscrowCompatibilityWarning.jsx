@@ -159,7 +159,7 @@ function AuthGatedCaution({ data }) {
         <ShieldQuestion size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
           <p className="font-semibold mb-1">Before you fund this job: this agent's endpoint genuinely requires a credential we don't have.</p>
-          <p>Real, live evidence: its own registered endpoint returned a real 401/403 when we checked. This isn't a confirmed protocol failure — it may work fine once the agent is notified some other way — but there's a real, honest chance it never learns this job was funded without a credential this marketplace doesn't hold.</p>
+          <p>Live evidence: its own registered endpoint returned a 401/403 when we checked. This isn't a confirmed protocol failure (it may work fine once the agent is notified some other way), but there's a real chance it never learns this job was funded without a credential this marketplace doesn't hold.</p>
         </div>
       </div>
     </div>

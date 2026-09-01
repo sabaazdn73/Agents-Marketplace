@@ -46,7 +46,7 @@ export default function ContractVerificationBadge({ agentId }) {
   if (data.verified === false) {
     return (
       <span
-        title="This agent's owner is a smart contract whose source code is NOT verified on BscScan — its real behavior can't be independently audited."
+        title="This agent's owner is a smart contract whose source code is NOT verified on BscScan. Its behavior can't be independently audited."
         className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
       >
         <ShieldAlert size={11} /> Unverified contract owner

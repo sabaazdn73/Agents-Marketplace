@@ -84,7 +84,7 @@ export default function AgentActivityPanel({ ownerAddress, window, className = '
             every real payment and on-chain action here is independently checkable yourself via the BscScan links below.
           </p>
           {state.status === 'loading' && (
-            <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking real on-chain activity…</div>
+            <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking on-chain activity…</div>
           )}
           {state.status === 'error' && (
             <div className="text-xs text-gray-400">Couldn't check on-chain activity right now.</div>

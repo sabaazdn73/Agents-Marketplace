@@ -93,7 +93,7 @@ export default function PnLPanel({ ownerAddress, category }) {
         onClick={load}
         className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-colors"
       >
-        <LineChart size={12} /> Check real, on-chain PnL <ChevronDown size={12} />
+        <LineChart size={12} /> Check on-chain PnL <ChevronDown size={12} />
       </button>
     );
   }

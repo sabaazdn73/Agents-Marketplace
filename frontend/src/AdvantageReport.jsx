@@ -199,7 +199,7 @@ export default function AdvantageReport() {
           <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 text-[11px] max-h-64 overflow-y-auto">
             <LightMarkdown text={JOB_56646_CONTENT} />
           </div>
-          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Shown above is the agent's real, complete answer — only its own pre-answer planning notes are cut, nothing in the answer itself is trimmed or reworded. Rendered through the same viewer the live job page itself uses.</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed mt-1.5">Shown above is the agent's complete answer. Only its own pre-answer planning notes are cut; nothing in the answer itself is trimmed or reworded. Rendered through the same viewer the live job page itself uses.</p>
 
           <div className="mt-3 p-3 rounded-lg bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
             <span className="font-semibold text-gray-700 dark:text-gray-300">Agent identity, so you can check this yourself:</span> agent_id <span className="font-mono">270213</span>, owner <span className="font-mono">0x08Cef8B3ec5D33529dFe6700ccbFfc97158Cb5dd</span>.{' '}

@@ -40,15 +40,15 @@ export default function TermixPerformancePanel({ ownerAddress, className = '' })
       )}
       {termix.status === 'ready' && termix.data.available && (
         <div className="flex items-center gap-4 flex-wrap">
-          <div title="Real completed jobs TermiX has recorded for this agent through TermiX's own platform — an independent, separately-scoped signal, not a complete protocol-wide total">
+          <div title="Completed jobs TermiX has recorded for this agent through TermiX's own platform: an independent, separately-scoped signal, not a complete protocol-wide total">
             <span className="text-lg font-bold" style={{ color: '#4F46E5' }}>{termix.data.completed_jobs}</span>{' '}
             <span className="text-[10px] text-gray-500 uppercase">completed jobs</span>
           </div>
-          <div title="Share of this agent's real TermiX-tracked jobs that passed">
+          <div title="Share of this agent's TermiX-tracked jobs that passed">
             <span className="text-lg font-bold">{termix.data.pass_rate != null ? `${Math.round(termix.data.pass_rate * 100)}%` : '—'}</span>{' '}
             <span className="text-[10px] text-gray-500 uppercase">pass rate</span>
           </div>
-          <div title="TermiX's own real reputation score for this agent (0–100 scale)">
+          <div title="TermiX's own reputation score for this agent (0–100 scale)">
             <span className="text-lg font-bold">{termix.data.reputation_score ?? '—'}</span>{' '}
             <span className="text-[10px] text-gray-500 uppercase">reputation</span>
           </div>

@@ -249,7 +249,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       const pre = await exec.preflight(getMainnetReadClient(), executor.walletAddress, values);
       if (!pre.ok) {
         setStep('error');
-        setError(`Real, current issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+        setError(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
     }
@@ -397,10 +397,10 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       {kind === 'tx' && (
         <div className="mb-5 p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 text-[11px] text-indigo-700 dark:text-indigo-300">
           {walletMode === 'direct'
-            ? 'Runs for real, through your own connected wallet — you sign it yourself, right now, real money.'
+            ? 'Through your own connected wallet: you sign it yourself, right now, actual money.'
             : walletMode === 'passkey'
-            ? 'Runs for real: a wallet that unlocks with Face ID, with a spending limit you set — this spends real money, never more than that limit.'
-            : 'Runs for real money — pick how below.'}
+            ? 'A wallet that unlocks with Face ID, with a spending limit you set. This spends actual money, never more than that limit.'
+            : 'This spends money. Pick how below.'}
         </div>
       )}
 
@@ -431,7 +431,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
             className={`w-full p-3 rounded-xl border text-left ${mutedBorder} hover:border-indigo-400 transition-colors`}
           >
             <div className="flex items-center gap-2 text-sm font-semibold"><Fingerprint size={14} style={{ color: accent }} /> Use a Face ID mini-wallet</div>
-            <p className="text-[11px] opacity-60 mt-0.5">A separate, seedless wallet with a spending limit you set once — good if you don't already have a funded wallet, or want a real, enforced cap.</p>
+            <p className="text-[11px] opacity-60 mt-0.5">A separate, seedless wallet with a spending limit you set once, good if you don't already have a funded wallet, or want an enforced cap.</p>
           </button>
         </div>
       )}
@@ -519,7 +519,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
             <div className="pt-2 mt-2 border-t border-red-500/20 space-y-1.5">
               <p className="text-gray-500 dark:text-gray-400">If you've set up a wallet here before, tap "Try again" above and pick that SAME saved passkey. Only tap below if this is genuinely your first time — it creates a brand-new, empty wallet.</p>
               <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-[11px] font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
-                This is genuinely my first time — create a new wallet
+                This is genuinely my first time: create a new wallet
               </button>
             </div>
           )}

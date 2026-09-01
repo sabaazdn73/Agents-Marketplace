@@ -157,7 +157,7 @@ export default function CanaryTestingPanel({ onBack }) {
         </p>
 
         <div className="mb-6 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B]">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Real weekly budget</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Weekly budget</div>
           {budget ? (
             <div className="flex items-center gap-6 text-sm">
               <div><span className="font-bold">{budget.spent_units}</span> <span className="text-gray-500">$U spent</span></div>
@@ -169,7 +169,7 @@ export default function CanaryTestingPanel({ onBack }) {
 
         {!isConnected ? (
           <div className="p-8 rounded-2xl border border-gray-200 dark:border-gray-800 text-center">
-            <p className="text-sm text-gray-500 mb-4">Connect the operator wallet to run real canary tests.</p>
+            <p className="text-sm text-gray-500 mb-4">Connect the operator wallet to run canary tests.</p>
             <ConnectButton />
           </div>
         ) : error ? (
@@ -178,7 +178,7 @@ export default function CanaryTestingPanel({ onBack }) {
             <button onClick={reload} className="underline font-medium ml-2">Try again</button>
           </div>
         ) : candidates === null ? (
-          <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center"><Loader2 size={16} className="animate-spin" /> Loading real candidates…</div>
+          <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center"><Loader2 size={16} className="animate-spin" /> Loading candidates…</div>
         ) : candidates.length === 0 ? (
           <div className="p-8 rounded-2xl border border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500">
             No real candidates right now — either nothing in the allowed scope is currently "Responding, unproven", or everything eligible was tested within the last {budget?.recent_test_cooldown_days ?? 30} days.

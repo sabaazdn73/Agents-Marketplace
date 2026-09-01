@@ -288,7 +288,7 @@ export default function AltanaSessionPanel({ accent, surface, mutedBorder, darkM
                   <p className="text-amber-600 dark:text-amber-400 whitespace-pre-wrap">{error}</p>
                   <p className="opacity-70">If you've set up a wallet here before, tap "Try again" above and pick that SAME saved passkey. Only tap below if this is genuinely your first time — it creates a brand-new, empty wallet.</p>
                   <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-xs font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
-                    This is genuinely my first time — create a new wallet
+                    This is genuinely my first time: create a new wallet
                   </button>
                 </div>
               )}

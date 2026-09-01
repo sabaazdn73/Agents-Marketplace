@@ -1468,9 +1468,9 @@ async def native_staking_recommendation():
         "available": True,
         "generated_at": now,
         "methodology": (
-            "Real candidates are ranked by real, live TVL first (a real proxy for liquidity/risk -- deeper, "
-            "more-trusted pools are less exposed to thin-liquidity or undiscovered risk); real APY only decides "
-            "the outcome among candidates whose real TVL is within 3x of each other. Source: DefiLlama's free, "
+            "Candidates are ranked by live TVL first (a proxy for liquidity and risk: deeper, more-trusted "
+            "pools are less exposed to thin-liquidity or undiscovered risk); APY only decides "
+            "the outcome among candidates whose TVL is within 3x of each other. Source: DefiLlama's free, "
             "no-key yields API (yields.llama.fi/pools), live at generation time."
         ),
         "recommended": {

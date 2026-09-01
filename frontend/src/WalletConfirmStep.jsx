@@ -38,15 +38,15 @@ export default function WalletConfirmStep({ snapshot, onContinue, onTryDifferent
             {address.slice(0, 8)}...{address.slice(-6)} <ExternalLink size={10} />
           </a>
         </div>
-        <div className="flex justify-between"><span className="opacity-60">Real BNB balance</span><span className="font-mono font-semibold">{bnb.toLocaleString(undefined, { maximumFractionDigits: 5 })} BNB</span></div>
-        <div className="flex justify-between"><span className="opacity-60">Real USDT balance</span><span className="font-mono font-semibold">{usdt.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT</span></div>
+        <div className="flex justify-between"><span className="opacity-60">BNB balance</span><span className="font-mono font-semibold">{bnb.toLocaleString(undefined, { maximumFractionDigits: 5 })} BNB</span></div>
+        <div className="flex justify-between"><span className="opacity-60">USDT balance</span><span className="font-mono font-semibold">{usdt.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT</span></div>
       </div>
 
       {isEmpty && (
         <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300 space-y-2">
           <div className="flex items-start gap-1.5">
             <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-            <p>This wallet is real but currently empty. If you were expecting funds here, you may have picked a different saved passkey than the one you funded before. If this is intentional (a fresh wallet), here's this wallet's real address to fund: <span className="font-mono break-all">{address}</span></p>
+            <p>This wallet is currently empty. If you were expecting funds here, you may have picked a different saved passkey than the one you funded before. If this is intentional (a fresh wallet), here's this wallet's address to fund: <span className="font-mono break-all">{address}</span></p>
           </div>
           {onTryDifferent && (
             <button onClick={onTryDifferent} className="w-full py-1.5 rounded-lg text-[11px] font-semibold border border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10">

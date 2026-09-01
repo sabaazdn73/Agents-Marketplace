@@ -124,21 +124,21 @@ def pick_best_staking_candidate(live_data: dict[str, dict]) -> tuple[dict | None
             f"{c['protocol_label']} {c['apy']:.2f}%" for c in comparable if c["id"] != best["id"]
         )
         reasoning = (
-            f"{best['protocol_label']} selected: {len(comparable)} candidates have comparable real liquidity "
-            f"(each within {_COMPARABLE_TVL_RATIO:.0f}x of the top real TVL, ${top['tvl_usd']:,.0f}), "
-            f"so real current APY decided it -- {best['apy']:.2f}% vs {others}."
+            f"{best['protocol_label']} selected: {len(comparable)} candidates have comparable liquidity "
+            f"(each within {_COMPARABLE_TVL_RATIO:.0f}x of the top TVL, ${top['tvl_usd']:,.0f}), "
+            f"so current APY decided it, {best['apy']:.2f}% vs {others}."
         )
     else:
         best = top
         runner_up = ranked[1] if len(ranked) > 1 else None
         if runner_up:
             reasoning = (
-                f"{best['protocol_label']} selected: ${best['tvl_usd']:,.0f} real TVL vs "
-                f"{runner_up['protocol_label']}'s ${runner_up['tvl_usd']:,.0f} -- real liquidity isn't "
-                f"comparable (used as the primary real risk proxy), so real APY "
+                f"{best['protocol_label']} selected: ${best['tvl_usd']:,.0f} TVL vs "
+                f"{runner_up['protocol_label']}'s ${runner_up['tvl_usd']:,.0f}. Liquidity isn't "
+                f"comparable (used as the primary risk proxy), so APY "
                 f"({best['apy']:.2f}% vs {runner_up['apy']:.2f}%) wasn't decisive."
             )
         else:
-            reasoning = f"{best['protocol_label']} selected: the only real candidate with live data right now."
+            reasoning = f"{best['protocol_label']} selected: the only candidate with live data right now."
 
     return best, reasoning, ranked

@@ -126,7 +126,7 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
             <ShieldQuestion size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
               <p className="font-semibold mb-1">This agent's endpoint required credentials we don't have.</p>
-              <p>We tested this agent's real, registered endpoint directly, and it genuinely requires an access credential (an API key or token) this marketplace doesn't hold — not a sign it's broken, but a real, honest reason it may not learn a job was funded without one. Some agents document a public way to get one (check the evidence below); others don't.</p>
+              <p>We tested this agent's registered endpoint directly, and it requires an access credential (an API key or token) this marketplace doesn't hold. That's not a sign it's broken, but it may mean the agent never learns a job was funded without one. Some agents document a public way to get one (check the evidence below); others don't.</p>
               {escrowData?.evidence?.length > 0 && (
                 <button onClick={() => setShowEvidence((v) => !v)} className="flex items-center gap-1 mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline">
                   {showEvidence ? 'Hide' : 'Show'} what we checked <ChevronDown size={11} className={`transition-transform ${showEvidence ? 'rotate-180' : ''}`} />
@@ -157,9 +157,9 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
           <div className="text-xs text-red-800 dark:text-red-300 leading-relaxed">
             <p className="font-semibold mb-1">This agent doesn't appear to operate through Tnega's on-chain escrow system.</p>
             {evaluation.differentProtocol ? (
-              <p>We tested this agent's real, registered endpoint directly — it's a real, live, working service, just one that speaks a different protocol, not ERC-8183/A2A. If you fund a job here, there's a real chance no one is listening for it in the shape this marketplace sends — your payment would sit on hold until the deadline, with no way for this agent to actually deliver through Tnega specifically.</p>
+              <p>We tested this agent's registered endpoint directly: it's a live, working service, just one that speaks a different protocol, not ERC-8183/A2A. If you fund a job here, no one may be listening for it in the shape this marketplace sends. Your payment would sit on hold until the deadline, with no way for this agent to actually deliver through Tnega specifically.</p>
             ) : (
-              <p>We tested this agent's real, registered endpoint directly, and it rejected every real job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, there's a real chance no one is listening for it — your payment would sit on hold until the deadline, with no way for this agent to actually deliver.</p>
+              <p>We tested this agent's registered endpoint directly, and it rejected every job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, no one may be listening for it. Your payment would sit on hold until the deadline, with no way for this agent to actually deliver.</p>
             )}
             {escrowData?.evidence?.length > 0 && (
               <button onClick={() => setShowEvidence((v) => !v)} className="flex items-center gap-1 mt-2 text-[11px] font-semibold text-red-700 dark:text-red-400 hover:underline">
@@ -216,7 +216,7 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
     return (
       <div>
         <SectionHeader icon={Activity} title="Delivery Record" />
-        <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={13} className="animate-spin" /> Checking this agent's real on-chain delivery history…</div>
+        <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={13} className="animate-spin" /> Checking this agent's on-chain delivery history…</div>
       </div>
     );
   }
@@ -247,7 +247,7 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
         <div className="grid grid-cols-3 gap-3 mb-2">
           <div title="How many times people have hired this agent"><div className="text-[10px] uppercase text-gray-500">Times Hired</div><div className="text-lg font-bold" style={{ color: '#4F46E5' }}>{p.hire_count}</div></div>
           <div title="Out of the jobs that finished, how many were successfully completed"><div className="text-[10px] uppercase text-gray-500">Success Rate</div><div className="text-lg font-bold">{p.completion_rate != null ? `${Math.round(p.completion_rate * 100)}%` : '—'}</div></div>
-          <div title="Real, cumulative $U earned as a provider — this agent's complete real job history, not a recent window"><div className="text-[10px] uppercase text-gray-500">Earned</div><div className="text-lg font-bold">{earned ? `${fmtAmount(r.total_earned)} ${r.token_symbol}` : '—'}</div></div>
+          <div title="Cumulative $U earned as a provider: this agent's complete job history, not a recent window"><div className="text-[10px] uppercase text-gray-500">Earned</div><div className="text-lg font-bold">{earned ? `${fmtAmount(r.total_earned)} ${r.token_symbol}` : '—'}</div></div>
         </div>
         <div className="text-[11px] text-gray-500 dark:text-gray-400" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished before the deadline.">
           Finished {p.completed} · Rejected {p.rejected} · Missed deadline {p.expired}{p.completion_rate == null ? ' — none finished yet' : ''}. {p.note}
@@ -300,7 +300,7 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
     <div>
       <SectionHeader icon={TrendingUp} title="Financial Track Record" hint="Real on-chain balance of the hiring wallet, before vs. after — the simplest, most direct real signal for a fund-managing agent." />
       {pnl.status === 'loading' && !d ? (
-        <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking real hire outcomes…</div>
+        <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking hire outcomes…</div>
       ) : !d || !d.jobs?.length ? (
         <p className="text-[11px] text-gray-400">{d?.reason || 'No real, delivered Trading & DeFi hires yet to measure.'}</p>
       ) : (
@@ -367,11 +367,11 @@ function IndependentCorroboration({ ownerAddress, agentId, category }) {
     <div>
       <SectionHeader icon={ShieldQuestion} title="Independent Corroboration" hint="A second, real opinion from outside this marketplace — never blended into this marketplace's own numbers." />
       {termix.status === 'loading' && !t ? (
-        <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking TermiX's real registry…</div>
+        <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking TermiX's registry…</div>
       ) : t?.available ? (
         <div className="flex items-center gap-4 flex-wrap text-[11px]">
-          <div title="Real completed jobs TermiX's own registry has recorded for this agent — a real, differently-scoped data point, not a complete protocol-wide total"><span className="text-base font-bold" style={{ color: '#4F46E5' }}>{t.completed_jobs}</span> <span className="text-[10px] text-gray-500 uppercase">completed (via TermiX)</span></div>
-          <div title="TermiX's own real reputation score (0–100)"><span className="text-base font-bold">{t.reputation_score ?? '—'}</span> <span className="text-[10px] text-gray-500 uppercase">reputation</span></div>
+          <div title="Completed jobs TermiX's own registry has recorded for this agent: a differently-scoped data point, not a complete protocol-wide total"><span className="text-base font-bold" style={{ color: '#4F46E5' }}>{t.completed_jobs}</span> <span className="text-[10px] text-gray-500 uppercase">completed (via TermiX)</span></div>
+          <div title="TermiX's own reputation score (0–100)"><span className="text-base font-bold">{t.reputation_score ?? '—'}</span> <span className="text-[10px] text-gray-500 uppercase">reputation</span></div>
         </div>
       ) : (
         <p className="text-[11px] text-gray-400">No TermiX data for this agent{t?.reason ? ` — ${t.reason}` : '.'}</p>

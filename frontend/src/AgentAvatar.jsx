@@ -58,7 +58,7 @@ export default function AgentAvatar({ agent, size = 40, rounded = 'rounded-2xl',
     <div
       className={`${rounded} overflow-hidden shrink-0 leading-none ${className}`}
       style={{ width: size, height: size }}
-      title="Generated from this agent's owner address (no real image provided)"
+      title="Generated from this agent's owner address (no image provided)"
     >
       <Jazzicon diameter={size} seed={seedForAgent(agent)} />
     </div>
