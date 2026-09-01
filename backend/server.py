@@ -1468,10 +1468,12 @@ async def native_staking_recommendation():
         "available": True,
         "generated_at": now,
         "methodology": (
-            "Candidates are ranked by live TVL first (a proxy for liquidity and risk: deeper, more-trusted "
-            "pools are less exposed to thin-liquidity or undiscovered risk); APY only decides "
-            "the outcome among candidates whose TVL is within 3x of each other. Source: DefiLlama's free, "
-            "no-key yields API (yields.llama.fi/pools), live at generation time."
+            "Candidates flagged as an outlier pool by DefiLlama are excluded outright. Remaining candidates "
+            "are ranked by live TVL first (a proxy for liquidity and risk: deeper, more-trusted pools are "
+            "less exposed to thin-liquidity or undiscovered risk); APY breaks ties among candidates whose TVL "
+            "is within 3x of each other; disclosed audit count, then pool maturity (days tracked), break any "
+            "further tie. Source: DefiLlama's free, no-key yields API (yields.llama.fi/pools) and protocols "
+            "API (api.llama.fi/protocols), live at generation time."
         ),
         "recommended": {
             "id": recommended["id"],
@@ -1481,6 +1483,8 @@ async def native_staking_recommendation():
             "apy": recommended["apy"],
             "tvl_usd": recommended["tvl_usd"],
             "min_stake_bnb": recommended["min_stake_bnb"],
+            "audit_count": recommended.get("audit_count"),
+            "days_tracked": recommended.get("days_tracked"),
         },
         "reasoning": reasoning,
         "candidates": [
@@ -1492,6 +1496,8 @@ async def native_staking_recommendation():
                 "apy": c["apy"],
                 "tvl_usd": c["tvl_usd"],
                 "min_stake_bnb": c["min_stake_bnb"],
+                "audit_count": c.get("audit_count"),
+                "days_tracked": c.get("days_tracked"),
             }
             for c in ranked
         ],

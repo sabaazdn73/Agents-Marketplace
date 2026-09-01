@@ -87,6 +87,10 @@ function CandidateRow({ candidate, isRecommended, isSelected, onSelect }) {
         <span>TVL: <span className="font-mono font-semibold">${Number(candidate.tvl_usd).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
         <span>APY: <span className="font-mono font-semibold">{Number(candidate.apy).toFixed(2)}%</span></span>
       </div>
+      <div className="flex gap-4 mt-1 text-[10px] opacity-50">
+        {candidate.audit_count != null && <span>{candidate.audit_count} audit{candidate.audit_count === 1 ? '' : 's'}</span>}
+        {candidate.days_tracked != null && <span>Tracked {candidate.days_tracked} days</span>}
+      </div>
     </button>
   );
 }
