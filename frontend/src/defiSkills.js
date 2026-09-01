@@ -117,6 +117,113 @@ export async function listaStake(executor, { bnbAmount }) {
   return executor.execute([{ to: LISTA_MANAGER, data: calldata, value: amountRaw }]);
 }
 
+// Real, live-verified 2026-09-01 via a direct eth_call against BSC
+// mainnet: Lista's real minBnb() returns 0.001 BNB, and paused() reads
+// false. Read-only, never blocks — surfaces a real, concrete reason
+// before a doomed attempt, same pattern as venusSupplyPreflight.
+export const LISTA_MIN_STAKE_BNB = 0.001;
+
+export async function listaStakePreflight(readClient, walletAddress, bnbAmount) {
+  const realBnbBalance = await readClient.getBalance({ address: walletAddress });
+  const problems = [];
+  if (bnbAmount < LISTA_MIN_STAKE_BNB) {
+    problems.push(`Lista's real minimum stake is ${LISTA_MIN_STAKE_BNB} BNB — this amount is below that.`);
+  }
+  const amountRaw = BigInt(Math.round(bnbAmount * 1e18));
+  if (realBnbBalance < amountRaw) {
+    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB you're trying to stake.`);
+  }
+  return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
+}
+
+// ── Ankr Liquid Staking ──
+// Real, verified BSC mainnet addresses (2026-09-01, via BscScan's own
+// getsourcecode/getabi — this proxy's real implementation, not guessed):
+// BNBStakingPool proxy 0x9e347Af362059bf2E55839002c699F7A5BaFE86E,
+// implementation 0xbbBC99198f62E56c20B44D2E6E63a7Ebce88a9AC. `stakeBonds()`
+// is the real function matching DefiLlama's tracked ANKRBNB (rebasing
+// "bond" balance) pool — the sibling `stakeCerts()` mints a DIFFERENT,
+// non-rebasing certificate token (aBNBc) and is deliberately NOT used
+// here, since it isn't the token this project's own comparison data is
+// sourced against.
+export const ANKR_BNB_STAKING_POOL = '0x9e347Af362059bf2E55839002c699F7A5BaFE86E';
+const ANKR_ABI = parseAbi(['function stakeBonds() payable']);
+export const ANKR_MIN_STAKE_BNB = 0.1; // live-confirmed via getMinStake()
+
+export async function ankrStake(executor, { bnbAmount }) {
+  const amountRaw = BigInt(Math.round(bnbAmount * 1e18));
+  const calldata = encodeFunctionData({ abi: ANKR_ABI, functionName: 'stakeBonds', args: [] });
+  return executor.execute([{ to: ANKR_BNB_STAKING_POOL, data: calldata, value: amountRaw }]);
+}
+
+export async function ankrStakePreflight(readClient, walletAddress, bnbAmount) {
+  const realBnbBalance = await readClient.getBalance({ address: walletAddress });
+  const problems = [];
+  if (bnbAmount < ANKR_MIN_STAKE_BNB) {
+    problems.push(`Ankr's real minimum stake is ${ANKR_MIN_STAKE_BNB} BNB — this amount is below that.`);
+  }
+  const amountRaw = BigInt(Math.round(bnbAmount * 1e18));
+  if (realBnbBalance < amountRaw) {
+    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB you're trying to stake.`);
+  }
+  return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
+}
+
+// ── Native Agent Marketplace: entry fee ──
+//
+// Real, deliberate distinction from every existing Skill above (which
+// charge 0% — pure pass-throughs to Altana's third-party registry
+// protocols): a Native Agent is Tnega's OWN designed comparison +
+// routing logic (see backend/adapters/native_staking.py), a genuinely
+// higher-value-add step, so it's the first mechanism in this codebase
+// that takes a real, disclosed fee. Investigated first (2026-08-31):
+// real DEX aggregators mostly charge 0% direct (1inch) or a fraction of
+// a percent; a flat cut of PRINCIPAL (not yield) above ~1% would exceed
+// every real comparable and give users a direct incentive to just use
+// Lista/Ankr for free — settled on 0.75% (mid of the proposed 0.5–1%
+// range) as the real, implemented number.
+//
+// Implementation: one extra plain native-BNB transfer call, batched
+// alongside the real stake call via the same executor.execute([...])
+// this file already uses for approve+mint (Venus) — no new contract, no
+// new audit surface. Reuses the SAME real, already-deployed, already-
+// live platform fee wallet AgentAccessMarket.sol pays into on BSC
+// mainnet (see contracts/README.md / the agent-access-market-contract
+// memory), rather than introducing a second, untested fee address.
+export const NATIVE_AGENT_FEE_WALLET = '0xBfE58070b39F0F2E1c46A4EF80690B6045934293';
+export const NATIVE_AGENT_ENTRY_FEE_BPS = 75; // 0.75%
+
+export function computeNativeAgentFee(bnbAmount) {
+  const amountRaw = BigInt(Math.round(bnbAmount * 1e18));
+  const feeRaw = (amountRaw * BigInt(NATIVE_AGENT_ENTRY_FEE_BPS)) / 10000n;
+  return { amountRaw, feeRaw, feeBnb: Number(feeRaw) / 1e18 };
+}
+
+/** Real, shared runner for every Native Agent's staking action: batches
+ * the real fee transfer ahead of the real protocol call, in ONE
+ * executor.execute() — one real signature (or one real atomic batch)
+ * covers both, same pattern as Venus's approve+mint. `protocolId` picks
+ * the real call (`lista` or `ankr`); the fee is computed from the SAME
+ * bnbAmount the protocol call spends, never silently added on top of a
+ * balance check that didn't account for it. */
+export async function runNativeStake(executor, { protocolId, bnbAmount }) {
+  const { feeRaw, feeBnb } = computeNativeAgentFee(bnbAmount);
+  const feeCall = { to: NATIVE_AGENT_FEE_WALLET, value: feeRaw, data: '0x' };
+
+  const protocolAmountRaw = BigInt(Math.round(bnbAmount * 1e18));
+  let protocolCall;
+  if (protocolId === 'lista') {
+    protocolCall = { to: LISTA_MANAGER, data: encodeFunctionData({ abi: LISTA_ABI, functionName: 'deposit', args: [] }), value: protocolAmountRaw };
+  } else if (protocolId === 'ankr') {
+    protocolCall = { to: ANKR_BNB_STAKING_POOL, data: encodeFunctionData({ abi: ANKR_ABI, functionName: 'stakeBonds', args: [] }), value: protocolAmountRaw };
+  } else {
+    throw new Error(`Unknown native staking protocol id: ${protocolId}`);
+  }
+
+  const result = await executor.execute([feeCall, protocolCall]);
+  return { ...result, feeBnb, protocolId };
+}
+
 // ── PancakeSwap Liquidity ──
 export const PANCAKESWAP_FACTORY = '0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73';
 const PAIR_ABI = parseAbi([

@@ -20,9 +20,12 @@
 // yourself" deep-link from an agent's detail page) would silently fall
 // back to '/market' in App.jsx's own `NAV_TO_PATH[id] || '/market'`,
 // leaving the URL bar wrong and breaking a direct link/refresh into Skills.
+// '/native-agents' added 2026-09-01 alongside NAV_ITEMS' own new
+// 'native' tab, same reasoning as '/skills' above.
 export const MAIN_TAB_PATHS = {
   '/market': 'market',
   '/skills': 'skills',
+  '/native-agents': 'native',
   '/my-agents': 'my-agents',
   '/report': 'report',
   '/learn': 'learn',

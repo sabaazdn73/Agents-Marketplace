@@ -51,6 +51,7 @@ from adapters import coingecko
 from adapters import termix
 from adapters import bsc
 from adapters import contract_verification
+from adapters import native_staking
 from core import canary
 from core import pnl
 from core import onchain_pnl
@@ -1421,6 +1422,83 @@ async def agent_contract_verification(agent_id: str):
     if not agent or not agent.get("owner_address"):
         return {"is_contract": None, "reason": "No owner_address on record for this agent."}
     return await contract_verification.check_owner_contract_verification(agent["owner_address"])
+
+
+# Real, in-process TTL cache -- DefiLlama's own yields feed doesn't move
+# meaningfully faster than this (TVL/APY are slow-moving by nature), so
+# re-fetching on every single open of the Staking native agent would be
+# pure waste, same discipline as _QUALITY_CENTER_CACHE above.
+_NATIVE_STAKING_CACHE: dict | None = None
+_NATIVE_STAKING_CACHE_AT: float = 0.0
+_NATIVE_STAKING_CACHE_TTL_SECONDS = 30 * 60
+
+
+@app.get("/api/native-agents/staking/recommendation")
+async def native_staking_recommendation():
+    """Tnega's own first Native Agent -- a real, autonomous, multi-factor
+    staking recommendation across the real BSC liquid-staking protocols
+    this codebase can actually execute a stake through (see
+    adapters/native_staking.py's module docstring for the full real
+    scope and decision logic: real TVL as the primary real risk/liquidity
+    proxy, real APY as the secondary tiebreak only among comparably-liquid
+    candidates).
+
+    Different in kind from the existing /api/skills-registry: that list
+    is third-party protocol know-how pulled from Altana's own registry
+    with no Tnega-designed logic; this is Tnega's own real comparison and
+    recommendation, computed here, not sourced from anyone else's list.
+
+    Always 200; `available: false` with an honest reason on any real
+    live-data failure, never a fabricated recommendation."""
+    global _NATIVE_STAKING_CACHE, _NATIVE_STAKING_CACHE_AT
+    now = time.time()
+    if _NATIVE_STAKING_CACHE and (now - _NATIVE_STAKING_CACHE_AT) < _NATIVE_STAKING_CACHE_TTL_SECONDS:
+        return _NATIVE_STAKING_CACHE
+
+    try:
+        live_data = await native_staking.fetch_staking_pool_data()
+    except Exception as e:
+        return {"available": False, "reason": f"Couldn't reach DefiLlama's real, live yields feed right now: {e}"}
+
+    recommended, reasoning, ranked = native_staking.pick_best_staking_candidate(live_data)
+    if not recommended:
+        return {"available": False, "reason": reasoning}
+
+    result = {
+        "available": True,
+        "generated_at": now,
+        "methodology": (
+            "Real candidates are ranked by real, live TVL first (a real proxy for liquidity/risk -- deeper, "
+            "more-trusted pools are less exposed to thin-liquidity or undiscovered risk); real APY only decides "
+            "the outcome among candidates whose real TVL is within 3x of each other. Source: DefiLlama's free, "
+            "no-key yields API (yields.llama.fi/pools), live at generation time."
+        ),
+        "recommended": {
+            "id": recommended["id"],
+            "protocol_label": recommended["protocol_label"],
+            "token_symbol": recommended["token_symbol"],
+            "contract_address": recommended["contract_address"],
+            "apy": recommended["apy"],
+            "tvl_usd": recommended["tvl_usd"],
+            "min_stake_bnb": recommended["min_stake_bnb"],
+        },
+        "reasoning": reasoning,
+        "candidates": [
+            {
+                "id": c["id"],
+                "protocol_label": c["protocol_label"],
+                "token_symbol": c["token_symbol"],
+                "contract_address": c["contract_address"],
+                "apy": c["apy"],
+                "tvl_usd": c["tvl_usd"],
+                "min_stake_bnb": c["min_stake_bnb"],
+            }
+            for c in ranked
+        ],
+    }
+    _NATIVE_STAKING_CACHE = result
+    _NATIVE_STAKING_CACHE_AT = now
+    return result
 
 
 @app.get("/api/deliverable/proxy")

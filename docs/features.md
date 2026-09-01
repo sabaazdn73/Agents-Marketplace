@@ -73,6 +73,14 @@ Ten real, pre-built, fork-tested Skills from Altana's public registry (PancakeSw
 
 Either way, a real "is this the right wallet?" confirmation step — live BNB/USDT balance shown — comes before anything is signed, so a recovered or newly-created wallet is never used blind.
 
+## Native Agent Marketplace
+
+Distinct from both the third-party Marketplace (hiring a registered ERC-8004 agent) and Altana Skills above (third-party protocol know-how, zero Tnega-designed logic, zero fee): a real, autonomous, multi-factor Tnega-designed agent, with its own real reasoning shown in-app before the user acts, and a real, disclosed 0.75% entry fee (higher-value-add routing, unlike Skills' 0% pass-through).
+
+- **Staking Agent** (live) — compares the only two BSC liquid-staking protocols this codebase can actually execute a stake through, Lista DAO (slisBNB) and Ankr (ankrBNB), using DefiLlama's real, free `yields.llama.fi/pools` feed. Real decision logic: ranks candidates by real TVL first (a proxy for liquidity/risk), real APY only breaks a tie among candidates whose real TVL is within 3x of each other — never a simple sort. The user sees the exact real reasoning (e.g. real TVL numbers compared) and can accept the recommendation or switch to the other candidate before staking. Same two wallet paths as Skills (Face ID mini-wallet or direct connected wallet); the real entry fee is batched alongside the real stake call in one signature, shown in BNB and as an honest "≈ N months of this position's real yield" before signing. See `backend/adapters/native_staking.py`.
+- **Lending / Borrowing Agent** — Coming Soon. Investigated (2026-08-31): real, non-custodial borrowing is feasible on Venus/Aave, but needs its own real collateral-enablement step and a live health-factor / liquidation-risk display, genuinely more than a simple supply form — being built as its own complete piece rather than bundled in half-finished.
+- **Perpetuals Agent** — Coming Soon. Investigated (2026-08-31): Hyperliquid has no native BSC bridge (canonical path is Arbitrum's Bridge2, plus a non-EVM signing scheme); Avantis (Base) is reachable via a standard connected wallet if the user already holds funds there. A real, read-only dashboard of the user's own existing positions is the honestly-scoped starting point — live execution isn't built.
+
 ## Advantage Report
 
 A real, 3-task, same-task comparison — each task run **twice**, once with an agent and once by hand, timed and costed both ways, on the "Report" tab. Real, current status per task, honestly labeled in-app (not averaged or estimated away):

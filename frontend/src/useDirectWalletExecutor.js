@@ -99,7 +99,15 @@ export function useDirectWalletExecutor() {
       // has. Never silently claimed to be atomic when it isn't.
       const transactionHashes = [];
       for (const call of calls) {
-        const hash = await sendTransaction(config, { to: call.to, data: call.data, chainId: bsc.id });
+        // Real bug fixed 2026-09-01, found while wiring up the native
+        // Staking agent (a payable call, real BNB value attached): this
+        // dropped `call.value` entirely, so any payable skill run through
+        // a wallet that doesn't support atomic batching (the common case,
+        // per this file's own comment above) would silently send 0 BNB
+        // instead of the real amount. Lista's existing listaStake() call
+        // already relies on `value` being forwarded — this was a real,
+        // previously-unexercised gap, not a new requirement.
+        const hash = await sendTransaction(config, { to: call.to, data: call.data, value: call.value ?? 0n, chainId: bsc.id });
         try {
           await waitForTransactionReceipt(config, { hash, timeout: RECEIPT_TIMEOUT_MS });
         } catch (e) {

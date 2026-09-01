@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -64,6 +64,7 @@ import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote,
 import AltanaSessionPanel from './AltanaSessionPanel';
 import SessionModesExplainer from './SessionModesExplainer';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
+import NativeAgentMarketplace from './NativeAgentMarketplace';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
@@ -491,6 +492,12 @@ const NAV_ITEMS = [
   // sub-panel of Build, so "hire someone" vs "run this yourself" reads as
   // the real, first-level choice it actually is.
   { id: 'skills', label: 'Skills', icon: Zap },
+  // Real, own top-level tab (2026-09-01) — Tnega's own-designed,
+  // autonomous, fee-bearing agents (real multi-factor comparison +
+  // routing), distinct from both hiring a third-party agent
+  // (Marketplace) and running a third-party protocol's own know-how for
+  // free (Skills). See NativeAgentMarketplace.jsx.
+  { id: 'native', label: 'Native Agents', icon: Bot },
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
@@ -1625,6 +1632,20 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               <p className="text-xs text-gray-400 mb-10">Different from hiring an agent from the Marketplace: there's no job, no delivery to wait on, and no third party doing the work on your behalf — this runs the real action directly, right now, within a limit you set.</p>
 
               <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
+            </div>
+          )}
+
+          {/* Native Agent Marketplace Tab */}
+          {nav === 'native' && (
+            <div className="max-w-4xl">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Bot size={24} /></div>
+                <h2 className="text-3xl font-bold tracking-tight">Native Agent Marketplace</h2>
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 mb-2">Tnega's own designed agents — real, autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
+              <p className="text-xs text-gray-400 mb-10">Each agent evaluates real candidate protocols itself (real liquidity/risk first, real yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
+
+              <NativeAgentMarketplace accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} />
             </div>
           )}
 

@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu, ScanFace,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -17,6 +17,7 @@ import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
+import NativeAgentMarketplace from './NativeAgentMarketplace';
 import AltanaSessionPanel from './AltanaSessionPanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
@@ -215,6 +216,9 @@ const NAV_ITEMS = [
   // action, promoted out of the "Build" tab (a different feature) into
   // its own top-level tab.
   { id: 'skills', label: 'Skills', icon: Zap },
+  // Real, own top-level tab (2026-09-01) — mirrors web's identical
+  // NAV_ITEMS change; see that file's own comment for the full reasoning.
+  { id: 'native', label: 'Native Agents', icon: Bot },
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'report', label: 'Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
@@ -1252,6 +1256,20 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                   <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
+                </div>
+              </div>
+            )}
+
+            {/* Real, own top-level tab (2026-09-01) — mirrors web's
+                identical NativeAgentMarketplace section, verbatim. */}
+            {nav === 'native' && (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold mb-1">Native Agent Marketplace</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Tnega's own designed agents — real, autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
+                <p className="text-[11px] text-gray-400">Each agent evaluates real candidate protocols itself (real liquidity/risk first, real yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
+
+                <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                  <NativeAgentMarketplace accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} />
                 </div>
               </div>
             )}
