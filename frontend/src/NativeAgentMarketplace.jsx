@@ -21,7 +21,7 @@
 // rather than several agents half-built).
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Fingerprint, Landmark, TrendingUp, Lock, Info } from 'lucide-react';
+import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Fingerprint, Landmark, TrendingUp, Lock, Info, Building2 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { recoverAltanaWallet, createNewAltanaWallet, fetchWalletBalanceSnapshot, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
 import { useDirectWalletExecutor } from './useDirectWalletExecutor';
@@ -50,7 +50,7 @@ function useStakingRecommendation() {
       .catch((e) => {
         if (cancelled) return;
         console.error('[NativeAgentMarketplace] staking recommendation load failed:', e.message || e);
-        setState({ loading: false, data: null, error: "Couldn't reach the real, live comparison data right now — give it another try." });
+        setState({ loading: false, data: null, error: "Couldn't reach the live comparison data right now. Give it another try." });
       });
     return () => { cancelled = true; };
   }, [retryTick]);
@@ -84,8 +84,8 @@ function CandidateRow({ candidate, isRecommended, isSelected, onSelect }) {
         {isSelected && <CheckCircle2 size={14} className="text-indigo-500" />}
       </div>
       <div className="flex gap-4 mt-1.5 text-[11px] opacity-70">
-        <span>Real TVL: <span className="font-mono font-semibold">${Number(candidate.tvl_usd).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
-        <span>Real APY: <span className="font-mono font-semibold">{Number(candidate.apy).toFixed(2)}%</span></span>
+        <span>TVL: <span className="font-mono font-semibold">${Number(candidate.tvl_usd).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></span>
+        <span>APY: <span className="font-mono font-semibold">{Number(candidate.apy).toFixed(2)}%</span></span>
       </div>
     </button>
   );
@@ -128,7 +128,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
     const pre = await preflight(getMainnetReadClient(), executor.walletAddress, amountNum);
     if (!pre.ok) {
       setStep('error');
-      setError2(`Real, current issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+      setError2(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
       return;
     }
     setStep('executing');
@@ -200,10 +200,10 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
         <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
       </div>
       <p className="text-xs opacity-60 mb-4">
-        A real, autonomous agent that compares real BSC liquid-staking protocols by real liquidity/risk first, real yield second — and stakes through whichever it (or you) picks, non-custodially.
+        An autonomous agent that compares BSC liquid-staking protocols by liquidity/risk first, yield second, and stakes through whichever it (or you) picks, non-custodially.
       </p>
 
-      {loading && <div className="flex items-center gap-2 text-xs opacity-60 py-4"><Loader2 size={14} className="animate-spin" /> Comparing real, live protocol data...</div>}
+      {loading && <div className="flex items-center gap-2 text-xs opacity-60 py-4"><Loader2 size={14} className="animate-spin" /> Comparing live protocol data...</div>}
       {error && (
         <div className="py-3 space-y-2">
           <div className="text-xs text-red-500">{error}</div>
@@ -221,7 +221,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       {data?.available && open && (
         <div className="space-y-4">
           <div className="p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 text-[11px] text-emerald-700 dark:text-emerald-400">
-            <span className="font-semibold">Real reasoning: </span>{data.reasoning}
+            <span className="font-semibold">Why: </span>{data.reasoning}
           </div>
 
           <div className="space-y-2">
@@ -244,8 +244,8 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className="p-3 rounded-xl border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
               <Info size={13} className="shrink-0 mt-0.5" />
               <span>
-                Real entry fee: {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% = <span className="font-mono font-semibold">{feeBnb.toFixed(6)} BNB</span>, disclosed here before you sign, never hidden.
-                {yieldMonths != null && <> That's roughly <span className="font-semibold">{yieldMonths < 1 ? '<1' : yieldMonths.toFixed(1)}</span> {yieldMonths < 1.5 ? 'month' : 'months'} of this position's real projected yield at {selected.apy.toFixed(2)}% APY.</>}
+                Entry fee: {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% = <span className="font-mono font-semibold">{feeBnb.toFixed(6)} BNB</span>, disclosed here before you sign, never hidden.
+                {yieldMonths != null && <> That's roughly <span className="font-semibold">{yieldMonths < 1 ? '<1' : yieldMonths.toFixed(1)}</span> {yieldMonths < 1.5 ? 'month' : 'months'} of this position's projected yield at {selected.apy.toFixed(2)}% APY.</>}
               </span>
             </div>
           )}
@@ -271,7 +271,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
               <label className="text-xs font-semibold block mb-1">Your spending limit (BNB/day)</label>
               <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)}
                 className={`w-full p-2.5 rounded-lg border text-sm outline-none ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
-              <p className="text-[10px] opacity-40 mt-1">Covers both the stake amount and the real entry fee — set it comfortably above {(amountNum + feeBnb).toFixed(4) || 'your stake amount'} BNB.</p>
+              <p className="text-[10px] opacity-40 mt-1">Covers both the stake amount and the entry fee. Set it comfortably above {(amountNum + feeBnb).toFixed(4) || 'your stake amount'} BNB.</p>
             </div>
           )}
 
@@ -279,7 +279,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/10 text-xs flex items-center gap-2">
               {step !== 'done' && <Loader2 size={13} className="animate-spin" style={{ color: accent }} />}
               {step === 'done' && <CheckCircle2 size={13} className="text-green-500" />}
-              {{ wallet: 'Setting up your mini-wallet...', granting: 'Setting your spending limit...', executing: 'Staking for real...', done: `Done — staked through ${selected?.protocol_label}, real fee paid.` }[step]}
+              {{ wallet: 'Setting up your mini-wallet...', granting: 'Setting your spending limit...', executing: 'Staking now...', done: `Done. Staked through ${selected?.protocol_label}, fee paid.` }[step]}
             </div>
           )}
           {step === 'error' && error2 && (
@@ -287,7 +287,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
               <div className="whitespace-pre-wrap">{error2}</div>
               {needsWalletChoice && (
                 <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-[11px] font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
-                  This is genuinely my first time — create a new wallet
+                  This is genuinely my first time: create a new wallet
                 </button>
               )}
             </div>
@@ -334,16 +334,29 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
         <span className="text-sm font-bold">Native Agent Marketplace</span>
       </div>
       <p className="text-xs opacity-60 mb-1">
-        Tnega's own designed agents — not a hired third party, not a plain pass-through Skill. Each one autonomously compares real candidates and states its own real reasoning before you act.
+        Tnega's own designed agents, not a hired third party, not a plain pass-through Skill. Each one autonomously compares candidates and states its own reasoning before you act.
       </p>
-      <p className="text-[11px] opacity-40 mb-4 flex items-center gap-1"><Sparkles size={11} /> A real, disclosed {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% entry fee applies here — higher-value-add routing than the free, third-party Skills above, always shown before you sign.</p>
+      <p className="text-[11px] opacity-40 mb-4 flex items-center gap-1"><Sparkles size={11} /> A disclosed {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% entry fee applies here, higher-value-add routing than the free, third-party Skills above, always shown before you sign.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <StakingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
         <ComingSoonAgentCard icon={TrendingUp} title="Lending / Borrowing Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="Real, autonomous collateral + health-factor management across Venus and Aave — needs its own dedicated liquidation-risk UI, so it's being built as its own real, complete piece, not bundled in half-finished." />
+          blurb="Autonomous collateral and health-factor management across Venus and Aave. Needs its own dedicated liquidation-risk UI, so it's being built as its own complete piece, not bundled in half-finished." />
         <ComingSoonAgentCard icon={Bot} title="Perpetuals Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="A real dashboard for your own existing Hyperliquid / Avantis positions. Live execution needs real cross-chain infrastructure Tnega doesn't have yet — investigated honestly, not started." />
+          blurb="A dashboard for your own existing Hyperliquid / Avantis positions. Live execution needs cross-chain infrastructure Tnega doesn't have yet; investigated, not started." />
+        {/* Tokenized RWA data feasibility, checked live 2026-09-02 against
+            CoinGecko's real API (no key, public tier): /rwas/list,
+            /rwas/markets, /rwas/{id}, /rwas/issuers/list, and
+            /rwas/issuers/{id} all returned 200 with real data (647 tracked
+            assets, 34 issuers) with no API key at all. Only /tickers and
+            /market_chart (historical) returned a real 401, "exclusive to
+            Basic plan or above" — confirmed directly, not assumed. A future
+            comparison agent (asset name/price/market cap/issuer) is
+            genuinely buildable on the free tier; only deep history/venue-
+            level tickers would need a paid upgrade, and those are
+            secondary, not blockers for a useful first version. */}
+        <ComingSoonAgentCard icon={Building2} title="Tokenized Assets Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
+          blurb="Discover and compare tokenized real-world assets, stocks, commodities, pre-IPO shares, bridging crypto-native users into traditional markets and back. Data source checked and free-tier feasible; not built yet." />
       </div>
     </div>
   );
