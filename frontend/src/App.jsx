@@ -10,6 +10,29 @@ import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
 import CanaryTestingPanel from './CanaryTestingPanel.jsx';
 import { MAIN_TAB_PATHS, NAV_TO_PATH } from './routePaths.js';
+import { updatePageMeta } from './seoMeta.js';
+
+// Real, page-specific title/description per route, used by the
+// per-route <title>/meta-description/canonical fix (seoMeta.js). Kept
+// here rather than inside each page component since App.jsx already
+// owns every route's real pathname. Docs pages set their own per-doc
+// title from inside DocsPage.jsx instead, since only that component
+// knows which doc is open.
+const PAGE_META = {
+  '/': { description: "Tnega — an agent marketplace for BNB Agent Studio: discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain." },
+  '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents on BNB Smart Chain, with on-chain escrow protecting every payment.' },
+  '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions — Venus lending, PancakeSwap trading, and more — you run yourself through your own wallet.' },
+  '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare real protocols and show their reasoning before you act." },
+  '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },
+  '/report': { title: 'Advantage Report', description: 'A real, same-task comparison of hiring an AI agent versus doing the same work by hand.' },
+  '/learn': { title: 'Learn', description: 'A plain-language guide to ERC-8004 agent identity, ERC-8183 job escrow, and how hiring an agent on Tnega actually works.' },
+  '/build': { title: 'Build Your Agent', description: 'Scaffold and deploy your own ERC-8004/ERC-8183 agent on BNB Chain, no coding required.' },
+  '/sell': { title: 'Sell Your Agent', description: 'List an agent you own for sale as a one-time license or subscription, on-chain, non-custodially.' },
+  '/status': { title: 'Status', description: 'Live pass/fail checks against every external service Tnega depends on.' },
+  '/data-sources': { title: 'Data Sources', description: 'Every external data provider Tnega uses, and what each one is used for.' },
+  '/partners': { title: 'Hackathon Partners', description: 'The tracks and partners this project was built for, and how each integration actually works.' },
+  '/ecosystem': { title: 'Ecosystem', description: 'A visual map of every agent category on Tnega, sized by its real, live agent count.' },
+};
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
 // visitors who actually open /ecosystem — zero cost added to the
@@ -81,6 +104,16 @@ export default function App() {
   const isMobile = useIsMobile();
   const [path, navigate] = useRoute();
   useStaggeredWalletReconnect();
+
+  // Real per-route title/description/canonical (seoMeta.js). Docs pages
+  // are deliberately excluded here — DocsPage.jsx sets its own,
+  // per-document title once it knows which doc is actually open.
+  useEffect(() => {
+    if (path.startsWith('/docs')) return;
+    const known = Object.prototype.hasOwnProperty.call(PAGE_META, path);
+    const meta = known ? PAGE_META[path] : PAGE_META['/'];
+    updatePageMeta({ title: meta.title, description: meta.description, path: known ? path : '/' });
+  }, [path]);
 
   if (path === '/status') {
     return <StatusPage onBack={() => navigate('/')} />;

@@ -23,6 +23,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Menu, X, ExternalLink } from 'lucide-react';
 import { parseDocsMarkdown } from './docsMarkdown';
+import { updatePageMeta } from './seoMeta.js';
 
 const docModules = import.meta.glob('../../docs/*.md', { eager: true, query: '?raw', import: 'default' });
 
@@ -40,6 +41,23 @@ function filenameToSlug(filename) {
 function slugToFilename(slug) {
   if (!slug) return 'README.md';
   return Object.keys(DOCS).find((f) => filenameToSlug(f) === slug) || 'README.md';
+}
+
+// Real, content-derived meta description: the doc's own first
+// substantial paragraph (skipping the H1 line, blank lines, and a
+// blockquote callout if the page opens with one), truncated to a
+// search-result-friendly length. Pulled from the actual real text
+// rather than a separately hand-maintained description per doc, so it
+// can never drift out of sync with what the page actually says.
+function firstParagraph(markdown) {
+  const lines = (markdown || '').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('>') || trimmed.startsWith('|')) continue;
+    const plain = trimmed.replace(/[*_`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+    return plain.length > 160 ? plain.slice(0, 157) + '...' : plain;
+  }
+  return 'Tnega technical documentation.';
 }
 
 // Real nav order comes from parsing docs/SUMMARY.md itself — its one list
@@ -274,6 +292,12 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
       window.scrollTo({ top: 0 });
     }
   }, [pathname, hash]);
+
+  useEffect(() => {
+    const navItem = NAV_ITEMS.find((item) => item.slug === slug);
+    const title = navItem ? `${navItem.title} — Docs` : 'Docs';
+    updatePageMeta({ title, description: firstParagraph(DOCS[filename]), path: pathname });
+  }, [pathname, slug, filename]);
 
   const sidebar = (
     <nav className="space-y-0.5">

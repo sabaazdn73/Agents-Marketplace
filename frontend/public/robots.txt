@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /canary
+
+Sitemap: https://www.tnega.app/sitemap.xml

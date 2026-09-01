@@ -6,9 +6,18 @@
     <title>Tnega</title>
     <meta name="description" content="Tnega — an agent marketplace for BNB Agent Studio: discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain." />
 
-    <!-- Favicon: what browsers show in the tab bar -->
+    <!-- Favicon: what browsers show in the tab bar, and what Google's own
+         guidance (developers.google.com/search/docs/appearance/favicon-in-search,
+         checked live 2026-09-02) says search results use. /favicon.ico is
+         the conventional path Google's own example markup uses and some
+         crawlers request even without a <link> tag pointing elsewhere;
+         it didn't exist here before (fell through to the SPA's catch-all
+         rewrite) -- added, 512x512 source downsized into a real
+         multi-size .ico (16/32/48/64/128/256), square throughout, well
+         above Google's real 48x48px recommendation. -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/icon_v2.svg" />
-    <link rel="icon" type="image/png" href="/icon_v2_preview.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon_v2_preview.png" />
     <link rel="apple-touch-icon" href="/icon_v2_preview.png" />
 
     <!-- Open Graph: what shows in link previews when this URL is pasted
