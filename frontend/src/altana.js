@@ -30,8 +30,9 @@ import {
   getErc8183Job, getErc8183DeliverableUrl,
   erc8183Addresses,
 } from '@altananetwork/sdk';
-import { createPublicClient, http, hexToString, decodeAbiParameters, size } from 'viem';
+import { createPublicClient, hexToString, decodeAbiParameters, size } from 'viem';
 import { bsc } from 'viem/chains';
+import { getBscTransport, MAINNET_READ_RPC } from './rpcTransport';
 
 // Same event the installed SDK's own getErc8183DeliverableUrl() looks for
 // (POLICY_INITIALISED_EVENT in erc8183.js) — redefined here because that
@@ -71,8 +72,17 @@ const client = createClient({ chains: [BNB] });
 // public and keyless (no secret to protect), so it's safe as the default
 // here — VITE_MAINNET_READ_RPC still overrides it if you later provision a
 // paid RPC with better throughput.
-const MAINNET_READ_RPC = import.meta.env?.VITE_MAINNET_READ_RPC || 'https://bsc.rpc.blxrbdn.com';
-const _mainnetPublicClient = createPublicClient({ chain: bsc, transport: http(MAINNET_READ_RPC) });
+//
+// Real reliability upgrade (2026-09-04): this is now the same shared,
+// bloXroute-primary transport wagmiConfig.js uses (rpcTransport.js), with
+// a real Infura backup that only ever engages if bloXroute itself fails.
+// bloXroute is still always tried first, so the getLogs behavior this
+// comment documents (the reason bloXroute specifically was picked) is
+// unchanged in the normal case; Infura's own getLogs support on its free
+// tier was NOT verified here, since it only matters in the narrow case of
+// bloXroute being down AND a getLogs-issuing skill running at that exact
+// moment — strictly better than a hard failure either way.
+const _mainnetPublicClient = createPublicClient({ chain: bsc, transport: getBscTransport() });
 
 /** A BSC mainnet read client, for the read-only/detection skills (Token Radar,
  * Wallet Tracker, Copy Trade detection) that make no transactions. */
@@ -386,6 +396,10 @@ async function _scanForDeliverableUrl(publicClient, policyAddress, jobId, fromBl
  * back to the SDK's own original scan only as a last resort (e.g. a job
  * so new the estimate undershoots). */
 export async function getDeliverable(jobId) {
+  // Primary URL only, no Infura failover here (2026-09-04): this is a plain
+  // string handed straight into the installed Altana SDK's own internal
+  // RPC client, not a viem transport, so it can't take a fallback()
+  // composite the way _mainnetPublicClient above now does.
   const netWithRpc = { ...network, publicRpcUrl: MAINNET_READ_RPC };
   const job = await getErc8183Job(netWithRpc, BigInt(jobId));
   if (!job || job.submittedAt === 0n) return undefined;

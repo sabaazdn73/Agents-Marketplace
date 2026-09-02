@@ -34,7 +34,7 @@ from eth_abi import decode as abi_decode
 from eth_utils import function_signature_to_4byte_selector
 
 from core.db import get_db
-from core.rpc import get_bsc_rpc_url
+from core.rpc import rpc_post
 from adapters.bsc import fetch_agent_detail, MAINNET_CHAIN_ID
 
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
@@ -112,9 +112,8 @@ async def _rpc_batch(calls: list[dict]) -> dict[int, dict]:
     back by the id each call was assigned (batch responses aren't
     guaranteed to come back in request order, same real discipline as
     adapters/bsc_balance.py)."""
-    url = get_bsc_rpc_url()
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(url, json=calls)
+        resp = await rpc_post(client, calls)
         resp.raise_for_status()
         results = resp.json()
     return {r.get("id"): r for r in results if isinstance(r, dict)}

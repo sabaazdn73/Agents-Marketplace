@@ -4,8 +4,10 @@ status_checks.py
 Backs the public /api/status endpoint (and the frontend /status page):
 real, live, right-now reachability checks against every external
 integration this project actually depends on — 8004scan, Zerion, CoinGecko,
-the BSC RPC, the explainer-agent service, MongoDB, and TermiX's AACP
-registry (added 2026-08-28 — see adapters/termix.py for what it's used for).
+the BSC RPC (primary AND, separately, the real Infura backup added
+2026-09-04 — see core/rpc.py), the explainer-agent service, MongoDB, and
+TermiX's AACP registry (added 2026-08-28 — see adapters/termix.py for what
+it's used for).
 
 Honesty rules, matching this project's standing discipline elsewhere:
   - Every check is a REAL network/DB call made at request time (through the
@@ -106,9 +108,38 @@ async def _check_coingecko() -> str:
 
 
 async def _check_bsc_rpc() -> str:
+    # Deliberately tests the real PRIMARY specifically, never through
+    # core/rpc.py's own rpc_post() fallback (added 2026-09-04) — a status
+    # page exists to report each real provider's own real health;
+    # silently succeeding through a hidden backup would defeat the entire
+    # point. See _check_bsc_rpc_backup below for the real Infura row.
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
             _bsc_rpc_url(),
+            json={"jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": []},
+        )
+        resp.raise_for_status()
+        body = resp.json()
+        if "result" not in body:
+            raise RuntimeError(f"unexpected RPC response: {body}")
+        block = int(body["result"], 16)
+        return f"block {block:,}"
+
+
+async def _check_bsc_rpc_backup() -> str:
+    # The real Infura BSC endpoint, added 2026-09-04 as an automatic
+    # backup transport (see core/rpc.py's own module docstring) — reported
+    # here as its OWN real, separate row for the same reason
+    # _check_bsc_rpc above tests the primary in isolation: an honest
+    # status page shows each real provider's own real health, not a
+    # merged result that could hide one of them quietly failing.
+    from core.rpc import get_bsc_fallback_rpc_url
+    url = get_bsc_fallback_rpc_url()
+    if not url:
+        raise RuntimeError("INFURA_API_KEY not configured — no real backup exists yet")
+    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        resp = await client.post(
+            url,
             json={"jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": []},
         )
         resp.raise_for_status()
@@ -162,6 +193,7 @@ async def get_status(force_refresh: bool = False) -> dict:
         _timed("Zerion", _check_zerion()),
         _timed("CoinGecko", _check_coingecko()),
         _timed("BSC RPC", _check_bsc_rpc()),
+        _timed("BSC RPC (Infura backup)", _check_bsc_rpc_backup()),
         _timed("explainer-agent", _check_explainer_agent()),
         _timed("MongoDB", _check_mongodb()),
         _timed("TermiX AACP", _check_termix()),

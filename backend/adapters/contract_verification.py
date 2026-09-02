@@ -54,21 +54,17 @@ _TTL_SECONDS = 24 * 60 * 60  # a contract's own verification status is a structu
 _cache: dict[str, tuple[float, dict]] = {}
 
 
-def _rpc_url() -> str:
-    from core.rpc import get_bsc_rpc_url
-    return get_bsc_rpc_url()
-
-
 async def _is_contract(address: str) -> bool | None:
     """Real eth_getCode check — returns True if the address has real
     on-chain bytecode (a contract), False for a plain wallet (empty
     code), None on a genuine RPC failure (honestly unknown, not assumed
     either way)."""
+    from core.rpc import rpc_post
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.post(
-                _rpc_url(),
-                json={"jsonrpc": "2.0", "id": 1, "method": "eth_getCode", "params": [address, "latest"]},
+            resp = await rpc_post(
+                client,
+                {"jsonrpc": "2.0", "id": 1, "method": "eth_getCode", "params": [address, "latest"]},
             )
             resp.raise_for_status()
             code = resp.json().get("result")

@@ -30,6 +30,25 @@ heavily-shared public node when the real env var isn't set. Every real
 call site updated to use this one function; canary.py's own hardcode
 removed in favor of it, so a future real env var change takes effect
 everywhere at once, not in 3 out of 4 places.
+
+Real reliability upgrade (2026-09-04): a real, live Infura BSC endpoint
+(bsc-mainnet.infura.io, confirmed live against the project's own new
+INFURA_API_KEY — real eth_chainId -> 0x38, real eth_blockNumber) is now
+an automatic backup, not a second primary. `rpc_post()` below tries the
+real primary first (bloXroute, or BSC_MAINNET_RPC_URL if set) with a
+real, short per-attempt timeout; only on a genuine failure of the primary
+(a real httpx-level error, or a real HTTP 5xx) does it retry the exact
+same request against Infura. A real HTTP 4xx from the primary is NOT
+retried against the backup — that's a real, deterministic rejection
+(a malformed request), not a reliability problem a different node fixes.
+Every real call site that used to POST directly to `get_bsc_rpc_url()`
+now goes through `rpc_post()` instead, so this one real fallback layer
+covers every real on-chain read this backend makes, not a handful.
+core/status_checks.py's own `/status` "BSC RPC" check deliberately does
+NOT use this function — it tests the real primary specifically, on
+purpose, since silently succeeding through a hidden backup would defeat
+the entire point of a real, honest per-provider status page; it gets its
+own separate "BSC RPC (Infura backup)" row instead.
 """
 
 import os
@@ -44,6 +63,12 @@ from eth_utils import function_signature_to_4byte_selector
 # for why the public bsc-dataseed default is worth moving away from).
 _FALLBACK_RPC_URL = "https://bsc.rpc.blxrbdn.com"
 
+# A real, short per-attempt timeout — a few seconds, not a stall — so a
+# slow/unreachable primary doesn't make every real on-chain read wait the
+# default 20s+ some callers configure before rpc_post() ever tries the
+# real backup.
+_PRIMARY_TIMEOUT_SECONDS = 5.0
+
 
 def get_bsc_rpc_url() -> str:
     """The one, real, current BSC mainnet RPC URL every backend on-chain
@@ -51,6 +76,54 @@ def get_bsc_rpc_url() -> str:
     real, already-proven-working bloXroute gateway (see module docstring),
     not the public bsc-dataseed node."""
     return os.environ.get("BSC_MAINNET_RPC_URL") or _FALLBACK_RPC_URL
+
+
+def get_bsc_fallback_rpc_url() -> str | None:
+    """The real Infura BSC endpoint, or None if INFURA_API_KEY genuinely
+    isn't configured (in which case rpc_post() below is just the real
+    primary, same as before this upgrade — a missing key never breaks
+    anything, it just means no real backup exists yet)."""
+    key = os.environ.get("INFURA_API_KEY")
+    return f"https://bsc-mainnet.infura.io/v3/{key}" if key else None
+
+
+async def rpc_post(client: httpx.AsyncClient, payload: dict, *, timeout: float = _PRIMARY_TIMEOUT_SECONDS) -> httpx.Response:
+    """POST a real JSON-RPC payload to BSC mainnet — the real primary
+    first, with a real, automatic fallback to Infura (if configured) on a
+    genuine primary failure. Returns the raw httpx.Response so callers
+    keep doing their own real `raise_for_status()` / `.json()` /
+    `body.get("error")` handling exactly as before; this only adds real
+    URL-level failover underneath, never changes what a caller does with
+    a response once it has one.
+
+    A real failure that triggers the backup: any httpx-level exception
+    (a real timeout, connection error, DNS failure) from the primary, or a
+    real HTTP 5xx status. A real 4xx is returned immediately, no
+    failover — that's the primary node correctly rejecting a malformed
+    real request, not a reliability problem. If every real URL fails, the
+    last real response (or the last real exception, if none of them even
+    returned a response) is surfaced, so a caller's own error handling
+    sees a genuine, real failure, never a silently swallowed one."""
+    urls = [get_bsc_rpc_url()]
+    backup = get_bsc_fallback_rpc_url()
+    if backup:
+        urls.append(backup)
+
+    last_resp: httpx.Response | None = None
+    last_exc: Exception | None = None
+    for url in urls:
+        try:
+            resp = await client.post(url, json=payload, timeout=timeout)
+        except httpx.HTTPError as exc:
+            last_exc = exc
+            continue
+        if resp.status_code >= 500:
+            last_resp = resp
+            continue
+        return resp
+    if last_resp is not None:
+        return last_resp
+    raise last_exc
 
 
 # Real, shared AgenticCommerce (ERC-8183) getJob() reader (2026-08-28) —
@@ -84,7 +157,7 @@ async def get_job(job_id: int, client: httpx.AsyncClient | None = None) -> dict 
     }
 
     async def _do(c: httpx.AsyncClient) -> dict | None:
-        resp = await c.post(get_bsc_rpc_url(), json=payload)
+        resp = await rpc_post(c, payload)
         resp.raise_for_status()
         body = resp.json()
         if body.get("error") or not body.get("result") or body["result"] == "0x":

@@ -41,7 +41,8 @@ import httpx
 from eth_abi import decode as abi_decode
 from eth_utils import function_signature_to_4byte_selector
 
-from core.agent_health import IDENTITY_REGISTRY, _fetch_metadata, _tokenuri_calldata, _rpc_url
+from core.agent_health import IDENTITY_REGISTRY, _fetch_metadata, _tokenuri_calldata
+from core.rpc import rpc_post
 
 # Real, on-chain-confirmed agents that 8004scan's own index has never
 # returned for any query (see module docstring). Add a token_id here only
@@ -56,7 +57,7 @@ _OWNEROF_SEL = function_signature_to_4byte_selector("ownerOf(uint256)")
 
 async def _owner_of(client: httpx.AsyncClient, token_id: int) -> str | None:
     data = "0x" + _OWNEROF_SEL.hex() + token_id.to_bytes(32, "big").hex()
-    resp = await client.post(_rpc_url(), json={
+    resp = await rpc_post(client, {
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": IDENTITY_REGISTRY, "data": data}, "latest"],
     })
@@ -70,7 +71,7 @@ async def _owner_of(client: httpx.AsyncClient, token_id: int) -> str | None:
 
 async def _token_uri(client: httpx.AsyncClient, token_id: int) -> str | None:
     data = "0x" + _tokenuri_calldata(token_id).hex()
-    resp = await client.post(_rpc_url(), json={
+    resp = await rpc_post(client, {
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": IDENTITY_REGISTRY, "data": data}, "latest"],
     })

@@ -62,6 +62,11 @@ def _rpc_url() -> str:
     return get_bsc_rpc_url()
 
 
+def _fallback_rpc_url() -> str | None:
+    from core.rpc import get_bsc_fallback_rpc_url
+    return get_bsc_fallback_rpc_url()
+
+
 async def fetch_owner_bnb_balances(addresses: list[str]) -> dict[str, float]:
     """Returns {lowercased_address: bnb_float} for every address the RPC could
     resolve. De-dupes first (many agents share an owner), batches the reads,
@@ -75,6 +80,7 @@ async def fetch_owner_bnb_balances(addresses: list[str]) -> dict[str, float]:
 
     out: dict[str, float] = {}
     url = _rpc_url()
+    backup_url = _fallback_rpc_url()  # real Infura backup, or None if unconfigured
     async with httpx.AsyncClient(timeout=20) as client:
         for i in range(0, len(uniq), _CHUNK):
             chunk = uniq[i:i + _CHUNK]
@@ -107,8 +113,22 @@ async def fetch_owner_bnb_balances(addresses: list[str]) -> dict[str, float]:
                         # that triggered the 429s in the first place.
                         delay = _BASE_BACKOFF_SECONDS * (2 ** attempt) + random.uniform(0, 0.5)
                         await asyncio.sleep(delay)
+            if results is None and backup_url:
+                # Real fallback (2026-09-04): the primary genuinely exhausted
+                # every real retry above — one real, final attempt against
+                # Infura before giving up on this chunk entirely. Not folded
+                # into the retry loop itself: the backoff/jitter above is
+                # specifically tuned for a bursty 429 on the SAME endpoint,
+                # which switching providers doesn't need to wait out.
+                try:
+                    resp = await client.post(backup_url, json=batch)
+                    resp.raise_for_status()
+                    results = resp.json()
+                except Exception as e:
+                    last_err = e
             if results is None:
-                print(f"[bsc_balance] batch starting at {i} failed after {_MAX_RETRIES} real attempts, "
+                print(f"[bsc_balance] batch starting at {i} failed after {_MAX_RETRIES} real attempts "
+                      f"{'plus a real Infura fallback attempt ' if backup_url else ''}"
                       f"leaving those owner balances unavailable (honest None): {last_err}")
                 continue
             # JSON-RPC batch responses are NOT guaranteed to be in request order,

@@ -99,14 +99,6 @@ _CONCURRENCY = 12              # real cap so a large agent list doesn't hammer I
 HEALTH_TTL_SECONDS = 20 * 60
 
 
-def _rpc_url() -> str:
-    # Real fix (2026-08-27 audit): was its own local copy of this fallback,
-    # silently defaulting to the public bsc-dataseed node — see
-    # core/rpc.py's own docstring for the full real finding.
-    from core.rpc import get_bsc_rpc_url
-    return get_bsc_rpc_url()
-
-
 def _tokenuri_calldata(token_id: int) -> bytes:
     return _TOKENURI_SEL + token_id.to_bytes(32, "big")
 
@@ -121,7 +113,8 @@ async def _multicall_tokenuris(client: httpx.AsyncClient, token_ids: list[int]) 
     """Real batched tokenURI() read for a chunk of agents — one eth_call,
     not N. Reverted/empty entries are skipped honestly (no on-chain
     identity for that token, or a genuinely empty URI)."""
-    resp = await client.post(_rpc_url(), json={
+    from core.rpc import rpc_post
+    resp = await rpc_post(client, {
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": MULTICALL3, "data": _agg3_calldata(token_ids)}, "latest"],
     })

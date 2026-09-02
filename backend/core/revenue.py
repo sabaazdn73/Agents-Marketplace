@@ -75,7 +75,7 @@ from eth_abi import decode as abi_decode
 from eth_utils import function_signature_to_4byte_selector
 
 from core import job_index
-from core.rpc import get_bsc_rpc_url, COMMERCE
+from core.rpc import rpc_post, COMMERCE
 
 _EARNING_STATUSES = {"SUBMITTED", "COMPLETED"}
 
@@ -94,7 +94,7 @@ _token_cache_at = 0.0
 
 
 async def _eth_call(client: httpx.AsyncClient, to: str, data: str) -> str | None:
-    resp = await client.post(get_bsc_rpc_url(), json={
+    resp = await rpc_post(client, {
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": to, "data": data}, "latest"],
     })

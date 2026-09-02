@@ -47,7 +47,7 @@ import time
 from pymongo import UpdateOne
 
 from core.agent_performance import fetch_jobs_by_id
-from core.rpc import get_bsc_rpc_url, COMMERCE, JOB_STATUS
+from core.rpc import rpc_post, COMMERCE, JOB_STATUS
 from core.db import get_db
 import httpx
 from eth_utils import function_signature_to_4byte_selector
@@ -63,7 +63,7 @@ _JOBCOUNTER_SEL = "0x" + function_signature_to_4byte_selector("jobCounter()").he
 
 async def _get_job_counter() -> int:
     async with httpx.AsyncClient(timeout=20) as client:
-        resp = await client.post(get_bsc_rpc_url(), json={
+        resp = await rpc_post(client, {
             "jsonrpc": "2.0", "id": 1, "method": "eth_call",
             "params": [{"to": COMMERCE, "data": _JOBCOUNTER_SEL}, "latest"],
         })

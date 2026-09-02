@@ -1,6 +1,6 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { http } from 'viem';
 import { bsc } from 'wagmi/chains';
+import { getBscTransport } from './rpcTransport';
 
 // Adapted from OnChain Oversight's wagmiConfig.js: same wagmi/RainbowKit
 // pattern, only the `chains` array changes. Get a free WalletConnect
@@ -23,14 +23,17 @@ import { bsc } from 'wagmi/chains';
 // defaulting to the slow, rate-limited public node instead of the same
 // real, already-proven bloXroute gateway altana.js's own
 // _mainnetPublicClient has used all along. Same real fix here: point
-// every configured chain's real reads at the same real endpoint, with
-// the same real VITE_MAINNET_READ_RPC override support.
-const MAINNET_READ_RPC = import.meta.env?.VITE_MAINNET_READ_RPC || 'https://bsc.rpc.blxrbdn.com';
+// every configured chain's real reads at the same real endpoint.
+//
+// Real reliability upgrade (2026-09-04): that single bloXroute transport
+// is now itself the same shared, bloXroute-primary/Infura-backup fallback
+// transport altana.js uses — see rpcTransport.js for the real failover
+// logic and why this exists.
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'Tnega',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
   chains: [bsc],
-  transports: { [bsc.id]: http(MAINNET_READ_RPC) },
+  transports: { [bsc.id]: getBscTransport() },
   ssr: false,
 });

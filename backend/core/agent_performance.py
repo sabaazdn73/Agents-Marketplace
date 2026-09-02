@@ -61,14 +61,6 @@ _JOB_TUPLE = "(uint256,address,address,address,string,uint256,uint256,uint8,addr
 _cache: dict = {"at": 0, "by_provider": {}, "by_client": {}, "job_counter": 0, "window_from": 0, "window_to": 0}
 
 
-def _rpc_url() -> str:
-    # Real fix (2026-08-27 audit): was its own local copy of this fallback,
-    # silently defaulting to the public bsc-dataseed node — see
-    # core/rpc.py's own docstring for the full real finding.
-    from core.rpc import get_bsc_rpc_url
-    return get_bsc_rpc_url()
-
-
 def _job_calldata_bytes(job_id: int) -> bytes:
     return _GETJOB_SEL + job_id.to_bytes(32, "big")
 
@@ -84,7 +76,8 @@ def _agg3_calldata(job_ids: list[int]) -> str:
 async def _multicall_getjobs(client: httpx.AsyncClient, job_ids: list[int]) -> list[dict]:
     """Read a chunk of jobs via one Multicall3 aggregate3 eth_call. Returns the
     successfully-decoded jobs (reverted/empty entries are skipped honestly)."""
-    resp = await client.post(_rpc_url(), json={
+    from core.rpc import rpc_post
+    resp = await rpc_post(client, {
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": MULTICALL3, "data": _agg3_calldata(job_ids)}, "latest"],
     })
@@ -127,7 +120,8 @@ async def _scan_recent_window() -> dict:
     BOTH provider (agent performance) and client (My Agents) — one scan,
     two dict-populates, zero extra RPC calls."""
     async with httpx.AsyncClient(timeout=30) as client:
-        cnt_resp = await client.post(_rpc_url(), json={
+        from core.rpc import rpc_post
+        cnt_resp = await rpc_post(client, {
             "jsonrpc": "2.0", "id": 1, "method": "eth_call",
             "params": [{"to": COMMERCE, "data": _JOBCOUNTER_SEL}, "latest"],
         })
