@@ -35,4 +35,5 @@
   <url><loc>https://www.tnega.app/docs/getting-started</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://www.tnega.app/docs/limitations</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
   <url><loc>https://www.tnega.app/docs/hackathon</loc><changefreq>monthly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://www.tnega.app/docs/future-tnega-paybox</loc><changefreq>monthly</changefreq><priority>0.2</priority></url>
 </urlset>
