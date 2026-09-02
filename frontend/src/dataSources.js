@@ -41,6 +41,20 @@ export const DATA_SOURCES = [
     description: "Opt-in wallet portfolio enrichment on an agent's detail page.",
   },
   {
+    name: 'MetaMask',
+    url: 'https://metamask.io',
+    // Real, official first-party asset (metamask.io/favicon.ico, live-
+    // confirmed 200), same "small logo, fetched directly from the
+    // provider's own domain" pattern every entry here already uses.
+    // Checked their real brand resources first (github.com/MetaMask/
+    // brand-resources -> metamask.io/assets): no explicit written usage
+    // terms are published there as of this check, so this stays at the
+    // same small, factual, non-commercial, no-endorsement-implied scale
+    // as every other logo in this file, not a larger promotional asset.
+    logo: 'https://metamask.io/favicon.ico',
+    description: 'EIP-5792 atomic batch transaction support for the direct-wallet Skill/hire path.',
+  },
+  {
     name: 'CoinGecko',
     url: 'https://www.coingecko.com',
     logo: 'https://www.coingecko.com/favicon.ico',

@@ -41,11 +41,18 @@ const RECEIPT_TIMEOUT_MS = 90_000;
 
 /** Real, live capability check — same real wallet_getCapabilities call
  * useHireAgent.js's useBatchHireCapability already proved live against
- * BSC mainnet, reused here rather than re-implemented. */
+ * BSC mainnet, reused here rather than re-implemented.
+ *
+ * Real, confirmed bug fixed 2026-09-02 (see useHireAgent.js's matching
+ * comment for the full trace): this had the identical double-indexing
+ * mistake — `capabilities[bsc.id]` a second time on a response viem
+ * already unwrapped to that one chain's capabilities directly, since a
+ * specific `chainId` was passed in. Always returned false regardless of
+ * the real wallet's actual declared support. */
 async function checkAtomicBatchSupport(config, address) {
   try {
     const capabilities = await getCapabilities(config, { account: address, chainId: bsc.id });
-    const atomicStatus = capabilities?.[bsc.id]?.atomic?.status;
+    const atomicStatus = capabilities?.atomic?.status;
     return atomicStatus === 'supported' || atomicStatus === 'ready';
   } catch {
     // Real, honest fallback — a wallet that doesn't implement

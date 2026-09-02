@@ -86,8 +86,24 @@ export function useBatchHireCapability() {
     setStatus(CAN_BATCH_HIRE_STATUS.unknown);
     (async () => {
       try {
+        // Real, confirmed bug fixed 2026-09-02, found by re-checking this
+        // against viem's own installed source (node_modules/viem/actions/
+        // wallet/getCapabilities.ts) after MetaMask's own docs said BSC
+        // mainnet IS supported for atomic batching, directly contradicting
+        // this hook's own live "unsupported" result. Root cause: when a
+        // specific `chainId` is passed to getCapabilities (as it is here),
+        // viem already unwraps the raw per-chain response and returns
+        // capabilities FOR THAT ONE CHAIN directly (confirmed from its own
+        // return-type logic: `typeof chainId === 'number' ?
+        // capabilities[chainId] : capabilities`) — not a chainId-keyed map.
+        // This code was indexing `capabilities[bsc.id]` a SECOND time on an
+        // already-unwrapped object, which is never a real key on it, so
+        // atomicStatus was unconditionally undefined regardless of what
+        // the wallet actually reported. Every "unsupported" result this
+        // session, including the Venus Lending test, was this bug, not a
+        // real wallet limitation.
         const capabilities = await getCapabilities(config, { account: address, chainId: bsc.id });
-        const atomicStatus = capabilities?.[bsc.id]?.atomic?.status;
+        const atomicStatus = capabilities?.atomic?.status;
         if (cancelled) return;
         setStatus(
           atomicStatus === 'supported' || atomicStatus === 'ready'
