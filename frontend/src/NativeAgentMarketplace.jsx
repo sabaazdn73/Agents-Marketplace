@@ -43,7 +43,7 @@ import {
   listaStakePreflight, ankrStakePreflight, runNativeStake,
   computeNativeAgentFee, NATIVE_AGENT_ENTRY_FEE_BPS,
 } from './defiSkills';
-import { getTokenMeta, getTradeQuote, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
+import { getTokenMeta, getTradeQuote, getPriceTrend, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
 
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 const STAKING_RECOMMENDATION_URL = `${API_BASE}/api/native-agents/staking/recommendation`;
@@ -253,11 +253,11 @@ const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
  * (nothing valid entered yet), loading, error (a real, live read failed —
  * e.g. no real, tradeable route on any compared DEX), or a real result. */
 function useTradeQuote(tokenAddress, usdtAmount) {
-  const [state, setState] = useState({ status: 'idle', meta: null, quote: null, error: null });
+  const [state, setState] = useState({ status: 'idle', meta: null, quote: null, trend: null, error: null });
   useEffect(() => {
     const amountNum = Number(usdtAmount) || 0;
     if (!ADDRESS_RE.test(tokenAddress || '') || amountNum <= 0) {
-      setState({ status: 'idle', meta: null, quote: null, error: null });
+      setState({ status: 'idle', meta: null, quote: null, trend: null, error: null });
       return;
     }
     let cancelled = false;
@@ -266,13 +266,18 @@ function useTradeQuote(tokenAddress, usdtAmount) {
       try {
         const client = getMainnetReadClient();
         const usdtAmountRaw = BigInt(Math.round(amountNum * 1e18));
-        const [meta, quote] = await Promise.all([
+        // Real, small price-trend context (DefiLlama, no key) fetched
+        // alongside the real quote — never lets a trend-fetch failure
+        // block the trade itself; getPriceTrend already returns null
+        // rather than throwing on any real failure.
+        const [meta, quote, trend] = await Promise.all([
           getTokenMeta(client, tokenAddress),
           getTradeQuote(client, tokenAddress, usdtAmountRaw),
+          getPriceTrend(tokenAddress),
         ]);
-        if (!cancelled) setState({ status: 'ready', meta, quote, error: null });
+        if (!cancelled) setState({ status: 'ready', meta, quote, trend, error: null });
       } catch (e) {
-        if (!cancelled) setState({ status: 'error', meta: null, quote: null, error: e.message || String(e) });
+        if (!cancelled) setState({ status: 'error', meta: null, quote: null, trend: null, error: e.message || String(e) });
       }
     }, 400);
     return () => { cancelled = true; clearTimeout(t); };
@@ -291,7 +296,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   const [execResult, setExecResult] = useState(null);
   const directExecutor = useDirectWalletExecutor();
 
-  const { status: quoteStatus, meta, quote, error: quoteError } = useTradeQuote(tokenAddress, usdtAmount);
+  const { status: quoteStatus, meta, quote, trend, error: quoteError } = useTradeQuote(tokenAddress, usdtAmount);
   const amountNum = Number(usdtAmount) || 0;
   const feeUsdt = amountNum > 0 ? (amountNum * NATIVE_AGENT_ENTRY_FEE_BPS) / 10000 : 0;
   const hasWarnings = (quote?.warnings?.length || 0) > 0;
@@ -407,6 +412,23 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
                 <span>Price impact: <span className="font-mono font-semibold">{quote.priceImpactPct != null ? `${quote.priceImpactPct.toFixed(2)}%` : 'n/a'}</span></span>
                 <span>Pool depth used: <span className="font-mono font-semibold">{quote.tradeSizePctOfReserve != null ? `${quote.tradeSizePctOfReserve.toFixed(2)}%` : 'n/a'}</span></span>
               </div>
+            </div>
+          )}
+
+          {/* Real, small price-trend CONTEXT only — not a recommendation,
+              not technical analysis. Shown only when DefiLlama genuinely
+              tracks this token; a real "not covered" case (trend===null)
+              shows nothing rather than a fabricated 0%. */}
+          {quoteStatus === 'ready' && trend && (
+            <div className={`p-2.5 rounded-lg border text-[11px] opacity-70 flex items-center justify-between ${mutedBorder}`}>
+              <span>
+                {meta?.symbol || 'This token'} is {trend.pct24h >= 0 ? 'up' : 'down'}{' '}
+                <span className={`font-mono font-semibold ${trend.pct24h >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {Math.abs(trend.pct24h).toFixed(2)}%
+                </span>{' '}
+                over 24h — context only, not a recommendation.
+              </span>
+              <span className="opacity-50 shrink-0 ml-2">via {trend.source}</span>
             </div>
           )}
 

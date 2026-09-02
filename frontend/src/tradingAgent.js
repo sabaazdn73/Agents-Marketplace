@@ -3,7 +3,10 @@
 // Real, multi-DEX price comparison for the Native Agent Marketplace's
 // Trading Agent — genuinely different from (and a real superset of) the
 // free pancakeswap-trading Skill in pancakeswapSkill.js, which only ever
-// routes through PancakeSwap.
+// routes through PancakeSwap. Also real, small price-trend CONTEXT (a
+// real 24h % change, see getPriceTrend below, added 2026-09-08) —
+// deliberately not technical analysis or a buy/sell recommendation, a
+// real, separate, bigger future project already noted for later.
 //
 // Real, correct critique (2026-09-06): a single-DEX Trading Agent is
 // functionally redundant with what a connected wallet (or visiting
@@ -130,6 +133,37 @@ export async function quoteBestAcrossDexes(publicClient, tokenAddress, usdtAmoun
   const comparedCount = allQuotes.filter((r) => r.hasMeaningfulLiquidity).length;
 
   return { best, allQuotes, comparedCount };
+}
+
+// Real, free, keyless coverage confirmed live before building this
+// (2026-09-08), not assumed: DefiLlama's coins.llama.fi API returns a
+// real 24h % change for BNB/WBNB, CAKE, BSW, and a deliberately
+// less-mainstream real token (BABYDOGE) tried as a spot-check, all by
+// plain contract address, no key. A genuinely untracked token returns an
+// honest empty `{"coins":{}}`, not a fabricated 0% — handled below as
+// `null`, same "never fabricate, just show nothing" discipline as
+// useBnbPrice.js's own real CoinGecko integration. No new API key
+// needed; this is the same free source core/aggregate.py etc. already
+// use elsewhere in this project for TVL, a different real endpoint on
+// the same real, already-trusted provider.
+const DEFILLAMA_PERCENTAGE_URL = 'https://coins.llama.fi/percentage';
+
+/** Real, small, honest price-trend CONTEXT — explicitly not a
+ * recommendation and not technical analysis (that remains a real,
+ * separate, bigger future project): just the traded token's own real
+ * 24h price change, clearly labeled with its real source. Returns null
+ * (never a fabricated number) if DefiLlama genuinely doesn't track this
+ * token or the real request fails for any reason. */
+export async function getPriceTrend(tokenAddress) {
+  try {
+    const resp = await fetch(`${DEFILLAMA_PERCENTAGE_URL}/bsc:${tokenAddress}?period=24h`);
+    if (!resp.ok) return null;
+    const body = await resp.json();
+    const pct = Object.values(body?.coins || {})[0];
+    return typeof pct === 'number' ? { pct24h: pct, source: 'DefiLlama' } : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Real, best-effort token metadata read — symbol + decimals, so a quote
