@@ -43,7 +43,7 @@ import {
   listaStakePreflight, ankrStakePreflight, runNativeStake,
   computeNativeAgentFee, NATIVE_AGENT_ENTRY_FEE_BPS,
 } from './defiSkills';
-import { getTokenMeta, getTradeRiskSignals, spotTradePreflight, runNativeSpotTrade } from './pancakeswapSkill';
+import { getTokenMeta, getTradeQuote, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
 
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 const STAKING_RECOMMENDATION_URL = `${API_BASE}/api/native-agents/staking/recommendation`;
@@ -247,17 +247,17 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
-/** Real, debounced quote — re-reads real on-chain risk signals + token
- * metadata 400ms after the user stops typing/changing the amount, not on
- * every keystroke. Real, honest states: idle (nothing valid entered
- * yet), loading, error (a real, live read failed — e.g. no real pool for
- * this pair), or a real result. */
+/** Real, debounced quote — re-reads real, live quotes from EVERY DEX this
+ * agent compares (see tradingAgent.js) 400ms after the user stops typing/
+ * changing the amount, not on every keystroke. Real, honest states: idle
+ * (nothing valid entered yet), loading, error (a real, live read failed —
+ * e.g. no real, tradeable route on any compared DEX), or a real result. */
 function useTradeQuote(tokenAddress, usdtAmount) {
-  const [state, setState] = useState({ status: 'idle', meta: null, signals: null, error: null });
+  const [state, setState] = useState({ status: 'idle', meta: null, quote: null, error: null });
   useEffect(() => {
     const amountNum = Number(usdtAmount) || 0;
     if (!ADDRESS_RE.test(tokenAddress || '') || amountNum <= 0) {
-      setState({ status: 'idle', meta: null, signals: null, error: null });
+      setState({ status: 'idle', meta: null, quote: null, error: null });
       return;
     }
     let cancelled = false;
@@ -266,13 +266,13 @@ function useTradeQuote(tokenAddress, usdtAmount) {
       try {
         const client = getMainnetReadClient();
         const usdtAmountRaw = BigInt(Math.round(amountNum * 1e18));
-        const [meta, signals] = await Promise.all([
+        const [meta, quote] = await Promise.all([
           getTokenMeta(client, tokenAddress),
-          getTradeRiskSignals(client, tokenAddress, usdtAmountRaw),
+          getTradeQuote(client, tokenAddress, usdtAmountRaw),
         ]);
-        if (!cancelled) setState({ status: 'ready', meta, signals, error: null });
+        if (!cancelled) setState({ status: 'ready', meta, quote, error: null });
       } catch (e) {
-        if (!cancelled) setState({ status: 'error', meta: null, signals: null, error: e.message || String(e) });
+        if (!cancelled) setState({ status: 'error', meta: null, quote: null, error: e.message || String(e) });
       }
     }, 400);
     return () => { cancelled = true; clearTimeout(t); };
@@ -291,11 +291,11 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   const [execResult, setExecResult] = useState(null);
   const directExecutor = useDirectWalletExecutor();
 
-  const { status: quoteStatus, meta, signals, error: quoteError } = useTradeQuote(tokenAddress, usdtAmount);
+  const { status: quoteStatus, meta, quote, error: quoteError } = useTradeQuote(tokenAddress, usdtAmount);
   const amountNum = Number(usdtAmount) || 0;
   const feeUsdt = amountNum > 0 ? (amountNum * NATIVE_AGENT_ENTRY_FEE_BPS) / 10000 : 0;
-  const hasWarnings = (signals?.warnings?.length || 0) > 0;
-  const canRun = quoteStatus === 'ready' && signals && (!hasWarnings || ackRisk);
+  const hasWarnings = (quote?.warnings?.length || 0) > 0;
+  const canRun = quoteStatus === 'ready' && quote && (!hasWarnings || ackRisk);
 
   // Real, honest reset: a genuinely different token/amount invalidates
   // any earlier risk acknowledgment — never carries a stale "I accept
@@ -303,9 +303,9 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   useEffect(() => { setAckRisk(false); }, [tokenAddress, usdtAmount]);
 
   const formattedOut = (() => {
-    if (!signals?.amountOut || !meta) return null;
+    if (!quote?.winner?.amountOut || !meta) return null;
     const decimals = meta.decimals ?? 18;
-    const n = Number(signals.amountOut) / 10 ** decimals;
+    const n = Number(quote.winner.amountOut) / 10 ** decimals;
     return `${n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${meta.symbol || 'tokens'}`;
   })();
 
@@ -346,7 +346,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
         <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
       </div>
       <p className="text-xs opacity-60 mb-4">
-        Spot-buys any BSC token through PancakeSwap, with a real price-impact and liquidity-depth check shown before you sign, non-custodially, through your own connected wallet.
+        Compares real, live quotes for any BSC token across PancakeSwap, Biswap, and ApeSwap, and spot-buys through whichever genuinely offers the best price, with a real price-impact and liquidity-depth check shown before you sign, non-custodially, through your own connected wallet.
       </p>
 
       {!open && (
@@ -380,19 +380,39 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
           {quoteStatus === 'loading' && <div className="flex items-center gap-2 text-xs opacity-60"><Loader2 size={13} className="animate-spin" /> Reading the live pool...</div>}
           {quoteStatus === 'error' && <div className="text-xs text-red-500">{quoteError}</div>}
 
-          {quoteStatus === 'ready' && signals && (
+          {quoteStatus === 'ready' && quote && (
+            <div className="p-3 rounded-xl border border-indigo-500/25 bg-indigo-500/5 text-[11px] text-indigo-700 dark:text-indigo-400 space-y-1">
+              <div className="font-semibold mb-1">
+                {quote.comparedCount > 1
+                  ? `Why ${quote.winner.label}: real, live quotes checked on ${quote.comparedCount} DEXs — ${quote.winner.label} genuinely offered the best real price.`
+                  : `Only ${quote.winner.label} had real, meaningful liquidity for this pair — the others checked (${quote.allQuotes.filter((q) => q.id !== quote.winner.id).map((q) => q.label).join(', ')}) didn't, shown honestly rather than a fabricated comparison.`}
+              </div>
+              {quote.allQuotes.map((q) => (
+                <div key={q.id} className="flex justify-between opacity-80">
+                  <span>{q.label}{q.id === quote.winner.id ? ' (used)' : ''}</span>
+                  <span className="font-mono">
+                    {q.amountOut > 0n && meta
+                      ? (Number(q.amountOut) / 10 ** (meta.decimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 6 })
+                      : 'no real route'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {quoteStatus === 'ready' && quote && (
             <div className="p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 text-[11px] text-emerald-700 dark:text-emerald-400 space-y-1">
               <div><span className="font-semibold">You'd get: </span>{formattedOut || '...'}</div>
               <div className="flex gap-4">
-                <span>Price impact: <span className="font-mono font-semibold">{signals.priceImpactPct != null ? `${signals.priceImpactPct.toFixed(2)}%` : 'n/a'}</span></span>
-                <span>Pool depth used: <span className="font-mono font-semibold">{signals.tradeSizePctOfReserve != null ? `${signals.tradeSizePctOfReserve.toFixed(2)}%` : 'n/a'}</span></span>
+                <span>Price impact: <span className="font-mono font-semibold">{quote.priceImpactPct != null ? `${quote.priceImpactPct.toFixed(2)}%` : 'n/a'}</span></span>
+                <span>Pool depth used: <span className="font-mono font-semibold">{quote.tradeSizePctOfReserve != null ? `${quote.tradeSizePctOfReserve.toFixed(2)}%` : 'n/a'}</span></span>
               </div>
             </div>
           )}
 
           {hasWarnings && (
             <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-[11px] text-red-600 dark:text-red-400 space-y-2">
-              {signals.warnings.map((w, i) => (
+              {quote.warnings.map((w, i) => (
                 <div key={i} className="flex items-start gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" />{w}</div>
               ))}
               <label className="flex items-center gap-1.5 pt-1 cursor-pointer">
@@ -425,7 +445,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/10 text-xs flex items-center gap-2">
               {step !== 'done' && <Loader2 size={13} className="animate-spin" style={{ color: accent }} />}
               {step === 'done' && <CheckCircle2 size={13} className="text-green-500" />}
-              {{ executing: 'Confirm this in your wallet...', done: 'Done. Traded on PancakeSwap, fee paid.' }[step]}
+              {{ executing: 'Confirm this in your wallet...', done: `Done. Traded on ${execResult?.dexLabel || 'the selected DEX'}, fee paid.` }[step]}
             </div>
           )}
           {step === 'error' && error2 && (
