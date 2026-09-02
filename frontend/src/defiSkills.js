@@ -208,7 +208,18 @@ export function computeNativeAgentFee(bnbAmount) {
  * balance check that didn't account for it. */
 export async function runNativeStake(executor, { protocolId, bnbAmount }) {
   const { feeRaw, feeBnb } = computeNativeAgentFee(bnbAmount);
-  const feeCall = { to: NATIVE_AGENT_FEE_WALLET, value: feeRaw, data: '0x' };
+  // Real bug fixed 2026-09-05, reproduced live: viem's own sendCalls (the
+  // atomic-batch path in useDirectWalletExecutor.js) passes this call's
+  // `data` straight through to the wallet's own wallet_sendCalls RPC
+  // validation. `data: '0x'` is a real, live failure there — confirmed
+  // directly against this project's own installed @metamask/utils
+  // StrictHexStruct (/^0x[0-9a-f]+$/), which requires at least one real
+  // hex digit after 0x and rejects a bare '0x' with exactly the reported
+  // "Invalid params - 0 > calls > 0 > data" error. A plain native-BNB
+  // transfer has no real calldata at all, so the field is omitted
+  // entirely instead — an optional field per EIP-5792, confirmed to pass
+  // the same real validator once absent, not just given an empty value.
+  const feeCall = { to: NATIVE_AGENT_FEE_WALLET, value: feeRaw };
 
   const protocolAmountRaw = BigInt(Math.round(bnbAmount * 1e18));
   let protocolCall;

@@ -63,16 +63,6 @@ function useStakingRecommendation() {
   return { ...state, retry: () => setRetryTick((t) => t + 1) };
 }
 
-/** Real, honest "how many months of yield does this fee cost" — shown so
- * the fee is fully legible, never a hidden line item. Computed straight
- * from the candidate's own real, live APY. */
-function feeInYieldMonths(feeBnb, bnbAmount, apyPct) {
-  if (!apyPct || apyPct <= 0 || bnbAmount <= 0) return null;
-  const annualYieldBnb = bnbAmount * (apyPct / 100);
-  if (annualYieldBnb <= 0) return null;
-  return (feeBnb / annualYieldBnb) * 12;
-}
-
 function CandidateRow({ candidate, isRecommended, isSelected, onSelect }) {
   return (
     <button
@@ -120,7 +110,6 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   const selected = candidates.find((c) => c.id === selectedId) || data?.recommended;
   const amountNum = Number(bnbAmount) || 0;
   const { feeBnb } = amountNum > 0 ? computeNativeAgentFee(amountNum) : { feeBnb: 0 };
-  const yieldMonths = selected ? feeInYieldMonths(feeBnb, amountNum, selected.apy) : null;
 
   const handleUseDirectWallet = async () => {
     setError2(null); setExecResult(null);
@@ -206,8 +195,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className="p-3 rounded-xl border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
               <Info size={13} className="shrink-0 mt-0.5" />
               <span>
-                Entry fee: {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% = <span className="font-mono font-semibold">{feeBnb.toFixed(6)} BNB</span>, disclosed here before you sign, never hidden.
-                {yieldMonths != null && <> That's roughly <span className="font-semibold">{yieldMonths < 1 ? '<1' : yieldMonths.toFixed(1)}</span> {yieldMonths < 1.5 ? 'month' : 'months'} of this position's projected yield at {selected.apy.toFixed(2)}% APY.</>}
+                Fee: {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% (<span className="font-mono font-semibold">{feeBnb.toFixed(6)} BNB</span>)
               </span>
             </div>
           )}
