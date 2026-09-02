@@ -21,14 +21,19 @@
 // this project, and this agent had no organic usage of its own yet to
 // weigh against that. See docs/limitations.md for the full finding.
 //
+// Second real agent built (2026-09-05): Trading, real spot buys of any
+// BSC token via PancakeSwap's own router — see pancakeswapSkill.js's own
+// "Trading Agent" section for the real risk-signal computation (price
+// impact, liquidity depth) and the real feasibility check confirming this
+// stays inside the simple, direct-wallet, single-transaction pattern
+// (unlike the investigated-and-rejected Avantis perpetuals concept).
+//
 // Lending/Borrowing and Perpetuals are real, intentional "Coming Soon"
 // placeholders — visible so the real, full scope of the vision reads
-// clearly, but neither is wired to any execution path yet (per the
-// explicit instruction: ship the Staking agent completely correct first,
-// rather than several agents half-built).
+// clearly, but neither is wired to any execution path yet.
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2 } from 'lucide-react';
+import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { fetchWalletBalanceSnapshot, getMainnetReadClient } from './altana';
 import { useDirectWalletExecutor } from './useDirectWalletExecutor';
@@ -38,6 +43,7 @@ import {
   listaStakePreflight, ankrStakePreflight, runNativeStake,
   computeNativeAgentFee, NATIVE_AGENT_ENTRY_FEE_BPS,
 } from './defiSkills';
+import { getTokenMeta, getTradeRiskSignals, spotTradePreflight, runNativeSpotTrade } from './pancakeswapSkill';
 
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 const STAKING_RECOMMENDATION_URL = `${API_BASE}/api/native-agents/staking/recommendation`;
@@ -239,6 +245,211 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   );
 }
 
+const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/** Real, debounced quote — re-reads real on-chain risk signals + token
+ * metadata 400ms after the user stops typing/changing the amount, not on
+ * every keystroke. Real, honest states: idle (nothing valid entered
+ * yet), loading, error (a real, live read failed — e.g. no real pool for
+ * this pair), or a real result. */
+function useTradeQuote(tokenAddress, usdtAmount) {
+  const [state, setState] = useState({ status: 'idle', meta: null, signals: null, error: null });
+  useEffect(() => {
+    const amountNum = Number(usdtAmount) || 0;
+    if (!ADDRESS_RE.test(tokenAddress || '') || amountNum <= 0) {
+      setState({ status: 'idle', meta: null, signals: null, error: null });
+      return;
+    }
+    let cancelled = false;
+    setState((s) => ({ ...s, status: 'loading', error: null }));
+    const t = setTimeout(async () => {
+      try {
+        const client = getMainnetReadClient();
+        const usdtAmountRaw = BigInt(Math.round(amountNum * 1e18));
+        const [meta, signals] = await Promise.all([
+          getTokenMeta(client, tokenAddress),
+          getTradeRiskSignals(client, tokenAddress, usdtAmountRaw),
+        ]);
+        if (!cancelled) setState({ status: 'ready', meta, signals, error: null });
+      } catch (e) {
+        if (!cancelled) setState({ status: 'error', meta: null, signals: null, error: e.message || String(e) });
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [tokenAddress, usdtAmount]);
+  return state;
+}
+
+function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
+  const [open, setOpen] = useState(false);
+  const [tokenAddress, setTokenAddress] = useState('');
+  const [usdtAmount, setUsdtAmount] = useState('');
+  const [ackRisk, setAckRisk] = useState(false);
+  const [step, setStep] = useState(null);
+  const [error2, setError2] = useState(null);
+  const [walletSnapshot, setWalletSnapshot] = useState(null);
+  const [execResult, setExecResult] = useState(null);
+  const directExecutor = useDirectWalletExecutor();
+
+  const { status: quoteStatus, meta, signals, error: quoteError } = useTradeQuote(tokenAddress, usdtAmount);
+  const amountNum = Number(usdtAmount) || 0;
+  const feeUsdt = amountNum > 0 ? (amountNum * NATIVE_AGENT_ENTRY_FEE_BPS) / 10000 : 0;
+  const hasWarnings = (signals?.warnings?.length || 0) > 0;
+  const canRun = quoteStatus === 'ready' && signals && (!hasWarnings || ackRisk);
+
+  // Real, honest reset: a genuinely different token/amount invalidates
+  // any earlier risk acknowledgment — never carries a stale "I accept
+  // this risk" past the trade it was actually shown for.
+  useEffect(() => { setAckRisk(false); }, [tokenAddress, usdtAmount]);
+
+  const formattedOut = (() => {
+    if (!signals?.amountOut || !meta) return null;
+    const decimals = meta.decimals ?? 18;
+    const n = Number(signals.amountOut) / 10 ** decimals;
+    return `${n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${meta.symbol || 'tokens'}`;
+  })();
+
+  const handleUseDirectWallet = async () => {
+    setError2(null); setExecResult(null);
+    if (!directExecutor) return;
+    setStep(null);
+    const snapshot = await fetchWalletBalanceSnapshot(directExecutor.walletAddress, USDT_BSC);
+    setWalletSnapshot(snapshot);
+  };
+
+  const handleContinueWithWallet = async () => {
+    setWalletSnapshot(null);
+    try {
+      const pre = await spotTradePreflight(getMainnetReadClient(), directExecutor.walletAddress, amountNum);
+      if (!pre.ok) {
+        setStep('error');
+        setError2(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+        return;
+      }
+      setStep('executing');
+      const result = await runNativeSpotTrade(directExecutor, { tokenAddress, usdtAmount: amountNum });
+      setExecResult(result);
+      setStep('done');
+    } catch (e) {
+      setStep('error');
+      setError2(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+    }
+  };
+
+  return (
+    <div className={`rounded-2xl border p-5 ${mutedBorder}`} style={{ background: surface }}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="p-1.5 rounded-lg" style={{ background: `${accent}1a` }}><ArrowRightLeft size={16} style={{ color: accent }} /></div>
+          <span className="font-bold text-sm">Trading Agent</span>
+        </div>
+        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
+      </div>
+      <p className="text-xs opacity-60 mb-4">
+        Spot-buys any BSC token through PancakeSwap, with a real price-impact and liquidity-depth check shown before you sign, non-custodially, through your own connected wallet.
+      </p>
+
+      {!open && (
+        <button onClick={() => setOpen(true)} className="w-full py-3 rounded-xl text-sm font-semibold text-white" style={{ background: accent }}>
+          Trade →
+        </button>
+      )}
+
+      {open && (
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold block mb-1">Token address to buy</label>
+            <input
+              type="text" value={tokenAddress} disabled={!!step && step !== 'error' && step !== 'done'}
+              onChange={(e) => setTokenAddress(e.target.value.trim())}
+              placeholder="0x..."
+              className={`w-full p-2.5 rounded-lg border text-sm font-mono outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold block mb-1">Amount to spend (USDT)</label>
+            <input
+              type="number" value={usdtAmount} disabled={!!step && step !== 'error' && step !== 'done'}
+              onChange={(e) => setUsdtAmount(e.target.value)}
+              placeholder="10"
+              className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`}
+            />
+          </div>
+
+          {quoteStatus === 'loading' && <div className="flex items-center gap-2 text-xs opacity-60"><Loader2 size={13} className="animate-spin" /> Reading the live pool...</div>}
+          {quoteStatus === 'error' && <div className="text-xs text-red-500">{quoteError}</div>}
+
+          {quoteStatus === 'ready' && signals && (
+            <div className="p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/5 text-[11px] text-emerald-700 dark:text-emerald-400 space-y-1">
+              <div><span className="font-semibold">You'd get: </span>{formattedOut || '...'}</div>
+              <div className="flex gap-4">
+                <span>Price impact: <span className="font-mono font-semibold">{signals.priceImpactPct != null ? `${signals.priceImpactPct.toFixed(2)}%` : 'n/a'}</span></span>
+                <span>Pool depth used: <span className="font-mono font-semibold">{signals.tradeSizePctOfReserve != null ? `${signals.tradeSizePctOfReserve.toFixed(2)}%` : 'n/a'}</span></span>
+              </div>
+            </div>
+          )}
+
+          {hasWarnings && (
+            <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-[11px] text-red-600 dark:text-red-400 space-y-2">
+              {signals.warnings.map((w, i) => (
+                <div key={i} className="flex items-start gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" />{w}</div>
+              ))}
+              <label className="flex items-center gap-1.5 pt-1 cursor-pointer">
+                <input type="checkbox" checked={ackRisk} onChange={(e) => setAckRisk(e.target.checked)} />
+                I understand this trade's real risk and want to continue anyway.
+              </label>
+            </div>
+          )}
+
+          {amountNum > 0 && (
+            <div className="p-3 rounded-xl border border-amber-500/25 bg-amber-500/5 text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-1.5">
+              <Info size={13} className="shrink-0 mt-0.5" />
+              <span>
+                Fee: {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% (<span className="font-mono font-semibold">{feeUsdt.toFixed(4)} USDT</span>)
+              </span>
+            </div>
+          )}
+
+          {!walletSnapshot && (
+            <div className={`p-3 rounded-xl border text-left ${mutedBorder}`}>
+              <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Wallet size={14} style={{ color: accent }} /> Your connected wallet</div>
+              <p className="text-[11px] opacity-60 mb-2">
+                {directExecutor ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly. You sign this yourself, right then.` : 'Connect a wallet to continue — you sign this yourself, right then.'}
+              </p>
+              {!directExecutor && <ConnectButton />}
+            </div>
+          )}
+
+          {step && step !== 'error' && (
+            <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/10 text-xs flex items-center gap-2">
+              {step !== 'done' && <Loader2 size={13} className="animate-spin" style={{ color: accent }} />}
+              {step === 'done' && <CheckCircle2 size={13} className="text-green-500" />}
+              {{ executing: 'Confirm this in your wallet...', done: 'Done. Traded on PancakeSwap, fee paid.' }[step]}
+            </div>
+          )}
+          {step === 'error' && error2 && (
+            <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs text-red-500 space-y-2">
+              <div className="whitespace-pre-wrap">{error2}</div>
+            </div>
+          )}
+
+          {walletSnapshot ? (
+            <WalletConfirmStep snapshot={walletSnapshot} onContinue={handleContinueWithWallet} continueLabel="Trade" />
+          ) : (
+            <button onClick={handleUseDirectWallet} disabled={!canRun || !directExecutor || (!!step && step !== 'error' && step !== 'done')}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+              {step === 'done' ? 'Done ✓' : execResult ? 'Run again' : 'Continue →'}
+            </button>
+          )}
+
+          <button onClick={() => setOpen(false)} className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1"><ChevronRight size={13} className="rotate-180" /> Collapse</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ComingSoonAgentCard({ icon: Icon, title, blurb, accent, surface, mutedBorder }) {
   return (
     <div className={`rounded-2xl border p-5 opacity-70 ${mutedBorder}`} style={{ background: surface }}>
@@ -268,10 +479,24 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <StakingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
+        <TradingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
         <ComingSoonAgentCard icon={TrendingUp} title="Lending / Borrowing Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
           blurb="Autonomous collateral and health-factor management across Venus and Aave. Needs its own dedicated liquidation-risk UI, so it's being built as its own complete piece, not bundled in half-finished." />
+        {/* Real finding, 2026-09-04: checked Avantis's own docs + Base's
+            official MCP plugin docs directly. The earlier "no bridge from
+            BSC" blocker is stale -- Base is a standard chain a connected
+            wallet can just switch to. The REAL blocker found instead:
+            Avantis trades aren't self-encodable (calldata is built via a
+            live call to their own tx-builder.avantisfi.com, not a known,
+            fixed ABI) and don't settle atomically (a signed order fills
+            asynchronously, "usually within seconds," and genuinely
+            expires unfilled after ~15-30s) -- a materially different,
+            more complex integration shape than every other Native Agent
+            here, not a smaller version of the same pattern. Not built;
+            copy below states this honestly instead of the old, now-wrong
+            reasoning. */}
         <ComingSoonAgentCard icon={Bot} title="Perpetuals Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="A dashboard for your own existing Hyperliquid / Avantis positions. Live execution needs cross-chain infrastructure Tnega doesn't have yet; investigated, not started." />
+          blurb="Investigated (2026-09-04): Avantis (Base) trades require a live call to their own off-chain calldata-builder API and settle asynchronously, filling within seconds or expiring unfilled -- a real, structurally different pattern than the direct, atomic, single-transaction agents here. Not built; a plain positions dashboard remains a real, smaller, honest option if wanted later." />
         {/* Tokenized RWA data feasibility, checked live 2026-09-02 against
             CoinGecko's real API (no key, public tier): /rwas/list,
             /rwas/markets, /rwas/{id}, /rwas/issuers/list, and

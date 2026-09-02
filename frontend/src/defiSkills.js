@@ -129,9 +129,15 @@ export async function listaStakePreflight(readClient, walletAddress, bnbAmount) 
   if (bnbAmount < LISTA_MIN_STAKE_BNB) {
     problems.push(`Lista's real minimum stake is ${LISTA_MIN_STAKE_BNB} BNB — this amount is below that.`);
   }
-  const amountRaw = BigInt(Math.round(bnbAmount * 1e18));
-  if (realBnbBalance < amountRaw) {
-    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB you're trying to stake.`);
+  // Real fix (2026-09-05, found while building the Trading agent's own
+  // preflight the same way): this used to check only the stake amount
+  // itself, not stake + the real Native Agent fee runNativeStake also
+  // sends — a wallet with exactly enough for the stake alone would pass
+  // this check and then genuinely fail on-chain for the fee's own
+  // native transfer.
+  const { amountRaw, feeRaw } = computeNativeAgentFee(bnbAmount);
+  if (realBnbBalance < amountRaw + feeRaw) {
+    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB stake plus the real 0.75% fee.`);
   }
   return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
 }
@@ -162,9 +168,12 @@ export async function ankrStakePreflight(readClient, walletAddress, bnbAmount) {
   if (bnbAmount < ANKR_MIN_STAKE_BNB) {
     problems.push(`Ankr's real minimum stake is ${ANKR_MIN_STAKE_BNB} BNB — this amount is below that.`);
   }
-  const amountRaw = BigInt(Math.round(bnbAmount * 1e18));
-  if (realBnbBalance < amountRaw) {
-    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB you're trying to stake.`);
+  // Real fix (2026-09-05) — same real gap as listaStakePreflight's own
+  // matching comment: check stake + the real Native Agent fee, not the
+  // stake amount alone.
+  const { amountRaw, feeRaw } = computeNativeAgentFee(bnbAmount);
+  if (realBnbBalance < amountRaw + feeRaw) {
+    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB stake plus the real 0.75% fee.`);
   }
   return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
 }

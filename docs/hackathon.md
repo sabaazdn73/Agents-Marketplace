@@ -16,7 +16,7 @@ The track's own rubric separately asks for a same-task comparison report (an age
 
 ## PancakeSwap
 
-Real, at the skill level: two of the ten Altana Skills this project ships (`pancakeswap-trading`, `pancakeswap-liquidity`) interact directly with live PancakeSwap contracts, verified with checked before/after balance changes. A technical integration, not a formal partnership.
+Real, at the skill level: two of the ten Altana Skills this project ships (`pancakeswap-trading`, `pancakeswap-liquidity`) interact directly with live PancakeSwap contracts, verified with checked before/after balance changes. The Native Agent Marketplace's own Trading Agent reuses the same real router contract for spot buys, with Tnega's own added risk-signal logic on top. A technical integration, not a formal partnership.
 
 ## Altana
 
