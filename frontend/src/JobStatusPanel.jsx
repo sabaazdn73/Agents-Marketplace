@@ -1,20 +1,19 @@
 // JobStatusPanel.jsx
 //
-// Real, live ERC-8183 job status + actions — extracted 2026-08-18 from
-// AltanaSessionPanel.jsx (where it was built first, single-job) so "My
-// Agents" (many jobs, one per real hire) can reuse the exact same read/
-// display logic instead of rebuilding it. Reads are always the same
-// (getJobStatus/getDeliverable — pure on-chain reads, no wallet needed);
-// the WRITE actions (dispute, claim refund) are passed in as callbacks
-// rather than hardcoded, because the two real callers genuinely sign
-// differently and papering over that would be dishonest:
-//   - AltanaSessionPanel: an Altana passkey wallet + session (settleErc8183Job
-//     via the SDK relay).
-//   - My Agents (direct wagmi hires): the connected wallet signs directly
-//     (writeContractAsync straight to the Policy/Commerce contracts).
-// Pass onDispute/onClaimRefund only when the caller actually has a real way
-// to sign that action for this job; omitting one just hides that button
-// rather than rendering a dead one.
+// Real, live ERC-8183 job status + actions — originally extracted
+// 2026-08-18 from the marketplace's own Altana session-hire panel (removed
+// 2026-09-03, see docs/limitations.md) so "My Agents" (many jobs, one per
+// real hire) could reuse the exact same read/display logic instead of
+// rebuilding it; kept as a shared component since that reuse value stayed
+// real even after the second caller was removed. Reads are always the
+// same (getJobStatus/getDeliverable — pure on-chain reads, no wallet
+// needed); the WRITE actions (dispute, claim refund) are passed in as
+// callbacks rather than hardcoded — the connected wallet signs directly
+// (writeContractAsync straight to the Policy/Commerce contracts), the
+// only real hire path this product has now. Pass onDispute/onClaimRefund
+// only when the caller actually has a real way to sign that action for
+// this job; omitting one just hides that button rather than rendering a
+// dead one.
 //
 // Copy pass, 2026-08-19: rewritten in extremely plain language on purpose.
 // Real, honest constraint this whole panel is designed around: for

@@ -12,9 +12,9 @@
 // anything — a genuine pause, not decorative info shown while the flow
 // silently continues behind it. The user must explicitly continue.
 //
-// Shared verbatim by web and mobile, by both AltanaSessionPanel.jsx (the
-// marketplace hire flow) and AltanaSkillsPanel.jsx (Venus and the other
-// DeFi skills) — one real component, not two copies that could drift.
+// Shared verbatim by web and mobile, by AltanaSkillsPanel.jsx (x402
+// payments), NativeAgentMarketplace.jsx, and every direct-wallet flow —
+// one component, not several copies that could drift.
 
 import React from 'react';
 import { AlertTriangle, Wallet, ExternalLink } from 'lucide-react';

@@ -20,7 +20,7 @@ Real, at the skill level: two of the ten Altana Skills this project ships (`panc
 
 ## Altana
 
-The most extensive integration in this project: `@altananetwork/sdk` powers the passkey wallet, on-chain scoped/revocable sessions, the full ten-skill Skills Registry, x402 payments, and the Altana-session hire path. See [Core Concepts](core-concepts.md#altana-sessions-account-abstraction-layer) and the note on usage in [Known Limitations](limitations.md#altana-passkey-session-hiring-built-and-correct-but-never-used-by-a-completed-hire).
+The most extensive integration in this project: `@altananetwork/sdk` powers passkey wallet creation/recovery, the full ten-skill Skills Registry, x402 payments, and the on-chain passkey-secured-wallet badge. Its spend-capped session/"Autonomous" execution path was removed 2026-09-03 after a decisive check found it had never been used by a real, completed transaction; see the note in [Known Limitations](limitations.md#altana-passkey-session-hiring-removed-2026-09-03) for the full finding.
 
 ## AltLayer (8004scan)
 

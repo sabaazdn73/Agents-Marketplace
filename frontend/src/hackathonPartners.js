@@ -43,7 +43,7 @@ export const HACKATHON_PARTNERS = [
     name: 'Altana',
     url: 'https://altana.network',
     logo: 'https://docs.altana.network/favicon.svg',
-    description: 'The passkey wallet SDK behind every client-side signature and Skill session in this app.',
+    description: 'The passkey wallet SDK behind the Skills Registry, the x402-payments Skill, wallet creation/recovery, and the on-chain passkey-secured wallet badge.',
   },
   {
     name: 'AltLayer (8004scan)',

@@ -14,6 +14,13 @@
 // for the full real decision logic and backend/server.py's
 // /api/native-agents/staking/recommendation for the live data this reads.
 //
+// Execution wallet, updated 2026-09-03: runs only through the user's own
+// connected wallet now — the Altana passkey option was removed. Decisive
+// finding: a full scan of the complete ERC-8183 job index found zero jobs
+// of any status ever completed through Altana's session path, anywhere in
+// this project, and this agent had no organic usage of its own yet to
+// weigh against that. See docs/limitations.md for the full finding.
+//
 // Lending/Borrowing and Perpetuals are real, intentional "Coming Soon"
 // placeholders — visible so the real, full scope of the vision reads
 // clearly, but neither is wired to any execution path yet (per the
@@ -21,21 +28,20 @@
 // rather than several agents half-built).
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Fingerprint, Landmark, TrendingUp, Lock, Info, Building2 } from 'lucide-react';
+import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { recoverAltanaWallet, createNewAltanaWallet, fetchWalletBalanceSnapshot, grantSkillSession, getAltanaExecutor, getMainnetReadClient } from './altana';
+import { fetchWalletBalanceSnapshot, getMainnetReadClient } from './altana';
 import { useDirectWalletExecutor } from './useDirectWalletExecutor';
 import WalletConfirmStep from './WalletConfirmStep';
 import {
-  USDT_BSC, LISTA_MANAGER, ANKR_BNB_STAKING_POOL,
+  USDT_BSC,
   listaStakePreflight, ankrStakePreflight, runNativeStake,
-  computeNativeAgentFee, NATIVE_AGENT_ENTRY_FEE_BPS, NATIVE_AGENT_FEE_WALLET,
+  computeNativeAgentFee, NATIVE_AGENT_ENTRY_FEE_BPS,
 } from './defiSkills';
 
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 const STAKING_RECOMMENDATION_URL = `${API_BASE}/api/native-agents/staking/recommendation`;
 
-const PROTOCOL_CONTRACTS = { lista: LISTA_MANAGER, ankr: ANKR_BNB_STAKING_POOL };
 const PREFLIGHT_FNS = { lista: listaStakePreflight, ankr: ankrStakePreflight };
 
 function useStakingRecommendation() {
@@ -100,12 +106,8 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [bnbAmount, setBnbAmount] = useState('');
-  const [spendCap, setSpendCap] = useState(1);
-  const [walletMode, setWalletMode] = useState(null);
   const [step, setStep] = useState(null);
   const [error2, setError2] = useState(null);
-  const [needsWalletChoice, setNeedsWalletChoice] = useState(false);
-  const [pendingWallet, setPendingWallet] = useState(null);
   const [walletSnapshot, setWalletSnapshot] = useState(null);
   const [execResult, setExecResult] = useState(null);
   const directExecutor = useDirectWalletExecutor();
@@ -120,77 +122,33 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   const { feeBnb } = amountNum > 0 ? computeNativeAgentFee(amountNum) : { feeBnb: 0 };
   const yieldMonths = selected ? feeInYieldMonths(feeBnb, amountNum, selected.apy) : null;
 
-  const presentWalletForConfirmation = async (walletLike) => {
+  const handleUseDirectWallet = async () => {
+    setError2(null); setExecResult(null);
+    if (!directExecutor) return;
     setStep(null);
-    const snapshot = await fetchWalletBalanceSnapshot(walletLike.address, USDT_BSC);
-    setPendingWallet(walletLike);
+    const snapshot = await fetchWalletBalanceSnapshot(directExecutor.walletAddress, USDT_BSC);
     setWalletSnapshot(snapshot);
   };
 
-  const runAgainstExecutor = async (executor) => {
-    const preflight = PREFLIGHT_FNS[selected.id];
-    const pre = await preflight(getMainnetReadClient(), executor.walletAddress, amountNum);
-    if (!pre.ok) {
-      setStep('error');
-      setError2(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
-      return;
-    }
-    setStep('executing');
-    const result = await runNativeStake(executor, { protocolId: selected.id, bnbAmount: amountNum });
-    setExecResult(result);
-    setStep('done');
-  };
-
-  const handleUseDirectWallet = async () => {
-    setError2(null); setExecResult(null); setNeedsWalletChoice(false); setWalletMode('direct');
-    if (!directExecutor) return;
-    await presentWalletForConfirmation({ address: directExecutor.walletAddress, mode: 'direct' });
-  };
-
-  const handleUsePasskeyWallet = async () => {
-    setError2(null); setExecResult(null); setNeedsWalletChoice(false); setWalletMode('passkey');
-    try {
-      setStep('wallet');
-      const wallet = await recoverAltanaWallet();
-      await presentWalletForConfirmation({ ...wallet, mode: 'passkey' });
-    } catch (e) {
-      setStep('error'); setNeedsWalletChoice(true); setError2(e.message || String(e));
-    }
-  };
-
-  const handleConfirmNewWallet = async () => {
-    setError2(null); setNeedsWalletChoice(false);
-    try {
-      setStep('wallet');
-      const wallet = await createNewAltanaWallet();
-      await presentWalletForConfirmation({ ...wallet, mode: 'passkey' });
-    } catch (e) {
-      setStep('error'); setError2(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
-    }
-  };
-
   const handleContinueWithWallet = async () => {
-    const w = pendingWallet;
-    setPendingWallet(null); setWalletSnapshot(null);
+    setWalletSnapshot(null);
     try {
-      if (w.mode === 'direct') { await runAgainstExecutor(directExecutor); return; }
-      setStep('granting');
-      // Real: the session must be allowed to call BOTH the real protocol
-      // contract and the real fee wallet — runNativeStake batches a call
-      // to each in one execute(), so both need to be in scope.
-      const s = await grantSkillSession(w, w.signer, {
-        contractAddresses: [PROTOCOL_CONTRACTS[selected.id], NATIVE_AGENT_FEE_WALLET],
-        spendToken: undefined,
-        spendCapUnits: Number(spendCap), expiryHours: 24,
-      });
-      await runAgainstExecutor(getAltanaExecutor(s));
+      const preflight = PREFLIGHT_FNS[selected.id];
+      const pre = await preflight(getMainnetReadClient(), directExecutor.walletAddress, amountNum);
+      if (!pre.ok) {
+        setStep('error');
+        setError2(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+        return;
+      }
+      setStep('executing');
+      const result = await runNativeStake(directExecutor, { protocolId: selected.id, bnbAmount: amountNum });
+      setExecResult(result);
+      setStep('done');
     } catch (e) {
       setStep('error');
       setError2(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
-
-  const handleTryDifferentPasskey = () => { setPendingWallet(null); setWalletSnapshot(null); handleUsePasskeyWallet(); };
 
   const canRun = selected && amountNum > 0;
 
@@ -204,7 +162,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
         <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
       </div>
       <p className="text-xs opacity-60 mb-4">
-        An autonomous agent that compares BSC liquid-staking protocols by liquidity/risk first, yield second, and stakes through whichever it (or you) picks, non-custodially.
+        An autonomous agent that compares BSC liquid-staking protocols by liquidity/risk first, yield second, and stakes through whichever it (or you) picks, non-custodially, through your own connected wallet.
       </p>
 
       {loading && <div className="flex items-center gap-2 text-xs opacity-60 py-4"><Loader2 size={14} className="animate-spin" /> Comparing live protocol data...</div>}
@@ -254,28 +212,13 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             </div>
           )}
 
-          {walletMode === null && !walletSnapshot && (
-            <div className="space-y-2">
-              <button onClick={handleUseDirectWallet} className={`w-full p-3 rounded-xl border text-left ${mutedBorder} hover:border-indigo-400`} disabled={!canRun}>
-                <div className="flex items-center gap-2 text-sm font-semibold"><Wallet size={14} style={{ color: accent }} /> Use my connected wallet</div>
-                <p className="text-[11px] opacity-60 mt-0.5">
-                  {directExecutor ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly.` : 'No spend-cap session — you sign each run yourself.'}
-                </p>
-                {!directExecutor && <div className="mt-2"><ConnectButton /></div>}
-              </button>
-              <button onClick={handleUsePasskeyWallet} className={`w-full p-3 rounded-xl border text-left ${mutedBorder} hover:border-indigo-400`} disabled={!canRun}>
-                <div className="flex items-center gap-2 text-sm font-semibold"><Fingerprint size={14} style={{ color: accent }} /> Use a Face ID mini-wallet</div>
-                <p className="text-[11px] opacity-60 mt-0.5">A separate, seedless wallet with a spending limit you set once.</p>
-              </button>
-            </div>
-          )}
-
-          {walletMode !== 'direct' && walletMode !== null && !walletSnapshot && step === null && (
-            <div>
-              <label className="text-xs font-semibold block mb-1">Your spending limit (BNB/day)</label>
-              <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)}
-                className={`w-full p-2.5 rounded-lg border text-sm outline-none ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
-              <p className="text-[10px] opacity-40 mt-1">Covers both the stake amount and the entry fee. Set it comfortably above {(amountNum + feeBnb).toFixed(4) || 'your stake amount'} BNB.</p>
+          {!walletSnapshot && (
+            <div className={`p-3 rounded-xl border text-left ${mutedBorder}`}>
+              <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Wallet size={14} style={{ color: accent }} /> Your connected wallet</div>
+              <p className="text-[11px] opacity-60 mb-2">
+                {directExecutor ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly. You sign this yourself, right then.` : 'Connect a wallet to continue — you sign this yourself, right then.'}
+              </p>
+              {!directExecutor && <ConnectButton />}
             </div>
           )}
 
@@ -283,29 +226,22 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-900/10 text-xs flex items-center gap-2">
               {step !== 'done' && <Loader2 size={13} className="animate-spin" style={{ color: accent }} />}
               {step === 'done' && <CheckCircle2 size={13} className="text-green-500" />}
-              {{ wallet: 'Setting up your mini-wallet...', granting: 'Setting your spending limit...', executing: 'Staking now...', done: `Done. Staked through ${selected?.protocol_label}, fee paid.` }[step]}
+              {{ executing: 'Confirm this in your wallet...', done: `Done. Staked through ${selected?.protocol_label}, fee paid.` }[step]}
             </div>
           )}
           {step === 'error' && error2 && (
             <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/5 text-xs text-red-500 space-y-2">
               <div className="whitespace-pre-wrap">{error2}</div>
-              {needsWalletChoice && (
-                <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-[11px] font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
-                  This is genuinely my first time: create a new wallet
-                </button>
-              )}
             </div>
           )}
 
           {walletSnapshot ? (
-            <WalletConfirmStep snapshot={walletSnapshot} onContinue={handleContinueWithWallet} onTryDifferent={pendingWallet?.mode !== 'direct' ? handleTryDifferentPasskey : undefined} continueLabel="Set limit & stake" />
+            <WalletConfirmStep snapshot={walletSnapshot} onContinue={handleContinueWithWallet} continueLabel="Stake" />
           ) : (
-            walletMode !== null && step !== 'wallet' && (
-              <button onClick={walletMode === 'direct' ? handleUseDirectWallet : handleUsePasskeyWallet} disabled={!canRun || (!!step && step !== 'error' && step !== 'done')}
-                className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
-                {step === 'done' ? 'Done ✓' : 'Continue →'}
-              </button>
-            )
+            <button onClick={handleUseDirectWallet} disabled={!canRun || !directExecutor || (!!step && step !== 'error' && step !== 'done')}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50" style={{ background: accent }}>
+              {step === 'done' ? 'Done ✓' : execResult ? 'Run again' : 'Continue →'}
+            </button>
           )}
 
           <button onClick={() => setOpen(false)} className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1"><ChevronRight size={13} className="rotate-180" /> Collapse</button>

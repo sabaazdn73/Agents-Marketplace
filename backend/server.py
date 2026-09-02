@@ -756,10 +756,10 @@ async def skills_registry():
 
 # ── Hiring an agent (ERC-8183) now happens entirely CLIENT-SIDE ──
 # The whole createJob -> registerJob -> setBudget -> approve -> fund
-# batch is driven from the browser by the Altana passkey wallet
-# (frontend/src/altana.js hireAgentWithSession + useHireAgent.js),
-# signed client-side. There is no backend-held key and no /api/hire
-# route anymore — the obsolete adapters/erc8183.py path was removed.
+# sequence is driven from the browser by the user's own connected wallet
+# (frontend/src/useHireAgent.js), signed client-side. There is no
+# backend-held key and no /api/hire route anymore — the obsolete
+# adapters/erc8183.py path was removed.
 
 
 # ── Real "build in the browser" pipeline ──
@@ -1013,9 +1013,9 @@ async def agent_onchain_performance(owner_address: str, agent_id: str | None = N
     """Real, standalone "Historical on-chain performance" signal — see
     core/onchain_pnl.py's own module docstring for the full real
     methodology. Deliberately INDEPENDENT of /api/agents/pnl-summary
-    above: that endpoint only ever looks at real jobs that went through
-    Tnega's own Altana-session hire flow; this one looks directly at the
-    agent's own real, on-chain execution history (real trades, deposits,
+    above: that endpoint only ever looks at real, delivered jobs hired
+    through this marketplace; this one looks directly at the agent's own
+    real, on-chain execution history (real trades, deposits,
     withdrawals, LP mint/burn, claims) on its own real operating wallet —
     whether or not that activity ever happened through this marketplace.
     Always 200 with a real, honest {"applicable": ..., "has_activity":
@@ -1535,24 +1535,27 @@ async def deliverable_proxy_route(request: Request):
     return Response(content=content, media_type=content_type, status_code=status_code)
 
 
-# The exact prefixes our own hire flows write into a job's real, immutable
-# on-chain `description` (useHireAgent.js / AltanaSessionPanel.jsx / mobile
-# app — all three checked and matched here). Keep these in sync if any of
-# those change.
+# The exact prefixes our own hire flow writes into a job's real, immutable
+# on-chain `description` (useHireAgent.js / the mobile app — both checked
+# and matched here). Keep these in sync if either changes.
 #
-# Real rebrand note (2026-08-28): the site's brand name changed from "Agents
-# Marketplace" to "Tnega" — useHireAgent.js/AltanaSessionPanel.jsx now write
-# "Hire via Tnega…" for every NEW job. The old "Agents Marketplace" prefixes
-# are kept here too, deliberately NOT removed: they're baked into real,
-# already-existing on-chain job descriptions, which are immutable — a job
-# hired before this rebrand will forever say "Agents Marketplace" on-chain,
-# and removing that prefix here would break _parse_hired_agent_name for
-# every one of those real past jobs. Both prefixes are checked, old jobs and
-# new jobs both resolve correctly.
+# Rebrand note (2026-08-28): the site's brand name changed from "Agents
+# Marketplace" to "Tnega" — useHireAgent.js now writes "Hire via Tnega…"
+# for every NEW job. The old "Agents Marketplace" prefix is kept here too,
+# deliberately NOT removed: it's baked into real, already-existing
+# on-chain job descriptions, which are immutable — a job hired before this
+# rebrand will forever say "Agents Marketplace" on-chain, and removing
+# that prefix here would break _parse_hired_agent_name for every one of
+# those past jobs. Both prefixes are checked, old jobs and new jobs both
+# resolve correctly.
+#
+# The "(Altana session)" variants that used to live here were removed
+# 2026-09-03 along with the Altana session hire path itself: a complete
+# scan of every job this marketplace's kernel has ever processed (56,667
+# jobs, not a sample) found zero using them, ever — safe to drop, not
+# just unused going forward. See docs/limitations.md for the full finding.
 _HIRE_DESCRIPTION_PREFIXES = [
-    "Hire via Tnega (Altana session): ",
     "Hire via Tnega: ",
-    "Hire via Agents Marketplace (Altana session): ",
     "Hire via Agents Marketplace: ",
 ]
 
@@ -1601,8 +1604,8 @@ async def my_jobs(client_address: str):
     owner_address-only resolution here later showed a same-wallet sibling,
     "Chaingarvppv", instead).
 
-    Real fix: our own hire flows (useHireAgent.js, AltanaSessionPanel.jsx —
-    web and mobile) write the exact agent name into the job's own real,
+    Real fix: our own hire flow (useHireAgent.js — web and mobile) writes
+    the exact agent name into the job's own real,
     immutable on-chain `description` field ("Hire via Tnega: {name}", or
     "Hire via Agents Marketplace: {name}" for jobs hired before the
     2026-08-28 rebrand — see _HIRE_DESCRIPTION_PREFIXES above). That string

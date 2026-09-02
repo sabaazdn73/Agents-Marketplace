@@ -107,7 +107,7 @@ frontend/src/
   AgentMarketplaceApp.web.jsx / .mobile.jsx   the two apps
   App.jsx                   platform switch + the standalone routes (/ecosystem, /status,
                             /data-sources, /partners, /docs) + the main app's own tab routes
-  altana.js                 Altana SDK wrapper: passkey wallet, sessions, hire, deliverables
+  altana.js                 Altana SDK wrapper: passkey wallet, sessions, deliverables
   useHireAgent.js            direct-wagmi ERC-8183 hire flow
   JobStatusPanel.jsx         job status + deliverable rendering, shared web/mobile
   EcosystemGlobePage.jsx     the /ecosystem 3D page

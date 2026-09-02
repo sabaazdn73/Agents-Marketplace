@@ -61,7 +61,6 @@ function QrToMobile() {
   );
 }
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
-import AltanaSessionPanel from './AltanaSessionPanel';
 import SessionModesExplainer from './SessionModesExplainer';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
@@ -1402,12 +1401,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <AgentAvatar agent={selectedAgent} size={56} />
                   <div>
                     <h2 className="text-2xl font-bold">Hire {selectedAgent.name}</h2>
-                    <p className="text-gray-500 text-sm mt-1">There are two ways to pay for this — Always Ask or Autonomous, pick whichever you prefer.</p>
+                    <p className="text-gray-500 text-sm mt-1">Approve each step yourself, in your wallet.</p>
                   </div>
                 </div>
 
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 mb-8 text-sm text-amber-800 dark:text-amber-300">
-                  Both options put real money on hold for this agent to do the work — you're not just browsing anymore. <strong>Always Ask</strong> below has you approve each step yourself, in your wallet, every time. <strong>Autonomous</strong>, further down, lets you set a spending limit once so the agent can act on its own within it — handy if you plan to use this agent again.
+                  This puts real money on hold for this agent to do the work — you're not just browsing anymore. You approve each step yourself, in your wallet, every time.
                 </div>
 
                 {/* Real, last-chance gate — see EscrowCompatibilityWarning.jsx.
@@ -1532,18 +1531,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 )}
 
                 <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE TO CONTINUE' : 'ALWAYS ASK'}
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE TO CONTINUE' : 'HIRE'}
                 </button>
               </div>
-
-              <AltanaSessionPanel
-                accent={accent}
-                surface={darkMode ? '#1E293B' : '#FFFFFF'}
-                mutedBorder="border-gray-200 dark:border-gray-800"
-                darkMode={darkMode}
-                agent={selectedAgent}
-                escrowBlocked={hireEscrowGate.blocked}
-              />
             </div>
           )}
 

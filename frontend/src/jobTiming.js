@@ -8,9 +8,9 @@
 //    fundedAt/createdAt field (only expiredAt and submittedAt — confirmed
 //    against the real ABI in erc8183.js), so there is no general on-chain
 //    source for this. We record the REAL moment ourselves, the instant a
-//    hire we personally drove succeeds (all 3 hire-completion call sites:
-//    AgentMarketplaceApp.web.jsx, AgentMarketplaceApp.mobile.jsx,
-//    AltanaSessionPanel.jsx), persisted to localStorage so it survives
+//    hire we personally drove succeeds (both hire-completion call sites:
+//    AgentMarketplaceApp.web.jsx, AgentMarketplaceApp.mobile.jsx),
+//    persisted to localStorage so it survives
 //    reloads. For a job this browser never funded (opened from elsewhere,
 //    or hired before this shipped), we honestly fall back to "the first
 //    time this device saw it as FUNDED" — also persisted (not reset per
@@ -115,14 +115,10 @@ export function isPastDisputeWindow(job) {
   if (!submittedAtSec) return false;
   return Math.floor(Date.now() / 1000) > submittedAtSec + DISPUTE_WINDOW_SECONDS;
 }
-// The LARGER of the two real hire paths' own default expiry buffers —
-// useHireAgent.js's direct path defaults to 65 minutes; the Altana session
-// path's hireErc8183Agent defaults to 30 minutes. Used only as a real,
-// conservative fallback below (see getActivityWindow) when neither hire
-// path is distinguishable from the other — over-estimating the buffer by
-// up to ~35 minutes means the computed window starts slightly EARLIER than
-// necessary, which just means a few extra minutes of real, honestly-search
-// on-chain activity, never a missed one.
+// useHireAgent.js's (the only real hire path's) own default expiry buffer.
+// Used only as a real, conservative fallback below (see getActivityWindow)
+// when no better estimate is available — a few extra minutes of real,
+// honestly-searched on-chain activity, never a missed one.
 const DEFAULT_EXPIRY_BUFFER_SECONDS = 65 * 60;
 
 /** Real time window for the "Agent activity" transparency view

@@ -47,9 +47,9 @@ export async function quoteBestRoute(publicClient, tokenAddress, usdtAmountRaw) 
 
 /**
  * Executes the "enter-position" play (approve + swap) through the injected
- * executor — the real Altana session (one atomic relay intent). Follows
- * the skill's own guard: "amountOutMin is always a fresh quote minus
- * slippage. Never 0."
+ * executor — the user's own connected wallet (useDirectWalletExecutor.js),
+ * batched atomically for wallets that support it. Follows the skill's own
+ * guard: "amountOutMin is always a fresh quote minus slippage. Never 0."
  */
 export async function executeEnterPosition(executor, { tokenAddress, usdtAmount, slippagePct = 1 }) {
   const usdtAmountRaw = BigInt(Math.round(usdtAmount * 1e18)); // USDT is 18 decimals on BNB Chain, per the skill's own Quirks note

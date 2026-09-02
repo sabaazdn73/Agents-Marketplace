@@ -4,7 +4,8 @@
 // function behavior copied exactly from the skill's own SKILL.md.
 //
 // Execution goes through an injected `executor` ({ walletAddress,
-// publicClient, execute(calls) }) — the real Altana session path.
+// publicClient, execute(calls) }) — the user's own connected wallet
+// (useDirectWalletExecutor.js), the only path this tx skill runs through.
 
 import { encodeFunctionData, parseAbi } from 'viem';
 

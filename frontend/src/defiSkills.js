@@ -7,8 +7,8 @@
 // transaction alone doesn't mean the operation succeeded".
 //
 // Execution is done through an injected `executor` ({ walletAddress,
-// publicClient, execute(calls) }) — the real Altana session path
-// (altana.js getAltanaExecutor).
+// publicClient, execute(calls) }) — the user's own connected wallet
+// (useDirectWalletExecutor.js), the only path these tx skills run through.
 
 import { encodeFunctionData, parseAbi } from 'viem';
 

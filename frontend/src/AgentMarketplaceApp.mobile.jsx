@@ -18,7 +18,6 @@ import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
-import AltanaSessionPanel from './AltanaSessionPanel';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
@@ -784,7 +783,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 <AgentAvatar agent={selectedAgent} size={64} />
               </div>
               <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
-              <p className="text-gray-500 text-sm mb-4">This is <strong>Always Ask</strong> — you'll approve a few quick steps in your wallet, tracked below as they happen.</p>
+              <p className="text-gray-500 text-sm mb-4">You'll approve a few quick steps in your wallet, tracked below as they happen.</p>
 
               {/* Real, last-chance gate, parity with web — see
                   EscrowCompatibilityWarning.jsx. */}
@@ -891,25 +890,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 )}
 
                 <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE' : 'ALWAYS ASK'}
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE' : 'HIRE'}
                 </button>
               </div>
-
-              {/* Real gap found and fixed (2026-08-27, full mobile/web
-                  parity audit): mobile's hire flow never rendered
-                  AltanaSessionPanel at all — "Autonomous mode" (Altana's
-                  passkey mini-wallet + spend-capped session hiring, the
-                  partner-track requirement) was entirely unreachable on
-                  mobile, not just visually different. Same component web
-                  uses, verbatim — its own JSX is already touch-friendly. */}
-              <AltanaSessionPanel
-                accent={accent}
-                surface={darkMode ? '#1E293B' : '#FFFFFF'}
-                mutedBorder="border-gray-200 dark:border-gray-800"
-                darkMode={darkMode}
-                agent={selectedAgent}
-                escrowBlocked={hireEscrowGate.blocked}
-              />
             </div>
           </div>
         ) : detailAgent ? (

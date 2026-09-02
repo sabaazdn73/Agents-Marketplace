@@ -1,5 +1,7 @@
 # Direct-wallet execution for Altana Skills (2026-08-28)
 
+**Update (2026-09-03):** the "Face ID mini-wallet" choice this doc describes for `kind: 'tx'` skills was later removed; a complete job-history scan found it had never been used for a real, completed transaction (same finding that removed the marketplace's Autonomous hire path, see [Known Limitations](limitations.md#altana-passkey-session-hiring-removed-2026-09-03)). Every `kind: 'tx'` skill now runs only through the user's own connected wallet, no upfront choice screen. The passkey mini-wallet remains, unchanged, for the `kind: 'pay'` (x402) skill specifically, which still has no direct-wallet equivalent. The rest of this doc is kept as the historical record of why the direct-wallet path was built and how it works; read the choice-screen framing below as describing the state at the time, not today.
+
 ## The question
 
 For a user who already has an existing, connected, funded wallet (MetaMask, etc.), did the Venus Lending skill (and the other Altana Skills) genuinely require creating a brand-new, separate passkey wallet, with no way to use funds already in the wallet they already have?

@@ -37,7 +37,7 @@ stateDiagram-v2
     REJECTED --> [*]
 ```
 
-A hire is five wallet-signed steps, all client-side: `createJob(provider, evaluator, expiredAt, description, hook) -> registerJob(jobId, policy) -> setBudget(jobId, amount, optParams) -> approve($U, amount) -> fund(jobId, amount, optParams)`. Tnega batches these into one atomic call when hiring through an Altana session; the direct-wagmi path signs them as separate transactions.
+A hire is five wallet-signed steps, all client-side: `createJob(provider, evaluator, expiredAt, description, hook) -> registerJob(jobId, policy) -> setBudget(jobId, amount, optParams) -> approve($U, amount) -> fund(jobId, amount, optParams)`. The user's own connected wallet signs each step; for wallets that support EIP-5792 batching (MetaMask included), these land as one atomic call, otherwise as separate transactions.
 
 Once funded, the provider (the agent) calls `submit()` with a deliverable; in practice, an on-chain event (`JobInitialised` on the Policy contract) carrying a pointer (usually a URL) to the actual delivered content, plus a `bytes32` hash of it for integrity. Settlement is **permissionless**: anyone can trigger it once the review window passes, releasing escrow to the provider. The buyer can `dispute()` instead, inside that same window. If nothing is ever submitted and the job's deadline passes, the buyer calls `claimRefund()` themselves; this is the guaranteed exit, and it does not happen automatically.
 
@@ -45,15 +45,12 @@ Once funded, the provider (the agent) calls `submit()` with a deliverable; in pr
 
 **Contract addresses (BSC mainnet):** see [Smart Contracts](smart-contracts.md).
 
-### Two independent ways to sign a hire
+### How a hire gets signed
 
-Tnega supports both because different partner-track requirements call for different signing models, and because they're genuinely useful to different users:
+One real path: the user's own connected wallet (MetaMask, Trust Wallet, etc. via RainbowKit) signs each of the five steps directly. No intermediary account. An earlier, separate path let an Altana passkey-session smart account sign on the user's behalf within a spend cap instead; it was removed 2026-09-03 after a complete scan of every job this marketplace has ever processed found it had never actually been used for a real, completed hire — see [Known Limitations](limitations.md#altana-passkey-session-hiring-removed-2026-09-03) for the full finding.
 
-1. **Direct wagmi path**: the user's own connected wallet (MetaMask, Trust Wallet, etc. via RainbowKit) signs each of the five steps directly. No intermediary account.
-2. **Altana passkey-session path**: a passkey-backed smart account (see below) signs through a scoped, revocable on-chain session instead of the user's raw wallet.
+## Altana sessions (still used, scoped to Skills/x402/wallet recovery)
 
-## Altana sessions (account abstraction layer)
+Separate from ERC-8004/8183 themselves, Altana's SDK (`@altananetwork/sdk`) still backs a passkey wallet: an EIP-7702 smart account controlled by a WebAuthn passkey (Face ID / Touch ID / Windows Hello), with **on-chain, scoped, revocable sessions**, a spend cap, an expiry, and an allow-list of exactly which contracts a session may touch. It no longer signs marketplace hires (see above); it's still real and in use for the x402-payments Skill (which has no direct-wallet equivalent) and for passkey wallet creation/recovery, including the on-chain passkey-secured-wallet badge shown on some agent listings.
 
-Separate from ERC-8004/8183 themselves, Altana's SDK (`@altananetwork/sdk`) provides the passkey-wallet option: an EIP-7702 smart account controlled by a WebAuthn passkey (Face ID / Touch ID / Windows Hello), with **on-chain, scoped, revocable sessions**, a spend cap, an expiry, and an allow-list of exactly which contracts a session may touch. A session can hire agents on the user's behalf within those limits without re-prompting for a signature on every step, and can be revoked at any time.
-
-Technically, this runs on **Porto** (Ithaca's account-abstraction framework) under the hood: wallet creation upgrades a throwaway EOA via EIP-7702, registers the passkey's public key as the account's on-chain admin key in a **KeyStore** contract, and executes batched calls through Porto's relay (`relay.altana.network`). No private key is ever held by Tnega's own frontend or backend; see [Limitations](limitations.md) for the one honest gap in how much of this path has actually been exercised by a real hire.
+Technically, this runs on **Porto** (Ithaca's account-abstraction framework) under the hood: wallet creation upgrades a throwaway EOA via EIP-7702, registers the passkey's public key as the account's on-chain admin key in a **KeyStore** contract, and executes batched calls through Porto's relay (`relay.altana.network`). No private key is ever held by Tnega's own frontend or backend.

@@ -14,10 +14,10 @@
 // visitor's browser instead of once, server-side, shared across everyone —
 // strictly worse for both the RPC budget and load time, no real upside.
 //
-// Per-job status/actions reuse JobStatusPanel verbatim (the same component
-// AltanaSessionPanel uses) — only the write actions differ, wired here to
-// the DIRECT wagmi path (useJobActions.js) since these are direct-hire jobs,
-// not Altana-session jobs.
+// Per-job status/actions reuse JobStatusPanel verbatim, wired here to the
+// direct wagmi path (useJobActions.js), the only real hire path this
+// product has (see docs/limitations.md for why the Altana session path
+// was removed 2026-09-03).
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, Briefcase, ExternalLink } from 'lucide-react';

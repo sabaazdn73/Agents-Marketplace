@@ -1,18 +1,11 @@
 // useJobActions.js
 //
 // Real, direct-wagmi post-hire actions (dispute, approve early, claim
-// refund) for jobs
-// hired through the DIRECT wagmi path (useHireAgent.js) — as opposed to
-// AltanaSessionPanel's jobs, which go through the Altana SDK relay
-// (settleErc8183Job/buildClaimRefundCall) because THAT wallet is an Altana
-// passkey wallet + session, not the connected wagmi wallet.
-//
-// Real technical reason this exists separately rather than reusing
-// altana.js's disputeJob/settleJob: those call the Altana SDK's
-// settleErc8183Job(wallet, signer, ...), which expects an Altana Wallet +
-// Signer object — not a wagmi-connected wallet. "My Agents" lists jobs for
-// whatever address wagmi says is connected, so the only real, honest way to
-// sign an action for those jobs is a direct contract write through THAT
+// refund) for jobs hired through the direct wagmi path (useHireAgent.js),
+// the only real hire path this product has (the Altana session path was
+// removed 2026-09-03, see docs/limitations.md). "My Agents" lists jobs
+// for whatever address wagmi says is connected, so the only honest way to
+// sign an action for those jobs is a direct contract write through that
 // same connected wallet — dispute() on the Policy contract, claimRefund()
 // on the Commerce contract. Both ABIs already exist in erc8183.js.
 
@@ -68,8 +61,8 @@ export function useJobActions() {
    * docs/README.md openly advertising "or you approve early" as a real
    * feature. Confirmed by grep: zero call sites for router.settle anywhere
    * in the actual UI before this fix (altana.js's own settleJob export was
-   * dead code, same gap on the Altana session path — see
-   * AltanaSessionPanel.jsx). Real, permanent action: once called, the job
+   * dead code, same gap on the Altana session path's own hire panel,
+   * since removed — see docs/limitations.md). Real, permanent action: once called, the job
    * moves to COMPLETED and can no longer be disputed — the contract itself
    * enforces the real eligibility rule (job must be SUBMITTED), not
    * pre-guessed here, same discipline as claimRefundDirect below. */
