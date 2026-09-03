@@ -28,12 +28,24 @@
 // stays inside the simple, direct-wallet, single-transaction pattern
 // (unlike the investigated-and-rejected Avantis perpetuals concept).
 //
-// Lending/Borrowing and Perpetuals are real, intentional "Coming Soon"
-// placeholders — visible so the real, full scope of the vision reads
-// clearly, but neither is wired to any execution path yet.
+// Lending/Borrowing, Perpetuals, and Web2 Agents + PayBox are real,
+// intentional "Coming Soon" placeholders — visible so the real, full
+// scope of the vision reads clearly, but none of the three is wired to
+// any execution path yet.
+//
+// Web2 Agents + PayBox (added 2026-09-10): a vision/roadmap card only,
+// no code behind it — see docs/future-tnega-paybox.md for the full real
+// research this summarizes (Anthropic's open-source Commerce Agents
+// blueprint, MoonPay's confirmed direct BSC support). Explicitly two
+// real parts of very different scope: a near-term-demonstrable Web2
+// shopping-agent + PayBox settlement concept, and a genuinely separate,
+// much larger "describe an agent in a prompt, get one built and wired to
+// payment automatically" platform — comparable in scope to BNB Agent
+// Studio or Claude Code itself, not attempted here or anywhere in this
+// codebase.
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle } from 'lucide-react';
+import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle, ShoppingBag } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { fetchWalletBalanceSnapshot, getMainnetReadClient } from './altana';
 import { useDirectWalletExecutor } from './useDirectWalletExecutor';
@@ -492,7 +504,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   );
 }
 
-function ComingSoonAgentCard({ icon: Icon, title, blurb, accent, surface, mutedBorder }) {
+function ComingSoonAgentCard({ icon: Icon, title, blurb, accent, surface, mutedBorder, learnMoreHref }) {
   return (
     <div className={`rounded-2xl border p-5 opacity-70 ${mutedBorder}`} style={{ background: surface }}>
       <div className="flex items-center justify-between mb-2">
@@ -503,6 +515,11 @@ function ComingSoonAgentCard({ icon: Icon, title, blurb, accent, surface, mutedB
         <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-500 flex items-center gap-1"><Lock size={9} /> Coming Soon</span>
       </div>
       <p className="text-xs opacity-60">{blurb}</p>
+      {learnMoreHref && (
+        <a href={learnMoreHref} className="text-xs font-semibold mt-2 inline-block hover:underline" style={{ color: accent }}>
+          Read the full research →
+        </a>
+      )}
     </div>
   );
 }
@@ -552,6 +569,12 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
             secondary, not blockers for a useful first version. */}
         <ComingSoonAgentCard icon={Building2} title="Tokenized Assets Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
           blurb="Discover and compare tokenized real-world assets, stocks, commodities, pre-IPO shares, bridging crypto-native users into traditional markets and back. Data source checked and free-tier feasible; not built yet." />
+        {/* Vision/roadmap card only — no code behind this one, unlike
+            Staking/Trading above. See this file's own top-of-file comment
+            and docs/future-tnega-paybox.md for the full real research. */}
+        <ComingSoonAgentCard icon={ShoppingBag} title="Web2 Agents + PayBox" accent={accent} surface={surface} mutedBorder={mutedBorder}
+          learnMoreHref="/docs/future-tnega-paybox"
+          blurb="Bridges Web2 AI shopping/commerce agents, like Anthropic's open-source Commerce Agents blueprint, which builds a complete, tailored cart (age, size, culture, event) but stops at checkout, never completing payment, to on-chain settlement via Tnega PayBox. MoonPay's confirmed direct BSC support is the near-term rail; multi-chain later. A separate, much larger idea, describe an agent in a prompt and get one built and wired to payment automatically, is its own future project, not scoped here." />
       </div>
     </div>
   );

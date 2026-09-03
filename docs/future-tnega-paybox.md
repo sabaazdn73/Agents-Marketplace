@@ -2,6 +2,8 @@
 
 Status: **not implemented.** This page is the architecture and feasibility research for a possible post-hackathon feature — a payment-completion service that open-source Web2 commerce agents could hand a checkout off to, settling through MetaMask Card. Written 2026-09-08 so this can be picked up later without re-researching from scratch. Nothing on this page describes a live Tnega feature.
 
+Surfaced in-app (2026-09-10) as a "Web2 Agents + PayBox" Coming Soon card in the Native Agent Marketplace — a vision/roadmap summary only, no code behind it, linking back here for the full research. That card also names a second, genuinely separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own real, much larger future project — comparable in scope to BNB Agent Studio or Claude Code itself — not scoped here or anywhere in this codebase; noted for the record, not researched.
+
 ## The idea in one paragraph
 
 A shopping agent (the kind [Anthropic's own open-source `commerce-agents` blueprint](https://github.com/anthropics/commerce-agents) describes) assembles a cart and then stops — by design, it never places an order or touches payment itself. Something has to render an actual checkout for the human to complete. Tnega PayBox would be that something: a hosted checkout page a merchant's own backend can hand off to, which settles the purchase using crypto the buyer already holds, via MetaMask Card as the fiat rail. The pitch is "pay for anything an AI shopping agent finds you, straight from your on-chain balance, no manual off-ramp."
