@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu, ScanFace,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -12,6 +12,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
+import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, DEADLINE_PRESETS, formatDeadline, validateDeadlineMinutes } from './hireDeadline';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
@@ -537,6 +538,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   };
   const [spendCap, setSpendCap] = useState(50000);
   const [spendCapTouched, setSpendCapTouched] = useState(false);
+  // Real, user-facing job deadline — see the matching comment in
+  // AgentMarketplaceApp.web.jsx (kept in sync) and hireDeadline.js.
+  const [deadlineMinutes, setDeadlineMinutes] = useState(DEADLINE_DEFAULT_MINUTES);
+  const deadlineError = validateDeadlineMinutes(deadlineMinutes);
   // Advanced override for the on-chain job description — see the matching
   // comment in AgentMarketplaceApp.web.jsx (kept in sync with web).
   const [customDescription, setCustomDescription] = useState('');
@@ -587,6 +592,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     setSelectedAgent(agent);
     setHiring(true);
     setSpendCapTouched(false); // fresh agent — let its real price (if any) pre-fill again
+    setDeadlineMinutes(DEADLINE_DEFAULT_MINUTES); // fresh agent — don't carry a prior custom deadline over
   };
 
   // Real, last-chance escrow-compatibility gate, parity with web — see
@@ -611,6 +617,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       alert("We don't have an owner ID on record for this agent, so we can't hire it.");
       return;
     }
+    if (deadlineError) return; // real bounds — the button itself is also disabled on this, see below
     try {
       const useBatch = signOnceForAllSteps && canBatchHire === CAN_BATCH_HIRE_STATUS.supported;
       setActiveHireMode(useBatch ? 'batched' : 'stepwise');
@@ -619,6 +626,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
         providerAddress: selectedAgent.ownerAddress,
         providerAgentId: selectedAgent.id,
         budgetUnits: Number(spendCap),
+        expiryMinutes: Number(deadlineMinutes),
         description: (showCustomDescription && customDescription.trim())
           ? customDescription.trim()
           : `Hire via Tnega: ${selectedAgent.name}`,
@@ -795,8 +803,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               </div>
 
               <div className="space-y-6">
+                {/* Unified "how much and how long" step (2026-09-09) — see
+                    the matching comment in AgentMarketplaceApp.web.jsx
+                    (kept in sync). */}
+                <div className="p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/[0.02] space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">How much to pay <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
+                  <label className="block text-sm font-semibold mb-2">How much are you funding this job for? <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
 
                   {/* Live price discovery — see the matching comment
                       in AgentMarketplaceApp.web.jsx (kept in sync). */}
@@ -821,6 +833,39 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                   <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50" />
                   <div className="mt-1.5"><GetULink /></div>
+                </div>
+
+                {/* Real, user-facing job deadline (2026-09-09) — see the
+                    matching comment in AgentMarketplaceApp.web.jsx (kept in
+                    sync) and hireDeadline.js. Scoped to third-party hiring
+                    only — Native Agents and Skills are atomic,
+                    single-transaction actions with no delivery period. */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold mb-2"><Clock size={16} className="text-gray-400" /> How long does the agent have to deliver?</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {DEADLINE_PRESETS.map((p) => (
+                      <button
+                        key={p.minutes}
+                        type="button"
+                        onClick={() => setDeadlineMinutes(p.minutes)}
+                        disabled={hireStep && !hireError}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${Number(deadlineMinutes) === p.minutes ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="number" value={deadlineMinutes} disabled={hireStep && !hireError}
+                    onChange={(e) => setDeadlineMinutes(e.target.value)}
+                    className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1.5">
+                    {deadlineError
+                      ? <span className="text-red-500">{deadlineError}</span>
+                      : <>Minutes ({formatDeadline(deadlineMinutes)}). If the agent hasn't delivered by then, you can reclaim your funds — real minimum {DEADLINE_MIN_MINUTES} min, real maximum {formatDeadline(DEADLINE_MAX_MINUTES)}.</>}
+                  </p>
+                </div>
                 </div>
 
                 <div>
@@ -889,8 +934,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE' : 'HIRE'}
+                <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked || !!deadlineError} className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 active:scale-[0.98] transition-transform disabled:opacity-50">
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE' : deadlineError ? 'FIX THE DEADLINE ABOVE' : 'HIRE'}
                 </button>
               </div>
             </div>

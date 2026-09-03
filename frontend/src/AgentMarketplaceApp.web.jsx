@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot, Clock
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -61,6 +61,7 @@ function QrToMobile() {
   );
 }
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
+import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, DEADLINE_PRESETS, formatDeadline, validateDeadlineMinutes } from './hireDeadline';
 import SessionModesExplainer from './SessionModesExplainer';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
@@ -566,6 +567,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   };
   const [spendCap, setSpendCap] = useState(50000);
   const [spendCapTouched, setSpendCapTouched] = useState(false);
+  // Real, user-facing job deadline (2026-09-09) — previously hardcoded to
+  // DEADLINE_DEFAULT_MINUTES inside useHireAgent.js with no UI control at
+  // all. Defaulting to that same value here preserves the exact prior
+  // real behavior for anyone who never touches this field.
+  const [deadlineMinutes, setDeadlineMinutes] = useState(DEADLINE_DEFAULT_MINUTES);
   // Advanced override for the on-chain job description (default: the plain
   // auto-generated string below). Needed for e.g. hiring an agent that
   // requires a signed-quote-anchored description (see build_job_description)
@@ -664,7 +670,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     setSelectedAgent(agent);
     setHiring(true);
     setSpendCapTouched(false); // fresh agent — let its real price (if any) pre-fill again
+    setDeadlineMinutes(DEADLINE_DEFAULT_MINUTES); // fresh agent — don't carry a prior custom deadline over
   };
+
+  const deadlineError = validateDeadlineMinutes(deadlineMinutes);
 
   // Real, last-chance escrow-compatibility gate for whichever agent the
   // funding modal is currently open for — see EscrowCompatibilityWarning.jsx.
@@ -676,6 +685,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       alert("We don't have an owner ID on record for this agent, so we can't hire it.");
       return;
     }
+    if (deadlineError) return; // real bounds — the button itself is also disabled on this, see below
     try {
       // REAL flow: creates + registers + budgets + approves (if needed) +
       // funds a genuine ERC-8183 job, the user's own connected wallet
@@ -692,6 +702,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
         providerAddress: selectedAgent.ownerAddress,
         providerAgentId: selectedAgent.id,
         budgetUnits: Number(spendCap),
+        expiryMinutes: Number(deadlineMinutes),
         description: (showCustomDescription && customDescription.trim())
           ? customDescription.trim()
           : `Hire via Tnega: ${selectedAgent.name}`,
@@ -1420,35 +1431,76 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <span className="text-xs font-bold uppercase tracking-wide opacity-70">Always Ask</span>
                 </div>
 
-                <div className="mb-6">
-                  <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> How much to pay <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1. It's what you pay agents with here.">($U, worth about $1 each)</span></label>
+                {/* Unified "how much and how long" step (2026-09-09) — the
+                    real amount and the real deadline are both terms of the
+                    same hire, so they live in one bordered section with
+                    consistent visual treatment, not two disconnected
+                    floating inputs. */}
+                <div className="mb-6 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/[0.02] space-y-6">
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> How much are you funding this job for? <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1. It's what you pay agents with here.">($U, worth about $1 each)</span></label>
 
-                  {/* Live price discovery (useAgentQuote) — real gap fixed
-                      2026-08-22: users had no way to know what an agent
-                      actually needed before hiring. Where a real price is
-                      knowable, say so and pre-fill it; where it isn't, say
-                      that plainly too, rather than leave a silent guess. */}
-                  {agentQuote.status === 'loading' && (
-                    <div className="mb-2 flex items-center gap-1.5 text-xs text-gray-400">
-                      <Loader2 size={12} className="animate-spin" /> Checking what this agent charges…
-                    </div>
-                  )}
-                  {agentQuote.status === 'available' && (
-                    <div className="mb-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
-                      <strong>This agent charges {agentQuote.priceUnits} $U.</strong> We got this straight from the agent itself — filled in below, no need to guess.
-                      {spendCapTouched && Number(spendCap) < agentQuote.priceUnits && (
-                        <span className="block mt-1 text-amber-700 dark:text-amber-400">You've entered less than that — we'll automatically pay at least {agentQuote.priceUnits} $U, since the agent won't accept less.</span>
-                      )}
-                    </div>
-                  )}
-                  {agentQuote.status === 'unavailable' && (
-                    <div className="mb-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
-                      This agent hasn't told us what it charges, so you're picking the amount yourself. Heads up: if you enter too little, the agent may not accept the job.
-                    </div>
-                  )}
+                    {/* Live price discovery (useAgentQuote) — real gap fixed
+                        2026-08-22: users had no way to know what an agent
+                        actually needed before hiring. Where a real price is
+                        knowable, say so and pre-fill it; where it isn't, say
+                        that plainly too, rather than leave a silent guess. */}
+                    {agentQuote.status === 'loading' && (
+                      <div className="mb-2 flex items-center gap-1.5 text-xs text-gray-400">
+                        <Loader2 size={12} className="animate-spin" /> Checking what this agent charges…
+                      </div>
+                    )}
+                    {agentQuote.status === 'available' && (
+                      <div className="mb-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
+                        <strong>This agent charges {agentQuote.priceUnits} $U.</strong> We got this straight from the agent itself — filled in below, no need to guess.
+                        {spendCapTouched && Number(spendCap) < agentQuote.priceUnits && (
+                          <span className="block mt-1 text-amber-700 dark:text-amber-400">You've entered less than that — we'll automatically pay at least {agentQuote.priceUnits} $U, since the agent won't accept less.</span>
+                        )}
+                      </div>
+                    )}
+                    {agentQuote.status === 'unavailable' && (
+                      <div className="mb-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+                        This agent hasn't told us what it charges, so you're picking the amount yourself. Heads up: if you enter too little, the agent may not accept the job.
+                      </div>
+                    )}
 
-                  <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
-                  <div className="mt-1.5"><GetULink /></div>
+                    <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
+                    <div className="mt-1.5"><GetULink /></div>
+                  </div>
+
+                  {/* Real, user-facing job deadline (2026-09-09) — previously
+                      hardcoded to 65 minutes with no control in this modal at
+                      all (confirmed by reading useHireAgent.js's own hire()
+                      signature before building this). Scoped to third-party
+                      hiring only: Native Agents and Skills are atomic,
+                      single-transaction actions with no delivery period, so
+                      no deadline concept applies there — see hireDeadline.js. */}
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Clock size={16} className="text-gray-400" /> How long does the agent have to deliver?</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {DEADLINE_PRESETS.map((p) => (
+                        <button
+                          key={p.minutes}
+                          type="button"
+                          onClick={() => setDeadlineMinutes(p.minutes)}
+                          disabled={hireStep && !hireError}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${Number(deadlineMinutes) === p.minutes ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-300'}`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    <input
+                      type="number" value={deadlineMinutes} disabled={hireStep && !hireError}
+                      onChange={(e) => setDeadlineMinutes(e.target.value)}
+                      className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
+                    />
+                    <p className="text-[11px] text-gray-400 mt-1.5">
+                      {deadlineError
+                        ? <span className="text-red-500">{deadlineError}</span>
+                        : <>Minutes ({formatDeadline(deadlineMinutes)}). If the agent hasn't delivered by then, you can reclaim your funds — real minimum {DEADLINE_MIN_MINUTES} min, real maximum {formatDeadline(DEADLINE_MAX_MINUTES)}.</>}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Advanced: override the on-chain job description. Off by
@@ -1530,8 +1582,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   </div>
                 )}
 
-                <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
-                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE TO CONTINUE' : 'HIRE'}
+                <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked || !!deadlineError} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
+                  {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE TO CONTINUE' : deadlineError ? 'FIX THE DEADLINE ABOVE' : 'HIRE'}
                 </button>
               </div>
             </div>
