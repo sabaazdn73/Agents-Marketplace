@@ -73,11 +73,37 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     full_agent_registry (core/aggregate.py) — deleting here, before a
     no-endpoint agent is ever available to be diversified into
     known_agents, means the same real policy propagates there
-    automatically going forward, with no separate logic needed."""
+    automatically going forward, with no separate logic needed.
+
+    URGENT real correction (2026-09-11, found while scoping this policy to
+    every chain as requested — checked before extending it, not assumed):
+    check_agents_health()'s own tokenURI lookup is hardcoded to ONE
+    contract address (core/agent_health.py's IDENTITY_REGISTRY) read via
+    ONE BSC-only RPC (core/rpc.py's get_bsc_rpc_url()). It has no per-chain
+    awareness at all. For a non-BSC agent, this reads BSC's own registry
+    for that agent's real token_id — which almost never exists there — so
+    the multicall finds nothing, and the exact same code path a genuinely
+    empty tokenURI takes fires: `service_status` comes back "no_endpoint"
+    for reasons that have nothing to do with whether the agent's OWN chain
+    has a real endpoint for it. This is a real, confirmed false-positive
+    machine for every chain except BSC, not a partial/best-effort signal —
+    live-confirmed against the real breakdown data from the original
+    2026-09-11 cleanup, which already (before this fix) deleted 26,472
+    Base, 14,114 Ethereum, and 793 Solana docs under this same unreliable
+    "no_endpoint" signal, alongside the real 135,312 BSC ones. That
+    specific loss can't be undone; this fix stops it from continuing.
+
+    Real fix: this batch now only ever pulls chain_id 56 (BSC) docs — the
+    one chain IDENTITY_REGISTRY/get_bsc_rpc_url() actually correspond to.
+    Every other chain's docs are left with no `service_status` at all
+    (genuinely unanalyzed, not mislabeled) until real, chain-specific
+    identity-registry addresses and RPC endpoints exist to check them
+    properly — a real, separate, not-yet-scoped piece of work, not
+    something to fake with the wrong chain's data in the meantime."""
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
 
-    docs = await col.find({"service_status": {"$exists": False}}).limit(batch_size).to_list(length=batch_size)
+    docs = await col.find({"chain_id": 56, "service_status": {"$exists": False}}).limit(batch_size).to_list(length=batch_size)
     if not docs:
         return {"checked": 0, "done": True}
 
@@ -119,10 +145,19 @@ async def get_unanalyzed_backlog() -> int:
     Deliberately a single, cheap count_documents call, not the fuller
     compute_full_registry_stats() below, which runs several additional
     aggregations this pacing check doesn't need and shouldn't pay for on
-    every loop iteration."""
+    every loop iteration.
+
+    Scoped to chain_id 56 (2026-09-11), matching run_analysis_batch's own
+    real BSC-only scoping above: every non-BSC doc is now permanently
+    unanalyzed (no chain-aware health-check exists yet), so counting them
+    here would make this number grow forever regardless of real BSC
+    analysis capacity, and would eventually trip
+    INGEST_BACKLOG_PAUSE_THRESHOLD for a reason that has nothing to do
+    with what this pacing guarantee actually protects — BSC ingestion
+    correctly outrunning BSC analysis capacity."""
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
-    return await col.count_documents({"service_status": {"$exists": False}})
+    return await col.count_documents({"chain_id": 56, "service_status": {"$exists": False}})
 
 
 async def compute_full_registry_stats() -> dict:
