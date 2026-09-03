@@ -103,6 +103,22 @@ never contain a Solana item). See docs/full-registry-analysis.md.
 
 Real max page size, confirmed live: 100 (server-enforced 422 above that),
 same limit for the Solana-specific query path.
+
+Permanent no-endpoint deletion policy (added 2026-09-11): an agent with a
+genuinely empty/missing service endpoint is never kept in
+`full_agent_registry` — real, decisive precedent from a one-time cleanup
+that found 176,691 docs (61% of the collection) in exactly this state,
+confirmed unambiguously unreachable and safe to delete. Deliberately NOT
+implemented in THIS module, even though it's the obvious first place to
+look: ingestion only has whatever 8004scan's own /api/v1/agents listing
+endpoint returns, which carries no endpoint/service field at all (checked
+directly, not assumed — see core/agent_health.py's own docstring for the
+same real finding). Only the on-chain tokenURI resolution
+full_registry_analysis.py's own health-check pass does can determine
+this, so that's where the real deletion happens, the moment an agent is
+first confirmed no_endpoint rather than after it's been stored — see
+run_analysis_batch's own docstring there for the real policy and its
+reasoning.
 """
 
 from __future__ import annotations

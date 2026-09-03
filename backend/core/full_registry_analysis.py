@@ -44,7 +44,36 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     `full_bsc_registry` that have never been health-checked, categorizes
     them (cheap, synchronous, no network) and health-checks them (real
     HTTP, the slow part), writes results back onto each doc. Returns a
-    real summary; `done: True` once nothing is left to check."""
+    real summary; `done: True` once nothing is left to check.
+
+    Real, permanent no-endpoint policy (added 2026-09-11, after a real,
+    one-time cleanup found 176,691 full_agent_registry docs — 61% of the
+    collection — permanently, unambiguously unreachable, confirmed via
+    the exact same service_status == "no_endpoint" signal this function
+    computes): an agent whose tokenURI is empty or whose resolved
+    metadata has no services[] with an http(s) endpoint isn't stored with
+    that status, it's DELETED here, the moment this analysis pass
+    confirms it. There's no real path to ever hiring or interacting with
+    an agent that was never given an endpoint at registration — keeping
+    it costs real, scarce storage for zero real benefit. This is
+    deliberately narrower than "unreachable": an endpoint that's merely
+    not_responding right now, or a tokenURI/metadata fetch that failed
+    for OUR pipeline's own reasons (service_status == "unknown" — see
+    core/agent_health.py's own real state-model docstring) is NEVER
+    deleted here, only genuinely confirmed no_endpoint. Real ingestion
+    time (full_registry_ingest.py) can't apply this same filter itself —
+    checked directly: 8004scan's own /api/v1/agents listing endpoint
+    (what ingestion reads) carries no endpoint/service field at all, only
+    the later on-chain tokenURI resolution this analysis pass does can
+    determine it — so this is the one, real, correct place the rule can
+    actually run at the moment the information first becomes available,
+    not a workaround.
+
+    known_agents is a downstream, diversified subset of
+    full_agent_registry (core/aggregate.py) — deleting here, before a
+    no-endpoint agent is ever available to be diversified into
+    known_agents, means the same real policy propagates there
+    automatically going forward, with no separate logic needed."""
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
 
@@ -59,9 +88,15 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
 
     health_results = await check_agents_health(docs)
 
+    deleted_no_endpoint = 0
     for d in docs:
-        update = {"category": d["category"]}
         h = health_results.get(d.get("id"))
+        if h and h.get("service_status") == "no_endpoint":
+            await col.delete_one({"_id": d["_id"]})
+            deleted_no_endpoint += 1
+            continue
+
+        update = {"category": d["category"]}
         if h:
             update.update(h)
         else:
@@ -72,7 +107,7 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
             update.setdefault("service_checked_at", time.time())
         await col.update_one({"_id": d["_id"]}, {"$set": update})
 
-    return {"checked": len(docs), "done": False}
+    return {"checked": len(docs), "deleted_no_endpoint": deleted_no_endpoint, "done": False}
 
 
 async def get_unanalyzed_backlog() -> int:
@@ -96,7 +131,14 @@ async def compute_full_registry_stats() -> dict:
     full_registry_ingest.get_progress()'s `completed_at` is set AND
     `total_analyzed` below equals `total_ingested`. Callers must report
     both together, not this alone, to avoid implying completeness that
-    isn't real yet."""
+    isn't real yet.
+
+    `no_endpoint` will structurally stay at/near zero from 2026-09-11
+    onward, by design — see run_analysis_batch's own docstring on the
+    permanent no-endpoint deletion policy. A confirmed no_endpoint agent
+    is deleted the moment it's found, not stored with that status, so
+    this count only ever reflects a real, momentary in-flight batch, not
+    an accumulating population the way it did before that policy."""
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
 
