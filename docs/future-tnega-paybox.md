@@ -139,6 +139,27 @@ Checked whether a different settlement rail sidesteps the chain problem entirely
 
 The tradeoff: going this route means Tnega PayBox settles to a **bank payout** (or whatever card-topup rail MoonPay/Transak themselves offer), not specifically a *self-custody Mastercard debit card* the way the original MetaMask Card concept was. That's a different product shape — "instant, no-bridge fiat off-ramp for a checkout" rather than "spend BSC crypto on any card anywhere" — worth deciding on explicitly rather than treating as equivalent. It is, however, the one path here that's actually buildable against BSC today, with no dependency on an external company lifting a signup pause or adding chain support.
 
+## A production reference case: Pay.sh
+
+Confirmed live 2026-09-03, directly against Solana Foundation's own announcement, pay.sh itself, and its GitHub repo — not just cited secondhand: [Pay.sh](https://pay.sh) is a live, no-waitlist gateway the Solana Foundation built with Google Cloud, letting AI agents (Claude, Gemini, Codex, and others named on the launch page) pay per API call in stablecoins over Solana, built on x402 plus a metering layer called MPP.
+
+- **Genuinely sub-cent pricing, confirmed on the live registry**: several listed services, including two from Alibaba Cloud (Facebody, Image Segmentation), price calls at $0.001 — Alibaba Cloud is a real, present provider in Pay.sh's own registry, not just a rumored partner.
+- **Ships a real MCP integration**: `pay --sandbox claude` wires Pay MCP tools straight into Claude Code — an agent framework gets paid-API access as a tool call, no separate payment integration to build.
+- **Open source**: `github.com/solana-foundation/pay`.
+- Solana's own announcement describes settlement completing "in seconds," reconciled with the provider afterward. A faster, more specific latency figure and a "Payment Channels" throughput upgrade have both been reported for Pay.sh elsewhere, but neither was independently confirmable against Solana Foundation's own materials or the GitHub repo as of this check — worth re-verifying directly before citing a specific number, not repeating secondhand.
+
+Why this belongs in this doc: it's a working, in-production instance of the exact model Tnega PayBox was scoped around — an agent pays per call, no account, no manual off-ramp — just built on Solana with stablecoins instead of BSC with MetaMask Card. It's independent evidence the model is sound. It doesn't remove either BSC-specific blocker documented above.
+
+## Real inspiration, multi-chain direction (future, larger scope)
+
+Noted 2026-09-03, explicitly not scoped or designed, not a near-term next step — recorded so it isn't lost.
+
+Everything above scopes Tnega PayBox narrowly to one chain: BSC in, one settlement rail out (bridge-to-MetaMask-Card, or a direct BSC off-ramp like MoonPay). Pay.sh's own design points at a larger direction worth recording. From the paying agent's side, Pay.sh doesn't care which chain settles a given call — it just picks whichever facilitator underneath makes sense. Tnega PayBox could eventually work the same way: rather than committing to one settlement rail, let an agent hired through or discovered via Tnega settle across whichever chain is genuinely cheapest or fastest for that specific transaction — BSC direct via MoonPay when the buyer already holds BNB-chain assets, a Pay.sh-shaped Solana path when the agent's own stablecoins already sit there, a bridged path when neither applies.
+
+This isn't a new discipline invented for this note — it's the same one the project's own Trading Agent already applies by comparing PancakeSwap, Biswap, and ApeSwap quotes live rather than assuming one DEX is the right venue, applied one layer up, to settlement rails instead of swap venues.
+
+This sits on top of, not in place of, the BSC-specific research above, which stays the concrete near-term path if this is picked back up.
+
 ## Recommended next steps, when this is picked back up
 
 1. Recheck both MetaMask Card constraints (BSC chain support, US signup pause) before writing any code.
