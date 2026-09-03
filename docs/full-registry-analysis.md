@@ -209,6 +209,26 @@ Real, precise, and deliberately narrow: an agent whose on-chain `tokenURI` is em
 
 `run_analysis_batch()` had no chain filter when the ongoing-enforcement policy above first shipped, so it ran (and deleted) across every chain in `full_agent_registry`. The one-time cleanup's own real breakdown data shows the actual damage: of the 176,691 docs deleted, 135,312 were BSC, but 26,472 were Base, 14,114 were Ethereum, and 793 were Solana — all removed under this same unreliable signal. That specific loss can't be undone. Fixed the same day: `run_analysis_batch()` and `get_unanalyzed_backlog()` are now scoped to `chain_id: 56` only; every other chain's docs are left genuinely unanalyzed (no `service_status` at all) rather than mislabeled, until real, chain-specific identity-registry addresses and RPC endpoints exist to check them properly — separate, not-yet-scoped work, not something to fake with BSC's data in the meantime.
 
+## Recovering the wrongly-deleted Base/Ethereum/Solana agents (2026-09-11)
+
+MongoDB Atlas backups are inactive on this cluster, so there was no backup to restore the 26,472 Base, 14,114 Ethereum, and 793 Solana docs from. The correct recovery path is re-ingestion — 8004scan itself, the original source, was never touched by the bug above, so every one of those agents is still there to re-fetch.
+
+Checked before assuming re-ingestion would happen on its own: both real checkpoints covering the affected chains had `completed_at` set — `multi_chain_evm` (the shared BSC/Ethereum/Base scan) had reached `next_offset: 809,500` against a reported total of 802,403, and `solana_mainnet` had reached `next_offset: 2,000` against a reported 1,464. Both pipelines believed they'd already covered the full registry and would never naturally restart from offset 0 to re-fetch what was deleted.
+
+Reset both checkpoints directly: `next_offset` and `total_ingested` back to 0, `completed_at` cleared, with the pre-reset values preserved on the same doc (`next_offset_before_recovery_reset`, `total_ingested_before_recovery_reset`) rather than discarded, plus a `recovery_reset_reason` field stating why. Reset to offset 0, not a partial rollback — the deleted agents could be anywhere across the entire previously-scanned range, so a full re-scan is what's actually necessary to guarantee recovering all of them, not overcautious. Re-scanning also re-touches every already-correct BSC doc along the way, which is harmless: the ingest loop's own `$set`-only merge means a re-upserted agent that already exists just gets its raw listing fields refreshed, nothing is duplicated or lost.
+
+Real, deliberate consequence, expected and accepted: re-ingestion pulls back every agent for these chains, including ones that were genuinely no-endpoint before the bug existed, not just the wrongly-deleted 41,279. That's fine — without chain-aware health-checking (still not built for anything but BSC), a re-ingested non-BSC agent simply sits with no `service_status` at all now, per the fix above, rather than being wrongly deleted again.
+
+**Real, live-verified recovery in progress**, both from manually triggered batches and the already-running background worker picking up the same reset checkpoint on its own real schedule:
+
+| Chain | Before reset | After this session's recovery work | Status |
+|---|---|---|---|
+| Solana | 669 | **1,465** | Fully recovered — matches the real ~1,464 total, `reached_end: true` |
+| Base | 20,558 | 34,025 (+13,467) | Recovering, in progress |
+| Ethereum | 10,711 | 10,910 (+199) | Recovering, in progress (Ethereum agents are sparser per page in the shared scan than Base/BSC, so real progress here is naturally slower) |
+
+Base and Ethereum recovery continues on the normal, already-proven schedule (the background worker plus the 6-hourly GitHub Actions batch) — the same resumable, checkpointed mechanism this entire pipeline has always relied on, not something that needs manual babysitting to finish. `GET /api/full-registry-progress` remains the live, checkable source for current counts.
+
 ## Render Workflows evaluated as a replacement for this manual pipeline (2026-08-27)
 
 Live-verified against Render's own current docs (not assumed): this pipeline's pain point is exactly what Render Workflows is built for: automatic checkpointed resume after a crash, per-task retry logic, and massively parallel execution, instead of the current manual `full_registry_scan ingest`/`analyze` invocations this project has been running by hand in the background.
