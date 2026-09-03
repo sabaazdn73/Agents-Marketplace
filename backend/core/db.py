@@ -5,9 +5,11 @@ The one shared MongoDB client, real and lazy-initialized on first use.
 
 Pulled out of practice_layer.py (2026-08-26, when Practice Mode was fully
 removed from this project) since agent_store.py, status_checks.py, and
-future_chains.py all depended on this one function and had nothing else to
-do with the Practice Layer — this is genuinely shared infrastructure, not
-Practice-Mode-specific.
+future_chains.py (itself later removed 2026-09-10, along with its own
+now-superseded future_multichain_agents collection — see
+core/full_registry_ingest.py's docstring) all depended on this one
+function and had nothing else to do with the Practice Layer — this is
+genuinely shared infrastructure, not Practice-Mode-specific.
 """
 
 import os

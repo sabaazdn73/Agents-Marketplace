@@ -67,11 +67,16 @@ to TARGET_CHAIN_IDS below — the same real per-page-mix efficiency
 argument applies again: every raw page this pipeline already scans for
 BSC/Base may also contain real Ethereum agents, so adding a third chain_id
 to the same filter costs zero additional real API calls, just captures
-more of what's already being read past. `future_multichain_agents` is
-left in place as real, historical data (not deleted), but is no longer
-the only real source for Ethereum — this pipeline now accumulates real,
-repeatable Ethereum coverage into `full_agent_registry` the same way it
-already does for BSC and Base.
+more of what's already being read past. `future_multichain_agents` was
+kept in place as historical data for a while after this, no longer the
+only source for Ethereum but not yet redundant either. Deleted 2026-09-10
+(along with core/future_chains.py, the module that wrote it, and
+adapters/multichain_agents.py, which only that module used) once
+directly confirmed — checked live, not assumed — that all 62 of its real
+docs already existed in `full_agent_registry` (which has 16,284 real
+Ethereum agents now, vastly more complete), part of a real, safe-data
+cleanup pass to reclaim space on a MongoDB Atlas free-tier cluster that
+had hit its 512MB quota.
 
 Real, honest correction (2026-08-28): the paragraph that used to be here
 claimed Solana needed "its own real, separate integration (Solana RPC /
@@ -114,6 +119,39 @@ FULL_REGISTRY_COLLECTION = "full_agent_registry"
 PROGRESS_COLLECTION = "full_registry_ingest_progress"
 PROGRESS_DOC_ID = "multi_chain_evm"
 
+# Real, added 2026-09-02 (live incident): a genuine, confirmed real-time
+# investigation found 8004scan's own API had gotten unreliable enough at
+# extreme pagination depth (~84% through the registry, offset ~668,900)
+# that the checkpoint below stalled for ~70 real hours across 13
+# consecutive scheduled batch failures — the strict in-order checkpoint
+# guarantee (see run_ingest_batch's own docstring) meant one persistently
+# flaky page blocked every page after it, forever, even though most
+# nearby offsets were fetchable fine. Real, live-confirmed the failure
+# mode is genuine flakiness (some requests at the same offset succeed,
+# others time out or 500), not a hard, permanent block on one exact
+# offset — so this collection exists to make forward progress possible
+# without silently losing data: a page that still fails after its own
+# internal retry budget is SKIPPED (checkpoint advances past it) rather
+# than blocking the whole pipeline, but is recorded here — offset, when,
+# how many times, the real last error — so it can be, and automatically
+# is (see retry_skipped_offsets below), retried later once 8004scan
+# recovers at this depth. A doc here is deleted once a retry actually
+# succeeds; this collection is never meant to grow forever, only to hold
+# real, currently-unresolved gaps.
+SKIPPED_OFFSETS_COLLECTION = "full_registry_skipped_offsets"
+
+# A real, deliberately small per-batch ceiling on how many NEW pages can be
+# skipped in one run_ingest_batch call. Guards against the different real
+# failure mode this isn't meant to handle silently: a genuine, broad
+# 8004scan outage (not just this-depth flakiness) would otherwise let the
+# pipeline skip through hundreds of pages in one batch, silently treating
+# a real outage as a pile of individually-bad pages. Hitting this ceiling
+# stops the batch the same way an unhandled failure used to (see
+# stopped_reason) rather than skipping further, so a real, widespread
+# outage still shows up as a real, honest stall, not silent data loss at
+# scale.
+MAX_NEW_SKIPS_PER_BATCH = 5
+
 # Real, confirmed-live target chains for the SHARED, unfiltered-page-mixing
 # scan (see module docstring for the real per-chain figures behind this
 # choice, and for why Ethereum — chain 1 — was added 2026-08-27 after
@@ -130,6 +168,24 @@ TARGET_CHAIN_IDS = {1, 56, 8453}
 # multi-chain page-mixing scan.
 SOLANA_CHAIN_ID = 101
 SOLANA_PROGRESS_DOC_ID = "solana_mainnet"
+
+# Real, additional single-chain registries (2026-09-10) — same real
+# reasoning as Solana above: none of these chain_ids are in
+# TARGET_CHAIN_IDS, so none of them ever ride along for free in the
+# shared page-mixing scan; each needs its own real,
+# server-side-filtered list_agents_by_chain_id pass and its own real
+# progress checkpoint. Real, live totals confirmed via 8004scan
+# (2026-09-10): Monad 10,158, Billions Network 25,977 (a real, separate
+# proof-of-personhood/AI-agent-verification network, distinct from the
+# BNB/World-ID work investigated elsewhere in this project), Robinhood
+# Chain 32, Celo 9,759, Arbitrum 1,377.
+ADDITIONAL_CHAINS = {
+    "monad": 143,
+    "billions": 45056,
+    "robinhood": 4663,
+    "celo": 42220,
+    "arbitrum": 42161,
+}
 
 PAGE_SIZE = 100  # real, confirmed server-enforced max — see module docstring
 REQUEST_TIMEOUT = 90.0  # generous — real, measured deep-offset requests already take 45s+
@@ -187,6 +243,119 @@ async def get_solana_progress() -> dict:
     return await _get_progress(SOLANA_PROGRESS_DOC_ID)
 
 
+def _additional_chain_progress_doc_id(name: str) -> str:
+    return f"chain_{name}"
+
+
+async def get_additional_chains_progress() -> dict:
+    """Real, current progress for every ADDITIONAL_CHAINS entry — same
+    real shape as get_progress()/get_solana_progress() above, one real
+    checkpoint per chain."""
+    return {
+        name: await _get_progress(_additional_chain_progress_doc_id(name))
+        for name in ADDITIONAL_CHAINS
+    }
+
+
+async def _record_skipped_offset(offset: int, error: str) -> None:
+    """Real, upserted record of one page that failed after exhausting its
+    own internal retries — see SKIPPED_OFFSETS_COLLECTION's own docstring.
+    `skip_count` and `last_skipped_at`/`last_error` update every time the
+    SAME offset fails again (e.g. a later retry attempt also fails);
+    `first_skipped_at` is set once, never overwritten."""
+    db = get_db()
+    now = time.time()
+    await db[SKIPPED_OFFSETS_COLLECTION].update_one(
+        {"_id": offset},
+        {
+            "$set": {"last_skipped_at": now, "last_error": error[:300]},
+            "$setOnInsert": {"first_skipped_at": now},
+            "$inc": {"skip_count": 1},
+        },
+        upsert=True,
+    )
+
+
+async def get_skipped_offsets_summary() -> dict:
+    """Real, live summary for /api/full-registry-progress — a count (so a
+    genuinely growing number is visible at a glance) plus a bounded sample
+    (oldest-first, so the longest-unresolved real gaps are the ones shown,
+    not an arbitrary slice) — never the full list unbounded, same
+    discipline as every other public aggregate this project exposes."""
+    db = get_db()
+    count = await db[SKIPPED_OFFSETS_COLLECTION].count_documents({})
+    sample = await db[SKIPPED_OFFSETS_COLLECTION].find(
+        {}, sort=[("first_skipped_at", 1)], limit=20,
+    ).to_list(length=20)
+    return {
+        "count": count,
+        "oldest_unresolved": [
+            {"offset": d["_id"], "skip_count": d.get("skip_count", 1),
+             "first_skipped_at": d.get("first_skipped_at"), "last_error": d.get("last_error")}
+            for d in sample
+        ],
+    }
+
+
+async def retry_skipped_offsets(api_key: str, max_seconds: float = 20.0) -> dict:
+    """Real, bounded attempt to recover previously-skipped pages (oldest
+    first) — called automatically at the start of every real
+    run_ingest_batch (see below) so every real 6-hourly cycle gives
+    8004scan's own API another real chance to have recovered at this
+    depth, with zero extra scheduling/endpoints needed. A real success
+    upserts that page's real agents into full_agent_registry exactly like
+    the main forward scan does, then DELETES the skip record (it's no
+    longer a real gap). A real failure just updates the existing record's
+    skip_count/last_error and moves on — never blocks or re-raises, since
+    a still-failing page here is expected, not a new problem."""
+    db = get_db()
+    docs = await db[SKIPPED_OFFSETS_COLLECTION].find(
+        {}, sort=[("first_skipped_at", 1)],
+    ).to_list(length=None)
+
+    t0 = time.time()
+    recovered = 0
+    still_failing = 0
+    agents_recovered = 0
+    for doc in docs:
+        if time.time() - t0 > max_seconds:
+            break
+        offset = doc["_id"]
+        try:
+            agents, _total, _raw_len = await bsc.list_agents_for_chains(
+                api_key, TARGET_CHAIN_IDS, offset=offset, limit=PAGE_SIZE,
+                timeout=REQUEST_TIMEOUT, max_retries=2,  # lighter retry here — the main loop's own retry already ran once for this exact offset before it ever landed here
+            )
+        except Exception as e:
+            still_failing += 1
+            await _record_skipped_offset(offset, f"{type(e).__name__}: {e}")
+            continue
+
+        if agents:
+            ops = []
+            for a in agents:
+                real_id = a.get("id")
+                if not real_id:
+                    continue
+                d = dict(a)
+                d["_id"] = real_id
+                d["_ingested_at"] = time.time()
+                ops.append(d)
+            if ops:
+                await db[FULL_REGISTRY_COLLECTION].bulk_write(
+                    [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
+                    ordered=False,
+                )
+                agents_recovered += len(ops)
+        await db[SKIPPED_OFFSETS_COLLECTION].delete_one({"_id": offset})
+        recovered += 1
+        print(f"[full_registry_ingest] RECOVERED previously-skipped offset {offset} "
+              f"({len(agents)} real agents, was skipped {doc.get('skip_count', 1)}x)")
+
+    return {"recovered": recovered, "still_failing": still_failing,
+            "agents_recovered": agents_recovered, "elapsed_seconds": round(time.time() - t0, 1)}
+
+
 async def run_ingest_batch(
     api_key: str, max_seconds: float = 600.0, max_pages: int | None = None,
     concurrency: int = INGEST_CONCURRENCY,
@@ -200,25 +369,44 @@ async def run_ingest_batch(
 
     Real, concurrent fetching (2026-08-29) — see INGEST_CONCURRENCY's own
     docstring for the real, live-measured evidence behind this. Pages are
-    fetched `concurrency` at a time via a real, live-parallel window, but
-    each window's real results are still processed and checkpointed
-    strictly IN OFFSET ORDER, one at a time — a later offset in the same
-    window succeeding never lets the checkpoint skip past an earlier one
-    that failed. `next_offset` only advances past a page once its real
-    upserts have already landed in Mongo; a genuine failure anywhere in a
-    window stops that window at the last real, successfully-checkpointed
-    offset, exactly the same honest, no-data-loss guarantee the original
-    serial version had — concurrency changes how fast pages are FETCHED,
-    never how carefully their results are committed."""
+    fetched `concurrency` at a time via a real, live-parallel window, and
+    each window's real results are still processed strictly IN OFFSET
+    ORDER, one at a time — `next_offset` only advances past a page once
+    it's been either successfully upserted OR recorded as a real, logged
+    skip (see below), never silently, out of order.
+
+    Real fix (2026-09-02, live incident — see SKIPPED_OFFSETS_COLLECTION's
+    own docstring for the full real investigation): a page that still
+    fails after its own internal retry budget (6 attempts) no longer
+    stops the whole batch forever. It's SKIPPED — checkpoint advances past
+    it, a clear log line is printed, and it's recorded in
+    full_registry_skipped_offsets for automatic later retry (this
+    function calls retry_skipped_offsets itself, first, every real
+    invocation) — bounded by MAX_NEW_SKIPS_PER_BATCH so a genuine, broad
+    8004scan outage still stops the batch honestly (stopped_reason) rather
+    than skipping through it silently at scale. This replaces the
+    original, stricter "one failure stops the whole window, no data lost,
+    no forward progress either" behavior, which is exactly what let a
+    single persistently-flaky depth stall real ingestion for ~70 real
+    hours across 13 consecutive scheduled runs before this fix."""
     db = get_db()
     progress = await _get_progress()
     if progress.get("started_at") is None:
         progress["started_at"] = time.time()
 
+    # Real, automatic recovery attempt — every real invocation gives
+    # previously-skipped pages a bounded chance to succeed now, before any
+    # new forward progress this call makes. A small, fixed sub-budget
+    # (not carved out of max_seconds) — this is deliberately allowed to
+    # add a little real wall time on top, since it's the one bounded thing
+    # standing between a skip and it being retried at all.
+    retry_result = await retry_skipped_offsets(api_key, max_seconds=15.0)
+
     offset = progress["next_offset"]
     pages_done = 0
     agents_this_batch = 0
     by_chain_this_batch: dict[int, int] = {}
+    pages_skipped_this_batch = 0
     t0 = time.time()
     reached_end = False
     stopped_early = False
@@ -245,14 +433,35 @@ async def run_ingest_batch(
             return_exceptions=True,
         )
 
-        for result in results:
+        for i, result in enumerate(results):
+            page_offset = window_offsets[i]
+
             if isinstance(result, Exception):
-                stopped_reason = f"error: {type(result).__name__}: {result}"
-                progress["last_error"] = f"{type(result).__name__}: {result}"[:300]
+                error_str = f"{type(result).__name__}: {result}"
+                if pages_skipped_this_batch >= MAX_NEW_SKIPS_PER_BATCH:
+                    # Real safety ceiling hit — stop honestly instead of
+                    # skipping further, in case this is a genuine, broad
+                    # 8004scan outage rather than this-depth flakiness.
+                    stopped_reason = (f"hit MAX_NEW_SKIPS_PER_BATCH ({MAX_NEW_SKIPS_PER_BATCH}) at "
+                                       f"offset {page_offset}: {error_str}")
+                    progress["last_error"] = stopped_reason[:300]
+                    progress["last_run_at"] = time.time()
+                    await _save_progress(progress)
+                    stopped_early = True
+                    break
+
+                print(f"[full_registry_ingest] offset {page_offset} failed after internal retries, "
+                      f"SKIPPING (recorded for automatic later retry): {error_str}")
+                await _record_skipped_offset(page_offset, error_str)
+                pages_skipped_this_batch += 1
+
+                offset = page_offset + PAGE_SIZE
+                pages_done += 1
+                progress["next_offset"] = offset
                 progress["last_run_at"] = time.time()
+                progress["last_error"] = f"offset {page_offset} skipped: {error_str}"[:300]
                 await _save_progress(progress)
-                stopped_early = True
-                break
+                continue
 
             agents, total, raw_len = result
             progress["total_server_reported"] = total
@@ -283,7 +492,7 @@ async def run_ingest_batch(
                     )
                     agents_this_batch += len(ops)
 
-            offset += PAGE_SIZE
+            offset = page_offset + PAGE_SIZE
             pages_done += 1
             progress["next_offset"] = offset
             progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
@@ -305,30 +514,34 @@ async def run_ingest_batch(
         "pages_done": pages_done, "agents_ingested": agents_this_batch,
         "by_chain": by_chain_this_batch, "next_offset": offset, "reached_end": reached_end,
         "stopped_reason": stopped_reason,
+        "pages_skipped_this_batch": pages_skipped_this_batch,
+        "recovered_skipped_offsets": retry_result,
         "elapsed_seconds": round(time.time() - t0, 1),
     }
 
 
-async def run_solana_ingest_batch(api_key: str, max_seconds: float = 60.0, max_pages: int | None = None) -> dict:
-    """Real, resumable Solana-specific ingestion batch — added 2026-08-28
-    once 8004scan's own real `chain_id=101` filtering was confirmed live
-    (see this module's own docstring for the full real correction). Same
-    real resumable/checkpointed shape as run_ingest_batch above (own
-    progress doc, own upserts into the SAME `full_agent_registry`
-    collection per the real "store Solana the same way Base/Ethereum are
-    stored" requirement), but calls adapters/bsc.py's
-    list_agents_by_chain_id (real, correctly server-side-filtered) instead
-    of list_agents_for_chains (real, deliberately-unfiltered page mixing) —
-    Solana never appears in the latter, confirmed live, so reusing it here
-    would silently ingest nothing.
-
-    Real, live-confirmed scale (~1,462 total Solana agents, page size 100)
-    means a full real backfill is only ~15 pages — the default 60s budget
-    is already generous for that in one call; kept resumable/checkpointed
-    regardless, both for real ongoing catch-up as new Solana agents
-    register and for simple, uniform consistency with the EVM path."""
+async def _run_single_chain_ingest_batch(
+    api_key: str, chain_id: int, progress_doc_id: str,
+    max_seconds: float = 60.0, max_pages: int | None = None,
+) -> dict:
+    """The one, real, shared single-chain (server-side chain_id-filtered)
+    ingest loop. Originally built for Solana (2026-08-28) once 8004scan's
+    own real `chain_id=101` filtering was confirmed live (see this
+    module's own docstring for the full real correction); generalized
+    2026-09-10 so ADDITIONAL_CHAINS (Monad/Billions Network/Robinhood
+    Chain/Celo/Arbitrum) can reuse the exact same real, proven logic
+    instead of five near-duplicate copies. Same real resumable/
+    checkpointed shape as run_ingest_batch above (own progress doc per
+    chain, own upserts into the SAME `full_agent_registry` collection
+    per the real "store every chain the same way" requirement), but
+    calls adapters/bsc.py's list_agents_by_chain_id (real, correctly
+    server-side-filtered) instead of list_agents_for_chains (real,
+    deliberately-unfiltered page mixing) — none of these chain_ids are
+    in TARGET_CHAIN_IDS, confirmed live the same way Solana was, so
+    reusing the shared scan here would silently ingest nothing for any
+    of them."""
     db = get_db()
-    progress = await _get_progress(SOLANA_PROGRESS_DOC_ID)
+    progress = await _get_progress(progress_doc_id)
     if progress.get("started_at") is None:
         progress["started_at"] = time.time()
 
@@ -345,7 +558,7 @@ async def run_solana_ingest_batch(api_key: str, max_seconds: float = 60.0, max_p
             break
         try:
             agents, total, raw_len = await bsc.list_agents_by_chain_id(
-                api_key, SOLANA_CHAIN_ID, offset=offset, limit=PAGE_SIZE,
+                api_key, chain_id, offset=offset, limit=PAGE_SIZE,
                 timeout=REQUEST_TIMEOUT, max_retries=6,
             )
         except Exception as e:
@@ -397,3 +610,33 @@ async def run_solana_ingest_batch(api_key: str, max_seconds: float = 60.0, max_p
         "next_offset": offset, "reached_end": reached_end,
         "elapsed_seconds": round(time.time() - t0, 1),
     }
+
+
+async def run_solana_ingest_batch(api_key: str, max_seconds: float = 60.0, max_pages: int | None = None) -> dict:
+    """Real, resumable Solana-specific ingestion batch — thin wrapper
+    around _run_single_chain_ingest_batch above (same function, unchanged
+    real behavior; the loop itself was generalized 2026-09-10, this name
+    kept for every existing real caller)."""
+    return await _run_single_chain_ingest_batch(api_key, SOLANA_CHAIN_ID, SOLANA_PROGRESS_DOC_ID, max_seconds, max_pages)
+
+
+async def run_additional_chains_ingest_batch(api_key: str, max_seconds_per_chain: float = 10.0, max_pages: int | None = None) -> dict:
+    """Real, bounded batch across every ADDITIONAL_CHAINS entry, one
+    small real time-slice per chain per real call — deliberately tight
+    (default 10s/chain, ~50s total for five chains) to stay safely under
+    this backend's own real, previously-measured Render request-timeout
+    zone (~75s, see server.py's full_registry_batch route docstring),
+    the same conservative discipline the shared 20s/15s ingest/analyze
+    defaults already use elsewhere in this pipeline. Real, resumable per
+    chain (its own progress doc each, via _additional_chain_progress_doc_id)
+    — a slower chain (Billions Network at ~26,000 real agents) just takes
+    more real 6-hourly cycles to catch up; it never blocks or starves the
+    others, and a chain that's already reached_end costs almost nothing
+    on a later call (one real page fetch confirming no new agents)."""
+    results = {}
+    for name, chain_id in ADDITIONAL_CHAINS.items():
+        results[name] = await _run_single_chain_ingest_batch(
+            api_key, chain_id, _additional_chain_progress_doc_id(name),
+            max_seconds=max_seconds_per_chain, max_pages=max_pages,
+        )
+    return results

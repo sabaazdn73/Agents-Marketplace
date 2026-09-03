@@ -436,15 +436,29 @@ async def full_registry_progress():
     `unanalyzed_backlog` is the real, live number the Background Worker's
     ingestion loop itself pauses/resumes against (worker.py's
     INGEST_BACKLOG_PAUSE_THRESHOLD/INGEST_BACKLOG_RESUME_THRESHOLD) — the
-    same real number, not a separate estimate."""
+    same real number, not a separate estimate.
+
+    `ingestion_skipped_offsets` (added 2026-09-02, same real incident that
+    added the skip-and-retry mechanism itself — see
+    core/full_registry_ingest.py's SKIPPED_OFFSETS_COLLECTION docstring):
+    real, currently-unresolved pages that failed after their own retry
+    budget and are waiting on an automatic retry next batch. A real,
+    persistently non-zero/growing count here is the honest signal that
+    8004scan's own API is still degraded at the current ingestion depth,
+    not a hidden problem — surfaced here specifically so it's checkable
+    the same way `unanalyzed_backlog` already is."""
     ingest_progress = await full_registry_ingest.get_progress()
     solana_progress = await full_registry_ingest.get_solana_progress()
+    additional_chains_progress = await full_registry_ingest.get_additional_chains_progress()
     analysis_stats = await full_registry_analysis.compute_full_registry_stats()
     audit_progress = await escrow_compat_audit.get_audit_progress()
     backlog = await full_registry_analysis.get_unanalyzed_backlog()
+    skipped_offsets = await full_registry_ingest.get_skipped_offsets_summary()
     return {
         "ingestion": ingest_progress,
+        "ingestion_skipped_offsets": skipped_offsets,
         "solana_ingestion": solana_progress,
+        "additional_chains_ingestion": additional_chains_progress,
         "analysis": {k: v for k, v in analysis_stats.items() if k not in ("by_category", "by_chain")},
         "unanalyzed_backlog": backlog,
         "escrow_compat_audit_on_marketplace": audit_progress,
@@ -653,6 +667,35 @@ async def solana_registry_batch(request: Request, ingest_seconds: float = 45.0):
 
     result = await full_registry_ingest.run_solana_ingest_batch(api_key, max_seconds=min(ingest_seconds, 120.0))
     return {"solana_ingest": result, "triggered_at": time.time()}
+
+
+# ── Real, additional single-chain registries batch (2026-09-10) ──
+# Same real reasoning as the Solana batch above, generalized to five more
+# chains none of which ride along for free in the shared, unfiltered EVM
+# scan: Monad (chain_id 143, ~10,158 real agents), Billions Network
+# (chain_id 45056, ~25,977, a real, separate proof-of-personhood/
+# AI-agent-verification network), Robinhood Chain (chain_id 4663, ~32),
+# Celo (chain_id 42220, ~9,759), Arbitrum (chain_id 42161, ~1,377). Same
+# real full_agent_registry collection, same real security model, own real
+# progress checkpoint per chain (core/full_registry_ingest.py's
+# ADDITIONAL_CHAINS). Not surfaced on the live BSC-only marketplace,
+# background collection only, same as Solana/Base/Ethereum today.
+@app.post("/api/admin/multichain-registry-batch")
+async def multichain_registry_batch(request: Request, ingest_seconds_per_chain: float = 10.0):
+    secret = os.environ.get("BATCH_TRIGGER_SECRET")
+    if not secret:
+        raise HTTPException(status_code=503, detail="BATCH_TRIGGER_SECRET is not configured on this service.")
+    if request.headers.get("X-Batch-Secret") != secret:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Batch-Secret header.")
+
+    api_key = os.environ.get("SCAN_8004_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="SCAN_8004_API_KEY is not set.")
+
+    result = await full_registry_ingest.run_additional_chains_ingest_batch(
+        api_key, max_seconds_per_chain=min(ingest_seconds_per_chain, 20.0),
+    )
+    return {"multichain_ingest": result, "triggered_at": time.time()}
 
 
 # ── Real, marketplace-wide escrow-compatibility audit batch (2026-08-28) ──

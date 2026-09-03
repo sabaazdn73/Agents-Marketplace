@@ -272,7 +272,9 @@ async def get_stored_agents(limit: int = 30_000) -> list[dict]:
     every field this query returns against every real consumer of its
     output -- the whole frontend (web + mobile, grep'd directly) and every
     backend module that reads get_stored_agents()'s result (core/
-    clustering.py's diversify(), core/canary.py, core/future_chains.py).
+    clustering.py's diversify(), core/canary.py, and core/future_chains.py
+    — the last of these removed 2026-09-10, kept here as accurate history
+    of the audit at the time, not a current dependency).
     `created_at` looked like a dead candidate from the frontend alone but
     is genuinely read by clustering.py's registration-burst signal, so it
     stays. Four fields are confirmed write-only from this read path's
