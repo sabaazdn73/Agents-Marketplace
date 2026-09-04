@@ -1,9 +1,43 @@
 # full-registry-batch.yml
 #
-# Real, scheduled trigger for one bounded batch of the full-registry
-# ingestion + analysis pipeline (backend/core/full_registry_ingest.py,
-# backend/core/full_registry_analysis.py), via the real, secret-gated
-# backend/server.py POST /api/admin/full-registry-batch endpoint.
+# Real, scheduled trigger for the batches that have NO other driver:
+# the ERC-8183 job index, the marketplace health check, the Solana scan,
+# and the five additional chains (Monad, Billions, Robinhood, Celo,
+# Arbitrum). Each goes through its own real, secret-gated
+# backend/server.py POST /api/admin/* endpoint.
+#
+# Trimmed 2026-09-04, after a real audit of every automation in this
+# project found genuine duplication. Two steps were removed, NOT because
+# they were broken in themselves, but because the Render background
+# worker (backend/worker.py) already runs the exact same three functions
+# continuously:
+#
+#   * /api/admin/full-registry-batch  -> run_ingest_batch +
+#     run_analysis_batch, both already driven by worker.py's ingest_loop
+#     and analysis_loop.
+#   * /api/admin/escrow-compat-audit-batch -> run_audit_batch, already
+#     driven by worker.py's audit_loop.
+#
+# The worker is the better home for all three, for a real, specific
+# reason beyond just "pick one": it is a long-running loop with no HTTP
+# timeout over it, and it has real backlog pacing
+# (INGEST_BACKLOG_PAUSE_THRESHOLD) that this workflow path has no
+# equivalent of. The removed ingest step was failing consistently for
+# exactly that structural reason -- 8004scan's real deep-offset
+# degradation (live-confirmed: offsets 700k/806k/808k+ all time out,
+# offset 0 returns in ~1s) sends the backend into 4s/8s/16s exponential
+# backoff, which routinely outlives curl's --max-time 300 and fails the
+# step even though the backend itself is working correctly. The worker
+# hits the same slow upstream but simply keeps going.
+#
+# Real honesty about the trade: this removes redundancy. The worker is
+# now the ONLY driver of ingestion, analysis, and the escrow audit, so
+# if it dies, those three stop with no scheduled fallback. That is a
+# deliberate choice, made because the worker is demonstrably alive
+# (its checkpoints were advancing minutes before this change, while the
+# workflow's own last run was hours old and had failed) and because
+# double-running the same work against an already-degraded upstream API
+# helps nobody. Worth revisiting if the worker ever proves unreliable.
 #
 # Real, standing gap this closes: that pipeline had no scheduler at all —
 # Render Cron Jobs are a paid-plan feature, out of scope per this project's
@@ -92,7 +126,7 @@
 # full_agent_registry collection, not surfaced on the live BSC-only
 # marketplace, background collection only.
 
-name: Full-registry batch (ingest + analyze + job index + health check + solana + multichain + escrow audit)
+name: Scheduled batches (job index + health check + solana + multichain)
 
 on:
   schedule:
@@ -103,7 +137,7 @@ jobs:
   trigger-batch:
     runs-on: ubuntu-latest
     steps:
-      - name: Call the real /api/admin/full-registry-batch endpoint
+      - name: Call the real /api/admin/job-index-batch endpoint
         env:
           BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
           BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
@@ -112,26 +146,6 @@ jobs:
             echo "::error::BATCH_TRIGGER_SECRET repository secret is not set — see docs/full-registry-analysis.md for setup."
             exit 1
           fi
-          echo "Calling $BACKEND_BASE_URL/api/admin/full-registry-batch ..."
-          http_status=$(curl -sS -o response.json -w "%{http_code}" \
-            --max-time 300 \
-            -X POST \
-            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
-            "${BACKEND_BASE_URL}/api/admin/full-registry-batch")
-          echo "Real HTTP status: $http_status"
-          echo "Real response body:"
-          cat response.json
-          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
-            echo "::error::Real batch trigger failed with HTTP $http_status"
-            exit 1
-          fi
-
-      - name: Call the real /api/admin/job-index-batch endpoint
-        if: always()   # each batch is independent; a transient failure in one must not skip the rest
-        env:
-          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
-          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
-        run: |
           echo "Calling $BACKEND_BASE_URL/api/admin/job-index-batch ..."
           http_status=$(curl -sS -o response2.json -w "%{http_code}" \
             --max-time 300 \
@@ -206,22 +220,3 @@ jobs:
             exit 1
           fi
 
-      - name: Call the real /api/admin/escrow-compat-audit-batch endpoint
-        if: always()   # each batch is independent; a transient failure in one must not skip the rest
-        env:
-          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
-          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
-        run: |
-          echo "Calling $BACKEND_BASE_URL/api/admin/escrow-compat-audit-batch ..."
-          http_status=$(curl -sS -o response5.json -w "%{http_code}" \
-            --max-time 300 \
-            -X POST \
-            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
-            "${BACKEND_BASE_URL}/api/admin/escrow-compat-audit-batch")
-          echo "Real HTTP status: $http_status"
-          echo "Real response body:"
-          cat response5.json
-          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
-            echo "::error::Real escrow-compat-audit batch trigger failed with HTTP $http_status"
-            exit 1
-          fi
