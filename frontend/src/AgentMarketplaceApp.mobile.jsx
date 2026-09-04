@@ -10,7 +10,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
-import { useAgentDetail } from './useAgentDetail';
+import { useNavSync, useOverlayHistory } from './useViewHistory';
 import agentsHero from './assets/agents.png';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
 import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, DEADLINE_PRESETS, formatDeadline, validateDeadlineMinutes } from './hireDeadline';
@@ -228,8 +228,24 @@ const NAV_ITEMS = [
   { id: 'sell', label: 'Sell', icon: Coins },
 ];
 
+// Real bottom-bar trim (2026-09-04): eight tabs in a phone-width bar left
+// each one ~40px wide with a 10px label -- crowded and hard to hit
+// accurately. The bar now carries only the three genuinely primary
+// destinations and everything else moves into the existing menu sheet, so
+// nothing becomes unreachable, it just stops competing for thumb space.
+//
+// Which three, and why these: Market is the app's whole reason to exist
+// (browsing and hiring registered agents); Native Agents is Tnega's own
+// first-party execution surface, the thing that is not just a directory
+// listing; My Agents is where a user returns to see work they already paid
+// for. The rest are either occasional (Report, Learn), one-off setup
+// (Build, Sell), or a secondary execution path (Skills).
+const PRIMARY_NAV_IDS = ['market', 'native', 'my-agents'];
+const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((i) => PRIMARY_NAV_IDS.includes(i.id));
+const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.id));
+
 // Mobile-optimized Wallet Modal / Sheet
-function MobileWalletSheet({ onClose }) {
+function MobileWalletSheet({ onClose, nav, onNavigate }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { ready, authenticated, user, login, logout } = usePrivy();
@@ -242,6 +258,32 @@ function MobileWalletSheet({ onClose }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full bg-white dark:bg-[#0F172A] rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
         <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6" />
+        {/* Secondary destinations, moved out of the bottom bar (2026-09-04).
+            Reachable in one tap from the menu the header already had. */}
+        {onNavigate && (
+          <div className="mb-6">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 px-1">Go to</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {SECONDARY_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const active = nav === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => { onNavigate(item.id); onClose(); }}
+                    className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl border transition-colors ${active
+                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                      : 'border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'}`}
+                  >
+                    <Icon size={18} />
+                    <span className="text-[11px] font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <h3 className="text-lg font-bold mb-6 text-gray-900 dark:text-white text-center">Your Wallet</h3>
         
         {isConnected ? (
@@ -505,11 +547,16 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
-  // Real detail-only fields (owner, protocols, TVL momentum, full
-  // description) are no longer in the list payload — see useAgentDetail.js
-  // and backend/server.py's _INDEX_FIELDS for why. Renders the slim record
-  // instantly and merges the rest in when it lands.
-  const detailAgentFull = useAgentDetail(detailAgent);
+  // Real Back-button support (2026-09-04). Opening an agent pushes a real
+  // history entry and Back closes it, returning to the list underneath;
+  // and the tab view follows the URL when Back/Forward changes it, which
+  // it previously did not (initialNav was only ever read at mount).
+  // See useViewHistory.js for the full reasoning.
+  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail');
+  // Follow the URL when Back/Forward changes it. `initialNav` is only read
+  // by useState at mount, so without this the address bar moved but the
+  // view did not -- the core of the "Back exits the site" bug.
+  useNavSync(initialNav, nav, setNav);
   const [hiring, setHiring] = useState(false);
   // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
@@ -948,8 +995,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           </div>
         ) : detailAgent ? (
           <AgentDetailMobile
-            agent={detailAgentFull}
-            onBack={() => setDetailAgent(null)}
+            agent={detailAgent}
+            onBack={closeAgentDetail}
             onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
             onTrySkill={handleTrySkill}
           />
@@ -1146,7 +1193,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     <UniversalSearchFallback
                       query={searchQuery}
                       agentsWithPerf={agentsWithPerf}
-                      onOpenAgent={(agent) => setDetailAgent(agent)}
+                      onOpenAgent={(agent) => openAgentDetail(agent)}
                       accent={accent}
                       mutedBorder="border-gray-200 dark:border-gray-800"
                       darkMode={darkMode}
@@ -1164,7 +1211,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         {visibleTierBreaks[i] && (
                           <VerificationTierDivider tier={visibleTierBreaks[i]} count={tierCounts[visibleTierBreaks[i]]} className={i === 0 ? '' : 'pt-2'} />
                         )}
-                      <div onClick={() => setDetailAgent(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
+                      <div onClick={() => openAgentDetail(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
                             <AgentAvatar agent={agent} size={36} rounded="rounded-xl" />
@@ -1420,9 +1467,14 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
       </main>
 
       {/* App-like Bottom Navigation */}
-      <nav className="shrink-0 bg-white dark:bg-[#0B101B] border-t border-gray-200 dark:border-gray-800 pb-safe z-20">
+      {/* Frosted-glass bottom bar (2026-09-04). Matches the header's existing
+          translucent + backdrop-blur treatment rather than inventing a new
+          material, so the two edges of the app read as the same surface.
+          Explicit light AND dark values (not a single translucent white)
+          because a blur over a dark page needs its own tint to stay legible. */}
+      <nav className="shrink-0 bg-white/75 dark:bg-[#0B101B]/75 backdrop-blur-xl border-t border-gray-200/60 dark:border-white/10 pb-safe z-20 supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-[#0B101B]/60">
         <div className="flex justify-around items-center px-2 pt-2 pb-1">
-          {NAV_ITEMS.map((item) => {
+          {PRIMARY_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = nav === item.id;
             return (
@@ -1440,7 +1492,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
       </nav>
 
       {/* Modals */}
-      {walletSheetOpen && <MobileWalletSheet onClose={() => setWalletSheetOpen(false)} />}
+      {walletSheetOpen && <MobileWalletSheet onClose={() => setWalletSheetOpen(false)} nav={nav} onNavigate={(id) => { setNav(id); setHiring(false); onNavChange?.(id); }} />}
       
       {/* Hide Scrollbar style for horizontal list */}
       <style dangerouslySetInnerHTML={{__html: `

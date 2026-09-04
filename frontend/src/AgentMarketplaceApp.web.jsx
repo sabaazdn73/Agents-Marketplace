@@ -12,7 +12,7 @@ import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
-import { useAgentDetail } from './useAgentDetail';
+import { useNavSync, useOverlayHistory } from './useViewHistory';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -534,11 +534,16 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   const [searchQuery, setSearchQuery] = useState('');    // debounced, used for filtering
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail view
-  // Real detail-only fields (owner, protocols, TVL momentum, full
-  // description) are no longer in the list payload — see useAgentDetail.js
-  // and backend/server.py's _INDEX_FIELDS for why. Renders the slim record
-  // instantly and merges the rest in when it lands.
-  const detailAgentFull = useAgentDetail(detailAgent);
+  // Real Back-button support (2026-09-04). Opening an agent pushes a real
+  // history entry and Back closes it, returning to the list underneath;
+  // and the tab view follows the URL when Back/Forward changes it, which
+  // it previously did not (initialNav was only ever read at mount).
+  // See useViewHistory.js for the full reasoning.
+  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail');
+  // Follow the URL when Back/Forward changes it. `initialNav` is only read
+  // by useState at mount, so without this the address bar moved but the
+  // view did not -- the core of the "Back exits the site" bug.
+  useNavSync(initialNav, nav, setNav);
   // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
   const [pendingSkillId, setPendingSkillId] = useState(null);
@@ -967,8 +972,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           
           {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail
-              agent={detailAgentFull}
-              onBack={() => setDetailAgent(null)}
+              agent={detailAgent}
+              onBack={closeAgentDetail}
               onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
               onTrySkill={handleTrySkill}
             />
@@ -1244,7 +1249,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <UniversalSearchFallback
                     query={searchQuery}
                     agentsWithPerf={agentsWithPerf}
-                    onOpenAgent={(agent) => setDetailAgent(agent)}
+                    onOpenAgent={(agent) => openAgentDetail(agent)}
                     accent={accent}
                     mutedBorder="border-gray-200 dark:border-gray-800"
                     darkMode={darkMode}
@@ -1309,7 +1314,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                               </td>
                             </tr>
                           )}
-                          <tr onClick={() => setDetailAgent(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
+                          <tr onClick={() => openAgentDetail(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <AgentAvatar agent={agent} size={32} rounded="rounded-xl" />
@@ -1359,7 +1364,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         />
                       )}
                     <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
-                      <div className="p-6 flex-1 cursor-pointer" onClick={() => setDetailAgent(agent)}>
+                      <div className="p-6 flex-1 cursor-pointer" onClick={() => openAgentDetail(agent)}>
                         <div className="flex justify-between items-start mb-5">
                           <div className="flex items-center gap-3">
                             <AgentAvatar agent={agent} size={40} />
