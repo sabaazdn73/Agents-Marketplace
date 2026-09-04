@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, CheckCircle2, XCircle,
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, Menu, ScanFace,
+  Activity, Users, MessageSquare, Menu,
   ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -248,7 +248,7 @@ const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.
 function MobileWalletSheet({ onClose, nav, onNavigate }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
-  const { ready, authenticated, user, login, logout } = usePrivy();
+  const { ready, authenticated, user, logout } = usePrivy();
   const privyConnected = ready && authenticated;
   const activeAddress = wagmiConnected ? wagmiAddress : user?.wallet?.address;
   const isConnected = wagmiConnected || privyConnected;
@@ -311,10 +311,6 @@ function MobileWalletSheet({ onClose, nav, onNavigate }) {
                 </button>
               )}
             </ConnectButton.Custom>
-            <button onClick={() => { login(); onClose(); }} className="w-full flex justify-between items-center bg-gray-100 dark:bg-[#1E293B] text-gray-900 dark:text-white text-base font-semibold py-4 px-5 rounded-2xl">
-              <span>Face ID / Email</span>
-              <ChevronRight size={20} className="text-gray-400" />
-            </button>
           </div>
         )}
       </div>
@@ -322,14 +318,16 @@ function MobileWalletSheet({ onClose, nav, onNavigate }) {
   );
 }
 
-// Full-screen launch splash. Shown before the app UI. Unlock by tapping
-// through, or via Face ID — which reuses the SAME Privy passkey login the
-// wallet-connect flow uses (no duplicate auth logic; one PrivyProvider in
-// main.jsx). A returning, already-authenticated Privy user unlocks instantly.
+// Full-screen launch splash. Shown before the app UI; tap anywhere to
+// continue.
+//
+// The "Continue with Face ID" button was removed 2026-09-04. It worked, but
+// it was misleading: it promised biometrics and actually opened Privy's
+// passkey/email modal. What that label implies -- an OS-level biometric
+// unlock of the app itself -- is not something a web app can do, so the
+// honest fix was to stop offering it rather than to reword it.
 function SplashScreen({ onUnlock }) {
-  const { ready, authenticated, login } = usePrivy();
   const [showControls, setShowControls] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   // Show the hero for a beat, then reveal the unlock controls.
   useEffect(() => {
@@ -337,23 +335,9 @@ function SplashScreen({ onUnlock }) {
     return () => clearTimeout(t);
   }, []);
 
-  const handleFaceId = async () => {
-    setBusy(true);
-    try {
-      // Returning user with a live Privy session: no re-prompt needed.
-      if (ready && authenticated) { onUnlock(); return; }
-      // Otherwise open Privy's passkey/email modal — the Face ID prompt on
-      // capable devices — exactly the wallet-connect "Face ID / Email" path.
-      await login();
-      onUnlock();
-    } catch {
-      setBusy(false); // user dismissed the prompt; stay on the splash
-    }
-  };
-
   return (
     <div
-      onClick={showControls && !busy ? onUnlock : undefined}
+      onClick={showControls ? onUnlock : undefined}
       className="fixed inset-0 z-50 bg-[#0B101B] text-white flex flex-col items-center justify-between p-8 select-none"
       role="button"
       aria-label="Tap to continue"
@@ -363,17 +347,7 @@ function SplashScreen({ onUnlock }) {
         {!showControls ? (
           <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading…</div>
         ) : (
-          <div className="w-full flex flex-col items-center gap-3">
-            <button
-              onClick={(e) => { e.stopPropagation(); handleFaceId(); }}
-              disabled={busy}
-              className="w-full max-w-xs flex items-center justify-center gap-2 bg-white text-[#0B101B] font-semibold py-3 rounded-2xl disabled:opacity-60"
-            >
-              {busy ? <Loader2 size={18} className="animate-spin" /> : <ScanFace size={18} />}
-              {ready && authenticated ? 'Unlock with Face ID' : 'Continue with Face ID'}
-            </button>
-            <p className="text-xs text-gray-400">or tap anywhere to continue</p>
-          </div>
+          <p className="text-xs text-gray-400">Tap anywhere to continue</p>
         )}
       </div>
 

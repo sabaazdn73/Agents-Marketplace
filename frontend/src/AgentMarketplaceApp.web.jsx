@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
-  Loader2, AlertTriangle, Wallet, ScanFace, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
+  Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot, Clock
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -424,7 +424,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
 function HybridWalletConnect({ accent }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
-  const { ready, authenticated, user, login, logout } = usePrivy();
+  const { ready, authenticated, user, logout } = usePrivy();
   const privyConnected = ready && authenticated;
   const activeAddress = wagmiConnected ? wagmiAddress : user?.wallet?.address;
   const isConnected = wagmiConnected || privyConnected;
@@ -457,11 +457,6 @@ function HybridWalletConnect({ accent }) {
               </button>
             )}
           </ConnectButton.Custom>
-          <button onClick={login} className="w-full flex justify-between items-center bg-transparent border border-white/10 hover:bg-white/5 text-gray-300 text-sm font-medium py-3 px-4 rounded-xl transition-colors">
-            <div className="flex items-center gap-2">
-              <ScanFace size={16} /> <span>Face ID / Email</span>
-            </div>
-          </button>
           <p className="text-[10px] text-gray-500 text-center mt-3">No wallet? You can keep browsing without connecting.</p>
         </div>
       )}
@@ -675,7 +670,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
   const handleHireClick = (agent) => {
     if (!walletConnected) {
-      alert('Connect a wallet first to hire this agent — sidebar: Connect Wallet or Face ID / Email.');
+      alert('Connect a wallet first to hire this agent — use Connect a wallet in the sidebar.');
       return;
     }
     setSelectedAgent(agent);
