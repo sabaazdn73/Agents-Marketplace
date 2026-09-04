@@ -769,7 +769,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   }), [agentsWithPerf]);
 
   return (
-    <div className={`flex flex-col h-[100dvh] font-sans ${darkMode ? 'dark bg-[#0B101B] text-white' : 'bg-[#F4F5F8] text-gray-900'}`}>
+    <div className={`relative flex flex-col h-[100dvh] font-sans ${darkMode ? 'dark bg-[#0B101B] text-white' : 'bg-[#F4F5F8] text-gray-900'}`}>
       {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
 
       {/* App Header (Sticky) */}
@@ -806,7 +806,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       </header>
 
       {/* Main Scrollable Content */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-24">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-32">
         
         {hiring && selectedAgent ? (
           <div className="p-5 animate-in slide-in-from-right-4 duration-300">
@@ -1446,7 +1446,30 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
           material, so the two edges of the app read as the same surface.
           Explicit light AND dark values (not a single translucent white)
           because a blur over a dark page needs its own tint to stay legible. */}
-      <nav className="shrink-0 bg-white/75 dark:bg-[#0B101B]/75 backdrop-blur-xl border-t border-gray-200/60 dark:border-white/10 pb-safe z-20 supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-[#0B101B]/60">
+      {/* Frosted-glass bottom bar.
+          Fixed 2026-09-04: the blur was previously invisible for a layout
+          reason, not a CSS one. The bar was a flex SIBLING sitting below
+          <main> in a `flex flex-col h-[100dvh]` column, so page content
+          scrolled inside main's own box and was clipped at main's bottom
+          edge -- nothing was ever painted behind the bar, and
+          backdrop-filter had nothing to sample. It rendered as a flat
+          translucent panel over the page background, which is exactly what
+          "not glassy" looks like.
+          It now overlays the scroll area (absolute, with `relative` added
+          to the root), and <main> carries pb-32 so the last row still
+          clears it. backdrop-saturate is deliberate alongside the blur:
+          blur alone reads as grey haze, and it's the saturation boost that
+          makes a real material look like glass rather than frosted
+          plastic. Light and dark carry their own tint and highlight -- a
+          blur over a dark page needs a much dimmer top highlight or it
+          reads as a bright seam. */}
+      <nav className="absolute bottom-0 inset-x-0 z-30 pb-safe
+        bg-white/70 dark:bg-[#0B101B]/60
+        supports-[backdrop-filter]:bg-white/55 dark:supports-[backdrop-filter]:bg-[#0B101B]/45
+        backdrop-blur-2xl backdrop-saturate-150
+        border-t border-white/60 dark:border-white/10
+        shadow-[0_-8px_32px_-8px_rgba(15,23,42,0.18),inset_0_1px_0_0_rgba(255,255,255,0.7)]
+        dark:shadow-[0_-8px_32px_-8px_rgba(0,0,0,0.55),inset_0_1px_0_0_rgba(255,255,255,0.08)]">
         <div className="flex justify-around items-center px-2 pt-2 pb-1">
           {PRIMARY_NAV_ITEMS.map((item) => {
             const Icon = item.icon;

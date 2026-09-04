@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Safe-area utilities. `pt-safe`/`pb-safe` were already being used on the
+   mobile header and bottom bar but were never defined -- no Tailwind plugin,
+   nothing in tailwind.config.js, and confirmed absent from the built CSS. So
+   they silently did nothing and the bar's bottom row could sit under the home
+   indicator on notched devices. These also need `viewport-fit=cover` on the
+   viewport meta (added in index.html) or env() resolves to 0 on iOS. */
+@layer utilities {
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+}
