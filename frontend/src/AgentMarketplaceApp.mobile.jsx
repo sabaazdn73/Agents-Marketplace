@@ -384,7 +384,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <div className="grid grid-cols-4 gap-2 mb-3 text-center">
           {[['Score', agent.totalScore != null ? agent.totalScore.toFixed(1) : '—', 'How trustworthy this agent looks, based on real past feedback'],
             ['Stars', agent.starCount ?? '—', 'How many people rated this agent'],
-            ['Feedback', agent.totalFeedbacks ?? '—', 'How many written reviews this agent has'],
+            ['On-chain Feedback', agent.totalFeedbacks ?? '—', 'On-chain ERC-8004 feedback entries for this agent — a count only, with no written text or rating behind it'],
             ['Funds', agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—', 'Total money this agent currently manages for people']].map(([l, v, hint]) => (
             <div key={l} title={hint} className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/50">
               <span className="block text-[9px] text-gray-500 uppercase">{l}</span>
@@ -967,7 +967,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       big signup batches and look nearly identical, so we limit how many near-duplicates show up —
                       there are more agents out there, we're just not cluttering your view with lookalikes.</>
                     ) },
-                    { label: 'Reviews', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'Total written reviews left across all these agents' },
+                    { label: 'On-chain Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'On-chain ERC-8004 feedback entries recorded against these agents. Counts only — no written text and no star rating, so there is nothing to read behind the number. Most of it comes from one automated cluster rather than many independent buyers.' },
                     { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Has at least one real, on-chain-confirmed delivered job — not just registered on-chain (see 'How we verify agents' below)" },
                   ].map((c) => {
                     const Icon = c.icon;

@@ -333,7 +333,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           <DetailStat label="Score" hint="How trustworthy this agent looks, based on real past feedback — higher is better" value={agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'} />
           <DetailStat label="Stars" hint="How many people rated this agent" value={agent.starCount ?? '—'} />
-          <DetailStat label="Feedback" hint="How many written reviews this agent has" value={agent.totalFeedbacks ?? '—'} />
+          <DetailStat label="On-chain Feedback" hint="On-chain ERC-8004 feedback entries for this agent — a count only, with no written text or rating behind it" value={agent.totalFeedbacks ?? '—'} />
           <DetailStat label="Funds" hint="Total money this agent currently manages for people" value={agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—'} />
         </div>
         {agent.financialDataAvailable && agent.defillamaUrl && (
@@ -995,11 +995,33 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       </div>
                     </div>
                   </div>
-                  <div title="Total written reviews left across all these agents" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                  {/* Label corrected 2026-09-04. This was "Reviews", with a
+                      tooltip reading "Total written reviews left across all
+                      these agents" — both were wrong, confirmed by pulling
+                      the real records rather than the aggregate count.
+                      8004scan's per-agent feedback endpoint returns 1,899
+                      real feedback records across the 29 highest-feedback
+                      BSC agents, and 0 of them (0.0%) carry any comment
+                      text, and 0 carry a rating score. They're on-chain
+                      ERC-8004 Reputation Registry entries — real, and real
+                      evidence of interaction, but not reviews in any sense
+                      a reader would expect from that word. 96.4% of this
+                      number also comes from a single automated cluster
+                      (Ensoul), so the tooltip says so. */}
+                  <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
                     <div>
                       {confirmedFresh ? <div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div> : <StatSkeleton />}
-                      <div className="text-xs text-gray-500 font-medium">Reviews</div>
+                      <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
+                        On-chain Feedback
+                        <InfoTooltip label="" size={12}>
+                          On-chain ERC-8004 feedback entries recorded against these agents. These are
+                          counts only — they carry no written text and no star rating, so there's
+                          nothing to read behind the number. Most of it also comes from one automated
+                          cluster rather than many independent buyers. For evidence an agent actually
+                          works, use "Verified Agents" instead — that means a real completed job.
+                        </InfoTooltip>
+                      </div>
                     </div>
                   </div>
                   <div title="Has at least one on-chain-confirmed delivered job, not just registered on-chain (see 'How we verify agents' below)" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">

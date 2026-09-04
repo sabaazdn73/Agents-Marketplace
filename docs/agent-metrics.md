@@ -62,6 +62,18 @@ Every metric, signal, or data point this platform currently uses anywhere in age
 
 Out of scope for the table below: basic identity/reputation fields 8004scan itself reports and this platform simply displays as-is (name, description, image, `total_score`, `star_count`, `total_feedbacks`, `is_verified`, `owner_ens`/`owner_username`), passed through rather than independently computed or verified here.
 
+### What `total_feedbacks` really is, and why it is no longer labeled "Reviews" (2026-09-04)
+
+The homepage stat built from summing `total_feedbacks` across served agents was labeled **"Reviews"**, with the tooltip "Total written reviews left across all these agents". Both were wrong. Traced and measured end to end:
+
+- **The number is a sum of 8004scan's own per-agent `total_feedbacks`** — ingested from its `/api/v1/agents` listing into `full_agent_registry`/`known_agents`, mapped to `totalFeedbacks` in `core/aggregate.py`, and summed client-side in both apps. It is not on-chain job completions and has nothing to do with ERC-8183.
+- **There is no review content behind it.** Pulled the real per-agent records via `GET /api/v1/feedbacks?agent_token_id=&chain_id=`: across the 29 highest-feedback BSC agents, **1,899 real feedback records, of which 0 (0.0%) have any comment text and 0 have a rating score.** The records are real and carry genuine on-chain provenance (`transaction_hash`, `block_number`, tags), but no readable review.
+- **96.4% of the number is one automated cluster.** Of the 3,189 total across 148 BSC agents with any feedback, 3,074 belong to 73 Ensoul-branded bot agents. Everything else on the platform accounts for 115.
+
+Corrected to **"On-chain Feedback"** in both apps, with tooltips stating plainly that it's a count with nothing to read behind it and that most of it is one automated cluster. `agentGuidance.js`'s "Written reviews" label and both detail pages' "How many written reviews this agent has" hints were corrected the same way.
+
+**A prior conclusion in this session was wrong and is corrected here:** an earlier pass reported that *no* per-agent feedback endpoint existed on 8004scan. It does — `/api/v1/feedbacks` (filterable by `agent_id`/`agent_token_id`) and `/api/v1/mcp/tools/get_agent_feedbacks`. That pass searched the OpenAPI spec only for paths containing both "agents" and "feedback" and so missed both. The practical conclusion happens to land in the same place — there is nothing displayable — but for a different and better-evidenced reason: the records exist and are retrievable, they simply contain no text or ratings. Parse the spec directly rather than relying on a summarized read of it.
+
 ### Verification & delivery evidence
 
 | Signal | What it measures | Data source | Shown where |
