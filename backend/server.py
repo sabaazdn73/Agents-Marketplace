@@ -13,7 +13,8 @@ import sys
 import json
 import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, JSONResponse, StreamingResponse
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -181,7 +182,56 @@ async def _ensure_indexes():
 # purely additive, breaks nothing, and is the right foundation for a real
 # pagination-based fix later.
 
-_cache: dict = {"data": None, "fetched_at": 0}
+# ── Serialize the agent list ONCE per refresh, not once per request ───────
+# Real measurement behind this (2026-09-04, after the field-trim in 7bd4c84
+# was reverted for removing live evaluation signals):
+#
+#   cached list of dicts, held for an hour : 54.3 MB
+#   serialized JSON body                   : 16.8 MB
+#   peak extra memory per ONE serialize    : 33.6 MB   <- per concurrent request
+#
+# So three or four concurrent /api/agents calls added 100-134MB of pure
+# transient churn on top of the resident baseline, which is what kept
+# crossing this service's real 512Mi ceiling. FastAPI re-encodes the whole
+# response from the cached dicts on EVERY request, so that 33.6MB spike was
+# paid over and over for a payload that only actually changes once an hour.
+#
+# This caches the encoded bytes of the `agents` array instead of the dicts:
+#   * the 33.6MB per-request encode disappears -- requests stream bytes that
+#     already exist,
+#   * resident drops from 54.3MB of dicts to 16.8MB of bytes,
+#   * and NOTHING is removed from the payload. All 31 fields and every
+#     full-length description are served exactly as before.
+#
+# That last point is the design constraint here, learned the hard way: the
+# previous attempt cut memory by dropping fields and silently took the
+# marketplace's evaluation signals with it. This reduces the COST OF SENDING
+# the data without changing WHAT is sent.
+def _encode_agents(records: list) -> bytes:
+    """Encode the agent list to the exact bytes FastAPI would have produced.
+
+    jsonable_encoder first, deliberately: these records come straight from
+    Mongo and can carry types (datetime, Decimal) that plain json.dumps
+    rejects but FastAPI has always handled transparently. Skipping it would
+    turn a previously-fine field into a 500 the moment such a value
+    appeared. Separators match FastAPI's own JSONResponse, so the bytes on
+    the wire stay identical to before rather than merely equivalent."""
+    return json.dumps(
+        jsonable_encoder(records), ensure_ascii=False, allow_nan=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+
+def _set_agents_cache(records: list, fetched_at=None) -> None:
+    """The one place the agent cache is written. Stores encoded bytes plus a
+    count, and deliberately does NOT retain the dicts -- keeping both would
+    mean 54.3MB + 16.8MB resident and defeat the point."""
+    _cache["body"] = _encode_agents(records or [])
+    _cache["count"] = len(records or [])
+    _cache["fetched_at"] = fetched_at if fetched_at is not None else time.time()
+
+
+_cache: dict = {"body": None, "count": 0, "fetched_at": 0}
 _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
 # for real agent diversity (aggregate.py: 20 pages × 100 = 20 real 8004scan
 # requests + 1 DefiLlama). Budget math against the free_api tier (30 req/min,
@@ -330,8 +380,7 @@ async def _background_refresh():
         return
     _refresh_in_progress = True
     try:
-        _cache["data"] = await _refresh_into_store()
-        _cache["fetched_at"] = time.time()
+        _set_agents_cache(await _refresh_into_store())
     except Exception as e:
         # A failed background refresh just leaves the existing cache/store
         # serving as before — nothing user-facing to report, there's no
@@ -365,13 +414,12 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
     one-time real wait."""
     now = time.time()
 
-    if _cache["data"] is None:
+    if _cache["body"] is None:
         # Cold in-memory cache (fresh instance boot) — read the persistent
         # store directly. This is a fast, single Mongo query, not a live
         # 8004scan fetch, so it's fine to await inline.
         try:
-            _cache["data"] = await agent_store.get_stored_agents()
-            _cache["fetched_at"] = now
+            _set_agents_cache(await agent_store.get_stored_agents(), fetched_at=now)
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
 
@@ -396,13 +444,12 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
     # from before it.
     is_stale = (time.time() - _cache["fetched_at"]) > _CACHE_TTL_SECONDS
 
-    if not _cache["data"]:
+    if not _cache["count"]:
         # Truly nothing anywhere yet (first-ever boot, empty store) — the
         # only case where we actually wait on a live fetch, since there's
         # nothing honest to serve otherwise.
         try:
-            _cache["data"] = await _refresh_into_store()
-            _cache["fetched_at"] = time.time()
+            _set_agents_cache(await _refresh_into_store())
         except HTTPException:
             raise
         except Exception as e:
@@ -413,12 +460,28 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         if background_tasks is not None:
             background_tasks.add_task(_background_refresh)
 
+    # Stream the pre-encoded array with a small envelope around it, rather
+    # than re-encoding 16,162 records per request. Three chunks, no large
+    # copy: the 16.8MB body is yielded as the exact bytes already in the
+    # cache. Content-Length is set explicitly (all three lengths are known)
+    # so this stays a normal, non-chunked response to clients.
     now = time.time()
-    return {
-        "agents": _cache["data"] or [],
-        "cached_at": _cache["fetched_at"],
-        "cache_age_seconds": int(now - _cache["fetched_at"]),
-    }
+    body = _cache["body"] or b"[]"
+    prefix = b'{"agents":'
+    suffix = (
+        f',"cached_at":{_cache["fetched_at"]},'
+        f'"cache_age_seconds":{int(now - _cache["fetched_at"])}}}'
+    ).encode("utf-8")
+
+    def _chunks():
+        yield prefix
+        yield body
+        yield suffix
+
+    return StreamingResponse(
+        _chunks(), media_type="application/json",
+        headers={"Content-Length": str(len(prefix) + len(body) + len(suffix))},
+    )
 
 
 @app.get("/api/search/resolve")
