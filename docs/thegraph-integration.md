@@ -17,6 +17,31 @@ The consequence is visible in the pipeline's own state: **361 offsets** sit in `
 
 The Graph's own documentation makes the relevant claim plainly: *"No RPC limits: Skip rate-limited RPC scans and IPFS round-trips. One query, one response."* The [Agent0 subgraphs](https://github.com/agent0lab/subgraph), built with The Graph, index the same ERC-8004 Identity, Reputation and Validation registries this project already reads.
 
+## Before and after, as a diagram
+
+```mermaid
+flowchart TB
+    subgraph Before["Before: one door, and it jams"]
+        Chain1["ERC-8004 registries on BSC"]
+        Scan1["8004scan REST API<br/>offset pagination"]
+        Wall["Offsets past ~700k time out<br/>361 offsets stuck retrying"]
+        Store1["Registry store<br/>stops at agent 332,377"]
+        Chain1 --> Scan1 --> Wall --> Store1
+    end
+
+    subgraph After["After: two doors, each doing what it is good at"]
+        Chain2["ERC-8004 registries on BSC"]
+        Scan2["8004scan REST API<br/>scores, categories, images"]
+        Graph["The Graph<br/>Agent0 subgraph<br/>indexed, no offset walk"]
+        Merge["full_agent_registry<br/>merged, never overwritten"]
+        Health["Existing health check<br/>plus no-endpoint policy"]
+        Live["537 agents with live endpoints"]
+        Chain2 --> Scan2 --> Merge
+        Chain2 --> Graph --> Merge
+        Merge --> Health --> Live
+    end
+```
+
 ## Measured comparison, run before building anything
 
 Live BSC subgraph `D6aWqowLkWqBgcqmpNKXuNikPkob24ADXCciiP8Hvn1K`, deployment `QmaNus7TyK4uBnUqd4J12XddVjZMifh4EB3wKz3SzQ6huS`.
