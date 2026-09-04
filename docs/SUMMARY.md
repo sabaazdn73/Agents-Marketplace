@@ -23,4 +23,5 @@
 * [Getting Started](getting-started.md)
 * [Known Limitations](limitations.md)
 * [Hackathon Submission Context](hackathon.md)
+* [ETHGlobal Online 2026](ethglobal-online-2026.md)
 * [Future: Tnega PayBox](future-tnega-paybox.md)
