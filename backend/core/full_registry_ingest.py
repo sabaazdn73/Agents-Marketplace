@@ -656,3 +656,94 @@ async def run_additional_chains_ingest_batch(api_key: str, max_seconds_per_chain
             max_seconds=max_seconds_per_chain, max_pages=max_pages,
         )
     return results
+
+
+# ── The Graph coverage fallback (2026-09-04, ETHGlobal Online) ────────────
+# 8004scan's deep-offset pagination is a hard ceiling on what this pipeline
+# can see: 361 offsets sit in full_registry_skipped_offsets in a permanent
+# retry loop, and offsets past ~700,000 time out outright (checked live).
+# The Agent0 subgraph indexes the same on-chain registries with no such
+# ceiling, so this closes the gap from the other end: instead of paging
+# forward through an upstream that stops answering, it asks for everything
+# above the highest agent id already stored.
+#
+# Deliberately additive. Rows are merged with $set exactly like the
+# 8004scan path, and adapters/thegraph.to_registry_doc writes only fields
+# the subgraph genuinely knows, so a later 8004scan pass still fills in
+# total_score, star_count, category and image_url rather than being
+# overwritten with nulls by this source.
+
+async def run_thegraph_backfill_batch(
+    max_seconds: float = 30.0, chain_id: int = 56, page_size: int = 1000,
+) -> dict:
+    """One bounded pass: find the highest stored agent id for `chain_id`,
+    then pull everything above it from the subgraph."""
+    import httpx as _httpx
+    from adapters import thegraph
+
+    db = get_db()
+    col = db[FULL_REGISTRY_COLLECTION]
+
+    # Highest numeric token_id already stored for this chain.
+    #
+    # token_id is stored as a STRING, so this cannot sort on it: lexical
+    # order puts "99979" above "332377", and an early version of this
+    # function did exactly that and reported a highest id of 99,979 when
+    # the real one was 332,377 -- it would have re-fetched a third of the
+    # registry every run. Converted to a number in the aggregation instead,
+    # which is the only way to get a true maximum here.
+    highest = 0
+    pipeline = [
+        {"$match": {"chain_id": chain_id}},
+        {"$project": {"n": {"$convert": {"input": "$token_id", "to": "long", "onError": 0, "onNull": 0}}}},
+        {"$group": {"_id": None, "mx": {"$max": "$n"}}},
+    ]
+    async for doc in col.aggregate(pipeline):
+        highest = int(doc.get("mx") or 0)
+
+    t0 = time.time()
+    fetched = upserted = 0
+    cursor = highest
+    reached_end = False
+    error = None
+
+    try:
+        async with _httpx.AsyncClient() as client:
+            while time.time() - t0 < max_seconds:
+                agents = await thegraph.fetch_agents_after(
+                    client, cursor, limit=page_size, chain_id=chain_id,
+                )
+                if not agents:
+                    reached_end = True
+                    break
+                ops = []
+                for a in agents:
+                    doc = thegraph.to_registry_doc(a, chain_id=chain_id)
+                    ops.append(UpdateOne({"chain_id": chain_id, "token_id": doc["token_id"]},
+                                         {"$set": doc}, upsert=True))
+                    try:
+                        cursor = max(cursor, int(a.get("agentId")))
+                    except (TypeError, ValueError):
+                        pass
+                # Chunked: a single 1000-op bulk_write against this
+                # Atlas tier returns MaxTimeMSExpired (confirmed live), so
+                # writes go out in smaller batches that complete inside the
+                # cluster's own write-concern deadline.
+                for i in range(0, len(ops), 200):
+                    res = await col.bulk_write(ops[i:i + 200], ordered=False)
+                    upserted += (res.upserted_count or 0) + (res.modified_count or 0)
+                fetched += len(agents)
+                if len(agents) < page_size:
+                    reached_end = True
+                    break
+    except thegraph.TheGraphError as e:
+        # Never fatal: this is a fallback, and 8004scan ingestion is
+        # unaffected by it failing.
+        error = str(e)
+
+    return {
+        "chain_id": chain_id, "started_above_agent_id": highest,
+        "fetched": fetched, "upserted": upserted, "highest_seen": cursor,
+        "reached_end": reached_end, "error": error,
+        "elapsed_seconds": round(time.time() - t0, 1),
+    }

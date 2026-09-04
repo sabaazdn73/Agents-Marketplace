@@ -24,4 +24,5 @@
 * [Known Limitations](limitations.md)
 * [Hackathon Submission Context](hackathon.md)
 * [ETHGlobal Online 2026](ethglobal-online-2026.md)
+* [The Graph Integration](thegraph-integration.md)
 * [Future: Tnega PayBox](future-tnega-paybox.md)

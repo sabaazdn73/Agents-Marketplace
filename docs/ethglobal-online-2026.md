@@ -4,6 +4,18 @@
 
 Tnega is a live, mainnet-only agent marketplace on BNB Smart Chain ([tnega.app](https://tnega.app)): it discovers ERC-8004 agents, evaluates them on independent signals, and hires them through ERC-8183 escrow. It existed before this hackathon. This page covers **only** what was committed inside the window above, so a reviewer can see exactly what the hackathon period produced rather than the project as a whole.
 
+## What Tnega was before this event (Continuity pool requirement)
+
+Tnega is not a new project. Before 17:00 Lisbon on 4 September 2026 it already was, and remains, a live mainnet-only BSC agent marketplace at [tnega.app](https://tnega.app) with:
+
+- a discovery layer over the ERC-8004 Identity Registry, backed by a multi-chain ingestion pipeline (BSC, Ethereum, Base, Solana, Monad, Billions, Robinhood, Celo, Arbitrum) holding roughly 225,000 agent records;
+- an evaluation system with verification tiers, category-native classification, escrow-compatibility auditing, delivery records and on-chain PnL;
+- a hire flow settling through ERC-8183 escrow, denominated in $U;
+- Native Agents (Staking, Trading) that reason over live protocol data and execute directly from the user's wallet;
+- corroboration signals from 8004scan's Quality Center, DefiLlama, TermiX and BscScan.
+
+Everything in the sections below was built inside the event window and is additive to that.
+
 ## The boundary, stated precisely
 
 Commits in this repository are timestamped in Lisbon local time (`+01:00`, WEST). The cutoff falls cleanly between two commits:
@@ -102,6 +114,31 @@ Three surfaces offered "Face ID" login (mobile wallet sheet, mobile splash, and 
 A user-facing string that survived the buttons was also corrected: the web hire flow told users to use a control that no longer existed.
 
 The underlying auth provider was deliberately **not** ripped out. Existing authenticated users still have their session read and can still log out; only the log-in entry points are gone. Removing the provider would strand anyone already holding an embedded wallet.
+
+### 8. Integrated The Graph to fix a hard ceiling on registry coverage
+
+**Adapter `backend/adapters/thegraph.py`, pipeline entry `run_thegraph_backfill_batch()`, documented in [The Graph Integration](docs/thegraph-integration.md).**
+
+The ingestion pipeline reads 8004scan, whose deep-offset pagination stops answering. Measured live with a key that works fine at shallow offsets: offset 0 returns in ~1.1s, while offsets 700,000 / 806,000 / 808,000 all time out. The result is visible in the pipeline's own state, where **361 offsets** sit in a permanent retry loop, failing every pass.
+
+The [Agent0 subgraphs](https://github.com/agent0lab/subgraph), built with The Graph, index the same ERC-8004 registries. Against the live BSC subgraph:
+
+| | |
+|---|---|
+| Agents above the stored high-water mark | **2,399** |
+| Time to fetch them | **1.5 seconds, three queries** |
+| Subgraph head vs stored maximum | agent `334,776` vs `332,377` |
+
+The comparison was run before wiring anything in, and it does not support a migration. 8004scan supplies `total_score`, `star_count`, Quality Center, `category` and `image_url`, all computed off-chain and at 100% coverage for score and category in the stored set; a subgraph indexing on-chain registries cannot have them. The Graph supplies chain truth and reach. So this ships as a **coverage fallback and corroboration source**, not a replacement.
+
+Two findings reported as negatives rather than dressed up:
+
+- **The Validation Registry is unused on BSC.** `validations` and `validationPoints` both return empty across the whole chain. The adapter exposes it because the capability is real, but nothing treats an empty result as a signal and no UI claims otherwise.
+- **It cannot drive `service_status`.** Only 1.7% of sampled BSC registration files carry any endpoint, so the live health probe remains the only thing that can say whether an endpoint responds.
+
+Data lands in the existing systems rather than a new display: `supported_protocols` derived from the structured endpoint fields is what `core/protocol_compat.py` already reasons over, and `x402_supported` is consumed across the marketplace. Rows merge with `$set` and carry `source: "thegraph:agent0"`, so 8004scan-derived fields are never overwritten with nulls and provenance stays auditable.
+
+Verified live: the backfill advanced the stored high-water mark from **332,377 to 333,516** and wrote **779 rows** on its first passes.
 
 ## Honest summary of the mix
 
