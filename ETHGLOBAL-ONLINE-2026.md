@@ -117,28 +117,83 @@ The underlying auth provider was deliberately **not** ripped out. Existing authe
 
 ### 8. Integrated The Graph to fix a hard ceiling on registry coverage
 
-**Adapter `backend/adapters/thegraph.py`, pipeline entry `run_thegraph_backfill_batch()`, documented in [The Graph Integration](docs/thegraph-integration.md).**
+This is the one piece of work in the window that adds a capability rather than repairing one, so it gets the full story. Full technical detail lives in [The Graph Integration](thegraph-integration.md); this is the arc.
 
-The ingestion pipeline reads 8004scan, whose deep-offset pagination stops answering. Measured live with a key that works fine at shallow offsets: offset 0 returns in ~1.1s, while offsets 700,000 / 806,000 / 808,000 all time out. The result is visible in the pipeline's own state, where **361 offsets** sit in a permanent retry loop, failing every pass.
+#### Before: an ingestion pipeline quietly hitting a wall
 
-The [Agent0 subgraphs](https://github.com/agent0lab/subgraph), built with The Graph, index the same ERC-8004 registries. Against the live BSC subgraph:
+Tnega finds agents by reading 8004scan's REST API, walking it page by page with an offset. That works fine near the start of the registry and degrades badly with depth. Measured live, with an API key that is working normally:
 
-| | |
+| Offset | Result |
 |---|---|
-| Agents above the stored high-water mark | **2,399** |
-| Time to fetch them | **1.5 seconds, three queries** |
-| Subgraph head vs stored maximum | agent `334,776` vs `332,377` |
+| 0 | 200 OK in ~1.1s |
+| 700,000 | ReadTimeout |
+| 806,000 | ReadTimeout |
+| 808,000 | ReadTimeout |
 
-The comparison was run before wiring anything in, and it does not support a migration. 8004scan supplies `total_score`, `star_count`, Quality Center, `category` and `image_url`, all computed off-chain and at 100% coverage for score and category in the stored set; a subgraph indexing on-chain registries cannot have them. The Graph supplies chain truth and reach. So this ships as a **coverage fallback and corroboration source**, not a replacement.
+The pipeline was already recording the damage without anyone reading it as a ceiling. **361 offsets** sat in `full_registry_skipped_offsets`, a collection whose whole purpose is to retry pages that failed. They were retried at the head of every ingest batch and failed every time, for days. The scheduled GitHub Actions job was failing too: **6 of its last 8 runs**, always on the ingest step.
 
-Two findings reported as negatives rather than dressed up:
+The concrete consequence: the marketplace's view of the registry stopped at **agent 332,377**, while the chain kept minting new ones. Everything above that was invisible, and no amount of retrying was going to reach it.
 
-- **The Validation Registry is unused on BSC.** `validations` and `validationPoints` both return empty across the whole chain. The adapter exposes it because the capability is real, but nothing treats an empty result as a signal and no UI claims otherwise.
-- **It cannot drive `service_status`.** Only 1.7% of sampled BSC registration files carry any endpoint, so the live health probe remains the only thing that can say whether an endpoint responds.
+#### The problem, precisely
 
-Data lands in the existing systems rather than a new display: `supported_protocols` derived from the structured endpoint fields is what `core/protocol_compat.py` already reasons over, and `x402_supported` is consumed across the marketplace. Rows merge with `$set` and carry `source: "thegraph:agent0"`, so 8004scan-derived fields are never overwritten with nulls and provenance stays auditable.
+This was not a client bug, which matters because it rules out the obvious fixes. The requests were well-formed, the key was valid, shallow offsets returned in about a second, and the retry logic was already correct with exponential backoff and per-offset failure tracking. The failure is in offset pagination itself: asking a REST API to skip past 800,000 rows makes it do progressively more work per request until it stops answering inside any sane timeout.
 
-Verified live, end to end. The completed run fetched 1,000 agents above the stored ceiling and upserted 994, moving the high-water mark from **332,377 to 334,250**. What matters is what survived: every backfilled row was health-checked by the analysis loop this project already had, and the no-endpoint policy deleted the unreachable ones, leaving **539 rows of which 537 are confirmed responding**. The result is 537 agents with live endpoints that 8004scan could not deliver, arriving with a verified service status rather than as raw rows. The run took 668 seconds, almost all of it MongoDB write time on a free-tier cluster; the subgraph returned its 1,000 agents in under a second.
+Nothing on our side fixes that. Not more retries, not longer timeouts, not smaller pages. The data was simply out of reach through that door, and roughly **2,399 agents** were sitting behind it.
+
+#### The solution: read the chain, not a paginated API
+
+ERC-8004 registries are on-chain. A subgraph indexes those events as they happen and serves them from an index rather than by scanning, so "give me everything after agent 332,377" is a keyed lookup rather than a walk through 800,000 rows. The failure mode above cannot occur, because nothing is being skipped past.
+
+The [Agent0 subgraphs](https://github.com/agent0lab/subgraph), built with The Graph, index exactly the registries this project already reads: Identity, Reputation and Validation.
+
+It went in as a **fallback beside 8004scan, not a replacement**, and that decision came from measurement rather than preference. The two sources carry genuinely different data, so replacing one with the other would have lost information either way.
+
+```mermaid
+flowchart TB
+    subgraph Before["Before: one door, and it jams"]
+        Chain1["ERC-8004 registries on BSC"]
+        Scan1["8004scan REST API<br/>offset pagination"]
+        Wall["Offsets past ~700k time out<br/>361 offsets stuck retrying"]
+        Store1["Registry store<br/>stops at agent 332,377"]
+        Chain1 --> Scan1 --> Wall --> Store1
+    end
+
+    subgraph After["After: two doors, each doing what it is good at"]
+        Chain2["ERC-8004 registries on BSC"]
+        Scan2["8004scan REST API<br/>scores, categories, images"]
+        Graph["The Graph<br/>Agent0 subgraph<br/>indexed, no offset walk"]
+        Merge["full_agent_registry<br/>merged, never overwritten"]
+        Health["Existing health check<br/>plus no-endpoint policy"]
+        Live["537 agents with live endpoints"]
+        Chain2 --> Scan2 --> Merge
+        Chain2 --> Graph --> Merge
+        Merge --> Health --> Live
+    end
+```
+
+#### After: the measured result
+
+| | Before | After |
+|---|---|---|
+| Highest reachable agent | 332,377 | **334,250** |
+| Agents above the ceiling | 2,399, unreachable | fetched |
+| Time to page that range | timeout, indefinitely | **1.5s across 3 queries** |
+
+A completed backfill run fetched 1,000 agents above the ceiling and upserted 994, in 668.4 seconds.
+
+The number that actually matters is what survived, because the backfill fed the machinery already in place rather than sitting beside it. Every new row was picked up by the existing analysis loop, health-checked, and passed through the no-endpoint policy, which deletes agents with nothing to reach. What remains is **539 rows tagged `source: thegraph:agent0`, of which 537 are confirmed responding**, one not responding and one unknown.
+
+So the honest headline is not "1,000 rows added". It is **537 agents with live, responding endpoints that 8004scan could not deliver at any speed**, arriving already carrying a verified service status.
+
+One number worth stating because it is not flattering: the 668 seconds is almost entirely MongoDB write time on a free-tier cluster. The Graph returned its 1,000 agents in under a second. The bottleneck has moved off the data source and onto our own storage, which is a different problem than the one this set out to fix.
+
+#### The honest limits
+
+The Graph does not replace 8004scan, and three specific findings are worth stating plainly rather than glossing:
+
+- **It cannot carry the scoring data.** `total_score`, `star_count`, the Quality Center assessment, `category` and `image_url` are all computed off-chain. A subgraph indexing on-chain registries structurally cannot have them, and the stored BSC set is 100% dependent on 8004scan for score and category, 91.2% for images. This is why rows merge with `$set` and the subgraph writes only fields it genuinely knows, so a later 8004scan pass fills the rest in rather than being overwritten with nulls.
+- **The Validation Registry is empty on BSC.** Both `validations` and `validationPoints` return nothing across the entire chain. The adapter exposes it because the capability is real and other chains may use it, but nothing was built on top of an empty table and no part of the UI implies otherwise.
+- **It cannot determine whether an endpoint works.** Only **1.7%** of sampled BSC registration files carry any endpoint at all (mcp 0.4%, a2a 1.2%, web 0.7%). The live health probe in `core/agent_health.py` remains the only thing that can answer that question.
 
 ## Honest summary of the mix
 

@@ -5,6 +5,8 @@
 // (DataSourcesPage.jsx), web + mobile. Every entry below is a real,
 // checked-in-code integration (checked 2026-08-25, not assumed):
 //   - 8004scan:    backend/adapters/bsc.py — agent identity/reputation data
+//   - The Graph:   backend/adapters/thegraph.py — Agent0 ERC-8004 subgraph,
+//                  the registry coverage fallback (docs/thegraph-integration.md)
 //   - Zerion:      backend/adapters/zerion.py — opt-in wallet portfolio enrichment
 //   - CoinGecko:   credited per a real commitment made in their grant
 //                  application; tracked live on /status. Market & pricing data.
@@ -39,6 +41,25 @@ export const DATA_SOURCES = [
     // actually uses removes that whole class of risk.
     logo: 'https://zerion.io/favicon-wallet-32.png',
     description: "Opt-in wallet portfolio enrichment on an agent's detail page.",
+  },
+  {
+    name: 'The Graph',
+    url: 'https://thegraph.com',
+    // First-party asset. thegraph.com/favicon.ico is a real 404, so this
+    // uses the icon their own <head> actually declares
+    // (storage.thegraph.com/favicons/64x64.png, live-confirmed 200, a real
+    // 64x64 RGBA PNG) -- the same "check what the site itself uses rather
+    // than assuming the root .ico" step already taken for Zerion.
+    //
+    // Checked their brand guidelines (thegraph.com/brand) before using the
+    // mark: assets are stated free to use in community designs, with usage
+    // explicitly not implying collaboration, partnership or endorsement,
+    // which is exactly the footing every logo in this file sits on. Their
+    // written naming rules are followed throughout this project: "The
+    // Graph" capitalised in full, never "Graph" alone, never "The Graph
+    // Protocol", and the token name is not used as a brand reference.
+    logo: 'https://storage.thegraph.com/favicons/64x64.png',
+    description: 'Live ERC-8004 registry data via the Agent0 subgraph, used as a coverage fallback where 8004scan\'s pagination fails.',
   },
   {
     name: 'MetaMask',
