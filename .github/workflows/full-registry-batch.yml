@@ -82,7 +82,17 @@
 # than the worker at full throughput, but never fully stopped. Both are
 # intentionally kept; this is not choosing one over the other.
 
-name: Full-registry batch (ingest + analyze + job index + health check + solana + escrow audit)
+# A sixth step, calling POST /api/admin/multichain-registry-batch, was
+# added 2026-09-10 for five more real chains 8004scan indexes but this
+# pipeline didn't yet cover: Monad, Billions Network, Robinhood Chain,
+# Celo, Arbitrum. Same real reasoning as the Solana step above — none of
+# these ride along in the shared, unfiltered EVM scan, so each needs its
+# own real chain_id-filtered pass and its own real progress checkpoint
+# (see core/full_registry_ingest.py's ADDITIONAL_CHAINS). Same
+# full_agent_registry collection, not surfaced on the live BSC-only
+# marketplace, background collection only.
+
+name: Full-registry batch (ingest + analyze + job index + health check + solana + multichain + escrow audit)
 
 on:
   schedule:
@@ -117,6 +127,7 @@ jobs:
           fi
 
       - name: Call the real /api/admin/job-index-batch endpoint
+        if: always()   # each batch is independent; a transient failure in one must not skip the rest
         env:
           BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
           BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
@@ -136,6 +147,7 @@ jobs:
           fi
 
       - name: Call the real /api/admin/health-check-batch endpoint
+        if: always()   # each batch is independent; a transient failure in one must not skip the rest
         env:
           BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
           BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
@@ -155,6 +167,7 @@ jobs:
           fi
 
       - name: Call the real /api/admin/solana-registry-batch endpoint
+        if: always()   # each batch is independent; a transient failure in one must not skip the rest
         env:
           BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
           BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
@@ -173,7 +186,28 @@ jobs:
             exit 1
           fi
 
+      - name: Call the real /api/admin/multichain-registry-batch endpoint
+        if: always()   # each batch is independent; a transient failure in one must not skip the rest
+        env:
+          BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
+          BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
+        run: |
+          echo "Calling $BACKEND_BASE_URL/api/admin/multichain-registry-batch ..."
+          http_status=$(curl -sS -o response6.json -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            -H "X-Batch-Secret: ${BATCH_TRIGGER_SECRET}" \
+            "${BACKEND_BASE_URL}/api/admin/multichain-registry-batch")
+          echo "Real HTTP status: $http_status"
+          echo "Real response body:"
+          cat response6.json
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Real multichain batch trigger failed with HTTP $http_status"
+            exit 1
+          fi
+
       - name: Call the real /api/admin/escrow-compat-audit-batch endpoint
+        if: always()   # each batch is independent; a transient failure in one must not skip the rest
         env:
           BACKEND_BASE_URL: ${{ vars.BACKEND_BASE_URL || 'https://agents-marketplace-q3k4.onrender.com' }}
           BATCH_TRIGGER_SECRET: ${{ secrets.BATCH_TRIGGER_SECRET }}
