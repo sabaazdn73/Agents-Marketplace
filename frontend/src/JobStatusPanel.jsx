@@ -526,7 +526,7 @@ export default function JobStatusPanel({
   return (
     <div className={`mt-3 p-3 rounded-xl border ${mutedBorder} text-xs space-y-2 transition-all duration-500 ${flashRing}`}>
       {flashKind && (
-        <div className={`-mt-1 -mx-1 mb-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 animate-in fade-in duration-300 ${
+        <div className={`-mt-1 -mx-1 mb-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
           flashKind === 'submitted' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
         }`}>
           {flashKind === 'submitted' ? <><CheckCircle2 size={13} /> Just delivered!</> : <><XCircle size={13} /> Just expired — you can get a refund now</>}
@@ -541,7 +541,7 @@ export default function JobStatusPanel({
         </div>
         <div className="flex items-center gap-2">
           <span className="font-semibold" title={status ? `On-chain status: ${status}` : undefined} style={{ color: accent }}>{loading ? '…' : (STATUS_DISPLAY_LABEL[status] || status || 'unknown')}</span>
-          <button onClick={refresh} disabled={busy} className="opacity-60 hover:opacity-100"><RefreshCw size={12} /></button>
+          <button onClick={refresh} disabled={busy} aria-label="Refresh job status" title="Refresh job status" className="opacity-60 hover:opacity-100 p-2 -m-2"><RefreshCw size={12} /></button>
         </div>
       </div>
 

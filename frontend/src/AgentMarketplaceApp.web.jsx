@@ -1239,6 +1239,27 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   empty AND there's real search text to check — never
                   replaces the plain "nothing matched" case below for an
                   ordinary mistyped name. */}
+              {/* Filters alone can empty the list -- category, group, "responding
+                  only" and "verified only" all narrow it, and "verified only"
+                  matches a small fraction of agents, so an empty result is easy
+                  to reach without typing anything. Previously the only empty
+                  state was gated on searchQuery, so those cases rendered a blank
+                  area that read as a loading failure. */}
+              {!loading && !error && filtered.length === 0 && !searchQuery && (
+                <div className="text-center py-16 px-6">
+                  <p className="font-semibold mb-1">No agents match these filters</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Try widening them — "Verified working" in particular matches only a small share of agents.
+                  </p>
+                  <button
+                    onClick={() => { setActiveGroup('All'); setActiveCategory('All'); setOnlyResponding(false); setOnlyVerified(false); }}
+                    className="text-sm font-semibold px-4 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              )}
+
               {!loading && !error && filtered.length === 0 && searchQuery && (
                 <div className="mb-6">
                   <UniversalSearchFallback

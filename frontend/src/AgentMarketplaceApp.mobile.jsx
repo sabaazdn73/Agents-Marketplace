@@ -373,7 +373,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
   };
   return (
-    <div className="p-5 animate-in slide-in-from-right-4 duration-300">
+    <div className="p-5">
       <div className="flex items-center justify-between mb-6">
         <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-500 font-medium">
           <ChevronRight size={18} className="rotate-180" /> Back
@@ -789,17 +789,17 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
         <div className="flex items-center gap-3">
           <NotificationBell />
           {onOpenEcosystem && (
-            <button onClick={onOpenEcosystem} title="Ecosystem view" className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
+            <button onClick={onOpenEcosystem} aria-label="Ecosystem view" title="Ecosystem view" className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
               <Globe size={16} />
             </button>
           )}
-          <button onClick={() => setShowOnboarding(true)} title="How this works" className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
+          <button onClick={() => setShowOnboarding(true)} aria-label="How this works" title="How this works" className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
             <HelpCircle size={16} />
           </button>
-          <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full bg-gray-100 dark:bg-white/10">
+          <button onClick={() => setDarkMode(!darkMode)} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
             {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <button onClick={() => setWalletSheetOpen(true)} className="p-2 rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+          <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
             <Menu size={18} />
           </button>
         </div>
@@ -809,7 +809,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       <main className="flex-1 overflow-y-auto overflow-x-hidden pb-32">
         
         {hiring && selectedAgent ? (
-          <div className="p-5 animate-in slide-in-from-right-4 duration-300">
+          <div className="p-5">
             <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && !hireError} className="flex items-center gap-1 text-sm text-gray-500 font-medium mb-6 disabled:opacity-40">
               <ChevronRight size={18} className="rotate-180" /> Back
             </button>
@@ -1162,6 +1162,24 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {/* Real, live search fallback (2026-08-29) — mirrors web
                     exactly, see UniversalSearchFallback.jsx and
                     docs/universal-search.md. */}
+                {/* Filters alone can empty the list (see the web app's matching
+                    comment) -- previously only a search query produced an empty
+                    state, so filtering to nothing rendered a blank area. */}
+                {!loading && filtered.length === 0 && !searchQuery && (
+                  <div className="text-center py-14 px-5">
+                    <p className="font-semibold mb-1">No agents match these filters</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Try widening them — "Verified working" in particular matches only a small share of agents.
+                    </p>
+                    <button
+                      onClick={() => { setActiveGroup('All'); setActiveCategory('All'); setOnlyResponding(false); setOnlyVerified(false); }}
+                      className="text-sm font-semibold px-4 py-2.5 rounded-xl bg-indigo-600 text-white"
+                    >
+                      Clear all filters
+                    </button>
+                  </div>
+                )}
+
                 {!loading && filtered.length === 0 && searchQuery && (
                   <div className="mb-5">
                     <UniversalSearchFallback
