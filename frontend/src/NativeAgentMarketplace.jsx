@@ -57,6 +57,18 @@ import {
 } from './defiSkills';
 import { getTokenMeta, getTradeQuote, getPriceTrend, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
 
+/** Real, human labels for the holder-risk fields Binance's Market API
+ * can genuinely have no data for — used to say "no data for Snipers"
+ * honestly instead of showing a fabricated 0%. */
+const HOLDER_FIELD_LABELS = {
+  top10_holders_pct: 'Top 10 wallets',
+  dev_holding_pct: 'Developer',
+  sniper_holding_pct: 'Snipers',
+  insider_holding_pct: 'Insiders',
+  bundler_holding_pct: 'Bundlers',
+  new_wallet_holding_pct: 'New wallets',
+};
+
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 const STAKING_RECOMMENDATION_URL = `${API_BASE}/api/native-agents/staking/recommendation`;
 
@@ -441,6 +453,50 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
                 over 24h — context only, not a recommendation.
               </span>
               <span className="opacity-50 shrink-0 ml-2">via {trend.source}</span>
+            </div>
+          )}
+
+          {/* Real holder composition from Binance's own Web3 Market API —
+              a genuinely independent second risk source, since every
+              signal above is derived from the same DEX pair reserves and
+              so can describe the trade but never who holds the token.
+              Shows only the fields Binance genuinely returns for this
+              token and names the ones it has no data for, rather than
+              rendering a missing value as a reassuring 0% — the same
+              discipline as the trend block above. */}
+          {quoteStatus === 'ready' && quote?.holderRisk && (
+            <div className={`p-2.5 rounded-lg border text-[11px] space-y-1.5 ${mutedBorder}`}>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold opacity-80">Who holds this token</span>
+                <span className="opacity-50 shrink-0 ml-2">via Binance Market API</span>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 opacity-80">
+                {quote.holderRisk.top10_holders_pct != null && (
+                  <span>Top 10 wallets: <span className="font-mono font-semibold">{quote.holderRisk.top10_holders_pct.toFixed(1)}%</span></span>
+                )}
+                {quote.holderRisk.dev_holding_pct != null && (
+                  <span>Developer: <span className="font-mono font-semibold">{quote.holderRisk.dev_holding_pct.toFixed(2)}%</span></span>
+                )}
+                {quote.holderRisk.sniper_holding_pct != null && (
+                  <span>Snipers: <span className="font-mono font-semibold">{quote.holderRisk.sniper_holding_pct.toFixed(1)}%</span></span>
+                )}
+                {quote.holderRisk.bundler_holding_pct != null && (
+                  <span>Bundlers: <span className="font-mono font-semibold">{quote.holderRisk.bundler_holding_pct.toFixed(1)}%</span></span>
+                )}
+                {quote.holderRisk.new_wallet_holding_pct != null && (
+                  <span>New wallets: <span className="font-mono font-semibold">{quote.holderRisk.new_wallet_holding_pct.toFixed(1)}%</span></span>
+                )}
+                {quote.holderRisk.holders != null && (
+                  <span>Holders: <span className="font-mono font-semibold">{Number(quote.holderRisk.holders).toLocaleString()}</span></span>
+                )}
+              </div>
+              {(quote.holderRisk.unavailable_fields?.length || 0) > 0 && (
+                <div className="opacity-50">
+                  No data for: {quote.holderRisk.unavailable_fields
+                    .map((f) => HOLDER_FIELD_LABELS[f] || f).join(', ')} — genuinely
+                  unreported for this token, not measured as zero.
+                </div>
+              )}
             </div>
           )}
 

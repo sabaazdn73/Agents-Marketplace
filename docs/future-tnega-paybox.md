@@ -1,6 +1,8 @@
 # 🤖 Future: Tnega PayBox (research & design only, not built)
 
-Status: **not implemented.** This page is the architecture and feasibility research for a possible post-hackathon feature — a payment-completion service that open-source Web2 commerce agents could hand a checkout off to, settling through MetaMask Card. Written 2026-09-03 so this can be picked up later without re-researching from scratch. Nothing on this page describes a live Tnega feature.
+Status, updated 2026-09-04: **the settlement rail is now built and live-tested.** Everything below the "Constraint" headings remains the real research record of how this was scoped — and it matters, because every rail it evaluated died on the same rock. What changed is that a rail which doesn't have that problem was found and implemented: **Binance B402**, the x402 standard settled natively on BSC. See "[The rail that actually worked: B402](#the-rail-that-actually-worked-b402-implemented-2026-09-04)" below for what's real and running, and what still isn't.
+
+The original research framing is kept intact rather than rewritten, because the constraints it documents are still true of MetaMask Card and MoonPay — B402 didn't resolve them, it went around them.
 
 Surfaced in-app as a "Web2 Agents + PayBox" Coming Soon card in the Native Agent Marketplace — a vision/roadmap summary only, no code behind it, linking back here for the full research. That card also names a second, genuinely separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own much larger future project — comparable in scope to BNB Agent Studio or Claude Code itself — not scoped here or anywhere in this codebase; noted for the record, not researched.
 
@@ -138,6 +140,48 @@ Checked whether a different settlement rail sidesteps the chain problem entirely
 - Checked as a possible self-custody-card alternative to MetaMask Card: **Gnosis Pay** (Safe-based, self-custodial) — supports Ethereum, Polygon, and Gnosis Chain, not BSC. Same structural gap as MetaMask Card, not an improvement.
 
 The tradeoff: going this route means Tnega PayBox settles to a **bank payout** (or whatever card-topup rail MoonPay/Transak themselves offer), not specifically a *self-custody Mastercard debit card* the way the original MetaMask Card concept was. That's a different product shape — "instant, no-bridge fiat off-ramp for a checkout" rather than "spend BSC crypto on any card anywhere" — worth deciding on explicitly rather than treating as equivalent. It is, however, the one path here that's actually buildable against BSC today, with no dependency on an external company lifting a signup pause or adding chain support.
+
+## The rail that actually worked: B402 (implemented 2026-09-04)
+
+Every settlement rail researched above failed on the same thing: **BSC**. MetaMask Card can't fund from it (and paused US signups). Gnosis Pay doesn't support it. MoonPay does, but only as a bank-payout off-ramp — not something an agent or a checkout page can settle against directly.
+
+[Binance B402](https://web3.binance.com/en/dev-docs/products/b402-api/integration-guide) is the x402 standard settled **natively on BSC**. No bridge, no chain gap, no third party's signup queue in the middle. Confirmed live against the real API with real credentials, not assumed: all 10 payment kinds this account can accept are on `eip155:56`.
+
+The unplanned bonus, found by reading the real `/supported` response rather than designed for: one of the four assets B402 settles here is **United Stables ($U, `0xcE24439F2D9C6a2289F741120FE202248B666666`) — ERC-8183's own settlement token**, the exact asset this marketplace already denominates escrowed hires in. A PayBox payment and a Tnega hire settle in the same asset on the same chain, with no conversion between them.
+
+### What's real and running
+
+| Piece | Where | State |
+|---|---|---|
+| HMAC-SHA256 signing, `postB402()` | `backend/core/b402.py` | Live-verified against the real API |
+| `supported` (cached, 15 min) | `core/b402.py` | Live — returns 10 real kinds, all BSC |
+| `verify` / `settle` + 3-outcome handling | `core/b402.py` | Built; verify live-exercised, settle not (see below) |
+| Checkout sessions + server-held requirements | `backend/core/paybox.py` | Live-tested end to end |
+| `GET /api/paybox/readiness` | `backend/server.py` | Live |
+| `POST /api/paybox/sessions` → real HTTP 402 | `backend/server.py` | Live-tested |
+| `GET /api/paybox/sessions/{id}` | `backend/server.py` | Live-tested |
+| `POST /api/paybox/sessions/{id}/pay` | `backend/server.py` | Live-tested through verify |
+
+Real assets, verified on-chain (each address matched by calling `name()` on BSC mainnet and comparing it exactly to the name B402 returns, rather than trusting a well-known-address list): $U, USDT, USDC, USD1 — **all 18 decimals on BSC**, which is a real trap worth naming, since USDT/USDC use 6 decimals on Ethereum and getting it wrong would misprice a payment by 10¹².
+
+### The one security rule this design turns on
+
+Payment requirements are **issued and held by the server**, loaded back by session id, and never taken from the request body. Verifying a client-supplied payload against client-supplied requirements proves only that the client agrees with itself — a buyer could lower `amount`, swap `asset` for a worthless token, or repoint `payTo`, and B402's verify would faithfully confirm the match.
+
+This was tested adversarially, not just asserted: a payment submitted with requirements tampered down from 1.25 U to 0.000001 U was checked against the real, stored 1.25 U requirements, and the stored session was confirmed unchanged afterward.
+
+### Honest gaps
+
+- **No real settlement has been executed.** `verify`/`settle` need a genuinely signed EIP-3009 or Permit2 authorization from a funded wallet. Producing one means handling a private key holding real $U, which is out of scope for this backend by design — it never holds a key. The verify path was exercised live with structurally-real payloads and returns real, structured rejections (`invalid_exact_evm_payload_recipient_mismatch`); the settle path is code-complete and unexercised. **Completing a real payment end to end is the honest next step, and it needs a funded browser wallet, not more backend work.**
+- **No checkout UI yet.** `checkout_url` points at `/paybox/checkout`, which isn't built. The buyer-facing page that connects a wallet and produces the signature is the remaining piece.
+- The `permit2-upto` scheme and its `settleAmount` are implemented but unexercised.
+
+### Two real API details the guide's prose doesn't spell out
+
+Both cost real debugging time and are recorded so the next person doesn't repeat them:
+
+1. **`X-OC-TIMESTAMP` must be ISO 8601, not epoch milliseconds.** Epoch-millis is the natural guess (it's what Binance's own spot API uses) and it fails with `HTTP 401 {"msg":"Invalid timestamp format, expected ISO 8601","code":40103}`.
+2. **The signed and sent payload is `{"body": {...}}`** — the x402 object nests inside a `body` key rather than being the top-level document. And `paymentPayload` itself needs `resource` and `accepted` blocks, not just `payload`.
 
 ## A production reference case: Pay.sh
 

@@ -13,7 +13,7 @@ import sys
 import json
 import httpx
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -52,6 +52,7 @@ from adapters import termix
 from adapters import bsc
 from adapters import contract_verification
 from adapters import native_staking
+from adapters import binance_market
 from core import canary
 from core import pnl
 from core import onchain_pnl
@@ -62,6 +63,8 @@ from core import full_registry_analysis
 from core import job_index
 from core import rpc
 from core import universal_search
+from core import b402
+from core import paybox
 
 load_dotenv()
 
@@ -1719,3 +1722,169 @@ async def my_jobs(client_address: str):
             job["agent_name"] = None
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Tnega PayBox — real B402 (x402-on-BSC) checkout sessions
+# ---------------------------------------------------------------------------
+# The real implementation of the session API designed in
+# docs/future-tnega-paybox.md, now that a settlement rail that actually
+# works from BSC exists (see core/b402.py). A merchant backend's
+# `StorefrontBackend.checkout_handoff()` calls POST /api/paybox/sessions
+# and puts the returned checkout_url into a CheckoutHandoff; the buyer
+# pays; the merchant polls GET /api/paybox/sessions/{id}.
+
+
+@app.get("/api/paybox/readiness")
+async def paybox_readiness():
+    """Real, live readiness check for the B402 integration — calls the real
+    /supported endpoint and reports what this account can genuinely accept
+    right now.
+
+    Deliberately public and read-only: it exposes no credential and no
+    secret, only the same capability list B402 would tell any authorized
+    caller, and it's the honest way to answer "is PayBox actually live?"
+    without a fabricated status badge. `available: false` with a real
+    `reason` is a real answer, never an exception to the caller."""
+    try:
+        async with httpx.AsyncClient() as client:
+            supported = await b402.get_supported(client)
+    except b402.B402Error as e:
+        return {
+            "available": False,
+            "reason": str(e),
+            "onboarding_incomplete": e.is_onboarding_incomplete,
+        }
+
+    kinds = b402.describe_supported(supported)
+    return {
+        "available": True,
+        "network": "eip155:56",
+        "network_label": "BNB Smart Chain (mainnet)",
+        "source": "Binance B402 — the x402 payment standard settled natively on BSC. "
+                  "No bridge and no fiat-card dependency, unlike the MetaMask Card / "
+                  "MoonPay paths previously researched for this feature.",
+        "supported_kinds": kinds,
+        "assets": sorted({k["asset_symbol"] for k in kinds if k.get("asset_symbol")}),
+        "signers": supported.get("signers"),
+    }
+
+
+@app.post("/api/paybox/sessions")
+async def paybox_create_session(request: Request):
+    """Create a real PayBox checkout session and return a real HTTP 402
+    with live x402 payment requirements.
+
+    Body: {"amount": "1.50", "order_reference": "...", "description"?: str,
+           "asset"?: "U"|"USDT"|"USDC"|"USD1", "scheme"?: "exact"|"upto",
+           "merchant_id"?: str, "success_url"?: str, "cancel_url"?: str}
+
+    Responds 402 Payment Required (the real, correct x402 status — this is
+    the whole point of the standard, not an error) with an `accepts` array
+    of real requirements sourced from a live B402 /supported call, plus
+    the `session_id` and `checkout_url` a merchant's own
+    `checkout_handoff()` needs."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body must be real JSON.")
+
+    amount = body.get("amount")
+    order_reference = body.get("order_reference")
+    if amount is None or not order_reference:
+        raise HTTPException(status_code=400, detail="Both `amount` and `order_reference` are required.")
+
+    try:
+        session = await paybox.create_session(
+            amount=amount,
+            order_reference=str(order_reference),
+            description=body.get("description"),
+            asset_symbol=body.get("asset") or paybox.DEFAULT_ASSET_SYMBOL,
+            scheme=body.get("scheme") or "exact",
+            merchant_id=body.get("merchant_id"),
+            success_url=body.get("success_url"),
+            cancel_url=body.get("cancel_url"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except b402.B402Error as e:
+        raise HTTPException(status_code=503, detail=f"B402 unavailable: {e}")
+
+    return JSONResponse(
+        status_code=402,
+        content={
+            "x402Version": 2,
+            "error": "payment_required",
+            "accepts": paybox.accepts_for(session),
+            "session_id": session["session_id"],
+            "checkout_url": session["checkout_url"],
+            "resource": {
+                "url": session["checkout_url"],
+                "description": session["description"],
+                "mimeType": "application/json",
+            },
+        },
+    )
+
+
+@app.get("/api/paybox/sessions/{session_id}")
+async def paybox_get_session(session_id: str):
+    """Real, current status of one PayBox session — the poll target a
+    merchant backend uses to confirm completion, mirroring how this
+    project's own JobStatusPanel polls real on-chain job status rather
+    than assuming a webhook arrived."""
+    session = await paybox.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="No such PayBox session.")
+    return paybox.public_view(session)
+
+
+@app.post("/api/paybox/sessions/{session_id}/pay")
+async def paybox_submit_payment(session_id: str, request: Request):
+    """Submit a buyer's signed x402 payment payload for a real session:
+    verify it server-side against the requirements THIS SERVER issued and
+    stored, then settle on BSC.
+
+    Body: {"paymentPayload": {...}} — the signed x402 v2 payload.
+
+    The payment requirements are deliberately NOT accepted from this body.
+    They're re-loaded from the stored session by id, because verifying a
+    client-supplied payload against client-supplied requirements only
+    proves the client agrees with itself — see core/paybox.py's own module
+    docstring on why that's the one rule this whole layer exists for."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body must be real JSON.")
+
+    payment_payload = body.get("paymentPayload") or body.get("payment_payload")
+    if not isinstance(payment_payload, dict):
+        raise HTTPException(status_code=400, detail="`paymentPayload` (object) is required.")
+
+    try:
+        result = await paybox.submit_payment(session_id, payment_payload)
+    except b402.B402Error as e:
+        raise HTTPException(status_code=503, detail=f"B402 unavailable: {e}")
+
+    if result.get("reason") == "No such PayBox session.":
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
+
+
+@app.get("/api/token-risk/{contract_address}")
+async def token_risk(contract_address: str, chain_id: int = 56):
+    """Real holder-concentration risk signals for one token, from Binance's
+    own Web3 Market API — an additional, independent risk source for the
+    Trading Agent alongside its existing on-chain price-impact and
+    liquidity-depth checks.
+
+    Proxied through this backend rather than called from the browser for
+    the same real reason as this project's other proxied reads: it's a
+    cross-origin endpoint a browser can't reliably call directly, and
+    proxying lets one real 10-minute cache serve every user instead of
+    each browser re-fetching holder data that changes on the timescale of
+    hours (see adapters/binance_market.py's own caching note).
+
+    Always 200 with a real `available: false` + `reason` when Binance
+    genuinely has no data for a token — never a fabricated all-clear."""
+    return await binance_market.get_token_risk(contract_address, chain_id)

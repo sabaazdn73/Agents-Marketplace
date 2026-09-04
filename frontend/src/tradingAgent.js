@@ -235,13 +235,60 @@ export async function getTradeRiskSignals(publicClient, tokenAddress, usdtAmount
   return { priceImpactPct, tradeSizePctOfReserve, reserveUsdt, warnings };
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+/** Real holder-concentration risk from Binance's own Web3 Market API —
+ * a genuinely INDEPENDENT second risk source, added 2026-09-04. The
+ * existing signals above are all derived from the same place (the DEX
+ * pair's own reserves), so they can say a trade is thin but can never
+ * say WHO holds the token. This can: top-10 concentration, developer
+ * holdings, sniper/bundler/new-wallet share.
+ *
+ * Real, honest coverage note, measured live across 16+ real BSC tokens
+ * before wiring this in rather than assumed: `top10_holders_pct` is
+ * populated for essentially every real BSC token, developer holdings
+ * for most, and `sniper`/`insider` for effectively none — those two
+ * exist in the API's real schema but came back null every single time.
+ * The backend therefore reports which fields genuinely have no data
+ * (`unavailable_fields`) instead of rendering a missing value as 0%,
+ * and this returns null rather than a fabricated all-clear on failure.
+ * See backend/adapters/binance_market.py for the full real finding. */
+export async function getTokenHolderRisk(tokenAddress) {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/token-risk/${tokenAddress}`);
+    if (!resp.ok) return null;
+    const body = await resp.json();
+    return body?.available ? body : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Real, full comparison + risk-signal read for a proposed trade — the
  * one call the UI needs: which real DEX wins, what every real candidate
- * quoted, and the winning route's own real risk signals. */
+ * quoted, the winning route's own real on-chain risk signals, and the
+ * real holder-concentration risk from Binance's Market API.
+ *
+ * The two warning sources are deliberately kept as separate arrays as
+ * well as a merged one: they measure genuinely different things (route
+ * liquidity vs. who holds the supply) from genuinely different sources
+ * (on-chain reads vs. Binance's API), and collapsing them into one
+ * undifferentiated list would hide which evidence backs which warning.
+ * The holder read never blocks a quote — if it fails, the real on-chain
+ * signals still render exactly as before. */
 export async function getTradeQuote(publicClient, tokenAddress, usdtAmountRaw) {
   const { best, allQuotes, comparedCount } = await quoteBestAcrossDexes(publicClient, tokenAddress, usdtAmountRaw);
-  const signals = await getTradeRiskSignals(publicClient, tokenAddress, usdtAmountRaw, best);
-  return { winner: best, allQuotes, comparedCount, ...signals };
+  const [signals, holderRisk] = await Promise.all([
+    getTradeRiskSignals(publicClient, tokenAddress, usdtAmountRaw, best),
+    getTokenHolderRisk(tokenAddress),
+  ]);
+  const holderWarnings = holderRisk?.warnings || [];
+  return {
+    winner: best, allQuotes, comparedCount, ...signals,
+    holderRisk,
+    holderWarnings,
+    warnings: [...signals.warnings, ...holderWarnings],
+  };
 }
 
 /** Real, read-only balance/gas check before spending a real attempt —
