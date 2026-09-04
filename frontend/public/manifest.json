@@ -1,0 +1,30 @@
+{
+  "name": "Tnega — Agent Marketplace",
+  "short_name": "Tnega",
+  "description": "Discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#FFFFFF",
+  "background_color": "#F4F5F8",
+  "icons": [
+    {
+      "src": "/icon_v2_preview.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon_v2.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon_v2_maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

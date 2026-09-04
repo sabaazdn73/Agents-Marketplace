@@ -20,6 +20,19 @@
     <link rel="icon" type="image/png" sizes="512x512" href="/icon_v2_preview.png" />
     <link rel="apple-touch-icon" href="/icon_v2_preview.png" />
 
+    <!-- Web app manifest (2026-09-04). Without one, an Android "Add to home
+         screen" fell back to the bare icon link: no app name, no theme
+         colour, no standalone display, and no maskable icon -- so the
+         launcher cropped a full-bleed square however it liked and the
+         shortcut opened in a browser tab with visible chrome.
+         theme_color/background_color deliberately match the app's real
+         DEFAULT appearance (darkMode initialises to false: root #F4F5F8,
+         header white), so the launch splash does not flash a colour the app
+         never shows. See public/icon_v2_maskable.svg for why the maskable
+         icon is a separate file rather than reusing icon_v2.svg. -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#FFFFFF" />
+
     <!-- Open Graph: what shows in link previews when this URL is pasted
          elsewhere (Discord, Twitter/X, Slack, Telegram, Google's own
          rich-result preview). Real production domain (2026-08-28) —
