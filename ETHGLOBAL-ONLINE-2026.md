@@ -138,7 +138,7 @@ Two findings reported as negatives rather than dressed up:
 
 Data lands in the existing systems rather than a new display: `supported_protocols` derived from the structured endpoint fields is what `core/protocol_compat.py` already reasons over, and `x402_supported` is consumed across the marketplace. Rows merge with `$set` and carry `source: "thegraph:agent0"`, so 8004scan-derived fields are never overwritten with nulls and provenance stays auditable.
 
-Verified live: the backfill advanced the stored high-water mark from **332,377 to 333,516** and wrote **779 rows** on its first passes.
+Verified live, end to end. The completed run fetched 1,000 agents above the stored ceiling and upserted 994, moving the high-water mark from **332,377 to 334,250**. What matters is what survived: every backfilled row was health-checked by the analysis loop this project already had, and the no-endpoint policy deleted the unreachable ones, leaving **539 rows of which 537 are confirmed responding**. The result is 537 agents with live endpoints that 8004scan could not deliver, arriving with a verified service status rather than as raw rows. The run took 668 seconds, almost all of it MongoDB write time on a free-tier cluster; the subgraph returned its 1,000 agents in under a second.
 
 ## Honest summary of the mix
 

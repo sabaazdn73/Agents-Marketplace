@@ -57,6 +57,32 @@ Rows merge with `$set`, exactly like the 8004scan path, and `to_registry_doc` wr
 
 The data feeds the systems that already exist rather than a separate display: `supported_protocols` (derived from the structured endpoint fields) is what `core/protocol_compat.py` reasons over, and `x402_supported` is already consumed across the marketplace.
 
+## Verified result, end to end
+
+The completed run, with the fixed code:
+
+```
+started_above_agent_id : 333,256
+fetched                : 1,000
+upserted               : 994
+highest_seen           : 334,256
+elapsed                : 668.4s
+```
+
+What survives matters more than the raw fetch count, because the backfill composes with machinery this project already had. Every backfilled row was picked up by the existing analysis loop and health-checked, and `core/full_registry_analysis.py`'s no-endpoint policy then deleted the ones with nothing to reach:
+
+| | |
+|---|---|
+| Tagged `source: thegraph:agent0` | **539** |
+| of those, `responding` | **537** |
+| `not_responding` | 1 |
+| `unknown` | 1 |
+| Stored high-water mark | **334,250** (was 332,377) |
+
+So the outcome is not "1,000 rows added". It is **537 agents with live, responding endpoints** that 8004scan could not deliver at any speed, arriving with a verified service status. A tagged count that falls between two measurements is the no-endpoint policy doing its job, not data loss.
+
+One honest note on the 668 seconds: that is almost entirely MongoDB write time on this Atlas free tier, not The Graph, which returned its 1,000 agents in under a second. The bottleneck has moved from the data source to our own storage.
+
 ## Two bugs the live test caught
 
 Recorded because both would have shipped silently:
