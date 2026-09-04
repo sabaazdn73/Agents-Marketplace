@@ -10,6 +10,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
 import iconLogo from './assets/icon_v2.svg';
+import { useAgentDetail } from './useAgentDetail';
 import agentsHero from './assets/agents.png';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
 import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, DEADLINE_PRESETS, formatDeadline, validateDeadlineMinutes } from './hireDeadline';
@@ -504,6 +505,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
+  // Real detail-only fields (owner, protocols, TVL momentum, full
+  // description) are no longer in the list payload — see useAgentDetail.js
+  // and backend/server.py's _INDEX_FIELDS for why. Renders the slim record
+  // instantly and merges the rest in when it lands.
+  const detailAgentFull = useAgentDetail(detailAgent);
   const [hiring, setHiring] = useState(false);
   // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
@@ -942,7 +948,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           </div>
         ) : detailAgent ? (
           <AgentDetailMobile
-            agent={detailAgent}
+            agent={detailAgentFull}
             onBack={() => setDetailAgent(null)}
             onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
             onTrySkill={handleTrySkill}

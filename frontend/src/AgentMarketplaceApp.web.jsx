@@ -12,6 +12,7 @@ import iconLogo from './assets/icon_v2.svg';
 import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
+import { useAgentDetail } from './useAgentDetail';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -533,6 +534,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   const [searchQuery, setSearchQuery] = useState('');    // debounced, used for filtering
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail view
+  // Real detail-only fields (owner, protocols, TVL momentum, full
+  // description) are no longer in the list payload — see useAgentDetail.js
+  // and backend/server.py's _INDEX_FIELDS for why. Renders the slim record
+  // instantly and merges the rest in when it lands.
+  const detailAgentFull = useAgentDetail(detailAgent);
   // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
   const [pendingSkillId, setPendingSkillId] = useState(null);
@@ -961,7 +967,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           
           {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail
-              agent={detailAgent}
+              agent={detailAgentFull}
               onBack={() => setDetailAgent(null)}
               onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
               onTrySkill={handleTrySkill}
