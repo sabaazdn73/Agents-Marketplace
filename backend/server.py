@@ -153,70 +153,33 @@ async def _ensure_indexes():
         print(f"[server] Could not ensure known_agents index (non-fatal): {e}")
 
 
-# ── Real list/detail split (2026-09-04, OOM round 6) ──────────────────────
-# This service was being oomKilled at its real 512Mi ceiling roughly every
-# 9-11 hours -- confirmed from Render's own events (three server_failed
-# events with oomKilled, memoryLimit 512Mi) and its real memory curve:
-# ~247MB right after a restart, climbing to 466MB, then killed. The
-# background worker was being killed the same way.
+# ── Reverted: the 2026-09-04 list field-trim (OOM round 6) ────────────────
+# A previous version of this file trimmed GET /api/agents from 31 fields to
+# 17 and capped descriptions at 200 characters, to cut a real 16.75MB
+# response that was contributing to this service's recurring 512Mi OOM.
 #
-# Real, measured cause, not a guess: GET /api/agents was serving every
-# field of every served agent in one response -- 16,162 agents x 31 fields
-# = a real 16.75MB JSON document, rebuilt and re-serialized on every cache
-# miss, with the full records also held in `_cache["data"]` for an hour at
-# a time. See core/agent_store.py's get_stored_agents docstring for rounds
-# 1-5 of this same fight; each earlier round bounded how many DOCUMENTS
-# were loaded, but none of them reduced how much of each document was
-# actually served.
+# That trim was WRONG and is reverted here. The field list it kept was
+# derived by grepping one render range of one file (the web app's own card
+# markup), which is not where most of this marketplace's evaluation signals
+# are actually consumed. They are consumed by badge/warning/tier components
+# the card merely passes `agent` into, by derived computations, and by the
+# mobile app's own separate paths -- none of which that grep covered. The
+# real, user-visible result was a marketplace still listing agents but
+# missing the evaluation data that is the entire point of the listing.
 #
-# The real fix here is the other axis: serve the LIST only the fields the
-# list genuinely renders, sorts, filters and searches on, and move the
-# rest behind a per-agent detail fetch. Measured against the real live
-# response: 16.75MB -> 9.71MB (1.73x, ~7MB saved per request), and the
-# hour-long `_cache["data"]` now holds slim records instead of full ones,
-# which is the part that actually lowers the resting baseline rather than
-# just the spike.
+# The lesson worth keeping, since the OOM problem is still real: "which
+# fields does the list use" cannot be answered by grepping the component
+# that renders the card. A field reaches the UI through any component the
+# agent object is handed to, and through values computed from it. Any
+# future reduction has to be proven against every consumer of the whole
+# object, or it has to reduce size WITHOUT dropping fields -- capping only
+# text that is provably never rendered in full, or genuinely paginating the
+# list so fewer complete records are sent rather than sending incomplete
+# ones. Correctness first; the payload is the second problem, not the first.
 #
-# Every field below was confirmed to be genuinely used by the real list
-# view (grep'd directly through both apps' render/sort/filter paths), not
-# assumed: `tvl_usd`/`financial_data_available` drive the card's financial
-# badge, `image_url` is read by AgentAvatar, `service_checked_at` by
-# ServiceHealthBadge. The 15 fields NOT listed here (owner_address,
-# supported_protocols, tvl_change_7d_pct, mcap_usd, audit_count,
-# defillama_url, owner_ens/username, owner_bnb_balance, service_endpoint,
-# created_at, last_seen_at, tvl_data_flagged, x402_supported) are read
-# only by the detail panel, which now fetches them from
-# GET /api/agents/{agent_id}.
-_INDEX_FIELDS = (
-    "id", "name", "category", "chain_id", "network", "token_id",
-    "total_score", "star_count", "total_feedbacks", "is_verified",
-    "service_status", "service_checked_at", "image_url",
-    "tvl_usd", "financial_data_available", "possibly_delisted",
-)
-
-# The real list card clamps the description to three lines (`line-clamp-3`
-# in both apps); only the detail panel renders it in full. So the list has
-# never displayed more than roughly this much of it, and sending the whole
-# thing was pure weight -- description is the single largest field at ~233
-# bytes/agent average. Real, deliberate consequence, stated plainly rather
-# than buried: client-side search matches name + this snippet, so a keyword
-# that appears ONLY beyond character 200 of a long description no longer
-# matches. 30.9% of real agents have descriptions longer than this cap, so
-# that tail is a real (if small) search-recall change, chosen over either
-# shipping 16.75MB or moving search server-side.
-_DESCRIPTION_CAP = 200
-
-
-def _to_index_record(agent: dict) -> dict:
-    """One real agent reduced to exactly what the list view needs."""
-    out = {k: agent.get(k) for k in _INDEX_FIELDS}
-    out["description"] = (agent.get("description") or "")[:_DESCRIPTION_CAP]
-    return out
-
-
-def _to_index(agents: list[dict]) -> list[dict]:
-    return [_to_index_record(a) for a in (agents or [])]
-
+# GET /api/agents/{agent_id} (added in the same change) is kept: it is
+# purely additive, breaks nothing, and is the right foundation for a real
+# pagination-based fix later.
 
 _cache: dict = {"data": None, "fetched_at": 0}
 _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
@@ -367,7 +330,7 @@ async def _background_refresh():
         return
     _refresh_in_progress = True
     try:
-        _cache["data"] = _to_index(await _refresh_into_store())
+        _cache["data"] = await _refresh_into_store()
         _cache["fetched_at"] = time.time()
     except Exception as e:
         # A failed background refresh just leaves the existing cache/store
@@ -407,7 +370,7 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         # store directly. This is a fast, single Mongo query, not a live
         # 8004scan fetch, so it's fine to await inline.
         try:
-            _cache["data"] = _to_index(await agent_store.get_stored_agents())
+            _cache["data"] = await agent_store.get_stored_agents()
             _cache["fetched_at"] = now
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
@@ -438,7 +401,7 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         # only case where we actually wait on a live fetch, since there's
         # nothing honest to serve otherwise.
         try:
-            _cache["data"] = _to_index(await _refresh_into_store())
+            _cache["data"] = await _refresh_into_store()
             _cache["fetched_at"] = time.time()
         except HTTPException:
             raise
@@ -1958,7 +1921,7 @@ async def token_risk(contract_address: str, chain_id: int = 56):
 @app.get("/api/agents/{agent_id}")
 async def agent_detail(agent_id: str):
     """One real agent's FULL record, including every field GET /api/agents
-    deliberately no longer sends (see _INDEX_FIELDS above for why).
+    deliberately no longer sends (none, currently -- the field-trim that made this necessary was reverted; see the note above /api/agents).
 
     Added 2026-09-04 as the other half of the list/detail split that fixed
     this service's recurring 512Mi OOM. The list endpoint now serves only
