@@ -9,16 +9,39 @@
 // the app opens that agent's existing detail view if it's in the served set.
 // Shared by web and mobile so both behave identically.
 
-/** The shareable URL for an agent (prefers the on-chain ERC-8004 token id). */
-export function agentShareUrl(agent) {
-  const id = agent?.tokenId != null ? String(agent.tokenId) : String(agent?.id ?? '');
-  const { origin, pathname } = window.location;
-  return `${origin}${pathname}?agent=${encodeURIComponent(id)}`;
+/** An agent's id for URLs (prefers the on-chain ERC-8004 token id). */
+export function agentUrlId(agent) {
+  return agent?.tokenId != null ? String(agent.tokenId) : String(agent?.id ?? '');
 }
 
-/** The `?agent=` id from the current URL, or null. */
+/** The canonical in-app path for an agent's detail view.
+ *
+ * Added 2026-09-04. Opening an agent used to change no URL at all, so a
+ * refresh on a detail page dropped the user back to the marketplace root:
+ * there was nothing in the address bar for a cold load to restore from.
+ * The back-navigation fix in 7129356 gave detail views real history
+ * entries, but history entries only exist within a session, and a refresh
+ * throws that away. This is the missing half. */
+export function agentPath(agent) {
+  return `/agent/${encodeURIComponent(agentUrlId(agent))}`;
+}
+
+/** The full shareable URL for an agent. */
+export function agentShareUrl(agent) {
+  return `${window.location.origin}${agentPath(agent)}`;
+}
+
+/** The agent id in the current URL, or null.
+ *
+ * Reads BOTH forms on purpose. `/agent/<id>` is what the app now writes,
+ * but `?agent=<id>` was the original share format and links using it are
+ * already out in the world, so they keep resolving. */
 export function readDeepLinkAgentId() {
-  try { return new URLSearchParams(window.location.search).get('agent'); } catch { return null; }
+  try {
+    const m = window.location.pathname.match(/^\/agent\/([^/?#]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    return new URLSearchParams(window.location.search).get('agent');
+  } catch { return null; }
 }
 
 /** Does this agent match a deep-link id (by token id or marketplace id)? */

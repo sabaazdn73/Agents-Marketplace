@@ -151,7 +151,12 @@ export default function App() {
   // back to the market tab, same permissive default this app already had
   // before any tab had its own URL — never a 404, so an old bookmark or a
   // ?agent= deep link on "/" keeps working exactly as it did.
-  const initialNav = MAIN_TAB_PATHS[path] || 'market';
+  // /agent/<id> is a real, addressable route for one agent's detail view.
+  // It resolves to the marketplace tab; the app's own deep-link effect
+  // reads the id out of the path and opens that agent once agents load.
+  // Without this a refresh on a detail page fell through to 'market' and
+  // lost the agent.
+  const initialNav = path.startsWith('/agent/') ? 'market' : (MAIN_TAB_PATHS[path] || 'market');
   const onNavChange = (id) => navigate(NAV_TO_PATH[id] || '/market');
 
   // Genuinely different components, not one component with responsive

@@ -28,7 +28,7 @@ import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
-import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
+import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -526,7 +526,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // and the tab view follows the URL when Back/Forward changes it, which
   // it previously did not (initialNav was only ever read at mount).
   // See useViewHistory.js for the full reasoning.
-  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail');
+  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail', '/market');
   // Follow the URL when Back/Forward changes it. `initialNav` is only read
   // by useState at mount, so without this the address bar moved but the
   // view did not -- the core of the "Back exits the site" bug.
@@ -1185,7 +1185,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     <UniversalSearchFallback
                       query={searchQuery}
                       agentsWithPerf={agentsWithPerf}
-                      onOpenAgent={(agent) => openAgentDetail(agent)}
+                      onOpenAgent={(agent) => openAgentDetail(agent, agentPath(agent))}
                       accent={accent}
                       mutedBorder="border-gray-200 dark:border-gray-800"
                       darkMode={darkMode}
@@ -1203,7 +1203,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         {visibleTierBreaks[i] && (
                           <VerificationTierDivider tier={visibleTierBreaks[i]} count={tierCounts[visibleTierBreaks[i]]} className={i === 0 ? '' : 'pt-2'} />
                         )}
-                      <div onClick={() => openAgentDetail(agent)} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
+                      <div onClick={() => openAgentDetail(agent, agentPath(agent))} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
                             <AgentAvatar agent={agent} size={36} rounded="rounded-xl" />

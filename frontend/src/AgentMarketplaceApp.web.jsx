@@ -20,7 +20,7 @@ import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
-import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink } from './shareLink';
+import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -534,7 +534,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // and the tab view follows the URL when Back/Forward changes it, which
   // it previously did not (initialNav was only ever read at mount).
   // See useViewHistory.js for the full reasoning.
-  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail');
+  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail', '/market');
   // Follow the URL when Back/Forward changes it. `initialNav` is only read
   // by useState at mount, so without this the address bar moved but the
   // view did not -- the core of the "Back exits the site" bug.
@@ -1265,7 +1265,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <UniversalSearchFallback
                     query={searchQuery}
                     agentsWithPerf={agentsWithPerf}
-                    onOpenAgent={(agent) => openAgentDetail(agent)}
+                    onOpenAgent={(agent) => openAgentDetail(agent, agentPath(agent))}
                     accent={accent}
                     mutedBorder="border-gray-200 dark:border-gray-800"
                     darkMode={darkMode}
@@ -1330,7 +1330,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                               </td>
                             </tr>
                           )}
-                          <tr onClick={() => openAgentDetail(agent)} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
+                          <tr onClick={() => openAgentDetail(agent, agentPath(agent))} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group cursor-pointer">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
                               <AgentAvatar agent={agent} size={32} rounded="rounded-xl" />
@@ -1380,7 +1380,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         />
                       )}
                     <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
-                      <div className="p-6 flex-1 cursor-pointer" onClick={() => openAgentDetail(agent)}>
+                      <div className="p-6 flex-1 cursor-pointer" onClick={() => openAgentDetail(agent, agentPath(agent))}>
                         <div className="flex justify-between items-start mb-5">
                           <div className="flex items-center gap-3">
                             <AgentAvatar agent={agent} size={40} />

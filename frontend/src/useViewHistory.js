@@ -50,7 +50,7 @@ export function useNavSync(fromUrl, current, apply) {
  * `isOpen` is read through a ref inside the listener so it can be
  * registered once and still see current state; re-binding on every
  * open/close would risk missing an event mid-swap. */
-export function useOverlayHistory(isOpen, setValue, key = 'overlay') {
+export function useOverlayHistory(isOpen, setValue, key = 'overlay', fallbackUrl = null) {
   const openRef = useRef(isOpen);
   openRef.current = isOpen;
 
@@ -65,12 +65,19 @@ export function useOverlayHistory(isOpen, setValue, key = 'overlay') {
     return () => window.removeEventListener('popstate', onPop);
   }, [setValue, key]);
 
-  const openView = useCallback((value) => {
+  /** Open the overlay, optionally moving the URL to `url`.
+   *
+   * The URL matters as much as the history entry: an entry only survives
+   * within a session, so without a real address a refresh on the overlay
+   * has nothing to restore from and drops the user back to the section
+   * root. Passing a url makes the view addressable by refresh, paste and
+   * shared link too. */
+  const openView = useCallback((value, url) => {
     try {
       window.history.pushState(
         { ...(window.history.state || {}), [key]: true },
         '',
-        window.location.pathname + window.location.search,
+        url || (window.location.pathname + window.location.search),
       );
     } catch {
       // A blocked/failed pushState must never stop the view from opening.
@@ -81,10 +88,18 @@ export function useOverlayHistory(isOpen, setValue, key = 'overlay') {
   const closeView = useCallback(() => {
     if (window.history.state && window.history.state[key]) {
       window.history.back();   // the listener above clears the state
-    } else {
-      setValue(null);          // opened without an entry (e.g. a deep link)
+      return;
     }
-  }, [setValue, key]);
+    // Opened without an entry of ours: a cold load straight onto the
+    // overlay's own URL (a refresh, a pasted link, a shared link). Going
+    // back here would leave the site entirely, and simply clearing the
+    // state would strand the address bar on the overlay's URL while the
+    // list is showing. Replace the URL with the section it belongs to.
+    if (fallbackUrl) {
+      try { window.history.replaceState({}, '', fallbackUrl); } catch { /* non-fatal */ }
+    }
+    setValue(null);
+  }, [setValue, key, fallbackUrl]);
 
   return [openView, closeView];
 }
