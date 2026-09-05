@@ -64,6 +64,7 @@ from core import full_registry_analysis
 from core import job_index
 from core import rpc
 from core import universal_search
+from core import chain_views
 from core import b402
 from core import paybox
 
@@ -2099,3 +2100,45 @@ async def agent_detail(agent_id: str):
         raise HTTPException(status_code=404, detail="No agent with that id in the store.")
     agent.pop("_id", None)
     return agent
+
+
+# ── Chain views: the non-BSC agent data this store already holds ──────────
+# Deliberately a separate surface from /api/agents. That endpoint caches an
+# encoded body of ~15,600 BSC agents for an hour and is backed by the
+# 30,000-document read behind this service's memory ratchet. These routes
+# add no resting memory: every call is a bounded, projected, uncached
+# skip/limit read. See core/chain_views.py.
+
+
+@app.get("/api/chain-views")
+async def chain_views_index():
+    """The list of views the marketplace renders tabs from, with live
+    counts and the honesty flags (hireable, coming_soon) attached so the
+    frontend never hardcodes them."""
+    out = []
+    for v in chain_views.describe_views():
+        v = dict(v)
+        v["count"] = await chain_views.count_view(v["id"])
+        out.append(v)
+    return {"views": out}
+
+
+@app.get("/api/chain-view/{view}")
+async def chain_view_page(view: str, offset: int = 0, limit: int = 24):
+    """One bounded page of a non-BSC chain view.
+
+    `bnb` is deliberately rejected here rather than served: the BSC list
+    has its own path (/api/agents) with its own cache, ordering and
+    health-checked fields, and quietly serving a thinner version of it
+    from here would give the same chain two different shapes."""
+    if view == "bnb":
+        raise HTTPException(
+            status_code=400,
+            detail="The BNB Chain view is served by /api/agents, which carries its "
+                   "full field set and live service status. This endpoint is for the "
+                   "non-BSC views only.",
+        )
+    try:
+        return await chain_views.fetch_page(view, offset=offset, limit=limit)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
