@@ -781,8 +781,13 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
 
       {/* App Header (Sticky) */}
-      <header className="shrink-0 flex items-center justify-between px-5 py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
-        <div className="flex items-center gap-2">
+      {/* Header spacing tightened 2026-09-05. Five controls at the 44px
+          touch-target floor plus the logo and title left almost no room on a
+          360px phone. This is arrangement only -- every control is still here
+          and still 44x44. What changed is the gap between them and the
+          padding around them, which is where the space actually was. */}
+      <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-5 py-2.5 sm:py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
+        <div className="flex items-center gap-2 min-w-0">
           <a
             href="https://f2f-uzh.vercel.app"
             target="_blank"
@@ -792,9 +797,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           >
             <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
           </a>
-          <h1 className="text-lg font-bold tracking-tight">Tnega</h1>
+          <h1 className="text-lg font-bold tracking-tight truncate">Tnega</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
           <NotificationBell />
           {onOpenEcosystem && (
             <button onClick={onOpenEcosystem} aria-label="Ecosystem view" title="Ecosystem view" className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">

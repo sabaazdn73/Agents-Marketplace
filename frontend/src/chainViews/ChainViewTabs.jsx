@@ -15,6 +15,7 @@
 
 import React, { useState } from 'react';
 import { useChainViewIndex } from './useChainView';
+import { ChainMark } from './chainMarks';
 import EthereumView from './EthereumView';
 import SolanaView from './SolanaView';
 import MultiChainView from './MultiChainView';
@@ -39,20 +40,32 @@ export default function ChainViewTabs({ mutedBorder, children }) {
 
   return (
     <div>
-      <div className="flex gap-1.5 overflow-x-auto hide-scrollbar mb-4 -mx-1 px-1">
+      {/* Sizing note. The tabs were too large on phones, but the tap area
+          cannot simply shrink: 44x44pt (iOS HIG) / 48x48dp (Android) is the
+          floor. Those pull against each other, so this is solved with
+          layout rather than by undercutting the minimum.
+
+          The button keeps min-h-11 (44px) at every breakpoint -- the tap
+          area is never reduced. What shrinks on small screens is the
+          horizontal padding, the text size and the count chip, so the strip
+          gets narrower and more tabs fit without the target getting
+          smaller. On md+ it relaxes back to comfortable desktop spacing. */}
+      <div className="flex gap-1 sm:gap-1.5 overflow-x-auto hide-scrollbar mb-3 sm:mb-4 -mx-1 px-1">
         {tabs.map((t) => {
           const on = active === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setActive(t.id)}
-              className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-colors ${on
+              aria-pressed={on}
+              className={`shrink-0 flex items-center gap-1.5 min-h-11 px-2.5 sm:px-3.5 rounded-xl text-[13px] sm:text-sm font-semibold border transition-colors ${on
                 ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
                 : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
             >
+              <ChainMark viewId={t.id} size={13} />
               {t.label}
               {t.count != null && (
-                <span className="text-[10px] font-medium opacity-60">
+                <span className="hidden sm:inline text-[10px] font-medium opacity-60">
                   {t.count.toLocaleString()}
                 </span>
               )}

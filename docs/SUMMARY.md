@@ -22,6 +22,7 @@
 * [Academic References](academic-references.md)
 * [Getting Started](getting-started.md)
 * [Known Limitations](limitations.md)
+* [The 512Mi Memory Ceiling](memory-ceiling.md)
 * [Hackathon Submission Context](hackathon.md)
 * [ETHGlobal Online 2026](ethglobal-online-2026.md)
 * [The Graph Integration](thegraph-integration.md)
