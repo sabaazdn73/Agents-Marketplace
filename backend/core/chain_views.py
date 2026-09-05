@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
+from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 
 # Chain id -> display name. Kept here so a view definition reads as names
 # rather than numbers, and so one place needs editing when a chain is added.
@@ -106,7 +107,34 @@ _PROJECTION = {
     "chain_id": 1, "token_id": 1, "owner_address": 1,
     "created_at": 1, "total_score": 1, "total_feedbacks": 1,
     "source": 1,
+    # Requested, but NOT unconditionally returned -- see _apply_status_policy.
+    "service_status": 1, "service_endpoint": 1, "service_checked_at": 1,
 }
+
+# Health fields are only meaningful for a chain the chain-aware health check
+# has actually been widened to. Everything else keeps the honest thin display.
+_HEALTH_FIELDS = ("service_status", "service_endpoint", "service_checked_at")
+
+
+def _apply_status_policy(doc: dict) -> dict:
+    """Keep health fields only for chains in ANALYSIS_CHAIN_IDS; strip them
+    otherwise, and say which case this is.
+
+    Applied PER AGENT rather than per view, deliberately: the Multi-Chain
+    view mixes chains, and Arbitrum (analysed) sits in the same list as
+    Base, Celo and Monad (not yet). A view-level rule would either hide
+    Arbitrum's real signals or imply the others had been checked.
+
+    Stripping rather than trusting the stored value is the safe direction.
+    Any residue from the old BSC-only pass -- 8,304 such values were
+    cleared on 2026-09-05, but the principle should not depend on that
+    cleanup having been complete -- cannot reach the UI through here."""
+    verified = doc.get("chain_id") in ANALYSIS_CHAIN_IDS
+    if not verified:
+        for f in _HEALTH_FIELDS:
+            doc.pop(f, None)
+    doc["status_verified"] = verified
+    return doc
 
 MAX_LIMIT = 100
 
@@ -178,6 +206,7 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
     )
     for d in docs:
         d["chain_name"] = CHAIN_NAMES.get(d.get("chain_id"), str(d.get("chain_id")))
+        _apply_status_policy(d)
     return {
         "view": view,
         "label": v["label"],
@@ -189,8 +218,20 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
         "has_more": len(docs) == limit,
         # Stated on every page so a caller cannot render these agents as if
         # their liveness had been checked.
+        # Which of THIS view's chains have genuinely been health-checked, so
+        # the UI can be specific instead of blanket-disclaiming a view that
+        # is now partly verified.
+        "verified_chains": [
+            {"chain_id": c, "name": CHAIN_NAMES.get(c, str(c))}
+            for c in v["chain_ids"] if c in ANALYSIS_CHAIN_IDS
+        ],
+        "unverified_chains": [
+            {"chain_id": c, "name": CHAIN_NAMES.get(c, str(c))}
+            for c in v["chain_ids"] if c not in ANALYSIS_CHAIN_IDS
+        ],
         "status_note": (
-            "Live endpoint checks are BSC-only. These agents have not been "
-            "status-verified, and no status is implied."
+            "Live endpoint checks have been extended to some chains but not all. "
+            "Agents marked as unverified have not been checked, and no status is "
+            "implied for them."
         ),
     }

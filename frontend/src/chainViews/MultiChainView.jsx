@@ -19,7 +19,7 @@ import {
 } from './ChainViewShared';
 
 export default function MultiChainView({ mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { agents, label, statusNote, loading, loadingMore, hasMore, error, loadMore } =
+  const { agents, label, statusNote, verifiedChains, unverifiedChains, loading, loadingMore, hasMore, error, loadMore } =
     useChainView('multichain');
 
   const state = <ChainViewStates loading={loading} error={error} empty={!agents.length} label="multi-chain" />;
@@ -28,7 +28,7 @@ export default function MultiChainView({ mutedBorder = 'border-gray-200 dark:bor
   return (
     <div>
       <NotHireableNotice label={label || 'multi-chain'} />
-      <UnverifiedStatusNote note={statusNote} />
+      <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder} />)}
       </div>

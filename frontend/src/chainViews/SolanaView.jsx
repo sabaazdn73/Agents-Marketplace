@@ -17,7 +17,7 @@ import { ChainAgentCard, ChainViewStates, UnverifiedStatusNote } from './ChainVi
 const PREVIEW_COUNT = 6;
 
 export default function SolanaView({ mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { agents, statusNote, loading, error } = useChainView('solana');
+  const { agents, statusNote, verifiedChains, unverifiedChains, loading, error } = useChainView('solana');
 
   const state = <ChainViewStates loading={loading} error={error} empty={false} label="Solana" />;
   if (state && (loading || error)) return state;
@@ -36,7 +36,7 @@ export default function SolanaView({ mutedBorder = 'border-gray-200 dark:border-
           of what is stored is shown below.
         </p>
       </div>
-      <UnverifiedStatusNote note={statusNote} />
+      <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 opacity-75">
         {agents.slice(0, PREVIEW_COUNT).map((a) => (
           <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder} />

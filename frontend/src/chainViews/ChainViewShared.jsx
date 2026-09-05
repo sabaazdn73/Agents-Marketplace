@@ -16,6 +16,7 @@
 
 import React from 'react';
 import { Loader2, AlertTriangle, Info, ExternalLink } from 'lucide-react';
+import ServiceHealthBadge from '../ServiceHealthBadge';
 
 /** Block explorer per chain, so an agent is verifiable at source even
  * though this app cannot check its liveness. Only chains actually present
@@ -57,14 +58,25 @@ export function NotHireableNotice({ label }) {
   );
 }
 
-/** Says plainly that liveness was not checked, rather than leaving a gap
- * where the BSC view shows a health badge. The wording comes from the
- * backend so the UI cannot drift from what the data layer guarantees. */
-export function UnverifiedStatusNote({ note }) {
+/** Says which chains in this view have genuinely been health-checked and
+ * which have not, rather than blanket-disclaiming a view that is now
+ * partly verified. Both lists come from the backend, so the UI cannot
+ * drift from what the data layer actually guarantees. */
+export function UnverifiedStatusNote({ note, verifiedChains = [], unverifiedChains = [] }) {
+  const names = (l) => l.map((c) => c.name).join(', ');
   return (
     <div className="text-[11px] text-gray-600 dark:text-gray-400 flex items-start gap-1.5 mb-4">
       <AlertTriangle size={12} className="shrink-0 mt-0.5 opacity-70" />
-      <span>{note || 'Live endpoint checks are BNB Chain only. No status is implied for these agents.'}</span>
+      <span>
+        {verifiedChains.length > 0 && (
+          <><strong>{names(verifiedChains)}</strong> agents are live-checked and show a real status. </>
+        )}
+        {unverifiedChains.length > 0 && (
+          <>{verifiedChains.length > 0 ? 'Agents on ' : ''}
+          <strong>{names(unverifiedChains)}</strong> have not been checked, and no status is implied for them.</>
+        )}
+        {verifiedChains.length === 0 && unverifiedChains.length === 0 && (note || 'No status is implied for these agents.')}
+      </span>
     </div>
   );
 }
@@ -85,6 +97,14 @@ export function ChainAgentCard({ agent, mutedBorder }) {
       <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">
         {agent.description || 'No description provided.'}
       </p>
+      {/* Rendered only when the backend marked this agent's chain as
+          genuinely analysed. An unverified agent has no health fields at
+          all, so there is nothing here to render even by accident. */}
+      {agent.status_verified && agent.service_status && (
+        <div className="flex items-center gap-1.5">
+          <ServiceHealthBadge status={agent.service_status} checkedAt={agent.service_checked_at} />
+        </div>
+      )}
       <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-500 mt-auto pt-2">
         {agent.token_id != null && <span className="font-mono">#{agent.token_id}</span>}
         {agent.total_feedbacks > 0 && <span>{agent.total_feedbacks} on-chain feedback</span>}
