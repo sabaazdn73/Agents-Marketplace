@@ -542,7 +542,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // and the tab view follows the URL when Back/Forward changes it, which
   // it previously did not (initialNav was only ever read at mount).
   // See useViewHistory.js for the full reasoning.
-  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail', '/market');
+  const [openAgentDetail, closeAgentDetail, dismissAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail', '/market');
   // Follow the URL when Back/Forward changes it. `initialNav` is only read
   // by useState at mount, so without this the address bar moved but the
   // view did not -- the core of the "Back exits the site" bug.
@@ -918,7 +918,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 return (
                   <button
                     key={item.id}
-                    onClick={() => { setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
+                    onClick={() => { dismissAgentDetail(); setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                       active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                     }`}

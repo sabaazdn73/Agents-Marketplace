@@ -534,7 +534,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // and the tab view follows the URL when Back/Forward changes it, which
   // it previously did not (initialNav was only ever read at mount).
   // See useViewHistory.js for the full reasoning.
-  const [openAgentDetail, closeAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail', '/market');
+  const [openAgentDetail, closeAgentDetail, dismissAgentDetail] = useOverlayHistory(detailAgent, setDetailAgent, 'agentDetail', '/market');
   // Follow the URL when Back/Forward changes it. `initialNav` is only read
   // by useState at mount, so without this the address bar moved but the
   // view did not -- the core of the "Back exits the site" bug.
@@ -1512,7 +1512,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
             return (
               <button
                 key={item.id}
-                onClick={() => { setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
+                onClick={() => { dismissAgentDetail(); setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
                 className={`flex flex-col items-center justify-center flex-1 max-w-[72px] h-14 rounded-xl transition-colors ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5'}`}
               >
                 <Icon size={20} className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`} />
@@ -1524,7 +1524,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
       </nav>
 
       {/* Modals */}
-      {walletSheetOpen && <MobileWalletSheet onClose={() => setWalletSheetOpen(false)} nav={nav} onNavigate={(id) => { setNav(id); setHiring(false); onNavChange?.(id); }} />}
+      {walletSheetOpen && <MobileWalletSheet onClose={() => setWalletSheetOpen(false)} nav={nav} onNavigate={(id) => { dismissAgentDetail(); setNav(id); setHiring(false); onNavChange?.(id); }} />}
       
       {/* Hide Scrollbar style for horizontal list */}
       <style dangerouslySetInnerHTML={{__html: `

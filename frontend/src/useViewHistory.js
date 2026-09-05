@@ -101,5 +101,32 @@ export function useOverlayHistory(isOpen, setValue, key = 'overlay', fallbackUrl
     setValue(null);
   }, [setValue, key, fallbackUrl]);
 
-  return [openView, closeView];
+  /** Leave the overlay because the user is navigating somewhere else
+   * entirely (a nav tab), rather than backing out of it.
+   *
+   * Distinct from closeView on purpose. closeView goes BACK, which is
+   * right for an in-app back control. A nav click goes FORWARD to another
+   * route, so going back would be wrong -- but simply clearing the state
+   * and pushing the new route would leave our overlay entry stranded in
+   * history, and pressing back would then land on /agent/<id> while the
+   * app renders a different tab. Replacing the marker first consumes that
+   * entry, so history stays honest either way. */
+  const dismissForNavigation = useCallback(() => {
+    try {
+      if (window.history.state && window.history.state[key]) {
+        const { [key]: _drop, ...rest } = window.history.state;
+        // Replace the URL too, not just the marker. Leaving it as
+        // /agent/<id> means a later Back lands on that entry while the app
+        // renders whichever tab the user went to -- the URL and the view
+        // would disagree. Rewriting it to the section this overlay belongs
+        // to keeps the entry meaningful.
+        window.history.replaceState(
+          rest, '', fallbackUrl || (window.location.pathname + window.location.search),
+        );
+      }
+    } catch { /* non-fatal: clearing the view still matters more */ }
+    setValue(null);
+  }, [setValue, key, fallbackUrl]);
+
+  return [openView, closeView, dismissForNavigation];
 }
