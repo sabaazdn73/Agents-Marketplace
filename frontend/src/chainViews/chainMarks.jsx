@@ -26,17 +26,36 @@
 // avoided in favour of URLs that do not churn.
 //
 // Multi-Chain has no mark of its own, so it shows the marks of the chains
-// it actually contains, clustered and deliberately smaller than a
-// single-chain tab's logo -- the tab represents several chains, and one
-// full-size mark would misrepresent it as one.
+// it actually contains, clustered. Each cluster mark is now rendered at the
+// SAME diameter as a single-chain tab's logo: at 78% the tab visibly sat
+// lighter than its three neighbours. Equal weight comes from equal
+// diameter; what keeps the strip's rhythm is the overlap, not shrinking.
 //
 // Three are shown, the three largest by real stored agent count (Base
 // 58,580, Monad 2,815, Celo 2,361; then Arbitrum 1,175, Billions 714,
-// Robinhood 7). Ranking by count rather than by preference means the
-// cluster reflects what the view is actually mostly made of. Their assets
-// were verified the same way: Base 32x32 ico, Monad 256x256 png, Celo
-// 32x27 ico from docs.celo.org -- celo.org's own head points at a Framer
-// CDN asset, so the Celo-owned docs domain was used instead.
+// Robinhood 7). Count is deliberately the basis, and it was reconsidered
+// against ranking by verified status instead. Two things decided it:
+// those three are 97% of the agents in the view, so the mark reflects what
+// the tab actually contains; and verification is already stated explicitly
+// and per-chain by UnverifiedStatusNote, which names the checked and
+// unchecked chains from the backend. A tab icon is a label, not a claim,
+// and promoting Arbitrum (1.8% of the view) over two larger chains would
+// misrepresent the composition to duplicate something already said in
+// words. Base is in any case both the largest member and live-checked.
+//
+// Every mark was verified by rendering it, not by trusting an HTTP 200 --
+// the failure this catches is an asset that decodes perfectly and is the
+// wrong picture. Two findings:
+//   - docs.celo.org/img/favicon.ico is a Docusaurus MASCOT (a green
+//     cartoon character), not Celo's mark. It decoded fine and was wrong.
+//     Replaced with Celo's actual symbol, the black C on yellow.
+//   - Base's favicon is a plain blue square with no glyph, which looks
+//     broken but is correct: that IS Base's logomark, confirmed against a
+//     second independent source. Kept, and kept edge-to-edge, because a
+//     solid blue disc reads at 13px where a small square on white padding
+//     would not.
+// Checked on both grounds: none is a wordmark, none is light-mode-only,
+// and all six survive the dark-mode background.
 //
 // Every mark degrades gracefully. A single-chain logo that fails falls
 // back to a tinted glyph; a cluster member that fails simply drops out,
@@ -51,11 +70,15 @@ const LOGOS = {
   solana: { src: 'https://solana.com/src/img/branding/solanaLogoMark.svg', alt: 'Solana' },
 };
 
-// The Multi-Chain cluster, largest-first.
+// The Multi-Chain cluster, largest-first. Celo's comes from the ecosystem
+// chain-icon registry rather than a Celo domain: celo.org's own head points
+// at a Framer CDN asset whose name churns, docs.celo.org serves its
+// Docusaurus mascot, and celo-org/brand ships only logotypes -- wordmarks,
+// which are exactly what must not be used at 13px.
 const MULTICHAIN_LOGOS = [
   'https://www.base.org/favicon.ico',
   'https://www.monad.xyz/favicon.ico',
-  'https://docs.celo.org/img/favicon.ico',
+  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/celo/info/logo.png',
 ];
 
 /** One image that quietly disappears if it fails, so a broken hotlink
@@ -70,7 +93,7 @@ function ClusterLogo({ src, size, index }) {
       loading="lazy"
       onError={() => setFailed(true)}
       className="rounded-full ring-1 ring-white dark:ring-[#0B101B] object-contain bg-white"
-      style={{ width: size, height: size, marginLeft: index === 0 ? 0 : -size * 0.32 }}
+      style={{ width: size, height: size, marginLeft: index === 0 ? 0 : -size * 0.36 }}
     />
   );
 }
@@ -84,10 +107,10 @@ export function ChainMark({ viewId, size = 14, className = '' }) {
   const [failed, setFailed] = useState(false);
 
   if (viewId === 'multichain') {
-    // Smaller than a single-chain mark (~78%), overlapped, so the cluster
-    // occupies roughly the same width as one logo and the tab strip keeps
-    // its rhythm.
-    const each = Math.round(size * 0.78);
+    // Full diameter, so each mark carries the same visual weight as a
+    // single-chain tab's logo; the overlap is what keeps the cluster
+    // compact enough for the strip.
+    const each = size;
     return (
       <span className={`flex items-center shrink-0 ${className}`} aria-hidden="true">
         {MULTICHAIN_LOGOS.map((src, i) => (
