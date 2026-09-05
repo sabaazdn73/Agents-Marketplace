@@ -369,6 +369,80 @@ async def _refresh_into_store() -> list[dict]:
     return served
 
 
+_REFRESH_SUBPROCESS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "refresh_subprocess.py")
+_REFRESH_TIMEOUT_SECONDS = 900
+
+
+async def _refresh_via_subprocess() -> tuple[bytes, int] | None:
+    """Run one refresh in a short-lived process and return its encoded body.
+
+    Why out of process: the refresh reads up to 30,000 known_agents docs to
+    diversify down to the ~15,600 served. Those objects are freed, but
+    CPython does not reliably hand freed arenas back to the OS, so resident
+    memory ratchets cycle over cycle (measured on the live store: roughly
+    +40MB across three cycles from an 82MB baseline). gc.collect() does not
+    help, because nothing is leaked in the ordinary sense. Process exit is
+    what actually returns it. See scripts/refresh_subprocess.py.
+
+    Returns None on ANY failure, and None means the caller keeps whatever
+    it is already serving. That is deliberate and is the most important
+    property here: a stale agent list is a minor annoyance, an empty one
+    renders as "0 Agents Listed" and reads as an outage. Every failure mode
+    below (non-zero exit, timeout, missing or empty output, unparseable
+    stdout) degrades to keeping the previous good data."""
+    import tempfile
+
+    fd, out_path = tempfile.mkstemp(prefix="tnega_refresh_", suffix=".json")
+    os.close(fd)
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, _REFRESH_SUBPROCESS, out_path,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(), timeout=_REFRESH_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            print(f"[server] Refresh subprocess exceeded {_REFRESH_TIMEOUT_SECONDS}s — "
+                  f"killed it, keeping the existing cache.")
+            return None
+
+        if proc.returncode != 0:
+            tail = (stderr or b"").decode("utf-8", "replace").strip().splitlines()[-3:]
+            print(f"[server] Refresh subprocess exited {proc.returncode} — keeping the "
+                  f"existing cache. Last stderr: {tail}")
+            return None
+
+        try:
+            meta = json.loads((stdout or b"").decode().strip().splitlines()[-1])
+            count = int(meta["count"])
+        except Exception as e:
+            print(f"[server] Refresh subprocess gave unreadable output ({type(e).__name__}) — "
+                  f"keeping the existing cache.")
+            return None
+
+        try:
+            with open(out_path, "rb") as fh:
+                body = fh.read()
+        except OSError as e:
+            print(f"[server] Refresh subprocess output unreadable ({e}) — keeping the existing cache.")
+            return None
+
+        if not body or count <= 0:
+            print("[server] Refresh subprocess produced an empty list — keeping the existing cache.")
+            return None
+
+        return body, count
+    finally:
+        try:
+            os.unlink(out_path)
+        except OSError:
+            pass
+
+
 async def _background_refresh():
     """Runs the slow, real, multi-page 8004scan refresh OUTSIDE the request
     path. Whoever's request triggered this already got served instantly from
@@ -380,7 +454,25 @@ async def _background_refresh():
         return
     _refresh_in_progress = True
     try:
-        _set_agents_cache(await _refresh_into_store())
+        # Out of process by default: this is the hourly path, so it is the
+        # one whose transient allocations accumulate across the service's
+        # lifetime. The cold-boot read below stays in-process deliberately
+        # -- it runs once per process, has no cycle to ratchet over, and a
+        # subprocess there would add startup latency to the very first
+        # request on a fresh instance.
+        result = await _refresh_via_subprocess()
+        if result is not None:
+            body, count = result
+            _cache["body"] = body
+            _cache["count"] = count
+            _cache["fetched_at"] = time.time()
+            print(f"[server] Refresh (subprocess): {count:,} agents, {len(body)/1e6:.1f}MB cached.")
+        else:
+            # Already logged why. Keep serving the previous body rather than
+            # falling back to an in-process refresh: falling back would
+            # reintroduce exactly the allocation this exists to avoid, and
+            # the next scheduled refresh will try again anyway.
+            print("[server] Keeping the previously cached agent list.")
     except Exception as e:
         # A failed background refresh just leaves the existing cache/store
         # serving as before — nothing user-facing to report, there's no
