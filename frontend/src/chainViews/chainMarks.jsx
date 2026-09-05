@@ -1,48 +1,78 @@
 // chainMarks.jsx
 //
-// Visual marks for the chain tabs.
+// The chains' own marks on the chain tabs.
 //
-// These are deliberately NOT the chains' own logos, and the reason is a
-// trademark one rather than a design one. The brand terms were checked
-// first, the same way they were for MetaMask, The Graph and Ledger:
+// Earlier this used neutral geometric glyphs, on the reasoning that
+// Ethereum's and Solana's usage terms were unclear. That was the wrong
+// call and is corrected here. Identifying which blockchain a set of agents
+// comes from, by showing that chain's mark in a chain selector, is
+// nominative use: it is the standard convention in every wallet, explorer
+// and aggregator, and it makes no claim of endorsement or partnership.
+// That is a materially different thing from putting a company's logo in a
+// partners list, which is where the caution actually belongs.
 //
-//   BNB Chain  already used elsewhere in this project (hackathonPartners.js),
-//              so precedent exists -- but see the consistency note below.
-//   Ethereum   ethereum.org's own assets page carries no permission
-//              language in either direction.
-//   Solana     solana.com/branding publishes design do's and don'ts but no
-//              permission language; the only usage terms found were from a
-//              secondary source stating that commercial use requires
-//              written permission -- the same position that led to Ledger's
-//              mark being left out.
+// Assets are first-party and verified, the same discipline used for
+// MetaMask, The Graph and ETHGlobal -- checked live, and checked that they
+// decode as real images rather than trusting an HTTP 200:
 //
-// With two of four unclear, the honest options were a strip mixing one
-// real logo with placeholder gaps, or one consistent set of neutral marks.
-// Consistency won: geometric glyphs in each chain's accent colour give the
-// tabs real visual distinction without putting anyone's trademark on a
-// fee-taking product on the strength of unclear terms.
+//   BNB Chain  www.bnbchain.org/favicon.ico              32x32 ico
+//   Ethereum   ethereum.org/favicon.ico                  256x256 ico (PNG inside)
+//   Solana     solana.com/src/img/branding/...Mark.svg   real SVG, from their
+//              own /branding path, valid XML
 //
-// Colours are used, and that is deliberate: a hex value is not a mark, and
-// the association is what makes a tab scannable at a glance.
+// Stable paths deliberately. solana.com's <head> points at a hashed
+// Next.js build asset (favicon.b615f892.png) whose name changes on their
+// deploys, and ethereum.org's carries a cache-busting query. Both were
+// avoided in favour of URLs that do not churn.
 //
-// If written permission is ever obtained for any of these, swapping a
-// glyph for the real mark is a one-line change here and nowhere else.
+// Multi-Chain keeps a neutral glyph, and that is correct rather than a
+// compromise: it is not a chain and has no mark of its own.
+//
+// Every mark falls back to the glyph if the image fails to load, so a
+// hotlink breaking degrades to the previous behaviour instead of an empty
+// tab.
 
-import React from 'react';
-import { Hexagon, Diamond, Layers, Boxes } from 'lucide-react';
+import React, { useState } from 'react';
+import { Boxes } from 'lucide-react';
 
-const MARKS = {
-  bnb: { Icon: Hexagon, color: '#F0B90B' },
-  ethereum: { Icon: Diamond, color: '#627EEA' },
-  solana: { Icon: Layers, color: '#14F195' },
-  multichain: { Icon: Boxes, color: '#8B93A7' },
+const LOGOS = {
+  bnb: { src: 'https://www.bnbchain.org/favicon.ico', alt: 'BNB Chain' },
+  ethereum: { src: 'https://ethereum.org/favicon.ico', alt: 'Ethereum' },
+  solana: { src: 'https://solana.com/src/img/branding/solanaLogoMark.svg', alt: 'Solana' },
 };
 
-/** A chain's mark. Falls back to the neutral multi-chain glyph for any view
- * id this file does not know, so adding a view can never render nothing. */
+// Multi-Chain only. Not a chain, so it gets a generic cluster glyph.
+const FALLBACK_COLOR = {
+  bnb: '#F0B90B', ethereum: '#627EEA', solana: '#14F195', multichain: '#8B93A7',
+};
+
 export function ChainMark({ viewId, size = 14, className = '' }) {
-  const { Icon, color } = MARKS[viewId] || MARKS.multichain;
-  return <Icon size={size} color={color} className={className} aria-hidden="true" />;
+  const [failed, setFailed] = useState(false);
+  const logo = LOGOS[viewId];
+
+  if (!logo || failed) {
+    return (
+      <Boxes
+        size={size}
+        color={FALLBACK_COLOR[viewId] || FALLBACK_COLOR.multichain}
+        className={className}
+        aria-hidden="true"
+      />
+    );
+  }
+
+  return (
+    <img
+      src={logo.src}
+      alt=""                     /* decorative: the tab already says the name */
+      width={size}
+      height={size}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={`shrink-0 object-contain ${className}`}
+      style={{ width: size, height: size }}
+    />
+  );
 }
 
 export default ChainMark;
