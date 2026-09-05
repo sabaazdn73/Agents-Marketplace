@@ -188,3 +188,104 @@ async def get_job(job_id: int, client: httpx.AsyncClient | None = None) -> dict 
         return await _do(client)
     async with httpx.AsyncClient(timeout=20) as c:
         return await _do(c)
+
+
+# ── Per-chain RPC (2026-09-05) ───────────────────────────────────────────
+# Added so core/agent_health.py can be made genuinely chain-aware. Every
+# function above is untouched: get_bsc_rpc_url / get_bsc_fallback_rpc_url /
+# rpc_post remain exactly the BSC path they always were, and the BSC
+# health-check keeps using them unchanged.
+#
+# Why this is needed at all, restated so it does not get undone: the health
+# check resolved an agent's tokenURI through ONE hardcoded registry over
+# ONE BSC-only RPC. Run against a non-BSC agent it looked that agent's
+# token_id up in BSC's registry, did not find it, and returned
+# "no_endpoint" for reasons that had nothing to do with the agent's own
+# chain. That false positive deleted 26,472 Base, 14,114 Ethereum and 793
+# Solana records before it was caught.
+#
+# Verified live before writing this (eth_getCode plus a real tokenURI call
+# per chain, against each chain's own RPC): the ERC-8004 identity registry
+# is deployed at the SAME address on BSC, Base, Arbitrum, Celo and Monad,
+# all with identical 130-byte bytecode, and a real stored agent on each of
+# those chains resolves a real, distinct tokenURI. The registries were
+# never the problem; asking the wrong chain was.
+#
+# Ethereum is deliberately absent below. Its public endpoint failed when
+# tested, and a chain without a confirmed working RPC must not be added --
+# that is exactly the shortcut that caused the original damage.
+# Solana is absent permanently: it is not EVM, so none of this applies.
+
+_CHAIN_PRIMARY_RPC = {
+    56: _FALLBACK_RPC_URL,                        # BSC, via the proven bloXroute gateway
+    8453: "https://mainnet.base.org",
+    42161: "https://arb1.arbitrum.io/rpc",
+    42220: "https://forno.celo.org",
+    143: "https://rpc.monad.xyz",
+}
+
+# Infura path per chain, used as the failover where Infura covers it. Base
+# and Arbitrum are covered; Celo and Monad are not, so those run on their
+# primary alone -- stated here rather than silently having no backup.
+_CHAIN_INFURA_PATH = {
+    56: "bsc-mainnet",
+    8453: "base-mainnet",
+    42161: "arbitrum-mainnet",
+}
+
+
+def supported_rpc_chain_ids() -> list[int]:
+    """Chains with a configured primary RPC. A chain absent from this list
+    has NOT been verified and must not be health-checked."""
+    return sorted(_CHAIN_PRIMARY_RPC)
+
+
+def get_chain_rpc_url(chain_id: int) -> str | None:
+    """Primary RPC for a chain, or None if this chain has no verified
+    endpoint. Callers must treat None as 'cannot check', never as a
+    negative result about an agent."""
+    if chain_id == 56:
+        return get_bsc_rpc_url()          # keeps the BSC env override working
+    return _CHAIN_PRIMARY_RPC.get(chain_id)
+
+
+def get_chain_fallback_rpc_url(chain_id: int) -> str | None:
+    key = os.environ.get("INFURA_API_KEY")
+    path = _CHAIN_INFURA_PATH.get(chain_id)
+    return f"https://{path}.infura.io/v3/{key}" if (key and path) else None
+
+
+async def chain_rpc_post(
+    client: httpx.AsyncClient, chain_id: int, payload: dict,
+    *, timeout: float = _PRIMARY_TIMEOUT_SECONDS,
+) -> httpx.Response:
+    """Same primary-then-failover discipline as rpc_post, for any supported
+    chain. Raises ValueError for an unsupported chain rather than quietly
+    falling back to BSC -- falling back to BSC is precisely the bug this
+    exists to prevent."""
+    primary = get_chain_rpc_url(chain_id)
+    if not primary:
+        raise ValueError(
+            f"No verified RPC for chain {chain_id}. Refusing to fall back to another "
+            f"chain's RPC: that is what produced the no_endpoint false positives."
+        )
+    urls = [primary]
+    backup = get_chain_fallback_rpc_url(chain_id)
+    if backup:
+        urls.append(backup)
+
+    last_resp = None
+    last_exc = None
+    for url in urls:
+        try:
+            resp = await client.post(url, json=payload, timeout=timeout)
+            if resp.status_code >= 500:
+                last_resp = resp
+                continue
+            return resp
+        except Exception as e:
+            last_exc = e
+            continue
+    if last_resp is not None:
+        return last_resp
+    raise last_exc

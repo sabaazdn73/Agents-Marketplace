@@ -109,12 +109,29 @@ def _agg3_calldata(token_ids: list[int]) -> str:
     return "0x" + _AGG3_SEL.hex() + encoded.hex()
 
 
-async def _multicall_tokenuris(client: httpx.AsyncClient, token_ids: list[int]) -> dict[int, str]:
+async def _multicall_tokenuris(
+    client: httpx.AsyncClient, token_ids: list[int], chain_id: int = 56,
+) -> dict[int, str]:
     """Real batched tokenURI() read for a chunk of agents — one eth_call,
     not N. Reverted/empty entries are skipped honestly (no on-chain
-    identity for that token, or a genuinely empty URI)."""
-    from core.rpc import rpc_post
-    resp = await rpc_post(client, {
+    identity for that token, or a genuinely empty URI).
+
+    `chain_id` decides which chain's RPC is used, and it matters more than
+    anything else in this module. This used to be hardcoded to BSC, so a
+    non-BSC agent had its token_id looked up in BSC's registry, was not
+    found, and came back "no_endpoint" for reasons unrelated to its own
+    chain -- a false positive that deleted 26,472 Base, 14,114 Ethereum
+    and 793 Solana records before it was caught.
+
+    Verified live before this change: the registry is deployed at the SAME
+    address on BSC, Base, Arbitrum, Celo and Monad (identical 130-byte
+    bytecode), and a real stored agent on each resolves a real, distinct
+    tokenURI through its own RPC. So the registry address stays constant
+    and the CHAIN is what varies. core.rpc.chain_rpc_post raises for an
+    unsupported chain rather than falling back to BSC, which is the
+    behaviour that makes the old bug unreachable."""
+    from core.rpc import chain_rpc_post
+    resp = await chain_rpc_post(client, chain_id, {
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": MULTICALL3, "data": _agg3_calldata(token_ids)}, "latest"],
     })
@@ -300,24 +317,48 @@ async def check_agents_health(agents: list[dict], limit: int | None = None) -> d
     if limit is not None:
         to_check = to_check[:limit]
 
+    # Group by chain. A single multicall can only ever be valid for ONE
+    # chain, because it reads that chain's registry over that chain's RPC.
+    # Batching agents from several chains into one call is exactly the bug
+    # that produced the no_endpoint false positives.
+    from core.rpc import supported_rpc_chain_ids
+    supported = set(supported_rpc_chain_ids())
+
     id_to_token = {}
+    by_chain: dict[int, dict[str, int]] = {}
+    skipped_unsupported: dict[int, int] = {}
     for a in to_check:
         try:
-            id_to_token[a["id"]] = int(a["token_id"])
+            tid = int(a["token_id"])
         except (TypeError, ValueError):
             continue
+        cid = a.get("chain_id") or 56
+        if cid not in supported:
+            # No verified RPC for this chain. The agent is simply NOT
+            # CHECKED: it is left with whatever it had, and never given a
+            # status. Guessing here is what caused the original damage.
+            skipped_unsupported[cid] = skipped_unsupported.get(cid, 0) + 1
+            continue
+        id_to_token[a["id"]] = tid
+        by_chain.setdefault(cid, {})[a["id"]] = tid
+
+    if skipped_unsupported:
+        print(f"[agent_health] skipped (no verified RPC for that chain): {skipped_unsupported}")
 
     async with httpx.AsyncClient(timeout=15) as client:
-        token_ids = list(id_to_token.values())
         uri_by_token: dict[int, str] = {}
-        for i in range(0, len(token_ids), _TOKENURI_CHUNK):
-            try:
-                chunk_result = await _multicall_tokenuris(client, token_ids[i:i + _TOKENURI_CHUNK])
-                uri_by_token.update(chunk_result)
-            except Exception as e:
-                print(f"[agent_health] tokenURI multicall chunk failed: {e}")
-                # Real, transient failure for this chunk — those agents just
-                # keep whatever health data they already had; not fatal.
+        for cid, ids in by_chain.items():
+            token_ids = list(ids.values())
+            for i in range(0, len(token_ids), _TOKENURI_CHUNK):
+                try:
+                    chunk_result = await _multicall_tokenuris(
+                        client, token_ids[i:i + _TOKENURI_CHUNK], chain_id=cid,
+                    )
+                    uri_by_token.update(chunk_result)
+                except Exception as e:
+                    print(f"[agent_health] tokenURI multicall chunk failed (chain {cid}): {e}")
+                    # Real, transient failure for this chunk — those agents just
+                    # keep whatever health data they already had; not fatal.
 
         sem = asyncio.Semaphore(_CONCURRENCY)
         tasks = {

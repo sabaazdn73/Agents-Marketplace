@@ -39,6 +39,29 @@ from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
 
 
+# Chains the analysis pass may evaluate. Deliberately widened ONE AT A TIME,
+# each only after a real test confirmed correct results for known agents on
+# that chain. 56 = BSC (original). 42161 = Arbitrum, added 2026-09-05 after
+# a live test returned genuinely `responding` agents through Arbitrum's own
+# RPC and registry.
+#
+# NOT included, and each for a stated reason rather than oversight:
+#   1 Ethereum  -- registry unverified, public RPC failed under test.
+#   101 Solana  -- not an EVM chain; none of this applies, ever.
+#   8453, 42220, 143 -- have verified RPCs and resolve tokenURIs, but have
+#     not yet had a full analysis pass observed, so they wait their turn.
+ANALYSIS_CHAIN_IDS = [56, 42161]
+
+# Chains where a confirmed no_endpoint may be DELETED. Deliberately narrower
+# than ANALYSIS_CHAIN_IDS. Analysis is reversible -- a wrong status can be
+# recomputed -- but deletion is not, and this exact policy destroyed 26,472
+# Base, 14,114 Ethereum and 793 Solana records when it ran on a check that
+# was invalid for those chains. So a newly-added chain is analysed first and
+# only becomes deletable once its real results have been observed. Arbitrum
+# is analysed but not yet deletable.
+DELETE_CHAIN_IDS = [56]
+
+
 async def run_analysis_batch(batch_size: int = 300) -> dict:
     """One real, bounded batch: pulls up to `batch_size` docs from
     `full_bsc_registry` that have never been health-checked, categorizes
@@ -103,7 +126,16 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
 
-    docs = await col.find({"chain_id": 56, "service_status": {"$exists": False}}).limit(batch_size).to_list(length=batch_size)
+    # Chains this pass is allowed to analyse. Widened one at a time, and
+    # only after a real test confirmed the chain-aware health check returns
+    # correct results for known agents on THAT chain (2026-09-05: Arbitrum
+    # returned genuinely `responding` agents, which the old BSC-only code
+    # could never produce). A chain gets added here only after it has both
+    # a verified registry deployment and a working RPC -- never on the
+    # assumption that a pattern holds.
+    docs = await col.find(
+        {"chain_id": {"$in": ANALYSIS_CHAIN_IDS}, "service_status": {"$exists": False}}
+    ).limit(batch_size).to_list(length=batch_size)
     if not docs:
         return {"checked": 0, "done": True}
 
@@ -117,7 +149,7 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     deleted_no_endpoint = 0
     for d in docs:
         h = health_results.get(d.get("id"))
-        if h and h.get("service_status") == "no_endpoint":
+        if h and h.get("service_status") == "no_endpoint" and d.get("chain_id") in DELETE_CHAIN_IDS:
             await col.delete_one({"_id": d["_id"]})
             deleted_no_endpoint += 1
             continue
@@ -157,7 +189,7 @@ async def get_unanalyzed_backlog() -> int:
     correctly outrunning BSC analysis capacity."""
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
-    return await col.count_documents({"chain_id": 56, "service_status": {"$exists": False}})
+    return await col.count_documents({"chain_id": {"$in": ANALYSIS_CHAIN_IDS}, "service_status": {"$exists": False}})
 
 
 async def compute_full_registry_stats() -> dict:
