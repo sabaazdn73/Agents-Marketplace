@@ -398,7 +398,13 @@ async def get_stored_agents(limit: int = 30_000) -> list[dict]:
         "escrow_compat_offers_x402", "owner_bnb_balance_checked_at", "first_seen_at",
         "service_http_status", "service_error",
     )
+    # _id is excluded at the query rather than popped after the fact. The
+    # loop below pops it anyway because it duplicates `id`, but popping
+    # happens after 30,000 ObjectIds have already been allocated; excluding
+    # it here means they are never built. Small, but free and provably
+    # safe: nothing between the query and the pop reads it.
     projection = {f: 0 for f in _EXCLUDE_FIELDS}
+    projection["_id"] = 0
     docs = await db.known_agents.find({}, projection).sort("total_score", -1).to_list(length=limit)
 
     # Already sorted by total_score at the DB level above — re-stating the
