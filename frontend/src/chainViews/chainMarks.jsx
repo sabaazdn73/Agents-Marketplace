@@ -25,12 +25,22 @@
 // deploys, and ethereum.org's carries a cache-busting query. Both were
 // avoided in favour of URLs that do not churn.
 //
-// Multi-Chain keeps a neutral glyph, and that is correct rather than a
-// compromise: it is not a chain and has no mark of its own.
+// Multi-Chain has no mark of its own, so it shows the marks of the chains
+// it actually contains, clustered and deliberately smaller than a
+// single-chain tab's logo -- the tab represents several chains, and one
+// full-size mark would misrepresent it as one.
 //
-// Every mark falls back to the glyph if the image fails to load, so a
-// hotlink breaking degrades to the previous behaviour instead of an empty
-// tab.
+// Three are shown, the three largest by real stored agent count (Base
+// 58,580, Monad 2,815, Celo 2,361; then Arbitrum 1,175, Billions 714,
+// Robinhood 7). Ranking by count rather than by preference means the
+// cluster reflects what the view is actually mostly made of. Their assets
+// were verified the same way: Base 32x32 ico, Monad 256x256 png, Celo
+// 32x27 ico from docs.celo.org -- celo.org's own head points at a Framer
+// CDN asset, so the Celo-owned docs domain was used instead.
+//
+// Every mark degrades gracefully. A single-chain logo that fails falls
+// back to a tinted glyph; a cluster member that fails simply drops out,
+// shrinking the cluster rather than showing a broken-image icon.
 
 import React, { useState } from 'react';
 import { Boxes } from 'lucide-react';
@@ -41,13 +51,52 @@ const LOGOS = {
   solana: { src: 'https://solana.com/src/img/branding/solanaLogoMark.svg', alt: 'Solana' },
 };
 
-// Multi-Chain only. Not a chain, so it gets a generic cluster glyph.
+// The Multi-Chain cluster, largest-first.
+const MULTICHAIN_LOGOS = [
+  'https://www.base.org/favicon.ico',
+  'https://www.monad.xyz/favicon.ico',
+  'https://docs.celo.org/img/favicon.ico',
+];
+
+/** One image that quietly disappears if it fails, so a broken hotlink
+ * shrinks the cluster rather than leaving a broken-image icon. */
+function ClusterLogo({ src, size, index }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="rounded-full ring-1 ring-white dark:ring-[#0B101B] object-contain bg-white"
+      style={{ width: size, height: size, marginLeft: index === 0 ? 0 : -size * 0.32 }}
+    />
+  );
+}
+
+// Fallback tint, used only when a logo fails to load.
 const FALLBACK_COLOR = {
   bnb: '#F0B90B', ethereum: '#627EEA', solana: '#14F195', multichain: '#8B93A7',
 };
 
 export function ChainMark({ viewId, size = 14, className = '' }) {
   const [failed, setFailed] = useState(false);
+
+  if (viewId === 'multichain') {
+    // Smaller than a single-chain mark (~78%), overlapped, so the cluster
+    // occupies roughly the same width as one logo and the tab strip keeps
+    // its rhythm.
+    const each = Math.round(size * 0.78);
+    return (
+      <span className={`flex items-center shrink-0 ${className}`} aria-hidden="true">
+        {MULTICHAIN_LOGOS.map((src, i) => (
+          <ClusterLogo key={src} src={src} size={each} index={i} />
+        ))}
+      </span>
+    );
+  }
+
   const logo = LOGOS[viewId];
 
   if (!logo || failed) {
