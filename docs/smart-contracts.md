@@ -32,7 +32,7 @@ A third model, **pay-per-call via x402**, settles off this contract entirely (a 
 
 **Current on-chain values** (read live, not from a config file or old notes):
 - `feeBps()` -> `250` (2.5%)
-- `feeWallet()` -> `0xBfE58070b39F0F2E1c46A4EF80690B6045934293`
+- `feeWallet()` -> `0xBfE58070b39F0F2E1c46A4EF80690B6045934293` — a hardware wallet, so platform fee revenue sits in cold storage rather than behind a hot key. Worth stating plainly what kind of claim this is: nothing on-chain distinguishes a hardware-backed address from any other, so this is an operational fact about how the key is held, not something a reader can verify from the chain the way they can verify `feeBps` or `owner` above.
 - `owner()` -> `0x48ce74cdc366e8347f17f7187fbf2ab9240692e9`
 
 ## ERC-8183: the "Hire" flow
