@@ -963,11 +963,18 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           </div>
 
           {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
-          {/* Height comes down with the width. At 448px a 280px-tall crop
-              was a wide banner; at 320px it would have been nearly square
-              and pushed the wallet card below the fold. */}
+          {/* agents.png is 941x1672 -- a tall portrait. Any fixed height
+              here crops it, because object-cover fills the box and throws
+              away the overflow: the old min-h-[280px] in a 416px-wide
+              column was showing a 1.49:1 slice of a 0.56:1 image, and a
+              fixed h-44 cropped it harder still. h-auto is what actually
+              shows the whole picture -- the column sets the width and the
+              real aspect ratio sets the height, so nothing is cut off and
+              nothing is letterboxed either. It is tall by nature; the
+              sticky wrapper above is already max-h-screen overflow-y-auto,
+              so it scrolls rather than overflowing. */}
           <div className="px-5 mb-1">
-            <img src={agentsHero} alt="" className="w-full h-44 object-cover rounded-xl border border-white/10" />
+            <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
 
           {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight pattern */}
@@ -990,7 +997,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-8 md:p-12 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      <main className="flex-1 p-6 md:p-8 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
           
           {nav === 'market' && detailAgent && !hiring && (
@@ -1015,7 +1022,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   stacked below here — real information, but competing for attention
                   whether or not anyone needed it right now. Both now live behind small,
                   on-demand (i) icons instead, same real meaning, no permanent space. */}
-              <div className="flex flex-col lg:flex-row gap-4 mb-6 items-stretch">
+              <div className="flex flex-col lg:flex-row gap-3 mb-4 items-stretch">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
                   <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
@@ -1081,9 +1088,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   This is a real, always-visible section instead (collapsed
                   by default to stay out of the way, but the toggle itself
                   is never hidden). See VerificationExplainerSection.jsx. */}
-              <VerificationExplainerSection className="mb-4" />
+              <VerificationExplainerSection className="mb-2" />
 
-              <div className="mb-8">
+              {/* This was a full mb-8 block wrapping a single small tooltip
+                  link -- 32px of empty column under one line of text, and
+                  the largest single gap in this header. It belongs with the
+                  verification explainer directly above it, not floating in
+                  its own band. */}
+              <div className="mb-5">
                 <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
                   <div className="space-y-2">
                     <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal by itself — see "How we verify agents" above for what actually counts as proof.</p>
@@ -1096,10 +1108,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   filter toggles (what's IN the list) get a second row of
                   their own, clearly labeled, instead of all 5 controls
                   running together in one cramped line. */}
-              <div className="mb-8 flex flex-col gap-4">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+              <div className="mb-5 flex flex-col gap-3">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3">
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight mb-2 flex items-center gap-2">
+                    <h2 className="text-2xl font-bold tracking-tight mb-1.5 flex items-center gap-2">
                       Marketplace
                       {refreshing && <Loader2 size={16} className="animate-spin text-gray-400" />}
                     </h2>
@@ -1165,7 +1177,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 )}
               </div>
 
-              <div className="mb-4 relative">
+              <div className="mb-3 relative">
                 <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
@@ -1195,7 +1207,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               {/* Hire-by-address escape hatch — for an agent not yet indexed
                   as a card (e.g. just registered). Builds a synthetic agent
                   object and reuses the real hire flow; no backend involved. */}
-              <div className="mb-8">
+              <div className="mb-6">
                 <button type="button" onClick={() => setShowManualHire((v) => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                   <Search size={12} />{showManualHire ? 'Hide this' : "Know an agent's ID? Hire it directly"}
                 </button>
