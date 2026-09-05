@@ -883,14 +883,23 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
 
       {/* Sidebar: Deep Dark Navy, scrolls together with the page now, no independent region */}
-      <aside className="w-[28rem] shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
+      {/* Width was 28rem (448px), which is where the sparse look came from:
+          a nav row there is ~400px of button holding an 18px icon and a
+          short label, so every tab carried ~250px of dead space to the
+          right of its own text, and the title row put "Tnega" and its two
+          icon buttons at opposite ends of a near-empty 448px line. 20rem
+          (320px) is the conventional sidebar width and is still wide enough
+          for the longest label ("Advantage Report"), the wallet card and
+          the hero image. Main content is `max-w-6xl mx-auto`, so it stays
+          centred and simply gains room rather than reflowing. */}
+      <aside className="w-80 shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
         {/* Sticky wrapper: this content stays visible near the top of the
             viewport as you scroll through the taller main content, instead
             of scrolling away and leaving blank space, while the aside's
             own dark background still extends the full page height. */}
         <div className="sticky top-0 max-h-screen overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-8">
+          <div className="p-5">
+            <div className="flex items-center gap-2.5 mb-6">
               <a
                 href="https://f2f-uzh.vercel.app"
                 target="_blank"
@@ -904,14 +913,20 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               <button
                 onClick={() => setShowOnboarding(true)}
                 title="How this works"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
               >
                 <HelpCircle size={16} />
               </button>
               <NotificationBell variant="dark" />
             </div>
-            
-            <nav className="space-y-1">
+
+            {/* Rows are tightened to match: py-3 + space-y-1 spread eight
+                items over more vertical run than they need, which read as
+                gaps rather than grouping. py-2.5 + space-y-0.5 keeps the
+                row a comfortable 40px target while letting the group read
+                as one list. The active row also gains a hairline ring, so
+                which tab is current survives the smaller fill area. */}
+            <nav className="space-y-0.5">
               {NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const active = nav === item.id;
@@ -919,12 +934,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <button
                     key={item.id}
                     onClick={() => { dismissAgentDetail(); setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                      active ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left transition-all duration-200 ${
+                      active
+                        ? 'bg-white/10 text-white ring-1 ring-white/10'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
                     }`}
                   >
-                    <Icon size={18} className={active ? 'text-indigo-400' : 'opacity-70'} /> 
-                    {item.label}
+                    <Icon size={17} className={`shrink-0 ${active ? 'text-indigo-400' : 'opacity-70'}`} />
+                    <span className="truncate">{item.label}</span>
                   </button>
                 );
               })}
@@ -934,25 +951,28 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 Market/My Agents/Report/Learn/Build/Sell tab structure. */}
             {onOpenEcosystem && (
               <>
-                <div className="my-3 border-t border-white/5" />
+                <div className="my-2.5 border-t border-white/5" />
                 <button
                   onClick={onOpenEcosystem}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all duration-200"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all duration-200"
                 >
-                  <Globe size={16} className="opacity-70" /> Ecosystem view
+                  <Globe size={16} className="shrink-0 opacity-70" /> Ecosystem view
                 </button>
               </>
             )}
           </div>
 
           {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
-          <div className="px-4 mb-2">
-            <img src={agentsHero} alt="" className="w-full min-h-[280px] object-cover rounded-2xl border border-white/10" />
+          {/* Height comes down with the width. At 448px a 280px-tall crop
+              was a wide banner; at 320px it would have been nearly square
+              and pushed the wallet card below the fold. */}
+          <div className="px-5 mb-1">
+            <img src={agentsHero} alt="" className="w-full h-44 object-cover rounded-xl border border-white/10" />
           </div>
 
           {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight pattern */}
-          <div className="p-6">
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+          <div className="p-5">
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Wallet size={16} className="opacity-70" />
                 <span className="text-xs font-bold uppercase tracking-wide opacity-80">Your Wallet</span>
