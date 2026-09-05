@@ -36,6 +36,7 @@ import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
+import ChainViewTabs from './chainViews/ChainViewTabs';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -984,7 +985,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
         ) : (
           <div className="p-5">
             {nav === 'market' && (
-              <>
+              <ChainViewTabs mutedBorder="border-gray-100 dark:border-gray-800">
+                {/* BNB Chain view below is the original mobile marketplace,
+                    unchanged; ChainViewTabs renders it as-is on the BNB tab. */}
+                <>
                 <div className="mb-4">
                   <h2 className="text-2xl font-bold mb-1">Marketplace</h2>
                   <p className="text-sm text-gray-500">Browse AI agents and hire one with a spending limit you control.</p>
@@ -1272,7 +1276,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     Load more agents
                   </button>
                 )}
-              </>
+                </>
+              </ChainViewTabs>
             )}
 
             {nav === 'my-agents' && (

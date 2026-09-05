@@ -28,6 +28,7 @@ import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
+import ChainViewTabs from './chainViews/ChainViewTabs';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -982,7 +983,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           )}
 
           {nav === 'market' && !hiring && !detailAgent && (
-            <>
+            <ChainViewTabs mutedBorder="border-gray-200 dark:border-gray-800">
+              {/* The BNB Chain view below is the original marketplace,
+                  unchanged. ChainViewTabs renders it as-is when the BNB tab
+                  is active and swaps in a separate module for the others, so
+                  this working path is preserved by construction. */}
+              <>
               {/* Real stats derived from actually-fetched agents, not global platform numbers.
                   The diversity-limit note (why this list is shorter than the full real
                   registry) and the badge legend used to each be a permanent paragraph
@@ -1453,7 +1459,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               )}
 
               {!loading && !error && <Pagination page={currentPage} pageCount={pageCount} onChange={setPage} />}
-            </>
+              </>
+            </ChainViewTabs>
           )}
 
           {/* Hiring Flow Overlay (Styled as a clean modal card) */}
