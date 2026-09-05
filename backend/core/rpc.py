@@ -216,8 +216,19 @@ async def get_job(job_id: int, client: httpx.AsyncClient | None = None) -> dict 
 # that is exactly the shortcut that caused the original damage.
 # Solana is absent permanently: it is not EVM, so none of this applies.
 
+def _infura(path: str) -> str | None:
+    key = os.environ.get("INFURA_API_KEY")
+    return f"https://{path}.infura.io/v3/{key}" if key else None
+
+
 _CHAIN_PRIMARY_RPC = {
     56: _FALLBACK_RPC_URL,                        # BSC, via the proven bloXroute gateway
+    # Ethereum runs Infura FIRST rather than a free public node. It failed
+    # an earlier test on llamarpc, which was a free provider having a bad
+    # moment and said nothing about the chain -- verified 2026-09-05 via
+    # Infura: chainId 1, registry deployed (identical 130 bytes), and 5 of
+    # 5 known stored agents resolved real, distinct tokenURIs.
+    1: _infura("mainnet"),
     8453: "https://mainnet.base.org",
     42161: "https://arb1.arbitrum.io/rpc",
     42220: "https://forno.celo.org",
@@ -233,11 +244,23 @@ _CHAIN_INFURA_PATH = {
     42161: "arbitrum-mainnet",
 }
 
+# Ethereum inverts the usual arrangement: Infura is the PRIMARY (above) and
+# a public node is the backup, rather than the other way round. Stated
+# explicitly because it is the one chain here where the paid endpoint is the
+# reliable one and the free one is what failed.
+_CHAIN_PUBLIC_BACKUP = {
+    1: "https://eth.llamarpc.com",
+}
+
 
 def supported_rpc_chain_ids() -> list[int]:
-    """Chains with a configured primary RPC. A chain absent from this list
-    has NOT been verified and must not be health-checked."""
-    return sorted(_CHAIN_PRIMARY_RPC)
+    """Chains with a WORKING primary RPC. A chain absent from this list has
+    not been verified and must not be health-checked.
+
+    Entries whose primary is None are excluded: Ethereum's depends on
+    INFURA_API_KEY, and without the key it must drop out of the supported
+    set rather than appear supported and fail at call time."""
+    return sorted(c for c, u in _CHAIN_PRIMARY_RPC.items() if u)
 
 
 def get_chain_rpc_url(chain_id: int) -> str | None:
@@ -250,6 +273,9 @@ def get_chain_rpc_url(chain_id: int) -> str | None:
 
 
 def get_chain_fallback_rpc_url(chain_id: int) -> str | None:
+    """Failover endpoint, or None if this chain has only a primary."""
+    if chain_id in _CHAIN_PUBLIC_BACKUP:
+        return _CHAIN_PUBLIC_BACKUP[chain_id]
     key = os.environ.get("INFURA_API_KEY")
     path = _CHAIN_INFURA_PATH.get(chain_id)
     return f"https://{path}.infura.io/v3/{key}" if (key and path) else None

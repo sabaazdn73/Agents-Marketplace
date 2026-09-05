@@ -46,11 +46,14 @@ from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
 # RPC and registry.
 #
 # NOT included, and each for a stated reason rather than oversight:
-#   1 Ethereum  -- registry unverified, public RPC failed under test.
+#   1 Ethereum  -- added last, and only after Base was observed. Its public
+#     RPC (llamarpc) had failed under test; that was the free provider's
+#     fault, not Etherscan's, and switching to Infura fixed it. 5/5 known
+#     stored Ethereum agents then resolved real, distinct tokenURIs.
 #   101 Solana  -- not an EVM chain; none of this applies, ever.
-#   8453, 42220, 143 -- have verified RPCs and resolve tokenURIs, but have
-#     not yet had a full analysis pass observed, so they wait their turn.
-ANALYSIS_CHAIN_IDS = [56, 42161]
+#   42220 Celo, 143 Monad -- have verified RPCs and resolve tokenURIs, but
+#     have not yet had a full analysis pass observed, so they wait their turn.
+ANALYSIS_CHAIN_IDS = [56, 42161, 8453, 1]
 
 # Chains where a confirmed no_endpoint may be DELETED. Deliberately narrower
 # than ANALYSIS_CHAIN_IDS. Analysis is reversible -- a wrong status can be
