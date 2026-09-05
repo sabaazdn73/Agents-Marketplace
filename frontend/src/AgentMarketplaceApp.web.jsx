@@ -438,15 +438,17 @@ function HybridWalletConnect({ accent }) {
   const isConnected = wagmiConnected || privyConnected;
   const shortAddress = activeAddress ? `${activeAddress.slice(0, 6)}...${activeAddress.slice(-4)}` : null;
 
+  // mt-6 dropped along with the wrapper that made it necessary: this is now
+  // the top of its own block, so a 24px offset here was pure dead space.
   return (
-    <div className="bg-[#131825] border border-white/10 rounded-2xl p-4 mt-6">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="bg-[#131825] border border-white/10 rounded-xl p-3.5">
+      <div className="flex items-center gap-2 mb-2.5">
         <Wallet size={14} className="text-gray-400" />
         <h3 className="text-xs font-bold text-gray-300 tracking-wider uppercase">Your Wallet</h3>
       </div>
-      
+
       {isConnected ? (
-        <div className="flex items-center justify-between bg-white/5 rounded-xl p-3 border border-white/5">
+        <div className="flex items-center justify-between bg-white/5 rounded-lg p-2.5 border border-white/5">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-mono text-xs text-gray-200">{shortAddress}</span>
@@ -459,13 +461,15 @@ function HybridWalletConnect({ accent }) {
         <div className="space-y-2">
           <ConnectButton.Custom>
             {({ openConnectModal }) => (
-              <button onClick={openConnectModal} className="w-full flex justify-between items-center bg-[#1E2433] hover:bg-[#252C3D] text-white text-sm font-medium py-3 px-4 rounded-xl transition-colors">
+              <button onClick={openConnectModal} className="w-full flex justify-between items-center bg-[#1E2433] hover:bg-[#252C3D] text-white text-sm font-medium py-2.5 px-3.5 rounded-lg transition-colors">
                 <span>Connect a wallet</span>
                 <ChevronRight size={16} className="text-gray-400" />
               </button>
             )}
           </ConnectButton.Custom>
-          <p className="text-[10px] text-gray-500 text-center mt-3">No wallet? You can keep browsing without connecting.</p>
+          {/* The parent is already space-y-2; mt-3 on top of that made a
+              20px gap under a single 10px line. */}
+          <p className="text-[10px] leading-snug text-gray-500 text-center">No wallet? You can keep browsing without connecting.</p>
         </div>
       )}
     </div>
@@ -977,17 +981,17 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
 
-          {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight pattern */}
+          {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight
+              pattern. HybridWalletConnect renders the whole card itself --
+              its own background, border, padding and "Your Wallet" heading
+              -- so this used to wrap a finished card inside a second,
+              near-identical one: two nested borders, two stacked p-4s, and
+              the words "Your Wallet" printed twice, one above the other.
+              That duplication was most of the height, not the contents. */}
           <div className="p-5">
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Wallet size={16} className="opacity-70" />
-                <span className="text-xs font-bold uppercase tracking-wide opacity-80">Your Wallet</span>
-              </div>
-              <HybridWalletConnect accent={accent} />
-            </div>
+            <HybridWalletConnect accent={accent} />
 
-            <div className="mt-4 flex items-center justify-end text-xs text-gray-500 px-2">
+            <div className="mt-3 flex items-center justify-end text-xs text-gray-500 px-2">
               <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
                 {darkMode ? <Sun size={16} /> : <Moon size={16} />}
               </button>
