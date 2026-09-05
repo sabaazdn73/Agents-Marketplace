@@ -81,13 +81,38 @@ def _public_base_url() -> str:
 
 
 def _pay_to_address() -> str:
-    """Real recipient for PayBox settlements. Reuses the project's real,
-    already-configured platform wallet rather than introducing a second
-    address to keep in sync."""
-    addr = os.environ.get("PAYBOX_PAY_TO") or os.environ.get("PLATFORM_FEE_WALLET")
+    """The B402 settlement recipient. PAYBOX_PAY_TO only, no fallback.
+
+    This used to fall back to PLATFORM_FEE_WALLET on the reasoning that
+    reusing the existing platform wallet avoided a second address to keep
+    in sync. That reasoning is now wrong, and the fallback was actively
+    dangerous, because the two addresses have genuinely different roles:
+
+      PLATFORM_FEE_WALLET (0xBfE5...4293)
+        A hardware wallet. Receives AgentAccessMarket sale fees (set as
+        `feeWallet` at deploy) and the Native Agent / Trading entry fees.
+        On-chain destination only; nothing in this project ever signs
+        with it, and its key is deliberately not stored anywhere here.
+
+      PAYBOX_PAY_TO (0x48cE...92E9)
+        The address registered with B402 as this app's payTo. That
+        registration is WRITE-ONCE and cannot be changed, so this value
+        is fixed by an external system rather than by our config. It is
+        also the AgentAccessMarket `owner()`.
+
+    Because the B402 registration is immutable, a mismatch here cannot be
+    corrected after the fact: payment requirements are built from this
+    value and signed by the buyer, so a wrong address means the
+    facilitator rejects the settlement. Falling back to the fee wallet
+    would have silently produced exactly that, so this now fails loudly
+    instead of quietly using an address B402 will not accept."""
+    addr = os.environ.get("PAYBOX_PAY_TO")
     if not addr:
         raise RuntimeError(
-            "No PayBox recipient configured — set PAYBOX_PAY_TO (or PLATFORM_FEE_WALLET)."
+            "PAYBOX_PAY_TO is not configured. It must be the exact address registered "
+            "with B402 as this app's payTo (that registration is write-once). Do NOT "
+            "substitute PLATFORM_FEE_WALLET: it is a different address with a different "
+            "role and B402 will reject settlements built against it."
         )
     return addr
 
