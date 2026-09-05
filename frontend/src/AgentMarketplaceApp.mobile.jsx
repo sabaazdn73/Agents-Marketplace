@@ -9,7 +9,14 @@ import {
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
-import iconLogo from './assets/icon_v2.svg';
+// Header mark. Uses the filter-free variant deliberately: the full
+// icon_v2.svg is a 512px launcher icon carrying two SVG drop-shadow
+// filters applied eight times, and SVG filter regions are rasterised
+// without reliably tracking devicePixelRatio -- which is what makes a
+// filtered SVG look pixelated on a high-DPI phone even though the source
+// is vector. At the 32px this renders at, those shadows are sub-pixel and
+// contribute nothing anyway. Same artwork, same gradients, same viewBox.
+import iconLogo from './assets/icon_v2_small.svg';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
 import agentsHero from './assets/agents.png';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
