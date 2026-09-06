@@ -1853,15 +1853,52 @@ async def my_jobs(client_address: str):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
 
+    # Look up only the provider wallets this user's jobs actually name.
+    #
+    # This used to call get_stored_agents(), which runs the whole serving
+    # pipeline: a slim read of every document in known_agents, clustering
+    # across all of them, then a fetch of 15,000 full documents. About
+    # 285MB and five seconds, on every request, to resolve a handful of
+    # names. It was the reason this endpoint took ~7 seconds even when
+    # completely healthy, and a per-request allocation that size on a
+    # 512Mi service is its own contribution to the restarts that make the
+    # panel fail in the first place.
+    #
+    # A job names one provider wallet, and a user has a few jobs, so the
+    # set is tiny. owner_address is stored lowercase throughout (verified:
+    # 155,344 of 155,344), so a plain $in matches without a regex.
+    #
+    # Side effect worth knowing: this searches the whole store rather than
+    # the 15,000 agents currently served, so a job whose agent did not make
+    # the served list now resolves to a name where it previously showed
+    # none.
+    by_owner: dict[str, list[dict]] = {}
     try:
-        known = await agent_store.get_stored_agents()
-        by_owner: dict[str, list[dict]] = {}
-        for a in known:
-            owner = (a.get("owner_address") or "").lower()
-            if owner:
-                by_owner.setdefault(owner, []).append(a)
+        providers = sorted({
+            (j.get("provider") or "").lower()
+            for j in result["jobs"] if j.get("provider")
+        })
+        if providers:
+            cursor = get_db().known_agents.find(
+                {"owner_address": {"$in": providers}},
+                {"_id": 0, "id": 1, "name": 1, "owner_address": 1},
+            )
+            async for a in cursor:
+                owner = (a.get("owner_address") or "").lower()
+                if owner:
+                    by_owner.setdefault(owner, []).append(a)
     except Exception:
         by_owner = {}  # resolution is a nice-to-have; a store hiccup shouldn't break the jobs list
+
+    # Work on copies. get_my_jobs returns the dict objects held in
+    # agent_performance's module-level cache, and the loop below overwrites
+    # job["description"] with the parsed task text. Mutating them in place
+    # corrupted the cache for every later request: the second call could no
+    # longer parse the agent name out of a description it had already
+    # rewritten, so refreshing the page made agent names disappear. Measured
+    # directly: 19 of 19 jobs resolved a name on the first call, 10 of 19 on
+    # the second.
+    result["jobs"] = [dict(j) for j in result["jobs"]]
 
     for job in result["jobs"]:
         candidates = by_owner.get((job["provider"] or "").lower(), [])
