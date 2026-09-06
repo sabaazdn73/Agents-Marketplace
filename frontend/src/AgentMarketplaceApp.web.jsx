@@ -29,6 +29,9 @@ import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import ChainViewTabs from './chainViews/ChainViewTabs';
+import HireModePicker, { HIRE_MODE } from './HireModePicker';
+import BudgetHirePanel from './BudgetHirePanel';
+import { isBudgetEscrowConfigured } from './budgetEscrow';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -614,6 +617,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // minutes ago. Builds a synthetic in-memory agent object and reuses the
   // exact same hire pipeline as a real card; touches no backend/DB state.
   const [showManualHire, setShowManualHire] = useState(false);
+  // Escrow by default, always. Budget mode is a real reduction in buyer
+  // protection, so it is never the state a user lands in without choosing.
+  const [hireMode, setHireMode] = useState(HIRE_MODE.ESCROW);
   const [manualAddress, setManualAddress] = useState('');
   const [stopLoss, setStopLoss] = useState(5000);
   const { agents, setAgents, loading, error, refreshing, confirmedFresh } = useMarketplaceAgents();
@@ -1506,6 +1512,31 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
               </button>
 
+              {/* Funding model. Escrow is the default and stays selected
+                  unless a buyer deliberately picks otherwise -- it is the
+                  safer model and the working path. Budget mode is opt-in
+                  and renders its own self-contained panel; the ERC-8183
+                  markup below is unchanged, only hidden while budget mode
+                  is active, so selecting escrow runs exactly the code that
+                  ran before budget mode existed. */}
+              <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 shadow-xl mb-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <AgentAvatar agent={selectedAgent} size={56} />
+                  <div>
+                    <h2 className="text-2xl font-bold">Hire {selectedAgent.name}</h2>
+                    <p className="text-gray-500 text-sm mt-1">Approve each step yourself, in your wallet.</p>
+                  </div>
+                </div>
+                <HireModePicker
+                  value={hireMode}
+                  onChange={setHireMode}
+                  budgetAvailable={isBudgetEscrowConfigured()}
+                  disabledReason="Not deployed yet — locked escrow works normally."
+                />
+                {hireMode === HIRE_MODE.BUDGET && <BudgetHirePanel agent={selectedAgent} />}
+              </div>
+
+              <div className={hireMode === HIRE_MODE.BUDGET ? 'hidden' : ''}>
               <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 md:p-10 border border-gray-200 dark:border-gray-800 shadow-xl mb-6">
                 <div className="flex items-center gap-4 mb-8">
                   <AgentAvatar agent={selectedAgent} size={56} />
@@ -1684,6 +1715,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <button onClick={handleActivateSession} disabled={(hireStep && hireStep !== 'done' && !hireError) || hireEscrowGate.blocked || !!deadlineError} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide disabled:opacity-50">
                   {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE TO CONTINUE' : deadlineError ? 'FIX THE DEADLINE ABOVE' : 'HIRE'}
                 </button>
+              </div>
               </div>
             </div>
           )}

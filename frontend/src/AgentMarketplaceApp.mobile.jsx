@@ -37,6 +37,9 @@ import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import ChainViewTabs from './chainViews/ChainViewTabs';
+import HireModePicker, { HIRE_MODE } from './HireModePicker';
+import BudgetHirePanel from './BudgetHirePanel';
+import { isBudgetEscrowConfigured } from './budgetEscrow';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -540,6 +543,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // view did not -- the core of the "Back exits the site" bug.
   useNavSync(initialNav, nav, setNav);
   const [hiring, setHiring] = useState(false);
+  // Escrow by default, always -- budget mode is opt-in because it is a
+  // real reduction in buyer protection.
+  const [hireMode, setHireMode] = useState(HIRE_MODE.ESCROW);
   // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
   // Mirrors web's identical handleTrySkill.
@@ -826,6 +832,24 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && !hireError} className="flex items-center gap-1 text-sm text-gray-500 font-medium mb-6 disabled:opacity-40">
               <ChevronRight size={18} className="rotate-180" /> Back
             </button>
+            {/* Funding model, parity with web. Escrow is the default and
+                the ERC-8183 markup below is unchanged -- only hidden while
+                budget mode is active. */}
+            <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 mb-4">
+              <div className="flex items-center gap-3 mb-4">
+                <AgentAvatar agent={selectedAgent} size={44} />
+                <h2 className="text-xl font-bold">{selectedAgent.name}</h2>
+              </div>
+              <HireModePicker
+                value={hireMode}
+                onChange={setHireMode}
+                budgetAvailable={isBudgetEscrowConfigured()}
+                disabledReason="Not deployed yet — locked escrow works normally."
+              />
+              {hireMode === HIRE_MODE.BUDGET && <BudgetHirePanel agent={selectedAgent} />}
+            </div>
+
+            <div className={hireMode === HIRE_MODE.BUDGET ? 'hidden' : ''}>
             <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
               <div className="mb-4">
                 <AgentAvatar agent={selectedAgent} size={64} />
@@ -978,6 +1002,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   {hireStep === 'done' ? 'HIRED ✓' : hireError ? 'TRY AGAIN' : hireEscrowGate.blocked ? 'CHECK THE BOX ABOVE' : deadlineError ? 'FIX THE DEADLINE ABOVE' : 'HIRE'}
                 </button>
               </div>
+            </div>
             </div>
           </div>
         ) : detailAgent ? (

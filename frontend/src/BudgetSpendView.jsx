@@ -1,0 +1,165 @@
+// BudgetSpendView.jsx
+//
+// Watch an agent spend, live, as it works.
+//
+// This is the whole reason the budget model exists as a product rather than
+// only as plumbing. ERC-8183 emits PaymentReleased exactly once, for the
+// full amount, at completion -- so a "watch it spend" view cannot be built
+// on it at all. AgentBudgetEscrow emits Drawn per draw, and this renders
+// that stream.
+//
+// Everything here is read from the chain. The remaining balance is
+// recomputed from the contract's own `spent`, never accumulated locally
+// from the events we happen to have seen: a missed or duplicated log would
+// otherwise silently misreport how much of someone's money is left.
+
+import React from 'react';
+import { Loader2, ArrowDownRight, ShieldAlert, Clock, Undo2 } from 'lucide-react';
+import { formatUnits } from 'viem';
+import { useBudgetRead, useDrawFeed, useBudgetActions, BUDGET_STATUS, NATIVE_SENTINEL } from './budgetEscrow';
+
+function fmt(v, symbol = 'BNB') {
+  if (v == null) return '—';
+  const n = Number(formatUnits(v, 18));
+  return `${n < 0.0001 && n > 0 ? n.toExponential(2) : n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol}`;
+}
+
+/** bytes32 -> readable text, or null when it isn't text.
+ *
+ * Decoded by hand rather than with Buffer: Buffer is a Node global and is
+ * not defined in the browser under Vite, so using it here would have thrown
+ * at runtime on the first draw that carried a memo. */
+function memoText(memo) {
+  if (typeof memo !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(memo) || /^0x0+$/.test(memo)) return null;
+  let s = '';
+  for (let i = 2; i < memo.length; i += 2) {
+    const code = parseInt(memo.slice(i, i + 2), 16);
+    if (code === 0) break;                 // bytes32 is zero-padded on the right
+    if (code < 0x20 || code > 0x7e) return null;  // not printable ASCII: not a memo
+    s += String.fromCharCode(code);
+  }
+  return s || null;
+}
+
+export default function BudgetSpendView({ budgetId, onRevoked }) {
+  const { budget, drawable, loading, error, refresh } = useBudgetRead(budgetId);
+  const { draws } = useDrawFeed(budgetId);
+  const { reclaim, pending } = useBudgetActions();
+
+  if (loading && !budget) {
+    return (
+      <div className="flex items-center gap-2 py-8 text-sm text-gray-500">
+        <Loader2 size={16} className="animate-spin" /> Reading budget #{String(budgetId)}…
+      </div>
+    );
+  }
+  if (error) {
+    return <div className="text-sm text-red-600 dark:text-red-400 py-4">Couldn't read this budget: {error}</div>;
+  }
+  if (!budget) return null;
+
+  const symbol = budget.token?.toLowerCase() === NATIVE_SENTINEL.toLowerCase() ? 'BNB' : 'tokens';
+  const total = budget.total;
+  const spent = budget.spent;
+  const remaining = total - spent;
+  const pct = total > 0n ? Number((spent * 100n) / total) : 0;
+  const status = BUDGET_STATUS[budget.status] || 'UNKNOWN';
+  const isOpen = status === 'OPEN';
+  const deadline = Number(budget.deadline) * 1000;
+  const expired = Date.now() > deadline;
+
+  const doRevoke = async () => {
+    await reclaim(budgetId);
+    await refresh();          // real on-chain state, never optimistic
+    onRevoked?.();
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] p-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="text-sm font-bold">Budget #{String(budgetId)}</div>
+          <div className="text-[11px] text-gray-500">
+            {status === 'OPEN' && !expired && 'Agent can draw'}
+            {status === 'OPEN' && expired && 'Deadline passed — no further draws'}
+            {status === 'CLOSED' && 'Closed by the agent'}
+            {status === 'RECLAIMED' && 'Remainder returned to you'}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-lg font-bold tabular-nums">{fmt(remaining, symbol)}</div>
+          <div className="text-[10px] text-gray-500">left of {fmt(total, symbol)}</div>
+        </div>
+      </div>
+
+      {/* Spent vs remaining, from the contract's own `spent`. */}
+      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-1">
+        <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
+      </div>
+      <div className="flex justify-between text-[10px] text-gray-500 mb-3">
+        <span>{fmt(spent, symbol)} spent ({pct}%)</span>
+        {isOpen && !expired && <span>up to {fmt(drawable, symbol)} in the next draw</span>}
+      </div>
+
+      {isOpen && (
+        <div className="flex items-center gap-2 mb-3 text-[11px] text-gray-500">
+          <Clock size={11} className="shrink-0" />
+          <span>
+            {expired ? 'Deadline passed' : `Draws stop ${new Date(deadline).toLocaleString()}`}
+          </span>
+        </div>
+      )}
+
+      {/* The live stream. */}
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
+        Spending activity {draws.length > 0 && `(${draws.length})`}
+      </div>
+      {draws.length === 0 ? (
+        <p className="text-[11px] text-gray-500 py-2">
+          Nothing drawn yet. Draws appear here the moment they happen on-chain.
+        </p>
+      ) : (
+        <div className="space-y-1.5 max-h-56 overflow-y-auto">
+          {draws.map((d, i) => {
+            const m = memoText(d.memo);
+            return (
+              <div key={`${d.spent}-${i}`} className="flex items-start gap-2 text-[11px]">
+                <ArrowDownRight size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium tabular-nums">{fmt(d.amount, symbol)}</span>
+                  {m && <span className="text-gray-500"> · {m}</span>}
+                </div>
+                <span className="text-gray-400 tabular-nums shrink-0">
+                  {fmt(d.remaining, symbol)} left
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Revoke, with the race stated at the point of action rather than
+          only in the pre-hire explainer -- this is where a buyer is most
+          likely to believe it is instant. */}
+      {status !== 'RECLAIMED' && remaining > 0n && (
+        <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
+          <button
+            onClick={doRevoke}
+            disabled={pending === 'reclaim'}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-semibold border border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 disabled:opacity-60"
+          >
+            {pending === 'reclaim' ? <Loader2 size={13} className="animate-spin" /> : <Undo2 size={13} />}
+            {pending === 'reclaim' ? 'Revoking…' : `Take back ${fmt(remaining, symbol)}`}
+          </button>
+          <p className="text-[10px] text-gray-500 mt-1.5 flex items-start gap-1.5">
+            <ShieldAlert size={10} className="shrink-0 mt-0.5" />
+            <span>
+              Returns everything not yet drawn. If the agent's next draw is mined before
+              your revoke, that amount goes first — the two transactions compete.
+            </span>
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
