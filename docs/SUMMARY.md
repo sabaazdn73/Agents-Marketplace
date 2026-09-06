@@ -6,6 +6,7 @@
 * [Features](features.md)
 * [Data Sources & Integrations](integrations.md)
 * [Smart Contracts](smart-contracts.md)
+* [Drawable Budgets: Integration Guide](budget-integration.md)
 * [Hire-Flow Audit](hire-flow-audit.md)
 * [Direct-Wallet Skill Execution](direct-wallet-skills.md)
 * [Full BSC Registry Analysis](full-registry-analysis.md)

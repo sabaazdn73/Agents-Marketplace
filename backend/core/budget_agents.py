@@ -27,37 +27,93 @@ from __future__ import annotations
 
 import os
 
-# The reference agent's on-chain address. Set once the reference service is
-# deployed with its own wallet; until then budget mode has no eligible
-# agent at all, which is the honest state rather than a hidden one.
+# Addresses allowed to be hired with a drawable budget.
+#
+# Accepts either a single address or a comma-separated list, so an
+# environment already set to one address keeps working unchanged:
+#
+#   REFERENCE_AGENT_ADDRESS=0xabc...
+#   REFERENCE_AGENT_ADDRESS=0xabc...,0xdef...
+#
+# BUDGET_AGENT_ADDRESSES is the clearer name for a list and is read first;
+# REFERENCE_AGENT_ADDRESS stays supported because it is what is already
+# deployed. Both are parsed the same way.
+#
+# An address belongs here only on evidence that it implements draw(). The
+# strongest evidence is a draw observed on-chain from that address, not a
+# claim in an agent's metadata. See docs/budget-integration.md for what an
+# integrator has to build before being added.
+_ADDRESS_ENV_VARS = ("BUDGET_AGENT_ADDRESSES", "REFERENCE_AGENT_ADDRESS")
+
+# The one entry Tnega itself provides. Labelled as a reference
+# implementation wherever it surfaces, since one worked example written by
+# us is not third-party adoption and must never read as if it were.
+REFERENCE_AGENT_LABEL = "Reference implementation — built by Tnega, not a third-party agent"
+REFERENCE_AGENT_WHAT = (
+    "Runs a wallet due-diligence report using paid API quota, and draws from the budget "
+    "to cover what each call costs. It exists to show the draw pattern working end to end."
+)
+
+
+def _is_evm_address(value: str) -> bool:
+    return len(value) == 42 and value.lower().startswith("0x")
+
+
+def configured_addresses() -> list[str]:
+    """Every configured address, de-duplicated, order preserved.
+
+    Anything that is not a plausible EVM address is dropped rather than
+    passed through: a typo should mean "this agent is not budget-capable",
+    which is the safe direction, instead of a value that can never match
+    but still makes the list look populated.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for var in _ADDRESS_ENV_VARS:
+        raw = os.environ.get(var) or ""
+        for part in raw.split(","):
+            addr = part.strip()
+            if not addr or not _is_evm_address(addr):
+                continue
+            if addr.lower() in seen:
+                continue
+            seen.add(addr.lower())
+            out.append(addr)
+    return out
+
+
+# Kept for callers and tests that referred to the single-address form.
 REFERENCE_AGENT_ADDRESS = (os.environ.get("REFERENCE_AGENT_ADDRESS") or "").strip()
 
 
-def _reference_entry() -> dict | None:
-    if not REFERENCE_AGENT_ADDRESS.lower().startswith("0x") or len(REFERENCE_AGENT_ADDRESS) != 42:
-        return None
+def _entry(address: str, index: int) -> dict:
+    """One draw-capable agent. The first configured address is Tnega's own
+    reference implementation; anything after it is a third-party integrator
+    and is described as such rather than borrowing the reference label."""
+    if index == 0:
+        return {
+            "address": address,
+            "name": "Tnega Reference Agent",
+            "kind": "reference_implementation",
+            "label": REFERENCE_AGENT_LABEL,
+            "what_it_does": REFERENCE_AGENT_WHAT,
+            "confirmed_by": "Built in this repo; see reference-agent/.",
+        }
     return {
-        "address": REFERENCE_AGENT_ADDRESS,
-        "name": "Tnega Reference Agent",
-        # Surfaced in the UI verbatim. The point is that nobody can mistake
-        # this for organic adoption.
-        "kind": "reference_implementation",
-        "label": "Reference implementation — built by Tnega, not a third-party agent",
-        "what_it_does": (
-            "Runs a real wallet due-diligence report using paid API quota, and draws "
-            "from the budget to cover what each call actually costs. It exists to show "
-            "the draw pattern working end to end."
-        ),
-        "confirmed_by": "Built in this repo; see reference-agent/.",
+        "address": address,
+        "name": f"Budget-capable agent {address[:6]}…{address[-4:]}",
+        "kind": "third_party",
+        "label": "Supports drawable budgets",
+        "what_it_does": "Implements draw() against AgentBudgetEscrow.",
+        "confirmed_by": "Added to the draw-capable list after its integration was checked.",
     }
 
 
 def draw_capable_agents() -> list[dict]:
-    """Every agent known to implement draw(). Possibly empty -- and an empty
-    list is a real answer that the UI must render as "no agent supports this
-    yet", never as a reason to hide the distinction."""
-    entry = _reference_entry()
-    return [entry] if entry else []
+    """Every agent known to implement draw(). Possibly empty, and an empty
+    list is an answer the UI must render as "no agent supports this yet"
+    rather than hiding the distinction."""
+    return [_entry(a, i) for i, a in enumerate(configured_addresses())]
 
 
 def is_draw_capable(owner_address: str | None) -> bool:
