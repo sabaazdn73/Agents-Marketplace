@@ -175,15 +175,41 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
         </div>
       </div>
 
+      {/* What the link actually is, rather than calling everything a site.
+          This used to read "Visit <host>" for every agent that had any URL
+          at all, including ones whose registered endpoint is a
+          machine-readable agent-card.json. The backend now reports a kind
+          alongside the URL (see core/protocol_compat._classify_endpoint,
+          which fetches the endpoint rather than guessing from its path),
+          so a page can be offered as a page and an endpoint described as
+          an endpoint, with the link still there for anyone who wants it. */}
       {escrowData?.external_link ? (
-        <a
-          href={escrowData.external_link} target="_blank" rel="noreferrer"
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide"
-        >
-          Visit {hostnameOf(escrowData.external_link)} <ExternalLink size={15} />
-        </a>
+        escrowData.external_link_kind === 'page' ? (
+          <a
+            href={escrowData.external_link} target="_blank" rel="noreferrer"
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide"
+          >
+            Visit {hostnameOf(escrowData.external_link)} <ExternalLink size={15} />
+          </a>
+        ) : (
+          <div className="w-full rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+            <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">
+              Registered endpoint (machine-readable)
+            </p>
+            <p className="text-[11px] text-gray-500 mb-2">
+              This agent publishes a service endpoint rather than a web page. It's meant for
+              software to call, so it probably won't read as a normal site.
+            </p>
+            <a
+              href={escrowData.external_link} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-mono text-indigo-600 dark:text-indigo-400 hover:underline break-all"
+            >
+              {escrowData.external_link} <ExternalLink size={11} className="shrink-0" />
+            </a>
+          </div>
+        )
       ) : (
-        <p className="text-xs text-gray-400 text-center">This agent's own registered data doesn't list an external site either.</p>
+        <p className="text-xs text-gray-400 text-center">This agent hasn't published a web page or a service endpoint.</p>
       )}
 
       <button onClick={() => onHire(agent)} className="w-full mt-2 py-2.5 rounded-xl text-[11px] font-semibold text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">

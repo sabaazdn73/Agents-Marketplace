@@ -1522,7 +1522,7 @@ async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = 
     honest behavior for an unaudited agent is exactly what it always was."""
     agent = await _resolve_agent(owner_address, agent_id)
     if not agent:
-        return {"escrow_incompatible": False, "confidence": None, "evidence": ["No agent on record for this owner_address."], "external_link": None}
+        return {"escrow_incompatible": False, "confidence": None, "evidence": ["No agent on record for this owner_address."], "external_link": None, "external_link_kind": None}
 
     checked_at = agent.get("escrow_compat_checked_at")
     if checked_at is not None and time.time() - checked_at < escrow_compat_audit.AUDIT_TTL_SECONDS:
@@ -1531,6 +1531,7 @@ async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = 
             "confidence": "high" if agent.get("escrow_compat_incompatible") else None,
             "evidence": agent.get("escrow_compat_evidence", []),
             "external_link": agent.get("escrow_compat_external_link"),
+            "external_link_kind": agent.get("escrow_compat_external_link_kind"),
             "auth_gated": agent.get("escrow_compat_auth_gated", False),
             "different_protocol": agent.get("escrow_compat_different_protocol", False),
             "offers_x402_alternative": agent.get("escrow_compat_offers_x402", False),

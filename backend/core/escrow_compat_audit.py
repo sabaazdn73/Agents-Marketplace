@@ -125,6 +125,7 @@ async def _audit_one(db, doc: dict, progress: dict) -> None:
             "escrow_compat_different_protocol": result["different_protocol"],
             "escrow_compat_offers_x402": result["offers_x402_alternative"],
             "escrow_compat_external_link": result["external_link"],
+            "escrow_compat_external_link_kind": result.get("external_link_kind"),
             "escrow_compat_evidence": result["evidence"][:6],  # real, bounded — full evidence stays available via a live re-check if ever needed
         }},
     )

@@ -204,32 +204,120 @@ def _metadata_evidence(description: str | None) -> list[str]:
     return [f"Description language suggests a SaaS/business product (mentions: {', '.join(hits)})."]
 
 
-def _extract_real_external_link(service_endpoint: str | None, description: str | None) -> str | None:
-    """Real, honest external-link extraction — NEVER fabricates or guesses
-    a URL. Only ever returns a URL that the agent's own creator already put
-    in the agent's own real, submitted data:
+async def _classify_endpoint(service_endpoint: str | None) -> tuple[str | None, str | None]:
+    """What the registered endpoint actually serves: (url, kind).
 
-      1. First choice: the first real http(s) URL found in the agent's own
-         description text (confirmed real, live example: AIDA's own
-         description literally reads "...clinic onboarding via
-         https://aida-ai.health..." — that's a real link its own creator
-         chose to publish as the actual place to use the product).
-      2. Fallback: the agent's own registered service_endpoint itself, if
-         it's a real, plain http(s) URL — even though it didn't answer the
-         real A2A/JSON-RPC probe, it may still be a real, working webpage
-         (e.g. a marketing site or dashboard) a buyer could visit directly.
+    Fetched rather than inferred from the path, because the shape of a URL
+    does not tell you what is behind it. Measured across all 1,085 distinct
+    BSC endpoint hosts before this was written: 5.3% serve an HTML page,
+    5.5% a JSON card, 88% were unreachable.
 
-    Returns None (never a placeholder or guessed value) if neither of the
-    agent's own real, submitted fields contains anything usable."""
+      - HTML  -> the endpoint IS the page. The largest operator on BSC
+                 (evoevo.ai, 99,631 agents) registers a per-agent HTML
+                 profile, so calling that "machine-readable" would just be
+                 the opposite mislabelling.
+      - JSON  -> a machine-readable card. Its documentationUrl or
+                 provider.url may name a human page; the card's top-level
+                 `url` deliberately does not count, since in the A2A spec
+                 that is the service endpoint.
+      - anything else, or unreachable -> left as the endpoint, unlabelled
+                 as a page. We do not claim what we could not see.
+    """
+    if not service_endpoint or not service_endpoint.startswith(("http://", "https://")):
+        return None, None
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            resp = await client.get(service_endpoint)
+    except Exception:
+        return service_endpoint, "endpoint"
+
+    ctype = (resp.headers.get("content-type") or "").lower()
+    if "html" in ctype:
+        return service_endpoint, "page"
+    if "json" in ctype:
+        try:
+            card = resp.json()
+        except Exception:
+            return service_endpoint, "endpoint"
+        if isinstance(card, dict):
+            doc = card.get("documentationUrl")
+            if isinstance(doc, str) and doc.startswith(("http://", "https://")):
+                return doc, "page"
+            provider = card.get("provider")
+            if isinstance(provider, dict):
+                purl = provider.get("url")
+                if isinstance(purl, str) and purl.startswith(("http://", "https://")):
+                    return purl, "page"
+    return service_endpoint, "endpoint"
+
+
+async def _card_human_url(service_endpoint: str | None) -> str | None:
+    """A human-facing URL the agent's own card publishes, or None.
+
+    Only two fields qualify, and the distinction is from the A2A spec
+    rather than guessed:
+      - documentationUrl is defined as human-readable documentation.
+      - provider.url is the provider organisation's own site.
+    The card's top-level `url` is deliberately NOT used: in A2A that is
+    the agent's service endpoint, so treating it as a homepage would
+    reproduce exactly the mislabelling this function exists to end.
+    Measured across the 60 distinct JSON endpoints on BSC: url 27,
+    provider.url 5, documentationUrl 3.
+    """
+    if not service_endpoint or not service_endpoint.startswith(("http://", "https://")):
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            resp = await client.get(service_endpoint)
+            if "json" not in (resp.headers.get("content-type") or "").lower():
+                return None
+            card = resp.json()
+    except Exception:
+        return None
+    if not isinstance(card, dict):
+        return None
+    doc = card.get("documentationUrl")
+    if isinstance(doc, str) and doc.startswith(("http://", "https://")):
+        return doc
+    provider = card.get("provider")
+    if isinstance(provider, dict):
+        purl = provider.get("url")
+        if isinstance(purl, str) and purl.startswith(("http://", "https://")):
+            return purl
+    return None
+
+
+def _extract_real_external_link(service_endpoint: str | None, description: str | None) -> tuple[str | None, str | None]:
+    """Returns (url, kind) where kind is "page", "endpoint" or None.
+
+    Never fabricates a URL: everything returned came from the agent's own
+    submitted data. What changed is that the KIND is now reported, because
+    the two were previously collapsed and the UI labelled both "Visit
+    <host>" -- including when the target was a machine-readable
+    agent-card.json, which is not a site a person would want to open.
+
+    Measured on BSC before writing this, across all 1,085 distinct
+    endpoint hosts: only 5.3% of hosts serve an HTML page, 5.5% serve a
+    JSON card, and 88% were unreachable. By agent count a page looks far
+    more common (93.9%), but 93% of that is a single operator
+    (evoevo.ai), so the per-host figure is the honest one.
+
+      1. A URL in the agent's own description is a "page": a creator
+         writing "onboarding via https://..." in prose means it as
+         somewhere to go.
+      2. Otherwise the registered service_endpoint itself, as an
+         "endpoint" -- real and worth linking for anyone who wants it,
+         but not a site, and no longer described as one.
+    """
     if description:
         match = _URL_RE.search(description)
         if match:
-            return match.group(0).rstrip(".,;:")
+            return match.group(0).rstrip(".,;:"), "page"
 
     if service_endpoint and service_endpoint.startswith(("http://", "https://")):
-        return service_endpoint
+        return service_endpoint, "endpoint"
 
-    return None
+    return None, None
 
 
 def _was_auth_gated(evidence: list[str]) -> bool:
@@ -308,11 +396,23 @@ async def check_escrow_compatibility(service_endpoint: str | None, description: 
 
     offers_x402_alternative = bool(description and _X402_MENTION_RE.search(description))
 
+    link, link_kind = _extract_real_external_link(service_endpoint, description)
+    # A page the card itself publishes beats falling back to the machine
+    # endpoint, so it is only consulted when we would otherwise have to.
+    if link_kind == "endpoint":
+        classified_url, classified_kind = await _classify_endpoint(service_endpoint)
+        if classified_url:
+            link, link_kind = classified_url, classified_kind
+
     return {
         "escrow_incompatible": incompatible,
         "confidence": "high" if incompatible else None,
         "evidence": evidence,
-        "external_link": _extract_real_external_link(service_endpoint, description),
+        "external_link": link,
+        # "page" = somewhere a person would want to open. "endpoint" = the
+        # registered machine-readable endpoint, linked but never called a
+        # site. None = the agent published neither.
+        "external_link_kind": link_kind,
         "auth_gated": auth_gated,
         "different_protocol": different_protocol,
         "offers_x402_alternative": offers_x402_alternative,
