@@ -230,7 +230,33 @@ async def get_agent_by_id(agent_id: str) -> dict | None:
     return await db.known_agents.find_one({"_id": agent_id})
 
 
-async def get_stored_agents(limit: int = 30_000) -> list[dict]:
+SERVE_LIMIT = 15_000
+"""How many agents /api/agents serves, and the read cap that produces them.
+
+Since selection now returns only survivors, served == limit, so this one
+number sets BOTH the read cost and the response size.
+
+Lowered from 30,000 on 2026-09-06 after it broke the site. Raising the
+served count to 30,000 doubled the response from ~14.8MB to 28.9MB, and
+that body is held in the web service's cache and streamed on every
+request. The OOM rate went from about 1.5/hour to 7/hour and the
+marketplace started failing to load with "Failed to fetch".
+
+The mistake was measuring the wrong thing. Peak RSS during the read was
+measured (301 -> 294MB, which looked safe) but the resulting payload was
+not, even though payload size is what this file's own history identifies
+as the binding constraint. Read cost and response cost are separate and
+both have to be checked.
+
+At 15,000 the payload is back to the size that has held, while keeping
+the whole point of survivor selection: every served agent is one that
+survives the cluster cap, so these 15,000 span ~15,000 clusters where the
+old window's 15,191 spanned 10,576. Same cost, more variety, and the read
+is now half what it was before survivor selection existed.
+"""
+
+
+async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     """The real serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
