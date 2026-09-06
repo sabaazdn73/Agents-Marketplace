@@ -7,9 +7,15 @@ import { PrivyProvider } from '@privy-io/react-auth';
 import { bsc } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
 
+import { installApiRetry } from './apiRetry';
 import { wagmiConfig } from './wagmiConfig';
 import App from './App';
 import './index.css';
+
+// Installed before anything renders, so every backend call in the app is
+// covered rather than only the ones that were remembered. GET/HEAD only --
+// see apiRetry.js for why writes are deliberately excluded.
+installApiRetry(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
 
 const queryClient = new QueryClient();
 
