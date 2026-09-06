@@ -54,10 +54,38 @@ ERC8183_CHAIN_IDS = (56, 97)
 # function so a missing RPC key can never break a descriptive endpoint.
 
 _EVM_EXPLORER_SUPPORTED = (1, 56, 8453, 42161, 42220, 143)
+# Chains we hold our own RPC for -- owner balances are trivially available
+# on every one of them, verified live per chain.
+NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 42220, 143)
 _ZERION_CHAINS = {
     1: "ethereum", 56: "binance-smart-chain", 8453: "base",
     42161: "arbitrum", 42220: "celo", 143: "monad",
 }
+# The Agent0 subgraph is BSC-ONLY in practice, verified 2026-09-06 rather
+# than assumed from its schema. Its Agent entity DOES expose a `chainId`
+# field, which makes it look multi-chain -- but a 200-agent sample of the
+# deployment on record was 100% chainId 56, and explicit
+# where:{chainId:1|8453|42161} queries each returned 0 rows. The field
+# exists; the data does not.
+_THEGRAPH_CHAINS = {56}
+
+# 8004scan's Quality Center works on EVERY chain -- it was assumed BSC-only
+# and is not. Verified per chain against real stored agents: the endpoint
+# returns the requested chain_id and genuinely per-agent scoring (Base
+# #45071 scored engagement 3.53 / service 30 / publisher 49.96 /
+# compliance 69 / momentum 11.98 with a real domain_verification_failed
+# flag). It is flaky -- intermittent DATABASE_ERROR 500s -- which is a
+# reliability property, not a coverage one.
+_QUALITY_CHAINS = {1, 56, 8453, 42161, 42220, 143}
+
+# Binance's token-risk endpoint answers for every chain, but the DEPTH
+# degrades sharply and a field count alone would have hidden that. Measured
+# on a real stablecoin per chain, counting genuinely populated fields:
+# BSC 89/101, Ethereum 83, Base 79, Arbitrum 40 (no holders), Celo 18
+# (real but tiny liquidity), Monad 5 (effectively nothing). Recorded as a
+# tier so the UI can say "partial" rather than implying parity.
+_BINANCE_TIERS = {56: "full", 1: "full", 8453: "full", 42161: "partial", 42220: "thin", 143: "none"}
+
 _DEFILLAMA_CHAINS = {
     1: "Ethereum", 56: "Binance", 8453: "Base",
     42161: "Arbitrum", 42220: "Celo", 143: "Monad", 101: "Solana",
@@ -105,6 +133,21 @@ def get_chain_capabilities(chain_id: int) -> dict:
         _signal(chain_id in _DEFILLAMA_CHAINS, "financial_record",
                 "Protocol-level financial data for this chain, from DefiLlama.",
                 "DefiLlama doesn't cover this chain, so there's no financial record to show."),
+        _signal(chain_id in _QUALITY_CHAINS, "quality_score",
+                "8004scan's own independent quality score for this agent: engagement, "
+                "service, publisher, compliance and momentum, plus any risk flags it raised.",
+                "8004scan doesn't score agents on this chain."),
+        _signal(chain_id in NATIVE_RPC_CHAINS, "owner_balance",
+                "The owner wallet's native balance on this chain, read from our own RPC.",
+                "We have no RPC for this chain, so its balances can't be read."),
+        _signal(_BINANCE_TIERS.get(chain_id, "none") != "none", "token_risk",
+                "Token liquidity and risk signals from Binance's market data."
+                + (" Coverage on this chain is partial." if _BINANCE_TIERS.get(chain_id) in ("partial", "thin") else ""),
+                "Binance's market data doesn't meaningfully cover this chain."),
+        _signal(chain_id in _THEGRAPH_CHAINS, "subgraph_provenance",
+                "Registration and feedback history read from the Agent0 subgraph.",
+                "The Agent0 subgraph indexes BNB Smart Chain only. Its schema has a chain "
+                "field, but the deployment carries no agents from other chains."),
         _signal(has_escrow, "escrow_compatibility",
                 "Whether the agent can accept an ERC-8183 escrowed job.", _NO_ERC8183),
         _signal(has_escrow, "delivery_record",

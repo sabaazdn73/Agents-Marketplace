@@ -40,6 +40,26 @@ import httpx
 _BASE_URL = "https://api.zerion.io/v1"
 _BSC_CHAIN_ID = "binance-smart-chain"  # Zerion's real, string chain identifier — confirmed live, not "56"
 
+# Zerion's own chain slugs for every chain this project stores agents on.
+# Verified live 2026-09-06 against GET /v1/chains/, which listed 65 chains:
+# all six of ours are present. Verified again per chain by pulling a REAL
+# stored agent owner's portfolio on each and getting a real USD value back
+# (Ethereum $19.00, Base $12.00, Arbitrum $3.43, Celo $0.05, Monad $0.90,
+# BSC $0.03) -- so this is confirmed retrievable data, not a slug table
+# copied from documentation.
+ZERION_CHAIN_SLUGS = {
+    1: "ethereum", 56: _BSC_CHAIN_ID, 8453: "base",
+    42161: "arbitrum", 42220: "celo", 143: "monad",
+}
+
+
+def zerion_chain_slug(chain_id: int) -> str | None:
+    """Zerion's slug for a chain, or None when it does not index it. None is
+    the honest answer that callers must surface as 'not covered' rather than
+    silently falling back to BSC -- reporting one chain's holdings as
+    another's would be worse than reporting nothing."""
+    return ZERION_CHAIN_SLUGS.get(chain_id)
+
 # Real per-address cache: only 300 real calls/day total for this key, and a
 # detail page can realistically be opened by several different visitors for
 # the same popular agent in a short window — a short TTL keeps that from
@@ -53,8 +73,14 @@ def _get_key() -> str | None:
     return os.environ.get("ZERION_API_KEY")
 
 
-async def get_wallet_portfolio(address: str) -> dict:
-    """Real, opt-in BSC portfolio for one wallet: every token Zerion prices
+async def get_wallet_portfolio(address: str, chain_id: int = 56) -> dict:
+    """Real, opt-in portfolio for one wallet on one chain.
+
+    `chain_id` defaults to BSC so every existing caller keeps its exact
+    previous behaviour; other chains resolve through ZERION_CHAIN_SLUGS and
+    return an honest "not covered" for a chain Zerion does not index.
+
+    Originally BSC-only. Real portfolio: every token Zerion prices
     for it (native + ERC-20 + any real DeFi position), each with a real USD
     value. Returns {"available": False, "reason": ...} honestly on any
     failure — missing key, rate limit, network error, or an address Zerion
@@ -66,7 +92,15 @@ async def get_wallet_portfolio(address: str) -> dict:
     if not addr.startswith("0x") or len(addr) != 42:
         return {"available": False, "reason": "not a valid EVM address"}
 
-    cached = _cache.get(addr)
+    slug = zerion_chain_slug(chain_id)
+    if not slug:
+        return {"available": False, "reason": f"Zerion does not index chain {chain_id}"}
+
+    # Keyed by (address, chain): the same wallet holds different things on
+    # different chains, so an address-only key would have let the first
+    # chain looked up answer for all the others.
+    ckey = (addr, chain_id)
+    cached = _cache.get(ckey)
     if cached and time.time() - cached[0] < _TTL_SECONDS:
         return cached[1]
 
@@ -81,22 +115,22 @@ async def get_wallet_portfolio(address: str) -> dict:
                 params={
                     "currency": "usd",
                     "filter[positions]": "no_filter",
-                    "filter[chain_ids]": _BSC_CHAIN_ID,
+                    "filter[chain_ids]": slug,
                 },
                 auth=(key, ""),  # real Zerion auth scheme: HTTP Basic, key as username, empty password
             )
     except httpx.HTTPError as e:
         result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
-        _cache[addr] = (time.time(), result)
+        _cache[ckey] = (time.time(), result)
         return result
 
     if resp.status_code == 429:
         result = {"available": False, "reason": "rate limited — try again later"}
-        _cache[addr] = (time.time(), result)
+        _cache[ckey] = (time.time(), result)
         return result
     if not resp.is_success:
         result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
-        _cache[addr] = (time.time(), result)
+        _cache[ckey] = (time.time(), result)
         return result
 
     body = resp.json()
@@ -121,7 +155,7 @@ async def get_wallet_portfolio(address: str) -> dict:
     positions.sort(key=lambda p: p["usd_value"] or 0, reverse=True)
 
     result = {"available": True, "total_usd_value": round(total_usd, 2), "positions": positions}
-    _cache[addr] = (time.time(), result)
+    _cache[ckey] = (time.time(), result)
     return result
 
 

@@ -64,7 +64,7 @@ from core import full_registry_analysis
 from core import job_index
 from core import rpc
 from core import universal_search
-from core import chain_views
+from core import agent_evaluation, chain_views
 from core import b402
 from core import paybox
 
@@ -2142,3 +2142,23 @@ async def chain_view_page(view: str, offset: int = 0, limit: int = 24):
         return await chain_views.fetch_page(view, offset=offset, limit=limit)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/chain-agent/{chain_id}/{token_id}/evaluation")
+async def chain_agent_evaluation(chain_id: int, token_id: int, owner: str = ""):
+    """Everything genuinely retrievable about ONE non-BSC agent.
+
+    On-demand and per-agent by design. Each of these is a call against a
+    rate-limited key, so running them across the whole store would be both
+    a budget and a memory problem -- the list stays cheap and this fills in
+    when someone actually opens an agent.
+
+    Every source reports its own availability rather than being merged into
+    one score: a failed Quality Center read (that endpoint returns
+    intermittent DATABASE_ERROR 500s) must render as "couldn't read this",
+    never as a zero the agent didn't earn.
+    """
+    try:
+        return await agent_evaluation.evaluate_agent(chain_id, token_id, owner or None)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Couldn't evaluate this agent: {e}")

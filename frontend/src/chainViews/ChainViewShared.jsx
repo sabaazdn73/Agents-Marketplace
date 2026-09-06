@@ -17,6 +17,7 @@
 import React from 'react';
 import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 import ServiceHealthBadge from '../ServiceHealthBadge';
+import ChainAgentEvaluation from '../ChainAgentEvaluation';
 
 /** Block explorer per chain, so an agent is verifiable at source even
  * though this app cannot check its liveness. Only chains actually present
@@ -179,6 +180,22 @@ export function ChainAgentCard({ agent, mutedBorder }) {
           <ServiceHealthBadge status={agent.service_status} checkedAt={agent.service_checked_at} />
         </div>
       )}
+      {/* On demand, per agent. The list stays cheap -- these are calls
+          against rate-limited keys, so they run only when someone actually
+          asks about one agent rather than for every card rendered. */}
+      <details className="mt-1">
+        <summary className="text-[11px] text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline select-none">
+          Evaluate this agent
+        </summary>
+        <div className="mt-2">
+          <ChainAgentEvaluation
+            chainId={agent.chain_id}
+            tokenId={agent.token_id}
+            ownerAddress={agent.owner_address}
+          />
+        </div>
+      </details>
+
       <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-500 mt-auto pt-2">
         {agent.token_id != null && <span className="font-mono">#{agent.token_id}</span>}
         {agent.total_feedbacks > 0 && <span>{agent.total_feedbacks} on-chain feedback</span>}
