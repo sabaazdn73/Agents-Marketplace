@@ -52,10 +52,30 @@ import re
 from datetime import datetime, timezone, timedelta
 
 from core.db import get_db
+import gc
+
+from core.clustering import cluster_agents as _cluster_agents
 from core.clustering import diversify as _diversify   # same real multi-signal cluster-cap used at fetch time — see core/clustering.py
 
 STALE_DAYS = 7          # not seen in any refresh for a week => possibly delisted
 READ_CLUSTER_CAP = 3    # keep the served list diverse across accumulation
+
+# How many documents the CHEAP selection pass may read. It reads only the
+# clustering inputs, not whole documents, so a pool doc costs about 1.7KB
+# against a full one's ~8.6KB -- measured, not estimated: 154,865 slim docs
+# peaked at 268MB.
+#
+# Bounded for the same reason every other read here is bounded. This file's
+# own history is a list of unbounded reads that were fine until the store
+# grew: the pool must not become the next one. At 160,000 the slim read
+# stays near the size actually measured safe; past that the best-scoring
+# 160,000 are used and the rest are not considered, which is the same
+# graceful degradation the 30,000 serving cap already makes.
+#
+# Raising this needs a fresh RSS measurement, not arithmetic -- see the
+# repeated, documented failures above of reasoning a cap upward without
+# testing it under a long, multi-refresh watch.
+SELECTION_POOL_LIMIT = 160_000
 
 # Best-effort enrichment fields that a transient upstream failure can null out
 # on any given refresh (see the module docstring). Grouped because they
@@ -405,12 +425,101 @@ async def get_stored_agents(limit: int = 30_000) -> list[dict]:
     # safe: nothing between the query and the pop reads it.
     projection = {f: 0 for f in _EXCLUDE_FIELDS}
     projection["_id"] = 0
-    docs = await db.known_agents.find({}, projection).sort("total_score", -1).to_list(length=limit)
 
-    # Already sorted by total_score at the DB level above — re-stating the
-    # sort key here (cheap, a no-op on already-sorted data) keeps this
-    # function's own contract self-evident without relying on the query above.
-    docs.sort(key=lambda d: (d.get("total_score") or 0), reverse=True)
+    # ── Survivor selection (2026-09-06) ─────────────────────────────────
+    #
+    # The served count had been falling for days -- 16,640 -> 15,743 ->
+    # 15,433 -> 15,191 -- while known_agents kept GROWING (154,865 by the
+    # time this was investigated). Not noise, and not the no-endpoint
+    # deletion policy either: nothing deletes from known_agents, the only
+    # delete in the codebase is on full_agent_registry.
+    #
+    # The cause was this read. Served count is not "limit minus some
+    # noise"; it is Sum(min(cluster_size, 3)) over the clusters that happen
+    # to be IN the window. Selecting the window by total_score alone was
+    # diversity-blind, and total_score barely discriminates: 38,647 agents
+    # share the identical score 12.01 and 74,137 score 0.0. So the window
+    # filled up with many members of a few big clusters -- 30,000 agents
+    # forming only 10,576 clusters -- and the 3-per-cluster cap then threw
+    # away 14,809 of them. Half the window was agents that could never be
+    # served, and it got worse every time ingestion deepened an existing
+    # cluster rather than adding a new one.
+    #
+    # Fixed by choosing the window from agents that will actually SURVIVE
+    # the cap. A cheap projection (the clustering inputs only) is read for
+    # the whole store, clustered, and at most READ_CLUSTER_CAP per cluster
+    # are selected; only then are the full documents fetched, for those
+    # ids alone. The expensive read stays bounded by exactly the same
+    # `limit` as before -- this buys diversity, not memory.
+    #
+    # Measured against live production data before keeping it:
+    #     served    15,191 -> 30,000   (+97.5%, the window is now all
+    #                                   survivors: 30,000 in, 30,000 out)
+    #     peak RSS     301 -> 315 MB   (+4.7%)
+    #     window spans 10,576 -> 19,370 clusters
+    # The memory cost is small because the slim list is released before
+    # the full documents are fetched, so the two phases reuse the same
+    # arenas rather than stacking.
+    #
+    # A dedupe-aware window keyed on the blocking signature was tried
+    # FIRST and measured WORSE at every setting (5,038 / 5,713 / 6,920
+    # served vs 15,191). The whole store holds only 3,914 distinct
+    # signatures, so such a pool cannot even fill the window -- and more
+    # importantly most of what we serve is agents that share a description
+    # template but are correctly kept APART by the corroboration rules.
+    # Capping on the template alone destroys exactly those. Recorded here
+    # because it is the obvious idea and it is wrong.
+    slim_projection = {
+        "_id": 0, "id": 1, "total_score": 1, "name": 1, "description": 1,
+        "owner_address": 1, "created_at": 1, "service_endpoint": 1,
+    }
+    # Sorted on total_score ALONE at the database, deliberately. There is a
+    # total_score index, so this streams in index order with no sort stage.
+    # Adding ("id", 1) here to get a total order server-side was tried and
+    # is a real trap: no index covers that compound key, so MongoDB falls
+    # back to an in-memory sort and, at a pool this size, fails outright --
+    # "Sort exceeded memory limit of 33554432 bytes". The old query only
+    # survived it because a 30,000 top-K sort is bounded; ~155,000 is not.
+    # The tiebreaker belongs below, in Python, where it costs nothing.
+    pool = await db.known_agents.find({}, slim_projection).sort(
+        "total_score", -1
+    ).to_list(length=SELECTION_POOL_LIMIT)
+
+    # THE total order. total_score alone is not one -- 38,647 agents tie on
+    # exactly 12.01 -- so the order among ties was undefined and drifted as
+    # the collection was written to. `id` breaks every tie, so the same
+    # store now always yields the same window in the same order. Same defect
+    # class as the pagination overlap fixed earlier, in a different place.
+    #
+    # Honest limit: once the store outgrows SELECTION_POOL_LIMIT, WHICH tied
+    # agents fall inside the pool boundary is still the database's choice.
+    # Ordering within the pool is fully deterministic either way, and today
+    # the pool holds the entire store, so the boundary does not bind at all.
+    pool.sort(key=lambda d: (-(d.get("total_score") or 0), str(d.get("id"))))
+
+    cluster_of = _cluster_agents(pool)
+    per_cluster: dict[int, int] = {}
+    keep_ids: list = []
+    for i, d in enumerate(pool):
+        c = cluster_of[i]
+        if per_cluster.get(c, 0) >= READ_CLUSTER_CAP:
+            continue
+        per_cluster[c] = per_cluster.get(c, 0) + 1
+        keep_ids.append(d.get("id"))
+        if len(keep_ids) >= limit:
+            break
+
+    # Released before the expensive read, deliberately: this is what keeps
+    # the two phases from stacking into a peak the container cannot take.
+    del pool, cluster_of, per_cluster
+    gc.collect()
+
+    docs = await db.known_agents.find({"id": {"$in": keep_ids}}, projection).to_list(length=limit)
+
+    docs.sort(key=lambda d: (-(d.get("total_score") or 0), str(d.get("id"))))
+    # Still applied, and still meaningful: selection uses the same rule, but
+    # this stays the single place the guarantee is actually enforced rather
+    # than assumed. On a survivor-selected window it is close to a no-op.
     docs = _diversify(docs, per_cluster_cap=READ_CLUSTER_CAP)
 
     out = []
