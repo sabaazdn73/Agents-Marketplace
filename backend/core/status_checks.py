@@ -44,6 +44,7 @@ import httpx
 
 from adapters.bsc_balance import _rpc_url as _bsc_rpc_url
 from core.db import get_db
+from core.ingest_status import get_discovery_status
 
 _EXPLAINER_AGENT_PING_URL = "https://explainer-agent.onrender.com/ping"
 _TIMEOUT = 10.0
@@ -63,11 +64,19 @@ async def _timed(name: str, coro) -> dict:
             "detail": detail,
         }
     except Exception as e:
+        # Real bug, found live during an actual 8004scan outage (2026-09-06):
+        # this reported `"detail": ""` for the one service that was actually
+        # down. httpx's timeout exceptions stringify to the empty string, so
+        # `str(e)` erased the reason at exactly the moment the status page
+        # existed to explain it -- the page said "not ok" and nothing else.
+        # Falling back to the exception's class name means a timeout reads as
+        # "ReadTimeout" rather than blank.
+        detail = str(e) or type(e).__name__
         return {
             "name": name,
             "ok": False,
             "response_ms": round((time.monotonic() - t0) * 1000),
-            "detail": str(e),
+            "detail": detail,
         }
 
 
@@ -186,6 +195,7 @@ async def get_status(force_refresh: bool = False) -> dict:
             "checked_at": _cache["checked_at"],
             "cache_age_seconds": round(now - _cache["checked_at"], 1),
             "services": _cache["data"],
+            "discovery": _cache.get("discovery"),
         }
 
     results = await asyncio.gather(
@@ -199,6 +209,18 @@ async def get_status(force_refresh: bool = False) -> dict:
         _timed("TermiX AACP", _check_termix()),
     )
 
+    # Read separately from the reachability probes above, and never allowed
+    # to fail the endpoint: this block exists to EXPLAIN a degraded state,
+    # so it must not become a new way for the status page to break.
+    try:
+        discovery = await get_discovery_status()
+    except Exception as e:  # pragma: no cover - defensive by intent
+        discovery = {"ok": None, "stalled": None,
+                     "detail": f"discovery status unavailable: {type(e).__name__}",
+                     "sources": [], "unaffected": []}
+
     _cache["data"] = list(results)
+    _cache["discovery"] = discovery
     _cache["checked_at"] = now
-    return {"checked_at": now, "cache_age_seconds": 0, "services": results}
+    return {"checked_at": now, "cache_age_seconds": 0, "services": results,
+            "discovery": discovery}

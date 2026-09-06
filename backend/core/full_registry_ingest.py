@@ -514,6 +514,12 @@ async def run_ingest_batch(
             progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
             progress["last_run_at"] = time.time()
             progress["last_error"] = None
+            # Distinct from last_run_at, which updates on failures too. This
+            # is the only point in the file where a page genuinely came back
+            # from the upstream and was written, so it is the one honest
+            # answer to "when did discovery last actually work?" -- which is
+            # what core/ingest_status.py reports when 8004scan is down.
+            progress["last_success_at"] = progress["last_run_at"]
             await _save_progress(progress)
 
             if raw_len < PAGE_SIZE or (total and offset >= total):
