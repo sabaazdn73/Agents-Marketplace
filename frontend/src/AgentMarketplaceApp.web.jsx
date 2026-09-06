@@ -20,6 +20,7 @@ import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
+import { consumeAgentsPrefetch } from './agentsPrefetch';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -202,7 +203,9 @@ function useMarketplaceAgents() {
   useEffect(() => {
     let cancelled = false;
     if (agents.length > 0) setRefreshing(true);
-    fetchAgentsWithRetry(`${API_BASE_URL}/api/agents`, () => cancelled)
+    // Use the landing page's in-flight request if there is one, so the
+    // seconds spent on that page are the same seconds this was loading.
+    (consumeAgentsPrefetch() || fetchAgentsWithRetry(`${API_BASE_URL}/api/agents`, () => cancelled))
       .then((data) => {
         if (cancelled || data == null) return;
         const mapped = (data.agents || []).map(mapAgent);

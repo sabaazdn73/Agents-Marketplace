@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import AgentMarketplaceApp from './AgentMarketplaceApp.web.jsx';
 import AgentMarketplaceMobileApp from './AgentMarketplaceApp.mobile.jsx';
 import StatusPage from './StatusPage.jsx';
+import LandingPage, { hasSeenLanding, markLandingSeen } from './LandingPage.jsx';
 import DataSourcesPage from './DataSourcesPage.jsx';
 import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
@@ -114,6 +115,23 @@ export default function App() {
     const meta = known ? PAGE_META[path] : PAGE_META['/'];
     updatePageMeta({ title: meta.title, description: meta.description, path: known ? path : '/' });
   }, [path]);
+
+  // The landing page covers the moment /api/agents takes to load, and it
+  // covers ONLY that: it is shown for the bare domain and nothing else, so
+  // /market, /agent/{id}, /docs and every other route go straight through
+  // as before. Once dismissed it does not come back for the rest of the
+  // session, so navigating home is not a trip through it every time.
+  const [showLanding, setShowLanding] = useState(() => path === '/' && !hasSeenLanding());
+  useEffect(() => {
+    if (path !== '/') { markLandingSeen(); setShowLanding(false); }
+  }, [path]);
+
+  if (showLanding && path === '/') {
+    // The prefetch is started inside LandingPage's own mount effect rather
+    // than here: this is a render body, and firing a request from it runs
+    // on every render and misbehaves under concurrent rendering.
+    return <LandingPage onEnter={() => { markLandingSeen(); setShowLanding(false); }} />;
+  }
 
   if (path === '/status') {
     return <StatusPage onBack={() => navigate('/')} />;
