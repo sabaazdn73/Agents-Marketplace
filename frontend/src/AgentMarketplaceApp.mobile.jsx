@@ -39,7 +39,7 @@ import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, age
 import ChainViewTabs from './chainViews/ChainViewTabs';
 import HireModePicker, { HIRE_MODE } from './HireModePicker';
 import BudgetHirePanel from './BudgetHirePanel';
-import { isBudgetEscrowConfigured } from './budgetEscrow';
+import { useBudgetModeStatus } from './budgetEscrow';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -546,6 +546,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // Escrow by default, always -- budget mode is opt-in because it is a
   // real reduction in buyer protection.
   const [hireMode, setHireMode] = useState(HIRE_MODE.ESCROW);
+  // Asked per agent, not per contract: the escrow being deployed does not
+  // mean THIS agent can draw from it. Defaults to unavailable while it
+  // loads, so a possible dead end is never offered before it is ruled out.
+  const budgetMode = useBudgetModeStatus(selectedAgent?.ownerAddress || selectedAgent?.owner_address);
   // Real deep-link from the agent guidance panel's "Try it yourself" —
   // switches to Build and pre-opens that specific skill's guided form.
   // Mirrors web's identical handleTrySkill.
@@ -843,8 +847,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <HireModePicker
                 value={hireMode}
                 onChange={setHireMode}
-                budgetAvailable={isBudgetEscrowConfigured()}
-                disabledReason="Not deployed yet — locked escrow works normally."
+                budgetAvailable={budgetMode.available}
+                disabledReason={budgetMode.reason}
               />
               {hireMode === HIRE_MODE.BUDGET && <BudgetHirePanel agent={selectedAgent} />}
             </div>

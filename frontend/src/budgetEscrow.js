@@ -234,3 +234,38 @@ export function useBudgetActions() {
 
   return { openBudget, reclaim, pending, connected: !!address };
 }
+
+
+/** Whether budget mode can honestly be offered for one agent.
+ *
+ * Deliberately asks the backend per agent rather than deciding locally
+ * from "is the contract deployed". Deploying the escrow made the contract
+ * live while leaving every registered agent unable to call draw() -- so a
+ * contract-only check would have put a fund button in front of buyers for
+ * budgets that nothing could ever draw from. The buyer's money was
+ * recoverable, but they would have paid gas to discover a dead end.
+ *
+ * Defaults to UNAVAILABLE while loading and on error. An offer that might
+ * be a dead end should not appear until it is known not to be. */
+export function useBudgetModeStatus(ownerAddress) {
+  const [state, setState] = useState({ loading: true, available: false, reason: '', agents: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isBudgetEscrowConfigured()) {
+      setState({ loading: false, available: false, agents: [],
+                 reason: "Budget mode isn't deployed in this environment yet." });
+      return undefined;
+    }
+    const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const q = ownerAddress ? `?owner=${encodeURIComponent(ownerAddress)}` : '';
+    fetch(`${base}/api/budget-mode/status${q}`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then((d) => { if (!cancelled) setState({ loading: false, available: !!d.available, reason: d.reason || '', agents: d.agents || [] }); })
+      .catch(() => { if (!cancelled) setState({ loading: false, available: false, agents: [],
+                       reason: "Couldn't check whether this agent supports budgets." }); });
+    return () => { cancelled = true; };
+  }, [ownerAddress]);
+
+  return state;
+}

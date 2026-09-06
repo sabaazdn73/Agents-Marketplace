@@ -64,7 +64,7 @@ from core import full_registry_analysis
 from core import job_index
 from core import rpc
 from core import universal_search
-from core import agent_evaluation, chain_views
+from core import agent_evaluation, budget_agents, chain_views
 from core import b402
 from core import paybox
 
@@ -2142,6 +2142,18 @@ async def chain_view_page(view: str, offset: int = 0, limit: int = 24):
         return await chain_views.fetch_page(view, offset=offset, limit=limit)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/budget-mode/status")
+async def budget_mode_status(owner: str = ""):
+    """Whether budget mode can honestly be offered, optionally for one agent.
+
+    Deliberately per-agent. Deploying the escrow made the contract live but
+    left every agent unable to draw from it, so "the escrow exists" and
+    "this agent can use it" are different facts and only the second should
+    put a fund button in front of a buyer.
+    """
+    return budget_agents.budget_mode_status(owner or None)
 
 
 @app.get("/api/chain-agent/{chain_id}/{token_id}/evaluation")

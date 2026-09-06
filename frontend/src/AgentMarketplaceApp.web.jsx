@@ -31,7 +31,7 @@ import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, age
 import ChainViewTabs from './chainViews/ChainViewTabs';
 import HireModePicker, { HIRE_MODE } from './HireModePicker';
 import BudgetHirePanel from './BudgetHirePanel';
-import { isBudgetEscrowConfigured } from './budgetEscrow';
+import { useBudgetModeStatus } from './budgetEscrow';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
@@ -620,6 +620,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // Escrow by default, always. Budget mode is a real reduction in buyer
   // protection, so it is never the state a user lands in without choosing.
   const [hireMode, setHireMode] = useState(HIRE_MODE.ESCROW);
+  // Asked per agent, not per contract: the escrow being deployed does not
+  // mean THIS agent can draw from it. Defaults to unavailable while it
+  // loads, so a possible dead end is never offered before it is ruled out.
+  const budgetMode = useBudgetModeStatus(selectedAgent?.ownerAddress || selectedAgent?.owner_address);
   const [manualAddress, setManualAddress] = useState('');
   const [stopLoss, setStopLoss] = useState(5000);
   const { agents, setAgents, loading, error, refreshing, confirmedFresh } = useMarketplaceAgents();
@@ -1530,8 +1534,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <HireModePicker
                   value={hireMode}
                   onChange={setHireMode}
-                  budgetAvailable={isBudgetEscrowConfigured()}
-                  disabledReason="Not deployed yet — locked escrow works normally."
+    budgetAvailable={budgetMode.available}
+                  disabledReason={budgetMode.reason}
                 />
                 {hireMode === HIRE_MODE.BUDGET && <BudgetHirePanel agent={selectedAgent} />}
               </div>
