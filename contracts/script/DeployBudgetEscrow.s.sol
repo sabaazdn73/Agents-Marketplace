@@ -12,15 +12,20 @@ import {AgentBudgetEscrow} from "../src/AgentBudgetEscrow.sol";
 ///                           Native BNB is added automatically as NATIVE.
 ///   - FEE_BPS             : optional, defaults to 250 (2.5%).
 ///
-/// TESTNET FIRST. This contract hands an agent unilateral spend authority,
-/// which is a weaker trust model than the ERC-8183 escrow already in use, so
-/// it goes to BSC testnet and gets a real exercised flow (open -> draw ->
-/// draw -> revoke) before mainnet is even discussed.
+/// MAINNET, testnet deliberately skipped -- an explicit decision, recorded
+/// here so it is not mistaken for an oversight. The reasoning: this suite
+/// already runs against a real BSC MAINNET FORK, so it exercises real chain
+/// state, real tokens and the real registry. BSC testnet has fake tokens and
+/// different state, and would mainly have proven deployment mechanics and
+/// wallet integration -- which a small real-money smoke test on mainnet
+/// proves better. The residual risk is carried by that smoke test (see
+/// docs/budget-escrow-golive.md) and by pause().
 ///
 ///   ACCEPTED_ERC20S=0x.. PLATFORM_FEE_WALLET=0x.. \
 ///     forge script script/DeployBudgetEscrow.s.sol \
-///       --rpc-url https://data-seed-prebsc-1-s1.binance.org:8545 \
-///       --account <cast-wallet> --broadcast --verify
+///       --rpc-url https://bsc-dataseed.binance.org \
+///       --account <cast-wallet> --broadcast --verify \
+///       --etherscan-api-key $BSCSCAN_API_KEY --chain 56
 ///
 /// Note there is deliberately no AGENT_REGISTRY here. Unlike
 /// AgentAccessMarket, which gates list() on the real ERC-8004 ownerOf(),

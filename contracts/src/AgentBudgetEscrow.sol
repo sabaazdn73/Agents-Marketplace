@@ -6,6 +6,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title AgentBudgetEscrow
@@ -79,7 +80,7 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
  * the transfer, so a re-entering token or agent contract re-enters a state
  * that already accounts for the draw it is trying to repeat.
  */
-contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard {
+contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     enum Status {
@@ -203,7 +204,7 @@ contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard {
         uint256 maxPerDraw,
         uint64 deadline,
         uint64 cooldown
-    ) external payable nonReentrant returns (uint256 budgetId) {
+    ) external payable nonReentrant whenNotPaused returns (uint256 budgetId) {
         if (agent == address(0)) revert ZeroAddress();
         if (agent == msg.sender) revert AgentIsClient();
         if (!acceptedTokens[token]) revert TokenNotAccepted();
@@ -280,7 +281,7 @@ contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard {
      * the client nothing but gas and nobody pays a fee on capability they did
      * not consume.
      */
-    function draw(uint256 budgetId, uint256 amount, bytes32 memo) external nonReentrant {
+    function draw(uint256 budgetId, uint256 amount, bytes32 memo) external nonReentrant whenNotPaused {
         Budget storage b = _budgets[budgetId];
         if (b.status == Status.NONE) revert NoSuchBudget();
         if (msg.sender != b.agent) revert NotAgent();
@@ -392,6 +393,26 @@ contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard {
         emit FeeBpsUpdated(feeBps, newBps);
         feeBps = newBps;
     }
+
+    /**
+     * @notice Emergency stop for NEW activity only.
+     *
+     * Deliberately one-directional, and this asymmetry is the whole point:
+     * pausing blocks openBudget and draw, and can NEVER block reclaim or
+     * close. So the owner can stop money going IN and stop an agent drawing
+     * OUT, but has no power at all to trap a client's funds -- a paused
+     * contract still lets every client recover their entire unspent
+     * remainder, immediately.
+     *
+     * This exists because the contract is non-upgradeable and unaudited. It
+     * is a real centralisation trade: the owner can freeze an agent's draws
+     * mid-job, which is a power the agent must accept to use this model.
+     * Stated plainly rather than buried -- it is the price of having any
+     * response at all to a bug found after real money is in.
+     */
+    function pause() external onlyOwner { _pause(); }
+
+    function unpause() external onlyOwner { _unpause(); }
 
     function setFeeWallet(address newWallet) external onlyOwner {
         if (newWallet == address(0)) revert ZeroAddress();

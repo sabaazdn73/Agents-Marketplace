@@ -463,6 +463,51 @@ contract AgentBudgetEscrowTest is Test {
         esc.reclaim(id);
     }
 
+    // ── Pause: one-directional by design ─────────────────────────────────
+
+    function test_pause_blocksNewBudgetsAndDraws() public {
+        uint256 id = _open(100 ether, 0, 0);
+        esc.pause();
+        vm.prank(agent);
+        vm.expectRevert(); // Pausable: EnforcedPause
+        esc.draw(id, 1 ether, bytes32(0));
+        vm.prank(client);
+        vm.expectRevert();
+        esc.openBudget(agent, address(tok), 1 ether, 0, deadline, 0);
+    }
+
+    function test_pause_canNEVERtrapClientFunds() public {
+        // The whole point of the asymmetry: a paused contract must still let
+        // every client recover their entire unspent remainder immediately.
+        uint256 id = _open(100 ether, 0, 0);
+        vm.prank(agent);
+        esc.draw(id, 25 ether, bytes32(0));
+        esc.pause();
+
+        uint256 before = tok.balanceOf(client);
+        vm.prank(client);
+        esc.reclaim(id); // must succeed while paused
+        assertEq(tok.balanceOf(client) - before, 75 ether, "client exits fully while paused");
+    }
+
+    function test_pause_closeStillWorks() public {
+        uint256 id = _open(100 ether, 0, 0);
+        esc.pause();
+        vm.prank(agent);
+        esc.close(id); // must not be gated
+    }
+
+    function test_pause_onlyOwner_andUnpauseRestores() public {
+        vm.prank(stranger);
+        vm.expectRevert();
+        esc.pause();
+        uint256 id = _open(100 ether, 0, 0);
+        esc.pause();
+        esc.unpause();
+        vm.prank(agent);
+        esc.draw(id, 1 ether, bytes32(0)); // works again
+    }
+
     // ── Solvency invariant ───────────────────────────────────────────────
 
     function testFuzz_contractStaysSolvent(uint96 amt, uint96 d1, uint96 d2) public {
