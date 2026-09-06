@@ -67,7 +67,7 @@ def is_draw_capable(owner_address: str | None) -> bool:
     return any(a["address"].lower() == addr for a in draw_capable_agents())
 
 
-def budget_mode_status(owner_address: str | None = None) -> dict:
+def budget_mode_status(owner_address: str | None = None, *, for_agent: bool = True) -> dict:
     """Whether budget mode can honestly be offered, and if not, why.
 
     Kept as one function so every surface gives the same answer: the reason
@@ -84,7 +84,13 @@ def budget_mode_status(owner_address: str | None = None) -> dict:
             "draw_capable_count": 0,
             "agents": [],
         }
-    if owner_address is not None and not is_draw_capable(owner_address):
+    # A blank address is NOT the same as "no agent in particular". Every
+    # user-facing caller is asking about one specific agent, so an agent
+    # with no owner address on record must come back unavailable -- the
+    # earlier version fell through to available=True here, which would have
+    # offered budget mode for an agent that openBudget then rejects. Only an
+    # explicit for_agent=False asks the global question.
+    if for_agent and not is_draw_capable(owner_address):
         return {
             "available": False,
             "reason": (

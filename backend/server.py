@@ -2154,7 +2154,10 @@ async def budget_mode_status(owner: str = ""):
     "this agent can use it" are different facts and only the second should
     put a fund button in front of a buyer.
     """
-    return budget_agents.budget_mode_status(owner or None)
+    # for_agent=True always: this endpoint exists to answer "can THIS
+    # agent be hired with a budget", and a missing owner is a no, not a
+    # global yes.
+    return budget_agents.budget_mode_status(owner or None, for_agent=True)
 
 
 @app.get("/api/chain-agent/{chain_id}/{token_id}/evaluation")
