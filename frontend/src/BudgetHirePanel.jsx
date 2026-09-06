@@ -20,6 +20,7 @@ import { parseUnits } from 'viem';
 import { Loader2, Wallet, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useBudgetActions, isBudgetEscrowConfigured, NATIVE_SENTINEL, BUDGET_ESCROW_ADDRESS } from './budgetEscrow';
 import BudgetSpendView from './BudgetSpendView';
+import { addNotification } from './notifications';
 
 const HOURS = [
   { label: '6 hours', value: 6 },
@@ -81,6 +82,13 @@ export default function BudgetHirePanel({ agent }) {
       // useBudgetActions. If it somehow isn't there, say so rather than
       // showing a spend view for a budget we cannot identify.
       if (newId == null) throw new Error("Funded, but couldn't read the budget id back from the transaction. Check BscScan before funding again.");
+      // Budget hires produced no notification at all until now: the
+      // notification calls lived only in the ERC-8183 path, so a client
+      // who hired this way saw nothing in the bell.
+      addNotification(
+        `Budget #${newId}: ${total} BNB funded`,
+        `${agent?.name || 'The agent'} can now draw up to ${maxPerDraw} BNB at a time. You can take back whatever is left at any point.`,
+      );
       setBudgetId(newId);
     } catch (e) {
       setError(e.shortMessage || e.message);

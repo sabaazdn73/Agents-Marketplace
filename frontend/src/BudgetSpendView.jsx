@@ -13,10 +13,11 @@
 // from the events we happen to have seen: a missed or duplicated log would
 // otherwise silently misreport how much of someone's money is left.
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Loader2, ArrowDownRight, ShieldAlert, Clock, Undo2 } from 'lucide-react';
 import { formatUnits } from 'viem';
 import { useBudgetRead, useDrawFeed, useBudgetActions, BUDGET_STATUS, NATIVE_SENTINEL } from './budgetEscrow';
+import { addNotification } from './notifications';
 
 function fmt(v, symbol = 'BNB') {
   if (v == null) return '—';
@@ -45,6 +46,34 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
   const { budget, drawable, loading, error, refresh } = useBudgetRead(budgetId);
   const { draws, accountedFor, scanned } = useDrawFeed(budgetId);
   const { reclaim, pending } = useBudgetActions();
+
+  // One notification per draw, raised from the same feed the list renders.
+  // Deduped on `spent`, the contract's running total, which is unique per
+  // draw -- so a refetch or an overlapping watch window cannot announce the
+  // same spend twice. Only draws seen while this view is mounted notify;
+  // backfilled history does not, since telling someone about spending from
+  // last week the moment they open a panel would be noise.
+  //
+  // Declared HERE, above the early returns below, because hooks must run in
+  // the same order on every render. Placing it after them crashed the
+  // component the moment it went from loading to loaded.
+  const announced = useRef(null);
+  useEffect(() => {
+    if (!draws.length) return;
+    if (announced.current === null) { announced.current = new Set(draws.map((d) => String(d.spent))); return; }
+    const sym = budget?.token?.toLowerCase() === NATIVE_SENTINEL.toLowerCase() ? 'BNB' : 'tokens';
+    for (const d of draws) {
+      const key = String(d.spent);
+      if (announced.current.has(key)) continue;
+      announced.current.add(key);
+      const m = memoText(d.memo);
+      addNotification(
+        `Budget #${String(budgetId)}: ${fmt(d.amount, sym)} drawn`,
+        `${m ? `For ${m}. ` : ''}${fmt(d.remaining, sym)} left of your budget.`,
+      );
+    }
+  }, [draws, budgetId, budget]);
+
 
   if (loading && !budget) {
     return (
@@ -80,8 +109,13 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
   const idleHours = Math.floor((Date.now() - openedAt) / 3_600_000);
 
   const doRevoke = async () => {
+    const returned = remaining;
     await reclaim(budgetId);
     await refresh();          // real on-chain state, never optimistic
+    addNotification(
+      `Budget #${String(budgetId)}: ${fmt(returned, symbol)} returned`,
+      'You took back the unspent remainder. The agent can no longer draw from this budget.',
+    );
     onRevoked?.();
   };
 
