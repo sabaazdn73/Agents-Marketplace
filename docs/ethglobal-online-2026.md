@@ -2,7 +2,7 @@
 
 Tnega is a live, mainnet-only agent marketplace on BNB Smart Chain ([tnega.app](https://tnega.app)). It discovers ERC-8004 agents, evaluates them on independent signals, and hires them through ERC-8183 escrow.
 
-It was not built in one sitting for one submission. It has been extended across venues, each stage adding a layer to the same architecture rather than restarting it. This page is the timeline: what existed before each stage, and what that stage actually added.
+It was not built in one sitting for one submission. It has been extended across venues, each stage adding a layer to the same architecture rather than restarting it. This page is the timeline: what existed before each stage, and what that stage added.
 
 Technical detail lives in the [docs](README.md) and is linked from each milestone rather than repeated here.
 
@@ -14,7 +14,7 @@ Technical detail lives in the [docs](README.md) and is linked from each mileston
 
 The core system: a discovery layer over the ERC-8004 Identity Registry, backed by a resumable multi-chain ingestion pipeline covering BSC, Ethereum, Base, Solana, Monad, Billions Network, Robinhood Chain, Celo and Arbitrum.
 
-On top of that, an evaluation system that does the part a directory listing does not. Agents are sorted into verification tiers built on on-chain evidence rather than self-description, classified by category, audited for escrow compatibility before a user is ever asked to fund anything, and checked for whether their registered endpoint actually responds. Corroborating signals come from 8004scan's Quality Center, DefiLlama, TermiX and BscScan, each labelled with its own source rather than blended into one opaque number.
+On top of that, an evaluation system that does the part a directory listing does not. Agents are sorted into verification tiers built on on-chain evidence rather than self-description, classified by category, audited for escrow compatibility before a user is ever asked to fund anything, and checked for whether their registered endpoint responds. Corroborating signals come from 8004scan's Quality Center, DefiLlama, TermiX and BscScan, each labelled with its own source rather than blended into one opaque number.
 
 Hiring settles through the real ERC-8183 commerce contracts in `$U`, non-custodially, signed in the user's own browser. The backend never holds a key.
 
@@ -36,7 +36,7 @@ Ingestion read 8004scan's REST API by walking it offset by offset. That degrades
 
 The fix was to stop paginating and start reading an index. ERC-8004 registries are on-chain, and the [Agent0 subgraphs](https://github.com/agent0lab/subgraph) built with The Graph index exactly the registries this project already reads. Asking for everything after a known agent id becomes a keyed lookup rather than a walk through 800,000 rows, so the failure mode cannot occur.
 
-It went in as a fallback beside 8004scan rather than a replacement, because the two sources carry genuinely different data. The Graph has chain truth and reach; 8004scan has the off-chain computed signals — scores, categories, images — that a subgraph structurally cannot carry. Replacing either would have lost information.
+It went in as a fallback beside 8004scan rather than a replacement, because the two sources carry different data. The Graph has chain truth and reach; 8004scan has the off-chain computed signals — scores, categories, images — that a subgraph structurally cannot carry. Replacing either would have lost information.
 
 The new data feeds the systems that already existed rather than a separate display. Backfilled agents pass through the same health check and the same no-endpoint policy as everything else, so they arrive carrying a verified service status rather than as raw rows.
 

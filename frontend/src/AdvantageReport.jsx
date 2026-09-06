@@ -142,11 +142,11 @@ export default function AdvantageReport() {
   return (
     <div className="space-y-6">
       <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
-        3 tasks, each run with an agent and by hand. Every number is a real measurement unless explicitly labeled as an estimate — never blurred together.
+        3 tasks, each run with an agent and by hand. Every number is measured unless labelled an estimate, and the two are never blurred together.
       </div>
 
       {/* Task 1 — COMPLETE */}
-      <TaskCard icon={ShieldAlert} title="Task 1 — Security/trading risk check" statusLabel="Complete" statusColor="#10B981">
+      <TaskCard icon={ShieldAlert} title="Task 1, Security/trading risk check" statusLabel="Complete" statusColor="#10B981">
         <Side label="With an agent (Token Radar skill)">
           <Row label="Target" value="犇犇/WBNB" />
           <Row label="Time taken" value="0.216s" />
@@ -157,18 +157,18 @@ export default function AdvantageReport() {
         <Side label="Without an agent (done by hand, timed)">
           <Row label="Time taken" value="2m 00s" />
           <Row label="Cost" value="$0 (manual)" />
-          <p className="text-[11px] text-gray-400 leading-relaxed">Manual steps: check the same token on DexScreener — liquidity, age, and volume-vs-liquidity, by hand.</p>
+          <p className="text-[11px] text-gray-400 leading-relaxed">Manual steps: check the same token on DexScreener, liquidity, age, and volume-vs-liquidity, by hand.</p>
         </Side>
       </TaskCard>
 
       {/* Task 2 — COMPLETE, real mainnet delivery captured 2026-08-29 */}
-      <TaskCard icon={Coins} title="Task 2 — DeFi execution (Venus Lending supply)" statusLabel="Complete" statusColor="#10B981">
+      <TaskCard icon={Coins} title="Task 2, DeFi execution (Venus Lending supply)" statusLabel="Complete" statusColor="#10B981">
         <Side label="With an agent (Venus Skill, direct-connected-wallet path)">
-          <Row label="Time taken" value="6s" hint="Real, block-timestamp-measured elapsed time between the approve and mint transactions — not estimated or rounded from block count." />
+          <Row label="Time taken" value="6s" hint="Elapsed time between the approve and mint transactions, measured from block timestamps, not estimated or rounded from block count." />
           <Row label="Amount supplied" value="1 USDT" />
           <Row label="Result" value="1 USDT supplied to the Venus vUSDT market" />
           <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
-            Real approve + mint on BSC mainnet, run through the Skill's direct-connected-wallet path (the user's own already-connected wallet signed both transactions directly) — not the Altana passkey session path, which wasn't used for this particular run. Two earlier attempts had hit an intermittent outside data-provider issue; this run went through cleanly.
+            Approve and mint on BSC mainnet, run through the Skill's direct-connected-wallet path (the user's own already-connected wallet signed both transactions directly), not the Altana passkey session path, which wasn't used for this particular run. Two earlier attempts had hit an intermittent outside data-provider issue; this run went through cleanly.
           </p>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
             <a href="https://bscscan.com/tx/0x6354cfe161f120ba1d6e821e93822f5fb7291c1a6efe5051b64a4434ced7df26" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Approve tx (block 118745395, 09:42:11 UTC) <ExternalLink size={10} /></a>
@@ -176,20 +176,20 @@ export default function AdvantageReport() {
           </div>
         </Side>
         <Side label="Without an agent (estimated, not independently timed)">
-          <Row label="Time taken" value="~20 min" hint="A reasonable estimate for a new user finding app.venus.io, connecting a wallet, learning the interface, locating the USDT market, approving, and supplying — not independently timed, and explicitly not presented as measured data." />
+          <Row label="Time taken" value="~20 min" hint="A reasonable estimate for a new user finding app.venus.io, connecting a wallet, learning the interface, locating the USDT market, approving, and supplying, not independently timed, and explicitly not presented as measured data." />
           <p className="text-[11px] text-gray-400 leading-relaxed">Manual steps: supply USDT to Venus directly via app.venus.io (find the site → connect wallet → learn the interface → locate the USDT market → approve → supply → confirm).</p>
         </Side>
       </TaskCard>
 
       {/* Task 3 — COMPLETE, real mainnet delivery captured 2026-08-19 */}
-      <TaskCard icon={GraduationCap} title="Task 3 — Knowledge/content (ERC-8004/8183 explainer agent)" statusLabel="Complete" statusColor="#10B981">
-        <Side label="With an agent (self-hosted, on the real network)">
+      <TaskCard icon={GraduationCap} title="Task 3, Knowledge/content (ERC-8004/8183 explainer agent)" statusLabel="Complete" statusColor="#10B981">
+        <Side label="With an agent (self-hosted, on mainnet)">
           <Row label="Build time" value="~50s (scaffold → AI)" />
           <Row label="Price quoted" value="0.1 $U" hint="$U is a type of digital dollar — 1 $U is worth about $1." />
           <Row label="Delivery time" value="~60s (notified → delivered)" />
           <Row label="Job number" value="#56646" />
           <p className="text-[11px] text-gray-400 leading-relaxed mt-1">
-            Paid job on BSC mainnet — not a test network. The delivered content's fingerprint matches the on-chain record, and the deliverable itself is durably mirrored to MongoDB, not just sitting on the agent's own disk.
+            Paid job on BSC mainnet, not a test network. The delivered content's fingerprint matches the on-chain record, and the deliverable itself is durably mirrored to MongoDB, not just sitting on the agent's own disk.
           </p>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
             <a href="https://bscscan.com/tx/0x23ba511e3e6d5f4d8bee4071573cef2c41446f6cdfb709de1a12d48d467ffb64" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">View the delivery record <ExternalLink size={10} /></a>

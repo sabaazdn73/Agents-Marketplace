@@ -434,7 +434,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
             {agent.tvlDataFlagged && (
               <div className="mt-2 flex items-start gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                 <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                <span>DefiLlama flags this protocol's reported funds as possibly not representative of its real value.</span>
+                <span>DefiLlama flags this protocol's reported funds as possibly unrepresentative of its value.</span>
               </div>
             )}
           </div>
@@ -460,7 +460,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         {agent.ownerAddress ? (
           <>
             <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 inline-flex items-center gap-1 break-all">{agent.ownerAddress} <ExternalLink size={11} className="shrink-0" /></a>
-            <p className="text-[11px] text-gray-400 mt-1">This is the agent creator's wallet ID — a public account number anyone can look up, like a bank account number that's safe to share.</p>
+            <p className="text-[11px] text-gray-400 mt-1">This is the agent creator's wallet ID. A public account number anyone can look up, like a bank account number that's safe to share.</p>
           </>
         ) : <p className="text-xs text-gray-400">We don't have an owner ID on record for this agent.</p>}
 
@@ -802,7 +802,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             href="https://f2f-uzh.vercel.app"
             target="_blank"
             rel="noopener noreferrer"
-            title="F2F Hub — all three projects in this portfolio"
+            title="F2F Hub, all three projects in this portfolio"
             className="w-8 h-8 rounded-lg overflow-hidden block"
           >
             <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
@@ -950,7 +950,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         rows={4}
                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono outline-none disabled:opacity-50"
                       />
-                      <p className="text-[11px] text-gray-400 mt-1">Only for advanced users — this replaces the automatic description above with your own text, permanently recorded. Leave it blank unless you have a specific reason to use this.</p>
+                      <p className="text-[11px] text-gray-400 mt-1">Only for advanced users. This replaces the automatic description above with your own text, permanently recorded. Leave it blank unless you have a specific reason to use this.</p>
                     </div>
                   )}
                 </div>
@@ -979,7 +979,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 )}
                 {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.unsupported && (
                   <p className="mb-3 text-[11px] text-gray-400">
-                    "Sign once for all steps" isn't available for your connected wallet — signing each step individually below.
+                    "Sign once for all steps" isn't available for your connected wallet, signing each step individually below.
                   </p>
                 )}
 
@@ -1040,7 +1040,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       there are more agents out there, we're just not cluttering your view with lookalikes.</>
                     ) },
                     { label: 'On-chain Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'On-chain ERC-8004 feedback entries recorded against these agents. Counts only — no written text and no star rating, so there is nothing to read behind the number. Most of it comes from one automated cluster rather than many independent buyers.' },
-                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Has at least one real, on-chain-confirmed delivered job — not just registered on-chain (see 'How we verify agents' below)" },
+                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Has at least one on-chain-confirmed delivered job, rather than only being registered (see 'How we verify agents' below)" },
                   ].map((c) => {
                     const Icon = c.icon;
                     return (
@@ -1066,7 +1066,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 <div className="mb-4">
                   <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
                     <div className="space-y-2">
-                      <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal by itself — see "How we verify agents" above for what actually counts as proof.</p>
+                      <p><strong>Online now</strong> means we reached this agent's endpoint just now and it answered. No checkmark only means we haven't confirmed recently, not that anything is broken. Either way it isn't a quality signal on its own. See "How we verify agents" above for what counts as proof.</p>
                     </div>
                   </InfoTooltip>
                 </div>
@@ -1079,7 +1079,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
-                  title="Ranks agents with an actual hire history first; agents with none yet are listed after, not mixed in"
+                  title="Ranks agents with a hire history first; those without are listed after, kept separate"
                   className="mb-3 w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none"
                 >
                   <option value="default">Sort: Top score</option>
@@ -1127,7 +1127,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {perfStatus === 'error' && (
                   <div className="mb-3 flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
                     <AlertTriangle size={12} className="shrink-0" />
-                    Couldn't load real hire-history data — filters/sorts using it may be inaccurate.
+                    Couldn't load hire-history data, so filters and sorts using it may be inaccurate.
                     <button onClick={retryPerf} className="underline font-medium">Try again</button>
                   </div>
                 )}
@@ -1328,7 +1328,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <div className="space-y-5">
                 <div>
                   <h2 className="text-2xl font-bold mb-1">Advantage Report</h2>
-                  <p className="text-sm text-gray-500">3 tasks, each done two ways: once using an agent, once by hand, so you can see the actual time, cost, and quality difference for yourself.</p>
+                  <p className="text-sm text-gray-500">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
                 </div>
                 <AdvantageReport />
               </div>
@@ -1428,7 +1428,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Good to know</span></div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Right now, this tool only builds agents that earn money by doing jobs for others (not ones that hire other agents themselves). The free build trial runs on a practice network; hiring agents in the Marketplace spends actual money on mainnet.</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in the Marketplace spends real money on mainnet.</p>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">

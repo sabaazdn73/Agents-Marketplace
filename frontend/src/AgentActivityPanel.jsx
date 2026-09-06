@@ -113,7 +113,7 @@ export default function AgentActivityPanel({ ownerAddress, window, className = '
           )}
           {state.status === 'ready' && state.data.available && state.data.transactions.length === 0 && (
             <p className="text-xs text-gray-400 leading-relaxed">
-              No on-chain activity from this wallet in this job's real time window — some agents only interact
+              No on-chain activity from this wallet during this job's time window — some agents only interact
               on-chain at delivery (already shown above), not throughout the work itself. That's real information
               too, not a failed check.
             </p>

@@ -1,10 +1,10 @@
 # 🤖 Future: Tnega PayBox (research & design only, not built)
 
-Status, updated 2026-09-04: **the settlement rail is now built and live-tested.** Everything below the "Constraint" headings remains the real research record of how this was scoped — and it matters, because every rail it evaluated died on the same rock. What changed is that a rail which doesn't have that problem was found and implemented: **Binance B402**, the x402 standard settled natively on BSC. See "[The rail that actually worked: B402](#the-rail-that-actually-worked-b402-implemented-2026-09-04)" below for what's real and running, and what still isn't.
+Status, updated 2026-09-04: **the settlement rail is now built and live-tested.** Everything below the "Constraint" headings remains the real research record of how this was scoped — and it matters, because every rail it evaluated died on the same rock. What changed is that a rail which doesn't have that problem was found and implemented: **Binance B402**, the x402 standard settled natively on BSC. See "[The rail that worked: B402](#the-rail-that-actually-worked-b402-implemented-2026-09-04)" below for what's real and running, and what still isn't.
 
 The original research framing is kept intact rather than rewritten, because the constraints it documents are still true of MetaMask Card and MoonPay — B402 didn't resolve them, it went around them.
 
-Surfaced in-app as a "Web2 Agents + PayBox" Coming Soon card in the Native Agent Marketplace — a vision/roadmap summary only, no code behind it, linking back here for the full research. That card also names a second, genuinely separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own much larger future project — comparable in scope to BNB Agent Studio or Claude Code itself — not scoped here or anywhere in this codebase; noted for the record, not researched.
+Surfaced in-app as a "Web2 Agents + PayBox" Coming Soon card in the Native Agent Marketplace — a vision/roadmap summary only, no code behind it, linking back here for the full research. That card also names a second, separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own much larger future project — comparable in scope to BNB Agent Studio or Claude Code itself — not scoped here or anywhere in this codebase; noted for the record, not researched.
 
 ## The idea in one paragraph
 
@@ -77,7 +77,7 @@ This wasn't part of the original ask but changes the picture enough to state pla
 
 This is a second, independent blocker on top of the chain gap, entirely outside Tnega's control — a design built around MetaMask Card right now would be building toward a rail that isn't accepting new US users at all. Worth a periodic recheck (there's a reasonable chance this reopens before the BSC gap does, since it reads as a regulatory/operational pause rather than a structural limitation), but not something to build against today.
 
-## Architecture: how a commerce agent actually hands off
+## Architecture: how a commerce agent hands off
 
 Read Anthropic's `commerce-agents` source directly rather than assuming an MCP-server shape, since that assumption turned out to be wrong. The extension point is much simpler than an MCP tool call — worth stating precisely because it's the one piece of this design that's already fully confirmed and stable to build against:
 
@@ -120,7 +120,7 @@ Three things this confirms, precisely:
    - The hosted `checkout_url` page is where the actual "connect BSC wallet → bridge to Base → settle via MetaMask Card" flow (or whatever the settlement path ends up being) happens, entirely outside the agent's own context.
    - A webhook or polling endpoint (`GET /paybox/sessions/{id}`) lets the merchant's own backend confirm completion, mirroring how this project's own `useJobActions.js`/`JobStatusPanel.jsx` already poll on-chain job status rather than assuming.
 
-This is a genuinely small, well-defined surface — the hard part of this feature was never "how does an agent call into it," it's "does the settlement rail underneath actually work from BSC," which the two constraints above answer plainly: not yet.
+This is a small, well-defined surface — the hard part of this feature was never "how does an agent call into it," it's "does the settlement rail underneath work from BSC," which the two constraints above answer plainly: not yet.
 
 ## Scope check
 
@@ -136,16 +136,16 @@ Both facts are worth rechecking before resuming this work, not assuming either h
 Checked whether a different settlement rail sidesteps the chain problem entirely, since the user asked. It does:
 
 - **MoonPay** confirmed live to support BNB Smart Chain directly as both a buy and sell network, settling a sale to a bank account — no bridge needed at all.
-- **Transak** powers the "Sell" button inside MetaMask itself and advertises 80+ source networks; BSC/BEP-20 coverage is broad but wasn't confirmed token-by-token in this pass (a genuine gap, not assumed clean).
+- **Transak** powers the "Sell" button inside MetaMask itself and advertises 80+ source networks; BSC/BEP-20 coverage is broad but wasn't confirmed token-by-token in this pass (a gap, not assumed clean).
 - Checked as a possible self-custody-card alternative to MetaMask Card: **Gnosis Pay** (Safe-based, self-custodial) — supports Ethereum, Polygon, and Gnosis Chain, not BSC. Same structural gap as MetaMask Card, not an improvement.
 
-The tradeoff: going this route means Tnega PayBox settles to a **bank payout** (or whatever card-topup rail MoonPay/Transak themselves offer), not specifically a *self-custody Mastercard debit card* the way the original MetaMask Card concept was. That's a different product shape — "instant, no-bridge fiat off-ramp for a checkout" rather than "spend BSC crypto on any card anywhere" — worth deciding on explicitly rather than treating as equivalent. It is, however, the one path here that's actually buildable against BSC today, with no dependency on an external company lifting a signup pause or adding chain support.
+The tradeoff: going this route means Tnega PayBox settles to a **bank payout** (or whatever card-topup rail MoonPay/Transak themselves offer), not specifically a *self-custody Mastercard debit card* the way the original MetaMask Card concept was. That's a different product shape — "instant, no-bridge fiat off-ramp for a checkout" rather than "spend BSC crypto on any card anywhere" — worth deciding on explicitly rather than treating as equivalent. It is, however, the one path here that's buildable against BSC today, with no dependency on an external company lifting a signup pause or adding chain support.
 
-## The rail that actually worked: B402 (implemented 2026-09-04)
+## The rail that worked: B402 (implemented 2026-09-04)
 
 Every settlement rail researched above failed on the same thing: **BSC**. MetaMask Card can't fund from it (and paused US signups). Gnosis Pay doesn't support it. MoonPay does, but only as a bank-payout off-ramp — not something an agent or a checkout page can settle against directly.
 
-[Binance B402](https://web3.binance.com/en/dev-docs/products/b402-api/integration-guide) is the x402 standard settled **natively on BSC**. No bridge, no chain gap, no third party's signup queue in the middle. Confirmed live against the real API with real credentials, not assumed: all 10 payment kinds this account can accept are on `eip155:56`.
+[Binance B402](https://web3.binance.com/en/dev-docs/products/b402-api/integration-guide) is the x402 standard settled **natively on BSC**. No bridge, no chain gap, no third party's signup queue in the middle. Confirmed live against the API with real credentials, not assumed: all 10 payment kinds this account can accept are on `eip155:56`.
 
 The unplanned bonus, found by reading the real `/supported` response rather than designed for: one of the four assets B402 settles here is **United Stables ($U, `0xcE24439F2D9C6a2289F741120FE202248B666666`) — ERC-8183's own settlement token**, the exact asset this marketplace already denominates escrowed hires in. A PayBox payment and a Tnega hire settle in the same asset on the same chain, with no conversion between them.
 
@@ -153,7 +153,7 @@ The unplanned bonus, found by reading the real `/supported` response rather than
 
 | Piece | Where | State |
 |---|---|---|
-| HMAC-SHA256 signing, `postB402()` | `backend/core/b402.py` | Live-verified against the real API |
+| HMAC-SHA256 signing, `postB402()` | `backend/core/b402.py` | Live-verified against the API |
 | `supported` (cached, 15 min) | `core/b402.py` | Live — returns 10 real kinds, all BSC |
 | `verify` / `settle` + 3-outcome handling | `core/b402.py` | Built; verify live-exercised, settle not (see below) |
 | Checkout sessions + server-held requirements | `backend/core/paybox.py` | Live-tested end to end |
@@ -168,11 +168,11 @@ Real assets, verified on-chain (each address matched by calling `name()` on BSC 
 
 Payment requirements are **issued and held by the server**, loaded back by session id, and never taken from the request body. Verifying a client-supplied payload against client-supplied requirements proves only that the client agrees with itself — a buyer could lower `amount`, swap `asset` for a worthless token, or repoint `payTo`, and B402's verify would faithfully confirm the match.
 
-This was tested adversarially, not just asserted: a payment submitted with requirements tampered down from 1.25 U to 0.000001 U was checked against the real, stored 1.25 U requirements, and the stored session was confirmed unchanged afterward.
+This was tested adversarially, not just asserted: a payment submitted with requirements tampered down from 1.25 U to 0.000001 U was checked against the stored 1.25 U requirements, and the stored session was confirmed unchanged afterward.
 
-### Honest gaps
+### Gaps
 
-- **No real settlement has been executed.** `verify`/`settle` need a genuinely signed EIP-3009 or Permit2 authorization from a funded wallet. Producing one means handling a private key holding real $U, which is out of scope for this backend by design — it never holds a key. The verify path was exercised live with structurally-real payloads and returns real, structured rejections (`invalid_exact_evm_payload_recipient_mismatch`); the settle path is code-complete and unexercised. **Completing a real payment end to end is the honest next step, and it needs a funded browser wallet, not more backend work.**
+- **No real settlement has been executed.** `verify`/`settle` need a signed EIP-3009 or Permit2 authorization from a funded wallet. Producing one means handling a private key holding real $U, which is out of scope for this backend by design — it never holds a key. The verify path was exercised live with structurally-real payloads and returns real, structured rejections (`invalid_exact_evm_payload_recipient_mismatch`); the settle path is code-complete and unexercised. **Completing a real payment end to end is the next step, and it needs a funded browser wallet, not more backend work.**
 - **No checkout UI yet.** `checkout_url` points at `/paybox/checkout`, which isn't built. The buyer-facing page that connects a wallet and produces the signature is the remaining piece.
 - The `permit2-upto` scheme and its `settleAmount` are implemented but unexercised.
 
@@ -187,7 +187,7 @@ Both cost real debugging time and are recorded so the next person doesn't repeat
 
 Confirmed live 2026-09-03, directly against Solana Foundation's own announcement, pay.sh itself, and its GitHub repo — not just cited secondhand: [Pay.sh](https://pay.sh) is a live, no-waitlist gateway the Solana Foundation built with Google Cloud, letting AI agents (Claude, Gemini, Codex, and others named on the launch page) pay per API call in stablecoins over Solana, built on x402 plus a metering layer called MPP.
 
-- **Genuinely sub-cent pricing, confirmed on the live registry**: several listed services, including two from Alibaba Cloud (Facebody, Image Segmentation), price calls at $0.001 — Alibaba Cloud is a real, present provider in Pay.sh's own registry, not just a rumored partner.
+- **sub-cent pricing, confirmed on the live registry**: several listed services, including two from Alibaba Cloud (Facebody, Image Segmentation), price calls at $0.001 — Alibaba Cloud is a real, present provider in Pay.sh's own registry, not just a rumored partner.
 - **Ships a real MCP integration**: `pay --sandbox claude` wires Pay MCP tools straight into Claude Code — an agent framework gets paid-API access as a tool call, no separate payment integration to build.
 - **Open source**: `github.com/solana-foundation/pay`.
 - Solana's own announcement describes settlement completing "in seconds," reconciled with the provider afterward. A faster, more specific latency figure and a "Payment Channels" throughput upgrade have both been reported for Pay.sh elsewhere, but neither was independently confirmable against Solana Foundation's own materials or the GitHub repo as of this check — worth re-verifying directly before citing a specific number, not repeating secondhand.
@@ -198,7 +198,7 @@ Why this belongs in this doc: it's a working, in-production instance of the exac
 
 Noted 2026-09-03, explicitly not scoped or designed, not a near-term next step — recorded so it isn't lost.
 
-Everything above scopes Tnega PayBox narrowly to one chain: BSC in, one settlement rail out (bridge-to-MetaMask-Card, or a direct BSC off-ramp like MoonPay). Pay.sh's own design points at a larger direction worth recording. From the paying agent's side, Pay.sh doesn't care which chain settles a given call — it just picks whichever facilitator underneath makes sense. Tnega PayBox could eventually work the same way: rather than committing to one settlement rail, let an agent hired through or discovered via Tnega settle across whichever chain is genuinely cheapest or fastest for that specific transaction — BSC direct via MoonPay when the buyer already holds BNB-chain assets, a Pay.sh-shaped Solana path when the agent's own stablecoins already sit there, a bridged path when neither applies.
+Everything above scopes Tnega PayBox narrowly to one chain: BSC in, one settlement rail out (bridge-to-MetaMask-Card, or a direct BSC off-ramp like MoonPay). Pay.sh's own design points at a larger direction worth recording. From the paying agent's side, Pay.sh doesn't care which chain settles a given call — it just picks whichever facilitator underneath makes sense. Tnega PayBox could eventually work the same way: rather than committing to one settlement rail, let an agent hired through or discovered via Tnega settle across whichever chain is cheapest or fastest for that specific transaction — BSC direct via MoonPay when the buyer already holds BNB-chain assets, a Pay.sh-shaped Solana path when the agent's own stablecoins already sit there, a bridged path when neither applies.
 
 This isn't a new discipline invented for this note — it's the same one the project's own Trading Agent already applies by comparing PancakeSwap, Biswap, and ApeSwap quotes live rather than assuming one DEX is the right venue, applied one layer up, to settlement rails instead of swap venues.
 

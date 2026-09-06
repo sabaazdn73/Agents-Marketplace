@@ -23,7 +23,7 @@ import AgentIllustration from './AgentIllustration';
 const STEPS = [
   { icon: Wallet, title: 'Connect', body: 'Connect your own wallet, or set up a passkey wallet with Face ID or a fingerprint — no seed phrase to write down.' },
   { icon: MessageSquare, title: 'Describe what you want', body: 'Tell the agent the job, or just hit "Hire" — it already knows what it does.' },
-  { icon: Cpu, title: 'The agent prepares the action', body: 'It works out the exact steps and the real price before anything gets signed.' },
+  { icon: Cpu, title: 'The agent prepares the action', body: 'It works out the exact steps and the price before anything gets signed.' },
   { icon: ShieldCheck, title: 'You approve it', body: "Every step is shown to you first, and you sign it yourself, in your own wallet." },
   { icon: Link2, title: 'Settles on-chain', body: 'Payment sits in escrow and only reaches the agent once the work is confirmed — never before.' },
 ];
@@ -32,7 +32,7 @@ export default function SessionModesExplainer() {
   return (
     <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
       <div className="px-6 sm:px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
-        <h3 className="font-bold text-lg">How paying an agent actually works</h3>
+        <h3 className="font-bold text-lg">How paying an agent works</h3>
       </div>
 
       <div className="p-6 sm:p-8 flex flex-col md:flex-row gap-8">

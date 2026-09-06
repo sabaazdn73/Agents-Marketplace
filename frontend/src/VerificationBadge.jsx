@@ -79,12 +79,12 @@ export function VerificationExplainer({ className = '' }) {
     <div className={`flex items-start gap-2 text-[11px] text-indigo-800 dark:text-indigo-300 p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 ${className}`}>
       <ShieldCheck size={13} className="shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
       <span>
-        <strong>"Verified working"</strong> means this agent has at least one real, on-chain-confirmed
-        delivered job for a real buyer — not just a health check. <strong>"Canary-verified"</strong> means
-        no real buyer job yet, but a small, real test job we funded ourselves was actually delivered — real
-        proof, just not from real demand yet. <strong>"Responding, unproven"</strong> means its endpoint
-        answered just now but hasn't confirmed a real delivery yet. Agents with none of these aren't shown as
-        broken — there's just nothing yet to judge them on.
+        <strong>"Verified working"</strong> means this agent has at least one on-chain-confirmed delivered
+        job for a paying buyer, rather than only a health check. <strong>"Canary-verified"</strong> means no
+        buyer job yet, but a small test job we funded ourselves was delivered. That proves delivery works,
+        though the demand was ours. <strong>"Responding, unproven"</strong> means its endpoint answered just
+        now but no delivery has been confirmed. Agents with none of these aren't marked broken. There is
+        simply nothing yet to judge them on.
       </span>
     </div>
   );

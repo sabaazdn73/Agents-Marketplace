@@ -15,10 +15,10 @@ Built for BNB Chain's "Smart Money Era" hackathon. Full documentation: **[docs/]
 > an aspirational claim — if it wasn't verified, it says so.
 
 **Live pages:** [`/status`](https://tnega.app/status) —
-real, live pass/fail checks (not cached uptime history) against every
+live pass/fail checks (not cached uptime history) against every
 external integration this project depends on (8004scan, Zerion, CoinGecko,
 the BSC RPC, the explainer-agent service, MongoDB). [`/ecosystem`](https://tnega.app/ecosystem) —
-a standalone visual identity page, a rotating 3D globe sized by real, live
+a standalone visual identity page, a rotating 3D globe sized by live
 agent-category counts.
 
 ---
@@ -50,7 +50,7 @@ agent-category counts.
   to chain 56. `core/categorize.py` classifies each agent by deterministic
   keyword matching into an **18-category** taxonomy (auditable, no LLM).
   `core/aggregate.py` cross-references **DefiLlama** TVL where a protocol match
-  exists (honestly `null` where none does).
+  exists (`null` where none does).
 - Status: 🔷 code is real and, per the modules' own tested-on notes, was
   confirmed against a live 8004scan response in an earlier session. **Not
   re-called live this session** (needs `SCAN_8004_API_KEY`).
@@ -98,7 +98,7 @@ own `SKILL.md` and BscScan this session.
 - **Copy Trade is wired detection-only (mirroring not connected)**; Wallet
   Tracker and Token Radar are read-only by design. They detect/read a wallet's
   trades from RPC logs. Copy Trade and Wallet Tracker were fixed this session (a
-  viem `getLogs` filter bug) and verified live returning real data. They issue
+  viem `getLogs` filter bug) and verified live returning data. They issue
   address-less topic `getLogs`, so they need a read RPC that permits it — set
   `VITE_MAINNET_READ_RPC` to a dRPC-class endpoint (the default public RPC
   refuses these queries). Scan depth is `VITE_SKILL_SCAN_BLOCKS` (default 1000
@@ -128,15 +128,15 @@ deploy to the free ~48h platform trial.
 ## What's still incomplete (honest)
 
 > **This section is superseded by [docs/limitations.md](docs/limitations.md)**,
-> which reflects the project's real, current state. It's kept below, dated,
+> which reflects the project's current state. It's kept below, dated,
 > for historical record only — several items here (the Advantage Report, the
 > category-diversity gap) have since changed. See the linked doc for what's
-> actually true today.
+> true today.
 
 - ⚠️ **x402 live settlement** untested (see table).
 - ⚠️ **On-chain hire + Altana session grant/revoke** not executed live (code
   verified vs SDK only) — still true as of 2026-08-17; no funded wallet +
-  passkey + browser available to actually run it end-to-end.
+  passkey + browser available to run it end-to-end.
 - ⚠️ **Copy-trade / wallet-tracker** require a `getLogs`-capable read RPC
   (`VITE_MAINNET_READ_RPC`); they won't work on the default public RPC.
 - ⚠️ **8004scan agent discovery** not re-called live this session (needs an API
@@ -154,7 +154,7 @@ deploy to the free ~48h platform trial.
 - **PancakeSwap** — `pancakeswap-trading` and `pancakeswap-liquidity` skills,
   both **verified live** on the fork.
 - **AltLayer** — ERC-8004 agent identity and agent discovery via **8004scan**
-  (an AltLayer product); a real data integration, not a formal partnership.
+  (an AltLayer product); a data integration, not a formal partnership.
 - **Binance Pay / B402 Bazaar** — real B402 Bazaar opt-in (spec-accurate
   `extensions.bazaar` blob on the x402 settle). NOT the Binance Pay Merchant API.
 - **BNB Agent Studio** (BNB Chain core) — the "Build Your Agent" `bag` CLI
@@ -164,7 +164,7 @@ deploy to the free ~48h platform trial.
   registers through; we index and de-duplicate them), not a formal API
   partnership. The track's own required same-task comparison report is real
   and live today on the in-app **Advantage Report** tab — see
-  [docs/hackathon.md](docs/hackathon.md#termix) for its real, current,
+  [docs/hackathon.md](docs/hackathon.md#termix) for its current,
   honestly-labeled completion status.
 
 ---

@@ -152,7 +152,7 @@ export default function CanaryTestingPanel({ onBack }) {
           Proactively tests a small, real sample of "Responding, unproven" agents with a small, real, funded job —
           every job here is funded by YOUR connected wallet, exactly like any other real hire. See{' '}
           <a href="/docs/verification-methodology" className="text-teal-600 hover:underline inline-flex items-center gap-0.5">
-            the real methodology <ExternalLink size={11} />
+            the methodology <ExternalLink size={11} />
           </a>.
         </p>
 

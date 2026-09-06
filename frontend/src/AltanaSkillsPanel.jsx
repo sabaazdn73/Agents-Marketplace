@@ -386,7 +386,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
 
       {kind === 'tx' && (
         <div className="mb-5 p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/5 text-[11px] text-indigo-700 dark:text-indigo-300">
-          Through your own connected wallet: you sign it yourself, right then, actual money.
+          Through your own connected wallet. You sign it yourself, with your own money.
         </div>
       )}
 
@@ -483,9 +483,9 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
               user-confirmed path that does. Only reachable for x402 now. */}
           {needsWalletChoice && (
             <div className="pt-2 mt-2 border-t border-red-500/20 space-y-1.5">
-              <p className="text-gray-500 dark:text-gray-400">If you've set up a wallet here before, tap "Try again" above and pick that SAME saved passkey. Only tap below if this is genuinely your first time — it creates a brand-new, empty wallet.</p>
+              <p className="text-gray-500 dark:text-gray-400">If you've set up a wallet here before, tap "Try again" above and pick that same saved passkey. Only tap below if this is your first time, since it creates a brand-new, empty wallet.</p>
               <button onClick={handleConfirmNewWallet} className="w-full py-2 rounded-xl text-[11px] font-semibold border border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10">
-                This is genuinely my first time: create a new wallet
+                This is my first time: create a new wallet
               </button>
             </div>
           )}

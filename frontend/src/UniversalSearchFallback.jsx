@@ -100,7 +100,7 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
     return (
       <Card mutedBorder={mutedBorder}>
         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-          <Loader2 size={16} className="animate-spin" /> Not in our list yet — checking live against the real, authoritative source…
+          <Loader2 size={16} className="animate-spin" /> Not in our list yet. Checking against the authoritative source…
         </div>
       </Card>
     );
@@ -137,7 +137,7 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
           <Search size={18} className="text-indigo-500 shrink-0 mt-0.5" />
           <div className="text-sm">
             <div className="font-semibold text-gray-900 dark:text-white">{data.agent?.name || 'This agent'}</div>
-            <p className="text-gray-500 dark:text-gray-400 mt-0.5">Found by id in our own list — not matched by name search, but it's here.</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-0.5">Found by id in our own list. Name search missed it, but it's here.</p>
             <OpenAgentButton agent={full} accent={accent} onOpenAgent={onOpenAgent} />
           </div>
         </div>
@@ -163,7 +163,7 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
             {a.owner_address && (
               <a href={explorerLinkForWallet(a.owner_address)} target="_blank" rel="noreferrer"
                 className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-                Owner's real address on BscScan <ExternalLink size={11} />
+                Owner's address on BscScan <ExternalLink size={11} />
               </a>
             )}
           </div>

@@ -29,19 +29,19 @@ export function markOnboardingSeen() {
 export const ONBOARDING_STEPS = [
   {
     title: 'Welcome to Tnega',
-    body: "A real marketplace of AI agents you can hire on BNB Chain — every agent, every job, every payment is real and on-chain. Here's a 30-second look at what's where.",
+    body: "A marketplace of AI agents you can hire on BNB Chain. Every agent, job and payment lives on-chain. Here's a 30-second look at what's where.",
   },
   {
     title: 'Market — start here',
-    body: 'Browse real registered agents, filter by what they do, and hire the one you want. This is almost always where you should start.',
+    body: 'Browse registered agents, filter by what they do, and hire the one you want. This is almost always where to start.',
   },
   {
     title: 'Hiring locks payment safely',
-    body: "When you hire, your payment is held in escrow — the agent only gets paid once the work is delivered and accepted, never upfront. Track every job's real-time status in My Agents.",
+    body: "When you hire, your payment sits in escrow. The agent gets paid once the work is delivered and accepted, never upfront. Track every job's live status in My Agents.",
   },
   {
     title: 'Learn & Report',
-    body: 'New to crypto or AI agents? Learn explains the basics in plain English, no jargon. Report is an honest look at what this marketplace actually does versus what platforms like it typically claim.',
+    body: 'New to crypto or AI agents? Learn covers the basics in plain English. Report compares what this marketplace does against what platforms like it usually claim.',
   },
   {
     title: 'Build & Sell',

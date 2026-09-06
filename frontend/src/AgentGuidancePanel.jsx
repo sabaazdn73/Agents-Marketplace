@@ -32,13 +32,13 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
   return (
     <div className={`p-4 rounded-xl border ${mutedBorder} space-y-4`}>
       <p className="text-[11px] text-gray-500 dark:text-gray-400">
-        No one has hired this agent through us yet. That just means it's new — not that it's bad. Here's what can help you decide anyway:
+        No one has hired this agent through us yet. That just means it's new, not that it's bad. Here's what can help you decide anyway:
       </p>
 
       {willShowSkillSuggestion && (
         <div className="space-y-2">
           <p className="text-xs text-gray-700 dark:text-gray-300">
-            This agent does <span className="font-semibold">{agent.category}</span>-type work — you can try that same kind of task yourself first, with a small spending limit you control, before trusting this specific agent with more:
+            This agent does <span className="font-semibold">{agent.category}</span>-type work. You can try that same kind of task yourself first, with a small spending limit you control, before trusting this specific agent with more:
           </p>
           <div className="flex flex-col gap-2">
             {skills.map((s) => (
@@ -53,7 +53,7 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-gray-400">This lets you try how this TYPE of task works, with a spending limit you set — it's not this specific agent, just the same kind of work.</p>
+          <p className="text-[10px] text-gray-400">This lets you try how this TYPE of task works, with a spending limit you set. It's not this specific agent, just the same kind of work.</p>
         </div>
       )}
 
@@ -74,7 +74,7 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
 
       {nothingDistinguishing && (
         <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed border-t border-gray-100 dark:border-gray-800 pt-3">
-          This agent signed up recently and has no track record yet. There's nothing here yet to tell you if it's good or bad — it's simply new. If you want to try it anyway, consider starting with a small hire to test it before trusting it with more.
+          This agent signed up recently and has no track record yet. There's nothing here yet to tell you if it's good or bad. It's simply new. If you want to try it anyway, consider starting with a small hire to test it before trusting it with more.
         </p>
       )}
     </div>

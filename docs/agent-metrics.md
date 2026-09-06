@@ -2,13 +2,13 @@
 
 ## Metrics methodology: a plain-language reference (2026-08-29)
 
-This section explains how the Metrics system actually works today, cross-checked directly against the live code while writing it (`categoryGroups.js`, `categorize.py`, `protocol_compat.py`, `agentEvaluation.js`, `AgentMetrics.jsx`, `agentVerification.js`). Nothing described here is planned or aspirational.
+This section explains how the Metrics system works today, cross-checked directly against the live code while writing it (`categoryGroups.js`, `categorize.py`, `protocol_compat.py`, `agentEvaluation.js`, `AgentMetrics.jsx`, `agentVerification.js`). Nothing described here is planned or aspirational.
 
 ### 1. Categorization
 
 Every agent gets a fine-grained category from `backend/core/categorize.py`, one of **18 categories** (Grid Trading, Rebalancing, Yield Optimisation, Health Factor Monitoring, Trading Signals, Copy Trading, Smart Contract Auditing, Data Analysis, Research, Content & Copywriting, Identity & Verification, Customer Support, NFT & Generative Art, Gaming, Prediction Markets, Social & Community, Payments & Settlement, Developer Tools), assigned by deterministic keyword matching against the agent's own on-chain name and description; no LLM, and every match is traceable back to the exact keyword that triggered it. An agent whose name/description matches nothing gets **Unclassified** plainly, rather than forced into a guess.
 
-For browsing, those 18 categories nest under **5 top-level groups** (`frontend/src/categoryGroups.js`), built to reflect what the data actually contains rather than a generic taxonomy imposed on it:
+For browsing, those 18 categories nest under **5 top-level groups** (`frontend/src/categoryGroups.js`), built to reflect what the data contains rather than a generic taxonomy imposed on it:
 
 | Group | Fine-grained categories inside it |
 |---|---|
@@ -18,14 +18,14 @@ For browsing, those 18 categories nest under **5 top-level groups** (`frontend/s
 | Content & Community | Content & Copywriting, Social & Community, Customer Support, NFT & Generative Art, Gaming |
 | Payments & Infrastructure | Payments & Settlement, Developer Tools |
 
-**Unclassified is deliberately never folded into a group**: it has its own separate filter toggle, so it's never misrepresented as a classification that was actually made.
+**Unclassified is deliberately never folded into a group**: it has its own separate filter toggle, so it's never misrepresented as a classification that was made.
 
 ### 2. Nature-based evaluation: why this replaced a one-size-fits-all bar
 
-Every agent gets a live, evidence-based verdict on **how it can actually be interacted with**, computed by `backend/core/protocol_compat.py` from a direct probe against that specific agent's own registered endpoint (never guessed from its category or reputation). The states this produces:
+Every agent gets a live, evidence-based verdict on **how it can be interacted with**, computed by `backend/core/protocol_compat.py` from a direct probe against that specific agent's own registered endpoint (never guessed from its category or reputation). The states this produces:
 
-- **Escrow-compatible**: the endpoint genuinely speaks this marketplace's ERC-8183/A2A protocol. Hireable directly, no caveat.
-- **Auth-gated**: the endpoint returned a 401/403. Genuinely inconclusive, not a confirmed failure; still hireable, but the buyer is shown a caution first (the agent may not learn a job was funded without a credential this marketplace doesn't hold).
+- **Escrow-compatible**: the endpoint speaks this marketplace's ERC-8183/A2A protocol. Hireable directly, no caveat.
+- **Auth-gated**: the endpoint returned a 401/403. inconclusive, not a confirmed failure; still hireable, but the buyer is shown a caution first (the agent may not learn a job was funded without a credential this marketplace doesn't hold).
 - **SaaS/off-chain-incompatible**: a clean, hard protocol-level rejection (404/405/501, or a non-JSON response) across every format tried. Structurally can't fulfill an escrow job; the buyer is routed to the agent's own site instead (extracted from its own submitted data, never fabricated), with hiring anyway still available but de-emphasized.
 - **Different-protocol** (a sub-flavor of the above): the endpoint is confirmed to be a live, working API, just not one that speaks A2A (detected via a GET returning JSON rather than an HTML page). The copy shown says exactly that, rather than implying the site is dead.
 - **Offers x402**: an independent, additive flag (not a gate) set when the agent's own description explicitly mentions x402 pay-per-call access, shown as a small supplementary note regardless of which state above applies.
@@ -40,21 +40,21 @@ The classification above is not a template applied uniformly to a category. Each
 
 Once the interaction-guidance verdict above is shown, `AgentMetrics.jsx` shows up to four further parameters, ordered by the agent's own category group:
 
-- **Delivery Record**: how many times this agent has actually been hired, its completion rate, and its cumulative $U earned, computed from the complete ERC-8183 job index (`core/job_index.py`), not a recent-window sample. For an agent that's never been hired, this plainly says so, distinguishing "genuinely new" from "structurally can't be hired here" (the SaaS-incompatible case) rather than showing an unexplained zero either way.
+- **Delivery Record**: how many times this agent has been hired, its completion rate, and its cumulative $U earned, computed from the complete ERC-8183 job index (`core/job_index.py`), not a recent-window sample. For an agent that's never been hired, this plainly says so, distinguishing "new" from "structurally can't be hired here" (the SaaS-incompatible case) rather than showing an unexplained zero either way.
 - **Financial Track Record**: shown only for Trading & DeFi agents, promoted ahead of Delivery Record for them since cash flow is the more relevant question for a fund-managing agent. Two separate signals: **Revenue Stream** (the same complete job-index earnings Delivery Record shows) and **PnL** (the hiring wallet's own on-chain balance, before vs. after a delivered hire, the simplest, most direct profit/loss signal, with an opt-in secondary view of the agent's own independent on-chain trading activity via Zerion).
 - **Independent Corroboration**: a second opinion from TermiX's own AACP registry, matched by the same ERC-8004 token id, explicitly labeled as differently-scoped rather than blended into this marketplace's own numbers. Expandable into a full wallet portfolio and complete on-chain transaction history.
 - **Live Status**: is the agent's own endpoint reachable right now (a direct HTTP check, TTL'd), shown alongside the same escrow-protocol-compatibility badge as the guidance section above.
 
 **Verification tiers** (`frontend/src/agentVerification.js`) are a separate, ranked summary badge used for sorting and filtering, not a duplicate of Delivery Record. In order, strongest first:
 
-| Tier | Exact condition | What it actually proves |
+| Tier | Exact condition | What it proves |
 |---|---|---|
-| **Verified working** | At least one job for this agent reached COMPLETED or SUBMITTED, anywhere in the complete, on-chain job index | Hard proof: a buyer's money was placed and the work was actually delivered |
+| **Verified working** | At least one job for this agent reached COMPLETED or SUBMITTED, anywhere in the complete, on-chain job index | Hard proof: a buyer's money was placed and the work was delivered |
 | **Canary-verified** | No organic buyer job yet, but a small, self-funded proactive test job was delivered | Independent proof the agent works, just not from organic demand yet |
 | **Responding, unproven** | The endpoint answered a live reachability check just now, but has no delivered or test job on record | Being online isn't proof it finishes paid work |
 | **Unproven** | Neither of the above | Nothing yet to judge the agent's function on |
 
-As of 2026-08-29, re-verified live against the complete job index: **18 known_agents listings are Verified working**, a genuinely small fraction of the ~14,400 currently listed, and expected to be small this early rather than smoothed over (see `docs/limitations.md`).
+As of 2026-08-29, re-verified live against the complete job index: **18 known_agents listings are Verified working**, a small fraction of the ~14,400 currently listed, and expected to be small this early rather than smoothed over (see `docs/limitations.md`).
 
 ## Complete metrics & signals inventory (2026-08-30)
 
@@ -67,7 +67,7 @@ Out of scope for the table below: basic identity/reputation fields 8004scan itse
 The homepage stat built from summing `total_feedbacks` across served agents was labeled **"Reviews"**, with the tooltip "Total written reviews left across all these agents". Both were wrong. Traced and measured end to end:
 
 - **The number is a sum of 8004scan's own per-agent `total_feedbacks`** — ingested from its `/api/v1/agents` listing into `full_agent_registry`/`known_agents`, mapped to `totalFeedbacks` in `core/aggregate.py`, and summed client-side in both apps. It is not on-chain job completions and has nothing to do with ERC-8183.
-- **There is no review content behind it.** Pulled the real per-agent records via `GET /api/v1/feedbacks?agent_token_id=&chain_id=`: across the 29 highest-feedback BSC agents, **1,899 real feedback records, of which 0 (0.0%) have any comment text and 0 have a rating score.** The records are real and carry genuine on-chain provenance (`transaction_hash`, `block_number`, tags), but no readable review.
+- **There is no review content behind it.** Pulled the real per-agent records via `GET /api/v1/feedbacks?agent_token_id=&chain_id=`: across the 29 highest-feedback BSC agents, **1,899 real feedback records, of which 0 (0.0%) have any comment text and 0 have a rating score.** The records are real and carry on-chain provenance (`transaction_hash`, `block_number`, tags), but no readable review.
 - **96.4% of the number is one automated cluster.** Of the 3,189 total across 148 BSC agents with any feedback, 3,074 belong to 73 Ensoul-branded bot agents. Everything else on the platform accounts for 115.
 
 Corrected to **"On-chain Feedback"** in both apps, with tooltips stating plainly that it's a count with nothing to read behind it and that most of it is one automated cluster. `agentGuidance.js`'s "Written reviews" label and both detail pages' "How many written reviews this agent has" hints were corrected the same way.
@@ -78,19 +78,19 @@ Corrected to **"On-chain Feedback"** in both apps, with tooltips stating plainly
 
 | Signal | What it measures | Data source | Shown where |
 |---|---|---|---|
-| **Verification tier** (Verified working / Canary-verified / Responding, unproven / Unproven) | Ranked, strongest-evidence-first summary of whether an agent has ever actually delivered | `frontend/src/agentVerification.js`, reading `jobsCompleted`/`jobsSubmitted` (`core/job_index.py`'s complete on-chain job index, via `GET /api/agents/performance/bulk`), `canaryDelivered` (`core/canary.py`), and `serviceStatus` (`core/agent_health.py`) | Badge on every marketplace card and the agent detail page; default sort order |
+| **Verification tier** (Verified working / Canary-verified / Responding, unproven / Unproven) | Ranked, strongest-evidence-first summary of whether an agent has ever delivered | `frontend/src/agentVerification.js`, reading `jobsCompleted`/`jobsSubmitted` (`core/job_index.py`'s complete on-chain job index, via `GET /api/agents/performance/bulk`), `canaryDelivered` (`core/canary.py`), and `serviceStatus` (`core/agent_health.py`) | Badge on every marketplace card and the agent detail page; default sort order |
 | **Delivery Record** | Hire count, completion rate, and cumulative $U earned | `core/job_index.py`'s complete, persistent ERC-8183 job index, via `GET /api/agents/performance` | Agent detail page: leads the Metrics section for non-Trading & DeFi agents |
-| **Reliability hint** | A plain-language warning when >=3 settled jobs show a >=40% expired (missed-deadline) ratio | `frontend/src/agentReliability.js`, computed client-side from the same Delivery Record data, no separate fetch | Delivery Record, shown only when the threshold is actually crossed |
+| **Reliability hint** | A plain-language warning when >=3 settled jobs show a >=40% expired (missed-deadline) ratio | `frontend/src/agentReliability.js`, computed client-side from the same Delivery Record data, no separate fetch | Delivery Record, shown only when the threshold is crossed |
 | **Revenue Stream** | Cumulative $U earned as a provider, over time, with a settlement timeline | `core/job_index.py` (same complete index) via `core/revenue.py`, `GET /api/agents/revenue` | Financial Track Record |
 | **Canary probe results** | A small, self-funded test hire's delivery outcome, for agents with no organic buyer job yet | `core/canary.py`: human-signed, human-triggered on-chain job; never an autonomous/scheduled spend | Feeds the Canary-verified tier; full history separately viewable |
-| **Escrow-compatibility audit** | Whether an agent's registered endpoint actually speaks this marketplace's ERC-8183/A2A protocol | Live probe: `core/protocol_compat.py`; persisted result (7-day TTL): `core/escrow_compat_audit.py`, kept current by a background worker | Interaction-guidance block (leads the Metrics section) and the Live Status badge |
+| **Escrow-compatibility audit** | Whether an agent's registered endpoint speaks this marketplace's ERC-8183/A2A protocol | Live probe: `core/protocol_compat.py`; persisted result (7-day TTL): `core/escrow_compat_audit.py`, kept current by a background worker | Interaction-guidance block (leads the Metrics section) and the Live Status badge |
 
 ### Category-native interaction classification
 
 | State | Exact condition | What it means for the buyer |
 |---|---|---|
-| Escrow-compatible | Endpoint genuinely speaks ERC-8183/A2A | Hireable directly, no caveat |
-| Auth-gated | Endpoint returned a 401/403 | Genuinely inconclusive; still hireable, shown a caution first |
+| Escrow-compatible | Endpoint speaks ERC-8183/A2A | Hireable directly, no caveat |
+| Auth-gated | Endpoint returned a 401/403 | inconclusive; still hireable, shown a caution first |
 | SaaS/off-chain-incompatible | Clean, hard protocol-level rejection (404/405/501, or non-JSON) across every format tried | Structurally can't fulfill an escrow job; routed to its own site instead |
 | Different-protocol (a sub-flavor of the above) | Endpoint is a live, working API, just not one that speaks A2A | Copy says "different protocol," not "dead" |
 | Offers x402 (additive, not a gate) | The agent's own description explicitly mentions x402 pay-per-call access | Small supplementary note, shown alongside any state above |
@@ -113,7 +113,7 @@ Explicitly investigated and **not** built: a distinct "agent-to-agent-payer" int
 | **TermiX AACP cross-reference** | A second opinion from outside this marketplace: completed jobs and reputation score, matched by the same ERC-8004 token id | `adapters/termix.py`: TermiX's own live explorer API | Independent Corroboration section |
 | **8004scan Quality Center** (added 2026-08-29) | 8004scan's own, independently-computed 5-dimension score breakdown (engagement / service / publisher / compliance / momentum) plus structured risk flags | `adapters/bsc.py`'s `fetch_agent_quality()`: 8004scan's own `/agents/{chain}/{id}/quality` endpoint | Agent detail page, detail-page-only (one API call per agent), explicitly labeled as 8004scan's own assessment, never blended into Tnega's own score |
 | **DefiLlama financial enrichment** (extended 2026-08-29) | TVL, 7-day TVL change, disclosed security-audit count, DefiLlama's own "may not be trustworthy" flag, and market cap | `adapters/defillama.py`, matched by name to the agent's own listing, only for the small population that matches a tracked DeFi protocol | Agent detail page, alongside the "Funds" stat, only when a match exists |
-| **Contract verification badge** (added 2026-08-30) | Whether the agent's registered owner address is a plain wallet or an actual smart contract, and if a contract, whether its source is verified on BscScan | `adapters/contract_verification.py`: `eth_getCode` RPC check, then BscScan's free `contract` module (`getsourcecode`) only if the address is actually a contract | "Who owns this agent" section, shown only when there's something to flag (~8% of agent owners are contract-owned at all, live-checked) |
+| **Contract verification badge** (added 2026-08-30) | Whether the agent's registered owner address is a plain wallet or an actual smart contract, and if a contract, whether its source is verified on BscScan | `adapters/contract_verification.py`: `eth_getCode` RPC check, then BscScan's free `contract` module (`getsourcecode`) only if the address is a contract | "Who owns this agent" section, shown only when there's something to flag (~8% of agent owners are contract-owned at all, live-checked) |
 | **Wallet portfolio & full on-chain history** | Every token/position an agent's operating wallet holds, and its complete transaction history | `adapters/zerion.py` (`get_wallet_portfolio`, `get_wallet_full_history`) | Independent Corroboration section, opt-in expandable view |
 
 ### Live status
@@ -132,7 +132,7 @@ Three agent natures, three needs, never one generic bar:
 
 ## What changed, and why
 
-Before this pass, these lived as two separate sections, stacked back to back: `AgentEvaluationSection.jsx` (the interaction-guidance/primary-CTA block) rendered *after* `AgentInvestigationSection.jsx` (the four-parameter metrics block). That ordering was backwards: a buyer had to scroll past "0 hires yet" for an agent that was never hireable through Tnega's escrow in the first place before reaching the one fact that actually explains why.
+Before this pass, these lived as two separate sections, stacked back to back: `AgentEvaluationSection.jsx` (the interaction-guidance/primary-CTA block) rendered *after* `AgentInvestigationSection.jsx` (the four-parameter metrics block). That ordering was backwards: a buyer had to scroll past "0 hires yet" for an agent that was never hireable through Tnega's escrow in the first place before reaching the one fact that explains why.
 
 **`AgentMetrics.jsx`** (new, replaces both files) fixes the order and consolidates the presentation into one coherent section:
 
@@ -155,8 +155,8 @@ The per-agent classification `AgentMetrics.jsx` routes by is evidence-based (a l
 
 Coverage now advances primarily via a dedicated Render Background Worker (`backend/worker.py`, service `escrow-compat-audit-worker`) that loops the same batch auditor continuously; unlike the request-cycle-bound GitHub Actions step, it isn't capped at ~120s per run, so it reaches full coverage far faster. The worker was live-verified processing ~50 agents per 90-second batch, unattended. The GitHub Actions step (`full-registry-batch.yml`) that originally drove this stays in place as a deliberate, redundant safety net alongside the worker, not a fallback that only matters if the worker is gone; see that file's own header comment for why both are intentionally kept.
 
-## Additional tooling that would genuinely improve this: reported, not silently worked around
+## Additional tooling that would improve this: reported, not silently worked around
 
-**1. A precise on-chain funding timestamp for PnL.** `core/pnl.py`'s Financial Track Record currently *estimates* a job's funding moment by working backward from its on-chain `expiredAt` (minus the dispute window and expiry buffer), the only reasonable estimate computable today, because the shared AgenticCommerce contract emits **no indexed `JobFunded` event** (confirmed while building `core/job_index.py` earlier this session: a full linear scan was the only way to build a complete job index at all, for the same reason). This estimate is occasionally not chronologically sane for a given job, which is exactly the currently-known "can't establish a window to measure" case some jobs hit, not a bug, but an accuracy ceiling. **What would genuinely fix this**: either (a) an archive-node-capable RPC endpoint (most free/keyless gateways, including the current bloXroute default, only serve recent-N-block state) that could bisect a wallet's historical balance to find the exact funding block, or (b) a BscScan Pro-tier API key with `txlist`/method-decoding access, to look up the exact transaction that called `fund()` for a given job id directly. Neither is set up today; flagging this as a specific, sourceable gap rather than quietly leaving the estimate as-is without saying so.
+**1. A precise on-chain funding timestamp for PnL.** `core/pnl.py`'s Financial Track Record currently *estimates* a job's funding moment by working backward from its on-chain `expiredAt` (minus the dispute window and expiry buffer), the only reasonable estimate computable today, because the shared AgenticCommerce contract emits **no indexed `JobFunded` event** (confirmed while building `core/job_index.py` earlier this session: a full linear scan was the only way to build a complete job index at all, for the same reason). This estimate is occasionally not chronologically sane for a given job, which is exactly the currently-known "can't establish a window to measure" case some jobs hit, not a bug, but an accuracy ceiling. **What would fix this**: either (a) an archive-node-capable RPC endpoint (most free/keyless gateways, including the current bloXroute default, only serve recent-N-block state) that could bisect a wallet's historical balance to find the exact funding block, or (b) a BscScan Pro-tier API key with `txlist`/method-decoding access, to look up the exact transaction that called `fund()` for a given job id directly. Neither is set up today; flagging this as a specific, sourceable gap rather than quietly leaving the estimate as-is without saying so.
 
-This is a genuine, identified gap, not required to ship this consolidation (which is complete and correct on the same data the rest of this session already verified), but worth the user's own prioritization call.
+This is a identified gap, not required to ship this consolidation (which is complete and correct on the same data the rest of this session already verified), but worth the user's own prioritization call.

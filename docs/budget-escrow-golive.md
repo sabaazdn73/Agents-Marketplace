@@ -74,7 +74,7 @@ export RPC=https://bsc-dataseed.binance.org
 
 ---
 
-## 1. Verify the constructor actually took what you meant
+## 1. Verify the constructor took what you meant
 
 Cheapest possible check, and it catches the worst class of error — wrong fee
 recipient, wrong fee, a token you did not intend to accept. All read-only.
@@ -126,7 +126,7 @@ cast call $ESC "drawableNow(uint256)(uint256)" 1 --rpc-url $RPC   # expect 10000
 ```
 
 `drawableNow` should be the **per-draw max**, not the total — that proves
-`maxPerDraw` is actually being enforced rather than stored and ignored.
+`maxPerDraw` is being enforced rather than stored and ignored.
 
 **Draw** as the agent:
 
@@ -214,7 +214,7 @@ cast send $ESC "unpause()" --account <owner-wallet> --rpc-url $RPC
    upgradeable, so there is no proxy to patch — a new deployment is the
    intended path and existing budgets stay fully exitable on the old one.
 
-## What skipping testnet actually costs
+## What skipping testnet costs
 
 Being explicit, since it was a deliberate decision:
 
@@ -225,6 +225,6 @@ Being explicit, since it was a deliberate decision:
   fork, which is closer to mainnet than testnet is.
 - **Covered by the checklist above.** Deployment mechanics, constructor
   arguments, verification, real wallet signing, real gas, event emission.
-- **Genuinely not covered by either.** An unknown bug in a path no test
+- **not covered by either.** An unknown bug in a path no test
   imagined. This is why `pause()` exists and why the first budget should be
   worth a cent.

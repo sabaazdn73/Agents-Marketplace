@@ -13,7 +13,7 @@
 
 | Parameter | Question it answers | Data source |
 |---|---|---|
-| **Delivery Record** | Has this agent actually delivered paid work, and how much has it earned doing so? | `core/job_index.py`'s complete ERC-8183 job index (`/api/agents/performance`, `/api/agents/revenue`) |
+| **Delivery Record** | Has this agent delivered paid work, and how much has it earned doing so? | `core/job_index.py`'s complete ERC-8183 job index (`/api/agents/performance`, `/api/agents/revenue`) |
 | **Financial Track Record** | (Trading & DeFi only) Did a hire's own funding wallet end up ahead or behind? | `core/pnl.py`, job.client wallet balance before vs. after (primary); `core/onchain_pnl.py`'s independent on-chain execution history, opt-in, secondary |
 | **Independent Corroboration** | What does a source outside this marketplace say about this agent? | TermiX's own AACP registry (primary); full wallet portfolio and complete on-chain history, opt-in |
 | **Live Status** | Is this agent reachable right now, and does it speak this marketplace's escrow protocol? | `ServiceHealthBadge` (agent_health.py) + escrow-compatibility (`protocol_compat.py`) |
@@ -32,7 +32,7 @@ Checked directly before generalizing: `job.client` is an observable wallet addre
 
 ## Live Status reliability fix
 
-Found while reviewing this: the marketplace's own service-health check previously only ran as a side effect of the much heavier full-registry-backed marketplace refresh, the exact same path this session confirmed repeatedly OOM-crashes under memory pressure (see the aggregate.py fix commits). When that heavier refresh failed partway through, health-check data silently went stale right along with it. Decoupled: a new, independent, bounded endpoint (`POST /api/admin/health-check-batch`, `core/agent_health.py`'s `check_agents_health` gained a `limit` parameter, found live to be genuinely unbounded before this, a risk in its own right if a large share of the store were stale at once) runs on the same 6-hour GitHub Actions schedule as a third step, keeping Live Status fresh regardless of whether the heavier refresh succeeds that cycle.
+Found while reviewing this: the marketplace's own service-health check previously only ran as a side effect of the much heavier full-registry-backed marketplace refresh, the exact same path this session confirmed repeatedly OOM-crashes under memory pressure (see the aggregate.py fix commits). When that heavier refresh failed partway through, health-check data silently went stale right along with it. Decoupled: a new, independent, bounded endpoint (`POST /api/admin/health-check-batch`, `core/agent_health.py`'s `check_agents_health` gained a `limit` parameter, found live to be unbounded before this, a risk in its own right if a large share of the store were stale at once) runs on the same 6-hour GitHub Actions schedule as a third step, keeping Live Status fresh regardless of whether the heavier refresh succeeds that cycle.
 
 ## A scope note
 

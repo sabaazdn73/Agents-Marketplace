@@ -2,7 +2,7 @@
 
 ## The ask
 
-Build an additional ranking/trust signal based on an agent developer's GitHub activity (last commit date, stars, issue responsiveness), for agents with a verifiable GitHub repository link in their registered metadata, conditional on prevalence actually justifying the UI space, per the task's own explicit requirement.
+Build an additional ranking/trust signal based on an agent developer's GitHub activity (last commit date, stars, issue responsiveness), for agents with a verifiable GitHub repository link in their registered metadata, conditional on prevalence justifying the UI space, per the task's own explicit requirement.
 
 ## Prevalence, checked three independent ways before building anything
 
@@ -14,7 +14,7 @@ The one match isn't even a legitimate per-agent case: it links to `bnb-chain/bnb
 
 ## Conclusion
 
-Effectively 0% of agents in this registry have a verifiable GitHub repository link in their registered metadata, not a small-but-real minority, close to genuinely none. Building the detection/GitHub-API/caching pipeline, the detail-page signal, or a sort-order factor would all be working code that essentially never triggers for any agent today.
+Effectively 0% of agents in this registry have a verifiable GitHub repository link in their registered metadata, not a small-but-real minority, close to none. Building the detection/GitHub-API/caching pipeline, the detail-page signal, or a sort-order factor would all be working code that essentially never triggers for any agent today.
 
 ## Decision
 

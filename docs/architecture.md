@@ -38,7 +38,7 @@ One Vite/React codebase, two separately-designed UIs sharing the same backend an
 - `AgentMarketplaceApp.web.jsx`: a sidebar-navigation layout for desktop.
 - `AgentMarketplaceApp.mobile.jsx`: a bottom-nav, single-column layout for mobile viewports.
 
-`App.jsx` picks between them at a 768px breakpoint (`window.innerWidth`), and also handles a small set of standalone routes outside the tab structure, `/ecosystem`, `/status`, `/data-sources`, `/partners`, `/docs`, via a plain `pathname` check (no router library; see [Features](features.md) for what each page does). These are genuinely separate, deep-linkable URLs, not tabs. The main app's own tabs (`/market`, `/my-agents`, `/report`, `/learn`, `/build`, `/sell`) get URLs the same way.
+`App.jsx` picks between them at a 768px breakpoint (`window.innerWidth`), and also handles a small set of standalone routes outside the tab structure, `/ecosystem`, `/status`, `/data-sources`, `/partners`, `/docs`, via a plain `pathname` check (no router library; see [Features](features.md) for what each page does). These are separate, deep-linkable URLs, not tabs. The main app's own tabs (`/market`, `/my-agents`, `/report`, `/learn`, `/build`, `/sell`) get URLs the same way.
 
 Shared logic lives in plain `.js`/`.jsx` modules imported by both apps: the hire flow (`useHireAgent.js`), the Altana SDK wrapper (`altana.js`), job status + deliverable rendering (`JobStatusPanel.jsx`), notifications, wallet-portfolio enrichment, and more, so web and mobile never silently diverge on how a transaction gets built or a job gets read.
 
@@ -60,7 +60,7 @@ The full, current list of backend routes is in [Getting Started](getting-started
 - `explainer_deliverables`: a durable mirror of the explainer-agent's own delivered content (see [Limitations](limitations.md) for why this exists; Render's free-tier disk is ephemeral, so this collection is what survives a restart).
 - `canary_tests`: a log of every human-triggered canary test hire (`core/canary.py`); never a spend record on its own, just an after-the-fact log of an already-broadcast transaction. See [Verification Methodology](verification-methodology.md).
 
-`future_multichain_agents` (an earlier, much smaller 62-doc attempt at multi-chain data, superseded once `full_agent_registry` covered Ethereum) and `practice_runs` (leftover data from the removed Practice Mode feature) were both deleted 2026-09-10, along with the now-dead code that wrote them, as part of a real, safe-data cleanup that reclaimed space on a MongoDB Atlas free-tier cluster that had hit its 512MB quota — each confirmed genuinely unused (zero code references, and for `future_multichain_agents`, every one of its 62 docs already present in `full_agent_registry`) before deletion.
+`future_multichain_agents` (an earlier, much smaller 62-doc attempt at multi-chain data, superseded once `full_agent_registry` covered Ethereum) and `practice_runs` (leftover data from the removed Practice Mode feature) were both deleted 2026-09-10, along with the now-dead code that wrote them, as part of a safe-data cleanup that reclaimed space on a MongoDB Atlas free-tier cluster that had hit its 512MB quota — each confirmed unused (zero code references, and for `future_multichain_agents`, every one of its 62 docs already present in `full_agent_registry`) before deletion.
 
 ## Smart contracts
 

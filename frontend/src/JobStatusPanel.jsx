@@ -112,7 +112,7 @@ function formatCountdown(ms) {
  * /api/deliverable/proxy instead (see core/deliverable_proxy.py) — same
  * origin, real CORS headers, same content-type-based rendering below,
  * unchanged. The one exception: an actual IMAGE still loads via `<img
- * src={url}>` on the ORIGINAL url in DeliverableViewer below — an <img> tag
+ * src={url}>` on the ORIGINAL url in DeliverableViewer below, an <img> tag
  * isn't subject to CORS the way a script-initiated fetch() read is, so it
  * needs no proxying. */
 function useDeliverableContent(url) {
@@ -529,7 +529,7 @@ export default function JobStatusPanel({
         <div className={`-mt-1 -mx-1 mb-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
           flashKind === 'submitted' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
         }`}>
-          {flashKind === 'submitted' ? <><CheckCircle2 size={13} /> Just delivered!</> : <><XCircle size={13} /> Just expired — you can get a refund now</>}
+          {flashKind === 'submitted' ? <><CheckCircle2 size={13} /> Just delivered!</> : <><XCircle size={13} /> Just expired. You can get a refund now</>}
         </div>
       )}
       <div className="flex items-center justify-between">
@@ -601,11 +601,11 @@ export default function JobStatusPanel({
               <Clock size={11} />
               {countdownMs > 0
                 ? <span>Deadline in {formatCountdown(countdownMs)} — after that, come back here and claim a refund yourself (it won't happen on its own)</span>
-                : <span>Past its deadline — a refund is now available below</span>}
+                : <span>Past its deadline. A refund is now available below</span>}
             </div>
           )}
 
-          <p className="opacity-60 leading-relaxed pt-0.5">The agent hasn't finished the work yet — there's nothing to show until it does.</p>
+          <p className="opacity-60 leading-relaxed pt-0.5">The agent hasn't finished the work yet. There's nothing to show until it does.</p>
         </div>
       )}
 
@@ -649,7 +649,7 @@ export default function JobStatusPanel({
           {submitted && pastDisputeWindow && (
             <div className="flex items-start gap-1.5 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/50 text-[11px] text-emerald-800 dark:text-emerald-300">
               <CheckCircle2 size={13} className="shrink-0 mt-0.5" />
-              <span>The 7-day review window passed with no dispute — this job is now eligible for settlement. Releasing payment is permissionless on-chain at this point, so anyone can do it, not just you.</span>
+              <span>The 7-day review window passed with no dispute. This job is now eligible for settlement. Releasing payment is permissionless on-chain at this point, so anyone can do it, not just you.</span>
             </div>
           )}
           {submitted && pastDisputeWindow && onApprove && (
@@ -673,7 +673,7 @@ export default function JobStatusPanel({
 
       {canClaimRefund && onClaimRefund && (
         <div className="space-y-1.5 pt-1">
-          <p className="opacity-80 leading-relaxed">The deadline passed and the agent never delivered anything. Your money is still safe — you can get it back right now.</p>
+          <p className="opacity-80 leading-relaxed">The deadline passed and the agent never delivered anything. Your money is still safe. You can get it back right now.</p>
           <button onClick={handleClaimRefund} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ color: accent, borderColor: accent + '4D' }}>
             {busy ? <Loader2 size={13} className="animate-spin" /> : <Coins size={13} />} Get my money back
           </button>

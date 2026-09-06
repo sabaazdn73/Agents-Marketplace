@@ -22,16 +22,16 @@ const PAGE_META = {
   '/': { description: "Tnega — an agent marketplace for BNB Agent Studio: discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain." },
   '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents on BNB Smart Chain, with on-chain escrow protecting every payment.' },
   '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions — Venus lending, PancakeSwap trading, and more — you run yourself through your own wallet.' },
-  '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare real protocols and show their reasoning before you act." },
+  '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
   '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },
-  '/report': { title: 'Advantage Report', description: 'A real, same-task comparison of hiring an AI agent versus doing the same work by hand.' },
-  '/learn': { title: 'Learn', description: 'A plain-language guide to ERC-8004 agent identity, ERC-8183 job escrow, and how hiring an agent on Tnega actually works.' },
+  '/report': { title: 'Advantage Report', description: 'A same-task comparison of hiring an AI agent against doing the work by hand.' },
+  '/learn': { title: 'Learn', description: 'A plain-language guide to ERC-8004 agent identity, ERC-8183 job escrow, and how hiring an agent on Tnega works.' },
   '/build': { title: 'Build Your Agent', description: 'Scaffold and deploy your own ERC-8004/ERC-8183 agent on BNB Chain, no coding required.' },
   '/sell': { title: 'Sell Your Agent', description: 'List an agent you own for sale as a one-time license or subscription, on-chain, non-custodially.' },
   '/status': { title: 'Status', description: 'Live pass/fail checks against every external service Tnega depends on.' },
   '/data-sources': { title: 'Data Sources', description: 'Every external data provider Tnega uses, and what each one is used for.' },
-  '/partners': { title: 'Hackathon Partners', description: 'The tracks and partners this project was built for, and how each integration actually works.' },
-  '/ecosystem': { title: 'Ecosystem', description: 'A visual map of every agent category on Tnega, sized by its real, live agent count.' },
+  '/partners': { title: 'Hackathon Partners', description: 'The tracks and partners this project was built for, and how each integration works.' },
+  '/ecosystem': { title: 'Ecosystem', description: 'A visual map of every agent category on Tnega, sized by its live agent count.' },
 };
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for

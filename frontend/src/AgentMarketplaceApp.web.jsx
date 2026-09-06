@@ -227,7 +227,7 @@ const LEARN_TOPICS = [
   { title: 'Start here: the words we use, in plain English', body: [
     { h: 'A wallet', p: 'A wallet is just an account that can hold crypto and sign approvals — like an online account that can also say "yes, spend this." Here you can create one with Face ID / a passkey, so there\'s no seed phrase to write down.', plain: 'Think: a bank-card + signature, combined, that only you control.', src: SRC.altana },
     { h: 'Gas', p: 'Gas is the tiny network fee paid to record a transaction on the blockchain — like a stamp on a letter. Registering an agent here is gas-free: a "paymaster" called MegaFuel covers it, so you don\'t need to hold gas tokens.', plain: 'You don\'t pay a stamp to list an agent — the network sponsors it.', src: SRC.sdk },
-    { h: 'Mainnet', p: "Mainnet is BNB Chain's live network, where money moves for real. Everything on this site runs on mainnet, not a test network.", plain: 'This is the live network. Nothing here is a simulation.' },
+    { h: 'Mainnet', p: "Mainnet is BNB Chain's live network, where money actually moves. Everything on this site runs on mainnet rather than a test network.", plain: 'This is the live network. Nothing here is a simulation.' },
     { h: 'Escrow', p: 'Escrow is a neutral on-chain vault. When you hire an agent, your payment is locked there; the agent is paid only when the work is accepted, and you can reclaim it if they never deliver.', plain: 'Your money is held by the rules, not by the agent, until the job is done.', src: SRC.sdk },
   ]},
   { title: 'The two standards every agent here uses', body: [
@@ -281,7 +281,7 @@ const KID_FRIENDLY_FAQ = [
   { q: 'What is a passkey wallet?', a: 'A crypto wallet you unlock with Face ID / Touch ID instead of a seed phrase. It signs approvals for you, and for Skills you grant it only a capped, expiring, contract-limited session.', src: SRC.altana },
   { q: 'Can it spend my money without asking?', a: 'No. Hiring funds one specific job you set and fund yourself; a Skill session has a spend cap, an expiry, and an allow-list of contracts. Neither is a standing permission it can redraw from.', src: SRC.sdk },
   { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes — but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
-  { q: 'Do I need my own cloud hosting account to build one?', a: "No. The \"Build it for real\" button uses a free trial (about 2 days) on a temporary practice wallet — no hosting account, no real money involved. Hosting it yourself long-term is optional, and only if you want to later.", src: SRC.studio },
+  { q: 'Do I need my own cloud hosting account to build one?', a: "No. The \"Build it for real\" button uses a free trial (about 2 days) on a temporary practice wallet, with no hosting account and no money involved. Hosting it yourself long-term is optional, and only if you want to later.", src: SRC.studio },
   { q: 'What kind of agent can I build?', a: "Pretty much anything you can describe in a sentence: trading, research, writing, customer support, data analysis, games — you're not limited to a preset list. The category shown here is just how we label it afterward.", src: SRC.studioQuick },
   { q: 'Can it sell to people, not just other agents?', a: "Yes. Any buyer — a person or another agent — can hire it. It's not limited to agent-to-agent deals.", src: SRC.studioArch },
 ];
@@ -343,9 +343,9 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-          <DetailStat label="Score" hint="How trustworthy this agent looks, based on real past feedback — higher is better" value={agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'} />
+          <DetailStat label="Score" hint="How trustworthy this agent looks, based on past feedback. Higher is better." value={agent.totalScore != null ? agent.totalScore.toFixed(1) : '—'} />
           <DetailStat label="Stars" hint="How many people rated this agent" value={agent.starCount ?? '—'} />
-          <DetailStat label="On-chain Feedback" hint="On-chain ERC-8004 feedback entries for this agent — a count only, with no written text or rating behind it" value={agent.totalFeedbacks ?? '—'} />
+          <DetailStat label="On-chain Feedback" hint="On-chain ERC-8004 feedback entries for this agent. A count only, with no written text or rating behind it" value={agent.totalFeedbacks ?? '—'} />
           <DetailStat label="Funds" hint="Total money this agent currently manages for people" value={agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—'} />
         </div>
         {agent.financialDataAvailable && agent.defillamaUrl && (
@@ -366,7 +366,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             {agent.tvlDataFlagged && (
               <div className="mt-2 flex items-start gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                 <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-                <span>DefiLlama flags this protocol's reported funds as possibly not representative of its real value.</span>
+                <span>DefiLlama flags this protocol's reported funds as possibly unrepresentative of its value.</span>
               </div>
             )}
           </div>
@@ -375,7 +375,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         <div className="flex flex-wrap items-center gap-2 my-5">
           {agent.isVerified && <DetailBadge icon={BadgeCheck} hint="Registered on-chain, not a quality rating">Verified</DetailBadge>}
           {agent.x402Supported && <DetailBadge icon={Zap} hint="Can pay other agents automatically for tools or data it needs, without a person approving each payment">Pays other agents automatically</DetailBadge>}
-          {(agent.supportedProtocols || []).map((p) => <DetailBadge key={p} icon={Coins} hint={`Works with ${p}, a real app it can act on for you`}>{p}</DetailBadge>)}
+          {(agent.supportedProtocols || []).map((p) => <DetailBadge key={p} icon={Coins} hint={`Works with ${p}, an app it can act on for you`}>{p}</DetailBadge>)}
           <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
           {(!agent.serviceStatus || agent.serviceStatus === 'unknown') && (
             <span className="text-[11px] text-gray-400" title="Not checked yet, or the last check didn't go through">Not confirmed online yet</span>
@@ -394,7 +394,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             <a href={`${BSCSCAN}/address/${agent.ownerAddress}`} target="_blank" rel="noreferrer" className="font-mono text-xs text-indigo-500 hover:underline inline-flex items-center gap-1 break-all">
               {agent.ownerAddress} <ExternalLink size={11} className="shrink-0" />
             </a>
-            <p className="text-[11px] text-gray-400 mt-1">This is the agent creator's wallet ID — a public account number anyone can look up, like a bank account number that's safe to share. Tap it to see its full activity record.</p>
+            <p className="text-[11px] text-gray-400 mt-1">This is the agent creator's wallet ID. A public account number anyone can look up, like a bank account number that's safe to share. Tap it to see its full activity record.</p>
           </>
         ) : (
           <p className="text-xs text-gray-400">We don't have an owner ID on record for this agent.</p>
@@ -405,7 +405,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             placed apart from the "Funds" stat above so the two are never
             confused with one another. */}
         <div className="mt-4 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
-          <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5" title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now — checked live, this instant."><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
+          <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5" title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now, checked live, this instant."><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">
             {agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">not available</span>}
           </span>
@@ -918,7 +918,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 href="https://f2f-uzh.vercel.app"
                 target="_blank"
                 rel="noopener noreferrer"
-                title="F2F Hub — all three projects in this portfolio"
+                title="F2F Hub, all three projects in this portfolio"
                 className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20 block"
               >
                 <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
@@ -1076,10 +1076,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         On-chain Feedback
                         <InfoTooltip label="" size={12}>
                           On-chain ERC-8004 feedback entries recorded against these agents. These are
-                          counts only — they carry no written text and no star rating, so there's
+                          counts only. They carry no written text and no star rating, so there's
                           nothing to read behind the number. Most of it also comes from one automated
                           cluster rather than many independent buyers. For evidence an agent actually
-                          works, use "Verified Agents" instead — that means a real completed job.
+                          works, use "Verified Agents" instead, which means a completed job.
                         </InfoTooltip>
                       </div>
                     </div>
@@ -1112,7 +1112,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               <div className="mb-5">
                 <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
                   <div className="space-y-2">
-                    <p><strong>Online now</strong> — we just reached this agent's endpoint and it answered. No checkmark just means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal by itself — see "How we verify agents" above for what actually counts as proof.</p>
+                    <p><strong>Online now</strong> means we reached this agent's endpoint just now and it answered. No checkmark only means we haven't confirmed recently, not that anything is broken. Either way it isn't a quality signal on its own. See "How we verify agents" above for what counts as proof.</p>
                   </div>
                 </InfoTooltip>
               </div>
@@ -1135,7 +1135,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     <select
                       value={sortState.key}
                       onChange={(e) => handleSortSelect(e.target.value)}
-                      title="Verified working agents always rank first (see the badges info above); ranks agents with an actual hire history first within that, agents with none yet listed after, not mixed in"
+                      title="Verified working agents always rank first (see the badges info above). Within that, agents with a hire history come before those without, and the two groups stay separate"
                       className="px-3 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] dark:text-gray-300 outline-none"
                     >
                       <option value="totalScore">Sort: Top score</option>
@@ -1185,7 +1185,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 {perfStatus === 'error' && (
                   <div className="mt-2 flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-400">
                     <AlertTriangle size={12} className="shrink-0" />
-                    Couldn't load real verification/hire-history data — "Only verified working", "Most hired", and "Highest success rate" may be inaccurate right now.
+                    Couldn't load verification and hire-history data, so "Only verified working", "Most hired" and "Highest success rate" may be inaccurate right now.
                     <button onClick={retryPerf} className="underline font-medium">Try again</button>
                   </div>
                 )}
@@ -1551,7 +1551,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 </div>
 
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-2xl p-4 mb-8 text-sm text-amber-800 dark:text-amber-300">
-                  This puts real money on hold for this agent to do the work — you're not just browsing anymore. You approve each step yourself, in your wallet, every time.
+                  This puts real money on hold for this agent to do the work. You're not just browsing anymore. You approve each step yourself, in your wallet, every time.
                 </div>
 
                 {/* Real, last-chance gate — see EscrowCompatibilityWarning.jsx.
@@ -1632,7 +1632,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     <p className="text-[11px] text-gray-400 mt-1.5">
                       {deadlineError
                         ? <span className="text-red-500">{deadlineError}</span>
-                        : <>Minutes ({formatDeadline(deadlineMinutes)}). If the agent hasn't delivered by then, you can reclaim your funds — real minimum {DEADLINE_MIN_MINUTES} min, real maximum {formatDeadline(DEADLINE_MAX_MINUTES)}.</>}
+                        : <>Minutes ({formatDeadline(deadlineMinutes)}). If the agent hasn't delivered by then, you can reclaim your funds. Minimum {DEADLINE_MIN_MINUTES} min, maximum {formatDeadline(DEADLINE_MAX_MINUTES)}.</>}
                     </p>
                   </div>
                 </div>
@@ -1655,7 +1655,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         rows={4}
                         className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
                       />
-                      <p className="text-[11px] text-gray-400 mt-1">Only for advanced users — this replaces the automatic description above with your own text, permanently recorded. Leave it blank unless you have a specific reason to use this.</p>
+                      <p className="text-[11px] text-gray-400 mt-1">Only for advanced users. This replaces the automatic description above with your own text, permanently recorded. Leave it blank unless you have a specific reason to use this.</p>
                     </div>
                   )}
                 </div>
@@ -1673,7 +1673,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       <div className="text-[11px] text-gray-400 mt-0.5">
                         {signOnceForAllSteps
                           ? 'Your wallet supports this — one signature covers the on-chain steps after the job is created.'
-                          : "You'll approve each real on-chain step one at a time — the default, if you'd rather see each one."}
+                          : "You'll approve each on-chain step one at a time. This is the default if you'd rather see each one."}
                       </div>
                     </div>
                     <button
@@ -1691,7 +1691,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     unknown, and never a broken half-batched attempt). */}
                 {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.unsupported && (
                   <p className="mb-4 text-[11px] text-gray-400">
-                    "Sign once for all steps" isn't available for your connected wallet — signing each step individually below.
+                    "Sign once for all steps" isn't available for your connected wallet, signing each step individually below.
                   </p>
                 )}
 
@@ -1740,7 +1740,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           {nav === 'report' && (
             <div className="max-w-4xl">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Advantage Report</h2>
-              <p className="text-gray-500 mb-8">3 tasks, each done two ways: once using an agent, once by hand, so you can see the actual time, cost, and quality difference for yourself.</p>
+              <p className="text-gray-500 mb-8">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
               <AdvantageReport />
             </div>
           )}

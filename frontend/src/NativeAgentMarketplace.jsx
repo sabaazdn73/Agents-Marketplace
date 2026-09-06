@@ -375,7 +375,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
         <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
       </div>
       <p className="text-xs opacity-60 mb-4">
-        Compares real, live quotes for any BSC token across PancakeSwap, Biswap, and ApeSwap, and spot-buys through whichever genuinely offers the best price, with a real price-impact and liquidity-depth check shown before you sign, non-custodially, through your own connected wallet.
+        Compares live quotes for any BSC token across PancakeSwap, Biswap and ApeSwap, and spot-buys through whichever genuinely offers the best price, with a real price-impact and liquidity-depth check shown before you sign, non-custodially, through your own connected wallet.
       </p>
 
       {!open && (
@@ -630,7 +630,7 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
             and docs/future-tnega-paybox.md for the full real research. */}
         <ComingSoonAgentCard icon={ShoppingBag} title="Web2 Agents + PayBox" accent={accent} surface={surface} mutedBorder={mutedBorder}
           learnMoreHref="/docs/future-tnega-paybox"
-          blurb="Bridges Web2 AI shopping/commerce agents, like Anthropic's open-source Commerce Agents blueprint, which builds a complete, tailored cart (age, size, culture, event) but stops at checkout, never completing payment, to on-chain settlement via Tnega PayBox. MoonPay's confirmed direct BSC support is the near-term rail; multi-chain later. A separate, much larger idea, describe an agent in a prompt and get one built and wired to payment automatically, is its own future project, not scoped here." />
+          blurb="An agent that decides, pays on-chain, and delivers to your door. Web2 shopping agents, like Anthropic's open-source Commerce Agents blueprint, already build a complete tailored cart (age, size, culture, event) and then stop at checkout without ever paying. PayBox connects that last step to on-chain settlement, with MoonPay's direct BSC support as the near-term rail and other chains later. Describing an agent in a prompt and having one built and wired to payment automatically is a separate, much larger project, not scoped here." />
       </div>
     </div>
   );

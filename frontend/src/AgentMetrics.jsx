@@ -108,7 +108,7 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
       <div>
         <p className="text-[10px] text-gray-400 mb-2 flex items-center gap-1.5">
           <ShieldCheck size={11} className="text-indigo-400 shrink-0" />
-          Evaluated by real, on-chain job delivery — you pay through Tnega's escrow, and funds are only released once this agent actually delivers.
+          Evaluated by on-chain job delivery. You pay through Tnega's escrow, and funds are only released once this agent actually delivers.
         </p>
         <button onClick={() => onHire(agent)} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
           Hire this agent →
@@ -298,7 +298,7 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
 
   return (
     <div>
-      <SectionHeader icon={TrendingUp} title="Financial Track Record" hint="Real on-chain balance of the hiring wallet, before vs. after — the simplest, most direct real signal for a fund-managing agent." />
+      <SectionHeader icon={TrendingUp} title="Financial Track Record" hint="On-chain balance of the hiring wallet, before and after. The most direct real signal for a fund-managing agent." />
       {pnl.status === 'loading' && !d ? (
         <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking hire outcomes…</div>
       ) : !d || !d.jobs?.length ? (
@@ -396,7 +396,7 @@ function IndependentCorroboration({ ownerAddress, agentId, category }) {
 function LiveStatus({ agent, escrowData }) {
   return (
     <div>
-      <SectionHeader icon={Radio} title="Live Status" hint="Is this agent reachable right now, and does it actually speak this marketplace's real escrow protocol." />
+      <SectionHeader icon={Radio} title="Live Status" hint="Is this agent reachable right now, and does it speak this marketplace's escrow protocol." />
       <div className="flex items-center gap-3 flex-wrap">
         <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
         {escrowData?.escrow_incompatible ? (
@@ -405,7 +405,7 @@ function LiveStatus({ agent, escrowData }) {
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-            <ShieldCheck size={10} /> Speaks this marketplace's real escrow protocol
+            <ShieldCheck size={10} /> Speaks this marketplace's escrow protocol
           </span>
         )}
       </div>

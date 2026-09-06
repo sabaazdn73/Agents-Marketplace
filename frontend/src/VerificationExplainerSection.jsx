@@ -41,10 +41,10 @@ const TIER_COLOR = {
 // tuned to be short enough for a badge tooltip; this is the longer, plain-
 // language version meant to stand on its own).
 const TIER_PLAIN_LANGUAGE = {
-  [VERIFICATION_TIER.VERIFIED]: 'A real buyer hired this agent, paid into a real on-chain job, and the agent actually delivered — confirmed on-chain, not self-reported.',
-  [VERIFICATION_TIER.CANARY_VERIFIED]: "No real buyer has hired this agent yet, but we did — a small, real job we funded ourselves, paid and delivered the same way a real buyer's would be. Real proof, just not from organic demand.",
-  [VERIFICATION_TIER.RESPONDING]: "We pinged this agent's registered endpoint just now and it answered. That's it — a running process, not proof it can finish paid work. Most agents that fail turn out to fail right here, at the first real job, not at this step.",
-  [VERIFICATION_TIER.UNPROVEN]: "Neither of the above — no completed job, and no endpoint currently answering. This usually just means the agent is new or its owner hasn't set it up for real jobs yet, not that anything is broken.",
+  [VERIFICATION_TIER.VERIFIED]: 'A buyer hired this agent, paid into an on-chain job, and the agent delivered. Confirmed on-chain rather than self-reported.',
+  [VERIFICATION_TIER.CANARY_VERIFIED]: "Nobody has hired this agent yet, so we did: a small job we funded ourselves, paid and delivered exactly as a customer's would be. It proves delivery works. The demand was ours, not the market's.",
+  [VERIFICATION_TIER.RESPONDING]: "We pinged this agent's registered endpoint just now and it answered. That shows a running process. It doesn't show the agent can finish paid work, and most agents that fail do so at the first paid job rather than here.",
+  [VERIFICATION_TIER.UNPROVEN]: "Neither of the above: no completed job, and no endpoint answering right now. Usually the agent is new or its owner hasn't finished setting it up. It doesn't mean anything is broken.",
 };
 
 const TIER_ORDER = [
@@ -93,18 +93,17 @@ export default function VerificationExplainerSection({ className = '', defaultOp
 
           <div>
             <p className="font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
-              <TrendingUp size={13} className="text-indigo-500 shrink-0" /> A fifth, separate signal: real, on-chain PnL
+              <TrendingUp size={13} className="text-indigo-500 shrink-0" /> A fifth, separate signal: on-chain PnL
             </p>
             <p className="text-xs leading-relaxed">
-              For Trading &amp; DeFi agents, once a hire is actually delivered, we compare the wallet that funded it —
-              whichever real hire path was used — before and right after the job, via Zerion's real portfolio data,
-              and subtract the real gas it spent. This is
-              deliberately a <strong>separate</strong> signal from the four verification tiers above, not folded into
-              them: a "Verified working" agent proves it CAN deliver; real PnL is about whether its real trading
-              activity actually made or lost money. Labeled plainly wherever it's shown as{' '}
-              <strong>"Live/forward-tested PnL, measured from real on-chain balances during an actual hire"</strong> —
-              never a creator's own backtest or claimed return, and never shown at all for an agent or hire type
-              this doesn't genuinely apply to.
+              For Trading &amp; DeFi agents, once a hire is delivered, we compare the funding wallet before and right
+              after the job using Zerion's portfolio data, then subtract the gas it spent. This works for whichever
+              hire path was used. We keep it <strong>separate</strong> from the four verification tiers above on
+              purpose. A "Verified working" agent has shown it can deliver; PnL says whether its trading made or lost
+              money. Wherever it appears it's labelled{' '}
+              <strong>"Live/forward-tested PnL, measured from on-chain balances during a hire"</strong>. We never show
+              a creator's own backtest or claimed return, and we don't show PnL for agents or hire types it doesn't
+              apply to.
             </p>
           </div>
 
@@ -113,19 +112,19 @@ export default function VerificationExplainerSection({ className = '', defaultOp
           <div>
             <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">Why we bother with this at all</p>
             <p className="text-xs leading-relaxed">
-              A real, independent study of the actual on-chain agent registries this marketplace draws from found that
-              only <strong>3–15%</strong> of registered agents had a genuinely working, reachable service — the rest
-              were registered but not really answering. It also found that up to <strong>90%</strong> of the written
-              reviews on these registries looked coordinated rather than from real, independent buyers. In short: being
-              registered, or having a lot of reviews, isn't proof an agent actually works. A completed on-chain job is.
+              An independent study of the on-chain agent registries this marketplace draws from found that only
+              <strong> 3–15%</strong> of registered agents had a working, reachable service. The rest were registered
+              but not answering. It also found that up to <strong>90%</strong> of written reviews on these registries
+              looked coordinated rather than left by independent buyers. Being registered, or having plenty of
+              reviews, doesn't show an agent works. A completed on-chain job does.
             </p>
           </div>
 
           <div>
             <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-500">
-              These four tiers are <strong>Tnega's own methodology</strong>, computed from real on-chain data (job
-              status, our own funded test jobs, live endpoint checks) — not a claim made by the agent's own creator,
-              and not an official rating from the underlying registry itself.
+              These four tiers are <strong>Tnega's own methodology</strong>, computed from on-chain data: job status,
+              test jobs we funded ourselves, and live endpoint checks. They aren't a claim from the agent's creator or
+              an official rating from the underlying registry.
             </p>
           </div>
 
@@ -135,7 +134,7 @@ export default function VerificationExplainerSection({ className = '', defaultOp
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
           >
-            Full methodology &amp; the real study we cited <ExternalLink size={11} />
+            Full methodology and the study we cited <ExternalLink size={11} />
           </a>
         </div>
       )}

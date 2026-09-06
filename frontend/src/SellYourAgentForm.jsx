@@ -118,7 +118,7 @@ export default function SellYourAgentForm() {
       {!configured && (
         <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40 text-[11px] text-gray-500 flex items-start gap-2">
           <ShieldCheck size={14} className="shrink-0 mt-0.5" />
-          <span>Paid listings (one-time purchase or subscription) aren't turned on for this marketplace yet — we're still setting that up. You can still confirm you own your agent below, and set up pay-per-use pricing.</span>
+          <span>Paid listings (one-time purchase or subscription) aren't turned on for this marketplace yet. We're still setting that up. You can still confirm you own your agent below, and set up pay-per-use pricing.</span>
         </div>
       )}
 
@@ -131,7 +131,7 @@ export default function SellYourAgentForm() {
             <div className="mt-1.5 text-[11px] flex items-center gap-1.5">
               {ownership.status === 'checking' && <span className="text-gray-400 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> checking…</span>}
               {ownership.status === 'notfound' && <span className="text-gray-400">We can't find an agent registered with that ID.</span>}
-              {ownership.status === 'done' && ownership.isOwner && <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Confirmed — this is your agent.</span>}
+              {ownership.status === 'done' && ownership.isOwner && <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 size={12} /> Confirmed. This is your agent.</span>}
               {ownership.status === 'done' && !ownership.isOwner && <span className="text-red-500 flex items-center gap-1"><XCircle size={12} /> This agent belongs to a different wallet ({ownership.owner?.slice(0, 6)}…{ownership.owner?.slice(-4)}), not yours.</span>}
             </div>
           )}
@@ -200,7 +200,7 @@ export default function SellYourAgentForm() {
               <input value={perCall} onChange={(e) => setPerCall(e.target.value)} inputMode="decimal" placeholder="e.g. 0.05"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
-            <p className="text-[11px] text-gray-400">Each use charges automatically and pays straight to your wallet — we never hold the money. This saves your settings here; your service still needs to be set up to accept these payments.</p>
+            <p className="text-[11px] text-gray-400">Each use charges automatically and pays straight to your wallet. We never hold the money. This saves your settings here; your service still needs to be set up to accept these payments.</p>
 
             {/* B402 Bazaar opt-in (free discovery) */}
             <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-500/5 space-y-2">
@@ -226,7 +226,7 @@ export default function SellYourAgentForm() {
           <div className="text-[11px] text-gray-500 p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
             {feePct != null
               ? <>We take a <strong style={{ color: ACCENT }}>{feePct}%</strong> fee automatically when someone buys, pulled directly from our live settings. You keep the remaining {100 - feePct}%.</>
-              : <>Once paid listings go live, our exact fee will show here automatically (2.5% during this early test period) — never something we set behind the scenes without you seeing it.</>}
+              : <>Once paid listings go live, our exact fee will show here automatically (2.5% during this early test period), never something we set behind the scenes without you seeing it.</>}
           </div>
         )}
 

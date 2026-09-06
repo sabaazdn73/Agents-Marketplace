@@ -66,11 +66,11 @@ Live BSC subgraph `D6aWqowLkWqBgcqmpNKXuNikPkob24ADXCciiP8Hvn1K`, deployment `Qm
 
 **The stuck offsets: yes.** This is the outcome that matters. The agents 8004scan cannot deliver are returned by the subgraph in seconds.
 
-**The Validation Registry: no signal, honestly reported.** Both `validations` and `validationPoints` return **empty arrays** across all of BSC. The registry is deployed and queryable but has never been used on that chain. `adapters/thegraph.py` exposes it because the capability is real and other chains may populate it, but nothing in the evaluation system treats an empty result as a signal about an agent, and no UI claims otherwise.
+**The Validation Registry: no signal, reported.** Both `validations` and `validationPoints` return **empty arrays** across all of BSC. The registry is deployed and queryable but has never been used on that chain. `adapters/thegraph.py` exposes it because the capability is real and other chains may populate it, but nothing in the evaluation system treats an empty result as a signal about an agent, and no UI claims otherwise.
 
 ## One measured limitation
 
-Only **1.7%** of sampled BSC registration files carry any endpoint (mcp 0.4%, a2a 1.2%, web 0.7%); 8.8% declare `x402Support`. So this source cannot determine `service_status`. `core/agent_health.py`'s live probe stays the only thing that can answer whether an endpoint actually responds.
+Only **1.7%** of sampled BSC registration files carry any endpoint (mcp 0.4%, a2a 1.2%, web 0.7%); 8.8% declare `x402Support`. So this source cannot determine `service_status`. `core/agent_health.py`'s live probe stays the only thing that can answer whether an endpoint responds.
 
 ## How it is wired in
 
@@ -78,7 +78,7 @@ Only **1.7%** of sampled BSC registration files carry any endpoint (mcp 0.4%, a2
 
 `core/full_registry_ingest.py`'s `run_thegraph_backfill_batch()` is the pipeline entry point. It finds the highest agent id already stored for a chain and asks the subgraph for everything above it, closing the gap from the opposite end to 8004scan's forward pagination.
 
-Rows merge with `$set`, exactly like the 8004scan path, and `to_registry_doc` writes only fields the subgraph genuinely knows. It does not invent `total_score`, `star_count`, `category` or `image_url`, so a later 8004scan pass fills those in rather than this source overwriting them with nulls. Every row it writes carries `source: "thegraph:agent0"` so provenance stays auditable.
+Rows merge with `$set`, exactly like the 8004scan path, and `to_registry_doc` writes only fields the subgraph knows. It does not invent `total_score`, `star_count`, `category` or `image_url`, so a later 8004scan pass fills those in rather than this source overwriting them with nulls. Every row it writes carries `source: "thegraph:agent0"` so provenance stays auditable.
 
 The data feeds the systems that already exist rather than a separate display: `supported_protocols` (derived from the structured endpoint fields) is what `core/protocol_compat.py` reasons over, and `x402_supported` is already consumed across the marketplace.
 
@@ -106,7 +106,7 @@ What survives matters more than the raw fetch count, because the backfill compos
 
 So the outcome is not "1,000 rows added". It is **537 agents with live, responding endpoints** that 8004scan could not deliver at any speed, arriving with a verified service status. A tagged count that falls between two measurements is the no-endpoint policy doing its job, not data loss.
 
-One honest note on the 668 seconds: that is almost entirely MongoDB write time on this Atlas free tier, not The Graph, which returned its 1,000 agents in under a second. The bottleneck has moved from the data source to our own storage.
+One note on the 668 seconds: that is almost entirely MongoDB write time on this Atlas free tier, not The Graph, which returned its 1,000 agents in under a second. The bottleneck has moved from the data source to our own storage.
 
 ## Two bugs the live test caught
 
