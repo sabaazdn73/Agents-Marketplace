@@ -43,7 +43,7 @@ function memoText(memo) {
 
 export default function BudgetSpendView({ budgetId, onRevoked }) {
   const { budget, drawable, loading, error, refresh } = useBudgetRead(budgetId);
-  const { draws } = useDrawFeed(budgetId);
+  const { draws, accountedFor, scanned } = useDrawFeed(budgetId);
   const { reclaim, pending } = useBudgetActions();
 
   if (loading && !budget) {
@@ -65,6 +65,13 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
   const pct = total > 0n ? Number((spent * 100n) / total) : 0;
   const status = BUDGET_STATUS[budget.status] || 'UNKNOWN';
   const isOpen = status === 'OPEN';
+  // On a reclaimed budget the contract sets spent = total, as the
+  // effects-before-interaction write that makes a double reclaim
+  // impossible. So `spent` there is NOT "the amount drawn" -- most of it is
+  // the remainder that went back to the client. Anything that reads spent
+  // as spending has to exclude this case or it will report money as gone
+  // when it was returned.
+  const reclaimed = status === 'RECLAIMED';
   const deadline = Number(budget.deadline) * 1000;
   const expired = Date.now() > deadline;
 
@@ -97,7 +104,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
         <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
       </div>
       <div className="flex justify-between text-[10px] text-gray-500 mb-3">
-        <span>{fmt(spent, symbol)} spent ({pct}%)</span>
+        <span>{reclaimed ? 'Closed — unspent remainder returned to you' : `${fmt(spent, symbol)} spent (${pct}%)`}</span>
         {isOpen && !expired && <span>up to {fmt(drawable, symbol)} in the next draw</span>}
       </div>
 
@@ -111,13 +118,32 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
       )}
 
       {/* The live stream. */}
+      {/* The itemised feed is best-effort; `spent` above is not. These RPCs
+          return incomplete log ranges without erroring (see useDrawFeed),
+          so rather than trust the feed we reconcile it against the
+          contract's own `spent` and say plainly when draws are missing.
+          The one thing this must never do is claim nothing was drawn while
+          the balance directly above says otherwise. */}
       <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
         Spending activity {draws.length > 0 && `(${draws.length})`}
       </div>
       {draws.length === 0 ? (
-        <p className="text-[11px] text-gray-500 py-2">
-          Nothing drawn yet. Draws appear here the moment they happen on-chain.
-        </p>
+        spent > 0n && !reclaimed ? (
+          <p className="text-[11px] text-amber-700 dark:text-amber-500 py-2">
+            {fmt(spent, symbol)} has been drawn from this budget, but the itemised list
+            couldn't be loaded from the network right now. The balance above is read
+            straight from the contract and is correct.
+          </p>
+        ) : reclaimed ? (
+          <p className="text-[11px] text-gray-500 py-2">
+            This budget is closed and the remainder was returned. Any draws made before that
+            couldn't be loaded from the network.
+          </p>
+        ) : (
+          <p className="text-[11px] text-gray-500 py-2">
+            {scanned ? 'Nothing drawn yet.' : 'Checking for activity…'} Draws appear here as they happen on-chain.
+          </p>
+        )
       ) : (
         <div className="space-y-1.5 max-h-56 overflow-y-auto">
           {draws.map((d, i) => {
@@ -136,6 +162,16 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
             );
           })}
         </div>
+      )}
+
+      {/* Detected, not guessed: what the visible draws add up to, against
+          what the contract says was actually spent. */}
+      {draws.length > 0 && !reclaimed && accountedFor < spent && (
+        <p className="text-[11px] text-amber-700 dark:text-amber-500 mt-2">
+          Showing {fmt(accountedFor, symbol)} of the {fmt(spent, symbol)} drawn. Earlier draws
+          aren't listed here — the network didn't return them — but they are counted in the
+          balance above.
+        </p>
       )}
 
       {/* Revoke, with the race stated at the point of action rather than

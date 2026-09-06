@@ -129,19 +129,39 @@ export function useBudgetRead(budgetId) {
   return { ...state, refresh };
 }
 
-/** The live spend view.
+/** The live spend view, with the feed treated as best-effort.
  *
  * This is the capability ERC-8183 structurally cannot provide: its escrow
  * emits PaymentReleased exactly once, for the full amount, so there is no
- * stream to watch. Here every draw emits Drawn, so a buyer can see the
- * money move as it is spent instead of waiting for a delivery.
+ * stream to watch. Here every draw emits Drawn.
  *
- * Historic draws are fetched once and new ones are appended from a live
- * watch, so the view is complete rather than only showing what happened
- * after the page opened. */
-export function useDrawFeed(budgetId, { fromBlock } = {}) {
+ * WHY THIS IS NOT A PLAIN getLogs('earliest') ANY MORE
+ * ----------------------------------------------------
+ * It was, and that silently did not work. Measured against the live
+ * contract on BSC while verifying the reference agent:
+ *   - the public dataseed RPC answers `limit exceeded` for a 5,000-block
+ *     range;
+ *   - Infura returns a BudgetOpened log when asked for a 5-block window,
+ *     and returns NOTHING for the same event inside a 2,000-block window
+ *     -- no error, just missing data;
+ *   - even 200-block chunks recovered only 3 of the ~7 events that
+ *     provably exist, since contract state showed 2 budgets and a real
+ *     draw whose 2.5% fee is sitting in the escrow.
+ * A feed built on that would have shown "nothing drawn yet" directly
+ * above a balance saying otherwise.
+ *
+ * So the numbers never come from logs. `spent` and `total` are read from
+ * the contract in useBudgetRead and are authoritative. This hook supplies
+ * the itemised story only, and reports honestly when it cannot tell the
+ * whole of it: `accountedFor` is what the visible draws add up to, and a
+ * caller compares that against the real `spent` to know whether anything
+ * is missing. Incompleteness is therefore DETECTED rather than assumed,
+ * which works no matter how badly a given RPC behaves.
+ */
+export function useDrawFeed(budgetId, { lookbackBlocks = 4000, chunkSize = 200 } = {}) {
   const publicClient = usePublicClient();
   const [draws, setDraws] = useState([]);
+  const [scanned, setScanned] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -150,34 +170,58 @@ export function useDrawFeed(budgetId, { fromBlock } = {}) {
     const common = { address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI };
     const drawnEvent = BUDGET_ESCROW_ABI.find((e) => e.type === 'event' && e.name === 'Drawn');
 
-    publicClient
-      .getLogs({
-        ...common, event: drawnEvent,
-        args: { budgetId: BigInt(budgetId) },
-        fromBlock: fromBlock ?? 'earliest', toBlock: 'latest',
-      })
-      .then((logs) => { if (!cancelled) setDraws(logs.map((l) => l.args)); })
-      .catch((e) => { if (!cancelled) setError(e.shortMessage || e.message); });
+    // Small windows, because that is what these providers actually answer
+    // correctly. Bounded rather than scanning to genesis: a wide scan is
+    // both slow and, as measured above, quietly wrong.
+    (async () => {
+      try {
+        const head = await publicClient.getBlockNumber();
+        const first = head > BigInt(lookbackBlocks) ? head - BigInt(lookbackBlocks) : 0n;
+        const found = [];
+        for (let from = first; from <= head; from += BigInt(chunkSize)) {
+          if (cancelled) return;
+          const to = from + BigInt(chunkSize) - 1n > head ? head : from + BigInt(chunkSize) - 1n;
+          try {
+            const logs = await publicClient.getLogs({
+              ...common, event: drawnEvent,
+              args: { budgetId: BigInt(budgetId) },
+              fromBlock: from, toBlock: to,
+            });
+            found.push(...logs.map((l) => l.args));
+          } catch {
+            // One bad window must not lose the windows that did work.
+          }
+        }
+        if (!cancelled) { setDraws(dedupe(found)); setScanned(true); }
+      } catch (e) {
+        if (!cancelled) { setError(e.shortMessage || e.message); setScanned(true); }
+      }
+    })();
 
     const unwatch = publicClient.watchContractEvent({
       ...common, eventName: 'Drawn', args: { budgetId: BigInt(budgetId) },
       onLogs: (logs) => {
         if (cancelled) return;
-        // Deduped on the log's own identity: a chain reorg or an overlapping
-        // watch window can deliver the same draw twice, and showing one spend
-        // as two would misrepresent how much of the budget is gone.
-        setDraws((prev) => {
-          const seen = new Set(prev.map((d) => `${d.spent}-${d.amount}`));
-          const fresh = logs.map((l) => l.args).filter((a) => !seen.has(`${a.spent}-${a.amount}`));
-          return fresh.length ? [...prev, ...fresh] : prev;
-        });
+        setDraws((prev) => dedupe([...prev, ...logs.map((l) => l.args)]));
       },
     });
 
     return () => { cancelled = true; unwatch?.(); };
-  }, [budgetId, publicClient, fromBlock]);
+  }, [budgetId, publicClient, lookbackBlocks, chunkSize]);
 
-  return { draws, error };
+  // `spent` is the contract's own running total AFTER each draw, so it is
+  // unique per draw and identifies one exactly. A reorg or an overlapping
+  // watch window can deliver the same draw twice, and showing one spend as
+  // two would misstate how much of someone's money is gone.
+  const accountedFor = draws.reduce((sum, d) => sum + (d.amount ?? 0n), 0n);
+
+  return { draws, accountedFor, scanned, error };
+}
+
+function dedupe(list) {
+  const bySpent = new Map();
+  for (const d of list) bySpent.set(String(d.spent), d);
+  return [...bySpent.values()].sort((a, b) => (a.spent < b.spent ? -1 : a.spent > b.spent ? 1 : 0));
 }
 
 /** Writes: open and reclaim. Both re-read on-chain state afterwards rather
