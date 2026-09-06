@@ -156,7 +156,31 @@ export default function App() {
   // reads the id out of the path and opens that agent once agents load.
   // Without this a refresh on a detail page fell through to 'market' and
   // lost the agent.
-  const initialNav = path.startsWith('/agent/') ? 'market' : (MAIN_TAB_PATHS[path] || 'market');
+  // A first-time visitor arriving at the bare domain gets the Home page
+  // once; after that "/" opens the marketplace and Home stays available
+  // from the nav. The backend decides, because only it can see the
+  // request's address (see core/first_visit.py for what that does and does
+  // not store).
+  //
+  // Deliberately biased toward the marketplace. The check is given a short
+  // window and anything else -- a slow reply, an error, a backend restart,
+  // any path other than "/" -- leaves the marketplace showing. Home
+  // appearing when it should not is the more annoying way to be wrong.
+  const [firstVisitNav, setFirstVisitNav] = useState(null);
+  useEffect(() => {
+    if (path !== '/') return undefined;
+    const ctl = new AbortController();
+    const giveUp = setTimeout(() => ctl.abort(), 1500);
+    fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/first-visit`, { signal: ctl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.first_visit) setFirstVisitNav('landing'); })
+      .catch(() => {})            // silence is correct: fall through to the marketplace
+      .finally(() => clearTimeout(giveUp));
+    return () => { clearTimeout(giveUp); ctl.abort(); };
+  }, [path]);
+
+  const resolvedNav = path.startsWith('/agent/') ? 'market' : (MAIN_TAB_PATHS[path] || 'market');
+  const initialNav = (path === '/' && firstVisitNav) ? firstVisitNav : resolvedNav;
   const onNavChange = (id) => navigate(NAV_TO_PATH[id] || '/market');
 
   // Genuinely different components, not one component with responsive

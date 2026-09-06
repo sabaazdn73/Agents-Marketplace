@@ -1,141 +1,225 @@
 // LandingPage.jsx
 //
-// A tab, not a gate. "/" goes straight to the marketplace as it always
-// did; this is a destination someone chooses from the nav.
+// A port of public/agent-hero/index.html, the supplied design. This is the
+// whole Home page; nothing else is on it.
 //
-// WHY THE MOVEMENT IS PARALLAX AND NOT EYE TRACKING
-// -------------------------------------------------
-// The artwork is a flat 1254x1254 PNG. It holds seven robots on a lit
-// podium between two neon arches, connected by a network of glowing lines,
-// with city towers and floating UI panels behind them. Their eyes are
-// glowing shapes rendered into the image, complete with their own lighting
-// and reflections, and each pair is a couple of dozen pixels across in the
-// source. There is nothing to isolate and nothing to move: making the eyes
-// follow a cursor would mean drawing fake eyes over real ones, at seven
-// different scales and angles, and it would look worse than doing nothing.
+// WHAT THE DESIGN DOES, from reading it rather than guessing: seven agents
+// start off-stage on a floor line, WALK in from alternating sides, then
+// RISE into their final positions and settle into a float. Each agent is
+// one flat PNG cut into a torso and two legs with clip-path, so the legs
+// swing from the hip, the torso bobs twice per stride and the body leans
+// into the direction of travel. Once everyone has landed, a halo appears
+// behind the group, network lines draw from each agent to the lead, dots
+// blink along them, and the copy fades up.
 //
-// So the whole scene shifts instead. The image tilts and drifts a few
-// degrees against the pointer, which reads as depth in a picture that
-// already has strong perspective, and is honest about being one flat
-// image.
+// PORTED FAITHFULLY, with three deliberate departures, all forced:
 //
-// Deliberately holds nothing else: the artwork, the name, one way to the
-// marketplace. No counts or stats, which the marketplace already shows
-// with live data.
+//  1. The stylesheet is scoped. The original is a standalone page, so its
+//     selectors are bare (.hero, .stage, .agent, .copy) and its :root sets
+//     variables globally. Dropped into the app those would apply outside
+//     this page, and its `html,body` rule would restyle the whole site.
+//     agentHero.css carries every rule prefixed with .agent-hero instead,
+//     including inside the reduced-motion block, whose bare selectors
+//     would otherwise have disabled animation app-wide.
+//  2. Asset paths become /agent-hero/assets/... since the component is not
+//     served from that directory.
+//  3. The "Explore the catalog" link is a button that switches to the
+//     marketplace tab, rather than an href="#".
+//
+// Everything else is the original: the same markup, the same geometry
+// values, the same walk/rise/settle timing, the same Web Animations calls.
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ArrowRight } from 'lucide-react';
+import React, { useEffect, useRef, useCallback } from 'react';
+import './agentHero.css';
 
-const MAX_TILT_DEG = 7;     // subtle; more than this reads as a gimmick
-const MAX_SHIFT_PX = 10;
+const A = '/agent-hero/assets';
+
+// Geometry straight from the design. --x/--y are the final top-left as a
+// percentage of the stage, --w the width, --hip where the legs are cut.
+const AGENTS = [
+  { img: 'orange', side: 'left',  order: 4, x: '35.8%', y: '33.8%', w: '7.4%',  hip: '80%' },
+  { img: 'purple', side: 'right', order: 3, x: '56.2%', y: '34.4%', w: '9.2%',  hip: '78%' },
+  { img: 'teal',   side: 'left',  order: 2, x: '33.4%', y: '45.3%', w: '8.1%',  hip: '80%' },
+  { img: 'gold',   side: 'right', order: 1, x: '59.2%', y: '45.5%', w: '7.5%',  hip: '78%' },
+  { img: 'small',  side: 'right', order: 5, x: '53.8%', y: '52.5%', w: '6.8%',  hip: '75%' },
+  { img: 'top',    side: 'left',  order: 6, x: '45.9%', y: '28.4%', w: '8.2%',  hip: '78%' },
+  { img: 'center', side: 'right', order: 0, x: '44.7%', y: '40.7%', w: '10.6%', hip: '80%', lead: true },
+];
+
+const FLOOR = 63;   // floor line, % of stage height, where feet land
 
 export default function LandingPage({ onEnterMarketplace }) {
-  const frameRef = useRef(null);
-  const [tilt, setTilt] = useState({ rx: 0, ry: 0, x: 0, y: 0 });
-  const [loaded, setLoaded] = useState(false);
-  const reduced = useRef(false);
+  const heroRef = useRef(null);
+  const stageRef = useRef(null);
+  const linesRef = useRef(null);
+  const dotsRef = useRef(null);
 
-  useEffect(() => {
-    reduced.current = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    if (reduced.current) setTilt({ rx: 0, ry: 0, x: 0, y: 0 });
+  const play = useCallback(() => {
+    const stage = stageRef.current;
+    const hero = heroRef.current;
+    if (!stage || !hero) return;
+    const agents = [...stage.querySelectorAll('.agent')];
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+    const settle = () => { stage.classList.add('gathered'); hero.classList.add('gathered'); };
+
+    stage.classList.remove('gathered');
+    hero.classList.remove('gathered');
+    agents.forEach((a) => {
+      a.classList.remove('walking', 'floating');
+      a.getAnimations?.().forEach((an) => an.cancel());
+    });
+
+    if (reduce) {
+      agents.forEach((a) => { a.style.transform = ''; });
+      settle();
+      return;
+    }
+
+    const W = stage.clientWidth;
+    const H = stage.clientHeight;
+    let lastEnd = 0;
+
+    agents.forEach((a) => {
+      const cs = getComputedStyle(a);
+      const fx = (parseFloat(cs.getPropertyValue('--x')) / 100) * W;
+      const fy = (parseFloat(cs.getPropertyValue('--y')) / 100) * H;
+      const w = (parseFloat(cs.getPropertyValue('--w')) / 100) * W;
+      const h = a.offsetHeight || w * 1.3;
+      const side = a.dataset.side;
+      const order = +a.dataset.order;
+
+      const startX = side === 'left' ? -w * 1.6 : W + w * 0.6;
+      const floorY = (FLOOR / 100) * H - h * 1.15;
+      const stopX = fx + (side === 'left' ? -w * 0.5 : w * 0.5);
+
+      const dxs = startX - fx;
+      const dys = floorY - fy;
+      const dxe = stopX - fx;
+      const dye = floorY - fy;
+
+      const delay = 200 + order * 380 + Math.random() * 250;
+      const dist = Math.abs(dxs - dxe);
+      const walk = (dist / W) * 2600 + 400;
+      const rise = 1300;
+
+      a.style.setProperty('--dir', side === 'left' ? 1 : -1);
+      a.style.setProperty('--stride', `${(0.58 + Math.random() * 0.1).toFixed(2)}s`);
+      a.style.setProperty('--fd', `${3.2 + order * 0.25}s`);
+      a.style.setProperty('--fdl', `${order * 0.35}s`);
+      a.style.transform = `translate(${dxs}px,${dys}px) scale(1.15)`;
+
+      const anim = a.animate([
+        { transform: `translate(${dxs}px,${dys}px) scale(1.15)`, offset: 0 },
+        { transform: `translate(${dxs}px,${dys}px) scale(1.15)`, offset: 0.001, easing: 'linear' },
+        { transform: `translate(${dxe}px,${dye}px) scale(1.15)`, offset: walk / (walk + rise), easing: 'cubic-bezier(.5,0,.15,1)' },
+        { transform: 'translate(0,0) scale(1)', offset: 1 },
+      ], { duration: walk + rise, delay, easing: 'linear', fill: 'forwards' });
+
+      const t1 = setTimeout(() => a.classList.add('walking'), delay);
+      const t2 = setTimeout(() => a.classList.remove('walking'), delay + walk);
+      a._timers = [t1, t2];
+      anim.onfinish = () => { a.style.transform = ''; a.classList.add('floating'); };
+      lastEnd = Math.max(lastEnd, delay + walk + rise);
+    });
+
+    const tEnd = setTimeout(settle, lastEnd - 500);
+    stage._settleTimer = tEnd;
   }, []);
 
-  const aimAt = useCallback((clientX, clientY) => {
-    if (reduced.current) return;
-    const box = frameRef.current?.getBoundingClientRect();
-    if (!box) return;
-    // -1..1 from the centre of the artwork.
-    const nx = Math.max(-1, Math.min(1, (clientX - (box.left + box.width / 2)) / (box.width / 2)));
-    const ny = Math.max(-1, Math.min(1, (clientY - (box.top + box.height / 2)) / (box.height / 2)));
-    setTilt({
-      ry: nx * MAX_TILT_DEG,        // horizontal pointer turns it left/right
-      rx: -ny * MAX_TILT_DEG,       // vertical pointer tips it up/down
-      x: nx * MAX_SHIFT_PX,
-      y: ny * MAX_SHIFT_PX,
+  // Network lines and dots, built once from the same geometry the design
+  // uses: each agent's visual centre in source-pixel space, every non-lead
+  // agent joined to the lead.
+  useEffect(() => {
+    const L = linesRef.current;
+    const D = dotsRef.current;
+    if (!L || !D) return;
+    L.innerHTML = ''; D.innerHTML = '';
+    const centers = AGENTS.map(({ x, y, w }) => ({
+      x: (parseFloat(x) + parseFloat(w) / 2) * 12.54,
+      y: (parseFloat(y) + (parseFloat(w) * 1.2) / 2) * 12.54,
+    }));
+    const lead = AGENTS.findIndex((a) => a.lead);
+    let i = 0;
+    centers.forEach((c, idx) => {
+      if (idx === lead) return;
+      const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      ln.setAttribute('x1', c.x); ln.setAttribute('y1', c.y);
+      ln.setAttribute('x2', centers[lead].x); ln.setAttribute('y2', centers[lead].y);
+      ln.style.setProperty('--i', i++);
+      L.appendChild(ln);
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', c.x); dot.setAttribute('cy', c.y); dot.setAttribute('r', 4);
+      dot.style.setProperty('--i', idx);
+      D.appendChild(dot);
     });
   }, []);
 
+  // The original runs on window load. Here the component mounting is the
+  // equivalent moment. Timers are cleared on unmount so switching tabs
+  // mid-walk cannot leave callbacks running against a gone DOM.
   useEffect(() => {
-    if (reduced.current) return undefined;
-    const onMove = (e) => aimAt(e.clientX, e.clientY);
-    // A touch device has no cursor, so a tap tilts the scene toward the
-    // tap point. Between taps the drift below keeps it alive.
-    const onTouch = (e) => {
-      const t = e.touches?.[0];
-      if (t) aimAt(t.clientX, t.clientY);
-    };
-    const onLeave = () => setTilt({ rx: 0, ry: 0, x: 0, y: 0 });
-    window.addEventListener('pointermove', onMove, { passive: true });
-    window.addEventListener('touchstart', onTouch, { passive: true });
-    window.addEventListener('pointerleave', onLeave);
+    play();
+    const stage = stageRef.current;
     return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('touchstart', onTouch);
-      window.removeEventListener('pointerleave', onLeave);
-    };
-  }, [aimAt]);
-
-  // Slow drift on devices that report no hover, so a phone gets motion
-  // rather than a static picture waiting for a cursor that never arrives.
-  useEffect(() => {
-    if (reduced.current) return undefined;
-    const hasCursor = window.matchMedia?.('(hover: hover)').matches ?? true;
-    if (hasCursor) return undefined;
-    let t = 0;
-    const id = setInterval(() => {
-      t += 1;
-      setTilt({
-        ry: Math.sin(t / 5) * (MAX_TILT_DEG * 0.55),
-        rx: Math.cos(t / 7) * (MAX_TILT_DEG * 0.4),
-        x: Math.sin(t / 5) * (MAX_SHIFT_PX * 0.5),
-        y: Math.cos(t / 7) * (MAX_SHIFT_PX * 0.4),
+      clearTimeout(stage?._settleTimer);
+      stage?.querySelectorAll('.agent').forEach((a) => {
+        (a._timers || []).forEach(clearTimeout);
+        a.getAnimations?.().forEach((an) => an.cancel());
       });
-    }, 1400);
-    return () => clearInterval(id);
-  }, []);
+    };
+  }, [play]);
 
   return (
-    <div className="flex flex-col items-center text-center py-6">
-      <div
-        ref={frameRef}
-        className="w-full max-w-[440px] aspect-square rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-xl mb-8"
-        style={{ perspective: '1100px' }}
-      >
-      <picture>
-        {/* WebP first, the original PNG as fallback. The source is a
-            2.14MB 1254px PNG and this page is meant to feel quick; a 900px
-            WebP is 0.12MB, 94% smaller, and 900px still covers the 440px
-            frame on a 2x display. agent.png is left untouched as the
-            fallback and the master. */}
-        <source srcSet="/agent.webp" type="image/webp" />
-        <img
-          src="/agent.png"
-          alt="Tnega agents on a lit platform, linked by a network of connections"
-          width={1254}
-          height={1254}
-          onLoad={() => setLoaded(true)}
-          className="w-full h-full object-cover will-change-transform"
-          style={{
-            transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) translate3d(${tilt.x}px, ${tilt.y}px, 0) scale(1.06)`,
-            // scale(1.06) hides the edges the tilt would otherwise expose.
-            transition: 'transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 500ms ease',
-            opacity: loaded ? 1 : 0,
-          }}
-        />
-      </picture>
-      </div>
+    <div className="agent-hero">
+      <section className="hero" ref={heroRef}>
+        <div className="stage" ref={stageRef}>
+          <div className="halo" />
 
-      <h1 className="text-3xl font-bold tracking-tight mb-2">Tnega</h1>
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-7 max-w-sm">
-        Hire AI agents on BNB Chain. Every job and payment settles on-chain.
-      </p>
+          <svg className="net" viewBox="0 0 1254 1254" aria-hidden="true">
+            <defs>
+              <linearGradient id="g" x1="0" x2="1">
+                <stop offset="0" stopColor="#ffd27a" stopOpacity=".9" />
+                <stop offset="1" stopColor="#ffa14a" stopOpacity=".6" />
+              </linearGradient>
+            </defs>
+            <g ref={linesRef} />
+            <g ref={dotsRef} />
+          </svg>
 
-      <button
-        onClick={onEnterMarketplace}
-        className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 transition-colors"
-      >
-        Browse agents <ArrowRight size={16} />
-      </button>
+          {AGENTS.map((a) => (
+            <div
+              key={a.img}
+              className={`agent${a.lead ? ' lead' : ''}`}
+              data-side={a.side}
+              data-order={a.order}
+              style={{ '--x': a.x, '--y': a.y, '--w': a.w, '--hip': a.hip }}
+            >
+              <span className="body">
+                <span className="shadow" />
+                <img className="part torso" src={`${A}/${a.img}.png`} alt="" />
+                <img className="part leg l" src={`${A}/${a.img}.png`} alt="" />
+                <img className="part leg r" src={`${A}/${a.img}.png`} alt="" />
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="copy">
+          <h1>Autonomous agents, one verifiable network</h1>
+          <p>Discover, connect and trust agents across chains.</p>
+          {/* The design's "Explore the catalog" link, wired to the tab it
+              describes rather than an href="#". */}
+          <a
+            href="/market"
+            onClick={(e) => { e.preventDefault(); onEnterMarketplace?.(); }}
+          >
+            Explore the catalog
+          </a>
+        </div>
+
+        <button className="replay" type="button" onClick={play}>Replay</button>
+      </section>
     </div>
   );
 }

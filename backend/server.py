@@ -65,6 +65,7 @@ from core import job_index
 from core import rpc
 from core import universal_search
 from core import agent_evaluation, budget_agents, chain_views
+from core import first_visit as first_visit_mod
 from core import b402
 from core import paybox
 
@@ -2180,6 +2181,22 @@ async def chain_view_page(view: str, offset: int = 0, limit: int = 24):
         return await chain_views.fetch_page(view, offset=offset, limit=limit)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/first-visit")
+async def first_visit(request: Request):
+    """Whether this visitor is arriving for the first time.
+
+    Decides whether the bare domain opens the Home page or goes straight to
+    the marketplace. Nothing else depends on it, and it is deliberately
+    cheap: one upsert, no read of anything else.
+
+    Never returns an error. On any failure it reports first_visit False, so
+    the marketplace opens. Showing Home when it should not is the more
+    annoying way to be wrong.
+    """
+    ip = first_visit_mod.client_ip(dict(request.headers), request.client.host if request.client else None)
+    return await first_visit_mod.check_and_record(ip)
 
 
 @app.get("/api/budget-mode/status")
