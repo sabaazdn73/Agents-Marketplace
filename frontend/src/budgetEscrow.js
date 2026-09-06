@@ -289,15 +289,20 @@ export function useBudgetActions() {
  * budgets that nothing could ever draw from. The buyer's money was
  * recoverable, but they would have paid gas to discover a dead end.
  *
- * Defaults to UNAVAILABLE while loading and on error. An offer that might
- * be a dead end should not appear until it is known not to be. */
+ * Defaults to UNAVAILABLE while loading and on error.
+ *
+ * `declared` is separate from `available`: available means the contract
+ * would accept this agent, declared means its developer told us it
+ * implements draw(). An undeclared agent is offered with a warning rather
+ * than blocked, since the client can reclaim an unused budget at any
+ * time. */
 export function useBudgetModeStatus(ownerAddress) {
-  const [state, setState] = useState({ loading: true, available: false, reason: '', agents: [] });
+  const [state, setState] = useState({ loading: true, available: false, declared: false, reason: '', agents: [] });
 
   useEffect(() => {
     let cancelled = false;
     if (!isBudgetEscrowConfigured()) {
-      setState({ loading: false, available: false, agents: [],
+      setState({ loading: false, available: false, declared: false, agents: [],
                  reason: "Budget mode isn't deployed in this environment yet." });
       return undefined;
     }
@@ -305,8 +310,8 @@ export function useBudgetModeStatus(ownerAddress) {
     const q = ownerAddress ? `?owner=${encodeURIComponent(ownerAddress)}` : '';
     fetch(`${base}/api/budget-mode/status${q}`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((d) => { if (!cancelled) setState({ loading: false, available: !!d.available, reason: d.reason || '', agents: d.agents || [] }); })
-      .catch(() => { if (!cancelled) setState({ loading: false, available: false, agents: [],
+      .then((d) => { if (!cancelled) setState({ loading: false, available: !!d.available, declared: !!d.declared, reason: d.reason || '', agents: d.agents || [] }); })
+      .catch(() => { if (!cancelled) setState({ loading: false, available: false, declared: false, agents: [],
                        reason: "Couldn't check whether this agent supports budgets." }); });
     return () => { cancelled = true; };
   }, [ownerAddress]);

@@ -124,40 +124,45 @@ def is_draw_capable(owner_address: str | None) -> bool:
 
 
 def budget_mode_status(owner_address: str | None = None, *, for_agent: bool = True) -> dict:
-    """Whether budget mode can honestly be offered, and if not, why.
+    """Whether budget mode can be offered for an agent, and what to warn about.
 
-    Kept as one function so every surface gives the same answer: the reason
-    a buyer cannot use budget mode should not depend on which page they are
-    standing on."""
+    This used to block any agent not on the capable list. That was too
+    strict. The contract puts no restriction on who can be named as the
+    agent on a budget, so the allowlist was our decision made on the
+    client's behalf, and it locked out exactly the agents the model exists
+    for: ones that need funds mid-job but had not told us so.
+
+    The dead end it guarded against is also not permanent. If the agent
+    never calls draw, nothing is spent and the client can reclaim the whole
+    amount at any time. The worst case is money sitting idle until they do,
+    not money lost.
+
+    So availability now follows what the contract allows: any agent with a
+    resolvable owner address. `declared` carries the part we actually know,
+    and the UI turns that into a warning rather than a closed door.
+    """
     agents = draw_capable_agents()
-    if not agents:
+    declared = is_draw_capable(owner_address) if for_agent else bool(agents)
+
+    if for_agent and not _is_evm_address((owner_address or "").strip()):
+        # Still a hard no, and the only one left. Without an address there
+        # is nobody to name as the agent, and openBudget would reject it.
         return {
             "available": False,
+            "declared": False,
             "reason": (
-                "No agent supports drawable budgets yet. The escrow contract is live, but "
-                "funding a budget would create one no agent could draw from."
-            ),
-            "draw_capable_count": 0,
-            "agents": [],
-        }
-    # A blank address is NOT the same as "no agent in particular". Every
-    # user-facing caller is asking about one specific agent, so an agent
-    # with no owner address on record must come back unavailable -- the
-    # earlier version fell through to available=True here, which would have
-    # offered budget mode for an agent that openBudget then rejects. Only an
-    # explicit for_agent=False asks the global question.
-    if for_agent and not is_draw_capable(owner_address):
-        return {
-            "available": False,
-            "reason": (
-                "This agent doesn't support drawable budgets. It can be hired with locked "
-                "escrow instead."
+                "This agent has no owner address on record, so there's no address to fund "
+                "a budget against."
             ),
             "draw_capable_count": len(agents),
             "agents": agents,
         }
+
     return {
         "available": True,
+        # True: the agent's developer told us it implements draw().
+        # False: we don't know either way. Not the same as "it can't".
+        "declared": declared,
         "reason": "",
         "draw_capable_count": len(agents),
         "agents": agents,

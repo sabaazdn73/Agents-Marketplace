@@ -1535,6 +1535,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   value={hireMode}
                   onChange={setHireMode}
     budgetAvailable={budgetMode.available}
+                  budgetDeclared={budgetMode.declared}
                   disabledReason={budgetMode.reason}
                 />
                 {hireMode === HIRE_MODE.BUDGET && <BudgetHirePanel agent={selectedAgent} />}

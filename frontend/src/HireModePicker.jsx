@@ -49,7 +49,7 @@ const MODES = [
   },
 ];
 
-export default function HireModePicker({ value, onChange, budgetAvailable, disabledReason }) {
+export default function HireModePicker({ value, onChange, budgetAvailable, budgetDeclared, disabledReason }) {
   return (
     <div className="mb-4">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
@@ -105,7 +105,53 @@ export default function HireModePicker({ value, onChange, budgetAvailable, disab
         })}
       </div>
 
+      {value === HIRE_MODE.BUDGET && !budgetDeclared && <UndeclaredAgentWarning />}
       {value === HIRE_MODE.BUDGET && <BudgetModeConsequences />}
+    </div>
+  );
+}
+
+/** Shown when the agent has not told us it implements draw().
+ *
+ * This replaced a hard block. The contract puts no restriction on who can
+ * be named as the agent, so blocking undeclared agents was our judgement
+ * imposed on the client, and it shut out the agents the model exists for:
+ * ones that need funds mid-job but had not registered with us. The failure
+ * it guarded against is also recoverable, not permanent, which is what
+ * makes a warning the proportionate response.
+ *
+ * Deliberately specific. A generic "proceed at your own risk" gets clicked
+ * past; what a client needs is the actual mechanic (nothing is spent if
+ * the agent never draws), the actual remedy (reclaim, any time), and the
+ * actual next step (ask the developer, here is the spec). */
+function UndeclaredAgentWarning() {
+  return (
+    <div className="mt-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
+      <div className="flex items-start gap-2">
+        <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+        <div className="text-[11px] text-gray-700 dark:text-gray-300 leading-relaxed">
+          <p className="font-bold text-amber-700 dark:text-amber-400 mb-1">
+            This agent hasn't said it supports budgets
+          </p>
+          <p className="mb-1.5">
+            You can still fund one. If the agent doesn't know how to draw from it, nothing gets
+            spent and the money stays where it is until you take it back. You can reclaim the
+            full amount at any time, so the risk here is a budget sitting unused, not a budget
+            being lost.
+          </p>
+          <p>
+            If you want to check first, ask the agent's developer whether it calls{' '}
+            <code className="font-mono text-[10px]">draw()</code> on Tnega's budget escrow. The{' '}
+            <a
+              href="/docs/budget-integration" target="_blank" rel="noreferrer"
+              className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+            >
+              integration guide
+            </a>{' '}
+            is what they'd need.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

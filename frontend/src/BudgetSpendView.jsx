@@ -74,6 +74,10 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
   const reclaimed = status === 'RECLAIMED';
   const deadline = Number(budget.deadline) * 1000;
   const expired = Date.now() > deadline;
+  // While nothing has been drawn, lastDrawAt is the creation time (the
+  // contract seeds it there so a cooldown applies before the first draw).
+  const openedAt = Number(budget.lastDrawAt) * 1000;
+  const idleHours = Math.floor((Date.now() - openedAt) / 3_600_000);
 
   const doRevoke = async () => {
     await reclaim(budgetId);
@@ -114,6 +118,36 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
           <span>
             {expired ? 'Deadline passed' : `Draws stop ${new Date(deadline).toLocaleString()}`}
           </span>
+        </div>
+      )}
+
+      {/* Idle and expired budgets, surfaced rather than left for the client
+          to notice.
+          Budget mode can now be used with an agent that never declared
+          support for it, so "funded, and nothing ever happened" is a state
+          that can genuinely occur. Nothing is lost when it does, but only
+          if somebody reclaims, and nobody should have to remember to check.
+
+          `lastDrawAt` is set when the budget is created and only moves on a
+          draw, so while spent is 0 it is exactly the time the budget was
+          opened. One hour is the threshold: long enough that a working
+          agent has had a fair chance to make its first draw, short enough
+          that an idle budget is caught the same day. */}
+      {isOpen && expired && remaining > 0n && (
+        <div className="mb-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
+          <p className="text-[11px] text-amber-700 dark:text-amber-400">
+            <strong>The deadline has passed and {fmt(remaining, symbol)} is still here.</strong>{' '}
+            No further draws can be made. Take it back below.
+          </p>
+        </div>
+      )}
+      {isOpen && !expired && spent === 0n && idleHours >= 1 && (
+        <div className="mb-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
+          <p className="text-[11px] text-amber-700 dark:text-amber-400">
+            <strong>Nothing drawn in {idleHours < 24 ? `${idleHours} hours` : `${Math.floor(idleHours / 24)} days`}.</strong>{' '}
+            The agent may not support drawable budgets, or may not have started. Your full
+            {' '}{fmt(total, symbol)} is untouched and you can take it back below at any time.
+          </p>
         </div>
       )}
 
