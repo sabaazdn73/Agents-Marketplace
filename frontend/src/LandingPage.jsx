@@ -23,7 +23,7 @@
 //     would otherwise have disabled animation app-wide.
 //  2. Asset paths become /agent-hero/assets/... since the component is not
 //     served from that directory.
-//  3. The "Explore the catalog" link is a button that switches to the
+//  3. The "Explore Tnega" link is a button that switches to the
 //     marketplace tab, rather than an href="#".
 //
 // Everything else is the original: the same markup, the same geometry
@@ -208,16 +208,21 @@ export default function LandingPage({ onEnterMarketplace }) {
         <div className="copy">
           <h1>Autonomous agents, one verifiable network</h1>
           <p>Discover, connect and trust agents across chains.</p>
-          {/* The design's "Explore the catalog" link, wired to the tab it
+          {/* The design's "Explore Tnega" link, wired to the tab it
               describes rather than an href="#". */}
           <a
             href="/market"
             onClick={(e) => { e.preventDefault(); onEnterMarketplace?.(); }}
           >
-            Explore the catalog
+            Explore Tnega
           </a>
         </div>
 
+        {/* Two ways out, both real links. The sidebar is gone while this
+            page shows, so "Explore Tnega" is the intended exit and this is
+            the backstop: a plain href that works even if the click handler
+            or the animation never runs. */}
+        <a className="skip" href="/market">Skip to marketplace</a>
         <button className="replay" type="button" onClick={play}>Replay</button>
       </section>
     </div>

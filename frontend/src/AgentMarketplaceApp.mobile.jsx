@@ -28,7 +28,6 @@ import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
 import NotificationBell from './NotificationBell';
-import LandingPage from './LandingPage';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -1051,14 +1050,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           />
         ) : (
           <div className="p-5">
-            {/* A destination in the nav rather than a gate on "/". The
-                marketplace list is already loading while this shows, because
-                useMarketplaceAgents runs for every tab. */}
-            {nav === 'landing' && (
-              <LandingPage onEnterMarketplace={() => { setNav('market'); onNavChange?.('market'); }} />
-            )}
-
-            {nav === 'market' && (
+                        {nav === 'market' && (
               <ChainViewTabs mutedBorder="border-gray-100 dark:border-gray-800">
                 {/* BNB Chain view below is the original mobile marketplace,
                     unchanged; ChainViewTabs renders it as-is on the BNB tab. */}

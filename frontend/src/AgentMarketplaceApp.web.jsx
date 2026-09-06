@@ -19,7 +19,6 @@ import iconLogo from './assets/icon_v2_small.svg';
 import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
-import LandingPage from './LandingPage';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
@@ -1046,14 +1045,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       <main className="flex-1 p-6 md:p-8 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
           
-          {/* A destination in the nav rather than a gate on "/". The
-              marketplace list is already loading while this shows, because
-              useMarketplaceAgents runs for every tab. */}
-          {nav === 'landing' && (
-            <LandingPage onEnterMarketplace={() => { setNav('market'); onNavChange?.('market'); }} />
-          )}
-
-          {nav === 'market' && detailAgent && !hiring && (
+                    {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail
               agent={detailAgent}
               onBack={closeAgentDetail}

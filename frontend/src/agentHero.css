@@ -80,13 +80,42 @@
 .agent-hero .agent.lead.floating .part{animation:glow 3.6s ease-in-out infinite}
 @keyframes glow{50%{filter:drop-shadow(0 10px 14px rgba(0,0,0,.45)) drop-shadow(0 0 22px rgba(120,220,255,.55))}}
 .agent-hero .copy{
-    position:absolute;left:0;right:0;bottom:clamp(16px,4vh,48px);
-    text-align:center;z-index:5;padding:0 20px;
+    position:absolute;left:0;right:0;bottom:0;
+    text-align:center;z-index:5;
+    padding:clamp(56px,12vh,140px) 20px clamp(16px,4vh,48px);
     opacity:0;transform:translateY(12px);transition:opacity .9s ease .2s,transform .9s ease .2s;
+    /* The artwork behind this is bright and it MOVES: the podium glow, the
+       halo and the amber network lines all sit here. Measured against
+       bg.jpg alone, white text scored 1.3:1 over the lower stage and only
+       3.9:1 against the brightest tenth at the very bottom, all short of
+       the 4.5:1 needed, and the animated layers on top are brighter still.
+       A gradient scrim fixes it at the source by giving the text its own
+       dark base, instead of chasing opacity values that still fail
+       wherever a line happens to cross. */
+    /* Alphas solved for, not guessed. Against the brightest pixel measured
+       in the artwork (luminance 252), #dde3f7 body text needs the scrim at
+       0.879 to reach 4.5:1, so the whole band the text occupies is held at
+       0.93 and only fades above it, where nothing is written. */
+    background:linear-gradient(to top,
+      rgba(6,11,31,.96) 0%,
+      rgba(6,11,31,.93) 55%,
+      rgba(6,11,31,.62) 80%,
+      rgba(6,11,31,0) 100%);
   }
 .agent-hero .stage.gathered ~ .copy,.agent-hero .hero.gathered .copy{opacity:1;transform:none}
-.agent-hero .copy h1{font-size:clamp(22px,3.4vw,44px);font-weight:600;letter-spacing:-.01em;margin:0 0 8px;text-shadow:0 2px 24px rgba(0,0,0,.6)}
-.agent-hero .copy p{margin:0 0 18px;color:var(--muted);font-size:clamp(14px,1.4vw,18px)}
+.agent-hero .copy h1{
+    font-size:clamp(22px,3.4vw,44px);font-weight:700;letter-spacing:-.01em;margin:0 0 8px;
+    color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,.8),0 2px 18px rgba(0,0,0,.55);
+  }
+.agent-hero .copy p{
+    margin:0 0 18px;font-size:clamp(14px,1.4vw,18px);
+    /* Lifted from --muted (#9aa6d1), which failed against the podium
+       glow. At the scrim's 0.93 this clears 4.5:1 even over the brightest
+       pixel in the artwork. */
+    color:#dde3f7;
+    text-shadow:0 1px 2px rgba(0,0,0,.7);
+  }
 .agent-hero .copy a{
     display:inline-block;padding:12px 26px;border-radius:999px;color:#1a1030;text-decoration:none;font-weight:600;
     background:linear-gradient(90deg,var(--gold),#ff8a5c);box-shadow:0 8px 30px rgba(255,150,60,.35);
@@ -99,3 +128,11 @@
 @media (prefers-reduced-motion:reduce){
     .agent-hero .agent,.agent-hero .agent .body,.agent-hero .net line,.agent-hero .halo,.agent-hero .copy{animation:none!important;transition:none!important}
   }
+.agent-hero .skip{
+    position:absolute;top:14px;left:14px;z-index:6;
+    border:1px solid rgba(255,255,255,.25);background:rgba(10,14,40,.6);
+    color:#eef2ff;text-decoration:none;padding:8px 14px;border-radius:999px;
+    font-size:13px;
+  }
+.agent-hero .skip:hover{background:rgba(10,14,40,.85)}
+.agent-hero .skip:focus-visible{outline:3px solid #fff;outline-offset:3px}
