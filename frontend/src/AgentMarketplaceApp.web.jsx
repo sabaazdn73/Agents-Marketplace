@@ -19,8 +19,8 @@ import iconLogo from './assets/icon_v2_small.svg';
 import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
+import LandingPage from './LandingPage';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
-import { consumeAgentsPrefetch } from './agentsPrefetch';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
@@ -203,9 +203,7 @@ function useMarketplaceAgents() {
   useEffect(() => {
     let cancelled = false;
     if (agents.length > 0) setRefreshing(true);
-    // Use the landing page's in-flight request if there is one, so the
-    // seconds spent on that page are the same seconds this was loading.
-    (consumeAgentsPrefetch() || fetchAgentsWithRetry(`${API_BASE_URL}/api/agents`, () => cancelled))
+    fetchAgentsWithRetry(`${API_BASE_URL}/api/agents`, () => cancelled)
       .then((data) => {
         if (cancelled || data == null) return;
         const mapped = (data.agents || []).map(mapAgent);
@@ -523,6 +521,7 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
 }
 
 const NAV_ITEMS = [
+  { id: 'landing', label: 'Home', icon: Sparkles },
   { id: 'market', label: 'Marketplace', icon: Store },
   // Real, deliberate placement (2026-08-29, product/UX audit) — see
   // docs/skills-vs-marketplace.md for the full reasoning. A Skill (Venus
@@ -1047,6 +1046,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       <main className="flex-1 p-6 md:p-8 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
           
+          {/* A destination in the nav rather than a gate on "/". The
+              marketplace list is already loading while this shows, because
+              useMarketplaceAgents runs for every tab. */}
+          {nav === 'landing' && (
+            <LandingPage onEnterMarketplace={() => { setNav('market'); onNavChange?.('market'); }} />
+          )}
+
           {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail
               agent={detailAgent}

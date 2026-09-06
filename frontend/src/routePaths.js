@@ -23,6 +23,9 @@
 // '/native-agents' added 2026-09-01 alongside NAV_ITEMS' own new
 // 'native' tab, same reasoning as '/skills' above.
 export const MAIN_TAB_PATHS = {
+  // A destination, not the entry point: '/' still resolves to the
+  // marketplace, and this is reachable from the nav or its own URL.
+  '/home': 'landing',
   '/market': 'market',
   '/skills': 'skills',
   '/native-agents': 'native',
