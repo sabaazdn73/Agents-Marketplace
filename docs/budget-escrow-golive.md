@@ -1,7 +1,37 @@
 # AgentBudgetEscrow — mainnet go-live
 
-Straight to BSC mainnet, testnet deliberately skipped. This page is the
-smoke test that carries the risk that skipping it would otherwise leave.
+**DEPLOYED AND VERIFIED, 2026-09-06.**
+`0x4728f03693DDABbe50E79c7BfFCb930e522D585B` on BSC mainnet.
+
+The whole checklist below was run against it on mainnet and passed:
+
+- The deployed runtime bytecode is **byte-identical** to the compiled
+  source in this repo (7,396 bytes, compared directly against
+  `out/AgentBudgetEscrow.sol/AgentBudgetEscrow.json` rather than trusting
+  the explorer's verification badge). The live contract is the exact code
+  the 33 adversarial tests ran against.
+- Constructor read back correct: owner `0x48ce74cd…92e9`, feeWallet
+  `0xbfe58070…4293`, feeBps 250, MAX_FEE_BPS 1000, MAX_DURATION 365 days,
+  NATIVE + USDT accepted, an unrelated address correctly NOT accepted.
+- `drawableNow` returned the per-draw cap rather than the total, which is
+  what proves maxPerDraw is enforced and not merely stored.
+- `ExceedsMaxPerDraw` and `NotAgent` both reverted as intended.
+- The agent received 0.0000975 BNB on a 0.0001 draw — the fee is real.
+- **Under pause: draw and openBudget blocked, reclaim SUCCEEDED.** This is
+  the property the whole design rests on, and it was verified with real
+  money rather than assumed.
+- Reclaim returned the undrawn remainder with `early = true`.
+
+End state, read back on-chain: both budgets RECLAIMED, fees accrued
+exactly 0.0000025 BNB (2.5% of the one draw), and the contract's balance
+equals precisely what it owes. Solvent, with no client funds stranded.
+
+Note when reading a reclaimed budget: `spent == total` is by design.
+`reclaim()` sets it as the effects-before-interaction step that makes a
+double reclaim impossible — it does not mean the agent spent everything.
+
+Testnet was deliberately skipped. This page is the smoke test that carries
+the risk that skipping it would otherwise have left.
 
 **Do the whole checklist before any real money goes in.** The whole point is
 to find a problem on a one-cent budget rather than a real one.
