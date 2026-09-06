@@ -164,6 +164,37 @@ function mapAgent(a) {
   };
 }
 
+// The backend is OOM-killed by its 512Mi cap roughly 0.4 times an hour and
+// restarts in seconds (see docs/memory-ceiling.md). A single fetch that
+// happens to land in one of those windows fails, and with no cached data
+// the whole marketplace rendered an error with every count at 0, even
+// though the backend was back moments later.
+//
+// So the list fetch retries instead of giving up on the first failure.
+// Delays are short because a restart is short; four attempts span about
+// 17 seconds, which comfortably covers it. This is the same discipline
+// useResilientFetch already applies to the per-agent panels, applied to
+// the one fetch that decides whether the page has any content at all.
+const AGENT_FETCH_RETRY_MS = [1500, 4000, 11000];
+
+async function fetchAgentsWithRetry(url, isCancelled) {
+  let lastError;
+  for (let attempt = 0; attempt <= AGENT_FETCH_RETRY_MS.length; attempt++) {
+    if (isCancelled()) return null;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+      const wait = AGENT_FETCH_RETRY_MS[attempt];
+      if (wait == null) break;
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw lastError;
+}
+
 function useMarketplaceAgents() {
   const [agents, setAgents] = useState(() => {
     try {
@@ -190,10 +221,9 @@ function useMarketplaceAgents() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE_URL}/api/agents`)
-      .then((res) => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
+    fetchAgentsWithRetry(`${API_BASE_URL}/api/agents`, () => cancelled)
       .then((data) => {
-        if (cancelled) return;
+        if (cancelled || data == null) return;
         const mapped = (data.agents || []).map(mapAgent);
         setAgents(mapped);
         setLoading(false);
