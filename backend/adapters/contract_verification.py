@@ -54,17 +54,23 @@ _TTL_SECONDS = 24 * 60 * 60  # a contract's own verification status is a structu
 _cache: dict[str, tuple[float, dict]] = {}
 
 
-async def _is_contract(address: str) -> bool | None:
+async def _is_contract(address: str, chain_id: int = _BSC_CHAIN_ID) -> bool | None:
     """Real eth_getCode check — returns True if the address has real
     on-chain bytecode (a contract), False for a plain wallet (empty
     code), None on a genuine RPC failure (honestly unknown, not assumed
-    either way)."""
-    from core.rpc import rpc_post
+    either way).
+
+    `chain_id` defaults to BSC so every existing caller keeps its exact
+    previous behaviour; other chains go through core/rpc.py's per-chain
+    transport, which raises for a chain it has no RPC for rather than
+    quietly answering from BSC."""
+    from core.rpc import chain_rpc_post, rpc_post
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "eth_getCode", "params": [address, "latest"]}
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            resp = await rpc_post(
-                client,
-                {"jsonrpc": "2.0", "id": 1, "method": "eth_getCode", "params": [address, "latest"]},
+            resp = await (
+                rpc_post(client, payload) if chain_id == _BSC_CHAIN_ID
+                else chain_rpc_post(client, chain_id, payload)
             )
             resp.raise_for_status()
             code = resp.json().get("result")
@@ -75,7 +81,7 @@ async def _is_contract(address: str) -> bool | None:
     return code not in ("0x", "0x0", "")
 
 
-async def check_owner_contract_verification(address: str) -> dict:
+async def check_owner_contract_verification(address: str, chain_id: int = _BSC_CHAIN_ID) -> dict:
     """Returns one of:
       {"is_contract": False} — the real, common case: a plain wallet,
         nothing more to check.
@@ -90,50 +96,60 @@ async def check_owner_contract_verification(address: str) -> dict:
         now (missing key, BscScan error) — never guessed either way.
       {"is_contract": None, "reason": ...} — the real RPC check itself
         failed; genuinely unknown.
-    24-hour cache per address (verification status is structural, not
-    time-sensitive)."""
+    24-hour cache per (address, chain) — verification status is structural
+    rather than time-sensitive, but it is NOT the same fact across chains:
+    the same address can be a verified contract on one chain, an unverified
+    one on another, and a plain wallet on a third. Keying this cache on the
+    address alone (as it was before chain support) would have let the first
+    chain checked answer for every other one."""
     addr = (address or "").lower()
     if not addr.startswith("0x") or len(addr) != 42:
         return {"is_contract": None, "reason": "not a valid EVM address"}
 
-    cached = _cache.get(addr)
+    key = (addr, chain_id)
+    cached = _cache.get(key)
     if cached and time.time() - cached[0] < _TTL_SECONDS:
         return cached[1]
 
-    is_contract = await _is_contract(addr)
+    try:
+        is_contract = await _is_contract(addr, chain_id)
+    except ValueError as e:
+        # core/rpc.py raises for a chain it has no RPC for. Reported as
+        # honestly unknown rather than allowed to look like a wallet.
+        return {"is_contract": None, "reason": f"no RPC configured for chain {chain_id}: {e}"}
     if is_contract is None:
-        result = {"is_contract": None, "reason": "couldn't reach the real BSC RPC to check"}
-        _cache[addr] = (time.time(), result)
+        result = {"is_contract": None, "reason": "couldn't reach the chain's RPC to check"}
+        _cache[key] = (time.time(), result)
         return result
     if not is_contract:
         result = {"is_contract": False}
-        _cache[addr] = (time.time(), result)
+        _cache[key] = (time.time(), result)
         return result
 
     api_key = os.environ.get("BSCSCAN_API_KEY")
     if not api_key:
         result = {"is_contract": True, "verified": None, "reason": "BSCSCAN_API_KEY not set"}
-        _cache[addr] = (time.time(), result)
+        _cache[key] = (time.time(), result)
         return result
 
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(
                 _ETHERSCAN_V2_BASE,
-                params={"chainid": _BSC_CHAIN_ID, "module": "contract", "action": "getsourcecode",
+                params={"chainid": chain_id, "module": "contract", "action": "getsourcecode",
                         "address": addr, "apikey": api_key},
             )
             resp.raise_for_status()
             body = resp.json()
     except Exception as e:
         result = {"is_contract": True, "verified": None, "reason": f"couldn't reach BscScan: {e}"}
-        _cache[addr] = (time.time(), result)
+        _cache[key] = (time.time(), result)
         return result
 
     entries = body.get("result")
     if not isinstance(entries, list) or not entries:
         result = {"is_contract": True, "verified": None, "reason": "BscScan returned an unexpected response shape"}
-        _cache[addr] = (time.time(), result)
+        _cache[key] = (time.time(), result)
         return result
 
     entry = entries[0]
@@ -146,5 +162,5 @@ async def check_owner_contract_verification(address: str) -> dict:
         "compiler_version": entry.get("CompilerVersion") or None if verified else None,
         "is_proxy": (entry.get("Proxy") == "1") if verified else None,
     }
-    _cache[addr] = (time.time(), result)
+    _cache[key] = (time.time(), result)
     return result

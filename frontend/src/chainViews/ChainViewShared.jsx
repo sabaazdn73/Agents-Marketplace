@@ -15,7 +15,7 @@
 // them per chain, and both make the honest thing harder to see.
 
 import React from 'react';
-import { Loader2, AlertTriangle, Info, ExternalLink } from 'lucide-react';
+import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 import ServiceHealthBadge from '../ServiceHealthBadge';
 
 /** Block explorer per chain, so an agent is verifiable at source even
@@ -78,6 +78,80 @@ export function UnverifiedStatusNote({ note, verifiedChains = [], unverifiedChai
         {verifiedChains.length === 0 && unverifiedChains.length === 0 && (note || 'No status is implied for these agents.')}
       </span>
     </div>
+  );
+}
+
+/** Human labels for the backend's signal ids. Kept here rather than sent
+ * from the backend because these are UI copy, not facts about a chain --
+ * the backend owns whether a signal is available and why, which is the
+ * part that must not drift. */
+const SIGNAL_LABELS = {
+  category: 'Category classification',
+  live_health: 'Live service health',
+  contract_verification: 'Contract verification',
+  independent_corroboration: 'Independent corroboration',
+  financial_record: 'Financial record',
+  escrow_compatibility: 'Escrow compatibility',
+  delivery_record: 'Delivery record',
+  canary_results: 'Canary test results',
+};
+
+/** What this view can and cannot show about its agents, and why.
+ *
+ * The chain views used to differ from BSC's by simply having less on the
+ * page, which reads as "not bothered" when the real answer is usually
+ * "this cannot exist here" -- ERC-8183 escrow is deployed on BNB Smart
+ * Chain only, so escrow compatibility, delivery record and canary results
+ * have nothing to read anywhere else. Stating that is more useful than an
+ * empty section, and much more useful than a partial copy of BSC's display
+ * that implies those checks ran and came back blank.
+ *
+ * Availability and reasons come from the backend so the UI cannot claim a
+ * signal the data layer has no way to produce. */
+export function ChainCapabilities({ capabilities }) {
+  const signals = capabilities?.signals || [];
+  if (!signals.length) return null;
+  const shown = signals.filter((s) => s.available || s.partial);
+  const absent = signals.filter((s) => !s.available && !s.partial);
+
+  return (
+    <details className="mb-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B]">
+      <summary className="px-4 py-3 text-[12px] font-semibold cursor-pointer select-none flex items-center gap-2">
+        <Info size={13} className="text-indigo-500 shrink-0" />
+        What we can check on this chain
+        <span className="font-normal text-gray-500">
+          ({shown.length} of {signals.length} signals)
+        </span>
+      </summary>
+      <div className="px-4 pb-4 pt-1 space-y-2.5">
+        {shown.map((s) => (
+          <div key={s.signal} className="flex items-start gap-2">
+            <CheckCircle2 size={13} className={`shrink-0 mt-0.5 ${s.partial ? 'text-amber-500' : 'text-emerald-500'}`} />
+            <div className="min-w-0">
+              <div className="text-[12px] font-medium">
+                {SIGNAL_LABELS[s.signal] || s.signal}
+                {s.partial && <span className="ml-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">PARTIAL</span>}
+              </div>
+              <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">{s.detail}</p>
+              {s.partial && s.missing_chains?.length > 0 && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-500 mt-0.5">
+                  Not available for {s.missing_chains.map((c) => c.name).join(', ')}.
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+        {absent.map((s) => (
+          <div key={s.signal} className="flex items-start gap-2">
+            <XCircle size={13} className="shrink-0 mt-0.5 text-gray-400" />
+            <div className="min-w-0">
+              <div className="text-[12px] font-medium text-gray-500">{SIGNAL_LABELS[s.signal] || s.signal}</div>
+              <p className="text-[11px] text-gray-500 dark:text-gray-500 leading-relaxed">{s.reason}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

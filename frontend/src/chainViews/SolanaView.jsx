@@ -12,12 +12,12 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
 import { useChainView } from './useChainView';
-import { ChainAgentCard, ChainViewStates, UnverifiedStatusNote } from './ChainViewShared';
+import { ChainAgentCard, ChainViewStates, UnverifiedStatusNote, ChainCapabilities } from './ChainViewShared';
 
 const PREVIEW_COUNT = 6;
 
 export default function SolanaView({ mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { agents, statusNote, verifiedChains, unverifiedChains, loading, error } = useChainView('solana');
+  const { agents, statusNote, verifiedChains, unverifiedChains, capabilities, loading, error } = useChainView('solana');
 
   const state = <ChainViewStates loading={loading} error={error} empty={false} label="Solana" />;
   if (state && (loading || error)) return state;
@@ -37,6 +37,7 @@ export default function SolanaView({ mutedBorder = 'border-gray-200 dark:border-
         </p>
       </div>
       <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
+      <ChainCapabilities capabilities={capabilities} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 opacity-75">
         {agents.slice(0, PREVIEW_COUNT).map((a) => (
           <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder} />

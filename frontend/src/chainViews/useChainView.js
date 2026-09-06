@@ -45,7 +45,7 @@ export function useChainViewIndex() {
  * it by accident. */
 export function useChainView(viewId) {
   const [agents, setAgents] = useState([]);
-  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [] });
+  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -65,6 +65,10 @@ export function useChainView(viewId) {
       // from the backend so the UI cannot claim more than the data layer.
       verifiedChains: d.verified_chains || [],
       unverifiedChains: d.unverified_chains || [],
+      // Which evaluation signals this view can genuinely produce, and the
+      // real reason for each one it cannot. From the backend so the UI
+      // cannot claim a signal the data layer has no way to compute.
+      capabilities: d.capabilities || null,
     });
     setAgents((prev) => (append ? [...prev, ...(d.agents || [])] : (d.agents || [])));
     setHasMore(!!d.has_more);

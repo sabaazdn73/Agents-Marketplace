@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
+from core.chain_capabilities import summarize_view_capabilities
 from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 
 # Chain id -> display name. Kept here so a view definition reads as names
@@ -114,6 +115,18 @@ _PROJECTION = {
 # Health fields are only meaningful for a chain the chain-aware health check
 # has actually been widened to. Everything else keeps the honest thin display.
 _HEALTH_FIELDS = ("service_status", "service_endpoint", "service_checked_at")
+
+
+def _capabilities_with_names(chain_ids: list[int]) -> dict:
+    """summarize_view_capabilities plus human chain names, so the UI can
+    name the chains a partial signal is missing on."""
+    cap = summarize_view_capabilities(chain_ids)
+    for sig in cap["signals"]:
+        sig["missing_chains"] = [
+            {"chain_id": c, "name": CHAIN_NAMES.get(c, str(c))}
+            for c in sig.get("missing_chain_ids", [])
+        ]
+    return cap
 
 
 def _apply_status_policy(doc: dict) -> dict:
@@ -229,6 +242,14 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
             {"chain_id": c, "name": CHAIN_NAMES.get(c, str(c))}
             for c in v["chain_ids"] if c not in ANALYSIS_CHAIN_IDS
         ],
+        # Which evaluation signals this view can genuinely show, and for
+        # each one it cannot, the real reason. Sent with the view rather
+        # than hardcoded in the UI so the frontend cannot claim a signal
+        # the data layer has no way to produce -- and so an absence reads
+        # as an explanation instead of as an empty space. Chain names are
+        # attached here because the UI should be able to say WHICH chains
+        # a partial signal is missing on without knowing the chain table.
+        "capabilities": _capabilities_with_names(v["chain_ids"]),
         "status_note": (
             "Live endpoint checks have been extended to some chains but not all. "
             "Agents marked as unverified have not been checked, and no status is "
