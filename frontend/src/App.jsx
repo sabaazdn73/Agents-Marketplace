@@ -149,7 +149,7 @@ export default function App() {
   // below are the only way out and both are real links rather than
   // JS-only handlers.
   if (path === '/home' || (path === '/' && firstVisitNav === 'landing')) {
-    return <LandingPage onEnterMarketplace={() => navigate('/market')} />;
+    return <LandingPage onEnterMarketplace={() => navigate('/market')} animate={!isMobile} />;
   }
 
   if (path === '/status') {

@@ -117,9 +117,55 @@
     text-shadow:0 1px 2px rgba(0,0,0,.7);
   }
 .agent-hero .copy a{
-    display:inline-block;padding:12px 26px;border-radius:999px;color:#1a1030;text-decoration:none;font-weight:600;
-    background:linear-gradient(90deg,var(--gold),#ff8a5c);box-shadow:0 8px 30px rgba(255,150,60,.35);
+    /* Glass rather than the gradient pill: a translucent pane that takes
+       its colour from the scene behind it, a hairline top edge for the lit
+       rim, and a soft drop below to lift it off the artwork. The blur is
+       what makes it read as glass instead of a flat translucent box.
+       Deliberately quieter than the amber network lines and the halo, so
+       it sits in the composition rather than competing with it. */
+    display:inline-flex;align-items:center;gap:10px;
+    padding:14px 30px;border-radius:14px;
+    color:#f4f7ff;text-decoration:none;font-weight:600;font-size:15px;letter-spacing:.01em;
+    /* A dark tinted pane with a light sheen, not a white one. Measured:
+       a pure white sheen at .16 lifted the surface to luminance 58 and
+       dropped the label to 3.6:1. Tinting the base toward the scene and
+       keeping the sheen at .08 holds it at 5.1:1, and reads as glass in a
+       dark composition rather than as a pale chip sitting on top of it. */
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03)),
+      rgba(12,18,42,.55);
+    border:1px solid rgba(255,255,255,.22);
+    border-top-color:rgba(255,255,255,.42);
+    backdrop-filter:blur(14px) saturate(140%);
+    -webkit-backdrop-filter:blur(14px) saturate(140%);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.28) inset,
+      0 10px 34px rgba(0,0,0,.42),
+      0 2px 10px rgba(0,0,0,.28);
+    transition:background .25s ease,border-color .25s ease,transform .25s ease,box-shadow .25s ease;
   }
+.agent-hero .copy a:hover{
+    /* Hover brightens the RIM and lifts the pane, not the fill. Raising
+       the fill to .13 pushed the surface to luminance 53 and the label to
+       4.0:1; the sheen is capped at .09, which is the most that still
+       clears 4.5:1 on this background. */
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04)),
+      rgba(16,23,52,.62);
+    border-color:rgba(255,255,255,.46);
+    transform:translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.36) inset,
+      0 14px 40px rgba(0,0,0,.46),
+      0 2px 12px rgba(0,0,0,.3);
+  }
+.agent-hero .copy a:active{transform:translateY(0)}
+/* backdrop-filter is not universal. Without it a translucent pane over a
+   busy image is unreadable, so those browsers get an opaque surface
+   instead of a see-through one. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .agent-hero .copy a{background:rgba(23,30,58,.92)}
+}
 .agent-hero .copy a:focus-visible{outline:3px solid #fff;outline-offset:3px}
 .agent-hero .replay{
     position:absolute;top:14px;right:14px;z-index:6;border:1px solid rgba(255,255,255,.25);

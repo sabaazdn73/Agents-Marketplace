@@ -48,7 +48,7 @@ const AGENTS = [
 
 const FLOOR = 63;   // floor line, % of stage height, where feet land
 
-export default function LandingPage({ onEnterMarketplace }) {
+export default function LandingPage({ onEnterMarketplace, animate = true }) {
   const heroRef = useRef(null);
   const stageRef = useRef(null);
   const linesRef = useRef(null);
@@ -59,7 +59,13 @@ export default function LandingPage({ onEnterMarketplace }) {
     const hero = heroRef.current;
     if (!stage || !hero) return;
     const agents = [...stage.querySelectorAll('.agent')];
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    // The walk-in is for the web build only. On mobile the page shows the
+    // same design already settled: seven agents animating with clip-path
+    // legs and Web Animations is a lot to ask of a phone, and the reduced
+    // -motion path below already renders the finished composition, so this
+    // reuses it rather than adding a second way to arrive at that state.
+    const reduce = !animate
+      || (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
 
     const settle = () => { stage.classList.add('gathered'); hero.classList.add('gathered'); };
 
@@ -125,7 +131,7 @@ export default function LandingPage({ onEnterMarketplace }) {
 
     const tEnd = setTimeout(settle, lastEnd - 500);
     stage._settleTimer = tEnd;
-  }, []);
+  }, [animate]);
 
   // Network lines and dots, built once from the same geometry the design
   // uses: each agent's visual centre in source-pixel space, every non-lead
