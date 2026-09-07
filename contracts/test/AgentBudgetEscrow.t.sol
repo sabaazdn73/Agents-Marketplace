@@ -508,6 +508,161 @@ contract AgentBudgetEscrowTest is Test {
         esc.draw(id, 1 ether, bytes32(0)); // works again
     }
 
+    // ── Fee admin: setFeeBps ─────────────────────────────────────────────
+    //
+    // Both fee setters had ZERO lines executed before this section existed.
+    // They are the two owner functions that move real money: one changes
+    // what the platform takes from every future draw, the other changes who
+    // receives it. An untested setFeeWallet is the worse of the two -- it
+    // redirects a balance that has already accrued.
+
+    function test_setFeeBps_updatesStateAndEmitsOldAndNew() public {
+        assertEq(esc.feeBps(), FEE_BPS, "starts at the constructor value");
+        vm.expectEmit(false, false, false, true);
+        emit AgentBudgetEscrow.FeeBpsUpdated(FEE_BPS, 500);
+        esc.setFeeBps(500);
+        assertEq(esc.feeBps(), 500);
+    }
+
+    function test_setFeeBps_onlyOwner() public {
+        vm.prank(stranger);
+        vm.expectRevert(); // Ownable: OwnableUnauthorizedAccount
+        esc.setFeeBps(500);
+        assertEq(esc.feeBps(), FEE_BPS, "unchanged after a rejected call");
+    }
+
+    /// @dev The ceiling is the only thing standing between a client and an
+    ///      owner who sets the fee to 100%. Both sides of it are pinned.
+    function test_setFeeBps_rejectsAboveCeiling_acceptsCeilingItself() public {
+        // Read the ceiling BEFORE expectRevert: MAX_FEE_BPS() is itself an
+        // external call, and inline it would consume the expectRevert and
+        // let setFeeBps run unchecked.
+        uint16 ceiling = esc.MAX_FEE_BPS();
+
+        vm.expectRevert(AgentBudgetEscrow.FeeTooHigh.selector);
+        esc.setFeeBps(ceiling + 1);
+        assertEq(esc.feeBps(), FEE_BPS, "unchanged after a rejected call");
+
+        esc.setFeeBps(ceiling); // exactly at the ceiling is allowed
+        assertEq(esc.feeBps(), ceiling);
+    }
+
+    function test_setFeeBps_zeroMeansNoFee() public {
+        esc.setFeeBps(0);
+        uint256 id = _open(100 ether, 0, 0);
+        vm.prank(agent);
+        esc.draw(id, 40 ether, bytes32(0));
+        assertEq(esc.feesAccrued(address(tok)), 0, "no fee taken at 0 bps");
+        assertEq(tok.balanceOf(agent), 40 ether, "agent receives the gross amount");
+    }
+
+    /// @dev The natspec promises the new rate "applies to FUTURE draws only".
+    ///      That is a claim about money already taken, so it is tested rather
+    ///      than trusted: the first draw's fee must survive the rate change.
+    function test_setFeeBps_appliesToFutureDrawsOnly() public {
+        uint256 id = _open(100 ether, 0, 0);
+
+        vm.prank(agent);
+        esc.draw(id, 40 ether, bytes32("before"));
+        uint256 feeAtOldRate = (40 ether * FEE_BPS_U) / 10_000;
+        assertEq(esc.feesAccrued(address(tok)), feeAtOldRate);
+
+        esc.setFeeBps(1000); // 10%
+
+        vm.prank(agent);
+        esc.draw(id, 40 ether, bytes32("after"));
+        uint256 feeAtNewRate = (40 ether * 1000) / 10_000;
+
+        assertEq(
+            esc.feesAccrued(address(tok)),
+            feeAtOldRate + feeAtNewRate,
+            "the earlier draw is not retro-priced at the new rate"
+        );
+    }
+
+    // ── Fee admin: setFeeWallet ──────────────────────────────────────────
+
+    function test_setFeeWallet_updatesStateAndEmitsOldAndNew() public {
+        address newWallet = makeAddr("newFeeWallet");
+        assertEq(esc.feeWallet(), feeWallet, "starts at the constructor value");
+        vm.expectEmit(true, true, false, true);
+        emit AgentBudgetEscrow.FeeWalletUpdated(feeWallet, newWallet);
+        esc.setFeeWallet(newWallet);
+        assertEq(esc.feeWallet(), newWallet);
+    }
+
+    function test_setFeeWallet_onlyOwner() public {
+        vm.prank(stranger);
+        vm.expectRevert(); // Ownable: OwnableUnauthorizedAccount
+        esc.setFeeWallet(stranger);
+        assertEq(esc.feeWallet(), feeWallet, "unchanged after a rejected call");
+    }
+
+    /// @dev Zero here would send every future withdrawFees to address(0).
+    ///      For the ERC20 path that is an unrecoverable burn.
+    function test_setFeeWallet_rejectsZeroAddress() public {
+        vm.expectRevert(AgentBudgetEscrow.ZeroAddress.selector);
+        esc.setFeeWallet(address(0));
+        assertEq(esc.feeWallet(), feeWallet, "unchanged after a rejected call");
+    }
+
+    /// @dev The consequence that makes this function worth testing at all:
+    ///      withdrawFees reads feeWallet at CALL time, not at accrual time,
+    ///      so fees earned under the old wallet are paid to the new one.
+    ///      Not a bug -- but it is the behaviour, and it moves real money,
+    ///      so it is pinned rather than left to be discovered in production.
+    function test_setFeeWallet_redirectsAlreadyAccruedFees() public {
+        uint256 id = _open(100 ether, 0, 0);
+        vm.prank(agent);
+        esc.draw(id, 40 ether, bytes32(0));
+        uint256 fee = (40 ether * FEE_BPS_U) / 10_000;
+        assertEq(esc.feesAccrued(address(tok)), fee, "accrued while the old wallet was set");
+
+        address newWallet = makeAddr("newFeeWallet");
+        esc.setFeeWallet(newWallet);
+        esc.withdrawFees(address(tok));
+
+        assertEq(tok.balanceOf(newWallet), fee, "the new wallet receives the earlier fees");
+        assertEq(tok.balanceOf(feeWallet), 0, "the old wallet receives nothing");
+    }
+
+    /// @dev withdrawFees authorises `owner() || feeWallet`, so changing the
+    ///      wallet silently moves that permission too. Both directions.
+    function test_setFeeWallet_movesWithdrawAuthorisation() public {
+        uint256 id = _open(100 ether, 0, 0);
+        vm.prank(agent);
+        esc.draw(id, 40 ether, bytes32(0));
+
+        address newWallet = makeAddr("newFeeWallet");
+        esc.setFeeWallet(newWallet);
+
+        // The old wallet is now just a stranger to this function.
+        vm.prank(feeWallet);
+        vm.expectRevert(AgentBudgetEscrow.NotClient.selector);
+        esc.withdrawFees(address(tok));
+
+        // The new one can call it.
+        vm.prank(newWallet);
+        esc.withdrawFees(address(tok));
+        assertEq(esc.feesAccrued(address(tok)), 0);
+    }
+
+    /// @dev Neither setter may touch client or agent money. A budget opened
+    ///      before both changes must still pay out in full afterwards.
+    function test_feeAdmin_neverTouchesBudgetFunds() public {
+        uint256 id = _open(100 ether, 0, 0);
+        vm.prank(agent);
+        esc.draw(id, 40 ether, bytes32(0));
+
+        esc.setFeeBps(1000);
+        esc.setFeeWallet(makeAddr("newFeeWallet"));
+
+        uint256 before = tok.balanceOf(client);
+        vm.prank(client);
+        esc.reclaim(id);
+        assertEq(tok.balanceOf(client) - before, 60 ether, "client's remainder is untouched");
+    }
+
     // ── Solvency invariant ───────────────────────────────────────────────
 
     function testFuzz_contractStaysSolvent(uint96 amt, uint96 d1, uint96 d2) public {
