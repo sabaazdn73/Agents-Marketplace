@@ -71,6 +71,10 @@ export const BUDGET_ESCROW_ABI = [
     inputs: [{ name: 'budgetId', type: 'uint256' }], outputs: [{ type: 'uint256' }],
   },
   { type: 'function', name: 'paused', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
+  // Ids are sequential from 1 (`budgetId = ++budgetCounter`), which is what
+  // makes a client's budgets enumerable from contract state instead of from
+  // logs. See useMyBudgets for why that distinction decides correctness.
+  { type: 'function', name: 'budgetCounter', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   {
     type: 'event', name: 'Drawn',
     inputs: [
@@ -317,4 +321,99 @@ export function useBudgetModeStatus(ownerAddress) {
   }, [ownerAddress]);
 
   return state;
+}
+
+/** Every budget the connected wallet opened as CLIENT -- open, closed and
+ *  reclaimed alike, because the history is the point of showing them.
+ *
+ * WHY THIS ENUMERATES CONTRACT STATE AND NOT `BudgetOpened` LOGS
+ * -------------------------------------------------------------
+ * `BudgetOpened` indexes `client`, so a log filter looks like the obvious
+ * way to find someone's budgets. It is not, and the reason is already
+ * documented in useDrawFeed above from live measurement against this exact
+ * contract: these RPCs silently return INCOMPLETE log sets -- 200-block
+ * chunks recovered 3 of ~7 events that provably existed, with no error.
+ *
+ * A missing Drawn log understates a spend. A missing BudgetOpened log makes
+ * an entire budget vanish from this list -- which is precisely the black box
+ * this list exists to remove. Building discovery on logs would move the bug
+ * rather than fix it.
+ *
+ * So: ids are sequential from 1, `budgetCounter` is public, and `getBudget`
+ * is authoritative. Read the counter, read every id, keep the ones whose
+ * client matches. Contract state cannot silently omit a row.
+ *
+ * COST, STATED HONESTLY: this is O(budgetCounter) reads, batched through
+ * viem's multicall (one RPC round trip per BATCH_SIZE ids, not per id). That
+ * is correct and cheap while the counter is small, which it is -- but it is
+ * not free forever. When the counter reaches the low thousands this wants
+ * replacing with a server-side indexed scan, the same way agent_performance
+ * already does it for ERC-8183 jobs. Noted rather than pre-built: an index
+ * for a handful of budgets would be speculative infrastructure.
+ */
+export function useMyBudgets() {
+  const { address, isConnected } = useAccount();
+  const publicClient = usePublicClient();
+  const [state, setState] = useState({ loading: true, budgets: [], error: null });
+
+  const load = useCallback(async () => {
+    if (!isBudgetEscrowConfigured() || !isConnected || !address || !publicClient) {
+      setState({ loading: false, budgets: [], error: null });
+      return;
+    }
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const common = { address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI };
+      const count = await publicClient.readContract({ ...common, functionName: 'budgetCounter' });
+      const total = Number(count);
+      if (total === 0) { setState({ loading: false, budgets: [], error: null }); return; }
+
+      const BATCH_SIZE = 50;
+      const mine = [];
+      for (let start = 1; start <= total; start += BATCH_SIZE) {
+        const end = Math.min(start + BATCH_SIZE - 1, total);
+        const ids = [];
+        for (let i = start; i <= end; i++) ids.push(BigInt(i));
+
+        // getBudget AND drawableNow together: drawableNow is the contract's
+        // own view of what can be taken right now, and recomputing it here
+        // from status/deadline/cooldown would be a second implementation of
+        // logic that already exists on-chain -- the kind of duplicate that
+        // drifts and then disagrees with the contract.
+        const results = await publicClient.multicall({
+          contracts: ids.flatMap((id) => [
+            { ...common, functionName: 'getBudget', args: [id] },
+            { ...common, functionName: 'drawableNow', args: [id] },
+          ]),
+          allowFailure: true,
+        });
+
+        ids.forEach((id, idx) => {
+          const budgetRes = results[idx * 2];
+          const drawableRes = results[idx * 2 + 1];
+          if (budgetRes?.status !== 'success') return;
+          const b = budgetRes.result;
+          if (!b || Number(b.status) === 0) return; // NONE -- never opened
+          if (String(b.client).toLowerCase() !== String(address).toLowerCase()) return;
+          mine.push({
+            id,
+            ...b,
+            // A failed drawableNow must not fabricate a number. null reads
+            // as "unknown" downstream rather than as zero.
+            drawable: drawableRes?.status === 'success' ? drawableRes.result : null,
+          });
+        });
+      }
+
+      // Newest first: the budget someone just funded is the one they came
+      // here to look at.
+      mine.sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+      setState({ loading: false, budgets: mine, error: null });
+    } catch (e) {
+      setState({ loading: false, budgets: [], error: e.shortMessage || e.message });
+    }
+  }, [address, isConnected, publicClient]);
+
+  useEffect(() => { load(); }, [load]);
+  return { ...state, refresh: load };
 }

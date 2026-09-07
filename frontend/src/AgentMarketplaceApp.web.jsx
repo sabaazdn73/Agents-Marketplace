@@ -541,8 +541,10 @@ const NAV_ITEMS = [
   // Skills (2026-09-02, explicit tab-order request) since it's Tnega's
   // own higher-value-add offering.
   { id: 'native', label: 'Native Agents', icon: Bot },
-  { id: 'skills', label: 'Skills', icon: Zap },
+  // My Agents ahead of Skills (2026-09-07, explicit tab-order request):
+  // what you already hired outranks what you could run yourself.
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
+  { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
