@@ -57,6 +57,7 @@ import {
 } from './defiSkills';
 import { getTokenMeta, getTradeQuote, getPriceTrend, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
 import HealthFactorCard from './HealthFactorCard';
+import RebalancingCard from './RebalancingCard';
 
 /** Real, human labels for the holder-risk fields Binance's Market API
  * can genuinely have no data for, used to say "no data for Snipers"
@@ -604,8 +605,7 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
         <StakingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
         <HealthFactorCard accent={accent} surface={surface} mutedBorder={mutedBorder} />
-        <ComingSoonAgentCard icon={Scale} title="Rebalancing" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="Reads your token weights and works out the swaps that bring them back to a target split. The reads and the PancakeSwap routing it needs already exist here, so this is the next one being built." />
+        <RebalancingCard accent={accent} surface={surface} mutedBorder={mutedBorder} />
         <ComingSoonAgentCard icon={Grid3x3} title="Grid Trading" accent={accent} surface={surface} mutedBorder={mutedBorder}
           blurb="Places buy and sell orders across a price range and refills them as they fill. It needs something that keeps running between visits, which this backend has no scheduler for yet, so it is the last of the four." />
       </div>
