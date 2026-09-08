@@ -123,6 +123,7 @@ reasoning.
 
 from __future__ import annotations
 
+import os
 import time
 
 from pymongo import UpdateOne
@@ -176,6 +177,38 @@ MAX_NEW_SKIPS_PER_BATCH = 5
 # how long it runs, so it's ingested by its own separate path instead
 # (run_solana_ingest_batch below), not by adding 101 here.
 TARGET_CHAIN_IDS = {1, 56, 8453}
+
+# BSC INGESTION IS OFF UNLESS EXPLICITLY TURNED ON.
+#
+# BSC is the largest outstanding gap in the registry, roughly 178,000
+# agents, and pulling it in would spend most of the cluster's remaining
+# headroom. That is a decision to take deliberately, with the current free
+# space in front of you, not something that should begin the moment a deploy
+# reaches the worker.
+#
+# So the mixed scan filters BSC out by default. Set INGEST_BSC=1 in the
+# environment to include it. The flag is read at call time rather than at
+# import, so it can be turned on without a code change, and turning it off
+# again takes effect on the next batch.
+#
+# This does not affect anything that already holds BSC data. Analysis,
+# health checks, serving and the existing 132,263 BSC documents are all
+# untouched. It only governs whether the scan ingests MORE.
+BSC_CHAIN_ID = 56
+INGEST_BSC_ENV_VAR = "INGEST_BSC"
+
+
+def bsc_ingestion_enabled() -> bool:
+    """Whether the mixed scan may ingest BSC. Off unless INGEST_BSC is set
+    to a truthy value."""
+    return os.environ.get(INGEST_BSC_ENV_VAR, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def active_target_chain_ids() -> set[int]:
+    """TARGET_CHAIN_IDS with BSC removed unless it has been turned on."""
+    if bsc_ingestion_enabled():
+        return set(TARGET_CHAIN_IDS)
+    return {c for c in TARGET_CHAIN_IDS if c != BSC_CHAIN_ID}
 
 # Real, dedicated Solana chain_id + its own progress checkpoint,
 # deliberately separate from PROGRESS_DOC_ID above, since this scans a
@@ -349,6 +382,11 @@ async def run_ingest_batch(
     picks up every chain in TARGET_CHAIN_IDS from the same requests rather
     than one full scan per chain.
 
+    BSC is excluded from that set unless INGEST_BSC is turned on. See
+    active_target_chain_ids above for why that gate exists. The return value
+    reports which chains were actually in scope, so a run that quietly
+    ingested no BSC is visible rather than something to infer.
+
     The concurrency parameter is now accepted and ignored. A cursor walk is
     serial by construction, because each page's cursor comes from the page
     before it. Concurrency across chains is available to the per-chain loop
@@ -391,7 +429,10 @@ async def run_ingest_batch(
             await _save_progress(progress)
             break
 
-        agents = [a for a in items if a.get("chain_id") in TARGET_CHAIN_IDS]
+        # Read per batch, not once at import, so the flag can be flipped
+        # without a redeploy.
+        targets = active_target_chain_ids()
+        agents = [a for a in items if a.get("chain_id") in targets]
         progress["total_server_reported"] = total
 
         if agents:
@@ -439,6 +480,8 @@ async def run_ingest_batch(
         "pages_done": pages_done, "agents_ingested": agents_this_batch,
         "by_chain": by_chain_this_batch, "cursor": cursor,
         "reached_end": reached_end, "stopped_reason": stopped_reason,
+        "target_chain_ids": sorted(active_target_chain_ids()),
+        "bsc_ingestion_enabled": bsc_ingestion_enabled(),
         "elapsed_seconds": round(time.time() - t0, 1),
     }
 

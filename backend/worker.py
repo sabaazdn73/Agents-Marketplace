@@ -178,11 +178,15 @@ async def ingest_loop() -> None:
 
             result = await run_ingest_batch(api_key, max_seconds=INGEST_BATCH_SECONDS)
             consecutive_errors = 0
+            # next_offset is gone: the scan walks by cursor now, because
+            # 8004scan caps offset at 10,000. Reading it here raised a
+            # KeyError on every batch, after the batch had already written.
             log.info(
-                "[ingest] batch done: pages=%d agents=%d by_chain=%s next_offset=%d reached_end=%s "
-                "backlog=%d elapsed=%.1fs%s",
+                "[ingest] batch done: pages=%d agents=%d by_chain=%s chains=%s bsc=%s "
+                "reached_end=%s backlog=%d elapsed=%.1fs%s",
                 result["pages_done"], result["agents_ingested"], result["by_chain"],
-                result["next_offset"], result["reached_end"], backlog, result["elapsed_seconds"],
+                result.get("target_chain_ids"), result.get("bsc_ingestion_enabled"),
+                result["reached_end"], backlog, result["elapsed_seconds"],
                 f" stopped_reason={result['stopped_reason']}" if result.get("stopped_reason") else "",
             )
             await asyncio.sleep(INGEST_IDLE_SECONDS if result["reached_end"] else 0)
