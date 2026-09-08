@@ -45,7 +45,7 @@
 // codebase.
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle, ShoppingBag } from 'lucide-react';
+import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle, ShoppingBag, Scale, Grid3x3 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { fetchWalletBalanceSnapshot, getMainnetReadClient } from './altana';
 import { useDirectWalletExecutor } from './useDirectWalletExecutor';
@@ -56,6 +56,7 @@ import {
   computeNativeAgentFee, NATIVE_AGENT_ENTRY_FEE_BPS,
 } from './defiSkills';
 import { getTokenMeta, getTradeQuote, getPriceTrend, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
+import HealthFactorCard from './HealthFactorCard';
 
 /** Real, human labels for the holder-risk fields Binance's Market API
  * can genuinely have no data for, used to say "no data for Snipers"
@@ -176,12 +177,12 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-lg" style={{ background: `${accent}1a` }}><Landmark size={16} style={{ color: accent }} /></div>
-          <span className="font-bold text-sm">Staking Agent</span>
+          <span className="font-bold text-sm">Yield Optimisation</span>
         </div>
         <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
       </div>
       <p className="text-xs opacity-60 mb-4">
-        An autonomous agent that compares BSC liquid-staking protocols by liquidity/risk first, yield second, and stakes through whichever it (or you) picks, non-custodially, through your own connected wallet.
+        The yield optimisation agent. It compares BSC liquid-staking protocols by liquidity and risk first, yield second, and stakes through whichever it (or you) picks, non-custodially, through your own connected wallet.
       </p>
 
       {loading && <div className="flex items-center gap-2 text-xs opacity-60 py-4"><Loader2 size={14} className="animate-spin" /> Comparing live protocol data...</div>}
@@ -592,11 +593,28 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
       </p>
       <p className="text-[11px] opacity-40 mb-4 flex items-center gap-1"><Sparkles size={11} /> A disclosed {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% entry fee applies here, higher-value-add routing than the free, third-party Skills above, always shown before you sign.</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* The four DeFi categories this project is judged on, together and in
+          one place, so the set is visible at a glance and each one says
+          whether it is live or not. Staking and Trading follow underneath.
+          Yield Optimisation is the Staking agent, relabelled to the
+          category name rather than duplicated. */}
+      <h3 className="text-[11px] font-bold uppercase tracking-wider opacity-40 mt-2 mb-2">
+        DeFi categories
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
         <StakingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
+        <HealthFactorCard accent={accent} surface={surface} mutedBorder={mutedBorder} />
+        <ComingSoonAgentCard icon={Scale} title="Rebalancing" accent={accent} surface={surface} mutedBorder={mutedBorder}
+          blurb="Reads your token weights and works out the swaps that bring them back to a target split. The reads and the PancakeSwap routing it needs already exist here, so this is the next one being built." />
+        <ComingSoonAgentCard icon={Grid3x3} title="Grid Trading" accent={accent} surface={surface} mutedBorder={mutedBorder}
+          blurb="Places buy and sell orders across a price range and refills them as they fill. It needs something that keeps running between visits, which this backend has no scheduler for yet, so it is the last of the four." />
+      </div>
+
+      <h3 className="text-[11px] font-bold uppercase tracking-wider opacity-40 mb-2">
+        Other native agents
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <TradingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
-        <ComingSoonAgentCard icon={TrendingUp} title="Lending / Borrowing Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="Autonomous collateral and health-factor management across Venus and Aave. Needs its own dedicated liquidation-risk UI, so it's being built as its own complete piece, not bundled in half-finished." />
  {/* finding, 2026-09-04: checked Avantis's own docs + Base's
             official MCP plugin docs directly. The earlier "no bridge from
             BSC" blocker is stale -- Base is a standard chain a connected
