@@ -31,7 +31,12 @@ On top of that, Tnega adds an AgentAccessMarket contract so agent creators can s
 | [Core Concepts](core-concepts.md) | ERC-8004 identity and ERC-8183 commerce, explained technically |
 | [Features](features.md) | Everything shipped and live today |
 | [Integrations](integrations.md) | Every external data source/API this project depends on |
-| [Smart Contracts](smart-contracts.md) | Deployed addresses, what each contract does, BscScan links |
+| [Smart Contracts](smart-contracts.md) | Deployed addresses, what each contract does, BscScan links, live on-chain values |
+| [The Agent Studio](agent-studio.md) | The MultiAgents pipeline: two flows, the agents in each, how a run is driven and how one asks you a question |
+| [Payment Rails](payment-rails.md) | Every way money moves here, how each rail settles, and the spend cap in front of all of them |
+| [Native Agents](native-agents.md) | The agents this project wrote itself, including the four DeFi categories and what each reads on-chain |
+| [Competing Approaches](competing-approaches.md) | The other ways people are solving agent identity and agent payment, and where this sits |
+| [Regulatory Landscape](regulatory-landscape.md) | MiCA, the AI Act and the US stablecoin regime set against what this project actually does |
 | [Hire-Flow Audit](hire-flow-audit.md) | The full hire flow checked step-by-step against the ERC-8004/ERC-8183 spec text: bugs found and fixed, deliberate deviations, open questions |
 | [Full BSC Registry Analysis](full-registry-analysis.md) | A separate, complete-registry ingestion pipeline (independent of the curated marketplace): pagination limits found, architecture, refresh schedule, findings |
 | [Verification Methodology](verification-methodology.md) | Why a health check isn't proof of function (with independent academic backing), the four verification tiers, and the human-triggered canary probe system |

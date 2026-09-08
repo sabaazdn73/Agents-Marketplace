@@ -1,6 +1,6 @@
 # 🤖 Future: Tnega PayBox (research & design only, not built)
 
-Status, updated 2026-09-04: the settlement rail is now built and live-tested. Everything below the "Constraint" headings remains the research record of how this was scoped, and it matters, because every rail it evaluated died on the same rock. What changed is that a rail which doesn't have that problem was found and implemented: Binance B402, the x402 standard settled natively on BSC. See "[The rail that worked: B402](#the-rail-that-actually-worked-b402-implemented-2026-09-04)" below for what's and running, and what still isn't.
+Status, updated 2026-09-04: the settlement rail is now built and live-tested. Everything below the "Constraint" headings remains the research record of how this was scoped, and it matters, because every rail it evaluated died on the same rock. What changed is that a rail which doesn't have that problem was found and implemented: Binance B402, the x402 standard settled natively on BSC. See "[The rail that worked: B402](#the-rail-that-worked-b402-implemented-2026-09-04)" below for what is built and running, and what still is not.
 
 The original research framing is kept intact rather than rewritten, because the constraints it documents are still true of MetaMask Card and MoonPay, B402 didn't resolve them, it went around them.
 
@@ -149,7 +149,7 @@ Every settlement rail researched above failed on the same thing: BSC. MetaMask C
 
 The unplanned bonus, found by reading the real `/supported` response rather than designed for: one of the four assets B402 settles here is United Stables ($U, `0xcE24439F2D9C6a2289F741120FE202248B666666`), ERC-8183's own settlement token, the exact asset this marketplace already denominates escrowed hires in. A PayBox payment and a Tnega hire settle in the same asset on the same chain, with no conversion between them.
 
-### What's and running
+### What is built and running
 
 | Piece | Where | State |
 |---|---|---|

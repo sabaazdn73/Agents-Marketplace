@@ -14,6 +14,9 @@
 * [Smart Contracts](smart-contracts.md)
 * [Data Sources and Integrations](integrations.md)
 * [The Graph Integration](thegraph-integration.md)
+* [The Agent Studio (MultiAgents)](agent-studio.md)
+* [Payment Rails](payment-rails.md)
+* [Native Agents](native-agents.md)
 * [Direct-Wallet Skill Execution](direct-wallet-skills.md)
 * [Universal Search Fallback](universal-search.md)
 * [Agent Interaction Patterns](agent-interaction-patterns.md)
@@ -24,11 +27,13 @@
 ## Business
 
 * [Fees and Revenue](fees-and-revenue.md)
+* [Competing Approaches](competing-approaches.md)
 * [Future: Tnega PayBox](future-tnega-paybox.md)
 
 ## Compliance and Legal
 
 * [Data Handling and Third-Party Terms](data-handling.md)
+* [Regulatory Landscape](regulatory-landscape.md)
 
 ## Analysis
 

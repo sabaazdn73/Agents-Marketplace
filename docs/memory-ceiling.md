@@ -41,7 +41,9 @@ Each was tested against live data rather than reasoned about:
 
 A poller sampled the Render API every 5 minutes from 2026-09-05 23:06 to
 2026-09-06 16:27 UTC and recorded every OOM. Raw data:
-[`data/oom-events-2026-09.tsv`](data/oom-events-2026-09.tsv). 19 events
+[`docs/data/oom-events-2026-09.tsv`](https://github.com/sabaazdn73/Agents-Marketplace/blob/main/docs/data/oom-events-2026-09.tsv)
+in the repository, since the docs viewer bundles markdown pages only and
+cannot serve the raw file itself. 19 events
 over 17.3 hours, 8 on the web service and 11 on the worker.
 
 The window happens to contain a natural experiment. For about four hours

@@ -66,7 +66,7 @@ A coverage fallback and a corroboration source, not a replacement. Neither sourc
 
 The stuck offsets: yes. This is the outcome that matters. The agents 8004scan cannot deliver are returned by the subgraph in seconds.
 
-The Validation Registry: no signal, reported. Both `validations` and `validationPoints` return empty arrays across all of BSC. The registry is deployed and queryable but has never been used on that chain. `adapters/thegraph.py` exposes it because the capability is and other chains may populate it, but nothing in the evaluation system treats an empty result as a signal about an agent, and no UI claims otherwise.
+The Validation Registry: no signal, reported. Both `validations` and `validationPoints` return empty arrays across all of BSC. The registry is deployed and queryable but has never been used on that chain. `adapters/thegraph.py` exposes it because the capability exists and other chains may populate it, but nothing in the evaluation system treats an empty result as a signal about an agent, and no UI claims otherwise.
 
 ## One measured limitation
 

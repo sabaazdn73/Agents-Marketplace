@@ -101,7 +101,7 @@ Four directly-linkable routes, deliberately kept outside the main tab structure:
 
 ## Onboarding
 
-A short, dismissible, five-step welcome tour for a first-time visitor (shown once per browser, reachable anytime after via a "?" header button); a orientation to what each section is and where to start, distinct from the in-app Learn tab's deeper reference material.
+A short, dismissible, five-step welcome tour for a first-time visitor (shown once per browser, reachable anytime after via a "?" header button); an orientation to what each section is and where to start, distinct from the in-app Learn tab's deeper reference material.
 
 ## Multi-chain groundwork (not yet displayed)
 

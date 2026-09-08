@@ -7,6 +7,7 @@ Every contract below is deployed and live on BSC mainnet (chain 56); this projec
 | Contract | Address | Role |
 |---|---|---|
 | AgentAccessMarket | [`0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333`](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Tnega's own "Sell Your Agent" contract. Deployed and BscScan source-verified. |
+| AgentBudgetEscrow | [`0x4728f03693DDABbe50E79c7BfFCb930e522D585B`](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Tnega's own drawable-budget contract: a client funds a budget and an agent draws against it as it works. |
 | ERC-8004 Identity Registry | [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://bscscan.com/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | Every agent's on-chain identity (ERC-721). |
 | ERC-8183 AgenticCommerce | [`0xEa4DAa3100A767e86FDed867729ae7446476EBA6`](https://bscscan.com/address/0xEa4DAa3100A767e86FDed867729ae7446476EBA6) | The hire/escrow kernel: job state and funds. |
 | ERC-8183 EvaluatorRouter | [`0x51895229E12F9876011789B04f8698af06cCD6DA`](https://bscscan.com/address/0x51895229E12F9876011789B04f8698af06cCD6DA) | Binds a job to its settlement policy. |
@@ -30,10 +31,60 @@ Multi-token, fixed whitelist, no swap: a creator can price the same agent in sev
 
 Security model: OpenZeppelin `Ownable2Step` / `ReentrancyGuard` / `SafeERC20`; pull-over-push payouts, tracked separately per token; the platform fee is read live from `feeBps` (owner-tunable, hard-capped at 10%, and any change only ever applies to future sales); `feeWallet` is set at deploy from a dedicated wallet, changeable only by the owner; `list()` is gated by an `ownerOf` check against the ERC-8004 registry, so only an agent's owner can list it; no admin path exists that can move funds a sale has already settled.
 
-Current on-chain values (read live, not from a config file or old notes):
-- `feeBps()` -> `250` (2.5%)
-- `feeWallet()` -> `0xBfE58070b39F0F2E1c46A4EF80690B6045934293`, a hardware wallet, so platform fee revenue sits in cold storage rather than behind a hot key. Worth stating plainly what kind of claim this is: nothing on-chain distinguishes a hardware-backed address from any other, so this is an operational fact about how the key is held, not something a reader can verify from the chain the way they can verify `feeBps` or `owner` above.
-- `owner()` -> `0x48ce74cdc366e8347f17f7187fbf2ab9240692e9`
+Current on-chain values are in the table further down, read live rather than
+from a config file or older notes.
+
+One claim in that table is worth separating from the rest. `feeWallet` is a
+hardware wallet, so platform fee revenue sits in cold storage rather than
+behind a hot key. Nothing on-chain distinguishes a hardware-backed address
+from any other, so this is an operational fact about how the key is held, not
+something a reader can verify from the chain the way they can verify `feeBps`
+or `owner`.
+
+## AgentBudgetEscrow: paying an agent that has to spend as it works
+
+A one-off hire escrows a fixed amount for one deliverable. Some work does not
+fit that shape: an agent that has to make many small spends over days needs a
+budget it can draw against rather than a single payment on completion.
+
+The client opens a budget with a total, a per-draw maximum, a deadline and a
+cooldown between draws. The agent draws as it works. The platform fee is
+taken per draw rather than once up front, so an unused budget generates no
+fee and the client reclaims the whole remainder.
+
+Fees accrue inside the contract and are withdrawn separately through
+`withdrawFees`, callable only by the owner or the fee wallet. Withdrawing
+fees cannot touch budget funds, which is covered by
+`test_feesAccrueAndWithdraw_neverTouchBudgetFunds`.
+
+The agent address cannot be the client address. The contract rejects that on
+purpose, so a client cannot draw their own budget back through the agent
+path and bypass the fee.
+
+Integration detail, including the budget struct and the draw sequence, is in
+[Drawable Budgets](budget-integration.md). The deployment and verification
+record is in [AgentBudgetEscrow Go-Live](budget-escrow-golive.md). The fee
+mechanics both contracts share are in
+[Fees and Revenue](fees-and-revenue.md).
+
+## Live values on both fee-taking contracts
+
+Read from BSC mainnet on 2026-09-08, not copied from a config file or an
+older note. Both contracts are owned by the same address and pay into the
+same fee wallet.
+
+| Call | AgentAccessMarket | AgentBudgetEscrow |
+|---|---|---|
+| `feeBps()` | `250` (2.5%) | `250` (2.5%) |
+| `MAX_FEE_BPS()` | `1000` (10%) | `1000` (10%) |
+| `feeWallet()` | `0xBfE58070b39F0F2E1c46A4EF80690B6045934293` | `0xBfE58070b39F0F2E1c46A4EF80690B6045934293` |
+| `owner()` | `0x48ce74cdc366e8347f17f7187fbf2ab9240692e9` | `0x48ce74cdc366e8347f17f7187fbf2ab9240692e9` |
+| `paused()` | not applicable | `false` |
+| `budgetCounter()` | not applicable | `3` |
+
+`MAX_FEE_BPS` is a constant, not a setting. `setFeeBps` reverts with
+`FeeTooHigh` above 1000, so the owner cannot raise the rate past 10% even by
+mistake, and a rate change applies only to future activity.
 
 ## ERC-8183: the "Hire" flow
 
