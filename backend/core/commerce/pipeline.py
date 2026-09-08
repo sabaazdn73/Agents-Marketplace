@@ -66,6 +66,7 @@ def _cart_from_state(state: TaskState) -> Cart:
                 quantity=int(item.get("quantity", 1)),
                 size=item.get("size"),
                 merchant=item.get("merchant"),
+                category=item.get("category"),
             ))
         except (KeyError, TypeError, ValueError):
             continue

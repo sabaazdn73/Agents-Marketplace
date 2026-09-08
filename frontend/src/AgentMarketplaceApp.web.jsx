@@ -85,6 +85,7 @@ import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
 import PayB402Page from './PayB402Page';
+import AgentStudioPage from './AgentStudioPage';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
@@ -551,6 +552,7 @@ const NAV_ITEMS = [
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
+  { id: 'studio', label: 'Agent Studio', icon: Bot },
   { id: 'pay-b402', label: 'Pay.B402', icon: CreditCard },
 ];
 
@@ -1791,6 +1793,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               via AgentAccessMarket + x402 config for model 3). Shared component,
               identical on web and mobile. */}
           {nav === 'sell' && <SellYourAgentForm />}
+          {nav === 'studio' && <AgentStudioPage accent={accent} />}
           {nav === 'pay-b402' && <PayB402Page accent={accent} />}
 
           {/* Learn Tab */}

@@ -69,11 +69,16 @@ async def review(state: TaskState, cart: Cart, *, check_links: bool = True) -> l
         ))
         return findings   # every other rule is vacuous on an empty cart
 
+    # Services have no size and no season. Applying the clothing rules to
+    # them produced a size_unknown finding against an API endpoint, which
+    # blocked payment for a reason that could never be satisfied.
+    physical = [ln for ln in cart.lines if (ln.category or "").lower() != "service"]
+
     # --- reject: a size outside the profile --------------------------------
     wanted = profile.get("size")
-    if wanted:
+    if wanted and physical:
         want = str(wanted).strip().lower()
-        for ln in cart.lines:
+        for ln in physical:
             if ln.size is None:
                 findings.append(RejectionFinding(
                     stage="search", rule="size_missing",
@@ -84,7 +89,7 @@ async def review(state: TaskState, cart: Cart, *, check_links: bool = True) -> l
                     stage="styling", rule="size_outside_profile",
                     detail=f"'{ln.title}' is size {ln.size!r}, profile says {wanted!r}.",
                 ))
-    else:
+    elif physical:
         findings.append(RejectionFinding(
             stage="profile", rule="size_unknown",
             detail="No size in the profile, so no item's size can be verified before buying.",
@@ -114,7 +119,7 @@ async def review(state: TaskState, cart: Cart, *, check_links: bool = True) -> l
     # --- reject: wrong for the stated season -------------------------------
     season = str(context.get("season") or "").strip().lower()
     if season in _SEASON_CONFLICTS:
-        for ln in cart.lines:
+        for ln in physical:
             hay = f"{ln.title}".lower()
             for term in _SEASON_CONFLICTS[season]:
                 if term in hay:

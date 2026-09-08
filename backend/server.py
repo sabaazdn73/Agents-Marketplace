@@ -2094,6 +2094,55 @@ async def paybox_submit_payment(session_id: str, request: Request):
     return result
 
 
+@app.get("/api/studio/flows")
+async def studio_flows():
+    """The two flows and the agents in each, for the studio to draw before a
+    run starts."""
+    from core.commerce import coordinator
+    return {
+        "flows": [
+            {"key": k, "label": v["label"], "agents": v["agents"],
+             "asleep": v["asleep"]}
+            for k, v in coordinator.FLOWS.items()
+        ]
+    }
+
+
+@app.post("/api/studio/runs")
+async def studio_start_run(request: Request):
+    """Start a run and return its id. The run happens in the background and
+    is polled, because it takes long enough that a synchronous call would
+    hide which agent is working."""
+    from core.commerce import coordinator
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body must be JSON.")
+
+    flow = (body or {}).get("flow")
+    text = (body or {}).get("request")
+    if flow not in coordinator.FLOWS:
+        raise HTTPException(status_code=400, detail=f"`flow` must be one of {list(coordinator.FLOWS)}.")
+    if not isinstance(text, str) or not text.strip():
+        raise HTTPException(status_code=400, detail="`request` is required.")
+    if len(text) > 4000:
+        raise HTTPException(status_code=400, detail="`request` is too long (max 4000 characters).")
+
+    seed = body.get("seed") if isinstance(body.get("seed"), dict) else None
+    return coordinator.start(flow, text.strip(), seed)
+
+
+@app.get("/api/studio/runs/{run_id}")
+async def studio_get_run(run_id: str):
+    """Poll one run. Returns which agent is working, for how long, what
+    handed off to what, and every stage result so far."""
+    from core.commerce import coordinator
+    run = coordinator.get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="No such run, or it has expired.")
+    return run
+
+
 @app.get("/api/paybox/selfcheck")
 async def paybox_selfcheck():
     """Run the B402 rail checks against the live facilitator.

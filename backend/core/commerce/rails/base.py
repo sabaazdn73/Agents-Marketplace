@@ -25,6 +25,9 @@ class CartLine:
     quantity: int = 1
     size: str | None = None
     merchant: str | None = None
+    # "service" turns off the rules written for clothing. A size check on an
+    # API endpoint is not a safety net, it is noise that hides real findings.
+    category: str | None = None
 
     def to_dict(self) -> dict:
         d = asdict(self)

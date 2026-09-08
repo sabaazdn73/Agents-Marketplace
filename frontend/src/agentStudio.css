@@ -1,0 +1,228 @@
+/* agentStudio.css
+ *
+ * The robots and their states. Scoped under .agent-studio so nothing here
+ * reaches the rest of the app.
+ *
+ * State is on the robot itself, not only in text beside it. Idle sits still
+ * and dim. Working bobs and carries a ring. Done is upright and full colour
+ * with a tick. Blocked tilts and shows a short line. Asleep is dimmed and
+ * slumped with a note.
+ *
+ * Under prefers-reduced-motion every animation stops and every state keeps
+ * its colour, ring, tick and tilt, so the same information is available
+ * without movement.
+ */
+
+.agent-studio {
+  --robot-size: 84px;
+  --track: rgb(148 163 184 / 0.25);
+}
+
+/* The row of robots. Horizontal with connectors on wide screens, stacked on
+   narrow ones so a phone shows whole robots rather than tiny ones. */
+.studio-track {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  overflow-x: auto;
+  padding: 0.5rem 0 1rem;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 720px) {
+  .agent-studio { --robot-size: 72px; }
+  .studio-track {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    overflow-x: visible;
+  }
+}
+
+.studio-agent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* The sprites carry transparent padding, so the label needs more room
+     than it looks like it does or it reads as touching the robot's feet. */
+  gap: 0.6rem;
+  min-width: 108px;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .studio-agent {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+}
+
+.studio-robot {
+  position: relative;
+  width: var(--robot-size);
+  height: var(--robot-size);
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s ease;
+}
+
+.studio-robot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Ring behind the robot carries the accent colour and the state. */
+.studio-robot::before {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 68%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.studio-agent[data-state="idle"] .studio-robot { opacity: 0.4; filter: grayscale(0.7); }
+.studio-agent[data-state="working"] .studio-robot { opacity: 1; }
+.studio-agent[data-state="working"] .studio-robot::before { opacity: 0.35; }
+.studio-agent[data-state="done"] .studio-robot { opacity: 1; }
+.studio-agent[data-state="done"] .studio-robot::before { opacity: 0.16; }
+.studio-agent[data-state="blocked"] .studio-robot {
+  opacity: 1;
+  transform: rotate(-6deg);
+}
+.studio-agent[data-state="asleep"] .studio-robot {
+  opacity: 0.42;
+  filter: grayscale(0.85);
+  transform: rotate(4deg) translateY(4px);
+}
+
+/* Working bobs. Done settles. Asleep breathes very slowly. */
+@keyframes studio-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes studio-pulse {
+  0%, 100% { opacity: 0.22; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(1.08); }
+}
+@keyframes studio-doze {
+  0%, 100% { transform: rotate(4deg) translateY(4px); }
+  50%      { transform: rotate(4deg) translateY(7px); }
+}
+
+.agent-studio:not(.reduced) .studio-agent[data-state="working"] .studio-robot img {
+  animation: studio-bob 1.6s ease-in-out infinite;
+}
+.agent-studio:not(.reduced) .studio-agent[data-state="working"] .studio-robot::before {
+  animation: studio-pulse 1.6s ease-in-out infinite;
+}
+.agent-studio:not(.reduced) .studio-agent[data-state="asleep"] .studio-robot {
+  animation: studio-doze 4s ease-in-out infinite;
+}
+
+/* The prop badge. A second way to tell two robots apart when they share a
+   sprite, alongside colour. */
+.studio-prop {
+  position: absolute;
+  right: -2px;
+  bottom: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+}
+
+.studio-status {
+  position: absolute;
+  left: -2px;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 11px;
+}
+.studio-status[data-kind="done"]    { background: #10B981; }
+.studio-status[data-kind="blocked"] { background: #EF4444; }
+.studio-status[data-kind="asleep"]  { background: #64748B; }
+
+.studio-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.studio-sub {
+  font-size: 10px;
+  line-height: 1.35;
+  opacity: 0.7;
+  max-width: 130px;
+}
+@media (max-width: 720px) {
+  .studio-sub { max-width: none; }
+}
+
+/* Connector between robots. The dot travels along it on a handoff, which is
+   the information moving from one agent to the next. */
+.studio-link {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 34px;
+  height: 2px;
+  background: var(--track);
+  position: relative;
+  border-radius: 2px;
+  margin-top: calc(var(--robot-size) / -2);
+}
+@media (max-width: 720px) {
+  .studio-link {
+    width: 2px;
+    height: 20px;
+    margin: 0 0 0 calc(var(--robot-size) / 2);
+    align-self: flex-start;
+  }
+}
+
+.studio-link[data-active="true"] { background: var(--accent); }
+
+.studio-token {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  top: -3px;
+  left: 0;
+  box-shadow: 0 0 8px var(--accent);
+}
+@media (max-width: 720px) {
+  .studio-token { top: 0; left: -3px; }
+}
+
+@keyframes studio-travel { from { left: 0; } to { left: calc(100% - 8px); } }
+@keyframes studio-travel-v { from { top: 0; } to { top: calc(100% - 8px); } }
+
+.agent-studio:not(.reduced) .studio-link[data-active="true"] .studio-token {
+  animation: studio-travel 1.1s ease-in-out infinite;
+}
+@media (max-width: 720px) {
+  .agent-studio:not(.reduced) .studio-link[data-active="true"] .studio-token {
+    animation: studio-travel-v 1.1s ease-in-out infinite;
+  }
+}
+
+/* With reduced motion the token sits at the midpoint rather than moving, so
+   the handoff is still visible as a marked link. */
+.agent-studio.reduced .studio-token { left: 50%; top: 50%; transform: translate(-50%, -50%); }
