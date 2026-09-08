@@ -38,6 +38,13 @@ from core.categorize import classify_agent
 from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
 
+# How long a newly ingested document is protected from deletion. Ingest and
+# analysis run independently, so a backfill can write an agent while an
+# analysis pass is mid-flight. Thirty minutes is comfortably longer than a
+# batch takes, and the only cost of waiting is that a genuinely endpointless
+# agent survives one extra pass.
+INGEST_GRACE_SECONDS = 30 * 60
+
 
 # Chains the analysis pass may evaluate. Deliberately widened ONE AT A TIME,
 # each only after a test confirmed correct results for known agents on
@@ -128,6 +135,7 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     something to fake with the wrong chain's data in the meantime."""
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
+    now = time.time()
 
     # Chains this pass is allowed to analyse. Widened one at a time, and
     # only after a test confirmed the chain-aware health check returns
@@ -150,12 +158,27 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     health_results = await check_agents_health(docs)
 
     deleted_no_endpoint = 0
+    held_too_new = 0
     for d in docs:
         h = health_results.get(d.get("id"))
         if h and h.get("service_status") == "no_endpoint" and d.get("chain_id") in DELETE_CHAIN_IDS:
-            await col.delete_one({"_id": d["_id"]})
-            deleted_no_endpoint += 1
-            continue
+            # A doc written moments ago is not a candidate for deletion.
+            # Ingest and analysis run independently, so without this an
+            # agent could be saved by a backfill and removed by an analysis
+            # pass in the same minute, on a health check made while the
+            # write was still settling. It keeps its status and category
+            # either way; it just cannot be deleted until it has sat still
+            # for INGEST_GRACE_SECONDS and been checked again on a later
+            # pass. Deleting is the one action here that cannot be undone,
+            # so it is the one that waits.
+            ingested_at = d.get("_ingested_at")
+            too_new = ingested_at is None or (now - float(ingested_at)) < INGEST_GRACE_SECONDS
+            if too_new:
+                held_too_new += 1
+            else:
+                await col.delete_one({"_id": d["_id"]})
+                deleted_no_endpoint += 1
+                continue
 
         update = {"category": d["category"]}
         if h:
@@ -168,7 +191,7 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
             update.setdefault("service_checked_at", time.time())
         await col.update_one({"_id": d["_id"]}, {"$set": update})
 
-    return {"checked": len(docs), "deleted_no_endpoint": deleted_no_endpoint, "done": False}
+    return {"checked": len(docs), "deleted_no_endpoint": deleted_no_endpoint, "held_too_new": held_too_new, "done": False}
 
 
 async def get_unanalyzed_backlog() -> int:
