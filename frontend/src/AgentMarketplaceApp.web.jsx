@@ -39,6 +39,7 @@ import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerific
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
+import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
 import InfoTooltip from './InfoTooltip';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
@@ -688,6 +689,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // optionally narrow to one of its fine-grained categories.
   // 'All' = no group restriction. 'Unclassified' = the ungrouped bucket.
   const [activeGroup, setActiveGroup] = useState('All');
+  // Which lens the category filter is showing. 'categories' is the
+  // taxonomy this project built from what the registry actually contains.
+  // 'defi' is the four hackathon labels mapped on top of it
+  // (hackathonCategories.js). It is a VIEW: no agent is reclassified, and
+  // switching back shows exactly what it showed before.
+  const [categoryView, setCategoryView] = useState('categories');
+  const [activeHackathon, setActiveHackathon] = useState('All');
 
  // Real, marketplace-wide on-chain track record (agent_performance.py via
   // the bulk endpoint), one fetch, merged onto every agent so "Most
@@ -807,7 +815,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     if (!showUnclassified) list = list.filter((a) => a.category !== 'Unclassified');
     // Group first (categoryGroups.js, presentation-only grouping of the
  // fine-grained categories), then the specific category within it.
-    if (activeGroup === 'Unclassified') {
+    if (categoryView === 'defi') {
+      // The four hackathon labels, resolved through the mapping rather than
+      // by reading a second field off the agent.
+      if (activeHackathon !== 'All') {
+        list = list.filter((a) => hackathonForCategory(a.category) === activeHackathon);
+      } else {
+        list = list.filter((a) => hackathonForCategory(a.category) != null);
+      }
+    } else if (activeGroup === 'Unclassified') {
       list = list.filter((a) => a.category === 'Unclassified' || groupForCategory(a.category) == null);
     } else if (activeGroup !== 'All') {
       list = list.filter((a) => groupForCategory(a.category) === activeGroup);
@@ -841,7 +857,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     // a different metric. Every sort option keeps its own ordering WITHIN
     // each tier.
     return [...list].sort(withVerificationTierFirst(secondary));
-  }, [agentsWithPerf, activeGroup, activeCategory, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
+  }, [agentsWithPerf, activeGroup, activeCategory, categoryView, activeHackathon, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
 
  // pagination, client-side, over the already-fully-fetched `filtered`
   // list (see useMarketplaceAgents: known_agents is fetched once, in full,
@@ -856,7 +872,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // Any filter/sort/search change must land back on page 1, staying on
   // e.g. page 5 after a filter shrinks the result count to 2 pages
   // would silently show an empty page instead of the new top results.
-  useEffect(() => { setPage(1); }, [activeGroup, activeCategory, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
+  useEffect(() => { setPage(1); }, [activeGroup, activeCategory, categoryView, activeHackathon, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount); // clamp defensively (e.g. a background refresh shrinking the list)
   const paginated = useMemo(
@@ -919,6 +935,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
   // Fine-grained category chips, scoped to whichever group is active, only
  // categories that have at least one agent are shown.
+  const hackathonCounts = useMemo(() => {
+    const counts = {};
+    for (const a of agents) {
+      const h = hackathonForCategory(a.category);
+      if (h) counts[h] = (counts[h] || 0) + 1;
+    }
+    return counts;
+  }, [agents]);
+
   const activeGroupCategories = useMemo(() => {
     if (activeGroup === 'All' || activeGroup === 'Unclassified') return [];
     const groupCats = CATEGORY_GROUPS.find((g) => g.id === activeGroup)?.categories || [];
@@ -1298,7 +1323,32 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   it (categorize.py's own, unchanged) only appear once a
  group is picked, so browsing starts at 5 choices
                   instead of 18+. */}
-              <div className="mb-3 flex flex-wrap gap-2">
+              {/* Two lenses on the same classification. The DeFi view maps
+                  the four hackathon labels onto the categories that belong
+                  under them; it reclassifies nothing. */}
+              <div className="mb-3 flex items-center gap-1 text-[11px]">
+                <span className="opacity-40 mr-1">Browse by</span>
+                {[['categories', 'Categories'], ['defi', 'DeFi categories']].map(([id, label]) => (
+                  <button key={id} onClick={() => setCategoryView(id)} className={`px-3 py-1 rounded-full font-semibold transition-all ${
+                    categoryView === id ? 'bg-indigo-600 text-white' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}>{label}</button>
+                ))}
+              </div>
+
+              {categoryView === 'defi' && (
+                <div className="mb-8 flex flex-wrap gap-2">
+                  <button onClick={() => setActiveHackathon('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                    activeHackathon === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                  }`}>All four</button>
+                  {HACKATHON_CATEGORIES.map((h) => (
+                    <button key={h.id} onClick={() => setActiveHackathon(h.id)} title={`Includes: ${h.categories.join(', ')}`} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
+                      activeHackathon === h.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                    }`}>{h.label} ({confirmedFresh ? (hackathonCounts[h.id] || 0) : '…'})</button>
+                  ))}
+                </div>
+              )}
+
+              <div className={`mb-3 flex flex-wrap gap-2 ${categoryView === 'defi' ? 'hidden' : ''}`}>
                 <button onClick={() => setActiveGroup('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                   activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
                 }`}>All</button>
@@ -1319,7 +1369,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 }`}>Unclassified ({confirmedFresh ? (groupCounts.Unclassified || 0) : '…'})</button>
               </div>
 
-              {activeGroupCategories.length > 0 && (
+              {categoryView !== 'defi' && activeGroupCategories.length > 0 && (
                 <div className="mb-8 flex flex-wrap gap-2 pl-2 border-l-2 border-gray-200 dark:border-gray-800">
                   {activeGroupCategories.map((cat) => (
                     <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${
@@ -1328,7 +1378,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   ))}
                 </div>
               )}
-              {activeGroupCategories.length === 0 && <div className="mb-8" />}
+              {categoryView !== 'defi' && activeGroupCategories.length === 0 && <div className="mb-8" />}
 
               {!loading && !error && filtered.length > 0 && (
                 <div className="mb-4 text-xs text-gray-400">

@@ -48,6 +48,7 @@ import VerificationBadge, { VerificationTierDivider } from './VerificationBadge'
 import VerificationExplainerSection from './VerificationExplainerSection';
 import InfoTooltip from './InfoTooltip';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
+import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
 import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import UniversalSearchFallback from './UniversalSearchFallback';
@@ -568,6 +569,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [onlyVerified, setOnlyVerified] = useState(false);
   // Two-tier category filter (categoryGroups.js), matches web.
   const [activeGroup, setActiveGroup] = useState('All');
+  // Same two lenses as web, kept here rather than shared because the chip
+  // markup differs. The mapping itself is shared (hackathonCategories.js),
+  // so the two apps can never disagree about what is under a label.
+  const [categoryView, setCategoryView] = useState('categories');
+  const [activeHackathon, setActiveHackathon] = useState('All');
  // sort, mobile had no sort control at all before this (the list
   // just showed the backend's own default, score-sorted order). 'default'
   // keeps that; 'hireCount'/'winRate' switch to the tiered comparator
@@ -744,7 +750,13 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const filtered = useMemo(() => {
     let list = agentsWithPerf.filter(a => a.name && a.name.trim().length > 2);
     // Group first (categoryGroups.js), then the specific category within it.
-    if (activeGroup === 'Unclassified') {
+    if (categoryView === 'defi') {
+      if (activeHackathon !== 'All') {
+        list = list.filter((a) => hackathonForCategory(a.category) === activeHackathon);
+      } else {
+        list = list.filter((a) => hackathonForCategory(a.category) != null);
+      }
+    } else if (activeGroup === 'Unclassified') {
       list = list.filter((a) => a.category === 'Unclassified' || groupForCategory(a.category) == null);
     } else if (activeGroup !== 'All') {
       list = list.filter((a) => groupForCategory(a.category) === activeGroup);
@@ -767,7 +779,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
  // verification tier ALWAYS sorts first, see the matching comment
     // in AgentMarketplaceApp.web.jsx (kept in sync).
     return [...list].sort(withVerificationTierFirst(secondary));
-  }, [agentsWithPerf, activeGroup, activeCategory, searchQuery, onlyResponding, onlyVerified, sortKey]);
+  }, [agentsWithPerf, activeGroup, activeCategory, categoryView, activeHackathon, searchQuery, onlyResponding, onlyVerified, sortKey]);
 
  // pagination, mobile pattern: "Load more" instead of web's numbered
   // pages, a narrow single-column layout makes small numbered tap targets
@@ -780,7 +792,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // reason as web: the full list is already in memory.
   const MOBILE_PAGE_SIZE = 12;
   const [visibleCount, setVisibleCount] = useState(MOBILE_PAGE_SIZE);
-  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeGroup, activeCategory, searchQuery, onlyResponding, onlyVerified, sortKey]);
+  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeGroup, activeCategory, categoryView, activeHackathon, searchQuery, onlyResponding, onlyVerified, sortKey]);
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
  // per-group counts (categoryGroups.js), matches web.
@@ -795,6 +807,15 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   }, [agents]);
 
   // Fine-grained category chips scoped to the active group, matches web.
+  const hackathonCounts = useMemo(() => {
+    const counts = {};
+    for (const a of agents) {
+      const h = hackathonForCategory(a.category);
+      if (h) counts[h] = (counts[h] || 0) + 1;
+    }
+    return counts;
+  }, [agents]);
+
   const activeGroupCategories = useMemo(() => {
     if (activeGroup === 'All' || activeGroup === 'Unclassified') return [];
     const groupCats = CATEGORY_GROUPS.find((g) => g.id === activeGroup)?.categories || [];
@@ -1213,7 +1234,29 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {/* Two-tier category filter (categoryGroups.js), group
  first, fine-grained categories only shown once a
                     group is picked. Matches web. */}
-                <div className="flex overflow-x-auto pb-3 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
+                <div className="flex items-center gap-1 text-[11px] pb-2">
+                  <span className="opacity-40 mr-1">Browse by</span>
+                  {[['categories', 'Categories'], ['defi', 'DeFi categories']].map(([id, label]) => (
+                    <button key={id} onClick={() => setCategoryView(id)} className={`px-3 py-1 rounded-full font-semibold transition-colors ${
+                      categoryView === id ? 'bg-indigo-600 text-white' : 'text-gray-500 dark:text-gray-400'
+                    }`}>{label}</button>
+                  ))}
+                </div>
+
+                {categoryView === 'defi' && (
+                  <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
+                    <button onClick={() => setActiveHackathon('All')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
+                      activeHackathon === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                    }`}>All four</button>
+                    {HACKATHON_CATEGORIES.map((h) => (
+                      <button key={h.id} onClick={() => setActiveHackathon(h.id)} title={`Includes: ${h.categories.join(', ')}`} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
+                        activeHackathon === h.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                      }`}>{h.label} ({confirmedFresh ? (hackathonCounts[h.id] || 0) : '…'})</button>
+                    ))}
+                  </div>
+                )}
+
+                <div className={`flex overflow-x-auto pb-3 -mx-5 px-5 gap-2 snap-x hide-scrollbar ${categoryView === 'defi' ? 'hidden' : ''}`}>
                   <button onClick={() => setActiveGroup('All')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
                     activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                   }`}>All</button>
@@ -1234,7 +1277,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </button>
                 </div>
 
-                {activeGroupCategories.length > 0 && (
+                {categoryView !== 'defi' && activeGroupCategories.length > 0 && (
                   <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
                     {activeGroupCategories.map((cat) => (
                       <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium snap-start transition-colors ${
