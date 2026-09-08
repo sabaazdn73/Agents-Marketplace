@@ -551,9 +551,9 @@ const NAV_ITEMS = [
   // what you already hired outranks what you could run yourself.
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'skills', label: 'Skills', icon: Zap },
-  { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
+  { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
 ];
 
