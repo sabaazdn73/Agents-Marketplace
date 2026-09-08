@@ -2232,3 +2232,64 @@ async def chain_agent_evaluation(chain_id: int, token_id: int, owner: str = ""):
         return await agent_evaluation.evaluate_agent(chain_id, token_id, owner or None)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't evaluate this agent: {e}")
+
+
+# ─────────────────── Multi-agent commerce pipeline ────────────────────────
+#
+# Endpoint-only surface by design for this pass: no UI tab yet. One POST to
+# exercise the pipeline, one GET to inspect what is actually available.
+#
+# Real in this build: Profile (Gemini-backed) and QA (deterministic). Context,
+# Search and Styling return not_implemented and the pipeline HALTS there --
+# it never fabricates candidates, because invented products would be priced,
+# reviewed and potentially paid for. See core/commerce/__init__.py.
+
+@app.get("/api/commerce/readiness")
+async def commerce_readiness():
+    """What the pipeline could actually do right now. Never returns a key."""
+    from core.commerce import model as commerce_model
+    from core.commerce.pipeline import dry_run_payment
+    from core.commerce.rails.base import Cart
+
+    try:
+        rails = await dry_run_payment(Cart())
+    except Exception as e:
+        rails = {"error": f"{type(e).__name__}: {e}"}
+
+    return {
+        "model": commerce_model.status(),
+        "rails": rails,
+        "stages": {
+            "profile": "real", "context": "not_implemented",
+            "search": "not_implemented", "styling": "not_implemented",
+            "qa": "real", "payment": "real",
+        },
+    }
+
+
+@app.post("/api/commerce/run")
+async def commerce_run(request: Request):
+    """Run the pipeline for one request.
+
+    Returns the full stage list with per-stage status, note and duration, so
+    a wrong or halted result names the stage that produced it rather than
+    needing a re-run to diagnose.
+    """
+    from core.commerce.pipeline import run_pipeline
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body must be JSON.")
+
+    text = (body or {}).get("request")
+    if not isinstance(text, str) or not text.strip():
+        raise HTTPException(status_code=400, detail="'request' is required and must be a non-empty string.")
+    if len(text) > 4000:
+        raise HTTPException(status_code=400, detail="'request' is too long (max 4000 characters).")
+
+    try:
+        state = await run_pipeline(text.strip(), check_links=bool(body.get("check_links", True)))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Pipeline failed: {type(e).__name__}: {e}")
+    return state.to_dict()
