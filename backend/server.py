@@ -2260,9 +2260,12 @@ async def commerce_readiness():
         "model": commerce_model.status(),
         "rails": rails,
         "stages": {
-            "profile": "real", "context": "not_implemented",
-            "search": "not_implemented", "styling": "not_implemented",
-            "qa": "real", "payment": "real",
+            "profile": "built",
+            "context": "not_implemented",
+            "search": "built, resolves supplied product URLs; no discovery source",
+            "styling": "built",
+            "qa": "built",
+            "payment": "built",
         },
     }
 

@@ -433,6 +433,81 @@ async def crossmint_guard_checks() -> None:
         os.environ["CROSSMINT_PAYMENT_METHOD"] = saved_method
 
 
+async def stage_checks() -> None:
+    """Search and Styling, the two stages built this pass."""
+    print("\nSEARCH AND STYLING")
+    from core.commerce.agents import search as search_agent
+    from core.commerce.agents import styling as styling_agent
+    from core.commerce.pipeline import _cart_from_state
+
+    def m(x, sym="USDT"):
+        return Money.from_decimal_string(x, 18, sym)
+
+    def state(budget="200", sym="USDT", cands=None):
+        st = TaskState(request="selfcheck")
+        st.profile = {"size": "M", "budget": m(budget, sym)}
+        st.candidates = cands or []
+        return st
+
+    def cand(title, price, cat=None, sym="USDT"):
+        d = {"title": title, "url": f"https://example.com/{title}", "price": m(price, sym), "size": "M"}
+        if cat:
+            d["category"] = cat
+        return d
+
+    # Styling never exceeds the budget, on every subset it could pick.
+    st = state("100", cands=[cand("a", "40"), cand("b", "55"), cand("c", "70")])
+    r = await styling_agent.run(st)
+    total = int(r.data["total"]["units"]); budget = int(r.data["budget"]["units"])
+    check("styling stays within budget", r.ok and total <= budget,
+          f"{r.data['total']['display']} of {r.data['budget']['display']}")
+
+    # Category coverage beats piling up one kind.
+    st = state("150", cands=[cand("c1", "45", "coat"), cand("c2", "46", "coat"),
+                             cand("c3", "47", "coat"), cand("b", "48", "boots"),
+                             cand("s", "20", "scarf")])
+    r = await styling_agent.run(st)
+    check("styling spreads across categories", r.ok and len(r.data["categories"]) >= 3,
+          str(r.data.get("categories")))
+
+    # A price in another currency is refused, never converted.
+    st = state("500", "USDT", cands=[cand("x", "69", sym="USD")])
+    r = await styling_agent.run(st)
+    check("styling refuses a currency it cannot compare",
+          not r.ok and "exchange rate" in r.note, r.note[:60])
+
+    # Nothing affordable is an error, not an empty success.
+    st = state("10", cands=[cand("x", "30")])
+    r = await styling_agent.run(st)
+    check("styling reports when nothing is affordable", not r.ok, r.note[:60])
+
+    # Regression: the cart takes its currency from the selection. A hardcoded
+    # USDT cart made a USD selection raise inside cart.total(), which QA then
+    # reported as "total_uncomputable" instead of a currency mismatch.
+    st = TaskState(request="x")
+    st.selection = [{"title": "t", "url": "u", "price": m("69", "USD"), "quantity": 1}]
+    cart = _cart_from_state(st)
+    check("cart currency follows the selection",
+          cart.currency_symbol == "USD" and cart.total().units == 69 * 10**18,
+          f"{cart.currency_symbol} {cart.total().units}")
+
+    # Search invents nothing when it has nothing to work with.
+    st = TaskState(request="find me a wool coat")
+    st.profile = {"budget": m("200")}
+    r = await search_agent.run(st)
+    check("search invents no candidates without URLs",
+          not r.ok and not st.candidates, r.note[:60])
+
+    # A URL that cannot be used is rejected with a reason, not guessed at.
+    st = TaskState(request="x")
+    st.profile = {"budget": m("200")}
+    st.context = {"product_urls": ["https://this-host-does-not-exist.invalid/p"]}
+    r = await search_agent.run(st)
+    check("search rejects an unusable URL with a reason",
+          not r.ok and bool(r.data.get("rejected")),
+          str((r.data.get("rejected") or [{}])[0].get("reason"))[:50])
+
+
 async def main() -> int:
     print("commerce pipeline self-check -- infrastructure, no mocks")
     money_checks()
@@ -440,6 +515,7 @@ async def main() -> int:
     await failure_checks()
     await gate_checks()
     await crossmint_guard_checks()
+    await stage_checks()
 
     failed = [n for n, ok, _ in RESULTS if not ok]
     print(f"\n{len(RESULTS) - len(failed)}/{len(RESULTS)} passed")

@@ -35,7 +35,24 @@ def _cart_from_state(state: TaskState) -> Cart:
     without an integer price is skipped rather than coerced -- a float price
     reaching Money would raise, and guessing a value would be worse.
     """
-    cart = Cart()
+    # The cart takes its currency from what is actually being bought, not
+    # from a default. Hardcoding USDT here meant a selection priced in the
+    # merchant's own currency made cart.total() raise, which surfaced
+    # downstream as QA reporting "total_uncomputable" rather than as the
+    # currency mismatch it was.
+    prices = [i.get("price") for i in (state.selection or []) if isinstance(i, dict)]
+    first = next((p for p in prices if isinstance(p, Money)), None)
+    if first is None:
+        first = next(
+            (Money(int(p["units"]), int(p["decimals"]), str(p["symbol"]))
+             for p in prices
+             if isinstance(p, dict) and {"units", "decimals", "symbol"} <= set(p)),
+            None,
+        )
+    cart = Cart(
+        currency_symbol=first.symbol if first else "USDT",
+        currency_decimals=first.decimals if first else 18,
+    )
     for item in state.selection or []:
         try:
             price = item["price"]
