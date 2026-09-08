@@ -7,13 +7,13 @@
 // direct solutions over a new library for one job (see App.jsx's own
 // hand-rolled useRoute()).
 //
-// A real bug this fixes (2026-09-02, SEO investigation): index.html's
-// title/description/canonical/og:*/twitter:* tags are static — every
+// A bug this fixes (2026-09-02, SEO investigation): index.html's
+// title/description/canonical/og:*/twitter:* tags are static, every
 // route served the exact same values, and the canonical tag in
 // particular unconditionally pointed every single page (including
 // /docs/architecture, /skills, etc.) at the bare homepage URL. That
 // tells Google those pages are duplicates of the homepage and shouldn't
-// be indexed separately — actively harmful for discoverability of every
+// be indexed separately, actively harmful for discoverability of every
 // non-homepage page, not just a missed opportunity.
 
 const BASE_URL = 'https://www.tnega.app';
@@ -24,13 +24,13 @@ function setMeta(selector, attr, value) {
   if (el) el.setAttribute(attr, value);
 }
 
-/** Call on route change. `title` is appended to " — Tnega" (pass null/
+/** Call on route change. `title` is appended to ", Tnega" (pass null/
  * undefined for the homepage's own bare "Tnega" title). `description`
  * should be a real, page-specific sentence, not the generic homepage
- * one. `path` is the route's own real pathname, used to build the
+ * one. `path` is the route's own pathname, used to build the
  * canonical/og:url so each page declares itself, not the homepage. */
 export function updatePageMeta({ title, description, path = '/' }) {
-  const fullTitle = title ? `${title} — Tnega` : 'Tnega';
+  const fullTitle = title ? `${title}, Tnega` : 'Tnega';
   document.title = fullTitle;
   const url = path === '/' ? BASE_URL : `${BASE_URL}${path}`;
 

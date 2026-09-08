@@ -5,7 +5,7 @@
 #
 # HALTING IS THE FEATURE
 # ----------------------
-# Search is not built, so a real request stops there. That is the correct
+# Search is not built, so a request stops there. That is the correct
 # outcome, not a limitation to be worked around: the alternative is
 # continuing with invented candidates, which would produce a cart that looks
 # complete and is fictional. The stage list, with each stage's status and

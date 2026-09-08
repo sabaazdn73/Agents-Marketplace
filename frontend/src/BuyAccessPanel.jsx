@@ -3,7 +3,7 @@
 // Buyer-side purchase/subscribe UI for the agent detail page, shared VERBATIM
 // by web and mobile. Renders only for agents that have at least one real
 // on-chain offer. When a creator has priced the agent in several accepted
-// tokens, the BUYER picks which token to pay with (no swap — each offer is a
+// tokens, the BUYER picks which token to pay with (no swap, each offer is a
 // fixed price in one token). All logic is in agentMarket.js.
 
 import React, { useState, useEffect } from 'react';
@@ -57,7 +57,7 @@ export default function BuyAccessPanel({ agentId }) {
 
       {hasAccess && (
         <div className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mb-2">
-          <CheckCircle2 size={14} /> You have access{isSub && expiryStr ? ` — expires ${expiryStr}` : ' (permanent license)'}.
+          <CheckCircle2 size={14} /> You have access{isSub && expiryStr ? `, expires ${expiryStr}` : ' (permanent license)'}.
         </div>
       )}
 
@@ -85,12 +85,12 @@ export default function BuyAccessPanel({ agentId }) {
         </button>
       </div>
       {/* Only relevant when the token the buyer is currently about to pay
-          with is actually $U — BNB/USDT offers don't need it. */}
+ with is actually $U, BNB/USDT offers don't need it. */}
       {offer.symbol === '$U' && <div className="mt-1.5"><GetULink /></div>}
 
-      {/* Real step checklist — same buildBuyStepList/StepChecklist pattern
+ {/* step checklist, same buildBuyStepList/StepChecklist pattern
           as the hire flow, driven straight from useBuyAccess's own state.
-          Shown once a purchase attempt has actually started. */}
+ Shown once a purchase attempt has started. */}
       {step && (
         <div className="mt-3 p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-white/50 dark:bg-black/10">
           <StepChecklist steps={buildBuyStepList({
@@ -99,13 +99,13 @@ export default function BuyAccessPanel({ agentId }) {
         </div>
       )}
 
-      {/* Real, on-chain-sourced breakdown from the live feeBps. */}
+ {/* Real, on-chain-sourced breakdown from the live feeBps. */}
       {feeBps != null && (
         <div className="mt-3 pt-3 border-t border-indigo-100 dark:border-indigo-500/20 text-[11px] space-y-1">
           <div className="flex justify-between"><span className="text-gray-500">Total price</span><span className="font-mono">{priceStr} {offer.symbol}</span></div>
-          <div className="flex justify-between"><span className="text-gray-500">Platform fee ({feePct}%)</span><span className="font-mono">{fee != null ? fromRawUnits(fee, 18) : '—'} {offer.symbol}</span></div>
-          <div className="flex justify-between font-semibold"><span className="text-gray-600 dark:text-gray-300">Creator receives</span><span className="font-mono">{creatorGets != null ? fromRawUnits(creatorGets, 18) : '—'} {offer.symbol}</span></div>
-          <p className="text-[10px] text-gray-400 pt-1">The {feePct}% fee helps keep this marketplace running — everything else goes straight to the creator.</p>
+          <div className="flex justify-between"><span className="text-gray-500">Platform fee ({feePct}%)</span><span className="font-mono">{fee != null ? fromRawUnits(fee, 18) : 'n/a'} {offer.symbol}</span></div>
+          <div className="flex justify-between font-semibold"><span className="text-gray-600 dark:text-gray-300">Creator receives</span><span className="font-mono">{creatorGets != null ? fromRawUnits(creatorGets, 18) : 'n/a'} {offer.symbol}</span></div>
+          <p className="text-[10px] text-gray-400 pt-1">The {feePct}% fee helps keep this marketplace running, everything else goes straight to the creator.</p>
         </div>
       )}
 

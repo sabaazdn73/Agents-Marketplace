@@ -5,18 +5,18 @@ The real "make it not fake" function: combines every source built so
 far into one clean list of agent records the frontend can render
 directly, with no invented numbers.
 
-Every agent record either has REAL data for a field, or that field is
+Every agent record either has data for a field, or that field is
 explicitly None/"not reported", never a plausible-looking placeholder.
 
 DIVERSITY (fixed 12 Aug 2026, confirmed against real 8004scan calls):
 the live BSC ERC-8004 population is dominated by a few mass-registration
-campaigns — in a real 1,014-agent sample, ~68% were the "X.agent on Termix
+campaigns, in a real 1,014-agent sample, ~68% were the "X.agent on Termix
 Platform" template and two other clusters ("Q402 Agent", "Ave.ai Trading
-Agent") added ~20% more. Two real causes were making the marketplace show only
+Agent") added ~20% more. Two causes were making the marketplace show only
 one cluster:
   1. The old pagination early-stop compared the CHAIN-FILTERED page length to
      page_size and broke after page 1 (a mixed-chain page is only ~70% BSC, so
-     the filtered count is always < page_size) — so only the newest ~one page
+     the filtered count is always < page_size), so only the newest ~one page
      ever loaded, i.e. whatever campaign registered most recently.
   2. No de-duplication, so that tiny newest sample was all one campaign.
 We also confirmed 8004scan's only honored sort (`sort_by=total_score`) SILENTLY
@@ -39,11 +39,11 @@ from core.categorize import classify_agent
 from core.pinned_agents import fetch_pinned_agents
 from core.clustering import diversify as _diversify, cluster_agents as _cluster_agents
 
-# Real TTL for a stored owner_bnb_balance to still count as "fresh enough" —
+# TTL for a stored owner_bnb_balance to still count as "fresh enough",
 # see _enrich_and_build's own real 429 investigation below for why this
 # exists. An informational balance display doesn't need to be re-read every
 # single refresh; skipping owners whose balance was confirmed within this
-# window is what actually brings the real per-refresh RPC volume down at
+# window is what actually brings the per-refresh RPC volume down at
 # current ~13,000+-agent scale, not just backoff/retry on its own.
 OWNER_BALANCE_TTL_SECONDS = 12 * 60 * 60  # 12 hours
 
@@ -52,7 +52,7 @@ OWNER_BALANCE_TTL_SECONDS = 12 * 60 * 60  # 12 hours
 class MarketplaceAgent:
     # From 8004scan (identity/reputation), real
     id: str
-    token_id: int | None  # the ERC-8004 ERC-721 tokenId — the on-chain agentId
+    token_id: int | None # the ERC-8004 ERC-721 tokenId, the on-chain agentId
     #                        the AgentAccessMarket contract keys listings on
     name: str
     description: str
@@ -61,7 +61,7 @@ class MarketplaceAgent:
     owner_username: str | None
     image_url: str | None
     chain_id: int
-    network: str  # always "mainnet" now (mainnet-only), derived from chain_id, for honest UI labeling
+    network: str # always "mainnet" now (mainnet-only), derived from chain_id, for UI labeling
     total_score: float | None
     star_count: int | None
     total_feedbacks: int | None
@@ -69,31 +69,31 @@ class MarketplaceAgent:
     is_verified: bool
     x402_supported: bool
     health_score: float | None
-    supported_protocols: list | None  # real, from 8004scan; often empty
-    cross_chain_versions: list | None  # real mechanism for "same agent identity, other chains"
+    supported_protocols: list | None # real, from 8004scan; often empty
+    cross_chain_versions: list | None # mechanism for "same agent identity, other chains"
 
     # From categorize.py, deterministic keyword classification
     category: str | None  # one of the taxonomy, or None if unclassified
     category_matched_keywords: list[str]
 
-    # From DefiLlama, only present if a real match was found
+    # From DefiLlama, only present if a match was found
     financial_data_available: bool
     tvl_usd: float | None
     defillama_slug: str | None
     defillama_url: str | None
     # Real, added 2026-08-29 (API-data investigation) -- all four already
     # arrive in the exact same /protocols response tvl_usd/slug/url come
-    # from, zero extra real API calls. tvl_change_7d_pct: real TVL momentum
+    # from, zero extra API calls. tvl_change_7d_pct: TVL momentum
     # (capital flowing in vs out), directly relevant to evaluating a
-    # Trading & DeFi agent's real financial health, not just its snapshot
+    # Trading & DeFi agent's financial health, not just its snapshot
     # size. audit_count: DefiLlama's own real, disclosed count of security
-    # audits the protocol has had (0 is a real, honest risk signal, not an
+    # audits the protocol has had (0 is a real, risk signal, not an
     # absence of data). tvl_data_flagged: DefiLlama's OWN real
     # misrepresentedTokens flag -- their own disclosed "this protocol's TVL
     # may not be trustworthy" signal, directly an accuracy/scientific-rigor
-    # signal, not invented here. mcap_usd: real market cap, when the
+    # signal, not invented here. mcap_usd: market cap, when the
     # protocol has a real, priced token (None is common and honest -- most
-    # of these real BSC AI-agent protocols don't have one).
+    # of these BSC AI-agent protocols don't have one).
     #
     # Real, live-caught quirk (2026-08-29): DefiLlama's own `audits` field
     # is a STRING ("0", "2", ...), not an int, confirmed against a real
@@ -105,36 +105,36 @@ class MarketplaceAgent:
     tvl_data_flagged: bool
     mcap_usd: float | None
 
-    # From a real BSC mainnet RPC read (adapters/bsc_balance.py). A DIFFERENT
-    # metric from TVL — the owner wallet's actual native BNB, never conflated
+    # From a BSC mainnet RPC read (adapters/bsc_balance.py). A DIFFERENT
+    # metric from TVL, the owner wallet's native BNB, never conflated
     # with protocol TVL. None if the RPC read was unavailable.
     owner_bnb_balance: float | None
-    # Real Unix timestamp of when owner_bnb_balance was actually last
-    # verified against the chain (not merely last displayed) — the real
+    # Unix timestamp of when owner_bnb_balance was actually last
+    # verified against the chain (not merely last displayed), the real
     # freshness clock the TTL-skip logic above reads on the next refresh.
     owner_bnb_balance_checked_at: float | None
 
 
-# Real, principled multi-signal clustering (2026-08-28) — see
-# core/clustering.py's own module docstring for the full real design and
+# Real, principled multi-signal clustering (2026-08-28), see
+# core/clustering.py's own module docstring for the full design and
 # reasoning. `_diversify` is imported from there (as the name this module
 # already used, so every call site below is unchanged) rather than
 # redefined here; the OLD single-heuristic version (a description-template
-# bucket match alone) has been replaced, not just supplemented — a real,
+# bucket match alone) has been replaced, not just supplemented, a real,
 # correctly-identified methodological weakness: collapsing purely on a
 # description-template match (or worse, a shared owner address) risked
 # silently hiding genuinely distinct agents. The new version only treats
 # two agents as duplicates when the description-template match is
-# corroborated by a SECOND real signal (same registered endpoint, a tight
-# real registration-time window, or shared owner as one signal among
-# several — never owner alone).
+# corroborated by a SECOND signal (same registered endpoint, a tight
+# registration-time window, or shared owner as one signal among
+# several, never owner alone).
 
 
 def _parse_defillama_audit_count(raw) -> int | None:
     """DefiLlama's own `audits` field is a real, live-confirmed STRING
     ("0", "2", ...), not an int (see the MarketplaceAgent.audit_count
     field comment above) -- parsed defensively here so a future,
-    unannounced format change on their end degrades to an honest None
+    unannounced format change on their end degrades to an None
     rather than crashing the whole refresh."""
     if raw is None:
         return None
@@ -151,19 +151,19 @@ async def get_marketplace_agents(
     per_cluster_cap: int = 3,
     page_delay_seconds: float = 0.0,
 ) -> list[MarketplaceAgent]:
-    """The real entry point for the frontend. Fetches, cross-references,
-    classifies, and diversifies — doesn't fabricate anything it can't source.
+    """The entry point for the frontend. Fetches, cross-references,
+    classifies, and diversifies, doesn't fabricate anything it can't source.
 
     Mainnet-only: reads BSC MAINNET (chain 56) agent identity/reputation. This
     is read-only (no wallet, no keys, no financial risk).
 
-    Request budget — REAL, measured (2026-08-24), not the assumed "free_api
-    30/min" this used to be paced for: the real rate-limit headers this
+    Request budget, REAL, measured (2026-08-24), not the assumed "free_api
+    30/min" this used to be paced for: the rate-limit headers this
     endpoint (/api/v1/agents, with our configured key) actually returns are
-    600 req/min, 100,000 req/day — confirmed live, not documentation. The
+    600 req/min, 100,000 req/day, confirmed live, not documentation. The
     old 2.0s inter-page delay was calibrated for a limit ~20x more
     conservative than what this endpoint genuinely allows, and was
-    measurably making every refresh slower for no real protection:
+    measurably making every refresh slower for no protection:
       pages per refresh @ max_offset=5000 = 50 requests
       + DefiLlama (1) + owner-balance RPC (different host, not on this budget)
       per-day @ 60min TTL  = ≤24 refreshes × ~51 ≈ 1,224 req/day ⇒ well inside
@@ -173,8 +173,8 @@ async def get_marketplace_agents(
     page_delay_seconds=2.0) took 66.4s and returned 90 diversified BSC
     agents. Just removing the delay (same max_offset=2000) took 25.2s for
     the same 90 agents. Scanning 2.5x deeper instead (max_offset=5000, no
-    delay — this function's new default) took 58.5s — STILL faster than the
-    old config — and returned 150 diversified agents (67% more), with zero
+    delay, this function's new default) took 58.5s, STILL faster than the
+    old config, and returned 150 diversified agents (67% more), with zero
     real 429s encountered at any point. The cluster cap then diversifies
     whatever raw sample comes back, same as before.
     """
@@ -187,18 +187,18 @@ async def get_marketplace_agents(
         )
         raw_agents.extend(page_agents)
         offset += page_size
-        # Stop on the REAL end signal: the server returned a short RAW page (not
-        # a short chain-FILTERED page — that check was the page-1 bug). Also stop
+        # Stop on the end signal: the server returned a short RAW page (not
+        # a short chain-FILTERED page, that check was the page-1 bug). Also stop
         # if we've walked past the server's reported total.
         if raw_len < page_size or offset >= total:
             break
         if page_delay_seconds and offset < max_offset:
             await asyncio.sleep(page_delay_seconds)  # respect 30 req/min
 
-    # Real, explicit safety net for agents we know are genuinely real but that
+    # Real, explicit safety net for agents we know are genuinely but that
     # 8004scan's own index doesn't return for ANY query (see
     # core/pinned_agents.py's docstring for the real, confirmed investigation
-    # — a direct owner_address lookup, which bypasses pagination entirely,
+    #, a direct owner_address lookup, which bypasses pagination entirely,
     # still returned nothing for our own explainer agent). Fetched directly
     # on-chain and merged in BEFORE diversify/classify/enrich, so from here on
     # it's treated identically to every other agent. Deduped by token_id in
@@ -217,14 +217,14 @@ async def get_marketplace_agents(
 
 
 async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["MarketplaceAgent"]:
-    """Real, shared enrichment tail — DefiLlama TVL cross-reference, real
-    owner BNB balances, and the richer-data reclassification pass — split
-    out 2026-08-28 so BOTH real raw-agent sources (a live, paginated
+    """Real, shared enrichment tail, DefiLlama TVL cross-reference, real
+    owner BNB balances, and the richer-data reclassification pass, split
+    out 2026-08-28 so BOTH raw-agent sources (a live, paginated
     8004scan fetch in get_marketplace_agents, and the already-ingested,
     much larger full_agent_registry in get_agents_from_full_registry) run
-    through the exact same real enrichment logic instead of two copies
+    through the exact same enrichment logic instead of two copies
     that could quietly drift. Takes an ALREADY-DIVERSIFIED raw agent list
-    — diversification itself stays with each caller, since the two real
+    , diversification itself stays with each caller, since the two real
     sources reach it differently (one fetches live, one reads Mongo)."""
     try:
         defillama_protocols = await fetch_bsc_ai_agent_protocols()
@@ -233,33 +233,33 @@ async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["Marke
               f"enrichment (agents still shown, just without TVL): {e}")
         defillama_protocols = []
 
-    # Real owner BNB balances (best-effort; a different, honestly-labeled metric
-    # from TVL). One de-duped batched RPC read for the whole diversified set —
+    # owner BNB balances (best-effort; a different, honestly-labeled metric
+    # from TVL). One de-duped batched RPC read for the whole diversified set,
     # BUT only for owners whose stored balance genuinely needs a re-check.
     #
     # Real 429 investigation (2026-08-27): live production logs confirmed
     # sustained real 429s from the RPC endpoint across dozens of consecutive
-    # batches (offset 9200 through 11050+) at current ~13,000+-agent scale —
-    # not occasional blips, a real volume problem. BSCSCAN_API_KEY (Etherscan
-    # V2) was investigated as a real alternative/supplement and ruled out —
-    # confirmed live against the real key that BSC (chainid=56) genuinely
+    # batches (offset 9200 through 11050+) at current ~13,000+-agent scale,
+    # not occasional blips, a volume problem. BSCSCAN_API_KEY (Etherscan
+    # V2) was investigated as a alternative/supplement and ruled out,
+    # confirmed live against the key that BSC (chainid=56) genuinely
     # isn't covered by its free tier (independently confirmed against
-    # Etherscan's own real, published policy too) — see adapters/bsc_balance.py's
-    # own module docstring for the full real trace. Real fix instead: retry-
+    # Etherscan's own real, published policy too), see adapters/bsc_balance.py's
+    # own module docstring for the full trace. fix instead: retry-
     # with-backoff (bsc_balance.py) closes the "one 429 = permanent failure"
-    # gap, and this real TTL skip below cuts the actual REQUEST VOLUME that's
-    # what's triggering the 429s in the first place — an owner's balance
+    # gap, and this TTL skip below cuts the REQUEST VOLUME that's
+    # what's triggering the 429s in the first place, an owner's balance
     # doesn't need re-reading every single refresh for an informational
     # display, so only owners missing a real, recent (< OWNER_BALANCE_TTL_
     # SECONDS old) stored value are fetched at all.
     owner_balances: dict[str, float] = {}
-    # Real, honest freshness clock per owner — separate from owner_balances
-    # itself on purpose. A reused-from-cache value keeps its REAL original
+    # Real, freshness clock per owner, separate from owner_balances
+    # itself on purpose. A reused-from-cache value keeps its original
     # checked-at timestamp (not "now"); only an address actually fetched
     # this round gets stamped "now". Re-stamping reused values to "now"
     # would silently freeze the TTL forever (every refresh would see it as
-    # "just checked" without ever really re-checking it again) — the whole
-    # point of a TTL is that the clock keeps ticking from the real last
+    # "just checked" without ever really re-checking it again), the whole
+    # point of a TTL is that the clock keeps ticking from the last
     # verification, not from the last time it happened to be displayed.
     owner_balance_checked_at: dict[str, float] = {}
     try:
@@ -286,7 +286,7 @@ async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["Marke
                     and (now - checked_at) < OWNER_BALANCE_TTL_SECONDS
                 ):
                     owner_balances[owner] = doc["owner_bnb_balance"]
-                    owner_balance_checked_at[owner] = checked_at  # real original timestamp, preserved
+                    owner_balance_checked_at[owner] = checked_at # original timestamp, preserved
                     stale_or_missing.discard(owner)
         print(f"[aggregate] owner balances: {len(owner_addrs) - len(stale_or_missing)} real, "
               f"recent values reused from the store; fetching {len(stale_or_missing)} real, "
@@ -296,33 +296,33 @@ async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["Marke
             fetched_at = time.time()
             owner_balances.update(fresh)
             for owner in fresh:
-                owner_balance_checked_at[owner] = fetched_at  # a real read just happened
+                owner_balance_checked_at[owner] = fetched_at # a read just happened
     except Exception as e:
         print(f"[aggregate] owner-balance lookup failed, continuing without it "
               f"(field shown as None for anything not already cached): {e}")
 
-    # Real re-classification pass for agents the cheap name+description
-    # classifier couldn't place — wired in for real 2026-08-25, now that
+    # re-classification pass for agents the cheap name+description
+    # classifier couldn't place, wired in for real 2026-08-25, now that
     # Pro-tier access to the richer /api/v1/public/* surface is confirmed
     # live (3000/min, 3,000,000/day; the extra per-agent detail call this
     # needs is nowhere near that budget even for several hundred agents a
-    # refresh). Measured, real result on 489 real previously-Unclassified
-    # agents: 21 (4.3%) got a real category from this richer text
+    # refresh). Measured, result on 489 previously-Unclassified
+    # agents: 21 (4.3%) got a category from this richer text
     # (tags/categories/offchain description/service names) that plain
-    # name+description missed — zero of those were Grid Trading
-    # specifically, an honest negative from the same real check.
+    # name+description missed, zero of those were Grid Trading
+    # specifically, an negative from the same check.
     initial_classifications = [classify_agent(a.get("name", ""), a.get("description", "")) for a in raw_agents]
     unclassified_indices = [i for i, c in enumerate(initial_classifications) if c.category is None]
     # Real, bounded cap (2026-08-28): this pass was tuned for the live-fetch
-    # path's real diversified-set size (a few hundred agents). Now that
+    # path's diversified-set size (a few hundred agents). Now that
     # get_agents_from_full_registry can hand this the SAME function a much
-    # larger real diversified set (the full-registry pipeline's raw pool is
-    # tens of thousands of real agents, not one live fetch's max_offset), an
-    # unbounded per-agent detail call over every real Unclassified agent
-    # made one real refresh take minutes instead of seconds — confirmed
-    # live (a real run against the full-registry path timed out past 2
+    # larger diversified set (the full-registry pipeline's raw pool is
+    # tens of thousands of agents, not one live fetch's max_offset), an
+    # unbounded per-agent detail call over every Unclassified agent
+    # made one refresh take minutes instead of seconds, confirmed
+    # live (a run against the full-registry path timed out past 2
     # minutes before this cap was added). Capped to a real, bounded sample
-    # per refresh; the rest simply keep the cheap classifier's real result
+    # per refresh; the rest simply keep the cheap classifier's result
     # (Unclassified, if that's what it found) for this cycle and get a
     # fresh chance on the next one.
     MAX_RECLASSIFY_PER_REFRESH = 300
@@ -353,8 +353,8 @@ async def _enrich_and_build(raw_agents: list[dict], api_key: str) -> list["Marke
                   f"continuing with the cheap classification only: {e}")
         if reclassified:
             print(f"[aggregate] richer-data re-classification: {len(reclassified)}/"
-                  f"{len(unclassified_indices)} previously-Unclassified real agents "
-                  f"got a real category from tags/categories/offchain description/service names")
+                  f"{len(unclassified_indices)} previously-Unclassified agents "
+                  f"got a category from tags/categories/offchain description/service names")
 
     results = []
     for idx, agent in enumerate(raw_agents):
@@ -410,99 +410,99 @@ async def get_marketplace_agents_as_dicts(**kwargs) -> list[dict]:
     return [asdict(a) for a in agents]
 
 
-# Real, minimum real sample size before the full-registry-backed path is
-# trusted as a real replacement for a live 8004scan fetch — below this,
+# Real, minimum sample size before the full-registry-backed path is
+# trusted as a replacement for a live 8004scan fetch, below this,
 # core/full_registry_ingest.py's own background pass just hasn't gotten
 # far enough yet (e.g. right after this project's own first deploy of it)
 # for a real, representative diversified list; falling back to the
-# live-fetch path in that case is the honest choice, not a thin list.
+# live-fetch path in that case is the choice, not a thin list.
 MIN_FULL_REGISTRY_SAMPLE = 5000
 
 
 async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) -> list["MarketplaceAgent"] | None:
-    """Real, fast alternative to get_marketplace_agents() — draws its raw
+    """Real, fast alternative to get_marketplace_agents(), draws its raw
     candidate pool from the already-ingested full_agent_registry (see
     core/full_registry_ingest.py) instead of a live, paginated 8004scan
-    fetch. Real architecture change (2026-08-28): the marketplace no
+    fetch. architecture change (2026-08-28): the marketplace no
     longer has to be capped at whatever a live fetch's own max_offset can
-    reach in one request cycle — the background ingestion pipeline keeps
+    reach in one request cycle, the background ingestion pipeline keeps
     growing full_agent_registry independently (currently tens of
-    thousands of real BSC + Base agents and rising), and THIS function
+    thousands of BSC + Base agents and rising), and THIS function
     just reads whatever's there right now, diversifies it with the same
-    real multi-signal clustering (core/clustering.py), and runs it through
-    the exact same real enrichment tail (_enrich_and_build) as the live-
-    fetch path — same real MarketplaceAgent shape, same real DefiLlama/
+    multi-signal clustering (core/clustering.py), and runs it through
+    the exact same enrichment tail (_enrich_and_build) as the live-
+    fetch path, same MarketplaceAgent shape, same DefiLlama/
     owner-balance/reclassification logic, so nothing downstream needs to
     know which source served a given refresh.
 
     Returns None (never a thin, unrepresentative list) if
     full_agent_registry doesn't yet have at least MIN_FULL_REGISTRY_SAMPLE
-    real agents — the caller (server.py's _refresh_into_store) falls back
-    to the real live-fetch path in that case, an honest degrade rather
+    agents, the caller (server.py's _refresh_into_store) falls back
+    to the live-fetch path in that case, an degrade rather
     than serving something worse than the old behavior."""
     from core.db import get_db
 
     db = get_db()
 
     # Real, deliberate redesign (2026-08-29, after the earlier field-
-    # trimming + gc.collect() fix — commit 3648dd9 — turned out NOT to be
+    # trimming + gc.collect() fix, commit 3648dd9, turned out NOT to be
     # enough: Render's own event log shows 24+ further real `oomKilled`
     # (512Mi) crash-loop events in the ~15h after that fix shipped, this
     # exact refresh still the prime suspect (nothing else in this project
-    # holds anywhere near this much real data in memory at once). Root
+    # holds anywhere near this much data in memory at once). Root
     # cause the earlier fix didn't address: even a trimmed, 22-field
-    # projection still means holding ALL 64,000+ real raw BSC docs in
+    # projection still means holding ALL 64,000+ raw BSC docs in
     # memory at once, just to end up keeping only ~10,000-13,000 of them
-    # after diversification — most of that real memory was only ever
+    # after diversification, most of that memory was only ever
     # needed for the fast, cheap clustering pass, not the full enrichment
     # pipeline.
     #
-    # Real, two-phase fix: clustering.py's own real signals
-    # (_cluster_signature + the three real corroborating signals) only
-    # ever read 5 real fields — name, description, service_endpoint/
+    # Real, two-phase fix: clustering.py's own signals
+    # (_cluster_signature + the three corroborating signals) only
+    # ever read 5 fields, name, description, service_endpoint/
     # a2a_endpoint, created_at, owner_address (audited directly against
     # clustering.py's own .get() calls, not assumed). Phase 1 fetches
-    # ONLY those, across the full real raw pool, real per-doc footprint
+    # ONLY those, across the full raw pool, per-doc footprint
     # roughly a third of the previous projection. Phase 2 re-fetches the
-    # FULL real field set needed for enrichment, but ONLY for the real,
-    # small, already-diversified survivor set — never the full raw pool.
+    # FULL field set needed for enrichment, but ONLY for the real,
+    # small, already-diversified survivor set, never the full raw pool.
     # The full-field projection never has to coexist with the full raw
     # pool in memory at all now, not even briefly.
     _MINIMAL_CLUSTER_PROJECTION = {
         "name": 1, "description": 1, "service_endpoint": 1, "a2a_endpoint": 1,
         "created_at": 1, "owner_address": 1,
     }
-    # Real, urgent fix (2026-08-29): this used to fetch the ENTIRE real BSC
-    # pool uncapped (`.to_list(length=200_000)`) — safe when this two-phase
-    # design was first verified (peak RSS 217.6MB at whatever the real BSC
-    # count was then), genuinely unsafe now that the real pool has grown to
+    # Real, urgent fix (2026-08-29): this used to fetch the ENTIRE BSC
+    # pool uncapped (`.to_list(length=200_000)`), safe when this two-phase
+    # design was first verified (peak RSS 217.6MB at whatever the BSC
+    # count was then), genuinely unsafe now that the pool has grown to
     # 64,821 BSC docs (this project's own accelerated ingestion, built the
-    # same day, is a direct real cause of that growth). Confirmed live, not
+    # same day, is a direct cause of that growth). Confirmed live, not
     # assumed: Render's own event log shows a real `oomKilled` (512Mi) crash
     # roughly 9 minutes after a real, successfully-completed refresh logged
-    # exactly "64821 real raw BSC agents -> 7944 after real multi-signal
-    # diversification" — consistent with this pass leaving an elevated real
+    # exactly "64821 raw BSC agents -> 7944 after multi-signal
+    # diversification", consistent with this pass leaving an elevated real
     # memory baseline that doesn't fully return, not necessarily OOMing mid-
     # pass every time. Fixed with a real, FIXED-size random sample
     # (MongoDB's own `$sample` stage) instead of the full, ever-growing
-    # pool — this bounds real memory for this pass permanently, regardless
+    # pool, this bounds memory for this pass permanently, regardless
     # of how large full_agent_registry keeps growing, rather than being a
     # today-specific patch that would need revisiting again at the next
-    # real growth milestone. `$sample` (not an arbitrary `.limit()`) so the
-    # real diversification input stays a genuinely representative random
+    # growth milestone. `$sample` (not an arbitrary `.limit()`) so the
+    # diversification input stays a genuinely representative random
     # cross-section, not systematically biased toward whatever sits first
     # in the collection's own natural/insertion order.
     # Real, further tightened (2026-08-29, same day as the first fix): the
-    # 25,000 bound above was NOT enough on its own — Render's own event log
+    # 25,000 bound above was NOT enough on its own, Render's own event log
     # showed 3 more real `oomKilled` crashes within an hour of that fix
     # shipping, each one landing a few minutes after a real, successfully-
     # completed refresh (one logged "seen: 5744, new: 2097, total_known:
-    # 19643" right before a crash 3 minutes later) — the same "elevated
+    # 19643" right before a crash 3 minutes later), the same "elevated
     # post-refresh memory that doesn't fully return" pattern as before, just
     # not fully eliminated by halving the input pool alone. Cut further to a
     # real, more conservative bound, and paired with a second, real
     # gc.collect() after the full pass completes (see below) rather than
-    # only between phase 1 and phase 2 — addressing both the peak footprint
+    # only between phase 1 and phase 2, addressing both the peak footprint
     # during the pass and what lingers after it returns.
     _CLUSTER_POOL_SAMPLE_SIZE = 12_000
     minimal_agents = await db["full_agent_registry"].aggregate([
@@ -511,12 +511,12 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) 
         {"$project": _MINIMAL_CLUSTER_PROJECTION},
     ]).to_list(length=_CLUSTER_POOL_SAMPLE_SIZE)
     if len(minimal_agents) < MIN_FULL_REGISTRY_SAMPLE:
-        print(f"[aggregate] full_agent_registry has only {len(minimal_agents)} real BSC agents "
-              f"(< {MIN_FULL_REGISTRY_SAMPLE}) — not yet a real replacement, falling back to live fetch.")
+        print(f"[aggregate] full_agent_registry has only {len(minimal_agents)} BSC agents "
+              f"(< {MIN_FULL_REGISTRY_SAMPLE}), not yet a replacement, falling back to live fetch.")
         return None
 
     # Real, same cap-counting logic diversify() itself uses (core/clustering.py)
-    # — inlined here rather than called, since we need the real survivor
+    #, inlined here rather than called, since we need the survivor
     # IDs from the minimal-field pass, not full diversified dicts (those
     # only exist after phase 2's real, full-field re-fetch below).
     cluster_of = _cluster_agents(minimal_agents)
@@ -529,12 +529,12 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) 
         counts[c] = counts.get(c, 0) + 1
         survivor_ids.append(a["_id"])
 
-    print(f"[aggregate] full-registry-backed refresh: {len(minimal_agents)} real raw BSC agents "
-          f"-> {len(survivor_ids)} after real multi-signal diversification.")
+    print(f"[aggregate] full-registry-backed refresh: {len(minimal_agents)} raw BSC agents "
+          f"-> {len(survivor_ids)} after multi-signal diversification.")
 
-    # Real, memory-safety — the real 64,000+-doc minimal-field list and
+    # Real, memory-safety, the real 64,000+-doc minimal-field list and
     # its cluster-id map are done being read; drop them and force an
-    # immediate real sweep before phase 2's own real fetch, same real
+    # immediate sweep before phase 2's own fetch, same real
     # discipline the original 2026-08-28 fix established (CPython's own
     # allocator doesn't always return freed arenas to the OS promptly on
     # a long-lived process, so an explicit collect here is worth the
@@ -543,9 +543,9 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) 
     import gc
     gc.collect()
 
-    # Real, full field set — only fetched for the real, already-small
+    # Real, full field set, only fetched for the real, already-small
     # survivor set (currently ~10,000-13,000 of the 64,000+ raw pool),
-    # via _id (Mongo's own indexed key — real, confirmed live in
+    # via _id (Mongo's own indexed key, real, confirmed live in
     # full_registry_ingest.py's own upsert, always equal to the doc's own
     # real `id` field) for a real, fast indexed $in lookup rather than a
     # collection scan.
@@ -563,13 +563,13 @@ async def get_agents_from_full_registry(api_key: str, per_cluster_cap: int = 1) 
 
     result = await _enrich_and_build(diversified, api_key)
 
-    # Real, second gc.collect() (2026-08-29) — the first one above only
+    # Real, second gc.collect() (2026-08-29), the first one above only
     # covers what phase 1 built; `diversified`, `survivor_ids`, and
-    # whatever real per-agent temporaries _enrich_and_build's own DefiLlama/
+    # whatever per-agent temporaries _enrich_and_build's own DefiLlama/
     # owner-balance/reclassification tail allocated are still live here.
     # Confirmed live this was worth doing, not just theoretical: real
     # crashes kept landing a few minutes AFTER a refresh had already
-    # returned and logged success, consistent with memory this real pass
+    # returned and logged success, consistent with memory this pass
     # built never getting reclaimed promptly once the request itself moved
     # on. Cheap and safe to call unconditionally.
     del diversified, survivor_ids

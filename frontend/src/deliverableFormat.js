@@ -1,20 +1,20 @@
 // deliverableFormat.js
 //
-// Turns a delivered JSON payload's real content field into a light, safe
+// Turns a delivered JSON payload's content field into a light, safe
 // block structure for readable rendering. Not a full markdown-spec parser
-// — no library pulled in for this, matching this project's existing
-// hand-rolled-over-a-library choices elsewhere — just enough to handle
-// what real agent output on this marketplace actually contains: headers,
+//, no library pulled in for this, matching this project's existing
+// hand-rolled-over-a-library choices elsewhere, just enough to handle
+// what agent output on this marketplace contains: headers,
 // bold/italic, bullet/numbered lists, simple tables, horizontal rules, and
-// paragraphs (confirmed against a real delivered payload — the explainer
+// paragraphs (confirmed against a delivered payload, the explainer
 // agent's job #56646 response.content used all of these). Anything it
 // doesn't recognize renders as a plain paragraph, never dropped or erased.
 
 /** Best-effort: find the one real, human-meaningful text field in a
  * delivered JSON payload. Different agents/SDKs shape their deliverable
- * differently, so this checks the real shape seen on this marketplace
+ * differently, so this checks the shape seen on this marketplace
  * (this SDK's own response.content) plus a few common fallbacks, in order.
- * Returns null if nothing string-shaped and non-empty is found — the
+ * Returns null if nothing string-shaped and non-empty is found, the
  * caller falls back to showing the raw JSON, never a blank screen. */
 export function extractDeliverableText(parsed) {
   if (!parsed || typeof parsed !== 'object') return null;
@@ -31,8 +31,8 @@ export function extractDeliverableText(parsed) {
   return null;
 }
 
-/** Splits one line/paragraph into plain/bold/italic runs — the two real
- * inline styles seen in real agent output (**bold**, *italic*), not a
+/** Splits one line/paragraph into plain/bold/italic runs, the two real
+ * inline styles seen in agent output (**bold**, *italic*), not a
  * full spec. */
 function parseInline(s) {
   const parts = [];
@@ -49,8 +49,8 @@ function parseInline(s) {
   return parts;
 }
 
-/** Splits real delivered text into typed blocks (heading/list/table/hr/
- * paragraph), blank-line-separated — matching normal markdown block rules.
+/** Splits delivered text into typed blocks (heading/list/table/hr/
+ * paragraph), blank-line-separated, matching normal markdown block rules.
  * Pure data out (no JSX here); the caller renders it. */
 export function parseLightMarkdown(text) {
   const raw = String(text).replace(/\r\n/g, '\n').trim();

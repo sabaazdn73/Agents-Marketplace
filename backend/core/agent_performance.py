@@ -1,34 +1,34 @@
 """
 agent_performance.py
 
-Real per-agent track record, read from on-chain ERC-8183 job history — the
+per-agent track record, read from on-chain ERC-8183 job history, the
 answer to "how well has THIS agent performed when people actually hire it".
 
-Also the real backing for "My Agents" (get_my_jobs) — same scan, same window,
+Also the backing for "My Agents" (get_my_jobs), same scan, same window,
 just indexed by job.client instead of job.provider. Investigated honestly before
 building this (2026-08-18): there is no client-indexed event either (checked the
-installed SDK's erc8183.d.ts — getErc8183Job is a single-job read, no
+installed SDK's erc8183.d.ts, getErc8183Job is a single-job read, no
 getJobsByClient/list method), so the identical "scan the recent window, filter"
-approach used for providers is the right one here too, not a different pattern —
+approach used for providers is the right one here too, not a different pattern,
 and since the scan already decodes every job's full struct (including .client),
 indexing both by_provider AND by_client costs zero extra RPC calls, just one more
 dict populated in the same pass.
 
-How it reads real data (and why it's bounded):
+How it reads data (and why it's bounded):
   - The AgenticCommerce kernel (ERC8183_ADDRESSES[56].commerce) exposes
     getJob(jobId) -> (id, client, provider, evaluator, description, budget,
     expiredAt, status, hook, submittedAt, deliverable), and jobCounter().
   - There is NO provider- or client-indexed event, and there are already ~56k+
     jobs, so a full scan of every job on every page view is infeasible.
   - Instead we scan the MOST RECENT `WINDOW` jobs once (batched eth_call), decode
-    them, and index by BOTH provider and client. A real lookup (either
+    them, and index by BOTH provider and client. A lookup (either
     direction) is then a dict lookup. The window is stated honestly in the
-    payload so the UI never implies it saw the wallet's/agent's entire history —
+    payload so the UI never implies it saw the wallet's/agent's entire history,
     a job older than the most recent WINDOW jobs globally won't be found.
 
-Everything here is a real on-chain read (public BSC RPC). If a provider/client
-has no jobs in the window, the response honestly reports zero real hires —
-expected for a new marketplace — rather than a fabricated number.
+Everything here is a on-chain read (public BSC RPC). If a provider/client
+has no jobs in the window, the response honestly reports zero hires,
+expected for a new marketplace, rather than a fabricated number.
 """
 
 import os
@@ -37,12 +37,12 @@ import httpx
 from eth_abi import decode as abi_decode, encode as abi_encode
 from eth_utils import function_signature_to_4byte_selector
 
-# AgenticCommerce (ERC-8183) on BSC mainnet — from the SDK's ERC8183_ADDRESSES[56]
-# (verified live: jobCounter() returned 56,587 and getJob(1/2/5) returned real jobs).
+# AgenticCommerce (ERC-8183) on BSC mainnet, from the SDK's ERC8183_ADDRESSES[56]
+# (verified live: jobCounter() returned 56,587 and getJob(1/2/5) returned jobs).
 COMMERCE = "0xEa4DAa3100A767e86FDed867729ae7446476EBA6"
 # Multicall3, same canonical address on every EVM chain (incl. BSC). We read the
-# job window through aggregate3 — ONE eth_call that internally fans out to many
-# getJob reads — because public BSC RPCs rate-limit *batched* eth_call (even 50
+# job window through aggregate3, ONE eth_call that internally fans out to many
+# getJob reads, because public BSC RPCs rate-limit *batched* eth_call (even 50
 # per JSON-RPC batch triggers -32005) and reject batches >100. A single
 # aggregate3 eth_call sidesteps that entirely.
 MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11"
@@ -98,17 +98,17 @@ async def _multicall_getjobs(client: httpx.AsyncClient, job_ids: list[int]) -> l
                 "status": job[7], "submittedAt": job[9],
             })
         except Exception:
-            continue  # malformed entry — skip honestly
+            continue # malformed entry, skip honestly
     return out
 
 
 async def fetch_jobs_by_id(job_ids: list[int]) -> list[dict]:
     """Real, public, standalone batched job reader (2026-08-28, added for
-    core/job_index.py) — the exact same real Multicall3 aggregate3 read
+    core/job_index.py), the exact same Multicall3 aggregate3 read
     _scan_recent_window uses internally, exposed here so another module can
     read arbitrary, non-recent job id ranges without duplicating this real
     decode logic. This module's own cache stays WINDOW-bounded (by design,
-    for instant marketplace page loads — see this module's own docstring);
+    for instant marketplace page loads, see this module's own docstring);
     job_index.py needs the full, un-windowed range, which is exactly what
     this function (unlike _scan_recent_window) doesn't restrict."""
     async with httpx.AsyncClient(timeout=30) as client:
@@ -116,8 +116,8 @@ async def fetch_jobs_by_id(job_ids: list[int]) -> list[dict]:
 
 
 async def _scan_recent_window() -> dict:
-    """Scan the most-recent WINDOW jobs once and index the real results by
-    BOTH provider (agent performance) and client (My Agents) — one scan,
+    """Scan the most-recent WINDOW jobs once and index the results by
+    BOTH provider (agent performance) and client (My Agents), one scan,
     two dict-populates, zero extra RPC calls."""
     async with httpx.AsyncClient(timeout=30) as client:
         from core.rpc import rpc_post
@@ -154,10 +154,10 @@ async def _scan_recent_window() -> dict:
                     if job["submittedAt"] and int(job["submittedAt"]) > p["last_submitted_at"]:
                         p["last_submitted_at"] = int(job["submittedAt"])
                     # Real, full per-job record (2026-08-28, added for
-                    # core/revenue.py's real "Revenue Stream" feature) —
-                    # same real shape by_client already stores below, kept
-                    # in sync deliberately: this is the same real scan,
-                    # same real job struct, zero extra RPC calls either way.
+                    # core/revenue.py's real "Revenue Stream" feature),
+                    # same shape by_client already stores below, kept
+                    # in sync deliberately: this is the same scan,
+                    # same job struct, zero extra RPC calls either way.
                     p["jobs"].append({
                         "id": int(job["id"]), "client": job["client"],
                         "description": job["description"], "budget": str(job["budget"]),
@@ -190,8 +190,8 @@ async def _ensure_fresh() -> None:
 
 
 async def get_agent_performance(owner_address: str) -> dict:
-    """Real on-chain track record for one agent's owner (as ERC-8183 provider),
-    from the most-recent WINDOW jobs. Honest zero-history state when none found."""
+    """on-chain track record for one agent's owner (as ERC-8183 provider),
+    from the most-recent WINDOW jobs. zero-history state when none found."""
     owner = (owner_address or "").lower()
     await _ensure_fresh()
     window = {
@@ -208,7 +208,7 @@ async def get_agent_performance(owner_address: str) -> dict:
             "hire_count": 0,
             **window,
             "note": f"We checked the last {WINDOW} jobs across the whole marketplace and "
-                    "found none for this agent — it hasn't been hired through here yet.",
+                    "found none for this agent, it hasn't been hired through here yet.",
         }
     settled = p["COMPLETED"] + p["REJECTED"] + p["EXPIRED"]
     active = p["OPEN"] + p["FUNDED"] + p["SUBMITTED"]
@@ -230,18 +230,18 @@ async def get_agent_performance(owner_address: str) -> dict:
 
 
 def _win_rate(p: dict) -> float | None:
-    """Real win rate for the marketplace's "Highest success rate" sort —
+    """win rate for the marketplace's "Highest success rate" sort,
     a DIFFERENT, deliberately more lenient metric than get_agent_performance's
     own `completion_rate` above (COMPLETED / (COMPLETED+REJECTED+EXPIRED)),
     which is what the agent detail page's "Success Rate" stat already shows
-    and is left untouched here. This one counts SUBMITTED as a real success
+    and is left untouched here. This one counts SUBMITTED as a success
     signal too, not just COMPLETED: settlement is permissionless and
     optimistic (silence past the review window auto-resolves to COMPLETED),
     so an un-disputed SUBMITTED job is already a real, successful delivery,
-    just not yet formally settled on-chain — exactly the honest situation
+    just not yet formally settled on-chain, exactly the situation
     job #56646 (the Advantage Report's own Task 3) was in. OPEN/FUNDED are
     excluded from both sides: nothing has been delivered yet, so there's no
-    real verdict to count either way."""
+    verdict to count either way."""
     successes = p["COMPLETED"] + p["SUBMITTED"]
     failures = p["REJECTED"] + p["EXPIRED"]
     total = successes + failures
@@ -249,12 +249,12 @@ def _win_rate(p: dict) -> float | None:
 
 
 async def get_all_agent_performance() -> dict:
-    """Bulk version of get_agent_performance — the real data backing the
+    """Bulk version of get_agent_performance, the data backing the
     marketplace's "Most hired" / "Highest success rate" sort options.
     Reuses the exact same cached scan (_ensure_fresh/_cache["by_provider"])
-    the single-owner lookup above already reads — zero extra RPC calls, just
+    the single-owner lookup above already reads, zero extra RPC calls, just
     exposes the whole index at once instead of one owner at a time, since a
-    marketplace-wide sort needs every real provider's numbers together, not
+    marketplace-wide sort needs every provider's numbers together, not
     N sequential single-owner requests."""
     await _ensure_fresh()
     by_owner: dict[str, dict] = {}
@@ -278,12 +278,12 @@ async def get_all_agent_performance() -> dict:
 
 
 def get_scan_window_info() -> dict:
-    """Real, public accessor for the same real scan-bound fields every
-    function in this module already reports inline — pulled out so other
-    real modules (core/revenue.py) that reuse this module's cached scan
+    """Real, public accessor for the same scan-bound fields every
+    function in this module already reports inline, pulled out so other
+    modules (core/revenue.py) that reuse this module's cached scan
     via get_provider_jobs don't need to reach into this module's private
-    `_cache` directly. Real, honest values only once a scan has actually
-    run (via _ensure_fresh, called by every real getter above)."""
+    `_cache` directly. Real, values only once a scan has actually
+    run (via _ensure_fresh, called by every getter above)."""
     return {
         "scanned_window": WINDOW,
         "job_counter": _cache["job_counter"],
@@ -294,10 +294,10 @@ def get_scan_window_info() -> dict:
 
 async def get_provider_jobs(owner_address: str) -> list[dict]:
     """Real, full per-job records for one agent as PROVIDER, from the same
-    cached recent-WINDOW scan every other function here reuses — zero extra
+    cached recent-WINDOW scan every other function here reuses, zero extra
     RPC calls. Built for core/revenue.py's real "Revenue Stream" feature,
-    which needs each real job's own budget/status/submittedAt, not just the
-    aggregated counts get_agent_performance returns. Same honest bound as
+    which needs each job's own budget/status/submittedAt, not just the
+    aggregated counts get_agent_performance returns. Same bound as
     everywhere else in this module: a job older than the most recent WINDOW
     jobs globally won't be found."""
     owner = (owner_address or "").lower()
@@ -306,8 +306,8 @@ async def get_provider_jobs(owner_address: str) -> list[dict]:
 
 
 async def get_my_jobs(client_address: str) -> dict:
-    """Real ERC-8183 jobs where this wallet is the CLIENT (the "My Agents" tab),
-    from the same recent-WINDOW scan used for agent performance — same honest
+    """ERC-8183 jobs where this wallet is the CLIENT (the "My Agents" tab),
+    from the same recent-WINDOW scan used for agent performance, same honest
     bound: a job older than the most recent WINDOW jobs globally won't be found,
     even if it's genuinely this wallet's. Sorted newest-first (highest job id)."""
     cli = (client_address or "").lower()

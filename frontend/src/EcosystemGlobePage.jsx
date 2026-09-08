@@ -1,35 +1,35 @@
 // EcosystemGlobePage.jsx
 //
-// A real, standalone visual-identity page — its own route (/ecosystem), not
+// A real, standalone visual-identity page, its own route (/ecosystem), not
 // mixed into any of the Market/My Agents/Report/Learn/Build/Sell tabs. Purely
-// visual: a rotating 3D globe with one marker per real category, sized by
-// how many real agents are actually in it right now. Not a dashboard — no
+// visual: a rotating 3D globe with one marker per category, sized by
+// how many agents are in it right now. Not a dashboard, no
 // click-through drilldown, rotate/zoom is the whole interaction.
 //
 // Library choice: react-three-fiber + drei, the standard React binding for
-// three.js — checked npm before installing: the current majors
+// three.js, checked npm before installing: the current majors
 // (@react-three/fiber@9, drei@10) require React 19, and this app is on React
 // 18.3, so this pins the last React-18-compatible majors instead
 // (@react-three/fiber@8.18.0 + drei@9.122.0, both declaring `react: "^18"`
 // in their own peerDependencies) rather than silently mismatching.
 //
-// Data: real category counts from the same known_agents data the Marketplace
+// Data: category counts from the same known_agents data the Marketplace
 // itself renders (the shared 24h localStorage cache written by
 // AgentMarketplaceApp.web.jsx / .mobile.jsx, or a fresh fetch of the same
-// /api/agents endpoint if that cache is empty/stale) — never invented
-// placement or counts. Marker size = real count, cube-root scaled so one
+// /api/agents endpoint if that cache is empty/stale), never invented
+// placement or counts. Marker size = count, cube-root scaled so one
 // dominant category (Termix's own mass-registered cluster, still capped
 // per-cluster server-side but real) doesn't visually swallow the rest.
 //
 // Mobile: this same component renders on the mobile breakpoint too (this
 // project's "mobile" is a responsive layout in the same browser bundle, not
-// a separate native app — see App.jsx). Real check before deciding not to
+// a separate native app, see App.jsx). check before deciding not to
 // build a 2D fallback: the whole page is React.lazy()-loaded (see
 // App.jsx), so its ~800KB three.js/fiber/drei chunk is never downloaded by
-// anyone who doesn't open /ecosystem — it costs nothing on the Marketplace's
+// anyone who doesn't open /ecosystem, it costs nothing on the Marketplace's
 // own load time. The scene itself is trivial for WebGL (one sphere + ~15
-// small marker meshes, no textures) — well within what even a low-end
-// phone's GPU handles; the genuine constraint would have been the *bundle*
+// small marker meshes, no textures), well within what even a low-end
+// phone's GPU handles; the constraint would have been the *bundle*
 // size, and code-splitting removes that. Kept for both, no 2D fallback
 // needed.
 
@@ -40,17 +40,17 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { CATEGORY_GROUPS, groupForCategory, groupLabel } from './categoryGroups';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-// Real bug found and fixed here during the Tnega rebrand (2026-08-28): this
+// bug found and fixed here during the Tnega rebrand (2026-08-28): this
 // was still 'agents-marketplace-cache-v1' while the main app had already
-// moved on to a '-v2' key (an earlier, unrelated stale-cache fix) — this
+// moved on to a '-v2' key (an earlier, unrelated stale-cache fix), this
 // page was silently never hitting that fast shared-cache path, always
 // falling through to its own live fetch. Renamed to match AgentMarketplaceApp
-// exactly (both now write/read the same real key), and fixes that bug too.
+// exactly (both now write/read the same key), and fixes that bug too.
 const CACHE_KEY = 'tnega-cache-v1'; // same cache AgentMarketplaceApp writes
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const GLOBE_RADIUS = 2.6;
 
-// Fixed, stable palette — one color per real top-level category group
+// Fixed, stable palette, one color per top-level category group
 // (categoryGroups.js) plus Unclassified, cycling only if a new group is
 // ever added upstream.
 const PALETTE = [
@@ -59,15 +59,15 @@ const PALETTE = [
   '#e11d48', '#0ea5e9', '#d946ef', '#65a30d', '#f43f5e', '#0d9488',
 ];
 
-// Real fix (2026-08-27): buckets by the real 5 top-level category groups
+// fix (2026-08-27): buckets by the real 5 top-level category groups
 // (categoryGroups.js), not the 18 flat fine-grained categories this used to
-// group by directly — the same real restructuring already applied to the
+// group by directly, the same restructuring already applied to the
 // Marketplace tab's own filter chips, now consistent here too. A raw
-// agent's fine category (e.g. "Trading Signals") nests under its real group
-// ("Trading & DeFi"); anything with no real group match (including the
+// agent's fine category (e.g. "Trading Signals") nests under its group
+// ("Trading & DeFi"); anything with no group match (including the
 // literal 'Unclassified' category) counts toward its own separate,
-// never-merged 'Unclassified' bucket — same convention as the Marketplace
-// tab, so a real classification is never implied where none was made.
+// never-merged 'Unclassified' bucket, same convention as the Marketplace
+// tab, so a classification is never implied where none was made.
 // Zero-count buckets are dropped so a genuinely empty group never claims a
 // marker on the globe.
 function groupRawAgents(rawAgents) {
@@ -87,21 +87,21 @@ function groupRawAgents(rawAgents) {
 }
 
 /** Reads the same cache the Marketplace tab writes for an instant first
- * paint (so visiting /ecosystem directly still shows a real globe right
- * away, not an empty one) — but ALWAYS also kicks off a real, fresh fetch
+ * paint (so visiting /ecosystem directly still shows a globe right
+ * away, not an empty one), but ALWAYS also kicks off a real, fresh fetch
  * regardless of the cache's age, exactly matching AgentMarketplaceApp's own
- * useMarketplaceAgents. Real bug found and fixed here (2026-08-27): the old
+ * useMarketplaceAgents. bug found and fixed here (2026-08-27): the old
  * version did an early return on any cache under 24h old and NEVER
- * fetched — real, confirmed stale-data symptom, live: a header still
- * reading "1,901 real agents across 18 categories" hours after the real
+ * fetched, real, confirmed stale-data symptom, live: a header still
+ * reading "1,901 agents across 18 categories" hours after the real
  * marketplace scale-up to 11,700+, because whichever browser cached that
  * snapshot simply never got a chance to refresh it within the 24h window.
- * `confirmedFresh` mirrors the Marketplace tab's own real fix for the exact
+ * `confirmedFresh` mirrors the Marketplace tab's own fix for the exact
  * same class of bug: starts false on every render (cache or not), flips
- * true only once a real fetch actually settles, so the header NUMBER can
- * show a skeleton instead of a stale one — the globe's own shape still
+ * true only once a fetch settles, so the header NUMBER can
+ * show a skeleton instead of a stale one, the globe's own shape still
  * renders instantly from whatever's available (cached or fresh), same
- * real tradeoff already made for the Marketplace's agent grid. */
+ * tradeoff already made for the Marketplace's agent grid. */
 function useCategoryCounts() {
   const [state, setState] = useState(() => {
     try {
@@ -113,7 +113,7 @@ function useCategoryCounts() {
           return { loading: false, error: null, counts: list, total, confirmedFresh: false };
         }
       }
-    } catch (e) { /* fall through to the real fetch below */ }
+    } catch (e) { /* fall through to the fetch below */ }
     return { loading: true, error: null, counts: [], total: 0, confirmedFresh: false };
   });
 
@@ -131,11 +131,11 @@ function useCategoryCounts() {
       })
       .catch((err) => {
         if (cancelled) return;
-        // Real, honest fallback: if we already have real (if possibly
+ // Real, fallback: if we already have real (if possibly
         // stale) cached data on screen, don't blank the globe on a failed
-        // refresh — just stop waiting on confirmation, same as
+        // refresh, just stop waiting on confirmation, same as
         // AgentMarketplaceApp's own useMarketplaceAgents. Only show a hard
-        // error when there was never any real data to fall back on.
+        // error when there was never any data to fall back on.
         setState((s) => (s.total > 0
           ? { ...s, confirmedFresh: true }
           : { loading: false, error: err.message, counts: [], total: 0, confirmedFresh: true }));
@@ -148,9 +148,9 @@ function useCategoryCounts() {
 }
 
 /** Evenly distributes N points across a sphere surface (fibonacci-sphere
- * lattice) — deterministic, not random, so the same category always lands
+ * lattice), deterministic, not random, so the same category always lands
  * in the same spot across reloads. This is purely a placement algorithm,
- * not a data claim; the honesty requirement (real counts) governs marker
+ * not a data claim; the honesty requirement (counts) governs marker
  * SIZE, not which point of the lattice it's assigned. */
 function fibonacciSpherePoints(n) {
   const points = [];
@@ -176,9 +176,9 @@ export function RotatingGlobe({ counts, total }) {
   return (
     <group ref={groupRef}>
       {/* Base sphere: meshPhysicalMaterial's clearcoat is the 3D equivalent
-          of AgentArchitectureDiagrams.jsx's top-lit sheen gradient overlay —
+          of AgentArchitectureDiagrams.jsx's top-lit sheen gradient overlay,
           a subtle glossy highlight rather than the old fully-matte
-          standard material, real refinement not a visual overhaul. */}
+ standard material, refinement not a visual overhaul. */}
       <mesh>
         <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
         <meshPhysicalMaterial
@@ -195,16 +195,16 @@ export function RotatingGlobe({ counts, total }) {
       </mesh>
       {counts.map((c, i) => {
         const [x, y, z] = positions[i];
-        // Cube-root scaling: a category with 10x the real agents gets a
-        // ~2.2x wider marker, not a 10x one — real proportion, without one
+        // Cube-root scaling: a category with 10x the agents gets a
+ // ~2.2x wider marker, not a 10x one, proportion, without one
         // mass-registered cluster visually swallowing every other category.
         const markerRadius = 0.05 + 0.16 * Math.cbrt(c.count / maxCount);
         const color = PALETTE[i % PALETTE.length];
         const pos = [x * (GLOBE_RADIUS + 0.05), y * (GLOBE_RADIUS + 0.05), z * (GLOBE_RADIUS + 0.05)];
         return (
           <group key={c.category} position={pos}>
-            {/* Soft halo behind the marker — a low-opacity, larger sphere of
-                the same color — reads as a smooth glow rather than a hard
+            {/* Soft halo behind the marker, a low-opacity, larger sphere of
+                the same color, reads as a smooth glow rather than a hard
                 flat dot, without any post-processing/bloom pipeline. */}
             <mesh>
               <sphereGeometry args={[markerRadius * 1.9, 16, 16]} />
@@ -237,7 +237,7 @@ export default function EcosystemGlobePage({ onBack }) {
   const { loading, error, counts, total, confirmedFresh } = useCategoryCounts();
 
   return (
-    // h-screen (a DEFINITE height), not min-h-screen (only a floor) — real
+ // h-screen (a DEFINITE height), not min-h-screen (only a floor), real
     // bug found and fixed here: <Canvas> renders nested `width:100%;
     // height:100%` wrapper divs (confirmed by reading @react-three/fiber's
     // own source), and percentage-height children don't reliably resolve
@@ -246,7 +246,7 @@ export default function EcosystemGlobePage({ onBack }) {
     // that collapsed the canvas's measured size to 0×0: WebGL had nothing
     // to draw (invisible sphere), and every <Html> marker's screen
     // projection (x * width/2, y * height/2) collapsed to the same (0,0)
-    // point — exactly the reported "overlapping stacked text" bug.
+    // point, exactly the reported "overlapping stacked text" bug.
     <div className="h-screen overflow-hidden bg-[#0B1120] text-white flex flex-col">
       <div className="flex items-center justify-between px-6 py-5 shrink-0">
         <button
@@ -258,23 +258,23 @@ export default function EcosystemGlobePage({ onBack }) {
         <div className="text-right">
           <div className="text-sm font-semibold">The agent ecosystem, at a glance</div>
           <div className="text-[11px] text-gray-500">
-            {/* Real fix (2026-08-27): the globe itself still renders
+ {/* fix (2026-08-27): the globe itself still renders
                 instantly from cache below (same tradeoff as the
-                Marketplace's own agent grid), but this NUMBER — the exact
+                Marketplace's own agent grid), but this NUMBER, the exact
                 thing that went stale ("1,901... 18 categories" hours after
-                the real scale-up) — now waits for confirmedFresh, same
-                real pattern as the Marketplace tab's own header stats. */}
+                the scale-up), now waits for confirmedFresh, same
+ pattern as the Marketplace tab's own header stats. */}
             {loading
-              ? 'Loading real category counts…'
+ ? 'Loading category counts…'
               : !confirmedFresh
                 ? <span className="inline-block h-3 w-40 rounded bg-gray-700 animate-pulse align-middle" />
-                : `${total.toLocaleString()} real agents across ${counts.length} category groups`}
+ : `${total.toLocaleString()} agents across ${counts.length} category groups`}
           </div>
         </div>
       </div>
 
-      {/* min-h-0 overrides the flex item's default min-height:auto — the
-          other half of the real fix: without it, this flex-1 child refuses
+      {/* min-h-0 overrides the flex item's default min-height:auto, the
+          other half of the fix: without it, this flex-1 child refuses
           to shrink/resolve below the Canvas's percentage-based content
           size, which is exactly backwards (it needs to constrain the
           Canvas, not be constrained by it). */}
@@ -286,16 +286,16 @@ export default function EcosystemGlobePage({ onBack }) {
         )}
         {error && !loading && (
           <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
-            <p className="text-sm text-gray-400">Couldn't load real agent data right now ({error}). Nothing fabricated — try again shortly.</p>
+ <p className="text-sm text-gray-400">Couldn't load agent data right now ({error}). Nothing fabricated, try again shortly.</p>
           </div>
         )}
         {!loading && !error && counts.length > 0 && (
-          // Zoomed out for real breathing room (was position.z=7, now 9.5 —
+ // Zoomed out for breathing room (was position.z=7, now 9.5,
           // the globe used to nearly fill the frame; minDistance/maxDistance
           // widened to match so zooming in/out never re-creates that
           // cramped feel). Lighting swapped from a flat ambient + two point
-          // lights to a soft top-down hemisphere light (a real gradient —
-          // cool sky-blue fading to the dark navy "ground" — the 3D
+          // lights to a soft top-down hemisphere light (a gradient,
+          // cool sky-blue fading to the dark navy "ground", the 3D
           // equivalent of the 2D diagrams' top-lit sheen) plus a single
           // warmer key light from above-front and a dim indigo rim light
           // for depth, instead of two competing point lights.
@@ -312,7 +312,7 @@ export default function EcosystemGlobePage({ onBack }) {
       </div>
 
       <div className="px-6 pb-6 text-center text-[11px] text-gray-500 shrink-0">
-        Drag to rotate, scroll/pinch to zoom. Marker size reflects each category's real, current agent count — not a fixed layout.
+ Drag to rotate, scroll/pinch to zoom. Marker size reflects each category's real, current agent count, not a fixed layout.
       </div>
     </div>
   );

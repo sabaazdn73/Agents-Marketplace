@@ -1,12 +1,12 @@
 // HireModePicker.jsx
 //
 // Lets a buyer choose between the two funding models, and states what the
-// choice actually costs them.
+// choice costs them.
 //
 // Escrow is the DEFAULT and stays selected unless someone deliberately
 // picks otherwise. That is not a UI preference, it is the safer model: it
 // protects the buyer, and it is the working, heavily-debugged path. Budget
-// mode is opt-in because it is a genuine reduction in buyer protection.
+// mode is opt-in because it is a reduction in buyer protection.
 //
 // The hard rule this component exists to honour: a buyer choosing the
 // budget model must understand they are trading protection for capability
@@ -121,9 +121,9 @@ export default function HireModePicker({ value, onChange, budgetAvailable, budge
  * makes a warning the proportionate response.
  *
  * Deliberately specific. A generic "proceed at your own risk" gets clicked
- * past; what a client needs is the actual mechanic (nothing is spent if
- * the agent never draws), the actual remedy (reclaim, any time), and the
- * actual next step (ask the developer, here is the spec). */
+ * past; what a client needs is the mechanic (nothing is spent if
+ * the agent never draws), the remedy (reclaim, any time), and the
+ * next step (ask the developer, here is the spec). */
 function UndeclaredAgentWarning() {
   return (
     <div className="mt-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
@@ -180,13 +180,13 @@ function BudgetModeConsequences() {
           or not you ever receive anything.
         </li>
         <li>
-          <strong>Your cap is the real limit.</strong> Set the total, the per-draw maximum
+          <strong>Your cap is the limit.</strong> Set the total, the per-draw maximum
           and the deadline to amounts you would accept losing outright.
         </li>
         <li>
           <strong>Revoking is not instant.</strong> You can take back the unspent remainder
           at any time, but your revoke and the agent's next draw are two competing
-          transactions — whichever is mined first wins. If a draw lands in the same block,
+          transactions, whichever is mined first wins. If a draw lands in the same block,
           that money is already spent.
         </li>
         <li>

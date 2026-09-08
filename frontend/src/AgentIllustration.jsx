@@ -1,10 +1,10 @@
 // AgentIllustration.jsx
 //
 // Real, original inline SVG artwork for the "Always Ask / Autonomous"
-// explainer — a generic, abstract AI-agent character (rounded head,
+// explainer, a generic, abstract AI-agent character (rounded head,
 // antenna, two eyes, a small "approved" badge), not any copyrighted
-// character or real person. Same reasoning as AgentArchitectureDiagrams.jsx:
-// no image asset or diagramming library pulled in for one illustration —
+// character or person. Same reasoning as AgentArchitectureDiagrams.jsx:
+// no image asset or diagramming library pulled in for one illustration,
 // hand-drawn here, in this site's own indigo palette, dark-mode-safe by
 // construction (Tailwind fill-*/stroke-* utility classes, no baked-in
 // per-theme colors), so it needs no separate licensing story at all.
@@ -48,10 +48,10 @@ export default function AgentIllustration({ className = 'w-32 h-32' }) {
       <circle cx="76" cy="94" r="9" className={ACCENT_FILL} />
       <circle cx="124" cy="94" r="9" className={ACCENT_FILL} />
 
-      {/* Mouth — a calm, friendly bar rather than a specific expression */}
+      {/* Mouth, a calm, friendly bar rather than a specific expression */}
       <rect x="76" y="126" width="48" height="8" rx="4" className={SOFT_FILL} />
 
-      {/* "Approved / within limits" badge — ties the character to the
+      {/* "Approved / within limits" badge, ties the character to the
           spend-cap/passkey-approval theme without needing extra copy */}
       <circle cx="150" cy="152" r="24" className={BADGE_FILL} filter="url(#agent-shadow)" />
       <circle cx="150" cy="152" r="24" className={`${BODY_FILL} ${BODY_STROKE}`} strokeWidth="2" />

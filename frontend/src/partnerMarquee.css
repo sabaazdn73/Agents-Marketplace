@@ -1,0 +1,112 @@
+/* partnerMarquee.css
+ *
+ * Scoped under .partner-marquee so nothing here reaches the rest of the app.
+ *
+ * The track holds two copies of the list and moves by -50%, which is exactly
+ * one copy, so the loop repeats without a jump. Duration scales with the
+ * number of logos through the --marquee-duration variable set in the
+ * component's own stylesheet default below, so adding partners slows the
+ * strip rather than speeding it up.
+ */
+
+.partner-marquee {
+  --marquee-duration: 45s;
+  --marquee-gap: 2.5rem;
+  width: 100%;
+  border-top: 1px solid rgb(0 0 0 / 0.08);
+  background: rgb(255 255 255 / 0.4);
+  padding: 0.75rem 0;
+  overflow: hidden;
+}
+
+@media (prefers-color-scheme: dark) {
+  .partner-marquee {
+    border-top-color: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.02);
+  }
+}
+
+.partner-marquee__viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.partner-marquee__viewport::-webkit-scrollbar { display: none; }
+
+.partner-marquee__track {
+  display: flex;
+  width: max-content;
+  animation: partner-marquee-scroll var(--marquee-duration) linear infinite;
+}
+
+/* Pause on hover, and on keyboard focus. A keyboard user cannot hover, so
+   without the focus-within rule the strip would keep moving while they read
+   a link they just tabbed to. */
+.partner-marquee:hover .partner-marquee__track,
+.partner-marquee__track:focus-within {
+  animation-play-state: paused;
+}
+
+.partner-marquee__group {
+  display: flex;
+  align-items: center;
+  gap: var(--marquee-gap);
+  padding-right: var(--marquee-gap);
+  flex: 0 0 auto;
+}
+
+.partner-marquee__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+
+.partner-marquee__item:hover,
+.partner-marquee__item:focus-visible {
+  opacity: 1;
+}
+
+.partner-marquee__item:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.partner-marquee__logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.partner-marquee__name {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgb(75 85 99);
+}
+
+@media (prefers-color-scheme: dark) {
+  .partner-marquee__name { color: rgb(156 163 175); }
+}
+
+@keyframes partner-marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* No movement at all when the visitor asked for none. The strip stays put
+   and the viewport scrolls by hand, so nothing becomes unreachable. */
+@media (prefers-reduced-motion: reduce) {
+  .partner-marquee__track {
+    animation: none;
+    transform: none;
+  }
+  .partner-marquee__viewport {
+    overflow-x: auto;
+  }
+}

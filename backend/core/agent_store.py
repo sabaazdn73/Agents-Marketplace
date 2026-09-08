@@ -7,7 +7,7 @@ refresh, so agents don't silently vanish between fetches.
 Why this exists: the live 8004scan fetch is a small, cluster-capped sample of a
 700k+ registry (see core/aggregate.py). Any single refresh returns only a slice,
 and a server restart or a rate-limited fetch would otherwise drop agents a user
-was looking at — or had just hired. This store UPSERTS agents (keyed by
+was looking at, or had just hired. This store UPSERTS agents (keyed by
 agent_id, NEVER deletes) so the marketplace stays consistent across fetches and
 restarts.
 
@@ -16,8 +16,8 @@ huge registry, an agent being ABSENT from a given refresh is completely normal
 and is NOT evidence it was delisted on-chain. Flagging "delisted" on short-term
 fetch-absence would cry wolf on almost every agent every hour. So we track
 last_seen_at and only set `possibly_delisted` when an agent hasn't appeared in
-ANY refresh for STALE_DAYS days — long enough (given hourly refreshes) that
-continued absence is actually meaningful — and even then we only FLAG it (soft,
+ANY refresh for STALE_DAYS days, long enough (given hourly refreshes) that
+continued absence is actually meaningful, and even then we only FLAG it (soft,
 reversible) rather than removing it. The threshold is time-based, not
 miss-count-based, precisely because miss-count is dominated by sampling noise.
 
@@ -26,24 +26,24 @@ a re-cap the big campaigns (Termix/Q402/Ave.ai) would slowly refill the store
 with distinct-id duplicates. get_stored_agents() sorts by score then re-caps per
 cluster so the served list stays diverse no matter how much has accumulated.
 
-Real gap found and fixed 2026-08-18 (audited against the live store, not just
+gap found and fixed 2026-08-18 (audited against the live store, not just
 this docstring's stated intent): `upsert_agents` did a blind `$set` of every
 field aggregate.py sent, every refresh. aggregate.py itself explicitly falls
 back to None/False for its best-effort enrichment fields (tvl_usd,
 defillama_slug/url, financial_data_available, owner_bnb_balance) whenever the
 DefiLlama fetch or the owner-balance RPC transiently fails THAT round (see its
-own try/except comments — "agents still shown, just without TVL"). A blind
+own try/except comments, "agents still shown, just without TVL"). A blind
 $set meant a transient upstream hiccup on refresh N would silently OVERWRITE a
-real value learned on refresh N-1 with None — not a dropped agent (the
+value learned on refresh N-1 with None, not a dropped agent (the
 document survives, matching the headline promise above), but a real, silent
-loss of previously-known real data, live-confirmed: all 96 agents in the store
-right now have a real owner_bnb_balance, every one of them one bad RPC call
+loss of previously-known data, live-confirmed: all 96 agents in the store
+right now have a owner_bnb_balance, every one of them one bad RPC call
 away from being wiped back to None on the next refresh under the old code.
 Fixed below: these specific best-effort fields only get overwritten when the
 fresh value is genuinely present; a fresh None/failed-match doesn't erase a
-real one already on record. Deliberate, stated tradeoff: this can't distinguish
+one already on record. Deliberate, stated tradeoff: this can't distinguish
 "transient failure" from "this agent genuinely stopped matching a DefiLlama
-protocol" — it's biased toward keeping last-known-real data rather than
+protocol", it's biased toward keeping last-known-data rather than
 silently losing it, consistent with this file's own possibly_delisted
 philosophy above (flag soft and reversible, never erase).
 """
@@ -55,7 +55,7 @@ from core.db import get_db
 import gc
 
 from core.clustering import cluster_agents as _cluster_agents
-from core.clustering import diversify as _diversify   # same real multi-signal cluster-cap used at fetch time — see core/clustering.py
+from core.clustering import diversify as _diversify # same multi-signal cluster-cap used at fetch time, see core/clustering.py
 
 STALE_DAYS = 7          # not seen in any refresh for a week => possibly delisted
 READ_CLUSTER_CAP = 3    # keep the served list diverse across accumulation
@@ -79,13 +79,13 @@ SELECTION_POOL_LIMIT = 160_000
 
 # Best-effort enrichment fields that a transient upstream failure can null out
 # on any given refresh (see the module docstring). Grouped because they
-# describe ONE outcome (the DefiLlama match) — preserved or overwritten
+# describe ONE outcome (the DefiLlama match), preserved or overwritten
 # together, never partially, so tvl_usd can't end up stale while
 # financial_data_available flips to False (or vice versa).
 #
 # Real, added 2026-08-29 (API-data investigation): tvl_change_7d_pct,
 # audit_count, tvl_data_flagged, mcap_usd all come from the exact same
-# DefiLlama match as the four fields above — added to this same group so
+# DefiLlama match as the four fields above, added to this same group so
 # a transient DefiLlama fetch failure can't silently regress THEM to None/
 # False either, while leaving tvl_usd/defillama_slug/url looking fine.
 _DEFILLAMA_FIELD_GROUP = [
@@ -93,9 +93,9 @@ _DEFILLAMA_FIELD_GROUP = [
     "tvl_change_7d_pct", "audit_count", "tvl_data_flagged", "mcap_usd",
 ]
 _OWNER_BALANCE_FIELD = "owner_bnb_balance"
-# Real fix (2026-08-27, owner-balance 429 investigation): moves together
-# with _OWNER_BALANCE_FIELD, same real "preserve on failure" discipline —
-# see core/aggregate.py's own real TTL-skip logic, which reads this exact
+# fix (2026-08-27, owner-balance 429 investigation): moves together
+# with _OWNER_BALANCE_FIELD, same real "preserve on failure" discipline,
+# see core/aggregate.py's own TTL-skip logic, which reads this exact
 # timestamp back on the next refresh to decide whether an owner's balance
 # is still fresh enough to skip re-fetching.
 _OWNER_BALANCE_CHECKED_AT_FIELD = "owner_bnb_balance_checked_at"
@@ -120,7 +120,7 @@ def _merge_preserving_real_data(fresh: dict, existing: dict | None) -> dict:
 async def upsert_agents(agents: list[dict]) -> dict:
     """Upsert each freshly-fetched agent into `known_agents`, keyed by agent id.
     Updates mutable fields (score, feedback, category, …) in place, stamps
-    last_seen_at, records first_seen_at once, and NEVER deletes — and never
+    last_seen_at, records first_seen_at once, and NEVER deletes, and never
     silently regresses a best-effort enrichment field to empty just because
     this round's fetch of it happened to fail (see module docstring)."""
     db = get_db()
@@ -150,16 +150,16 @@ async def upsert_agents(agents: list[dict]) -> dict:
 
 
 async def update_agent_health(results: dict[str, dict]) -> int:
-    """Persist real health-check results (see core/agent_health.py) — one
+    """Persist health-check results (see core/agent_health.py), one
     $set per agent, keyed by the same `_id` upsert_agents uses. A separate
     write path from upsert_agents on purpose: health-checks run on a
     shorter TTL than the main 8004scan refresh (liveness changes faster
     than metadata), so this needs to update a SUBSET of known_agents
     on its own cadence, not piggyback on the full-list $set above. Agents
     not present in `results` (skipped because their existing check was
-    still fresh — see agent_health.HEALTH_TTL_SECONDS) are left untouched,
+    still fresh, see agent_health.HEALTH_TTL_SECONDS) are left untouched,
     never regressed to unknown just because this pass didn't re-check them.
-    Returns the real number of documents updated."""
+    Returns the number of documents updated."""
     if not results:
         return 0
     db = get_db()
@@ -176,30 +176,30 @@ _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
 async def get_agent_by_owner(owner_address: str) -> dict | None:
-    """Real lookup for one agent by its owner address (case-insensitive —
+    """lookup for one agent by its owner address (case-insensitive,
     on-chain addresses vary in casing across sources). Used by the negotiate
     proxy (server.py) to find an agent's real, on-chain-sourced
     `service_endpoint` without a fresh RPC round trip on every hire attempt.
     Returns the freshest-scored match if an owner somehow has more than one
     (real, if rare) known agent; None if genuinely not in the store yet, or
     if the input isn't even a well-formed address (also guards the regex
-    query below against anything but a real hex address reaching Mongo).
+    query below against anything but a hex address reaching Mongo).
 
     Real, honest, confirmed-live limitation (2026-08-28): "if rare" above
-    was wrong — checked directly, 1,457 real owner addresses in the
+    was wrong, checked directly, 1,457 owner addresses in the
     current, live known_agents have MORE than one registered agent. This
-    function's own "freshest-scored" tie-break is a genuine coin flip
+    function's own "freshest-scored" tie-break is a coin flip
     among them, and a real, visible bug traced back to exactly this:
-    SmartSentinels (one real owner, three real, structurally different
-    agents — AIDA, Sentinels Audit, Sentinels Prediction) got AIDA's
+    SmartSentinels (one owner, three real, structurally different
+    agents, AIDA, Sentinels Audit, Sentinels Prediction) got AIDA's
     escrow-compatibility data served for a Sentinels Audit lookup, a
     real, wrong, publicly-visible result. Prefer get_agent_by_id below
-    wherever the caller already knows which SPECIFIC real agent it means
-    (every real frontend call site does — the UI always already has the
-    exact agent's own real id). This function stays as a real, honest
+    wherever the caller already knows which SPECIFIC agent it means
+    (every frontend call site does, the UI always already has the
+    exact agent's own id). This function stays as a real, honest
     best-effort fallback for the one caller that genuinely can't know a
     specific listing id (server.py's job-PnL-by-provider path, which only
-    has a completed real job's on-chain provider wallet to go on — a
+    has a completed job's on-chain provider wallet to go on, a
     genuine, structural limitation of that on-chain data itself, not
     fixable by a better lookup here)."""
     if not owner_address or not _ADDRESS_RE.match(owner_address):
@@ -215,14 +215,14 @@ async def get_agent_by_owner(owner_address: str) -> dict | None:
 
 
 async def get_agent_by_id(agent_id: str) -> dict | None:
-    """Real, UNAMBIGUOUS lookup for one exact, specific real agent by its
+    """Real, UNAMBIGUOUS lookup for one exact, specific agent by its
     own real, unique id (the same value known_agents stores each real
-    agent's document under as `_id` — see upsert_agents above). Added
-    2026-08-28 as the real fix for the real bug documented on
-    get_agent_by_owner above: this is the one real key that's never
-    ambiguous, since it's the exact agent a real user is actually looking
-    at, not "some agent owned by this wallet". Every real caller that has
-    a specific agent in hand (which is every real frontend call site —
+    agent's document under as `_id`, see upsert_agents above). Added
+    2026-08-28 as the fix for the bug documented on
+    get_agent_by_owner above: this is the one key that's never
+    ambiguous, since it's the exact agent a user is actually looking
+    at, not "some agent owned by this wallet". Every caller that has
+    a specific agent in hand (which is every frontend call site,
     the UI already has the agent's own id) should prefer this."""
     if not agent_id:
         return None
@@ -257,31 +257,31 @@ is now half what it was before survivor selection existed.
 
 
 async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
-    """The real serving list: every agent ever seen, re-diversified and with a
+    """The serving list: every agent ever seen, re-diversified and with a
     soft `possibly_delisted` flag. Active agents first (highest score first);
     possibly-delisted agents sink to the bottom but are never dropped.
 
-    Real bug found and fixed (2026-08-27): this used to default to
-    `limit=5000` and fetch with NO sort at the DB level — `.find({}).to_list
+    bug found and fixed (2026-08-27): this used to default to
+    `limit=5000` and fetch with NO sort at the DB level, `.find({}).to_list
     (length=5000)` returns Mongo's natural (roughly insertion) order, so the
     5000 docs actually considered were an arbitrary early slice, not the
     best 5000. With known_agents having grown to 10,837+ (and climbing) since
     the full-registry-backed refresh shipped, this silently discarded more
-    than half the real store before diversification ever ran — live-
+    than half the store before diversification ever ran, live-
     confirmed: get_stored_agents() was returning 4,763 agents (matching a
-    real user report of "~4,800 agents") while the store itself already held
+    user report of "~4,800 agents") while the store itself already held
     10,837+. Fixed two ways: (1) sort by total_score at the DB level BEFORE
     limiting, so if the cap is ever actually hit again, it keeps the
     objectively best-scoring agents, not an arbitrary slice; (2) raised the
-    default cap to 50,000 — comfortably above the real store size at the time
+    default cap to 50,000, comfortably above the store size at the time
     (10,837), so the cap didn't bind at all.
 
-    Real fix (2026-08-29, OOM crash-loop round 5): that 50,000 comfort margin
+    fix (2026-08-29, OOM crash-loop round 5): that 50,000 comfort margin
     eroded fast -- known_agents is upsert-only/never-delete, and every
     refresh (each one now also pulling from the much larger full_agent_
     registry pipeline) grows it further. Live-confirmed the same day:
     10,837 -> 26,736 -> 34,374 -> 38,033+ within about an hour of real
-    refreshes, on a real trajectory toward the 50,000 cap itself, not just
+    refreshes, on a trajectory toward the 50,000 cap itself, not just
     toward "large". This function has no field projection (fetches every
     full known_agents doc) and is called on every cold boot and inside every
     background refresh -- its cost was rising every single time known_agents
@@ -291,35 +291,35 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     call regardless of how large known_agents keeps growing -- the same
     "bound the pool, not just hope it stays small" discipline already
     applied to the full_agent_registry clustering pool and the health-check
-    pass. Real, honest tradeoff: once known_agents exceeds 15,000, the
+    pass. Real, tradeoff: once known_agents exceeds 15,000, the
     lowest-scoring agents stop being served even though they're still in the
-    store -- an intentional trade of completeness for actual service
+    store -- an intentional trade of completeness for service
     stability, matching the same tradeoff already accepted for the
     clustering pool.
 
-    Real attempt to raise, tested live and reverted (2026-08-29, same day):
+    attempt to raise, tested live and reverted (2026-08-29, same day):
     after rounds 3-4 held stable for 1h47m, tried raising this to 25,000
     (known_agents was 42,281 and climbing at the time) on the reasoning that
     the dominant causes were already fixed elsewhere. Deployed, then forced
     the exact refresh path immediately (`?force_refresh=true`) rather than
-    waiting -- a real oomKilled event landed 31 seconds after that refresh's
+    waiting -- a oomKilled event landed 31 seconds after that refresh's
     own "Upserted refresh" log line (total_known 45,730 at that point).
-    Reverted back to 15,000 the same session. Honest conclusion: at the
+    Reverted back to 15,000 the same session. conclusion: at the
     real, current store size, this function's own uncapped `.find({})` (no
     field projection, fetches every full doc) is still expensive enough on
-    its own that 15,000 is closer to the real live ceiling than 25,000 --
-    not just a conservative guess made under pressure. A real raise above
-    15,000 would need either a smaller per-doc read (a real field
+    its own that 15,000 is closer to the live ceiling than 25,000 --
+    not just a conservative guess made under pressure. A raise above
+    15,000 would need either a smaller per-doc read (a field
     projection here, not yet done) or a genuinely smaller known_agents
-    (real pruning of stale/never-hired agents, not yet built) -- raising
+    (pruning of stale/never-hired agents, not yet built) -- raising
     the raw number alone was tested and does not hold.
 
-    Real field projection added (2026-08-29, same investigation): checked
-    every field this query returns against every real consumer of its
+    field projection added (2026-08-29, same investigation): checked
+    every field this query returns against every consumer of its
     output -- the whole frontend (web + mobile, grep'd directly) and every
     backend module that reads get_stored_agents()'s result (core/
     clustering.py's diversify(), core/canary.py, and core/future_chains.py
-    — the last of these removed 2026-09-10, kept here as accurate history
+    , the last of these removed 2026-09-10, kept here as accurate history
     of the audit at the time, not a current dependency).
     `created_at` looked like a dead candidate from the frontend alone but
     is genuinely read by clustering.py's registration-burst signal, so it
@@ -331,21 +331,21 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     (same), and defillama_slug (only read back by agent_store.upsert_agents'
     own preservation logic, which queries known_agents independently of
     this function, not from this function's output). Excluding these four
-    reduces real per-document transfer/deserialize/memory cost with no
+    reduces per-document transfer/deserialize/memory cost with no
     functional change -- confirmed zero consumers, not a guess.
 
     Real, second retry (2026-08-30), now WITH the field projection above
-    already live and confirmed (25+ real minutes stable under real traffic
-    at 15,000, ~7.5% smaller real response size than before the
+    already live and confirmed (25+ minutes stable under traffic
+    at 15,000, ~7.5% smaller response size than before the
     projection). known_agents had grown to 58,439 by the time of this
-    retry. A genuinely UNRELATED real blocker hit partway through: the
+    retry. A genuinely UNRELATED blocker hit partway through: the
     shared MongoDB Atlas cluster hit its 512MB storage cap (shared with
     other, unrelated databases on the same account -- confirmed live,
     `sample_mflix`, a generic public sample dataset, alone was using as
     much room as this entire project), blocking every write cluster-wide.
     Not a memory/OOM issue at all -- freed by clearing that unrelated
     database (confirmed safe by the user first), which unblocked writes
-    and let real testing resume.
+    and let testing resume.
 
     Real, step-by-step ladder actually run, each step deployed and force-
     tested via `?force_refresh=true` immediately, watched for a real
@@ -353,12 +353,12 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     instruction, not jumping straight to a large number. First pass (one
     quick force-refresh-and-watch-briefly per step):
       20,000 / 25,000 / 30,000 / 35,000 / 40,000 -- each looked clean
-      50,000 -- REAL oomKilled, ~17 seconds after that refresh's own
+      50,000 -- oomKilled, ~17 seconds after that refresh's own
                 "Upserted refresh" log line (store 80,466 at that point)
 
     Settled on 40,000 first, called it proven-safe, then ran one real,
     longer (15-min) stability watch on it as a final check before fully
-    trusting it -- and it FAILED: a real oomKilled ~2 minutes after
+    trusting it -- and it FAILED: a oomKilled ~2 minutes after
     deploy, well after the single quick check that had called it clean.
     Real, important, humbling correction: every "clean" verdict in the
     first-pass ladder above only covered ONE forced refresh followed by a
@@ -367,19 +367,19 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     file's own history had already documented multiple times earlier the
     same day for different root causes. Re-tested 30,000 (two steps back)
     the same, stricter way -- a real, extended watch with MULTIPLE forced
-    refreshes across it, not one -- and it ALSO failed: real oomKilled
+    refreshes across it, not one -- and it ALSO failed: oomKilled
     ~3.3 minutes after deploy, on the very first forced refresh of that
     stricter run.
 
-    Real, final, honest conclusion: every value tried above 15,000 failed
+    Real, final, conclusion: every value tried above 15,000 failed
     once tested with a genuinely long, multi-refresh watch, not just a
     single quick check. The only value with real, rigorous, long-duration
-    (25+ real minutes, real periodic traffic) confirmation from earlier
+    (25+ minutes, periodic traffic) confirmation from earlier
     the same day is 15,000 itself -- reverted back to it here. The field
-    projection above is still real and still helps (confirmed: smaller
-    real response size, and the two failures above needed MORE store
+    projection above is still and still helps (confirmed: smaller
+    response size, and the two failures above needed MORE store
     growth and MORE elapsed time to manifest than the pre-projection
-    baseline did), but it did not unlock as much real headroom as the
+    baseline did), but it did not unlock as much headroom as the
     under-tested first-pass ladder suggested. A future attempt to raise
     this again should use the stricter test from the start: multiple
     forced refreshes across a real, long watch, not one quick check."""
@@ -391,11 +391,11 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     #
     # Real, second exclusion pass (2026-08-30, following up on the "is
     # 15,000 permanent" investigation): traced every remaining field's
-    # FULL real usage path -- every .jsx/.js file, and every backend
+    # FULL usage path -- every .jsx/.js file, and every backend
     # module reading get_stored_agents()'s output -- before adding each
     # one here, same discipline as the first pass. All 11 confirmed zero
-    # real consumers of THIS specific read:
-    #   escrow_compat_* (7 fields, including evidence -- a real, up-to-6-
+    # consumers of THIS specific read:
+    # escrow_compat_* (7 fields, including evidence -- a real, up-to-6-
     #     item list, the biggest single field found in this pass): only
     #     ever read via the separate GET /api/agents/escrow-compatibility
     #     endpoint, which queries known_agents independently
@@ -502,7 +502,7 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     # Sorted on total_score ALONE at the database, deliberately. There is a
     # total_score index, so this streams in index order with no sort stage.
     # Adding ("id", 1) here to get a total order server-side was tried and
-    # is a real trap: no index covers that compound key, so MongoDB falls
+    # is a trap: no index covers that compound key, so MongoDB falls
     # back to an in-memory sort and, at a pool this size, fails outright --
     # "Sort exceeded memory limit of 33554432 bytes". The old query only
     # survived it because a 30,000 top-K sort is bounded; ~155,000 is not.
@@ -517,7 +517,7 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     # store now always yields the same window in the same order. Same defect
     # class as the pagination overlap fixed earlier, in a different place.
     #
-    # Honest limit: once the store outgrows SELECTION_POOL_LIMIT, WHICH tied
+    # limit: once the store outgrows SELECTION_POOL_LIMIT, WHICH tied
     # agents fall inside the pool boundary is still the database's choice.
     # Ordering within the pool is fully deterministic either way, and today
     # the pool holds the entire store, so the boundary does not bind at all.

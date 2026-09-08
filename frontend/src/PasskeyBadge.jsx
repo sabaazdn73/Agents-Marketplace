@@ -2,15 +2,15 @@
 //
 // A real, on-chain-verified "Passkey-verified" badge, shared VERBATIM by web
 // and mobile. Shown ONLY when a live KeyStore read genuinely confirms the
-// wallet's admin key is a P-256 (WebAuthn/passkey) key — never a client-side
+// wallet's admin key is a P-256 (WebAuthn/passkey) key, never a client-side
 // claim, never shown for unregistered wallets, private-key signers, or
-// anything unconfirmed. See passkeyKeystore.js for the full real investigation
-// (curve-membership math on real on-chain-read bytes — the KeyStore contract
+// anything unconfirmed. See passkeyKeystore.js for the full investigation
+// (curve-membership math on on-chain-read bytes, the KeyStore contract
 // itself stores both key types as byte-for-byte identical opaque data, so
-// this is the genuine distinguishing signal, not a naive format check).
+// this is the distinguishing signal, not a naive format check).
 //
 // Visually distinct from the existing "Verified" (8004scan reputation) badge
-// on purpose — these are two unrelated real signals and must never be
+// on purpose, these are two unrelated signals and must never be
 // confused for one another.
 
 import React, { useEffect, useState } from 'react';
@@ -18,7 +18,7 @@ import { Fingerprint } from 'lucide-react';
 import { usePublicClient } from 'wagmi';
 import { checkPasskeyVerified } from './passkeyKeystore';
 
-/** Real, live on-chain check — no caching, no assumed state. */
+/** Real, live on-chain check, no caching, no assumed state. */
 export function usePasskeyVerified(ownerAddress) {
   const publicClient = usePublicClient();
   const [result, setResult] = useState(null);
@@ -33,7 +33,7 @@ export function usePasskeyVerified(ownerAddress) {
 }
 
 // Copy audit (2026-08-22): this tooltip used to say things like "plaintext
-// private key" and "on-chain KeyStore contract" — real, but meaningless to
+// private key" and "on-chain KeyStore contract", real, but meaningless to
 // someone without a crypto background. Rewritten in plain language; the
 // underlying check (usePasskeyVerified above) is unchanged.
 const PLAIN_TOOLTIP =
@@ -42,7 +42,7 @@ const PLAIN_TOOLTIP =
 
 export default function PasskeyBadge({ ownerAddress, className = '' }) {
   const result = usePasskeyVerified(ownerAddress);
-  if (!result || result.status !== 'passkey') return null; // no badge unless genuinely confirmed — ever
+ if (!result || result.status !== 'passkey') return null; // no badge unless genuinely confirmed, ever
   return (
     <span
       title={PLAIN_TOOLTIP}

@@ -1,20 +1,20 @@
 // TermixPerformancePanel.jsx
 //
-// Real, independent track record for one agent — from TermiX's own real
-// AACP registry, matched by the same real ERC-8004 token id (see
+// Real, independent track record for one agent, from TermiX's own real
+// AACP registry, matched by the same ERC-8004 token id (see
 // backend/adapters/termix.py's own docstring for the full real
 // investigation). Deliberately its own section, never blended into this
 // marketplace's own "On this marketplace" numbers: two real, separately-
 // sourced signals, honestly labeled, shown side by side rather than merged
 // into one fabricated combined score. Shared by web + mobile.
 //
-// Real, honest correction (2026-08-28): this used to be captioned as
-// "protocol-wide" / "not limited to hires through this marketplace" — that
+// Real, correction (2026-08-28): this used to be captioned as
+// "protocol-wide" / "not limited to hires through this marketplace", that
 // claim didn't survive a direct check (TermiX's own registry reports
-// completedJobs: 0 for a real agent independently confirmed to have 2 real
+// completedJobs: 0 for a agent independently confirmed to have 2 real
 // on-chain COMPLETED jobs on the same shared AgenticCommerce contract).
 // TermiX's own numbers appear scoped to activity through TermiX's OWN
-// platform, not a genuine complete index of the shared contract — still a
+// platform, not a complete index of the shared contract, still a
 // real, useful, independent second opinion, just captioned accurately now.
 
 import React from 'react';
@@ -32,7 +32,7 @@ export default function TermixPerformancePanel({ ownerAddress, className = '' })
       </div>
       {termix.status === 'loading' && (
         <div className="flex items-center gap-2 text-gray-400 text-xs">
-          <Loader2 size={12} className="animate-spin" /> Checking TermiX's real registry…
+ <Loader2 size={12} className="animate-spin" /> Checking TermiX's registry…
         </div>
       )}
       {termix.status === 'error' && (
@@ -45,18 +45,18 @@ export default function TermixPerformancePanel({ ownerAddress, className = '' })
             <span className="text-[10px] text-gray-500 uppercase">completed jobs</span>
           </div>
           <div title="Share of this agent's TermiX-tracked jobs that passed">
-            <span className="text-lg font-bold">{termix.data.pass_rate != null ? `${Math.round(termix.data.pass_rate * 100)}%` : '—'}</span>{' '}
+            <span className="text-lg font-bold">{termix.data.pass_rate != null ? `${Math.round(termix.data.pass_rate * 100)}%` : 'n/a'}</span>{' '}
             <span className="text-[10px] text-gray-500 uppercase">pass rate</span>
           </div>
-          <div title="TermiX's own reputation score for this agent (0–100 scale)">
-            <span className="text-lg font-bold">{termix.data.reputation_score ?? '—'}</span>{' '}
+          <div title="TermiX's own reputation score for this agent (0 to 100 scale)">
+            <span className="text-lg font-bold">{termix.data.reputation_score ?? 'n/a'}</span>{' '}
             <span className="text-[10px] text-gray-500 uppercase">reputation</span>
           </div>
         </div>
       )}
       {termix.status === 'ready' && !termix.data.available && (
         <p className="text-xs text-gray-400">
-          No TermiX data for this agent{termix.data.reason ? ` — ${termix.data.reason}` : '.'}
+          No TermiX data for this agent{termix.data.reason ? `, ${termix.data.reason}` : '.'}
         </p>
       )}
     </div>

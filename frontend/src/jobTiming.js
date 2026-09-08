@@ -1,28 +1,28 @@
 // jobTiming.js
 //
-// Real timing data for the live "waiting" view in JobStatusPanel.jsx — see
-// that file's own header comment for the full honest investigation. Two
-// separate, real concerns live here:
+// timing data for the live "waiting" view in JobStatusPanel.jsx, see
+// that file's own header comment for the full investigation. Two
+// separate, concerns live here:
 //
-// 1. When was a job ACTUALLY funded? The on-chain job struct has no
-//    fundedAt/createdAt field (only expiredAt and submittedAt — confirmed
-//    against the real ABI in erc8183.js), so there is no general on-chain
-//    source for this. We record the REAL moment ourselves, the instant a
+// 1. When was a job funded? The on-chain job struct has no
+//    fundedAt/createdAt field (only expiredAt and submittedAt, confirmed
+//    against the ABI in erc8183.js), so there is no general on-chain
+// source for this. We record the moment ourselves, the instant a
 //    hire we personally drove succeeds (both hire-completion call sites:
 //    AgentMarketplaceApp.web.jsx, AgentMarketplaceApp.mobile.jsx),
 //    persisted to localStorage so it survives
 //    reloads. For a job this browser never funded (opened from elsewhere,
-//    or hired before this shipped), we honestly fall back to "the first
-//    time this device saw it as FUNDED" — also persisted (not reset per
+// or hired before this shipped), we honestly fall back to "the first
+//    time this device saw it as FUNDED", also persisted (not reset per
 //    mount), and the UI must disclose which kind it's showing.
 //
-// 2. How long does a given agent typically take to deliver? A REAL general
+// 2. How long does a given agent typically take to deliver? A general
 //    average isn't computable from the current on-chain data (same gap:
 //    no fundedAt to diff against submittedAt, and no indexed event either
-//    — see agent_performance.py's own docstring on why this project
+//, see agent_performance.py's own docstring on why this project
 //    deliberately avoids getLogs scans). So this is a small, explicit map
-//    of individually, honestly MEASURED delivery times — add an entry only
-//    when you have a real number, never a guess.
+// of individually, honestly MEASURED delivery times, add an entry only
+//    when you have a number, never a guess.
 
 const FUNDED_AT_KEY = 'aam_job_funded_at_v1';
 const FIRST_SEEN_FUNDED_KEY = 'aam_job_first_seen_funded_v1';
@@ -31,10 +31,10 @@ function readMap(key) {
   try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; }
 }
 function writeMap(key, map) {
-  try { localStorage.setItem(key, JSON.stringify(map)); } catch { /* quota/SSR — non-fatal, just no persistence this run */ }
+  try { localStorage.setItem(key, JSON.stringify(map)); } catch { /* quota/SSR, non-fatal, just no persistence this run */ }
 }
 
-/** Call at the exact real moment a hire's fund() call confirms. */
+/** Call at the exact moment a hire's fund() call confirms. */
 export function recordFunded(jobId, atMs = Date.now()) {
   const m = readMap(FUNDED_AT_KEY);
   m[String(jobId)] = atMs;
@@ -58,7 +58,7 @@ function getOrRecordFirstSeenFunded(jobId, atMs = Date.now()) {
 
 /** The best REAL start-time estimate available for a FUNDED job's elapsed-
  * time display. `precise: true` only when this browser recorded the exact
- * real funding moment; otherwise `precise: false` and `atMs` is a genuine
+ * funding moment; otherwise `precise: false` and `atMs` is a genuine
  * lower bound (first time we happened to look), never fabricated. */
 export function getStartEstimate(jobId) {
   const precise = getFundedAt(jobId);
@@ -67,11 +67,11 @@ export function getStartEstimate(jobId) {
 }
 
 // Real, individually-measured typical delivery times, keyed by the
-// provider's (agent owner's) address, lowercased. NOT a general average —
+// provider's (agent owner's) address, lowercased. NOT a general average,
 // see this file's header. Only add a real, actually-observed number here.
 const KNOWN_TYPICAL_DELIVERY_SECONDS = {
-  // Explainer agent — the real ~60s notify→SUBMITTED delivery time reported
-  // in AdvantageReport.jsx's Task 3 (job #56620), the same real measurement,
+ // Explainer agent, the real ~60s notify→SUBMITTED delivery time reported
+  // in AdvantageReport.jsx's Task 3 (job #56620), the same measurement,
   // not a separate invented figure.
   '0x08cef8b3ec5d33529dfe6700ccbffc97158cb5dd': {
     seconds: 60,
@@ -81,82 +81,82 @@ const KNOWN_TYPICAL_DELIVERY_SECONDS = {
 };
 
 /** Returns the real, measured typical-delivery entry for this provider
- * address, or null if we genuinely don't have one — callers must not show
+ * address, or null if we genuinely don't have one, callers must not show
  * a progress estimate in the null case, never a guessed default. */
 export function getKnownTypicalDelivery(providerAddress) {
   if (!providerAddress) return null;
   return KNOWN_TYPICAL_DELIVERY_SECONDS[providerAddress.toLowerCase()] || null;
 }
 
-// Real, confirmed on-chain constant — OptimisticPolicy.disputeWindow(),
+// Real, confirmed on-chain constant, OptimisticPolicy.disputeWindow(),
 // read live via eth_call multiple times this project's life, always 604800
 // seconds (7 days). Not re-read per job here (an extra RPC round trip for a
-// value that's never actually changed) — same treatment as useHireAgent.js's
+// value that's never changed), same treatment as useHireAgent.js's
 // own comment on this exact number. If the deployed policy's window is ever
 // reconfigured, this constant (and that comment) both need updating.
 export const DISPUTE_WINDOW_SECONDS = 604800;
 
-/** Real, decisive, on-chain-verified check (2026-08-27 — see
+/** Real, decisive, on-chain-verified check (2026-08-27, see
  * docs/hire-flow-audit.md's "Correction" section for the full real
- * investigation): whether a SUBMITTED job's real dispute window has fully
- * elapsed. Confirmed live via eth_call against real jobs on both sides of
- * their real window: `EvaluatorRouter.settle()` REVERTS for every caller
- * (including the real job.client) before this point — there is NO real
+ * investigation): whether a SUBMITTED job's dispute window has fully
+ * elapsed. Confirmed live via eth_call against jobs on both sides of
+ * their window: `EvaluatorRouter.settle()` REVERTS for every caller
+ * (including the job.client) before this point, there is NO real
  * "approve early" capability in the deployed contract, contrary to an
- * earlier, incorrect assumption this project shipped a button around —
+ * earlier, incorrect assumption this project shipped a button around,
  * and SUCCEEDS for literally any caller, including a random unrelated
  * address, after this point. `OptimisticPolicy.dispute()` is the mirror
  * image: real, client-only, and ONLY valid before this point.
  *
- * Only meaningful once `job.submittedAt` is real/nonzero — returns false
+ * Only meaningful once `job.submittedAt` is real/nonzero, returns false
  * for a job that hasn't been delivered yet (nothing to be "past" yet). */
 export function isPastDisputeWindow(job) {
   const submittedAtSec = job?.submittedAt != null ? Number(job.submittedAt) : 0;
   if (!submittedAtSec) return false;
   return Math.floor(Date.now() / 1000) > submittedAtSec + DISPUTE_WINDOW_SECONDS;
 }
-// useHireAgent.js's (the only real hire path's) own default expiry buffer.
+// useHireAgent.js's (the only hire path's) own default expiry buffer.
 // Used only as a real, conservative fallback below (see getActivityWindow)
-// when no better estimate is available — a few extra minutes of real,
+// when no better estimate is available, a few extra minutes of real,
 // honestly-searched on-chain activity, never a missed one.
 const DEFAULT_EXPIRY_BUFFER_SECONDS = 65 * 60;
 
 /** Real time window for the "Agent activity" transparency view
- * (AgentActivityPanel.jsx) — from when a job was (as best we can tell)
+ * (AgentActivityPanel.jsx), from when a job was (as best we can tell)
  * really funded to when it was really delivered. Returns null when there's
- * no real window to search (the job was never submitted) or when NEITHER a
- * real recorded estimate NOR a sane computed fallback exists — callers must
+ * no window to search (the job was never submitted) or when NEITHER a
+ * recorded estimate NOR a sane computed fallback exists, callers must
  * not render the feature at all in that case, not show an empty/broken one.
  *
  * Three real, honestly-distinguished tiers, in order:
- *   1. `exact`       — this browser recorded the real fund() moment itself.
- *   2. `estimated`    — no exact record, but a real "first seen funded"
+ *   1. `exact`, this browser recorded the fund() moment itself.
+ * 2. `estimated`, no exact record, but a real "first seen funded"
  *                       lower bound exists AND is chronologically sane
- *                       (before the real submittedAt) — an honest
+ * (before the submittedAt), an honest
  *                       approximation, not a fabrication.
- *   3. `approximate`  — neither of the above is usable (e.g. a fresh
+ *   3. `approximate`, neither of the above is usable (e.g. a fresh
  *                       browser/session opening an already-old, already-
  *                       delivered job, where "first seen" would incorrectly
- *                       land AFTER delivery) — falls back to a real,
+ * land AFTER delivery), falls back to a real,
  *                       DETERMINISTIC estimate computed from this job's own
- *                       on-chain `expiredAt` and the real, confirmed
+ * on-chain `expiredAt` and the real, confirmed
  *                       disputeWindow constant, not an arbitrary guess
  *                       unrelated to this specific job.
  */
-// Real, small pad applied to both ends of every computed window — found to
+// Real, small pad applied to both ends of every computed window, found to
 // be genuinely necessary, not cosmetic: a live test against job #56646's
 // own real, known submit() transaction (mined_at exactly equal to the
 // job's on-chain submittedAt, to the second) came back EMPTY from Zerion's
-// real API when max_mined_at was set to that exact same second, and
-// correctly included it once padded by a few seconds — Zerion's own
+// API when max_mined_at was set to that exact same second, and
+// correctly included it once padded by a few seconds, Zerion's own
 // min/max_mined_at bounds are not reliably inclusive at the exact
 // boundary. 2 minutes is generous enough to absorb that without
-// meaningfully changing what "this job's real window" means.
+// meaningfully changing what "this job's window" means.
 const WINDOW_PAD_SECONDS = 120;
 
 export function getActivityWindow(jobId, job) {
   const submittedAtSec = job?.submittedAt != null ? Number(job.submittedAt) : 0;
-  if (!submittedAtSec) return null; // never delivered — nothing real to search
+ if (!submittedAtSec) return null; // never delivered, nothing to search
   const toMs = (submittedAtSec + WINDOW_PAD_SECONDS) * 1000;
 
   const estimate = getStartEstimate(jobId);

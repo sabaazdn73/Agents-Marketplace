@@ -50,7 +50,7 @@ export default function BudgetHirePanel({ agent }) {
       <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-[12px] text-amber-700 dark:text-amber-400 flex items-start gap-2">
         <AlertTriangle size={14} className="shrink-0 mt-0.5" />
         <span>
-          Budget mode isn't available yet — the escrow contract for it hasn't been deployed.
+          Budget mode isn't available yet, the escrow contract for it hasn't been deployed.
           Locked escrow (ERC-8183) works normally in the meantime.
         </span>
       </div>

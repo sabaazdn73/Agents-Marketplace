@@ -2,25 +2,25 @@
 //
 // A small, hand-rolled markdown parser for the /docs viewer, in the same
 // spirit as deliverableFormat.js's parseLightMarkdown (no markdown library
-// pulled in for this) but extended to cover what the real docs/*.md files
-// actually use, which parseLightMarkdown doesn't: fenced code blocks
+// pulled in for this) but extended to cover what the docs/*.md files
+// use, which parseLightMarkdown doesn't: fenced code blocks
 // (```lang ... ```, including ```mermaid, handled specially by the
-// renderer), inline code, and links — all real, load-bearing syntax in
+// renderer), inline code, and links, all real, load-bearing syntax in
 // these files (grepped and confirmed before writing this). Nested lists
-// and blockquotes are NOT supported because a real check of every docs/
-// file found neither pattern actually in use — no point building for
+// and blockquotes are NOT supported because a check of every docs/
+// file found neither pattern in use, no point building for
 // syntax that isn't there.
 //
 // Unlike parseLightMarkdown (which splits on blank lines), this is a real
 // line-by-line state machine, because a fenced code block can itself
 // contain blank lines, which a blank-line block-splitter would misparse.
 
-// GitHub/GitBook's real slug algorithm: lowercase, strip anything that
+// GitHub/GitBook's slug algorithm: lowercase, strip anything that
 // isn't a word char/space/hyphen (no replacement), then map each
-// individual space to a hyphen WITHOUT collapsing runs — two consecutive
+// individual space to a hyphen WITHOUT collapsing runs, two consecutive
 // spaces (e.g. either side of a removed em-dash) really do produce a
 // double hyphen. This has to match exactly, because the docs/*.md files
-// already contain real hand-written anchor links (e.g.
+// already contain hand-written anchor links (e.g.
 // `limitations.md#altana-passkey-session-hiring--built-and-correct-...`)
 // that depend on this exact behavior.
 export function slugify(text) {
@@ -41,7 +41,7 @@ function stripInlineMarkdown(s) {
 
 // Splits inline text into { t: 'text'|'code'|'link'|'bold'|'italic', v, href? }
 // segments. Code spans are matched first so `**not bold**` inside a code
-// span isn't mistaken for real bold markup.
+// span isn't mistaken for bold markup.
 const INLINE_RE = /(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)/;
 export function parseInline(s) {
   const parts = [];
@@ -77,7 +77,7 @@ export function parseDocsMarkdown(text) {
       continue;
     }
 
-    // Fenced code block: ```lang ... ``` (blank lines inside are real
+ // Fenced code block: ```lang ... ``` (blank lines inside are real
     // content here, not block separators, which is the whole reason this
     // is a line-by-line parser rather than a blank-line splitter).
     const fenceMatch = line.match(/^```(\S*)\s*$/);
@@ -132,7 +132,7 @@ export function parseDocsMarkdown(text) {
         i = j;
         continue;
       }
-      // Not a real table (no separator row) — falls through to paragraph handling below.
+      // Not a table (no separator row), falls through to paragraph handling below.
     }
 
     // List: consecutive bullet/numbered lines
@@ -164,7 +164,7 @@ export function parseDocsMarkdown(text) {
     if (paraLines.length > 0) {
       blocks.push({ type: 'paragraph', inline: parseInline(paraLines.join(' ')) });
     } else {
-      i++; // safety valve — never loop forever on an unhandled line
+      i++; // safety valve, never loop forever on an unhandled line
     }
   }
 

@@ -1,31 +1,31 @@
 // ServiceHealthBadge.jsx
 //
-// Real, active service-liveness signal — shared VERBATIM by web and mobile.
+// Real, active service-liveness signal, shared VERBATIM by web and mobile.
 // Backed by backend/core/agent_health.py: a real, server-side, on-chain-
 // sourced (ERC-8004 tokenURI -> services[].endpoint) HTTP health-check, run
 // on its own 20-minute TTL as part of the same background refresh that
 // already keeps known_agents current. NOT a claim the agent makes about
-// itself — a real GET we just made against its registered endpoint.
+// itself, a GET we just made against its registered endpoint.
 //
-// Real investigation behind this (2026-08-21), stated honestly, not assumed:
+// investigation behind this (2026-08-21), stated honestly, not assumed:
 // 8004scan's own API has no endpoint/service field at all for any agent we
 // checked (confirmed live, despite the installed SDK's docstring claiming
-// one) — the only real source is the on-chain ERC-721 tokenURI() read. A
+// one), the only source is the on-chain ERC-721 tokenURI() read. A
 // full-production run first showed a 38% "unknown" rate (couldn't even
 // resolve the metadata), traced to 126/127 of those sharing ONE metadata
 // host (metadata.evoevo.ai, a large single campaign) overloaded by our own
-// concurrent checks, not a genuine per-agent problem — every one of them
+// concurrent checks, not a per-agent problem, every one of them
 // resolved instantly once checked in isolation. Fixed with a retry+backoff
-// (see agent_health.py's own comment). Real HTTP health-checks themselves
+// (see agent_health.py's own comment). HTTP health-checks themselves
 // (once an endpoint IS found) proved reliable in testing, including
-// correctly surviving a real Render free-tier cold start via a second,
-// longer-timeout retry — that's the basis for using an actual checkmark
+// correctly surviving a Render free-tier cold start via a second,
+// longer-timeout retry, that's the basis for using an checkmark
 // for "responding", distinct from both the 8004scan "Verified" badge and
 // the on-chain "Passkey-verified" badge (see PasskeyBadge.jsx): three
-// separate, real signals, never conflated.
+// separate, signals, never conflated.
 //
 // Visually: ONLY "responding" gets the checkmark. The other states are
-// deliberately less prominent — consistent with the top-of-page explainer
+// deliberately less prominent, consistent with the top-of-page explainer
 // (ServiceHealthExplainer, below): no checkmark just means "not confirmed
 // responding right now", not "confirmed broken".
 
@@ -33,7 +33,7 @@ import React from 'react';
 import { CheckCircle2, WifiOff, MinusCircle, Info } from 'lucide-react';
 
 // Numeric rank for the existing generic numeric sort (`(av - bv) * mult`
-// in AgentMarketplaceApp.*.jsx) — plug service health into that same
+// in AgentMarketplaceApp.*.jsx), plug service health into that same
 // mechanism rather than building a parallel one.
 export const SERVICE_STATUS_RANK = {
   responding: 3,
@@ -56,11 +56,11 @@ function timeAgo(unixSeconds) {
 }
 
 // User-facing copy audit (2026-08-22): rewritten so someone with zero
-// crypto background can read every tooltip/label here and understand it —
+// crypto background can read every tooltip/label here and understand it,
 // no "endpoint", "health-check", or "real"-as-hedge language left in.
-const LIMITATION_NOTE = "Means it's turned on and reachable — not a quality signal.";
+const LIMITATION_NOTE = "Means it's turned on and reachable, not a quality signal.";
 
-/** Per-agent badge — cards, table rows, and the detail header. Renders
+/** Per-agent badge, cards, table rows, and the detail header. Renders
  * nothing for 'unknown' or a never-checked agent, on purpose: we don't have
  * a confident answer either way, and a badge implying otherwise would be
  * misleading (see the top-of-page note for why no checkmark ≠ "broken"). */
@@ -84,7 +84,7 @@ export default function ServiceHealthBadge({ status, checkedAt, size = 'sm', cla
   if (status === 'not_responding') {
     return (
       <span
-        title={`No answer${when ? ` ${when}` : ''} — may just be waking up from idle`}
+        title={`No answer${when ? ` ${when}` : ''}, may just be waking up from idle`}
         className={`inline-flex items-center gap-1 ${textCls} font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 ${className}`}
       >
         <WifiOff size={sizePx} /> Not answering right now
@@ -94,7 +94,7 @@ export default function ServiceHealthBadge({ status, checkedAt, size = 'sm', cla
   if (status === 'no_endpoint') {
     return (
       <span
-        title="No endpoint registered — can't confirm it's running"
+        title="No endpoint registered, can't confirm it's running"
         className={`inline-flex items-center gap-1 ${textCls} font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 ${className}`}
       >
         <MinusCircle size={sizePx} /> Can't check yet
@@ -104,7 +104,7 @@ export default function ServiceHealthBadge({ status, checkedAt, size = 'sm', cla
   return null;
 }
 
-/** Short, plain-language, top-of-marketplace note — not a per-agent tooltip
+/** Short, plain-language, top-of-marketplace note, not a per-agent tooltip
  * (the badge already carries one), a one-time page-level explanation kept
  * brief on purpose. */
 export function ServiceHealthExplainer({ className = '' }) {
@@ -114,7 +114,7 @@ export function ServiceHealthExplainer({ className = '' }) {
       <span>
         <CheckCircle2 size={11} className="inline -mt-0.5 mr-0.5 text-emerald-600 dark:text-emerald-400" />
         <strong> "Online now"</strong> means we just reached this agent and it answered. No checkmark just
-        means we haven't confirmed that recently — not that it's broken. Either way, it's not a quality signal.
+        means we haven't confirmed that recently, not that it's broken. Either way, it's not a quality signal.
       </span>
     </div>
   );

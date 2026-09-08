@@ -1,18 +1,18 @@
 """
 paybox.py
 
-Real Tnega PayBox session layer — the checkout-session state machine that
+Tnega PayBox session layer, the checkout-session state machine that
 sits on top of core/b402.py's raw protocol client, implementing exactly
 the session shape docs/future-tnega-paybox.md designed against
 Anthropic's `commerce-agents` `CheckoutHandoff` contract:
 
     POST /api/paybox/sessions       -> {session_id, checkout_url} + HTTP 402
-    GET  /api/paybox/sessions/{id}  -> real, current status (poll target)
+    GET /api/paybox/sessions/{id} -> real, current status (poll target)
     POST /api/paybox/sessions/{id}/pay -> verify, then settle
 
 Built 2026-09-04. Where the earlier design doc said "the hard part was
 never how an agent calls in, it's whether the settlement rail underneath
-actually works from BSC" — B402 is that rail, and it settles natively on
+actually works from BSC", B402 is that rail, and it settles natively on
 BSC with no bridge (see core/b402.py's own module docstring).
 
 THE security rule this module exists to enforce, stated first because
@@ -26,10 +26,10 @@ itself, and B402's verify would faithfully confirm the payload matches
 those attacker-chosen requirements. Verify only means something when the
 requirements side is server-held.
 
-Real storage note: sessions live in MongoDB with a real TTL index, so
+storage note: sessions live in MongoDB with a TTL index, so
 they self-expire rather than accumulating forever. This cluster is a
 512MB Atlas free tier that has already hit its quota once (see
-docs/full-registry-analysis.md) — an unbounded checkout-session
+docs/full-registry-analysis.md), an unbounded checkout-session
 collection is exactly the kind of slow leak that would do it again.
 """
 
@@ -47,7 +47,7 @@ from core.db import get_db
 
 PAYBOX_COLLECTION = "paybox_sessions"
 
-# Real session lifetime. Deliberately short: an open checkout session is
+# session lifetime. Deliberately short: an open checkout session is
 # a live, server-held price quote, and holding one for hours invites
 # settling at a stale amount. Mirrors the `maxTimeoutSeconds` handed to
 # B402 in the requirements themselves, so the two can't disagree.
@@ -61,7 +61,7 @@ STATUS_FAILED = "failed"
 STATUS_EXPIRED = "expired"
 
 # Default settlement asset: $U (United Stables). Deliberate, not
-# arbitrary — it's ERC-8183's own settlement token, the same asset this
+# arbitrary, it's ERC-8183's own settlement token, the same asset this
 # marketplace already denominates escrowed hires in, so a PayBox payment
 # and a Tnega hire settle in one asset with no conversion between them.
 DEFAULT_ASSET_SYMBOL = "U"
@@ -73,9 +73,9 @@ _ttl_index_ready = False
 
 def _public_base_url() -> str:
     """Real, configurable public origin for building a checkout_url. Falls
-    back to the real production origin rather than localhost, since a
+    back to the production origin rather than localhost, since a
     checkout_url is handed to a THIRD party (a merchant backend, then a
-    human) — a localhost URL leaking into a real CheckoutHandoff would be
+    human), a localhost URL leaking into a CheckoutHandoff would be
     a broken link for everyone but the developer who generated it."""
     return os.environ.get("PAYBOX_PUBLIC_BASE_URL", "https://tnega.app").rstrip("/")
 
@@ -118,7 +118,7 @@ def _pay_to_address() -> str:
 
 
 def to_base_units(amount: str | float | int, decimals: int) -> str:
-    """Real decimal-string -> integer base units, via Decimal.
+    """decimal-string -> integer base units, via Decimal.
 
     Never float: 0.1 + 0.2 style binary error in a payment amount is a
     real, silent mispricing, and at 18 decimals a float can't even
@@ -140,7 +140,7 @@ def to_base_units(amount: str | float | int, decimals: int) -> str:
 
 
 async def _ensure_indexes() -> None:
-    """Real TTL index so expired sessions are reclaimed by MongoDB itself
+    """TTL index so expired sessions are reclaimed by MongoDB itself
     rather than growing without bound on a quota-constrained cluster."""
     global _ttl_index_ready
     if _ttl_index_ready:
@@ -153,14 +153,14 @@ async def _ensure_indexes() -> None:
 
 async def _select_kind(client: httpx.AsyncClient, asset_symbol: str, scheme: str) -> dict:
     """Pick a real, currently-supported payment kind from the LIVE
-    /supported response — never a hardcoded assumption about what this
+    /supported response, never a hardcoded assumption about what this
     account can accept. If B402 stops supporting an asset, this raises
     instead of building requirements the facilitator would reject at
     settle time, after the buyer has already signed."""
     asset_name = _SYMBOL_TO_NAME.get(asset_symbol)
     if not asset_name:
         raise ValueError(
-            f"Unknown asset {asset_symbol!r}. Real supported symbols: "
+            f"Unknown asset {asset_symbol!r}. supported symbols: "
             f"{sorted(_SYMBOL_TO_NAME)}"
         )
 
@@ -186,7 +186,7 @@ async def create_session(
     success_url: str | None = None,
     cancel_url: str | None = None,
 ) -> dict:
-    """Create a real checkout session and build the real x402 payment
+    """Create a checkout session and build the x402 payment
     requirements for it, sourced from a real, live B402 /supported call.
 
     Returns the full session document plus the `accepts` array a caller
@@ -203,7 +203,7 @@ async def create_session(
         kind = await _select_kind(client, asset_symbol, scheme)
 
     # The real, server-held payment requirements. This exact object is
-    # what a later verify/settle is checked against — see the module
+    # what a later verify/settle is checked against, see the module
     # docstring on why it must never be re-derived from client input.
     requirements = {
         "scheme": kind["scheme"],
@@ -246,7 +246,7 @@ def _expiry_datetime(now: float):
 
 
 def accepts_for(session: dict) -> list[dict]:
-    """The real x402 v2 `accepts` array for a 402 response — exactly the
+    """The x402 v2 `accepts` array for a 402 response, exactly the
     server-held requirements, nothing added or reshaped."""
     return [session["payment_requirements"]]
 
@@ -275,32 +275,32 @@ async def get_session(session_id: str) -> dict | None:
 
 
 async def submit_payment(session_id: str, payment_payload: dict) -> dict:
-    """The real verify-then-settle flow for one session.
+    """The verify-then-settle flow for one session.
 
     Order matters and is not an optimization: verify first, settle only
     on a real `isValid: true`. Settling an unverified payload would hand
     B402 a signature this server never checked against its own
     requirements.
 
-    All three real settle outcomes are handled distinctly (see
+    All three settle outcomes are handled distinctly (see
     b402.classify_settle_result): a broadcast-but-unconfirmed result is
-    recorded as its own real status with its real transaction hash and is
-    NEVER retried — the payment is already on-chain, and retrying would
+    recorded as its own status with its transaction hash and is
+    NEVER retried, the payment is already on-chain, and retrying would
     risk charging the buyer twice for one order."""
     session = await get_session(session_id)
     if not session:
         return {"ok": False, "reason": "No such PayBox session."}
 
     if session.get("status") == STATUS_PAID:
-        # Real idempotency: a duplicate submit for an already-settled
-        # session returns the original real settlement instead of
+        # idempotency: a duplicate submit for an already-settled
+        # session returns the original settlement instead of
         # charging again.
         return {"ok": True, "already_settled": True, "settlement": session.get("settlement")}
 
     if session.get("status") in (STATUS_BROADCAST_UNCONFIRMED,):
         return {
             "ok": False, "reason": "This session already has a broadcast transaction pending "
-                                   "confirmation — poll it rather than resubmitting.",
+                                   "confirmation, poll it rather than resubmitting.",
             "settlement": session.get("settlement"),
         }
 

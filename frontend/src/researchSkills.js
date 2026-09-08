@@ -25,7 +25,7 @@ export async function searchToken(query) {
   return (data.pairs || []).filter((p) => p.chainId === 'bsc');
 }
 
-// Honest risk screen, exactly the heuristics the skill's own doc lists,
+// risk screen, exactly the heuristics the skill's own doc lists,
 // not a guarantee: "Neither source proves a token is safe."
 export function screenTokenRisk(pair) {
   const flags = [];
@@ -42,8 +42,8 @@ export function screenTokenRisk(pair) {
 }
 
 // ── Wallet Tracker ──
-// Real PancakeSwap V2 Swap event, typed so viem can filter by it + the
-// indexed `to`. (viem's getLogs has no raw `topics` param — a passed topics
+// PancakeSwap V2 Swap event, typed so viem can filter by it + the
+// indexed `to`. (viem's getLogs has no raw `topics` param, a passed topics
 // array is silently ignored; you must use `event` + `args`.)
 import { parseAbiItem } from 'viem';
 const SWAP_EVENT = parseAbiItem('event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)');

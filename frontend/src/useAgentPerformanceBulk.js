@@ -1,43 +1,43 @@
 // useAgentPerformanceBulk.js
 //
-// Real, marketplace-wide on-chain track record — GET /api/agents/performance/bulk
+// Real, marketplace-wide on-chain track record, GET /api/agents/performance/bulk
 // (backend/core/job_index.py's get_all_provider_stats(), a bulk version of
 // the same real, complete data the agent detail page's "Past Hires" panel
 // already reads one owner at a time). One fetch for the whole marketplace,
-// not one request per agent — the real data behind the "Most hired" /
+// not one request per agent, the data behind the "Most hired" /
 // "Highest success rate" sort options AND the "Only verified working"
 // filter. Shared by web and mobile so both rank agents from the exact same
-// real numbers.
+// numbers.
 //
-// Real fix (2026-08-28): this used to read
+// fix (2026-08-28): this used to read
 // backend/core/agent_performance.py's own WINDOW-bounded (most-recent-
-// 1,500 jobs, marketplace-wide) cache — live-confirmed, while
+// 1,500 jobs, marketplace-wide) cache, live-confirmed, while
 // investigating the "Verified working" tier specifically, that this was
-// the same real scoping bug already fixed for Revenue Stream, just never
+// the same scoping bug already fixed for Revenue Stream, just never
 // wired here. Now reads core/job_index.py's own COMPLETE, persistent job
 // index instead. Real, measured effect on the raw real-provider count:
 // 48 -> 60 verified providers (a real, honest, meaningful expansion, not
-// noise) — see docs/verification-methodology.md for the full real
+// noise), see docs/verification-methodology.md for the full real
 // investigation, including why this happened to leave the CURRENTLY-
 // LISTED marketplace agents' own "Verified working" badges unchanged
-// (12 -> 12): every one of the 12 newly-found real providers turned out
+// (12 -> 12): every one of the 12 newly-found providers turned out
 // to be an old/historical address not currently surfaced by the
 // marketplace's own diversified listing, not a currently-visible agent.
 //
-// Real robustness gap found and fixed (2026-08-27): a real user reported
+// robustness gap found and fixed (2026-08-27): a user reported
 // "Only verified working" showing zero agents, even though a direct, live
 // recomputation against the same production API at the same time found 17
-// real verified agents — the underlying data was fine. Root cause traced
+// verified agents, the underlying data was fine. Root cause traced
 // to THIS file: on ANY fetch failure (a real, plausible trigger being this
 // project's own backend cache reset on every redeploy), the old version
 // silently swallowed the error and left `byOwner` null for the rest of the
 // page session, with NO retry and no way for the UI to tell "still
 // loading" apart from "genuinely failed". `withPerformance`
 // (agentRanking.js) treats a null `byOwner` as "no agent anywhere has any
-// real history" — exactly why the verified-working filter would show
+// history", exactly why the verified-working filter would show
 // zero: every agent's jobsCompleted/jobsSubmitted silently defaulted to 0,
-// indistinguishable from a real empty result. Fixed with a real
-// retry-with-backoff and an honest `status`, so a genuine failure can be
+// indistinguishable from a empty result. Fixed with a real
+// retry-with-backoff and an honest `status`, so a failure can be
 // shown and retried, not silently mistaken for "no verified agents exist".
 import { useEffect, useState, useCallback } from 'react';
 
@@ -45,7 +45,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 const MAX_ATTEMPTS = 3;
 const RETRY_DELAYS_MS = [2000, 5000]; // between attempts 1->2 and 2->3
 
-let _cached = null; // a real SUCCESS is cached for the rest of the page session — a genuine failure is NEVER cached, so the next mount (or an explicit retry) tries fresh
+let _cached = null; // a SUCCESS is cached for the rest of the page session, a failure is NEVER cached, so the next mount (or an explicit retry) tries fresh
 
 async function _fetchOnce() {
   const res = await fetch(`${API_BASE_URL}/api/agents/performance/bulk`);
@@ -53,11 +53,11 @@ async function _fetchOnce() {
   return res.json();
 }
 
-// Real, honest default completeness shown before the real fetch resolves
-// (or if it fails with nothing cached yet) — assumes complete rather than
+// Real, default completeness shown before the fetch resolves
+// (or if it fails with nothing cached yet), assumes complete rather than
 // flashing a false "still catching up" state, since the real, one-time
 // backfill has already finished as of this fix shipping (see
-// core/job_index.py) and will only ever say otherwise if a real future
+// core/job_index.py) and will only ever say otherwise if a future
 // re-backfill is genuinely in progress.
 const DEFAULT_COMPLETENESS = { indexComplete: true, indexedThroughJobId: null, jobCounter: null };
 
@@ -70,11 +70,11 @@ function _completenessFrom(data) {
 }
 
 /** Returns { byOwner, indexComplete, indexedThroughJobId, jobCounter, status, retry }.
- * `status`: 'loading' | 'ready' | 'error' — real, honest state, not just
+ * `status`: 'loading' | 'ready' | 'error', real, state, not just
  * inferred from whether `byOwner` is null (loading and error both start
- * that way, but callers that care about the difference — e.g. showing
- * "couldn't load real verification data" instead of silently implying zero
- * verified agents exist — now can). `retry()` forces a fresh attempt. */
+ * that way, but callers that care about the difference, e.g. showing
+ * "couldn't load verification data" instead of silently implying zero
+ * verified agents exist, now can). `retry()` forces a fresh attempt. */
 export function useAgentPerformanceBulk() {
   const [state, setState] = useState(() =>
     _cached
@@ -105,7 +105,7 @@ export function useAgentPerformanceBulk() {
           lastErr = e;
         }
       }
-      // Real, genuine failure after real retries — surfaced honestly, not
+ // Real, failure after retries, surfaced honestly, not
       // silently swallowed.
       if (!cancelled) setState({ status: 'error', byOwner: null, ...DEFAULT_COMPLETENESS, error: lastErr?.message });
     })();

@@ -1,17 +1,17 @@
 // VerificationBadge.jsx
 //
-// Real, honest per-agent verification-tier badge — shared VERBATIM by web
+// Real, per-agent verification-tier badge, shared VERBATIM by web
 // and mobile. Built directly on the job #56659 finding (2026-08-26): an
-// agent answering a health check is not proof it delivers real paid work.
+// agent answering a health check is not proof it delivers paid work.
 // See agentVerification.js for the tier logic and the reasoning behind
-// each tier's copy — this file is display-only, no logic of its own.
+// each tier's copy, this file is display-only, no logic of its own.
 //
 // Visual weight is deliberately unequal: VERIFIED gets a solid, confident
-// badge; RESPONDING gets a real but visibly lighter one (openly hedged
+// badge; RESPONDING gets a but visibly lighter one (openly hedged
 // copy, not just a paler color); UNPROVEN renders nothing on the card
 // itself (same "don't imply a confident negative" principle
-// ServiceHealthBadge already uses for its own unknown/no-endpoint states) —
-// its absence of a badge IS the honest signal, and the explainer below
+// ServiceHealthBadge already uses for its own unknown/no-endpoint states),
+// its absence of a badge IS the signal, and the explainer below
 // says so explicitly rather than leaving it unstated.
 
 import React from 'react';
@@ -53,13 +53,13 @@ export default function VerificationBadge({ agent, size = 'sm', className = '' }
       </span>
     );
   }
-  return null; // UNPROVEN: honestly nothing to show, not a badge implying "broken"
+ return null; // UNPROVEN: honestly nothing to show, not a badge implying "broken"
 }
 
-/** Real tier-section header — dropped into the grid/table wherever the
+/** tier-section header, dropped into the grid/table wherever the
  * tier changes across an already tier-sorted list (see
  * withVerificationTierFirst in agentVerification.js). Text states the real
- * count so it reads as a genuine tally, not decoration. */
+ * count so it reads as a tally, not decoration. */
 export function VerificationTierDivider({ tier, count, className = '' }) {
   return (
     <div className={`flex items-center gap-3 ${className}`} title={VERIFICATION_HINT[tier]}>
@@ -71,9 +71,9 @@ export function VerificationTierDivider({ tier, count, className = '' }) {
   );
 }
 
-/** One-time, page-level explainer — same role/placement as
+/** One-time, page-level explainer, same role/placement as
  * ServiceHealthExplainer, kept brief and separate rather than merged into
- * it since these are two distinct real signals. */
+ * it since these are two distinct signals. */
 export function VerificationExplainer({ className = '' }) {
   return (
     <div className={`flex items-start gap-2 text-[11px] text-indigo-800 dark:text-indigo-300 p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 ${className}`}>

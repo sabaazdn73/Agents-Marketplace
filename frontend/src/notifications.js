@@ -1,4 +1,4 @@
-// In-app notifications — scoped honestly to what the app can actually
+// In-app notifications, scoped honestly to what the app can actually
 // detect: hired-job status changes (from polling getErc8183Job). No push/
 // email; recent notifications persist in localStorage so they survive a
 // refresh. A window event keeps every mounted bell in sync.

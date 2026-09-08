@@ -1,32 +1,32 @@
 // AgentActivityPanel.jsx
 //
-// Real "what is this agent actually doing" transparency view for a hired
-// job — addresses the black-box concern directly with real, verifiable
+// Real "what is this agent doing" transparency view for a hired
+// job, addresses the black-box concern directly with real, verifiable
 // data instead of a trust-based summary. Shows the agent owner wallet's
-// real, human-readable on-chain activity (via Zerion's real transactions
-// endpoint — see backend/adapters/zerion.py's get_wallet_activity), scoped
-// to the real time window of THIS specific job (from a real or best-
-// estimated funding moment to the real on-chain submittedAt — see
+// real, human-readable on-chain activity (via Zerion's transactions
+// endpoint, see backend/adapters/zerion.py's get_wallet_activity), scoped
+// to the time window of THIS specific job (from a or best-
+// estimated funding moment to the on-chain submittedAt, see
 // jobTiming.js's getActivityWindow), not the wallet's entire history.
 //
-// Real, honest limitation stated in the UI copy itself, not glossed over:
-// this shows real on-chain activity, never the agent's actual off-chain
-// code — that's not something an outside observer can ever fully verify
-// for an off-chain agent. What IS real here: every transaction shown is
+// Real, limitation stated in the UI copy itself, not glossed over:
+// this shows on-chain activity, never the agent's off-chain
+// code, that's not something an outside observer can ever fully verify
+// for an off-chain agent. What IS here: every transaction shown is
 // independently checkable on BscScan, not just trusted from our summary.
 //
-// Opt-in, per-job, on-demand — the fetch only happens when a user actually
+// Opt-in, per-job, on-demand, the fetch only happens when a user actually
 // expands this section (useAgentActivity.js's fetchActivity is called
-// manually, not on mount), matching this project's established real Zerion
+// manually, not on mount), matching this project's established Zerion
 // rate-budget discipline. Shared by web + mobile.
 
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, Loader2, Radar } from 'lucide-react';
 import { useAgentActivity } from './useAgentActivity';
 
-// Zerion's own real operation_type values (confirmed live against real BSC
+// Zerion's own operation_type values (confirmed live against BSC
 // transactions this session) mapped to plain-language labels. Anything not
-// in this map renders as-is — never hidden, just unlabeled.
+// in this map renders as-is, never hidden, just unlabeled.
 const OPERATION_LABELS = {
   execute: 'Contract call',
   send: 'Sent funds',
@@ -45,16 +45,16 @@ function formatMinedAt(iso) {
 
 const PRECISION_COPY = {
   exact: 'between when you funded this job and when it delivered',
-  estimated: "in the real window we have on record for this job's funding-to-delivery time",
-  approximate: "in an estimated window around this job (we don't have an exact funding time recorded, so this is based on the job's own real on-chain deadline)",
+  estimated: "in the window we have on record for this job's funding-to-delivery time",
+ approximate: "in an estimated window around this job (we don't have an exact funding time recorded, so this is based on the job's own on-chain deadline)",
 };
 
 export default function AgentActivityPanel({ ownerAddress, window, className = '' }) {
   const [open, setOpen] = useState(false);
   const { state, fetchActivity } = useAgentActivity();
 
-  // No real window to search (job never delivered, or genuinely no sane
-  // estimate exists) — nothing honest to show, so render nothing at all
+ // No window to search (job never delivered, or genuinely no sane
+ // estimate exists), nothing to show, so render nothing at all
   // rather than an empty/confusing section.
   if (!window || !ownerAddress) return null;
 
@@ -79,9 +79,9 @@ export default function AgentActivityPanel({ ownerAddress, window, className = '
       {open && (
         <div className="px-3 pb-3 border-t border-gray-100 dark:border-gray-800 pt-2.5 space-y-2">
           <p className="text-[10px] text-gray-400 leading-relaxed">
-            This shows the agent's real on-chain activity {PRECISION_COPY[window.precision]} — not its off-chain code
+ This shows the agent's on-chain activity {PRECISION_COPY[window.precision]}, not its off-chain code
             (that's never independently verifiable for an off-chain agent, and we're not claiming otherwise), but
-            every real payment and on-chain action here is independently checkable yourself via the BscScan links below.
+            every payment and on-chain action here is independently checkable yourself via the BscScan links below.
           </p>
           {state.status === 'loading' && (
             <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking on-chain activity…</div>
@@ -113,14 +113,14 @@ export default function AgentActivityPanel({ ownerAddress, window, className = '
           )}
           {state.status === 'ready' && state.data.available && state.data.transactions.length === 0 && (
             <p className="text-xs text-gray-400 leading-relaxed">
-              No on-chain activity from this wallet during this job's time window — some agents only interact
-              on-chain at delivery (already shown above), not throughout the work itself. That's real information
+              No on-chain activity from this wallet during this job's time window, some agents only interact
+ on-chain at delivery (already shown above), not throughout the work itself. That's information
               too, not a failed check.
             </p>
           )}
           {state.status === 'ready' && !state.data.available && (
             <p className="text-xs text-gray-400">
-              Couldn't check real on-chain activity for this job{state.data.reason ? ` — ${state.data.reason}` : '.'}
+ Couldn't check on-chain activity for this job{state.data.reason ? `, ${state.data.reason}` : '.'}
             </p>
           )}
         </div>

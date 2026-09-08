@@ -23,7 +23,7 @@ from dataclasses import dataclass
 CATEGORIES = [
     # Original DeFi-specific set (hackathon's named examples)
     "Rebalancing", "Grid Trading", "Yield Optimisation", "Health Factor Monitoring",
-    # Broader, real categories observed in live 8004scan data
+    # Broader, categories observed in live 8004scan data
     "Trading Signals", "Copy Trading", "Smart Contract Auditing", "Data Analysis",
     "Research", "Content & Copywriting", "Identity & Verification", "Customer Support",
     "NFT & Generative Art", "Gaming", "Prediction Markets", "Social & Community",
@@ -54,7 +54,7 @@ _KEYWORD_RULES: list[tuple[str, list[str]]] = [
     ("Trading Signals", [
         "trading signal", "signal", "market analysis", "technical analysis",
         "trade alert",
-        # Real trading-agent clusters observed live (Ave.ai, apm.fun, logearn,
+        # trading-agent clusters observed live (Ave.ai, apm.fun, logearn,
         # MevX): general execution/trading bots that were all landing in
         # Unclassified. Placed AFTER Grid/Copy so those still win first.
         "trading agent", "trade agent", "trading bot", "trading platform",
@@ -71,7 +71,7 @@ _KEYWORD_RULES: list[tuple[str, list[str]]] = [
     ("Research", [
         "research", "nuance-first", "interpreter", "mechanism analyst",
         "evidence-first", "reasoning",
-        # Real reasoning-persona agents observed live (the "EvoEvo AI Agent.
+        # reasoning-persona agents observed live (the "EvoEvo AI Agent.
         # Reason like … / Think like …" cluster): analysis/reasoning agents that
         # were landing in Unclassified. Matched on the reasoning language itself,
         # NOT on "evoevo", so the vague "focused on sports/crypto" EvoEvo agents

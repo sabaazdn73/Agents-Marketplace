@@ -1,6 +1,6 @@
 // ChainAgentEvaluation.jsx
 //
-// The real evaluation for a non-BSC agent, from the sources verified to
+// The evaluation for a non-BSC agent, from the sources verified to
 // work on its chain.
 //
 // These views used to be thin because only BSC's sources were wired up, not
@@ -60,13 +60,13 @@ export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress })
 
   return (
     <div className="space-y-3">
-      {/* Quality Center — the biggest single addition for non-BSC agents. */}
+      {/* Quality Center, the biggest single addition for non-BSC agents. */}
       <Section icon={Gauge} title="Quality score" sub="8004scan's own independent scoring">
         {!quality.available ? (
           <Unavailable reason={quality.reason} />
         ) : !quality.scored ? (
           <p className="text-[11px] text-gray-500">
-            8004scan hasn't scored this agent yet. That's not a low score — it's no score, and it
+            8004scan hasn't scored this agent yet. That's not a low score, it's no score, and it
             says nothing about the agent either way.
           </p>
         ) : (
@@ -94,7 +94,7 @@ export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress })
               <div key={f.id} className="flex items-start gap-1.5">
                 <AlertTriangle size={10} className={`shrink-0 mt-[3px] ${SEVERITY[f.severity] || SEVERITY.low}`} />
                 <span className="text-[11px] text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">{f.title}</span> — {f.description}
+                  <span className="font-medium">{f.title}</span>, {f.description}
                 </span>
               </div>
             ))}
@@ -129,7 +129,7 @@ export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress })
           </p>
         ) : verification?.verified === false ? (
           <p className="text-[11px] text-amber-700 dark:text-amber-400">
-            This owner operates through an <strong>unverified</strong> contract — its behaviour can't be
+            This owner operates through an <strong>unverified</strong> contract, its behaviour can't be
             independently audited.
           </p>
         ) : <Unavailable reason={verification?.reason} />}
@@ -143,7 +143,7 @@ export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress })
           <span>
             Escrow compatibility, delivery record and canary results aren't shown: they all read from
             the ERC-8183 contract, which is deployed on BNB Smart Chain only.
-            {!d.graph_applicable && ' Subgraph provenance is BNB-only for the same kind of reason — the Agent0 subgraph indexes that chain alone.'}
+            {!d.graph_applicable && ' Subgraph provenance is BNB-only for the same kind of reason, the Agent0 subgraph indexes that chain alone.'}
           </span>
         </div>
       )}
@@ -176,7 +176,7 @@ function Row({ label, value, hint }) {
   );
 }
 
-/** "We couldn't read this" — deliberately distinct from a zero or an
+/** "We couldn't read this", deliberately distinct from a zero or an
  *  absence, since the sources behind this view fail intermittently. */
 function Unavailable({ reason }) {
   return (

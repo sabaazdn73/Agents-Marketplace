@@ -1,17 +1,17 @@
 // agentGuidance.js
 //
-// Real, honest decision-aid data for the agent detail page's "no hire
-// history yet" state — built 2026-08-19. Every signal here is data the app
-// already has (8004scan fields already fetched, the real Altana Skills
+// Real, decision-aid data for the agent detail page's "no hire
+// history yet" state, built 2026-08-19. Every signal here is data the app
+// already has (8004scan fields already fetched, the Altana Skills
 // already built); nothing new is fabricated or fetched.
 //
-// The category -> skill mapping below is a genuine editorial judgment call,
-// not a technical/data link — there's no real connection in the data
+// The category -> skill mapping below is a editorial judgment call,
+// not a technical/data link, there's no connection in the data
 // between an agent's keyword-classified category (categorize.py) and our
 // own pre-built Skills catalog (they're different systems).
 // It's an honest "agents in this category typically do the kind of thing
 // this skill also does, so trying the skill gives you a feel for the real
-// mechanics" — phrased that way in the UI, never as a claim about what this
+// mechanics", phrased that way in the UI, never as a claim about what this
 // SPECIFIC agent does internally, which we genuinely don't know.
 //
 // Kept conservative on purpose: only mapped where the conceptual link is
@@ -51,8 +51,8 @@ export const CATEGORY_TO_SKILLS = {
   ],
 };
 
-/** Real signals-in-plain-language for one agent, from data already on the
- * mapped agent object — no new fetch. Each entry is either genuinely true
+/** signals-in-plain-language for one agent, from data already on the
+ * mapped agent object, no new fetch. Each entry is either genuinely true
  * (verified, has a score, has stars) or omitted; never a fabricated "0" or
  * a negative-sounding phrasing for an honestly-neutral absence. */
 export function realSignals(agent) {

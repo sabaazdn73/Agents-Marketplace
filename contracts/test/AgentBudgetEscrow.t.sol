@@ -511,7 +511,7 @@ contract AgentBudgetEscrowTest is Test {
     // ── Fee admin: setFeeBps ─────────────────────────────────────────────
     //
     // Both fee setters had ZERO lines executed before this section existed.
-    // They are the two owner functions that move real money: one changes
+    // They are the two owner functions that move money: one changes
     // what the platform takes from every future draw, the other changes who
     // receives it. An untested setFeeWallet is the worse of the two -- it
     // redirects a balance that has already accrued.
@@ -609,7 +609,7 @@ contract AgentBudgetEscrowTest is Test {
     /// @dev The consequence that makes this function worth testing at all:
     ///      withdrawFees reads feeWallet at CALL time, not at accrual time,
     ///      so fees earned under the old wallet are paid to the new one.
-    ///      Not a bug -- but it is the behaviour, and it moves real money,
+    /// Not a bug -- but it is the behaviour, and it moves money,
     ///      so it is pinned rather than left to be discovered in production.
     function test_setFeeWallet_redirectsAlreadyAccruedFees() public {
         uint256 id = _open(100 ether, 0, 0);

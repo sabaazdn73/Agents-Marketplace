@@ -1,6 +1,6 @@
 // MultiChainView.jsx
 //
-// Everything with real stored data that is not BNB Chain, Ethereum or
+// Everything with stored data that is not BNB Chain, Ethereum or
 // Solana: Base, Arbitrum, Celo, Monad, Robinhood Chain, Billions Network.
 // Base dominates it (~58,600 of ~65,700).
 //

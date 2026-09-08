@@ -8,13 +8,13 @@
 // Autonomous session hiring (grantMarketplaceSession/hireAgentWithSession/
 // settleJob/disputeJob/revokeMarketplaceSession, and the AltanaSessionPanel.jsx
 // UI that called them) was removed 2026-09-03. Decisive finding before
-// removal: a full scan of the complete, real ERC-8183 job index (56,667
+// removal: a full scan of the complete, ERC-8183 job index (56,667
 // jobs, every one this marketplace's kernel has ever processed) found ZERO
-// jobs of ANY status carrying that path's own hire-description marker —
+// jobs of ANY status carrying that path's own hire-description marker,
 // not one attempt ever completed, or even started, end to end. See
 // docs/limitations.md for the full finding. What remains here: wallet
 // creation/recovery and scoped Skill sessions, still genuinely used by the
-// x402-payments Skill (the one real Skill that still needs Altana's own
+// x402-payments Skill (the one Skill that still needs Altana's own
 // settlement infrastructure) and by the Native/Skills panels' shared
 // on-chain read helpers below.
 //
@@ -35,7 +35,7 @@ import { bsc } from 'viem/chains';
 import { getBscTransport, MAINNET_READ_RPC } from './rpcTransport';
 
 // Same event the installed SDK's own getErc8183DeliverableUrl() looks for
-// (POLICY_INITIALISED_EVENT in erc8183.js) — redefined here because that
+// (POLICY_INITIALISED_EVENT in erc8183.js), redefined here because that
 // const isn't exported, only the function that uses it internally. Signature
 // confirmed by reading the SDK source directly.
 const JOB_INITIALISED_EVENT = {
@@ -61,27 +61,27 @@ const client = createClient({ chains: [BNB] });
 // (copy-trade / wallet-tracker) and the deliverable-URL lookup all issue
 // getLogs calls, which the default public RPC (publicnode) refuses
 // outright. Audit 2026-08-20: tried the project's own dRPC keys (both the
-// Anvil fork's and a fresh one gotten specifically for this) — both are
+// Anvil fork's and a fresh one gotten specifically for this), both are
 // genuinely valid and work for plain eth_call, but their free-tier getLogs
-// consistently times out on real test cases (job #56620's deliverable
+// consistently times out on test cases (job #56620's deliverable
 // scan, and even a single bounded 200-block query on a busy PancakeSwap
-// pair) — a plan-tier limit, not a code bug. Tried 8 other free/keyless
+// pair), a plan-tier limit, not a code bug. Tried 8 other free/keyless
 // public RPCs; only https://bsc.rpc.blxrbdn.com (bloXroute) worked end to
 // end on all three cases (job #56620's deliverable, Copy Trade detection,
 // 1,262 trades for an active wallet, Wallet Tracker, 1,278 swaps). It's
 // public and keyless (no secret to protect), so it's safe as the default
-// here — VITE_MAINNET_READ_RPC still overrides it if you later provision a
+// here, VITE_MAINNET_READ_RPC still overrides it if you later provision a
 // paid RPC with better throughput.
 //
-// Real reliability upgrade (2026-09-04): this is now the same shared,
+// reliability upgrade (2026-09-04): this is now the same shared,
 // bloXroute-primary transport wagmiConfig.js uses (rpcTransport.js), with
-// a real Infura backup that only ever engages if bloXroute itself fails.
+// a Infura backup that only ever engages if bloXroute itself fails.
 // bloXroute is still always tried first, so the getLogs behavior this
 // comment documents (the reason bloXroute specifically was picked) is
 // unchanged in the normal case; Infura's own getLogs support on its free
 // tier was NOT verified here, since it only matters in the narrow case of
 // bloXroute being down AND a getLogs-issuing skill running at that exact
-// moment — strictly better than a hard failure either way.
+// moment, strictly better than a hard failure either way.
 const _mainnetPublicClient = createPublicClient({ chain: bsc, transport: getBscTransport() });
 
 /** A BSC mainnet read client, for the read-only/detection skills (Token Radar,
@@ -96,12 +96,12 @@ const _USDT_BALANCE_OF_ABI = [{
 }];
 
 /**
- * Shared "is this the wallet I think it is" snapshot — added 2026-08-28,
+ * Shared "is this the wallet I think it is" snapshot, added 2026-08-28,
  * the direct fix for a confirmed UX gap: a user with several identically-
  * labeled saved passkeys had no way to tell a previously-funded wallet
  * apart from an empty, orphaned one (see docs/venus-skill-revert-
  * investigation.md for the full incident) without a doomed attempt first.
- * Live reads only — never a write, never a signature, safe to call before
+ * Live reads only, never a write, never a signature, safe to call before
  * the user commits to anything. `usdtAddress` is passed in by the caller
  * (defiSkills.js's USDT_BSC) rather than imported here, so this module
  * doesn't need a hardcoded opinion about which token matters.
@@ -116,7 +116,7 @@ export async function fetchWalletBalanceSnapshot(address, usdtAddress) {
   return { address, bnb, usdt, isEmpty: bnb === 0 && usdt === 0 };
 }
 
-// Standard Panic(uint256) codes (Solidity's own, per the ABI spec) — used by
+// Standard Panic(uint256) codes (Solidity's own, per the ABI spec), used by
 // decodeAltanaExecutionError below so a Panic reason reads as plain
 // English, not a bare integer.
 const _PANIC_REASONS = {
@@ -132,14 +132,14 @@ const _PANIC_REASONS = {
 };
 
 /**
- * Decoding for an Altana `execute()` failure — added 2026-08-28 after a
+ * Decoding for an Altana `execute()` failure, added 2026-08-28 after a
  * confirmed incident: the Venus Lending skill failed with the SDK's own
  * raw "An error occurred while executing calls. Reason: 0x Details: 0x",
  * traced (by reading the installed @altananetwork/sdk's own dist/execute.js
  * and its `porto` dependency) to `ox`'s generic BaseError formatter, given
  * a genuinely EMPTY revert (`0x`) by the relay. That's not a decoding gap
- * on our side — `0x` really is the complete raw revert data the relay
- * received — but this project's own code was never trying to decode
+ * on our side, `0x` really is the complete raw revert data the relay
+ * received, but this project's own code was never trying to decode
  * anything beyond what the SDK already prints, so a decodable reason (when
  * one exists) was silently treated the same as a genuinely empty one. This
  * walks every hex string found anywhere in the thrown error (message,
@@ -185,7 +185,7 @@ export function decodeAltanaExecutionError(error) {
         return { decoded: true, reason: `Solidity panic (code 0x${code.toString(16)}): ${_PANIC_REASONS[code] || 'an internal check failed'}.` };
       }
     } catch {
-      // Not a decodable shape at this hex candidate — fall through to the next one.
+      // Not a decodable shape at this hex candidate, fall through to the next one.
     }
   }
 
@@ -196,21 +196,21 @@ export function decodeAltanaExecutionError(error) {
     decoded: false,
     reason: hadAnyData
       ? 'This call reverted with revert data we don’t have a matching ABI to decode (a custom error, not a plain string or panic).'
-      : 'This call reverted with genuinely NO on-chain reason at all (empty revert data) — most consistent with the session’s own permission/scope check rejecting the call before it ever reached the target contract, or an out-of-gas condition, rather than the target contract itself rejecting it.',
+ : 'This call reverted with genuinely NO on-chain reason at all (empty revert data), most consistent with the session’s own permission/scope check rejecting the call before it ever reached the target contract, or an out-of-gas condition, rather than the target contract itself rejecting it.',
   };
 }
 
 /**
- * Executor ({ walletAddress, publicClient, execute(calls) }) — writes go
+ * Executor ({ walletAddress, publicClient, execute(calls) }), writes go
  * through the granted Altana session (one atomic relay intent), reads use
  * BSC mainnet. Added 2026-08-28: execute() failures now carry a
  * `.realReason` (see decodeAltanaExecutionError above) alongside the SDK's
- * own original message — never replacing it, always additive, so a
- * genuinely undecodable error still shows the SDK's own real text too.
+ * own original message, never replacing it, always additive, so a
+ * genuinely undecodable error still shows the SDK's own text too.
  */
 export function getAltanaExecutor(session) {
   return {
-    mode: 'real',
+ mode: 'real',
     walletAddress: session.walletAddress,
     publicClient: _mainnetPublicClient,
     execute: async (calls) => {
@@ -218,7 +218,7 @@ export function getAltanaExecutor(session) {
         return await client.execute({ session, calls });
       } catch (e) {
         const { reason } = decodeAltanaExecutionError(e);
-        e.realReason = reason;
+ e.realReason = reason;
         throw e;
       }
     },
@@ -231,38 +231,38 @@ export const ALTANA_EXPLORER_URL = BNB.explorer;
 
 /**
  * Confirmed bug fix (2026-08-28): `getOrCreateAltanaWallet()` used to be
- * one function — try `recoverFromPasskey`, and on ANY failure (a bare
+ * one function, try `recoverFromPasskey`, and on ANY failure (a bare
  * `catch`), silently call `createPasskeyWallet()` instead. That conflated
  * two genuinely different situations the installed SDK's own
  * `recoverFromPasskey.js` explicitly distinguishes: a "nothing to recover"
  * case (no passkey exists) vs. a "recovery ran, but the result isn't
- * usable" case — most concretely, its own documented error: "Picked
+ * usable" case, most concretely, its own documented error: "Picked
  * passkey resolves to wallet X, but that wallet has no keys registered in
  * KeyStore yet. Either: (a) you picked the wrong passkey (the OS keychain
  * has multiple with similar names...), or (b)...". Confirmed live
  * incident this caused: a user with several identically-labeled saved
  * passkeys for this site (all just "Tnega") picked a different one than
- * her originally-funded wallet on a retry — the SDK correctly threw the
- * error above — and this project's own bare `catch` silently created yet
+ * her originally-funded wallet on a retry, the SDK correctly threw the
+ * error above, and this project's own bare `catch` silently created yet
  * another brand-new, empty, session-less wallet in response, rather than
  * surfacing that specific, actionable error. Repeated across several
  * attempts, this is exactly how one user ended up with four separate
  * saved passkeys for one site, at least some of them orphaned, zero-
- * balance wallets — and exactly why a later Venus Lending attempt
+ * balance wallets, and exactly why a later Venus Lending attempt
  * reverted with no on-chain reason: a fresh wallet has no USDT, no BNB,
  * and no granted session at all, regardless of what's being called.
  *
  * A limitation this fix works within: the raw WebAuthn API itself does
  * not reliably distinguish "no passkey saved at all" from "user cancelled
- * the picker" — both surface as the same `NotAllowedError`. Not fixable
+ * the picker", both surface as the same `NotAllowedError`. Not fixable
  * purely in our own code (a standard platform ambiguity), so the safe
- * fix is to never auto-create on ANY recovery failure — only on the
+ * fix is to never auto-create on ANY recovery failure, only on the
  * deliberate, explicit choice below.
  *
  * New shape: `recoverAltanaWallet()` only ever recovers (throws its own
  * specific error on failure, never silently creates anything);
  * `createNewAltanaWallet()` is a separate, explicit action a caller must
- * deliberately choose — every UI call site now requires the user to see
+ * deliberately choose, every UI call site now requires the user to see
  * the recovery error first and consciously pick "create a new wallet
  * instead", never an automatic, invisible fallback.
  */
@@ -270,7 +270,7 @@ export async function recoverAltanaWallet() {
   return await client.recoverFromPasskey({ rpId: RP_ID });
 }
 
-// Added 2026-08-28 — the direct mitigation for the "four identically-
+// Added 2026-08-28, the direct mitigation for the "four identically-
 // labeled saved passkeys" confusion this whole investigation traced back
 // to. Confirmed live (read the installed @altananetwork/sdk -> its own
 // `porto` dependency's Key.createWebAuthnP256, node_modules/porto/dist/
@@ -283,12 +283,12 @@ export async function recoverAltanaWallet() {
 // can't be embedded in this label. `createPasskeyWallet` generates its
 // throwaway EOA (the address that becomes the smart-account address)
 // inside itself, strictly after the name we pass in is already committed
-// to the WebAuthn ceremony — there is no way to learn the address first
+// to the WebAuthn ceremony, there is no way to learn the address first
 // through the SDK's own public API without reimplementing its internal
 // EIP-7702 upgrade sequence ourselves, a meaningfully riskier change
 // (duplicated, money-moving logic that could silently drift from the
 // SDK's own behavior on a future update) for a cosmetic label. Not done.
-// A creation-time label is used instead — genuinely distinguishable in the
+// A creation-time label is used instead, genuinely distinguishable in the
 // browser picker (unlike the flat, identical "Tnega" every prior wallet
 // used), even though it can't carry the address itself.
 function _distinctivePasskeyLabel() {
@@ -296,7 +296,7 @@ function _distinctivePasskeyLabel() {
   const stamp = now.toLocaleString(undefined, {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   });
-  return `${APP_NAME} — new wallet, ${stamp}`;
+  return `${APP_NAME}, new wallet, ${stamp}`;
 }
 
 export async function createNewAltanaWallet() {
@@ -322,11 +322,11 @@ async function _avgBlockTimeSeconds(publicClient, currentBlock) {
   ]);
   const seconds = Number(nowBlock.timestamp - refBlockData.timestamp);
   const blocks = Number(currentBlock - refBlock);
-  return blocks > 0 && seconds > 0 ? seconds / blocks : 3; // sane fallback only if something's genuinely off
+ return blocks > 0 && seconds > 0 ? seconds / blocks : 3; // sane fallback only if something's genuinely off
 }
 
 /** Scans [fromBlock, toBlock] in <=4000-block chunks (this RPC's confirmed
- * cap is 5000/call — kept under it) for the job's JobInitialised event,
+ * cap is 5000/call, kept under it) for the job's JobInitialised event,
  * parsing optParams the same way the SDK's own getErc8183DeliverableUrl
  * does. */
 async function _scanForDeliverableUrl(publicClient, policyAddress, jobId, fromBlock, toBlock) {
@@ -365,11 +365,11 @@ async function _scanForDeliverableUrl(publicClient, policyAddress, jobId, fromBl
  * default publicRpcUrl, bsc-rpc.publicnode.com), NOT MAINNET_READ_RPC,
  * even though the exact same "publicnode refuses getLogs" problem is
  * already documented and solved above for copy-trade/wallet-tracker.
- * Confirmed directly (Node, real RPC calls, job #56620): publicnode
+ * Confirmed directly (Node, RPC calls, job #56620): publicnode
  * rejects it outright ("Archive requests require a personal token"), and
  * several other free/keyless public RPCs tried (bsc-dataseed, meowrpc,
  * 1rpc, nodereal, blockpi, bscrpc) ALL failed too, each for its own
- * reason — this needs a properly provisioned RPC, not a public default.
+ * reason, this needs a properly provisioned RPC, not a public default.
  * Routing through the same working MAINNET_READ_RPC this file already
  * uses for getLogs elsewhere.
  *
@@ -438,7 +438,7 @@ export function explorerLinkForWallet(address) {
  * Grants a scoped session (spend cap + expiry + allowlisted contracts) for
  * whatever contracts and spend token a specific Skill declares (from the
  * Skills Registry's own `scope` field). Still genuinely used today by the
- * x402-payments Skill specifically — see this file's own top-of-file note
+ * x402-payments Skill specifically, see this file's own top-of-file note
  * for why every other Altana-session use case was removed but this one
  * wasn't.
  */

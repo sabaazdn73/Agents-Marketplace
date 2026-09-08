@@ -12,7 +12,7 @@
 // tiers, service-health badges and escrow-compatibility warnings, all of
 // which depend on signals that genuinely do not exist off BSC. Reusing it
 // would mean either showing those controls empty or teaching it to hide
-// them per chain, and both make the honest thing harder to see.
+// them per chain, and both make the thing harder to see.
 
 import React from 'react';
 import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
@@ -20,7 +20,7 @@ import ServiceHealthBadge from '../ServiceHealthBadge';
 import ChainAgentEvaluation from '../ChainAgentEvaluation';
 
 /** Block explorer per chain, so an agent is verifiable at source even
- * though this app cannot check its liveness. Only chains actually present
+ * though this app cannot check its liveness. Only chains present
  * in the data are listed; anything else simply gets no link rather than a
  * guessed URL. */
 const EXPLORERS = {
@@ -62,7 +62,7 @@ export function NotHireableNotice({ label }) {
 /** Says which chains in this view have genuinely been health-checked and
  * which have not, rather than blanket-disclaiming a view that is now
  * partly verified. Both lists come from the backend, so the UI cannot
- * drift from what the data layer actually guarantees. */
+ * drift from what the data layer guarantees. */
 export function UnverifiedStatusNote({ note, verifiedChains = [], unverifiedChains = [] }) {
   const names = (l) => l.map((c) => c.name).join(', ');
   return (
@@ -70,7 +70,7 @@ export function UnverifiedStatusNote({ note, verifiedChains = [], unverifiedChai
       <AlertTriangle size={12} className="shrink-0 mt-0.5 opacity-70" />
       <span>
         {verifiedChains.length > 0 && (
-          <><strong>{names(verifiedChains)}</strong> agents are live-checked and show a real status. </>
+          <><strong>{names(verifiedChains)}</strong> agents are live-checked and show a status. </>
         )}
         {unverifiedChains.length > 0 && (
           <>{verifiedChains.length > 0 ? 'Agents on ' : ''}
@@ -100,7 +100,7 @@ const SIGNAL_LABELS = {
 /** What this view can and cannot show about its agents, and why.
  *
  * The chain views used to differ from BSC's by simply having less on the
- * page, which reads as "not bothered" when the real answer is usually
+ * page, which reads as "not bothered" when the answer is usually
  * "this cannot exist here" -- ERC-8183 escrow is deployed on BNB Smart
  * Chain only, so escrow compatibility, delivery record and canary results
  * have nothing to read anywhere else. Stating that is more useful than an
@@ -173,7 +173,7 @@ export function ChainAgentCard({ agent, mutedBorder }) {
         {agent.description || 'No description provided.'}
       </p>
       {/* Rendered only when the backend marked this agent's chain as
-          genuinely analysed. An unverified agent has no health fields at
+ genuinely analysed. An unverified agent has no health fields at
           all, so there is nothing here to render even by accident. */}
       {agent.status_verified && agent.service_status && (
         <div className="flex items-center gap-1.5">
@@ -181,7 +181,7 @@ export function ChainAgentCard({ agent, mutedBorder }) {
         </div>
       )}
       {/* On demand, per agent. The list stays cheap -- these are calls
-          against rate-limited keys, so they run only when someone actually
+ against rate-limited keys, so they run only when someone actually
           asks about one agent rather than for every card rendered. */}
       <details className="mt-1">
         <summary className="text-[11px] text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline select-none">

@@ -1,11 +1,11 @@
 // StatusPage.jsx
 //
-// Real, standalone /status page — a plain list of real, live, right-now
+// Real, standalone /status page, a plain list of real, live, right-now
 // checks against every external integration this project depends on
 // (backed by backend/core/status_checks.py's /api/status). No fabricated
-// uptime percentage or history: this is a snapshot, refreshed for real on
+// uptime percentage or history: this is a snapshot, refreshed for on
 // every visit (server-side cached for a short 30s TTL, honestly labeled
-// with "cache_age_seconds" — never presented as an average or a claim
+// with "cache_age_seconds", never presented as an average or a claim
 // about the past).
 import React, { useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
@@ -34,8 +34,8 @@ export default function StatusPage({ onBack }) {
   const discovery = data?.discovery || null;
 
   // "A service we read from is down" and "the marketplace is degraded" are
-  // genuinely different states, and the banner used to collapse them into
-  // one alarming line. During the real 2026-09-06 upstream outage the site
+ // genuinely different states, and the banner used to collapse them into
+ // one alarming line. During the real 2026-09-06 upstream outage the site
   // kept serving 15,191 agents in 0.36s and kept health-checking them over
   // our own RPC -- so a red "one or more services are not reachable" was
   // true about a dependency and misleading about the product.
@@ -57,7 +57,7 @@ export default function StatusPage({ onBack }) {
 
         <h1 className="text-2xl font-bold mb-1">System status</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-          Real, live checks against every external service this project depends on — not a claimed
+ Real, live checks against every external service this project depends on, not a claimed
           uptime history, just whether each one answers right now.
         </p>
 
@@ -80,7 +80,7 @@ export default function StatusPage({ onBack }) {
                 : 'One or more services we read from are not reachable right now'}
             </div>
 
-            {/* What that actually means for the marketplace. An upstream
+ {/* What that means for the marketplace. An upstream
                 registry going down stops us finding NEW agents; it does not
                 make the agents we already store disappear, and it does not
                 stop us checking whether they are alive, because that runs

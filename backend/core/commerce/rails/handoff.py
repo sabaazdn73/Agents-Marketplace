@@ -8,7 +8,7 @@
 # relationship, no chain. That is the entire point. Every other rail can be
 # unavailable and this one still completes, so no cart is ever a dead end.
 #
-# This is also the honest shape for physical goods today. The pipeline can
+# This is also the shape for physical goods today. The pipeline can
 # assemble a cart; it cannot place an order with a merchant it has no
 # relationship with. Handing the human a checkout link says exactly that,
 # rather than pretending to an automation that does not exist.

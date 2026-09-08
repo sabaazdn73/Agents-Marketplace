@@ -3,12 +3,12 @@ full_registry_scan.py
 
 Real, standalone, runnable entry point for the full-BSC-registry ingestion
 + analysis pipeline (core/full_registry_ingest.py, core/full_registry_analysis.py).
-Deliberately a plain script, not a web route — this is a long-running,
+Deliberately a plain script, not a web route, this is a long-running,
 resumable batch job (see full_registry_ingest.py's own docstring for why a
 literal one-shot full scan isn't realistic), not something a web request/
 response cycle should try to drive.
 
-Usage (run from backend/, same real env as the FastAPI app — needs
+Usage (run from backend/, same env as the FastAPI app, needs
 SCAN_8004_API_KEY and MONGODB_URI):
 
     python -m scripts.full_registry_scan ingest --minutes 30
@@ -16,7 +16,7 @@ SCAN_8004_API_KEY and MONGODB_URI):
     python -m scripts.full_registry_scan status
 
 Real, recommended schedule (not automatically wired into any scheduler by
-this script — see this project's own README on why adding a paid Render
+this script, see this project's own README on why adding a paid Render
 Cron Job service is a deliberate infra decision, flagged rather than made
 unilaterally):
   - A `ingest --minutes 30` run, repeated every few hours until
@@ -24,16 +24,16 @@ unilaterally):
     the first time.
   - After that, a full re-ingest weekly (agents get added to the real
     registry continuously; a week-old full snapshot is a real, reasonable
-    staleness bound for a dataset this size) — same command, since a
+    staleness bound for a dataset this size), same command, since a
     completed run's checkpoint naturally needs resetting to offset 0 for a
     fresh pass (this script's `ingest --restart` flag does that).
   - `analyze --minutes 30`, run on a similar cadence, health-checks/
-    categorizes whatever's been ingested but not yet analyzed — the real
+    categorizes whatever's been ingested but not yet analyzed, the real
     HEALTH_TTL_SECONDS (20 min, core/agent_health.py) means a health check
     written today is treated as stale again in 20 minutes, so more
     frequent analysis passes mostly just refresh already-checked agents
-    rather than making new real progress; daily is more than enough to
-    keep pace with ingestion without wasting the real request budget.
+    rather than making new progress; daily is more than enough to
+    keep pace with ingestion without wasting the request budget.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ from core import full_registry_analysis as analysis_mod
 async def _cmd_ingest(minutes: float, restart: bool) -> None:
     api_key = os.environ.get("SCAN_8004_API_KEY")
     if not api_key:
-        print("SCAN_8004_API_KEY not set — cannot ingest.")
+        print("SCAN_8004_API_KEY not set, cannot ingest.")
         return
     if restart:
         progress = await ingest_mod._get_progress()

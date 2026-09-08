@@ -1,43 +1,43 @@
 """
 canary.py
 
-Real, opt-in, human-triggered "canary probe" system — proactively testing a
-small, real sample of "Responding, unproven" agents with a small, real,
+Real, opt-in, human-triggered "canary probe" system, proactively testing a
+small, sample of "Responding, unproven" agents with a small, real,
 funded test job, rather than waiting for organic buyer activity to reveal
-whether an agent actually delivers. Directly motivated by two real findings:
+whether an agent actually delivers. Directly motivated by two findings:
 job #56659 (a health-check-responding agent that silently never delivered
-— see docs/limitations.md), and real, independent academic confirmation
-that this gap is real and widespread, not a one-off: Xiong, Li, Wei, Wang,
-Knottenbelt & Wang, "An Empirical Study of ERC-8004" (arXiv:2606.26028) —
-a real, live measurement of Ethereum/BSC/Base's actual ERC-8004 registries
+, see docs/limitations.md), and real, independent academic confirmation
+that this gap is and widespread, not a one-off: Xiong, Li, Wei, Wang,
+Knottenbelt & Wang, "An Empirical Study of ERC-8004" (arXiv:2606.26028),
+a real, live measurement of Ethereum/BSC/Base's ERC-8004 registries
 through May 2026 found only 3%/4%/15% of registrations expose a genuinely
 live, valid service endpoint, and up to 90.6% of reputation feedback shows
 coordinated Sybil-style behavior. See docs/verification-methodology.md for
-the full real citation and reasoning.
+the full citation and reasoning.
 
-REAL, DELIBERATE SAFETY BOUNDARY — read before touching this file: this
+REAL, DELIBERATE SAFETY BOUNDARY, read before touching this file: this
 module NEVER holds a private key and NEVER autonomously signs or
-broadcasts a real transaction. Every real canary hire is signed by a real,
+broadcasts a transaction. Every canary hire is signed by a real,
 connected HUMAN wallet through the exact same client-side hire flow every
-other hire in this product already uses (useHireAgent.js) — this module's
-own job is (a) choosing which agent to test next, respecting a real scope
-+ a real spend cap, and (b) recording the real result after the human's
+other hire in this product already uses (useHireAgent.js), this module's
+own job is (a) choosing which agent to test next, respecting a scope
++ a spend cap, and (b) recording the result after the human's
 own wallet has already executed it on-chain. A truly "autonomous,
-unattended, scheduled" spender would require a backend-held hot wallet —
+unattended, scheduled" spender would require a backend-held hot wallet,
 a real, distinct security-posture change this project has consistently
 avoided everywhere else (see docs/hire-flow-audit.md's matching note on
-the same real tradeoff for auto-settlement). Not built here; see
-docs/verification-methodology.md for the honest reasoning and what real
+the same tradeoff for auto-settlement). Not built here; see
+docs/verification-methodology.md for the reasoning and what real
 infrastructure decision would be needed to go further.
 
-Real functions here fall into two honestly different categories:
+functions here fall into two honestly different categories:
   - Read-only (select_candidates, get_budget_status, get_canary_history,
     get_canary_status_bulk, check_pending_results): safe to automate/
-    schedule freely — nothing here ever moves money.
-  - record_canary_test: writes a real LOG ENTRY for a hire a human's own
+    schedule freely, nothing here ever moves money.
+  - record_canary_test: writes a LOG ENTRY for a hire a human's own
     wallet already executed. Still never spends anything itself, but is
     deliberately only ever called right after a real, human-confirmed
-    on-chain fund() — never speculatively, never in a loop.
+    on-chain fund(), never speculatively, never in a loop.
 """
 
 from __future__ import annotations
@@ -51,19 +51,19 @@ from core import category_groups
 
 CANARY_TESTS_COLLECTION = "canary_tests"
 
-# Real, conservative starting defaults — see docs/verification-methodology.md
-# for the full real cost reasoning (this is $U principal only; real BSC gas
-# for the ~5-7 on-chain calls one hire makes is a separate, real cost on
+# Real, conservative starting defaults, see docs/verification-methodology.md
+# for the full cost reasoning (this is $U principal only; BSC gas
+# for the ~5-7 on-chain calls one hire makes is a separate, cost on
 # top, not captured by this cap).
 DEFAULT_TEST_BUDGET_UNITS = 0.1     # $U per canary test
-DEFAULT_WEEKLY_CAP_UNITS = 5.0      # real, hard cap — refuses beyond this
-DEFAULT_WEEKLY_SAMPLE_SIZE = 10     # real, small starting cohort
-RECENT_TEST_COOLDOWN_DAYS = 30      # don't re-test the same real agent sooner than this
+DEFAULT_WEEKLY_CAP_UNITS = 5.0 # real, hard cap, refuses beyond this
+DEFAULT_WEEKLY_SAMPLE_SIZE = 10 # real, small starting cohort
+RECENT_TEST_COOLDOWN_DAYS = 30 # don't re-test the same agent sooner than this
 PERIOD_DAYS = 7
 
-# Real, deliberate starting scope — kept small and explicit rather than
-# "every Responding agent" to control real cost while this is new.
-# Real fix (2026-08-28): _GROUP_CATEGORIES used to be its own private,
+# Real, deliberate starting scope, kept small and explicit rather than
+# "every Responding agent" to control cost while this is new.
+# fix (2026-08-28): _GROUP_CATEGORIES used to be its own private,
 # partial (2-of-5-group) copy of frontend/src/categoryGroups.js's real
 # mapping; core/pnl.py needed the same real "Trading & DeFi" group too, so
 # this is now the one, real, shared core/category_groups.py instead of a
@@ -71,16 +71,16 @@ PERIOD_DAYS = 7
 ALLOWED_GROUPS = {"trading-defi", "data-analysis"}
 _GROUP_CATEGORIES = category_groups.CATEGORY_GROUPS
 
-# Real, numeric on-chain status enum order — kept here (not re-imported
+# Real, numeric on-chain status enum order, kept here (not re-imported
 # from core/rpc.py, which uses the string-label form) since _read_job's own
-# real contract below returns the numeric index other code in this file
+# contract below returns the numeric index other code in this file
 # already expects.
 _JOB_STATUS = ["OPEN", "FUNDED", "SUBMITTED", "COMPLETED", "REJECTED", "EXPIRED"]
 
 
 async def get_budget_status(period_days: int = PERIOD_DAYS) -> dict:
-    """Real, current canary spend within the trailing real period, vs the
-    real cap. Read-only."""
+    """Real, current canary spend within the trailing period, vs the
+    cap. Read-only."""
     db = get_db()
     cutoff = time.time() - period_days * 86400
     spent = 0.0
@@ -94,9 +94,9 @@ async def get_budget_status(period_days: int = PERIOD_DAYS) -> dict:
         "cap_units": DEFAULT_WEEKLY_CAP_UNITS,
         "remaining_units": round(max(0.0, DEFAULT_WEEKLY_CAP_UNITS - spent), 4),
         "tests_this_period": count,
-        # Real fix (2026-08-27 audit): CanaryTestingPanel.jsx used to
-        # hardcode the real RECENT_TEST_COOLDOWN_DAYS value as a literal
-        # `{30}` in its "no candidates" copy — currently correct, but a
+        # fix (2026-08-27 audit): CanaryTestingPanel.jsx used to
+        # hardcode the RECENT_TEST_COOLDOWN_DAYS value as a literal
+        # `{30}` in its "no candidates" copy, currently correct, but a
         # duplicate, not a live read, so it'd silently go stale if this
         # constant ever changed. Exposed here so the frontend can read it.
         "recent_test_cooldown_days": RECENT_TEST_COOLDOWN_DAYS,
@@ -105,10 +105,10 @@ async def get_budget_status(period_days: int = PERIOD_DAYS) -> dict:
 
 async def select_candidates(limit: int = DEFAULT_WEEKLY_SAMPLE_SIZE) -> list[dict]:
     """Real, read-only candidate selection for a human operator to review:
-    agents currently 'Responding, unproven' (a real health check answered,
-    zero confirmed delivered jobs), inside the real allowed scope, not
-    real-canary-tested within the real cooldown window. Never spends
-    anything — just proposes what a human could choose to test next."""
+    agents currently 'Responding, unproven' (a health check answered,
+    zero confirmed delivered jobs), inside the allowed scope, not
+    real-canary-tested within the cooldown window. Never spends
+    anything, just proposes what a human could choose to test next."""
     from core.agent_store import get_stored_agents
     from core.agent_performance import get_all_agent_performance
 
@@ -138,7 +138,7 @@ async def select_candidates(limit: int = DEFAULT_WEEKLY_SAMPLE_SIZE) -> list[dic
         p = by_owner.get(owner)
         delivered = (p.get("completed", 0) + p.get("submitted", 0)) if p else 0
         if delivered > 0:
-            continue  # already organically Verified — no real need to canary-test
+            continue # already organically Verified, no need to canary-test
         if a.get("service_status") != "responding":
             continue  # only test agents that are genuinely Responding-unproven
         candidates.append({
@@ -151,12 +151,12 @@ async def select_candidates(limit: int = DEFAULT_WEEKLY_SAMPLE_SIZE) -> list[dic
 
 
 async def record_canary_test(*, owner_address: str, agent_name: str, job_id, budget_units: float, tx_hash: str | None = None) -> dict:
-    """Real record of a canary hire a human operator's OWN connected wallet
-    just executed through the normal, real hire flow. Never signs or
-    spends anything itself — only logs what already happened on-chain.
-    Enforces the real budget cap here too (defense in depth), but this is
-    a LOG of a real transaction already broadcast, not a gate that could
-    have prevented it — the frontend's own pre-check is what actually
+    """record of a canary hire a human operator's OWN connected wallet
+    just executed through the normal, hire flow. Never signs or
+    spends anything itself, only logs what already happened on-chain.
+    Enforces the budget cap here too (defense in depth), but this is
+    a LOG of a transaction already broadcast, not a gate that could
+    have prevented it, the frontend's own pre-check is what actually
     stops an over-cap attempt before a wallet prompt ever appears."""
     status = await get_budget_status()
     over_cap = budget_units > status["remaining_units"]
@@ -178,7 +178,7 @@ async def record_canary_test(*, owner_address: str, agent_name: str, job_id, bud
 
 
 async def get_canary_history(owner_address: str) -> list[dict]:
-    """Real, full canary test history for one agent — every real attempt,
+    """Real, full canary test history for one agent, every attempt,
     including failures, surfaced transparently rather than hidden. Never
     used to silently downgrade an agent's own stored tier; see this
     module's own docstring on the non-punitive design."""
@@ -195,7 +195,7 @@ async def get_canary_status_bulk() -> dict:
     """Real, bulk 'has this owner ever passed a canary test' map, mirroring
     agent_performance.py's get_all_agent_performance() bulk shape so the
     frontend can merge it the same way. 'Canary-verified' means at least
-    one real canary test for this owner reached 'delivered'."""
+    one canary test for this owner reached 'delivered'."""
     db = get_db()
     by_owner: dict[str, dict] = {}
     async for doc in db[CANARY_TESTS_COLLECTION].find({}):
@@ -209,12 +209,12 @@ async def get_canary_status_bulk() -> dict:
 
 
 async def _read_job(client: httpx.AsyncClient, job_id: int) -> dict | None:
-    # Real fix (2026-08-28): delegates to the one, shared, full-tuple
-    # core/rpc.py's get_job() now (see that module's own docstring — this
+    # fix (2026-08-28): delegates to the one, shared, full-tuple
+    # core/rpc.py's get_job() now (see that module's own docstring, this
     # used to be its own partial, independent decode). Keeps this
     # function's own narrower {status, expiredAt, submittedAt} contract so
-    # every existing real call site here is unaffected — status here is
-    # the real numeric enum index other code in this file already expects,
+    # every existing call site here is unaffected, status here is
+    # the numeric enum index other code in this file already expects,
     # not get_job()'s own string label, so it's re-derived rather than
     # passed through directly.
     from core.rpc import get_job as _shared_get_job
@@ -229,11 +229,11 @@ async def _read_job(client: httpx.AsyncClient, job_id: int) -> dict | None:
 
 async def check_pending_results() -> dict:
     """Real, read-only status check for every canary test still marked
-    'pending' — reads each real job's actual on-chain status and updates
-    the real result: SUBMITTED/COMPLETED -> 'delivered'; REJECTED, or
+    'pending', reads each job's on-chain status and updates
+    the result: SUBMITTED/COMPLETED -> 'delivered'; REJECTED, or
     FUNDED-but-past-its-real-expiredAt (never delivered) -> 'failed';
     otherwise left 'pending' (still genuinely in progress). Never touches
-    money — safe to run on any real schedule."""
+    money, safe to run on any schedule."""
     db = get_db()
     pending = await db[CANARY_TESTS_COLLECTION].find({"result": "pending"}).to_list(length=200)
     if not pending:
@@ -256,7 +256,7 @@ async def check_pending_results() -> dict:
             elif status_label in ("REJECTED", "EXPIRED"):
                 new_result = "failed"
             elif status_label == "FUNDED" and job["expiredAt"] and now > int(job["expiredAt"]):
-                new_result = "failed"  # real deadline passed, never delivered
+                new_result = "failed" # deadline passed, never delivered
             if new_result:
                 await db[CANARY_TESTS_COLLECTION].update_one(
                     {"_id": doc["_id"]},

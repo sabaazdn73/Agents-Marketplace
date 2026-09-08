@@ -9,15 +9,15 @@
 // nominative use: it is the standard convention in every wallet, explorer
 // and aggregator, and it makes no claim of endorsement or partnership.
 // That is a materially different thing from putting a company's logo in a
-// partners list, which is where the caution actually belongs.
+// partners list, which is where the caution belongs.
 //
 // Assets are first-party and verified, the same discipline used for
 // MetaMask, The Graph and ETHGlobal -- checked live, and checked that they
-// decode as real images rather than trusting an HTTP 200:
+// decode as images rather than trusting an HTTP 200:
 //
 //   BNB Chain  www.bnbchain.org/favicon.ico              32x32 ico
 //   Ethereum   ethereum.org/favicon.ico                  256x256 ico (PNG inside)
-//   Solana     solana.com/src/img/branding/...Mark.svg   real SVG, from their
+// Solana solana.com/src/img/branding/...Mark.svg SVG, from their
 //              own /branding path, valid XML
 //
 // Stable paths deliberately. solana.com's <head> points at a hashed
@@ -26,17 +26,17 @@
 // avoided in favour of URLs that do not churn.
 //
 // Multi-Chain has no mark of its own, so it shows the marks of the chains
-// it actually contains, clustered. Each cluster mark is now rendered at the
+// it contains, clustered. Each cluster mark is now rendered at the
 // SAME diameter as a single-chain tab's logo: at 78% the tab visibly sat
 // lighter than its three neighbours. Equal weight comes from equal
 // diameter; what keeps the strip's rhythm is the overlap, not shrinking.
 //
-// Three are shown, the three largest by real stored agent count (Base
+// Three are shown, the three largest by stored agent count (Base
 // 58,580, Monad 2,815, Celo 2,361; then Arbitrum 1,175, Billions 714,
 // Robinhood 7). Count is deliberately the basis, and it was reconsidered
 // against ranking by verified status instead. Two things decided it:
 // those three are 97% of the agents in the view, so the mark reflects what
-// the tab actually contains; and verification is already stated explicitly
+// the tab contains; and verification is already stated explicitly
 // and per-chain by UnverifiedStatusNote, which names the checked and
 // unchecked chains from the backend. A tab icon is a label, not a claim,
 // and promoting Arbitrum (1.8% of the view) over two larger chains would
@@ -48,7 +48,7 @@
 // wrong picture. Two findings:
 //   - docs.celo.org/img/favicon.ico is a Docusaurus MASCOT (a green
 //     cartoon character), not Celo's mark. It decoded fine and was wrong.
-//     Replaced with Celo's actual symbol, the black C on yellow.
+// Replaced with Celo's symbol, the black C on yellow.
 //   - Base's favicon is a plain blue square with no glyph, which looks
 //     broken but is correct: that IS Base's logomark, confirmed against a
 //     second independent source. Kept, and kept edge-to-edge, because a

@@ -7,7 +7,7 @@ from ..state import StageResult, TaskState
 
 async def run(state: TaskState) -> StageResult:
     # QA already reads state.context["season"] when present, so this stage
-    # has a real consumer waiting; it just isn't written yet.
+    # has a consumer waiting; it just isn't written yet.
     return not_implemented(
         "context",
         "extract occasion, season and destination from the request (model-backed, "

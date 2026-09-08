@@ -4,8 +4,8 @@
 // mobile apps (imported by both) so the creator flow can never drift between
 // platforms. All logic lives in the shared hooks in agentMarket.js.
 //
-// Scope guard: a creator may only list an agent they actually own. Ownership is
-// verified on-chain against the real ERC-8004 registry (the same check the
+// Scope guard: a creator may only list an agent they own. Ownership is
+// verified on-chain against the ERC-8004 registry (the same check the
 // contract enforces in list()), so this works TODAY even before our own
 // contract is deployed. On-chain listing (models 1 & 2) is gated behind
 // VITE_AGENT_MARKET_ADDRESS; until it's set the UI says so honestly instead of
@@ -53,12 +53,12 @@ export default function SellYourAgentForm() {
 
     if (model === MODEL.NONE) return;
 
-    // Model 3 — x402 pay-per-call: no contract, saved as local config. If the
-    // creator opts in, we build the REAL B402 Bazaar discovery blob now so their
+    // Model 3, x402 pay-per-call: no contract, saved as local config. If the
+ // creator opts in, we build the B402 Bazaar discovery blob now so their
     // endpoint can attach it on its x402 settle call and get indexed.
     if (model === 'x402') {
       if (!idValid) return setLocalErr("Enter your agent's ID number.");
-      if (!ownership.isOwner) return setLocalErr("Only this agent's real owner can list it — this wallet isn't it.");
+ if (!ownership.isOwner) return setLocalErr("Only this agent's owner can list it, this wallet isn't it.");
       if (!/^https?:\/\//.test(endpoint.trim())) return setLocalErr('Enter the web address people will pay to use (starting with https://).');
       if (!perCall.trim()) return setLocalErr('Enter a price for each use.');
       const bazaar = bazaarOptIn
@@ -75,13 +75,13 @@ export default function SellYourAgentForm() {
       } catch {}
       return setDone({ kind: 'x402', msg: bazaarOptIn
         ? "Saved! People will pay you directly, each time they use it. Once your service is set up to accept these payments (a separate step for you or your developer), you'll also show up in Binance's agent directory within about 30 seconds, so other agents can find and use yours automatically."
-        : "Saved! Once your service is set up to accept payments (a separate step for you or your developer), people will pay you directly each time they use it — no further steps needed on our end." });
+        : "Saved! Once your service is set up to accept payments (a separate step for you or your developer), people will pay you directly each time they use it, no further steps needed on our end." });
     }
 
-    // Models 1 & 2 — on-chain listing.
-    if (!ownership.isOwner) return setLocalErr("Only this agent's real owner can list it — this wallet isn't it.");
+    // Models 1 & 2, on-chain listing.
+ if (!ownership.isOwner) return setLocalErr("Only this agent's owner can list it, this wallet isn't it.");
     if (!price.trim() || Number(price) <= 0) return setLocalErr('Enter a price above 0.');
-    if (!configured) return setLocalErr("Paid listings aren't turned on for this marketplace yet — check back soon.");
+    if (!configured) return setLocalErr("Paid listings aren't turned on for this marketplace yet, check back soon.");
     try {
       const priceRaw = toRawUnits(price, 18);
       const periodSeconds = model === MODEL.SUBSCRIPTION ? Math.max(1, Math.floor(Number(periodDays) * 86400)) : 0;
@@ -95,7 +95,7 @@ export default function SellYourAgentForm() {
 
   const models = [
     { id: MODEL.ONE_TIME, icon: Coins, label: 'One-time purchase', desc: 'Buyer pays once and gets access forever.' },
-    { id: MODEL.SUBSCRIPTION, icon: Activity, label: 'Subscription', desc: "Buyer pays regularly (like a monthly membership) — access stops if they don't renew." },
+    { id: MODEL.SUBSCRIPTION, icon: Activity, label: 'Subscription', desc: "Buyer pays regularly (like a monthly membership), access stops if they don't renew." },
     { id: 'x402', icon: Hammer, label: 'Pay-per-use', desc: 'Buyer is charged automatically each time they use it, paid straight to your wallet.' },
   ];
 
@@ -106,7 +106,7 @@ export default function SellYourAgentForm() {
         <p className="text-sm text-gray-500">List an agent <strong>you own</strong> and choose how people pay you for it. We verify ownership against the public registry before listing.</p>
       </div>
 
-      {/* Creator dashboard: real per-token withdrawable earnings + your listings. */}
+ {/* Creator dashboard: per-token withdrawable earnings + your listings. */}
       <CreatorEarningsPanel />
 
       {!isConnected && (
@@ -196,7 +196,7 @@ export default function SellYourAgentForm() {
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
             <div>
-              <label className="text-xs font-semibold block mb-1">Price per use <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
+              <label className="text-xs font-semibold block mb-1">Price per use <span className="font-normal text-gray-400" title="$U is a type of digital dollar, 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
               <input value={perCall} onChange={(e) => setPerCall(e.target.value)} inputMode="decimal" placeholder="e.g. 0.05"
                 className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
             </div>
@@ -221,7 +221,7 @@ export default function SellYourAgentForm() {
           </div>
         )}
 
-        {/* Live, on-chain platform fee (models 1 & 2). Read from feeBps() — never hardcoded. */}
+        {/* Live, on-chain platform fee (models 1 & 2). Read from feeBps(), never hardcoded. */}
         {model !== 'x402' && (
           <div className="text-[11px] text-gray-500 p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
             {feePct != null

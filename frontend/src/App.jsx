@@ -16,13 +16,13 @@ import { updatePageMeta } from './seoMeta.js';
 // Real, page-specific title/description per route, used by the
 // per-route <title>/meta-description/canonical fix (seoMeta.js). Kept
 // here rather than inside each page component since App.jsx already
-// owns every route's real pathname. Docs pages set their own per-doc
+// owns every route's pathname. Docs pages set their own per-doc
 // title from inside DocsPage.jsx instead, since only that component
 // knows which doc is open.
 const PAGE_META = {
-  '/': { description: "Tnega — an agent marketplace for BNB Agent Studio: discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain." },
+  '/': { description: "Tnega, an agent marketplace for BNB Agent Studio: discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain." },
   '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents on BNB Smart Chain, with on-chain escrow protecting every payment.' },
-  '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions — Venus lending, PancakeSwap trading, and more — you run yourself through your own wallet.' },
+  '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions, Venus lending, PancakeSwap trading, and more, you run yourself through your own wallet.' },
   '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
   '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },
   '/report': { title: 'Advantage Report', description: 'A same-task comparison of hiring an AI agent against doing the work by hand.' },
@@ -36,14 +36,14 @@ const PAGE_META = {
 };
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
-// visitors who actually open /ecosystem — zero cost added to the
+// visitors who open /ecosystem, zero cost added to the
 // Marketplace's own default load. See EcosystemGlobePage.jsx for why.
 const EcosystemGlobePage = lazy(() => import('./EcosystemGlobePage.jsx'));
 
-/** No router library added for one real standalone route — a plain
+/** No router library added for one standalone route, a plain
  * window.location.pathname check, matching this project's existing
  * preference for small hand-rolled solutions over new dependencies for a
- * single case. Real distinct URL either way: /ecosystem is reachable
+ * single case. distinct URL either way: /ecosystem is reachable
  * directly, bookmarkable, and not mixed into any tab's state. */
 function useRoute() {
   const [path, setPath] = useState(window.location.pathname);
@@ -72,19 +72,19 @@ function useIsMobile() {
   return isMobile;
 }
 
-// Real fix, 2026-08-18: WagmiProvider's reconnectOnMount is set to false
+// fix, 2026-08-18: WagmiProvider's reconnectOnMount is set to false
 // (main.jsx) specifically to stop wagmi from touching window.ethereum at
-// the same React-mount tick Privy's own SDK independently probes it — that
-// simultaneous double-touch was the real cause of the double MetaMask
+// the same React-mount tick Privy's own SDK independently probes it, that
+// simultaneous double-touch was the cause of the double MetaMask
 // prompt on connect (see main.jsx's comment for the full trace). But
 // reconnectOnMount is ALSO the only thing that restores a previously-
 // connected wagmi wallet after a page refresh, so turning it off entirely
-// silently broke that persistence as a side effect — not a separate bug,
+// silently broke that persistence as a side effect, not a separate bug,
 // the documented behavior of that flag.
 //
-// Real fix: don't leave it off. Trigger the same reconnect manually, once,
+// fix: don't leave it off. Trigger the same reconnect manually, once,
 // but sequenced to run only after Privy's own `ready` has settled instead
-// of at the same mount tick RainbowKit fires it automatically — same end
+// of at the same mount tick RainbowKit fires it automatically, same end
 // result (the wallet comes back after a refresh), the two systems just
 // never touch window.ethereum in the same instant. wagmi's reconnect()
 // uses eth_accounts for an injected connector (a silent, non-prompting
@@ -130,9 +130,9 @@ export default function App() {
 
   useStaggeredWalletReconnect();
 
-  // Real per-route title/description/canonical (seoMeta.js). Docs pages
-  // are deliberately excluded here — DocsPage.jsx sets its own,
-  // per-document title once it knows which doc is actually open.
+ // per-route title/description/canonical (seoMeta.js). Docs pages
+  // are deliberately excluded here, DocsPage.jsx sets its own,
+ // per-document title once it knows which doc is open.
   useEffect(() => {
     if (path.startsWith('/docs')) return;
     const known = Object.prototype.hasOwnProperty.call(PAGE_META, path);
@@ -146,7 +146,7 @@ export default function App() {
   //
   // The nav entry stays, so choosing "Home" navigates to /home and lands
   // here. That also means the sidebar is gone while it shows, so the exits
-  // below are the only way out and both are real links rather than
+ // below are the only way out and both are links rather than
   // JS-only handlers.
   if (path === '/home' || (path === '/' && firstVisitNav === 'landing')) {
     return <LandingPage onEnterMarketplace={() => navigate('/market')} animate={!isMobile} />;
@@ -184,11 +184,11 @@ export default function App() {
     );
   }
 
-  // Real tab -> URL sync: an unrecognized path (including plain "/") falls
+ // tab -> URL sync: an unrecognized path (including plain "/") falls
   // back to the market tab, same permissive default this app already had
-  // before any tab had its own URL — never a 404, so an old bookmark or a
+  // before any tab had its own URL, never a 404, so an old bookmark or a
   // ?agent= deep link on "/" keeps working exactly as it did.
-  // /agent/<id> is a real, addressable route for one agent's detail view.
+ // /agent/<id> is a real, addressable route for one agent's detail view.
   // It resolves to the marketplace tab; the app's own deep-link effect
   // reads the id out of the path and opens that agent once agents load.
   // Without this a refresh on a detail page fell through to 'market' and
@@ -197,7 +197,7 @@ export default function App() {
   const initialNav = (path === '/' && firstVisitNav) ? firstVisitNav : resolvedNav;
   const onNavChange = (id) => navigate(NAV_TO_PATH[id] || '/market');
 
-  // Genuinely different components, not one component with responsive
+ // Genuinely different components, not one component with responsive
   // CSS, per the earlier design requirement (mobile is its own
   // information architecture, not a shrunk desktop grid).
   return isMobile

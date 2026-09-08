@@ -56,8 +56,9 @@ import QualityCenterPanel from './QualityCenterPanel';
 import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
-import HackathonPartnersFooter from './HackathonPartnersFooter';
-import DocsFooter from './DocsFooter';
+import SiteLinks from './SiteLinks';
+import PartnerMarquee from './PartnerMarquee';
+import './partnerMarquee.css';
 import SessionModesExplainer from './SessionModesExplainer';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
 import OnboardingTour from './OnboardingTour';
@@ -67,77 +68,77 @@ const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const CHAIN_LABELS = { 56: 'BNB Smart Chain' }; // mainnet-only
 
-// Source: docs.bnbchain.org/developer-kit — matches web's Learn content.
-// Confirmed-real source URLs (each verified to resolve). Same set as web.
+// Source: docs.bnbchain.org/developer-kit, matches web's Learn content.
+// Confirmed-source URLs (each verified to resolve). Same set as web.
 const SRC = {
   sdk: { label: 'BNB Agent SDK docs', url: 'https://docs.bnbchain.org/developer-kit/bnbagent-sdk/' },
   studio: { label: 'BNB Agent Studio docs', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/' },
-  studioQuick: { label: 'Studio — Quickstart', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/quickstart/' },
-  studioArch: { label: 'Studio — Architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/architecture/' },
+  studioQuick: { label: 'Studio, Quickstart', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/quickstart/' },
+  studioArch: { label: 'Studio, Architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/architecture/' },
   altana: { label: 'Altana SDK docs', url: 'https://docs.altana.network' },
   skills: { label: 'Altana Skills Registry', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json' },
   venusSkill: { label: 'venus-lending SKILL.md', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/skills/venus-lending/SKILL.md' },
-  adk: { label: "Google's Agent Development Kit — multi-agent patterns", url: 'https://developers.googleblog.com/developers-guide-to-multi-agent-patterns-in-adk/' },
+  adk: { label: "Google's Agent Development Kit, multi-agent patterns", url: 'https://developers.googleblog.com/developers-guide-to-multi-agent-patterns-in-adk/' },
 };
 
 // Copy audit (2026-08-23): this array previously had NO plain-language
-// layer at all — just condensed jargon (raw function-call chains, contract
+// layer at all, just condensed jargon (raw function-call chains, contract
 // names) for what's meant to be the beginner glossary. Rewritten with a
-// real `p` (plain, leads) + `tech` (secondary, for anyone curious) split —
+// real `p` (plain, leads) + `tech` (secondary, for anyone curious) split,
 // kept in sync in spirit with web's LEARN_TOPICS, condensed to one card
 // per topic for mobile's layout.
 const LEARN_TOPICS = [
-  { h: 'A wallet', p: 'An account that holds your crypto and approves payments — like a bank card, but only you control it. Here you can make one with Face ID, no password to write down.', tech: 'A wallet signs on-chain approvals. This app supports passkey wallets (WebAuthn/Face ID), so there\'s no seed phrase.', src: SRC.altana },
-  { h: 'Gas', p: "The tiny fee normally paid to record something permanently — like a stamp on a letter. Registering an agent here is free; we cover that fee for you.", tech: 'A "paymaster" (MegaFuel) sponsors registration gas on BNB Chain.', src: SRC.sdk },
-  { h: 'Mainnet', p: "Mainnet is the live network, where money moves for real. Everything on this site runs on mainnet, not a test network.", tech: 'This is the live network. Nothing here is a simulation.' },
-  { h: 'Escrow', p: 'When you hire an agent, your payment is held by the system, not the agent — it only gets paid once the work is accepted, and you can get it back if nothing is delivered.', tech: 'Your payment sits in an on-chain vault (AgenticCommerce) until settlement.', src: SRC.sdk },
-  { h: 'The agent\'s ID card (ERC-8004)', p: "Every agent gets a permanent, public identity anyone can look up — like an ID card. Free to register.", tech: 'An on-chain ERC-721 identity token + a discoverable profile (name, description, endpoints).', src: SRC.sdk },
+  { h: 'A wallet', p: 'An account that holds your crypto and approves payments, like a bank card, but only you control it. Here you can make one with Face ID, no password to write down.', tech: 'A wallet signs on-chain approvals. This app supports passkey wallets (WebAuthn/Face ID), so there\'s no seed phrase.', src: SRC.altana },
+  { h: 'Gas', p: "The tiny fee normally paid to record something permanently, like a stamp on a letter. Registering an agent here is free; we cover that fee for you.", tech: 'A "paymaster" (MegaFuel) sponsors registration gas on BNB Chain.', src: SRC.sdk },
+ { h: 'Mainnet', p: "Mainnet is the live network, where money moves for real. Everything on this site runs on mainnet, not a test network.", tech: 'This is the live network. Nothing here is a simulation.' },
+  { h: 'Escrow', p: 'When you hire an agent, your payment is held by the system, not the agent, it only gets paid once the work is accepted, and you can get it back if nothing is delivered.', tech: 'Your payment sits in an on-chain vault (AgenticCommerce) until settlement.', src: SRC.sdk },
+  { h: 'The agent\'s ID card (ERC-8004)', p: "Every agent gets a permanent, public identity anyone can look up, like an ID card. Free to register.", tech: 'An on-chain ERC-721 identity token + a discoverable profile (name, description, endpoints).', src: SRC.sdk },
   { h: 'The payment rulebook (ERC-8183)', p: "A set of automatic rules that hold the money and enforce the deal, so neither you nor the agent has to just trust the other.", tech: 'Three contracts: AgenticCommerce (job + escrow), EvaluatorRouter (routes to a settlement policy), OptimisticPolicy (silence past the review window = approved).', src: SRC.sdk },
   { h: 'Hiring = one job, not a subscription', p: "You fund one specific job, once. The agent can never dip into your wallet again on its own.", tech: 'createJob → registerJob → setBudget → approve $U → fund, each signed by your wallet.', src: SRC.sdk },
   { custom: SessionModesExplainer },
-  { h: 'The stages a hire goes through', p: 'Not paid yet → Payment on hold → Delivered → Finished (paid) — or Refunded, if you cancel, dispute successfully, or the deadline passes with nothing delivered.', tech: 'OPEN → FUNDED → SUBMITTED → COMPLETED, or REJECTED / EXPIRED.', src: SRC.sdk },
-  { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry — always available, guaranteed by the contract.', src: SRC.sdk },
+  { h: 'The stages a hire goes through', p: 'Not paid yet → Payment on hold → Delivered → Finished (paid), or Refunded, if you cancel, dispute successfully, or the deadline passes with nothing delivered.', tech: 'OPEN → FUNDED → SUBMITTED → COMPLETED, or REJECTED / EXPIRED.', src: SRC.sdk },
+  { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry, always available, guaranteed by the contract.', src: SRC.sdk },
   { h: "If something looks wrong", p: "You get a short window after delivery to flag a problem before payment is automatically released.", tech: 'Call dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
-  { h: 'Ready-made Skills', p: "Skills are pre-built recipes an agent can run for you — no building required, just a passkey wallet and a spending limit you set.", tech: "Fork-tested Skills from Altana's public registry, run via a passkey wallet + a capped, expiring session.", src: SRC.skills },
-  { h: 'How agents are built: single agent', p: 'One agent handles the whole task itself, start to finish — reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here actually use — including our own explainer agent on the Advantage Report tab.', Diagram: SingleAgentDiagram, src: SRC.adk },
-  { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another — each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
+  { h: 'Ready-made Skills', p: "Skills are pre-built recipes an agent can run for you, no building required, just a passkey wallet and a spending limit you set.", tech: "Fork-tested Skills from Altana's public registry, run via a passkey wallet + a capped, expiring session.", src: SRC.skills },
+ { h: 'How agents are built: single agent', p: 'One agent handles the whole task itself, start to finish, reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here use, including our own explainer agent on the Advantage Report tab.', Diagram: SingleAgentDiagram, src: SRC.adk },
+  { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another, each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
   { h: 'How agents are built: parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
   { h: 'How agents are built: hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
-  { h: "What's actually here right now", p: 'Fewer than 2% of the agents listed on this marketplace mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
+ { h: "What's here right now", p: 'Fewer than 2% of the agents listed on this marketplace mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
 ];
 
-// Real bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
-// pipeline (agent_builder.py): there is NO handle_fulfill — you edit the
+// bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
+// pipeline (agent_builder.py): there is NO handle_fulfill, you edit the
 // agent's instruction string in main.py.
 // Copy audit (2026-08-23): each step now leads with a plain-language
-// explanation (`p`); the real technical detail moves to `tech`, shown
-// smaller/secondary — kept in sync with the equivalent BUILD_STEPS array
+// explanation (`p`); the technical detail moves to `tech`, shown
+// smaller/secondary, kept in sync with the equivalent BUILD_STEPS array
 // in AgentMarketplaceApp.web.jsx (that one keeps the original field names
 // body/plain for its own historical reasons; same content here, mobile's
 // own naming).
 const BUILD_STEPS = [
   { h: '1. Describe your agent, in plain English', p: 'You type a sentence describing what you want; a tool writes the starter code for you.', tech: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a working project.', src: SRC.studioQuick },
-  { h: '2. It builds two things, not one', p: 'The part that holds the keys to real money stays private; a separate public part takes requests from the outside world.', tech: 'Layer A (the Agent) holds the wallet + LLM and is the only thing that ever signs. Layer B (the Service) is public, keyless, and just relays requests.', src: SRC.studioArch },
-  { h: '3. You edit the instructions, not the plumbing', p: "You rewrite one paragraph telling the agent its job — not the technical wiring around it.", tech: 'Wallet setup and the on-chain registration/payment wiring are already there. What you change is the instruction string in main.py describing what it should do when a funded job asks it to work.', src: SRC.studioArch },
-  { h: '4. Test it before it touches real money', p: 'Run it on your own computer first, with a free AI model, before deploying or spending anything.', tech: 'bag dev runs both layers on your machine. You can hit the live negotiate step, get an actual signed price quote, and confirm the whole flow first.', src: SRC.studioQuick },
-  { h: '5. Register, then publish it', p: 'Try it free for about 2 days with one click, or host it yourself permanently later.', tech: 'bag erc8004 register makes your agent discoverable. The one-click "Build it for real" button uses a free trial (no cloud hosting account needed).', src: SRC.studioArch },
+ { h: '2. It builds two things, not one', p: 'The part that holds the keys to money stays private; a separate public part takes requests from the outside world.', tech: 'Layer A (the Agent) holds the wallet + LLM and is the only thing that ever signs. Layer B (the Service) is public, keyless, and just relays requests.', src: SRC.studioArch },
+  { h: '3. You edit the instructions, not the plumbing', p: "You rewrite one paragraph telling the agent its job, not the technical wiring around it.", tech: 'Wallet setup and the on-chain registration/payment wiring are already there. What you change is the instruction string in main.py describing what it should do when a funded job asks it to work.', src: SRC.studioArch },
+ { h: '4. Test it before it touches money', p: 'Run it on your own computer first, with a free AI model, before deploying or spending anything.', tech: 'bag dev runs both layers on your machine. You can hit the live negotiate step, get an signed price quote, and confirm the whole flow first.', src: SRC.studioQuick },
+ { h: '5. Register, then publish it', p: 'Try it free for about 2 days with one click, or host it yourself permanently later.', tech: 'bag erc8004 register makes your agent discoverable. The one-click "Build it for real" button uses a free trial (no cloud hosting account needed).', src: SRC.studioArch },
 ];
 
-// Beginner FAQ — mirrors the web app's, kept in sync.
+// Beginner FAQ, mirrors the web app's, kept in sync.
 const KID_FRIENDLY_FAQ = [
   { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences; to build a custom agent you mostly edit one instruction paragraph, and to use a ready-made Skill you just fill in a form.', src: SRC.studioQuick },
   { q: 'Can it spend my money without asking?', a: "No. Hiring funds one specific job you set and fund yourself; a Skill's spending permission has a cap, an expiry, and a limited list of what it can touch. Neither is a standing permission it can dip into freely.", src: SRC.sdk },
-  { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes — but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
-  { q: 'Do I need my own cloud hosting account to build one?', a: 'No. The build button uses a free trial (about 2 days) on a temporary practice wallet — no hosting account, no real money involved.', src: SRC.studio },
-  { q: 'What kind of agent can I build?', a: "Pretty much anything you can describe in a sentence: trading, research, writing, customer support, data analysis, games — you're not limited to a preset list.", src: SRC.studioQuick },
-  { q: 'Can it sell to people, not just other agents?', a: "Yes. Any buyer — a person or another agent — can hire it. It's not limited to agent-to-agent deals.", src: SRC.studioArch },
+  { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes, but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
+  { q: 'Do I need my own cloud hosting account to build one?', a: 'No. The build button uses a free trial (about 2 days) on a temporary practice wallet, no hosting account, no money involved.', src: SRC.studio },
+  { q: 'What kind of agent can I build?', a: "Pretty much anything you can describe in a sentence: trading, research, writing, customer support, data analysis, games, you're not limited to a preset list.", src: SRC.studioQuick },
+  { q: 'Can it sell to people, not just other agents?', a: "Yes. Any buyer, a person or another agent, can hire it. It's not limited to agent-to-agent deals.", src: SRC.studioArch },
 ];
-// Bumped to v2 alongside the web app — see AgentMarketplaceApp.web.jsx's
-// CACHE_KEY comment for the real reason (a stale-client-cache theory from
+// Bumped to v2 alongside the web app, see AgentMarketplaceApp.web.jsx's
+// CACHE_KEY comment for the reason (a stale-client-cache theory from
 // investigating a reported web-only missing-button bug that a real
 // headless render proved isn't a code-level divergence).
 // Renamed to 'tnega-cache-v1' alongside web + EcosystemGlobePage for the
-// Tnega rebrand — see AgentMarketplaceApp.web.jsx's CACHE_KEY comment.
+// Tnega rebrand, see AgentMarketplaceApp.web.jsx's CACHE_KEY comment.
 const CACHE_KEY = 'tnega-cache-v1';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -152,13 +153,13 @@ function mapAgent(a) {
     supportedProtocols: a.supported_protocols || [], defillamaUrl: a.defillama_url,
     strategy: a.description || 'No description provided.',
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
-    // Real, added 2026-08-29 — same DefiLlama match as tvlUsd, zero extra
-    // API calls — see the matching web.jsx comment for the full real
+ // Real, added 2026-08-29, same DefiLlama match as tvlUsd, zero extra
+ // API calls, see the matching web.jsx comment for the full real
     // reasoning behind each field.
     tvlChange7dPct: a.tvl_change_7d_pct, auditCount: a.audit_count,
     tvlDataFlagged: a.tvl_data_flagged, mcapUsd: a.mcap_usd,
     ownerBnbBalance: a.owner_bnb_balance, possiblyDelisted: a.possibly_delisted, session: null,
-    // Real, server-checked service-liveness signal — see core/agent_health.py.
+ // Real, server-checked service-liveness signal, see core/agent_health.py.
     serviceStatus: a.service_status || null, serviceEndpoint: a.service_endpoint || null,
     serviceCheckedAt: a.service_checked_at || null, serviceRank: serviceRank(a.service_status),
   };
@@ -208,15 +209,15 @@ function useMarketplaceAgents() {
   });
   const [loading, setLoading] = useState(agents.length === 0);
   const [error, setError] = useState(null);
-  // Real bug found and fixed (2026-08-27), matching web — see
-  // AgentMarketplaceApp.web.jsx's useMarketplaceAgents for the full real
+ // bug found and fixed (2026-08-27), matching web, see
+ // AgentMarketplaceApp.web.jsx's useMarketplaceAgents for the full real
   // investigation. Short version: `loading` is already false on the very
   // first render whenever a warm cache exists (by design, so the agent
   // list can show cached cards instantly), so the header stat count was
-  // rendering the real-but-possibly-stale cached number on the very first
-  // paint, then flashing to the real, fresh number once this effect's
+ // rendering the real-but-possibly-stale cached number on the very first
+ // paint, then flashing to the real, fresh number once this effect's
   // fetch resolved. `confirmedFresh` starts false on every render (cache
-  // or not) and flips true only once a real fetch actually settles.
+ // or not) and flips true only once a fetch settles.
   const [confirmedFresh, setConfirmedFresh] = useState(false);
 
   useEffect(() => {
@@ -242,8 +243,8 @@ function useMarketplaceAgents() {
   return { agents, setAgents, loading, error, confirmedFresh };
 }
 
-// Real, honest placeholder for a stat number that isn't confirmed-fresh yet
-// (see useMarketplaceAgents' confirmedFresh above) — a pulsing bar, never a
+// Real, placeholder for a stat number that isn't confirmed-fresh yet
+// (see useMarketplaceAgents' confirmedFresh above), a pulsing bar, never a
 // number that might be wrong. Parity with web's StatSkeleton.
 function StatSkeleton() {
   return <div className="h-5 w-10 mx-auto rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />;
@@ -252,13 +253,13 @@ function StatSkeleton() {
 const NAV_ITEMS = [
   { id: 'landing', label: 'Home', icon: Sparkles },
   { id: 'market', label: 'Market', icon: Store },
-  // Real, deliberate placement (2026-08-29, product/UX audit) — mirrors
+ // Real, deliberate placement (2026-08-29, product/UX audit), mirrors
   // web's identical NAV_ITEMS change; see that file's own comment for the
   // full reasoning. A Skill isn't a registered ERC-8004 agent being hired
-  // for delivered work — it's a real, direct, self-executed on-chain
+ // for delivered work, it's a real, direct, self-executed on-chain
   // action, promoted out of the "Build" tab (a different feature) into
   // its own top-level tab.
-  // Real, own top-level tab (2026-09-01) — mirrors web's identical
+ // Real, own top-level tab (2026-09-01), mirrors web's identical
   // NAV_ITEMS change; see that file's own comment for the full reasoning.
   // Ordered ahead of Skills (2026-09-02, explicit tab-order request).
   { id: 'native', label: 'Native Agents', icon: Bot },
@@ -272,7 +273,7 @@ const NAV_ITEMS = [
   { id: 'sell', label: 'Sell', icon: Coins },
 ];
 
-// Real bottom-bar trim (2026-09-04): eight tabs in a phone-width bar left
+// bottom-bar trim (2026-09-04): eight tabs in a phone-width bar left
 // each one ~40px wide with a 10px label -- crowded and hard to hit
 // accurately. The bar now carries only the three genuinely primary
 // destinations and everything else moves into the existing menu sheet, so
@@ -289,7 +290,7 @@ const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((i) => PRIMARY_NAV_IDS.includes(i.id)
 const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.id));
 
 // Mobile-optimized Wallet Modal / Sheet
-function MobileWalletSheet({ onClose, nav, onNavigate }) {
+function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { ready, authenticated, user, logout } = usePrivy();
@@ -357,6 +358,14 @@ function MobileWalletSheet({ onClose, nav, onNavigate }) {
             </ConnectButton.Custom>
           </div>
         )}
+
+        {/* Docs, GitHub and LinkedIn. Previously a single line at the very
+            bottom of the page, under two footers. */}
+        <SiteLinks
+          onOpenDocs={onOpenDocs ? () => { onOpenDocs(); onClose(); } : undefined}
+          variant="light"
+          className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800"
+        />
       </div>
     </div>
   );
@@ -366,10 +375,10 @@ function MobileWalletSheet({ onClose, nav, onNavigate }) {
 // continue.
 //
 // The "Continue with Face ID" button was removed 2026-09-04. It worked, but
-// it was misleading: it promised biometrics and actually opened Privy's
+// it was misleading: it promised biometrics and opened Privy's
 // passkey/email modal. What that label implies -- an OS-level biometric
 // unlock of the app itself -- is not something a web app can do, so the
-// honest fix was to stop offering it rather than to reword it.
+// fix was to stop offering it rather than to reword it.
 function SplashScreen({ onUnlock }) {
   const [showControls, setShowControls] = useState(false);
 
@@ -407,7 +416,7 @@ function SplashScreen({ onUnlock }) {
 
 const BSCSCAN = 'https://bscscan.com';
 
-// Full agent detail — a full-screen push (matching the hire flow), showing
+// Full agent detail, a full-screen push (matching the hire flow), showing
 // everything the aggregated data holds for one agent.
 function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
   const [copied, setCopied] = useState(false);
@@ -443,10 +452,10 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         </div>
 
         <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-          {[['Score', agent.totalScore != null ? agent.totalScore.toFixed(1) : '—', 'How trustworthy this agent looks, based on real past feedback'],
-            ['Stars', agent.starCount ?? '—', 'How many people rated this agent'],
-            ['On-chain Feedback', agent.totalFeedbacks ?? '—', 'On-chain ERC-8004 feedback entries for this agent — a count only, with no written text or rating behind it'],
-            ['Funds', agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '—', 'Total money this agent currently manages for people']].map(([l, v, hint]) => (
+ {[['Score', agent.totalScore != null ? agent.totalScore.toFixed(1) : 'n/a', 'How trustworthy this agent looks, based on past feedback'],
+            ['Stars', agent.starCount ?? 'n/a', 'How many people rated this agent'],
+            ['On-chain Feedback', agent.totalFeedbacks ?? 'n/a', 'On-chain ERC-8004 feedback entries for this agent, a count only, with no written text or rating behind it'],
+            ['Funds', agent.financialDataAvailable && agent.tvlUsd != null ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : 'n/a', 'Total money this agent currently manages for people']].map(([l, v, hint]) => (
             <div key={l} title={hint} className="p-2 rounded-xl bg-gray-50 dark:bg-gray-800/50">
               <span className="block text-[9px] text-gray-500 uppercase">{l}</span>
               <span className="font-bold text-sm">{v}</span>
@@ -476,7 +485,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <div className="flex flex-wrap items-center gap-2 my-4">
           {agent.isVerified && <span title="Registered on-chain, not a quality rating" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
           {agent.x402Supported && <span title="Can pay other agents automatically for tools or data it needs, without a person approving each payment" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />Pays other agents automatically</span>}
-          {(agent.supportedProtocols || []).map((p) => <span key={p} title={`Works with ${p}, a real app it can act on for you`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
+          {(agent.supportedProtocols || []).map((p) => <span key={p} title={`Works with ${p}, a app it can act on for you`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
           <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
           {(!agent.serviceStatus || agent.serviceStatus === 'unknown') && (
             <span className="text-[11px] text-gray-400">Not confirmed online yet</span>
@@ -497,17 +506,17 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           </>
         ) : <p className="text-xs text-gray-400">We don't have an owner ID on record for this agent.</p>}
 
-        {/* Real live BNB balance of the owner wallet — a different metric from
+ {/* live BNB balance of the owner wallet, a different metric from
             "Funds", labeled and placed separately so the two are never
             confused with one another. */}
         <div className="mt-3 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
           <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
-        {/* Real, final, unified "Metrics" presentation — see the matching
+ {/* Real, final, unified "Metrics" presentation, see the matching
             comment on AgentDetail (web) / AgentMetrics.jsx's own header
-            for the full real consolidation rationale (same file web
-            uses). The harder, last-chance gate still lives in the actual
+            for the full consolidation rationale (same file web
+ uses). The harder, last-chance gate still lives in the actual
             funding modal below. */}
         <AgentMetrics agent={agent} onHire={onHire} onTrySkill={onTrySkill} />
 
@@ -519,7 +528,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
   );
 }
 
-// Default export: the splash gate wrapping the real app.
+// Default export: the splash gate wrapping the app.
 export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
   const [unlocked, setUnlocked] = useState(false);
   if (!unlocked) return <SplashScreen onUnlock={() => setUnlocked(true)} />;
@@ -527,19 +536,19 @@ export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenData
 }
 
 function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
-  // Real bug found and fixed (2026-08-27, full mobile/web parity audit):
+ // bug found and fixed (2026-08-27, full mobile/web parity audit):
   // this file referenced an undefined `REPORT_ACCENT` (never defined or
-  // imported anywhere in the codebase) on AltanaSkillsPanel — a guaranteed
+  // imported anywhere in the codebase) on AltanaSkillsPanel, a guaranteed
   // ReferenceError crash the moment a user opened that tab. (At the time,
   // AltanaSkillsPanel lived on the Build tab; it moved to its own Skills
-  // tab 2026-08-29 — see NAV_ITEMS' own comment above.) Same real accent
+  // tab 2026-08-29, see NAV_ITEMS' own comment above.) Same accent
   // value web uses (AgentMarketplaceApp.web.jsx).
   const accent = '#6366F1';
   const [darkMode, setDarkMode] = useState(false);
-  // Real first-visit orientation — see AgentMarketplaceApp.web.jsx's
-  // matching comment and onboarding.js for the real reasoning.
+ // first-visit orientation, see AgentMarketplaceApp.web.jsx's
+  // matching comment and onboarding.js for the reasoning.
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
-  // Real per-tab URL routing — see the matching comment in
+ // per-tab URL routing, see the matching comment in
   // AgentMarketplaceApp.web.jsx; identical mechanism here.
   const [nav, setNav] = useState(initialNav || 'market');
   useEffect(() => {
@@ -550,22 +559,22 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyResponding, setOnlyResponding] = useState(false);
-  // Real, honest opt-in filter (see agentVerification.js) — off by default.
+ // Real, opt-in filter (see agentVerification.js), off by default.
   const [onlyVerified, setOnlyVerified] = useState(false);
-  // Two-tier category filter (categoryGroups.js) — matches web.
+  // Two-tier category filter (categoryGroups.js), matches web.
   const [activeGroup, setActiveGroup] = useState('All');
-  // Real sort — mobile had no sort control at all before this (the list
+ // sort, mobile had no sort control at all before this (the list
   // just showed the backend's own default, score-sorted order). 'default'
-  // keeps that; 'hireCount'/'winRate' switch to the real tiered comparator
-  // (agentRanking.js — same logic web uses, see its own comment for why
-  // real history sorts first and no-history agents are listed after,
+  // keeps that; 'hireCount'/'winRate' switch to the tiered comparator
+  // (agentRanking.js, same logic web uses, see its own comment for why
+ // history sorts first and no-history agents are listed after,
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
   const { byOwner: perfByOwner, indexComplete: perfIndexComplete, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
-  // Real Back-button support (2026-09-04). Opening an agent pushes a real
+ // Back-button support (2026-09-04). Opening an agent pushes a real
   // history entry and Back closes it, returning to the list underneath;
   // and the tab view follows the URL when Back/Forward changes it, which
   // it previously did not (initialNav was only ever read at mount).
@@ -577,13 +586,13 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   useNavSync(initialNav, nav, setNav);
   const [hiring, setHiring] = useState(false);
   // Escrow by default, always -- budget mode is opt-in because it is a
-  // real reduction in buyer protection.
+ // reduction in buyer protection.
   const [hireMode, setHireMode] = useState(HIRE_MODE.ESCROW);
   // Asked per agent, not per contract: the escrow being deployed does not
   // mean THIS agent can draw from it. Defaults to unavailable while it
   // loads, so a possible dead end is never offered before it is ruled out.
   const budgetMode = useBudgetModeStatus(selectedAgent?.ownerAddress || selectedAgent?.owner_address);
-  // Real deep-link from the agent guidance panel's "Try it yourself" —
+ // deep-link from the agent guidance panel's "Try it yourself",
   // switches to Build and pre-opens that specific skill's guided form.
   // Mirrors web's identical handleTrySkill.
   const [pendingSkillId, setPendingSkillId] = useState(null);
@@ -616,15 +625,15 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   };
   const [spendCap, setSpendCap] = useState(50000);
   const [spendCapTouched, setSpendCapTouched] = useState(false);
-  // Real, user-facing job deadline — see the matching comment in
+ // Real, user-facing job deadline, see the matching comment in
   // AgentMarketplaceApp.web.jsx (kept in sync) and hireDeadline.js.
   const [deadlineMinutes, setDeadlineMinutes] = useState(DEADLINE_DEFAULT_MINUTES);
   const deadlineError = validateDeadlineMinutes(deadlineMinutes);
-  // Advanced override for the on-chain job description — see the matching
+  // Advanced override for the on-chain job description, see the matching
   // comment in AgentMarketplaceApp.web.jsx (kept in sync with web).
   const [customDescription, setCustomDescription] = useState('');
   const [showCustomDescription, setShowCustomDescription] = useState(false);
-  // Real, live price discovery — see useAgentQuote in useHireAgent.js /
+ // Real, live price discovery, see useAgentQuote in useHireAgent.js /
   // the matching comment in AgentMarketplaceApp.web.jsx (kept in sync).
   const agentQuote = useAgentQuote(hiring ? selectedAgent : null);
   useEffect(() => {
@@ -632,21 +641,21 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       setSpendCap(agentQuote.priceUnits);
     }
   }, [agentQuote.status, agentQuote.priceUnits, spendCapTouched]);
-  // Hire-by-address escape hatch — see the matching comment in
+  // Hire-by-address escape hatch, see the matching comment in
   // AgentMarketplaceApp.web.jsx (kept in sync with web).
   const [showManualHire, setShowManualHire] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
   const { agents, setAgents, loading, error, confirmedFresh } = useMarketplaceAgents();
-  // Real bug fix, 2026-08-26: this used to sit up near `sortKey` (right
-  // after the state declarations, before `agents` itself existed yet) —
+ // bug fix, 2026-08-26: this used to sit up near `sortKey` (right
+  // after the state declarations, before `agents` itself existed yet),
   // `agents` is a `const` from useMarketplaceAgents() below, and JS's
   // temporal dead zone means referencing a `const` before its own
   // declaration line throws ReferenceError, on every single render. That
-  // crashed the ENTIRE mobile app (web was fine — there, `agents` happens
+  // crashed the ENTIRE mobile app (web was fine, there, `agents` happens
   // to be destructured near the top, before its own agentsWithPerf line,
-  // so the same code never hit this). Real fix: declare it here, right
-  // after `agents` itself, matching web's real ordering.
+ // so the same code never hit this). fix: declare it here, right
+ // after `agents` itself, matching web's ordering.
   const agentsWithPerf = useMemo(
     () => withCanaryStatus(withPerformance(agents, perfByOwner), canaryByOwner),
     [agents, perfByOwner, canaryByOwner]
@@ -669,11 +678,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     if (!walletConnected) { setWalletSheetOpen(true); return; }
     setSelectedAgent(agent);
     setHiring(true);
-    setSpendCapTouched(false); // fresh agent — let its real price (if any) pre-fill again
-    setDeadlineMinutes(DEADLINE_DEFAULT_MINUTES); // fresh agent — don't carry a prior custom deadline over
+    setSpendCapTouched(false); // fresh agent, let its price (if any) pre-fill again
+    setDeadlineMinutes(DEADLINE_DEFAULT_MINUTES); // fresh agent, don't carry a prior custom deadline over
   };
 
-  // Real, last-chance escrow-compatibility gate, parity with web — see
+ // Real, last-chance escrow-compatibility gate, parity with web, see
   // EscrowCompatibilityWarning.jsx.
   const hireEscrowGate = useHireFlowEscrowGate(selectedAgent?.ownerAddress, selectedAgent?.id);
 
@@ -682,8 +691,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps, stepHashes: hireStepHashes,
     notifySkipReason: hireNotifySkipReason,
   } = useHireAgent();
-  // Real "sign once" batched alternative (2026-08-27), parity with web —
-  // see useHireAgent.js's own top-of-file note for the full real
+ // Real "sign once" batched alternative (2026-08-27), parity with web,
+ // see useHireAgent.js's own top-of-file note for the full real
   // investigation. Step-by-step stays the default.
   const canBatchHire = useBatchHireCapability();
   const [signOnceForAllSteps, setSignOnceForAllSteps] = useState(false);
@@ -695,7 +704,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       alert("We don't have an owner ID on record for this agent, so we can't hire it.");
       return;
     }
-    if (deadlineError) return; // real bounds — the button itself is also disabled on this, see below
+ if (deadlineError) return; // bounds, the button itself is also disabled on this, see below
     try {
       const useBatch = signOnceForAllSteps && canBatchHire === CAN_BATCH_HIRE_STATUS.supported;
       setActiveHireMode(useBatch ? 'batched' : 'stepwise');
@@ -710,8 +719,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           : `Hire via Tnega: ${selectedAgent.name}`,
       });
       trackJob(jobId.toString(), 'FUNDED');
-      recordFunded(jobId.toString()); // the real moment funding confirmed — see jobTiming.js
-      addNotification(`Job #${jobId}: Payment on hold`, `You hired ${selectedAgent.name} — your payment is on hold until the work is done.`);
+      recordFunded(jobId.toString()); // the moment funding confirmed, see jobTiming.js
+      addNotification(`Job #${jobId}: Payment on hold`, `You hired ${selectedAgent.name}, your payment is on hold until the work is done.`);
       setAgents((prev) => prev.map((a) => a.id === selectedAgent.id
         ? { ...a, session: { jobId: jobId.toString(), spendCap: Number(spendCap), status: 'FUNDED' } }
         : a));
@@ -738,30 +747,30 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     // Search AND category both apply together.
     list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
     if (searchQuery) list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
-    // Real filter: only agents whose registered endpoint answered a real
-    // health-check (see core/agent_health.py) — the requested "let a user
+ // filter: only agents whose registered endpoint answered a real
+    // health-check (see core/agent_health.py), the requested "let a user
     // filter to only see agents with a currently-responding endpoint".
     if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
-    // Real, honest opt-in narrowing to agents with a confirmed delivered
-    // job (see agentVerification.js) — off by default.
+ // Real, opt-in narrowing to agents with a confirmed delivered
+    // job (see agentVerification.js), off by default.
     if (onlyVerified) list = list.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED);
-    // "Most hired" / "Highest success rate" — real tiered comparator; any
+ // "Most hired" / "Highest success rate", tiered comparator; any
     // other value ('default') keeps the backend's own already-sorted order.
     const secondary = (sortKey === 'hireCount' || sortKey === 'winRate')
       ? performanceComparator(sortKey)
       : () => 0; // 'default': preserve the backend's own already-sorted order within each tier
-    // Real verification tier ALWAYS sorts first — see the matching comment
+ // verification tier ALWAYS sorts first, see the matching comment
     // in AgentMarketplaceApp.web.jsx (kept in sync).
     return [...list].sort(withVerificationTierFirst(secondary));
   }, [agentsWithPerf, activeGroup, activeCategory, searchQuery, onlyResponding, onlyVerified, sortKey]);
 
-  // Real pagination, mobile pattern: "Load more" instead of web's numbered
-  // pages — a narrow single-column layout makes small numbered tap targets
+ // pagination, mobile pattern: "Load more" instead of web's numbered
+  // pages, a narrow single-column layout makes small numbered tap targets
   // awkward, and appending is the familiar mobile-app convention (vs. a
-  // desktop-style page-jump control). Same underlying real requirement as
-  // web though: don't render the entire filtered list at once. 12/page —
+ // desktop-style page-jump control). Same underlying requirement as
+  // web though: don't render the entire filtered list at once. 12/page,
   // smaller than web's 24 since these cards are full-width and taller
-  // (one column, not three), so 12 already fills a real, substantial
+ // (one column, not three), so 12 already fills a real, substantial
   // screen's worth before "Load more" is needed. Purely client-side, same
   // reason as web: the full list is already in memory.
   const MOBILE_PAGE_SIZE = 12;
@@ -769,7 +778,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeGroup, activeCategory, searchQuery, onlyResponding, onlyVerified, sortKey]);
   const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
 
-  // Real per-group counts (categoryGroups.js) — matches web.
+ // per-group counts (categoryGroups.js), matches web.
   const groupCounts = useMemo(() => {
     const counts = { Unclassified: 0 };
     for (const g of CATEGORY_GROUPS) counts[g.id] = 0;
@@ -780,7 +789,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     return counts;
   }, [agents]);
 
-  // Fine-grained category chips scoped to the active group — matches web.
+  // Fine-grained category chips scoped to the active group, matches web.
   const activeGroupCategories = useMemo(() => {
     if (activeGroup === 'All' || activeGroup === 'Unclassified') return [];
     const groupCats = CATEGORY_GROUPS.find((g) => g.id === activeGroup)?.categories || [];
@@ -789,7 +798,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   }, [agents, activeGroup]);
   useEffect(() => { setActiveCategory('All'); }, [activeGroup]);
 
-  // Real, marketplace-wide tier counts + per-card tier-break markers — see
+ // Real, marketplace-wide tier counts + per-card tier-break markers, see
   // the matching comment in AgentMarketplaceApp.web.jsx (kept in sync).
   const tierCounts = useMemo(() => {
     const counts = { [VERIFICATION_TIER.VERIFIED]: 0, [VERIFICATION_TIER.RESPONDING]: 0, [VERIFICATION_TIER.UNPROVEN]: 0 };
@@ -806,13 +815,13 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     });
   }, [visible]);
 
-  // Same real stat cards as web (Agents Shown / Feedback / Verified).
+  // Same stat cards as web (Agents Shown / Feedback / Verified).
   //
-  // Real bug found and fixed (2026-08-27), matching web: `verified` used
+ // bug found and fixed (2026-08-27), matching web: `verified` used
   // isVerified (8004scan's own raw is_verified field, confirmed always
-  // false across the real registry — always showed 0). Fixed to use
+  // false across the registry, always showed 0). Fixed to use
   // agentVerification.js's getVerificationTier over agentsWithPerf (has the
-  // real jobsCompleted/jobsSubmitted signal merged in).
+ // jobsCompleted/jobsSubmitted signal merged in).
   const stats = useMemo(() => ({
     total: agentsWithPerf.length,
     verified: agentsWithPerf.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED).length,
@@ -828,7 +837,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           touch-target floor plus the logo and title left almost no room on a
           360px phone. This is arrangement only -- every control is still here
           and still 44x44. What changed is the gap between them and the
-          padding around them, which is where the space actually was. */}
+ padding around them, which is where the space was. */}
       <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-5 py-2.5 sm:py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
         <div className="flex items-center gap-2 min-w-0">
           <a
@@ -895,7 +904,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
               <p className="text-gray-500 text-sm mb-4">You'll approve a few quick steps in your wallet, tracked below as they happen.</p>
 
-              {/* Real, last-chance gate, parity with web — see
+ {/* Real, last-chance gate, parity with web, see
                   EscrowCompatibilityWarning.jsx. */}
               {hireEscrowGate.node}
 
@@ -905,14 +914,14 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               </div>
 
               <div className="space-y-6">
-                {/* Unified "how much and how long" step (2026-09-09) — see
+                {/* Unified "how much and how long" step (2026-09-09), see
                     the matching comment in AgentMarketplaceApp.web.jsx
                     (kept in sync). */}
                 <div className="p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/[0.02] space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2">How much are you funding this job for? <span className="font-normal text-gray-400" title="$U is a type of digital dollar — 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
+                  <label className="block text-sm font-semibold mb-2">How much are you funding this job for? <span className="font-normal text-gray-400" title="$U is a type of digital dollar, 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
 
-                  {/* Live price discovery — see the matching comment
+                  {/* Live price discovery, see the matching comment
                       in AgentMarketplaceApp.web.jsx (kept in sync). */}
                   {agentQuote.status === 'loading' && (
                     <div className="mb-2 flex items-center gap-1.5 text-xs text-gray-400">
@@ -921,9 +930,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   )}
                   {agentQuote.status === 'available' && (
                     <div className="mb-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-xs text-emerald-800 dark:text-emerald-300">
-                      <strong>This agent charges {agentQuote.priceUnits} $U.</strong> We got this straight from the agent itself — filled in below, no need to guess.
+                      <strong>This agent charges {agentQuote.priceUnits} $U.</strong> We got this straight from the agent itself, filled in below, no need to guess.
                       {spendCapTouched && Number(spendCap) < agentQuote.priceUnits && (
-                        <span className="block mt-1 text-amber-700 dark:text-amber-400">You've entered less than that — we'll automatically pay at least {agentQuote.priceUnits} $U, since the agent won't accept less.</span>
+                        <span className="block mt-1 text-amber-700 dark:text-amber-400">You've entered less than that, we'll automatically pay at least {agentQuote.priceUnits} $U, since the agent won't accept less.</span>
                       )}
                     </div>
                   )}
@@ -937,10 +946,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <div className="mt-1.5"><GetULink /></div>
                 </div>
 
-                {/* Real, user-facing job deadline (2026-09-09) — see the
+ {/* Real, user-facing job deadline (2026-09-09), see the
                     matching comment in AgentMarketplaceApp.web.jsx (kept in
                     sync) and hireDeadline.js. Scoped to third-party hiring
-                    only — Native Agents and Skills are atomic,
+                    only, Native Agents and Skills are atomic,
                     single-transaction actions with no delivery period. */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-semibold mb-2"><Clock size={16} className="text-gray-400" /> How long does the agent have to deliver?</label>
@@ -965,7 +974,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <p className="text-[11px] text-gray-400 mt-1.5">
                     {deadlineError
                       ? <span className="text-red-500">{deadlineError}</span>
-                      : <>Minutes ({formatDeadline(deadlineMinutes)}). If the agent hasn't delivered by then, you can reclaim your funds — real minimum {DEADLINE_MIN_MINUTES} min, real maximum {formatDeadline(DEADLINE_MAX_MINUTES)}.</>}
+ : <>Minutes ({formatDeadline(deadlineMinutes)}). If the agent hasn't delivered by then, you can reclaim your funds, minimum {DEADLINE_MIN_MINUTES} min, maximum {formatDeadline(DEADLINE_MAX_MINUTES)}.</>}
                   </p>
                 </div>
                 </div>
@@ -989,17 +998,17 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   )}
                 </div>
 
-                {/* Real "sign once" toggle (2026-08-27) — parity with web,
-                    only ever shown once canBatchHire genuinely confirms
-                    real batch support for the connected wallet. */}
+ {/* Real "sign once" toggle (2026-08-27), parity with web,
+ only ever shown once canBatchHire genuinely confirms
+ batch support for the connected wallet. */}
                 {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.supported && (
                   <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
                     <div>
                       <div className="text-xs font-semibold">{signOnceForAllSteps ? 'Sign once for all steps' : 'Sign each step individually'}</div>
                       <div className="text-[11px] text-gray-400 mt-0.5">
                         {signOnceForAllSteps
-                          ? 'Your wallet supports this — one signature covers the on-chain steps after the job is created.'
-                          : "You'll approve each real on-chain step one at a time — the default."}
+                          ? 'Your wallet supports this, one signature covers the on-chain steps after the job is created.'
+ : "You'll approve each on-chain step one at a time, the default."}
                       </div>
                     </div>
                     <button
@@ -1017,10 +1026,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </p>
                 )}
 
-                {/* Real step checklist — identical logic to web, via the
+ {/* step checklist, identical logic to web, via the
                     same shared buildHireStepList/buildBatchHireStepList
                     helpers (useHireAgent.js), so the two can't drift on
-                    what each step actually means. */}
+ what each step means. */}
                 {hireStep && (
                   <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
                     <StepChecklist steps={(activeHireMode === 'batched' ? buildBatchHireStepList : buildHireStepList)({
@@ -1062,26 +1071,26 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <p className="text-sm text-gray-500">Browse AI agents and hire one with a spending limit you control.</p>
                 </div>
 
-                {/* Real stat cards (parity with web). The diversity-limit note and
+ {/* stat cards (parity with web). The diversity-limit note and
                     badge legend used to each be a permanent paragraph stacked below
-                    here — now behind small on-demand (i) icons instead, same real
+ here, now behind small on-demand (i) icons instead, same real
                     meaning, no permanent space. */}
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   {[
                     { label: 'Listed', value: stats.total, icon: Activity, color: '#2563EB', info: (
                       <>This is a varied mix, not every agent that exists. Most agents here were created in a few
-                      big signup batches and look nearly identical, so we limit how many near-duplicates show up —
+                      big signup batches and look nearly identical, so we limit how many near-duplicates show up,
                       there are more agents out there, we're just not cluttering your view with lookalikes.</>
                     ) },
-                    { label: 'On-chain Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'On-chain ERC-8004 feedback entries recorded against these agents. Counts only — no written text and no star rating, so there is nothing to read behind the number. Most of it comes from one automated cluster rather than many independent buyers.' },
+                    { label: 'On-chain Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'On-chain ERC-8004 feedback entries recorded against these agents. Counts only, no written text and no star rating, so there is nothing to read behind the number. Most of it comes from one automated cluster rather than many independent buyers.' },
                     { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Has at least one on-chain-confirmed delivered job, rather than only being registered (see 'How we verify agents' below)" },
                   ].map((c) => {
                     const Icon = c.icon;
                     return (
                       <div key={c.label} title={c.hint} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
                         <Icon size={16} className="mx-auto mb-1" style={{ color: c.color }} />
-                        {/* Real fix (2026-08-27): only render the real,
-                            confirmed-fresh count — a skeleton until then,
+ {/* fix (2026-08-27): only render the real,
+                            confirmed-fresh count, a skeleton until then,
                             never a stale cached number that later jumps. */}
                         {confirmedFresh ? <div className="text-lg font-bold">{c.value.toLocaleString()}</div> : <StatSkeleton />}
                         <div className="text-[10px] text-gray-500 flex items-center justify-center gap-0.5">
@@ -1093,7 +1102,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   })}
                 </div>
 
-                {/* Real, permanently-accessible explainer (2026-08-27) —
+ {/* Real, permanently-accessible explainer (2026-08-27),
                     parity with web. See VerificationExplainerSection.jsx. */}
                 <VerificationExplainerSection className="mb-4" />
 
@@ -1156,7 +1165,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </button>
                 </div>
 
-                {/* Real, honest failure state (2026-08-27) — see the
+ {/* Real, failure state (2026-08-27), see the
                     matching comment on AgentMarketplaceApp.web.jsx. */}
                 {perfStatus === 'error' && (
                   <div className="mb-3 flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400">
@@ -1166,7 +1175,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                {/* Hire-by-address escape hatch — see the matching block in
+                {/* Hire-by-address escape hatch, see the matching block in
                     AgentMarketplaceApp.web.jsx. */}
                 <div className="mb-4">
                   <button type="button" onClick={() => setShowManualHire((v) => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300">
@@ -1196,15 +1205,15 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   )}
                 </div>
 
-                {/* Two-tier category filter (categoryGroups.js) — group
-                    first, real fine-grained categories only shown once a
+                {/* Two-tier category filter (categoryGroups.js), group
+ first, fine-grained categories only shown once a
                     group is picked. Matches web. */}
                 <div className="flex overflow-x-auto pb-3 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
                   <button onClick={() => setActiveGroup('All')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
                     activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
                   }`}>All</button>
-                  {/* Real fix (2026-08-27), matches web: same
-                      confirmedFresh gate as the header stats — '…' instead
+ {/* fix (2026-08-27), matches web: same
+                      confirmedFresh gate as the header stats, '…' instead
                       of a count that might be a stale, pre-fetch number. */}
                   {CATEGORY_GROUPS.map((g) => (
                     <button key={g.id} onClick={() => setActiveGroup(g.id)} title={g.categories.join(', ')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
@@ -1238,7 +1247,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                {/* Real, live search fallback (2026-08-29) — mirrors web
+ {/* Real, live search fallback (2026-08-29), mirrors web
                     exactly, see UniversalSearchFallback.jsx and
                     docs/universal-search.md. */}
                 {/* Filters alone can empty the list (see the web app's matching
@@ -1248,7 +1257,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <div className="text-center py-14 px-5">
                     <p className="font-semibold mb-1">No agents match these filters</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Try widening them — "Verified working" in particular matches only a small share of agents.
+                      Try widening them, "Verified working" in particular matches only a small share of agents.
                     </p>
                     <button
                       onClick={() => { setActiveGroup('All'); setActiveCategory('All'); setOnlyResponding(false); setOnlyVerified(false); }}
@@ -1268,7 +1277,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       accent={accent}
                       mutedBorder="border-gray-200 dark:border-gray-800"
                       darkMode={darkMode}
-                      plainEmptyMessage={`Nothing matches "${searchInput.trim()}" by name. If you're looking for a specific agent, try its exact id instead of its name — or paste a wallet or contract address.`}
+                      plainEmptyMessage={`Nothing matches "${searchInput.trim()}" by name. If you're looking for a specific agent, try its exact id instead of its name, or paste a wallet or contract address.`}
                     />
                   </div>
                 )}
@@ -1302,11 +1311,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         </div>
 
                         <div className="flex gap-4 mb-2">
-                          <div title="How trustworthy this agent looks, based on past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || '—'}</span></div>
+                          <div title="How trustworthy this agent looks, based on past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || ','}</span></div>
                           <div title="Total money this agent currently manages for people"><span className="text-[10px] text-gray-500 uppercase block">Funds</span><span className="font-bold text-sm">{agent.tvlUsd ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '-'}</span></div>
                         </div>
 
-                        {/* Real on-chain hire track record — same data the
+ {/* on-chain hire track record, same data the
                             sort dropdown ranks by, shown here regardless of
                             which sort is active. */}
                         <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={perfIndexComplete ? "ERC-8183 job history for this agent: the complete on-chain history, not a recent-only window" : "ERC-8183 job history for this agent: a one-time backfill of the complete history is still catching up"}>
@@ -1399,7 +1408,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               </div>
             )}
 
-            {/* Real, own top-level tab (2026-08-29) — see NAV_ITEMS' own
+ {/* Real, own top-level tab (2026-08-29), see NAV_ITEMS' own
                 comment above for the full reasoning this was moved out of
                 "Build" for. Same AltanaSkillsPanel web uses, verbatim. */}
             {nav === 'skills' && (
@@ -1414,7 +1423,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               </div>
             )}
 
-            {/* Real, own top-level tab (2026-09-01) — mirrors web's
+ {/* Real, own top-level tab (2026-09-01), mirrors web's
                 identical NativeAgentMarketplace section, verbatim. */}
             {nav === 'native' && (
               <div className="space-y-4">
@@ -1462,7 +1471,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Good to know</span></div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in the Marketplace spends real money on mainnet.</p>
+ <p className="text-xs text-gray-500 dark:text-gray-400">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in the Marketplace spends money on mainnet.</p>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">
@@ -1479,7 +1488,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     disabled={!buildDescription.trim() || (buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error')}
                     className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm disabled:opacity-40 mb-2"
                   >
-                    Build it for real (free trial, ~2 days)
+ Build it for real (free trial, ~2 days)
                   </button>
                   <button
                     onClick={() => setShowBuildCommand(true)}
@@ -1533,9 +1542,11 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
 
         <div className="px-5">
           <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
-          <HackathonPartnersFooter onOpenPartners={onOpenPartners} />
-          <DocsFooter onOpenDocs={onOpenDocs} />
         </div>
+
+        {/* Replaces the old partner footer. Outside the px-5 wrapper so it
+            spans the full width. */}
+        <PartnerMarquee />
       </main>
 
       {/* App-like Bottom Navigation */}
@@ -1557,7 +1568,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
           to the root), and <main> carries pb-32 so the last row still
           clears it. backdrop-saturate is deliberate alongside the blur:
           blur alone reads as grey haze, and it's the saturation boost that
-          makes a real material look like glass rather than frosted
+          makes a material look like glass rather than frosted
           plastic. Light and dark carry their own tint and highlight -- a
           blur over a dark page needs a much dimmer top highlight or it
           reads as a bright seam. */}
@@ -1587,7 +1598,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
       </nav>
 
       {/* Modals */}
-      {walletSheetOpen && <MobileWalletSheet onClose={() => setWalletSheetOpen(false)} nav={nav} onNavigate={(id) => { dismissAgentDetail(); setNav(id); setHiring(false); onNavChange?.(id); }} />}
+      {walletSheetOpen && <MobileWalletSheet onClose={() => setWalletSheetOpen(false)} nav={nav} onOpenDocs={onOpenDocs} onNavigate={(id) => { dismissAgentDetail(); setNav(id); setHiring(false); onNavChange?.(id); }} />}
       
       {/* Hide Scrollbar style for horizontal list */}
       <style dangerouslySetInnerHTML={{__html: `

@@ -50,7 +50,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  *
  * Revoke cuts both ways, and that is intended: the client can stop a job
  * mid-flight, stranding an agent that has already spent its own resources.
- * A draw and a revoke in the same block are a genuine race and whichever
+ * A draw and a revoke in the same block are a race and whichever
  * lands first wins. That symmetry is the point -- each side can walk away,
  * neither can be silently drained.
  *
@@ -60,7 +60,7 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  * and is emitted once per draw. That event stream is what makes a live
  * "watch the agent spend" view possible. ERC-8183 emits `PaymentReleased`
  * exactly once, for the full amount, so no such view can be built on it at
- * all -- this is a real capability difference, not a UI choice.
+ * all -- this is a capability difference, not a UI choice.
  *
  * REUSED, PROVEN PATTERNS (see AgentAccessMarket.sol, live on BSC mainnet)
  * -----------------------------------------------------------------------
@@ -84,7 +84,7 @@ contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard, Pausable {
     using SafeERC20 for IERC20;
 
     enum Status {
-        NONE,      // never opened -- distinguishes "no such budget" from a real one
+        NONE, // never opened -- distinguishes "no such budget" from a one
         OPEN,      // agent may draw
         CLOSED,    // agent finished; no more draws, client may still reclaim
         RECLAIMED  // client took the remainder; terminal
@@ -184,7 +184,7 @@ contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard, Pausable {
      * @notice Fund a spending budget an agent can draw against.
      * @param agent      Who may draw. Cannot be the client -- a self-funded
      *                   budget has no counterparty and is only ever a mistake
-     *                   or an attempt to make wash activity look real.
+     * or an attempt to make wash activity look real.
      * @param token      Must be on the allowlist. Send BNB as msg.value when
      *                   token == NATIVE.
      * @param amount     Stated deposit. For a fee-on-transfer token the budget
@@ -405,10 +405,10 @@ contract AgentBudgetEscrow is Ownable2Step, ReentrancyGuard, Pausable {
      * remainder, immediately.
      *
      * This exists because the contract is non-upgradeable and unaudited. It
-     * is a real centralisation trade: the owner can freeze an agent's draws
+     * is a centralisation trade: the owner can freeze an agent's draws
      * mid-job, which is a power the agent must accept to use this model.
      * Stated plainly rather than buried -- it is the price of having any
-     * response at all to a bug found after real money is in.
+     * response at all to a bug found after money is in.
      */
     function pause() external onlyOwner { _pause(); }
 

@@ -12,8 +12,8 @@ flowchart TB
     end
 
     subgraph Wallets["Client-side signing, no key ever leaves the browser"]
-        Wagmi["wagmi / RainbowKit / Privy<br/>(direct EOA signing — hires, disputes, claims, listings, buys)"]
-        Altana["Altana passkey wallet<br/>(Face ID / WebAuthn, on-chain sessions — x402 Skill + wallet creation/recovery only)"]
+        Wagmi["wagmi / RainbowKit / Privy<br/>(direct EOA signing for hires, disputes, claims, listings, buys)"]
+        Altana["Altana passkey wallet<br/>(Face ID / WebAuthn, on-chain sessions, x402 Skill and wallet creation/recovery only)"]
     end
 
     Backend["FastAPI backend<br/>Render Web Service"]
@@ -29,7 +29,7 @@ flowchart TB
     Explainer -- "submits deliverables to" --> Chain
 ```
 
-**The one rule that shapes everything else:** reads flow through the backend (or straight to chain via a public RPC); anything that moves value is signed in the browser. The backend never holds a private key.
+The one rule that shapes everything else: reads flow through the backend (or straight to chain via a public RPC); anything that moves value is signed in the browser. The backend never holds a private key.
 
 ## Frontend
 
@@ -46,28 +46,28 @@ Shared logic lives in plain `.js`/`.jsx` modules imported by both apps: the hire
 
 A FastAPI service (`backend/server.py`) that does three jobs:
 
-1. **Aggregates and serves agent data.** `GET /api/agents` serves instantly from a MongoDB-backed store (`core/agent_store.py`), refreshed in the background, preferentially from `full_agent_registry` (see below; a fix landed 2026-08-27), falling back to a live 8004scan + DefiLlama + an on-chain BNB balance read when that registry isn't populated enough yet, never blocking a page load on a live upstream fetch.
-2. **Proxies a handful of CORS-blocked reads** that a browser can't make directly: deliverable content fetches, and ERC-8183 negotiate/notify-funded calls.
-3. **Drives the "Build Your Agent" pipeline**, which needs server-side state (a running build process) a browser can't hold.
+1. Aggregates and serves agent data. `GET /api/agents` serves instantly from a MongoDB-backed store (`core/agent_store.py`), refreshed in the background, preferentially from `full_agent_registry` (see below; a fix landed 2026-08-27), falling back to a live 8004scan + DefiLlama + an on-chain BNB balance read when that registry isn't populated enough yet, never blocking a page load on a live upstream fetch.
+2. Proxies a handful of CORS-blocked reads that a browser can't make directly: deliverable content fetches, and ERC-8183 negotiate/notify-funded calls.
+3. Drives the "Build Your Agent" pipeline, which needs server-side state (a running build process) a browser can't hold.
 
 The full, current list of backend routes is in [Getting Started](getting-started.md#backend-routes).
 
 ## Data layer
 
-**MongoDB** (one Atlas deployment, several collections):
-- `known_agents`: the durable, curated agent store `GET /api/agents` serves from — never deleted for going stale, so a slow/rate-limited 8004scan refresh never makes an agent disappear, with one deliberate exception (an agent confirmed to have no registered service endpoint at all; see [Full Agent Registry Analysis](full-registry-analysis.md#permanent-policy-agents-with-no-registered-endpoint-are-deleted-not-stored-2026-09-11)). Up sharply since being wired to `full_agent_registry` below rather than a small live-fetch sample.
+MongoDB (one Atlas deployment, several collections):
+- `known_agents`: the durable, curated agent store `GET /api/agents` serves from, never deleted for going stale, so a slow/rate-limited 8004scan refresh never makes an agent disappear, with one deliberate exception (an agent confirmed to have no registered service endpoint at all; see [Full Agent Registry Analysis](full-registry-analysis.md#permanent-policy-agents-with-no-registered-endpoint-are-deleted-not-stored-2026-09-11)). Up sharply since being wired to `full_agent_registry` below rather than a small live-fetch sample.
 - `full_agent_registry`: a separate, much larger, continuously-growing multi-chain dataset (BSC, Ethereum, Base, Solana, Monad, Billions Network, Robinhood Chain, Celo, Arbitrum), built by its own background ingestion/analysis pipeline (`core/full_registry_ingest.py`, `core/full_registry_analysis.py`) for analysis, and the preferred source `known_agents` refreshes are diversified from. See [Full Agent Registry Analysis](full-registry-analysis.md) for the full design.
 - `explainer_deliverables`: a durable mirror of the explainer-agent's own delivered content (see [Limitations](limitations.md) for why this exists; Render's free-tier disk is ephemeral, so this collection is what survives a restart).
 - `canary_tests`: a log of every human-triggered canary test hire (`core/canary.py`); never a spend record on its own, just an after-the-fact log of an already-broadcast transaction. See [Verification Methodology](verification-methodology.md).
 
-`future_multichain_agents` (an earlier, much smaller 62-doc attempt at multi-chain data, superseded once `full_agent_registry` covered Ethereum) and `practice_runs` (leftover data from the removed Practice Mode feature) were both deleted 2026-09-10, along with the now-dead code that wrote them, as part of a safe-data cleanup that reclaimed space on a MongoDB Atlas free-tier cluster that had hit its 512MB quota — each confirmed unused (zero code references, and for `future_multichain_agents`, every one of its 62 docs already present in `full_agent_registry`) before deletion.
+`future_multichain_agents` (an earlier, much smaller 62-doc attempt at multi-chain data, superseded once `full_agent_registry` covered Ethereum) and `practice_runs` (leftover data from the removed Practice Mode feature) were both deleted 2026-09-10, along with the now-dead code that wrote them, as part of a safe-data cleanup that reclaimed space on a MongoDB Atlas free-tier cluster that had hit its 512MB quota, each confirmed unused (zero code references, and for `future_multichain_agents`, every one of its 62 docs already present in `full_agent_registry`) before deletion.
 
 ## Smart contracts
 
 Three independent on-chain systems Tnega reads and writes:
 
-- **ERC-8004 identity registry**: every agent's on-chain identity.
-- **ERC-8183 commerce** (Commerce / Router / Policy): the hire/escrow kernel.
-- **AgentAccessMarket**: Tnega's own contract for selling ongoing access to an agent.
+- ERC-8004 identity registry: every agent's on-chain identity.
+- ERC-8183 commerce (Commerce / Router / Policy): the hire/escrow kernel.
+- AgentAccessMarket: Tnega's own contract for selling ongoing access to an agent.
 
 Full addresses, ABIs-in-spirit, and what each function does are in [Smart Contracts](smart-contracts.md).

@@ -20,7 +20,7 @@ import { useBudgetRead, useDrawFeed, useBudgetActions, BUDGET_STATUS, NATIVE_SEN
 import { addNotification } from './notifications';
 
 function fmt(v, symbol = 'BNB') {
-  if (v == null) return '—';
+  if (v == null) return 'n/a';
   const n = Number(formatUnits(v, 18));
   return `${n < 0.0001 && n > 0 ? n.toExponential(2) : n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol}`;
 }
@@ -111,7 +111,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
   const doRevoke = async () => {
     const returned = remaining;
     await reclaim(budgetId);
-    await refresh();          // real on-chain state, never optimistic
+ await refresh(); // on-chain state, never optimistic
     addNotification(
       `Budget #${String(budgetId)}: ${fmt(returned, symbol)} returned`,
       'You took back the unspent remainder. The agent can no longer draw from this budget.',
@@ -126,7 +126,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
           <div className="text-sm font-bold">Budget #{String(budgetId)}</div>
           <div className="text-[11px] text-gray-500">
             {status === 'OPEN' && !expired && 'Agent can draw'}
-            {status === 'OPEN' && expired && 'Deadline passed — no further draws'}
+            {status === 'OPEN' && expired && 'Deadline passed, no further draws'}
             {status === 'CLOSED' && 'Closed by the agent'}
             {status === 'RECLAIMED' && 'Remainder returned to you'}
           </div>
@@ -142,7 +142,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
         <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
       </div>
       <div className="flex justify-between text-[10px] text-gray-500 mb-3">
-        <span>{reclaimed ? 'Closed — unspent remainder returned to you' : `${fmt(spent, symbol)} spent (${pct}%)`}</span>
+        <span>{reclaimed ? 'Closed, unspent remainder returned to you' : `${fmt(spent, symbol)} spent (${pct}%)`}</span>
         {isOpen && !expired && <span>up to {fmt(drawable, symbol)} in the next draw</span>}
       </div>
 
@@ -159,7 +159,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
           to notice.
           Budget mode can now be used with an agent that never declared
           support for it, so "funded, and nothing ever happened" is a state
-          that can genuinely occur. Nothing is lost when it does, but only
+ that can genuinely occur. Nothing is lost when it does, but only
           if somebody reclaims, and nobody should have to remember to check.
 
           `lastDrawAt` is set when the budget is created and only moves on a
@@ -233,11 +233,11 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
       )}
 
       {/* Detected, not guessed: what the visible draws add up to, against
-          what the contract says was actually spent. */}
+ what the contract says was spent. */}
       {draws.length > 0 && !reclaimed && accountedFor < spent && (
         <p className="text-[11px] text-amber-700 dark:text-amber-500 mt-2">
           Showing {fmt(accountedFor, symbol)} of the {fmt(spent, symbol)} drawn. Earlier draws
-          aren't listed here — the network didn't return them — but they are counted in the
+          aren't listed here, the network didn't return them, but they are counted in the
           balance above.
         </p>
       )}
@@ -259,7 +259,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
             <ShieldAlert size={10} className="shrink-0 mt-0.5" />
             <span>
               Returns everything not yet drawn. If the agent's next draw is mined before
-              your revoke, that amount goes first — the two transactions compete.
+              your revoke, that amount goes first, the two transactions compete.
             </span>
           </p>
         </div>

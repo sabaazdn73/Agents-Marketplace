@@ -25,15 +25,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         - PrivyProvider: Face ID / email login, creates an embedded wallet
         - WagmiProvider + RainbowKitProvider: direct wallet-connect for
           crypto-native users (MetaMask, Trust Wallet, WalletConnect)
-        Both target the same chain (bsc mainnet — this project is
+        Both target the same chain (bsc mainnet, this project is
         mainnet-only). They are NOT bridged via @privy-io/wagmi (that
         would need wagmiConfig.js rebuilt around Privy's own createConfig,
-        a bigger change than this fix). Real bug found 2026-08-17: plain
+ a bigger change than this fix). bug found 2026-08-17: plain
         wagmi's WagmiProvider defaults reconnectOnMount to true, so on
         every mount it silently tries to reconnect/re-verify the
         previously-authorized injected connector AT THE SAME TIME Privy's
         own SDK is independently probing window.ethereum for its
-        embeddedWallets.createOnLogin check — two uncoordinated systems
+        embeddedWallets.createOnLogin check, two uncoordinated systems
         touching the same injected provider is exactly what Privy's own
         docs (docs.privy.io/wallets/connectors/ethereum/integrations/wagmi)
         say their bridged WagmiProvider sets reconnectOnMount=false to

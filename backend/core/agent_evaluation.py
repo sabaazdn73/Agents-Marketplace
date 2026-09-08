@@ -5,8 +5,8 @@
 # to wire up for BSC first.
 #
 # Non-BSC agents had a much thinner display than BSC's, and most of that gap
-# turned out to be unused capability rather than a real limit. Every entry
-# below was checked live on 2026-09-06 against real stored agents on each
+# turned out to be unused capability rather than a limit. Every entry
+# below was checked live on 2026-09-06 against stored agents on each
 # chain, in the same way the registry addresses were verified per chain
 # instead of assumed:
 #
@@ -14,15 +14,15 @@
 #     is not. /api/v1/agents/{chain}/{id}/quality returned the correct
 #     chain_id and genuinely per-agent data on Ethereum, Base, Arbitrum,
 #     Celo and Monad -- e.g. Base #45071 scored engagement 3.53, service
-#     30, publisher 49.96, compliance 69, momentum 11.98 with a real
+# 30, publisher 49.96, compliance 69, momentum 11.98 with a real
 #     `domain_verification_failed` flag, while Arbitrum/Celo agents
 #     honestly reported "not yet scored". The endpoint is FLAKY: roughly
 #     one call in three returned HTTP 500 during testing, so a None here
 #     means "could not read", never "no quality".
 #
 #   Zerion                   ALL SIX CHAINS. GET /v1/chains/ lists 65 and
-#     all six of ours are present; confirmed further by pulling a REAL
-#     stored owner's portfolio per chain and getting real USD values back
+# all six of ours are present; confirmed further by pulling a REAL
+# stored owner's portfolio per chain and getting USD values back
 #     (Ethereum $19.00, Base $12.00, Arbitrum $3.43, Celo $0.05, Monad
 #     $0.90). See adapters/zerion.ZERION_CHAIN_SLUGS.
 #
@@ -79,7 +79,7 @@ async def _quality_with_retry(client: httpx.AsyncClient, api_key: str, token_id:
     a retry the evaluation reported "no quality record" for agents that do
     have one, which is exactly the false negative this module must not
     produce. The retry is deliberately single and short -- this runs while
-    a user waits on a detail view, and a real outage should surface as
+    a user waits on a detail view, and a outage should surface as
     unavailable quickly rather than being hidden behind a long backoff."""
     for attempt in (0, 1):
         result = await bsc.fetch_agent_quality(client, api_key, token_id, chain_id=chain_id)
@@ -114,7 +114,7 @@ def _summarize_quality(q: dict | None) -> dict:
     """The parts of Quality Center worth showing, flattened.
 
     Returns available=False when the call failed, which is NOT the same as
-    a real zero: this endpoint 500s intermittently, so a failure must never
+    a zero: this endpoint 500s intermittently, so a failure must never
     render as "this agent scored nothing"."""
     if not q:
         return {"available": False, "reason": "8004scan did not return a quality record"}
@@ -152,7 +152,7 @@ async def evaluate_agent(chain_id: int, token_id: int, owner_address: str | None
     """Everything genuinely retrievable about one agent on its own chain.
 
     Every source is independent and best-effort: one failing never blocks
-    the others, and each reports its own honest availability so the UI can
+    the others, and each reports its own availability so the UI can
     say "couldn't read this" instead of rendering an absence as a finding.
     """
     api_key = os.environ.get("SCAN_8004_API_KEY")

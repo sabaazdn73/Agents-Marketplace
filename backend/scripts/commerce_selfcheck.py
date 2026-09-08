@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """commerce_selfcheck.py -- the debug loop for the commerce pipeline.
 
-Asserts against REAL infrastructure, not mocks: the live B402 facilitator,
-the live BSC RPC, and the real QA rules. Exits non-zero if anything fails,
+Asserts against infrastructure, not mocks: the live B402 facilitator,
+the live BSC RPC, and the QA rules. Exits non-zero if anything fails,
 so it can gate a deploy.
 
 Grouped the way the risk actually falls:
-  MONEY     integer-only arithmetic, real decimals, checksummed addresses,
+  MONEY integer-only arithmetic, decimals, checksummed addresses,
             chain id 56, no testnet reachable, amounts traceable to source
   FAILURE   timeouts everywhere, visible degradation, no retry on ambiguity
   GATE      QA rejects what it must; payment cannot run past a finding
@@ -130,7 +130,7 @@ def money_checks() -> None:
     ]
     # Serialisation: `units` must cross JSON as a STRING everywhere. A raw
     # integer 2e20 exceeds JS MAX_SAFE_INTEGER and a browser would read back
-    # a different number than was stored. Regression guard for a real bug.
+    # a different number than was stored. Regression guard for a bug.
     st = TaskState(request="serialisation")
     st.profile = {"budget": Money.from_decimal_string("200", 18, "USDT")}
     st.record(StageResult(stage="profile", status="ok", data={"budget": st.profile["budget"]}))
@@ -146,7 +146,7 @@ def money_checks() -> None:
     # Floats are legitimate for TIME (timeouts, timestamps, durations) and
     # never for VALUE. So the scan allows a float literal only where it is
     # bound to a clearly time-shaped name, and flags everything else. A
-    # blanket ban would be noise; a blanket allow would miss the real bug.
+    # blanket ban would be noise; a blanket allow would miss the bug.
     TIME_NAMES = ("timeout", "seconds", "_at", "duration", "delay", "interval", "elapsed")
 
     def is_time_binding(node: ast.AST, parent_map: dict) -> bool:
@@ -339,7 +339,7 @@ async def gate_checks() -> None:
     check("clean cart yields no findings", not clean, f"rules={[f.rule for f in clean]}")
 
     # A dead link must be caught. Uses a reserved-for-testing TLD, so this
-    # exercises real DNS failure rather than a mock.
+    # exercises DNS failure rather than a mock.
     c = Cart()
     c.lines.append(CartLine(
         title="Ghost", url="https://this-host-does-not-exist.invalid/p",
@@ -389,7 +389,7 @@ async def crossmint_guard_checks() -> None:
     # GUARD 1
     check("GUARD 1 default is OFF", not cm.real_orders_enabled())
     res = await r.execute(cart())
-    check("GUARD 1 blocks a real order", res.status == "unavailable", res.detail[:60])
+    check("GUARD 1 blocks a order", res.status == "unavailable", res.detail[:60])
 
     # GUARD 2
     os.environ[cm.REAL_ORDERS_FLAG] = "1"
@@ -434,7 +434,7 @@ async def crossmint_guard_checks() -> None:
 
 
 async def main() -> int:
-    print("commerce pipeline self-check -- real infrastructure, no mocks")
+    print("commerce pipeline self-check -- infrastructure, no mocks")
     money_checks()
     await chain_checks()
     await failure_checks()

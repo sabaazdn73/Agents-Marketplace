@@ -1,6 +1,6 @@
 // shareLink.js
 //
-// Shareable per-agent deep links — the one genuinely-missing piece for a
+// Shareable per-agent deep links, the one genuinely-missing piece for a
 // freelancer who wants to send their own client a direct link to hire/subscribe
 // to their specific agent, instead of making them browse the whole marketplace.
 //
@@ -19,7 +19,7 @@ export function agentUrlId(agent) {
  * Added 2026-09-04. Opening an agent used to change no URL at all, so a
  * refresh on a detail page dropped the user back to the marketplace root:
  * there was nothing in the address bar for a cold load to restore from.
- * The back-navigation fix in 7129356 gave detail views real history
+ * The back-navigation fix in 7129356 gave detail views history
  * entries, but history entries only exist within a session, and a refresh
  * throws that away. This is the missing half. */
 export function agentPath(agent) {

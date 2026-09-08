@@ -1,25 +1,25 @@
 // AgentArchitectureDiagrams.jsx
 //
 // Real, hand-rolled inline SVG diagrams for the Learn tab's "How agents are
-// built" topic — boxes-and-arrows style, inspired by the real diagram
+// built" topic, boxes-and-arrows style, inspired by the diagram
 // conventions Google's own Agent Development Kit (ADK) documentation uses
 // for these same four patterns (confirmed by reading Google's public
 // developer blog before building this, not assumed): rounded-rect agent
 // boxes, a left-to-right chain for sequential, a radial/curved fan-out for
 // parallel, and a top-down organizational tree for hierarchical. Original
-// artwork throughout — no image or diagram asset copied from there, just
-// the same real structural conventions, redrawn to match this site's own
+// artwork throughout, no image or diagram asset copied from there, just
+// the same structural conventions, redrawn to match this site's own
 // indigo palette and dark mode.
 //
-// No diagramming/charting library pulled in for this — matching this
+// No diagramming/charting library pulled in for this, matching this
 // project's general preference for hand-rolled solutions over a new
 // dependency for a few shapes.
 //
 // Each diagram takes a `compact` prop (passed true on mobile's narrower
 // width) that reflows the layout vertically (top-to-bottom flow) instead of
-// just shrinking a wide horizontal SVG down to illegible text — fixed-size
+// just shrinking a wide horizontal SVG down to illegible text, fixed-size
 // viewBox, width="100%" so it still scales to whatever container it's given
-// (same real pattern as the sparkline), on top of the compact reflow.
+// (same pattern as the sparkline), on top of the compact reflow.
 //
 // Shared verbatim by web and mobile.
 
@@ -33,15 +33,15 @@ const ARROW_STROKE = 'stroke-indigo-300 dark:stroke-indigo-600';
 const LABEL_TEXT = 'fill-gray-400 dark:fill-gray-500';
 
 /** Per-diagram-instance <defs>: a soft top-lit sheen overlay, a drop shadow,
- * and the arrowhead marker — namespaced by `uid` so multiple diagrams on the
+ * and the arrowhead marker, namespaced by `uid` so multiple diagrams on the
  * same Learn page never collide on id. The sheen (a plain white-to-
- * transparent gradient, theme-safe by construction — no per-theme color
+ * transparent gradient, theme-safe by construction, no per-theme color
  * needed) + shadow are what lift these from flat placeholder rectangles to
- * something that actually looks designed, while staying inside the same
- * clean, minimal, high-contrast style real ADK diagrams use (clarity
+ * something that looks designed, while staying inside the same
+ * clean, minimal, high-contrast style ADK diagrams use (clarity
  * first, not heavy decoration). The BASE fill is still the site's own
  * proven fill-indigo-50/dark:fill-indigo-500/10 utility classes (Box,
- * below) — this sheen only overlays a highlight on top of that. */
+ * below), this sheen only overlays a highlight on top of that. */
 function Defs({ uid }) {
   return (
     <defs>
@@ -64,7 +64,7 @@ function Box({ x, y, w, h, label, uid }) {
     <g filter={`url(#shadow-${uid})`}>
       <rect x={x} y={y} width={w} height={h} rx={8} className={`${BOX_FILL} ${BOX_STROKE}`} strokeWidth={1.4} />
       <rect x={x} y={y} width={w} height={h} rx={8} fill={`url(#sheen-${uid})`} className="dark:opacity-40" />
-      {/* A small "processing" glyph — three dots — the one bit of icon
+      {/* A small "processing" glyph, three dots, the one bit of icon
           texture that separates an agent box from a plain flowchart shape,
           without pulling in an icon set for it. */}
       <g transform={`translate(${x + w - 15}, ${y + 6})`}>
@@ -81,11 +81,11 @@ const straightArrow = (x1, y1, x2, y2, uid, key) => (
   <line key={key} x1={x1} y1={y1} x2={x2} y2={y2} className={ARROW_STROKE} strokeWidth={1.4} markerEnd={`url(#arrow-${uid})`} />
 );
 
-/** A gently curved connector — `bend` is a SIGNED perpendicular offset the
+/** A gently curved connector, `bend` is a SIGNED perpendicular offset the
  * caller picks per-line (negative/positive for lines fanning up/down or
  * left/right, ~0 for a line running straight through the middle), which is
  * what turns a plain straight-line fan-out into the soft radial "octopus
- * arms" curve real ADK parallel-pattern diagrams use, rather than stiff
+ * arms" curve ADK parallel-pattern diagrams use, rather than stiff
  * diagonal segments. */
 function curvedArrow(x1, y1, x2, y2, bend, uid, key) {
   const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
@@ -95,8 +95,8 @@ function curvedArrow(x1, y1, x2, y2, bend, uid, key) {
   return <path key={key} d={`M${x1},${y1} Q${cx},${cy} ${x2},${y2}`} fill="none" className={ARROW_STROKE} strokeWidth={1.4} markerEnd={`url(#arrow-${uid})`} />;
 }
 
-/** Single agent — one box takes a task, returns a result. The simplest
- * pattern, and the one most agents on this marketplace actually use —
+/** Single agent, one box takes a task, returns a result. The simplest
+ * pattern, and the one most agents on this marketplace use,
  * including this project's own explainer agent. */
 export function SingleAgentDiagram({ compact = false }) {
   const uid = 'single';
@@ -115,8 +115,8 @@ export function SingleAgentDiagram({ compact = false }) {
   );
 }
 
-/** Sequential — fixed chain of steps, each one's output feeding the next,
- * left-to-right like an assembly line (kept straight — that's the correct,
+/** Sequential, fixed chain of steps, each one's output feeding the next,
+ * left-to-right like an assembly line (kept straight, that's the correct,
  * clean read for a strict hand-off order, unlike the fan patterns below). */
 export function SequentialDiagram({ compact = false }) {
   const uid = 'seq';
@@ -156,9 +156,9 @@ export function SequentialDiagram({ compact = false }) {
   );
 }
 
-/** Parallel — one task fanned out to several specialists working at once,
- * then combined back into one result — a soft radial curve on each
- * connector (the real visual Google's own ADK parallel-pattern diagrams
+/** Parallel, one task fanned out to several specialists working at once,
+ * then combined back into one result, a soft radial curve on each
+ * connector (the visual Google's own ADK parallel-pattern diagrams
  * use for this: "octopus arms" fanning out and gathering back in), not
  * stiff diagonal lines. */
 export function ParallelDiagram({ compact = false }) {
@@ -217,8 +217,8 @@ export function ParallelDiagram({ compact = false }) {
   );
 }
 
-/** Hierarchical — an orchestrator delegates pieces of the task to sub-agents,
- * each running its own smaller job underneath it — a real top-down
+/** Hierarchical, an orchestrator delegates pieces of the task to sub-agents,
+ * each running its own smaller job underneath it, a top-down
  * organizational tree, softly curved delegate lines for the same polished
  * feel as the parallel diagram's fan. */
 export function HierarchicalDiagram({ compact = false }) {

@@ -4,27 +4,27 @@
 
 ## The problems this fixes
 
-1. **False "our data vs. blockchain data" framing.** Every signal built this session, job history, PnL, revenue, on-chain performance, TermiX cross-reference, ultimately reads from the same blockchain, either directly (RPC) or via an indexer (Zerion, 8004scan, TermiX). There was never a meaningful "Tnega's own data" vs "blockchain data" distinction to draw; several panels' own copy implied one anyway. That framing has been removed from every panel's user-facing text and code comments; what differs between signals is *which* on-chain question each one answers, never how authoritative its source is.
-2. **Fragmentation.** PnL, Revenue Stream, On-chain Performance, TermiX cross-reference, and the verification-tier stats were six separately-bordered, separately-captioned panels stacked on an agent's detail page, each with its own loading/error state. Consolidated into one system.
+1. False "our data vs. blockchain data" framing. Every signal built this session, job history, PnL, revenue, on-chain performance, TermiX cross-reference, ultimately reads from the same blockchain, either directly (RPC) or via an indexer (Zerion, 8004scan, TermiX). There was never a meaningful "Tnega's own data" vs "blockchain data" distinction to draw; several panels' own copy implied one anyway. That framing has been removed from every panel's user-facing text and code comments; what differs between signals is which on-chain question each one answers, never how authoritative its source is.
+2. Fragmentation. PnL, Revenue Stream, On-chain Performance, TermiX cross-reference, and the verification-tier stats were six separately-bordered, separately-captioned panels stacked on an agent's detail page, each with its own loading/error state. Consolidated into one system.
 
 ## The final design: four parameters, not six panels
 
-**Agent Investigation** (`frontend/src/AgentInvestigationSection.jsx`, shared verbatim by web and mobile), one card, four clearly-labeled groups:
+Agent Investigation (`frontend/src/AgentInvestigationSection.jsx`, shared verbatim by web and mobile), one card, four clearly-labeled groups:
 
 | Parameter | Question it answers | Data source |
 |---|---|---|
-| **Delivery Record** | Has this agent delivered paid work, and how much has it earned doing so? | `core/job_index.py`'s complete ERC-8183 job index (`/api/agents/performance`, `/api/agents/revenue`) |
-| **Financial Track Record** | (Trading & DeFi only) Did a hire's own funding wallet end up ahead or behind? | `core/pnl.py`, job.client wallet balance before vs. after (primary); `core/onchain_pnl.py`'s independent on-chain execution history, opt-in, secondary |
-| **Independent Corroboration** | What does a source outside this marketplace say about this agent? | TermiX's own AACP registry (primary); full wallet portfolio and complete on-chain history, opt-in |
-| **Live Status** | Is this agent reachable right now, and does it speak this marketplace's escrow protocol? | `ServiceHealthBadge` (agent_health.py) + escrow-compatibility (`protocol_compat.py`) |
+| Delivery Record | Has this agent delivered paid work, and how much has it earned doing so? | `core/job_index.py`'s complete ERC-8183 job index (`/api/agents/performance`, `/api/agents/revenue`) |
+| Financial Track Record | (Trading & DeFi only) Did a hire's own funding wallet end up ahead or behind? | `core/pnl.py`, job.client wallet balance before vs. after (primary); `core/onchain_pnl.py`'s independent on-chain execution history, opt-in, secondary |
+| Independent Corroboration | What does a source outside this marketplace say about this agent? | TermiX's own AACP registry (primary); full wallet portfolio and complete on-chain history, opt-in |
+| Live Status | Is this agent reachable right now, and does it speak this marketplace's escrow protocol? | `ServiceHealthBadge` (agent_health.py) + escrow-compatibility (`protocol_compat.py`) |
 
 Nothing underlying was rebuilt from scratch; every endpoint this reads already existed and was already independently verified earlier this session. This is a presentation-layer consolidation, not a new data pipeline.
 
 ## PnL simplification
 
-`core/pnl.py` used to require a job's on-chain description to carry the "(Altana session)" hire-flow marker, on the theory that only a session hire delegates ongoing fund authority worth measuring. The finding that motivated dropping this: a live scan of 23,000 jobs found **zero** Altana-session-funded jobs had ever happened; the feature had been completely dormant since it shipped, structurally incapable of ever showing a number.
+`core/pnl.py` used to require a job's on-chain description to carry the "(Altana session)" hire-flow marker, on the theory that only a session hire delegates ongoing fund authority worth measuring. The finding that motivated dropping this: a live scan of 23,000 jobs found zero Altana-session-funded jobs had ever happened; the feature had been completely dormant since it shipped, structurally incapable of ever showing a number.
 
-Checked directly before generalizing: `job.client` is an observable wallet address for *both* hire types; for a standard "Always Ask" hire it's simply the wallet that called `createJob`/funded the job (confirmed live against a real job, #56654); for an Altana-session hire it's the session wallet. The question, did the wallet that funded this hire end up with more or less than it started with, is coherent either way. The Altana-session restriction is now dropped; category (Trading & DeFi only) remains the sole gate, since that's the only category where the question is coherent at all (hiring a content-writing agent for a fixed fee isn't a PnL question; the buyer's balance drops by exactly the fee, that's just paying for a service).
+Checked directly before generalizing: `job.client` is an observable wallet address for both hire types; for a standard "Always Ask" hire it's simply the wallet that called `createJob`/funded the job (confirmed live against a job, #56654); for an Altana-session hire it's the session wallet. The question, did the wallet that funded this hire end up with more or less than it started with, is coherent either way. The Altana-session restriction is now dropped; category (Trading & DeFi only) remains the sole gate, since that's the only category where the question is coherent at all (hiring a content-writing agent for a fixed fee isn't a PnL question; the buyer's balance drops by exactly the fee, that's just paying for a service).
 
 ## Always-fresh loading pattern
 

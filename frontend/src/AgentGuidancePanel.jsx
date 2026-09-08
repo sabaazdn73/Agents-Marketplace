@@ -1,15 +1,15 @@
 // AgentGuidancePanel.jsx
 //
-// Real decision aid for the agent detail page when on-chain hire history is
-// empty — built 2026-08-19, shared verbatim by web and mobile. Replaces the
-// old bare "not yet hired" dead end with whatever real signals actually
-// exist for THIS agent: a real Skill you can try yourself (when its category
+// decision aid for the agent detail page when on-chain hire history is
+// empty, built 2026-08-19, shared verbatim by web and mobile. Replaces the
+// old bare "not yet hired" dead end with whatever signals actually
+// exist for THIS agent: a Skill you can try yourself (when its category
 // conceptually maps to one), the real 8004scan reputation signals in plain
-// language, the real on-chain Passkey badge if applicable — and, when
+// language, the on-chain Passkey badge if applicable, and, when
 // genuinely none of that exists, an honest "we don't know anything about
 // this one yet" statement instead of hiding the uncertainty.
 //
-// No new backend endpoint — every field here is already on the agent
+// No new backend endpoint, every field here is already on the agent
 // object the marketplace list/detail page already fetched.
 
 import React from 'react';
@@ -19,14 +19,14 @@ import { CATEGORY_TO_SKILLS, realSignals } from './agentGuidance';
 
 export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBorder, onTrySkill }) {
   const skills = CATEGORY_TO_SKILLS[agent.category] || [];
-  const signals = realSignals(agent);
+ const signals = realSignals(agent);
   const willShowSkillSuggestion = skills.length > 0 && !!onTrySkill;
-  // "Genuinely nothing to show" has to account for whether the skill
-  // suggestion will ACTUALLY render here, not just whether a category
-  // mapping exists in the abstract — onTrySkill is wired on both
+ // "Genuinely nothing to show" has to account for whether the skill
+ // suggestion will render here, not just whether a category
+  // mapping exists in the abstract, onTrySkill is wired on both
   // platforms, but this stays defensive: if some future caller ever
   // omits it, a mapped category alone shouldn't silently show nothing
-  // with no honest fallback either.
+  // with no fallback either.
   const nothingDistinguishing = !willShowSkillSuggestion && !agent.isVerified && signals.length === 0;
 
   return (
@@ -61,7 +61,7 @@ export default function AgentGuidancePanel({ agent, accent = '#4F46E5', mutedBor
         <p className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">What we know about this agent so far</p>
         <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
           <BadgeCheck size={13} className={agent.isVerified ? 'text-indigo-500' : 'text-gray-300 dark:text-gray-600'} />
-          {agent.isVerified ? 'Registered on-chain.' : 'Not yet confirmed as registered — just not checked yet.'}
+          {agent.isVerified ? 'Registered on-chain.' : 'Not yet confirmed as registered, just not checked yet.'}
         </div>
         {signals.map((s) => (
           <div key={s.label} className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">

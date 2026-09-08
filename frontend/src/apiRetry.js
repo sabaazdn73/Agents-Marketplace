@@ -21,8 +21,8 @@
 // -----------------------------------
 // Only idempotent requests. GET and HEAD are safe to repeat; POST is not,
 // and this app POSTs to /api/agents/negotiate and /api/agents/notify-funded
-// during a hire. Retrying a write that actually succeeded but whose
-// response was lost would duplicate a real action against someone's money,
+// during a hire. Retrying a write that succeeded but whose
+// response was lost would duplicate a action against someone's money,
 // which is far worse than the error message this exists to prevent.
 //
 // It also only retries OUR backend. Third-party endpoints have their own
@@ -32,8 +32,8 @@
 // Retried: network-level failures (the "Failed to fetch" case, which is
 // what a mid-restart connection produces) and 502/503/504, which is what a
 // proxy in front of a restarting service returns. Not 4xx, and not 500: a
-// 500 is the backend answering with a real error, and hiding it behind
-// retries would make a genuine bug look like slowness.
+// 500 is the backend answering with a error, and hiding it behind
+// retries would make a bug look like slowness.
 
 const RETRY_DELAYS_MS = [1200, 3500, 9000];   // 4 attempts, ~14s total
 const RETRYABLE_STATUS = new Set([502, 503, 504]);

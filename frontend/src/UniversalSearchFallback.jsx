@@ -1,9 +1,9 @@
 // UniversalSearchFallback.jsx
 //
-// Real, live search fallback (2026-08-29) — see docs/universal-search.md
-// for the full real investigation and reasoning. The marketplace's own
+// Real, live search fallback (2026-08-29), see docs/universal-search.md
+// for the full investigation and reasoning. The marketplace's own
 // search is a plain client-side name filter over the local known_agents
-// cache; when that comes up empty for input that looks like a real agent
+// cache; when that comes up empty for input that looks like a agent
 // id or a 0x address, this component makes a real, live call
 // (GET /api/search/resolve) to the authoritative source instead of
 // leaving the user at a dead "no agents found". Shared verbatim by web
@@ -11,7 +11,7 @@
 //
 // Deliberately narrow trigger: only fires for input that already looks
 // like an agent id (a plain number, or 8004scan's own internal UUID) or
-// an address (0x...) — mirrors the backend's own classify_query exactly,
+// an address (0x...), mirrors the backend's own classify_query exactly,
 // so an ordinary mistyped name search never triggers a live network call,
 // it just falls through to the plain "no agents match" message the
 // caller already shows.
@@ -26,7 +26,7 @@ const _ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const _NUMERIC_ID_RE = /^\d+$/;
 
-/** Real, cheap, client-side mirror of the backend's own classify_query —
+/** Real, cheap, client-side mirror of the backend's own classify_query,
  * never guesses at free text, only recognizes these three structured
  * shapes, so a plain mistyped name search never fires a live call. */
 function classifyQuery(raw) {
@@ -73,18 +73,18 @@ function OpenAgentButton({ agent, accent, onOpenAgent }) {
   );
 }
 
-/** `agentsWithPerf`: the already-fetched, full local agent list — used to
+/** `agentsWithPerf`: the already-fetched, full local agent list, used to
  * resolve a real, local hit back to the FULL agent object this app's own
  * detail view expects (the search endpoint's own response is a compact
  * summary, not the enriched shape agentsWithPerf carries). `onOpenAgent`:
- * open the real detail view for a resolved local agent, same as clicking
+ * open the detail view for a resolved local agent, same as clicking
  * its card normally would. */
 export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenAgent, accent, mutedBorder, darkMode, plainEmptyMessage }) {
   const { kind, status, data, message } = useSearchFallback(query);
 
-  // Real, plain fallback — input that doesn't look like an id/address at
+ // Real, plain fallback, input that doesn't look like an id/address at
   // all (an ordinary mistyped name) never triggers a live call, but still
-  // gets a real, honest message instead of a silent empty grid.
+ // gets a real, message instead of a silent empty grid.
   if (kind === 'unrecognized') {
     return plainEmptyMessage ? (
       <Card mutedBorder={mutedBorder}>
@@ -126,8 +126,8 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
     );
   }
 
-  // A real agent id/UUID that IS in our local index, just not matched by
-  // the name-text filter (e.g. searched by id, not name) — resolve to the
+  // A agent id/UUID that IS in our local index, just not matched by
+  // the name-text filter (e.g. searched by id, not name), resolve to the
   // full local object and offer to open it directly, no extra network call.
   if ((data.input_kind === 'token_id' || data.input_kind === 'uuid') && data.source === 'local') {
     const full = (agentsWithPerf || []).find((a) => a.id === data.agent?.id);
@@ -145,7 +145,7 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
     );
   }
 
-  // A real, live, confirmed ERC-8004 agent — just not in our curated
+ // A real, live, confirmed ERC-8004 agent, just not in our curated
   // marketplace listing (a brand-new registration, or filtered out by
   // this marketplace's own diversity limits).
   if (data.input_kind === 'token_id' && data.source === 'live_8004scan') {
@@ -158,7 +158,7 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
             <div className="font-semibold text-gray-900 dark:text-white">{a.name || `Agent #${a.token_id}`}</div>
             {a.description && <p className="text-gray-600 dark:text-gray-300 mt-1">{a.description}</p>}
             <div className="mt-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-xs text-amber-800 dark:text-amber-300">
-              Real, confirmed live against 8004scan's own registry — this agent just isn't in our curated marketplace listing yet.
+ Real, confirmed live against 8004scan's own registry, this agent just isn't in our curated marketplace listing yet.
             </div>
             {a.owner_address && (
               <a href={explorerLinkForWallet(a.owner_address)} target="_blank" rel="noreferrer"
@@ -172,7 +172,7 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
     );
   }
 
-  // A real, live 0x address the local search didn't recognize by name.
+ // A real, live 0x address the local search didn't recognize by name.
   if (data.input_kind === 'address') {
     if (data.registered_agent_owner) {
       const fulls = (data.agents || []).map((a) => (agentsWithPerf || []).find((x) => x.id === a.id)).filter(Boolean);
@@ -227,8 +227,8 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
           <div className="text-sm flex-1">
             <div className="font-semibold text-gray-900 dark:text-white">
               {data.contract_identity === 'token'
-                ? (data.token_name || data.token_symbol || 'A real token contract')
-                : (data.contract_identity || 'A real, unidentified smart contract')}
+                ? (data.token_name || data.token_symbol || 'A token contract')
+ : (data.contract_identity || 'A real, unidentified smart contract')}
             </div>
             <p className="text-gray-500 dark:text-gray-400 mt-0.5">{data.reason}</p>
             {data.contract_identity === 'token' && (

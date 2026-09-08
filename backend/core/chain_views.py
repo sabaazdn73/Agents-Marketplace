@@ -82,7 +82,7 @@ VIEWS = {
         "served_by": "/api/chain-view/solana",
     },
     "multichain": {
-        # Everything else that has real stored data. Polygon (137) is
+        # Everything else that has stored data. Polygon (137) is
         # deliberately absent: it is in CHAIN_NAMES because the Agent0
         # subgraph covers it, but this store currently holds zero Polygon
         # agents, so listing it as a covered chain would be inaccurate.
@@ -113,7 +113,7 @@ _PROJECTION = {
 }
 
 # Health fields are only meaningful for a chain the chain-aware health check
-# has actually been widened to. Everything else keeps the honest thin display.
+# has actually been widened to. Everything else keeps the thin display.
 _HEALTH_FIELDS = ("service_status", "service_endpoint", "service_checked_at")
 
 
@@ -136,7 +136,7 @@ def _apply_status_policy(doc: dict) -> dict:
     Applied PER AGENT rather than per view, deliberately: the Multi-Chain
     view mixes chains, and Arbitrum (analysed) sits in the same list as
     Base, Celo and Monad (not yet). A view-level rule would either hide
-    Arbitrum's real signals or imply the others had been checked.
+    Arbitrum's signals or imply the others had been checked.
 
     Stripping rather than trusting the stored value is the safe direction.
     Any residue from the old BSC-only pass -- 8,304 such values were
@@ -243,7 +243,7 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
             for c in v["chain_ids"] if c not in ANALYSIS_CHAIN_IDS
         ],
         # Which evaluation signals this view can genuinely show, and for
-        # each one it cannot, the real reason. Sent with the view rather
+        # each one it cannot, the reason. Sent with the view rather
         # than hardcoded in the UI so the frontend cannot claim a signal
         # the data layer has no way to produce -- and so an absence reads
         # as an explanation instead of as an empty space. Chain names are

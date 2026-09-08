@@ -8,13 +8,13 @@
 import { fetchWithX402 } from '@altananetwork/sdk';
 
 /**
- * Play: pay-once. Real guard from the skill: "Always enforce the
+ * Play: pay-once. guard from the skill: "Always enforce the
  * maximum price parameter; never sign an authorization above it."
  * This function inspects the real 402 challenge BEFORE paying, and
  * refuses if the asked amount exceeds maxPriceRaw.
  */
 export async function payOnce(session, url, { maxPriceRaw, init } = {}) {
-  // A first, unauthenticated request surfaces the real 402 challenge
+ // A first, unauthenticated request surfaces the real 402 challenge
   // so we can check the price before ever signing anything.
   const probe = await fetch(url, init).catch(() => null);
   if (probe && probe.status === 402) {
@@ -30,10 +30,10 @@ export async function payOnce(session, url, { maxPriceRaw, init } = {}) {
 }
 
 /**
- * Play: auto-refill. Real guard: "Track cumulative spend across the
+ * Play: auto-refill. guard: "Track cumulative spend across the
  * run and stop at the stated budget." spentSoFarRaw/budgetRaw are the
- * caller's own running totals; this function is the honest gate, not
- * a promise, it actually throws rather than silently overspending.
+ * caller's own running totals; this function is the gate, not
+ * a promise, it throws rather than silently overspending.
  */
 export function assertWithinBudget(spentSoFarRaw, nextPaymentRaw, budgetRaw) {
   const total = BigInt(spentSoFarRaw) + BigInt(nextPaymentRaw);
@@ -49,10 +49,10 @@ export function assertWithinBudget(spentSoFarRaw, nextPaymentRaw, budgetRaw) {
 // `paymentPayload.extensions.bazaar` blob to the normal x402 V2 settle call and
 // B402 indexes the endpoint (~30s after the first confirmed settle carrying it).
 //
-// Field spec confirmed from the REAL docs (not assumed):
+// Field spec confirmed from the docs (not assumed):
 //   https://developers.binance.com/docs/onchainpay-x402/b402-bazaar
-//   — sections "TL;DR — attach `extensions.bazaar` on every V2 settle",
-//     "The bazaar blob — field reference", "info variants".
+//, sections "TL;DR, attach `extensions.bazaar` on every V2 settle",
+//     "The bazaar blob, field reference", "info variants".
 //   The blob matches Coinbase CDP's x402 Bazaar extension field-for-field, so a
 //   CDP-compatible blob works against B402 unchanged. Required: `info` +
 //   `schema`; optional: `routeTemplate`, `description`. Attach point:
@@ -89,7 +89,7 @@ export function buildBazaarBlob({ name, description, method = 'GET', queryParams
     required: ['input'],
   };
   const blob = { info, schema };
-  const desc = [name, description].filter(Boolean).join(' — ');
+  const desc = [name, description].filter(Boolean).join(', ');
   if (desc) blob.description = desc;
   if (routeTemplate) blob.routeTemplate = routeTemplate;
   return blob;

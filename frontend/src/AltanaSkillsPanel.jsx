@@ -12,15 +12,15 @@
 //
 // Execution wallet, updated 2026-09-03: every transaction Skill (Venus,
 // Aave, Lista, PancakeSwap, Four Meme) now runs ONLY through the user's
-// own connected wallet — the Altana spend-capped passkey-wallet option was
+// own connected wallet, the Altana spend-capped passkey-wallet option was
 // removed. Decisive finding before removal: a full scan of the complete
 // ERC-8183 job index found zero jobs of any status ever completed through
-// Altana's session path, and this project's own real Skill successes are
+// Altana's session path, and this project's own Skill successes are
 // all recorded via the direct-wallet path specifically (see docs/
 // limitations.md and docs/features.md's Advantage Report). x402-payments
 // is the one exception: it still uses a scoped Altana passkey session,
 // since x402 settlement genuinely depends on Altana's own facilitator
-// infrastructure — there is no direct-wallet equivalent for it.
+// infrastructure, there is no direct-wallet equivalent for it.
 
 import React, { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -41,13 +41,13 @@ import { getTrendingBscTokens, getRecentWalletSwaps } from './researchSkills';
 const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Bug fixed 2026-08-19: this used to be a direct browser fetch to
-// raw.githubusercontent.com/altananetwork/skills/main/index.json — GitHub's
+// raw.githubusercontent.com/altananetwork/skills/main/index.json, GitHub's
 // raw-content CDN rate-limits by source IP, and that limit is SHARED across
 // everyone behind the same IP (VPNs, corporate NAT, cloud/CGNAT egress), so
 // a visitor could get a 429 through no fault of their own, and it wasn't
 // reproducible from any one tester's machine. Now proxied through our own
 // backend (GET /api/skills-registry), which fetches the registry
-// server-side once and caches it — one fetch serves every visitor instead
+// server-side once and caches it, one fetch serves every visitor instead
 // of one fetch per visitor.
 const SKILLS_INDEX_URL = `${API_BASE}/api/skills-registry`;
 
@@ -70,7 +70,7 @@ const SKILL_EXEC = {
     ready: (v) => v.amountUsdt,
     run: (ex, v) => venusSupply(ex, { usdtAmount: Number(v.amountUsdt) }),
     // Added 2026-08-28 (see defiSkills.js's own docstring for the full
-    // incident this came from) — a read-only balance/gas check right
+    // incident this came from), a read-only balance/gas check right
     // before an attempt runs. Never blocks; just surfaces a concrete
     // reason a doomed attempt would fail, instead of letting it hit the
     // relay and come back as a raw "0x/0x" revert.
@@ -127,8 +127,8 @@ const SKILL_EXEC = {
     },
   },
 
-  // ── x402 payment skill: needs a real session (a live facilitator settles
-  // it) — the one skill that still uses Altana's passkey wallet. ──
+  // ── x402 payment skill: needs a session (a live facilitator settles
+  // it), the one skill that still uses Altana's passkey wallet. ──
   'x402-payments': {
     play: 'pay-once', kind: 'pay',
     contracts: [PERMIT2_ADDRESS, USDT_BSC], spendToken: USDT_BSC,
@@ -141,10 +141,10 @@ const SKILL_EXEC = {
   },
 };
 
-// Friendly copy for the user-facing error — the technical detail (status
-// code, message) still goes to the console for anyone actually debugging
+// Friendly copy for the user-facing error, the technical detail (status
+// code, message) still goes to the console for anyone debugging
 // it, never shown raw in the UI.
-const SKILLS_LOAD_FRIENDLY_ERROR = "Couldn't load the skills list right now. This sometimes happens — give it another try.";
+const SKILLS_LOAD_FRIENDLY_ERROR = "Couldn't load the skills list right now. This sometimes happens, give it another try.";
 
 function useAltanaSkills() {
   const [skills, setSkills] = useState([]);
@@ -200,24 +200,24 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const [step, setStep] = useState(null); // null | 'funding' | 'wallet' | 'granting' | 'executing' | 'done' | 'error'
   const [error, setError] = useState(null);
   const [execResult, setExecResult] = useState(null);
-  // Added 2026-08-28 — see altana.js's own docstring for the full incident
+  // Added 2026-08-28, see altana.js's own docstring for the full incident
   // this fixes: wallet recovery failing no longer silently creates a
   // brand-new wallet. This flags that an explicit choice is needed from
   // the user instead. Only reachable for x402 now (the only skill still
   // using a passkey wallet).
   const [needsWalletChoice, setNeedsWalletChoice] = useState(false);
-  // Added 2026-08-28 (see WalletConfirmStep.jsx) — a wallet that's been
+  // Added 2026-08-28 (see WalletConfirmStep.jsx), a wallet that's been
   // recovered/created/connected but not yet confirmed by the user, and its
   // live BNB/USDT balance snapshot. Nothing proceeds to granting a session
   // (or, for a direct wallet, to signing anything) until the user
   // explicitly continues past this. Shape: { address, mode: 'passkey'|
-  // 'direct', signer? } — signer only for passkey wallets.
+  // 'direct', signer? }, signer only for passkey wallets.
   const [pendingWallet, setPendingWallet] = useState(null);
   const [walletSnapshot, setWalletSnapshot] = useState(null);
   const directExecutor = useDirectWalletExecutor();
 
   // Execution config for this skill. All 10 registry skills are wired; a
-  // skill id not in SKILL_EXEC (shouldn't happen for the real registry) is
+  // skill id not in SKILL_EXEC (shouldn't happen for the registry) is
   // disclosed as not-yet-executable. `kind`: 'tx' (on-chain writes, always
   // the user's own connected wallet), 'read' (read-only/detection, no
   // wallet), 'pay' (x402, the one skill still using an Altana session).
@@ -228,11 +228,11 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const relevantInputs = (skill.inputs || []).filter((inp) => !inp.plays || inp.plays.includes(play));
 
   // Added 2026-08-28 (see WalletConfirmStep.jsx's own docstring for the
-  // full incident this fixes) — a wallet was just recovered, created, or
+  // full incident this fixes), a wallet was just recovered, created, or
   // connected; fetch its live balance snapshot and PAUSE here for an
   // explicit user confirmation, rather than silently proceeding straight
   // to granting a session or signing something against a wallet the user
-  // never actually got to look at first.
+ // never got to look at first.
   const presentWalletForConfirmation = async (walletLike) => {
     setStep(null);
     const snapshot = await fetchWalletBalanceSnapshot(walletLike.address, USDT_BSC);
@@ -240,11 +240,11 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
     setWalletSnapshot(snapshot);
   };
 
-  // Shared "run against whichever executor we ended up with" — used by
+  // Shared "run against whichever executor we ended up with", used by
   // both the x402 passkey path (after granting a session) and the direct
   // path (no session, no granting, the connected wallet itself).
   const runAgainstExecutor = async (executor) => {
-    // Added 2026-08-28 — see defiSkills.js's own docstring for the full
+    // Added 2026-08-28, see defiSkills.js's own docstring for the full
     // incident this came from. A read-only check against this exact
     // wallet's own on-chain state, before spending a session grant + relay
     // attempt (or a direct signature) on something already known to fail.
@@ -252,7 +252,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       const pre = await exec.preflight(getMainnetReadClient(), executor.walletAddress, values);
       if (!pre.ok) {
         setStep('error');
-        setError(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+        setError(`Issue with this wallet, checked before spending a attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
     }
@@ -271,14 +271,14 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const handleUseDirectWallet = async () => {
     setError(null);
     setExecResult(null);
-    if (!directExecutor) return; // not connected yet — the UI shows a ConnectButton for this
+    if (!directExecutor) return; // not connected yet, the UI shows a ConnectButton for this
     await presentWalletForConfirmation({ address: directExecutor.walletAddress, mode: 'direct' });
   };
 
-  // A scoped Altana passkey wallet — only ever used for x402-payments now
-  // (x402 settlement genuinely depends on Altana's own facilitator
+  // A scoped Altana passkey wallet, only ever used for x402-payments now
+ // (x402 settlement genuinely depends on Altana's own facilitator
   // infrastructure; there's no direct-wallet equivalent for it). ONLY
-  // ever tries to recover an existing wallet — never auto-creates a new
+  // ever tries to recover an existing wallet, never auto-creates a new
   // one on failure (see altana.js's own docstring for the incident this
   // fixes: several identically-labeled saved passkeys leading to orphaned,
   // empty wallets being silently created on every hiccup).
@@ -323,7 +323,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   };
 
   // The one, explicit, user-confirmed action that ever creates a brand-new
-  // wallet — only reachable from the x402 recovery-error state.
+  // wallet, only reachable from the x402 recovery-error state.
   const handleConfirmNewWallet = async () => {
     setError(null);
     setNeedsWalletChoice(false);
@@ -333,13 +333,13 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       await presentWalletForConfirmation({ ...wallet, mode: 'passkey' });
     } catch (e) {
       setStep('error');
-      setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+ setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
 
-  // The one place a session actually gets granted/executed (or, for a
-  // direct wallet, the one place anything gets signed) — only ever
-  // reached after the user has seen the real wallet + real balances above
+ // The one place a session gets granted/executed (or, for a
+  // direct wallet, the one place anything gets signed), only ever
+ // reached after the user has seen the wallet + balances above
   // and explicitly clicked through.
   const handleContinueWithWallet = async () => {
     const w = pendingWallet;
@@ -364,11 +364,11 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
     } catch (e) {
       setStep('error');
       // Added 2026-08-28 (see altana.js's decodeAltanaExecutionError): an
-      // execute() failure now carries a decoded `.realReason` alongside
-      // its own original message — shown first when present, since it's
+ // execute() failure now carries a decoded `.realReason` alongside
+      // its own original message, shown first when present, since it's
       // the more specific, actionable finding; the raw SDK message stays
       // too, never hidden.
-      setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+ setError(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
 
@@ -397,7 +397,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       {kind === 'tx' && !directExecutor && !walletSnapshot && (
         <div className="mb-5 p-3 rounded-xl border border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2 text-sm font-semibold mb-2"><Wallet size={14} style={{ color: accent }} /> Connect your wallet</div>
-          <p className="text-[11px] opacity-60 mb-2">You sign each run yourself, right then — no new wallet, nothing to fund separately.</p>
+          <p className="text-[11px] opacity-60 mb-2">You sign each run yourself, right then, no new wallet, nothing to fund separately.</p>
           <ConnectButton />
         </div>
       )}
@@ -409,7 +409,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       )}
       {kind === 'pay' && (
         <div className="mb-5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-[11px] text-amber-700 dark:text-amber-400">
-          This makes a payment to a web address, handled by an outside payment service — so it needs a wallet with a spending limit you set.
+          This makes a payment to a web address, handled by an outside payment service, so it needs a wallet with a spending limit you set.
         </div>
       )}
 
@@ -437,7 +437,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       </div>
 
       {/* A directly-connected wallet has no on-chain session/spend-cap
-          concept at all — this input only means anything for x402's
+          concept at all, this input only means anything for x402's
           spend-capped passkey wallet now. */}
       {kind === 'pay' && (
         <div className="mb-5">
@@ -462,7 +462,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
             reading: 'Looking up the live information...',
             wallet: 'Setting up your mini-wallet (confirm with Face ID or your fingerprint)...',
             granting: 'Setting your spending limit...',
-            executing: kind === 'pay' ? 'Running it for real...' : 'Confirm this in your wallet...',
+ executing: kind === 'pay' ? 'Running it for real...' : 'Confirm this in your wallet...',
             done: execResult
               ? (execResult.expectedAmountOut
                   ? `Done. Expected ~${(Number(execResult.expectedAmountOut) / 1e18).toFixed(4)} tokens.`
@@ -477,7 +477,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
           <button onClick={handleGrantAndRun} className="text-[11px] font-semibold underline" style={{ color: accent }}>
             Try again
           </button>
-          {/* Added 2026-08-28 — see altana.js's own docstring for the full
+          {/* Added 2026-08-28, see altana.js's own docstring for the full
               incident this fixes. Never auto-creates a new wallet on a
               recovery failure anymore; this is the one, explicit,
               user-confirmed path that does. Only reachable for x402 now. */}
@@ -501,7 +501,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         </div>
       )}
 
-      {/* Added 2026-08-28 (see WalletConfirmStep.jsx) — a wallet was just
+      {/* Added 2026-08-28 (see WalletConfirmStep.jsx), a wallet was just
           recovered/created/connected; PAUSE here until the user explicitly
           confirms it, instead of the main run button below. */}
       {walletSnapshot ? (
@@ -538,7 +538,7 @@ export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMo
   const [selected, setSelected] = useState(null);
 
   // Deep-link from the agent detail page's guidance panel ("Try it
-  // yourself") — once the skills registry has loaded, auto-open the
+  // yourself"), once the skills registry has loaded, auto-open the
   // specific skill it pointed at, once.
   useEffect(() => {
     if (!initialSkillId || loading || skills.length === 0) return;
@@ -558,7 +558,7 @@ export default function AltanaSkillsPanel({ accent, surface, mutedBorder, darkMo
         <span className="text-sm font-bold">Ready-made skills</span>
       </div>
       <p className="text-xs opacity-60 mb-4">
-        Ready-made abilities you can try right away — tested safely beforehand. No building required, just fill in the blanks.
+        Ready-made abilities you can try right away, tested safely beforehand. No building required, just fill in the blanks.
       </p>
 
       {loading && <div className="flex items-center gap-2 text-xs opacity-60 py-6"><Loader2 size={14} className="animate-spin" /> Loading the list of skills...</div>}

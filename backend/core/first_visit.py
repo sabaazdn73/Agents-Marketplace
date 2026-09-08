@@ -47,7 +47,7 @@ TTL_DAYS = 90
 
 # Without a stable salt the hash would change on every restart and every
 # visitor would look new. Falls back to a fixed string so the feature still
-# works unconfigured; set FIRST_VISIT_SALT in any real deployment.
+# works unconfigured; set FIRST_VISIT_SALT in any deployment.
 _SALT = os.environ.get("FIRST_VISIT_SALT") or "tnega-first-visit-v1"
 
 _ttl_ready = False
@@ -57,7 +57,7 @@ def client_ip(headers: dict, fallback: str | None) -> str | None:
     """The visitor's address as best it can be known.
 
     Behind Render the socket peer is the proxy, so X-Forwarded-For is the
-    only place the real address appears. The leftmost entry is the original
+    only place the address appears. The leftmost entry is the original
     client; everything after it is a hop. Any of it can be forged, which is
     why the result is only ever used to decide which page to show.
     """

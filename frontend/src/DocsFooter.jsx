@@ -2,7 +2,7 @@
 //
 // Small attribution-strip footer, styled identically to
 // DataSourcesFooter.jsx / HackathonPartnersFooter.jsx, pointing at the
-// real self-hosted /docs section built from the actual docs/*.md files.
+// self-hosted /docs section built from the docs/*.md files.
 // Shared by web + mobile.
 import React from 'react';
 import { BookOpen } from 'lucide-react';

@@ -1,30 +1,30 @@
 // OnchainHistoryPanel.jsx
 //
-// Real "Full on-chain history" — every real transaction type an agent
+// Real "Full on-chain history", every transaction type an agent
 // developer's wallet has genuinely made on BSC (sends, receives,
 // approvals, trades, mints, contract calls...), not filtered to the
 // specific slices PnLPanel.jsx/OnchainPerformancePanel.jsx (DeFi-execution
 // only) or RevenueStreamPanel.jsx (ERC-8183 job activity only) already
 // cover. See backend/core/onchain_history.py's own module docstring for
-// the full real methodology and the real investigation behind it.
+// the full methodology and the investigation behind it.
 //
-// Real, honest origin story, worth keeping visible here too: the original
-// real ask was to build this directly on BscScan (BNB Chain's own
+// Real, origin story, worth keeping visible here too: the original
+// ask was to build this directly on BscScan (BNB Chain's own
 // canonical explorer) via BSCSCAN_API_KEY. Live-confirmed before building
 // anything: that key's real, current free tier doesn't cover BSC's
 // account/txlist module (only an unrelated `contract`-module lookup is
-// free for BSC) — the dedicated legacy BscScan API host is also fully
+// free for BSC), the dedicated legacy BscScan API host is also fully
 // deprecated. Built on Zerion instead (already integrated, already
-// proven live on BSC) — a real, explicit decision, not a silent
-// substitution. Every real transaction hash below links out to BscScan's
+// proven live on BSC), a real, explicit decision, not a silent
+// substitution. Every transaction hash below links out to BscScan's
 // own free, public explorer UI so a user can independently verify it
-// there directly, with no API key needed — the real, honest way this
-// still delivers the original real point (every real transaction here is
+// there directly, with no API key needed, the real, way this
+// still delivers the original point (every transaction here is
 // independently, directly verifiable on the chain itself) even though
-// this specific view's data comes from Zerion's own real index, not raw
+// this specific view's data comes from Zerion's own index, not raw
 // BscScan API calls.
 //
-// Deliberately opt-in (a button, not auto-fetched) — same real Zerion-
+// Deliberately opt-in (a button, not auto-fetched), same Zerion-
 // quota discipline as WalletPortfolioPanel.jsx/PnLPanel.jsx/
 // OnchainPerformancePanel.jsx (a real, shared 300-request/day budget),
 // and this is the most expensive of any of them per click (up to 4 real
@@ -43,7 +43,7 @@ function fmtDate(iso) {
 }
 
 function shortHash(hash) {
-  if (!hash) return '—';
+  if (!hash) return 'n/a';
   return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
 }
 
@@ -51,7 +51,7 @@ function TransferLine({ t }) {
   const sign = t.direction === 'in' ? '+' : '−';
   const color = t.direction === 'in' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400';
   return (
-    <span className={`font-mono ${color}`} title={t.verified ? undefined : "This token isn't on Zerion's own verified list — real, but treat unfamiliar tokens in a wallet's history with caution (a common pattern for real, unsolicited spam airdrops)"}>
+ <span className={`font-mono ${color}`} title={t.verified ? undefined : "This token isn't on Zerion's own verified list, real, but treat unfamiliar tokens in a wallet's history with caution (a common pattern for real, unsolicited spam airdrops)"}>
       {sign}{t.quantity != null ? t.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '?'} {t.symbol || '?'}
       {!t.verified && <ShieldAlert size={9} className="inline ml-0.5 mb-0.5 text-amber-500" />}
     </span>
@@ -93,7 +93,7 @@ export default function OnchainHistoryPanel({ ownerAddress }) {
   if (state.status === 'loading') {
     return (
       <div className="mt-2 flex items-center justify-center gap-1.5 py-2 text-[11px] text-gray-400">
-        <Loader2 size={12} className="animate-spin" /> Pulling this wallet's real, complete on-chain activity…
+ <Loader2 size={12} className="animate-spin" /> Pulling this wallet's real, complete on-chain activity…
       </div>
     );
   }
@@ -117,7 +117,7 @@ export default function OnchainHistoryPanel({ ownerAddress }) {
     );
   }
 
-  const { transaction_count, has_more, operation_type_breakdown, real_protocols_seen, distinct_tokens_transferred, transactions } = data;
+ const { transaction_count, has_more, operation_type_breakdown, real_protocols_seen, distinct_tokens_transferred, transactions } = data;
 
   return (
     <div className="mt-2 p-3 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/40 dark:bg-indigo-500/5">
@@ -129,18 +129,18 @@ export default function OnchainHistoryPanel({ ownerAddress }) {
       </div>
 
       <p className="text-[10px] text-gray-400 mb-2 leading-relaxed">
-        Every real transaction type this wallet has made on BSC — sends, receives, trades, contract calls. Each one links to BscScan, BNB Chain's own free public explorer, so you can verify it directly yourself.
-        {has_more && ' Showing the most recent activity fetched — this wallet has more real history beyond what was pulled here.'}
+        Every transaction type this wallet has made on BSC, sends, receives, trades, contract calls. Each one links to BscScan, BNB Chain's own free public explorer, so you can verify it directly yourself.
+ {has_more && ' Showing the most recent activity fetched, this wallet has more history beyond what was pulled here.'}
       </p>
 
-      {real_protocols_seen?.length > 0 && (
+ {real_protocols_seen?.length > 0 && (
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-1">
-          Real protocols recognized: <strong>{real_protocols_seen.join(', ')}</strong>
+ protocols recognized: <strong>{real_protocols_seen.join(', ')}</strong>
         </p>
       )}
       {distinct_tokens_transferred?.length > 0 && (
         <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
-          Real tokens moved: <strong>{distinct_tokens_transferred.join(', ')}</strong>
+ tokens moved: <strong>{distinct_tokens_transferred.join(', ')}</strong>
         </p>
       )}
       {operation_type_breakdown && Object.keys(operation_type_breakdown).length > 0 && (

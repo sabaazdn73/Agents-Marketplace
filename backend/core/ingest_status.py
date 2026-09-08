@@ -11,7 +11,7 @@
 #                 It reads the in-memory cache / known_agents, never the
 #                 upstream, and a failed background refresh deliberately
 #                 keeps the previous body.
-#   - Evaluation: a real analysis batch ran mid-outage and checked 40
+# - Evaluation: a analysis batch ran mid-outage and checked 40
 #                 agents. Health checking resolves tokenURIs over our own
 #                 per-chain RPC, so it does not involve 8004scan at all.
 #   - Storage:    known_agents is upsert-only; nothing deletes from it, so
@@ -24,7 +24,7 @@
 # about discovery being stopped or when it last worked. A visitor could not
 # tell the difference between "one upstream is down but the marketplace is
 # fine" and "the marketplace is broken". This module answers that
-# explicitly, from real stored progress rather than from a guess.
+# explicitly, from stored progress rather than from a guess.
 #
 # Deliberately read-only and best-effort. It exists to explain a degraded
 # state, so it must not become a way for the status endpoint itself to fail.
@@ -57,7 +57,7 @@ def _looks_upstream(error: str) -> bool:
 
 
 async def get_discovery_status() -> dict:
-    """Real state of new-agent discovery, and an explicit statement of what
+    """state of new-agent discovery, and an explicit statement of what
     an outage does not affect.
 
     `last_success_at` is written by full_registry_ingest only on a page that
@@ -118,7 +118,7 @@ async def get_discovery_status() -> dict:
         detail = (
             "New-agent discovery is paused: every ingestion source is currently failing"
             + (" against the upstream registry." if upstream else ".")
-            + " Existing agents are unaffected — they are served from our own store and"
+            + " Existing agents are unaffected, they are served from our own store and"
             " evaluated over our own RPC."
         )
     elif failing:

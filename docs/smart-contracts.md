@@ -1,12 +1,12 @@
 # Smart Contracts
 
-Every contract below is deployed and live on **BSC mainnet (chain 56)**; this project is mainnet-only throughout, and there is no testnet deployment of anything user-facing.
+Every contract below is deployed and live on BSC mainnet (chain 56); this project is mainnet-only throughout, and there is no testnet deployment of anything user-facing.
 
 ## Deployed addresses
 
 | Contract | Address | Role |
 |---|---|---|
-| **AgentAccessMarket** | [`0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333`](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Tnega's own "Sell Your Agent" contract. Deployed and BscScan source-verified. |
+| AgentAccessMarket | [`0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333`](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Tnega's own "Sell Your Agent" contract. Deployed and BscScan source-verified. |
 | ERC-8004 Identity Registry | [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://bscscan.com/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | Every agent's on-chain identity (ERC-721). |
 | ERC-8183 AgenticCommerce | [`0xEa4DAa3100A767e86FDed867729ae7446476EBA6`](https://bscscan.com/address/0xEa4DAa3100A767e86FDed867729ae7446476EBA6) | The hire/escrow kernel: job state and funds. |
 | ERC-8183 EvaluatorRouter | [`0x51895229E12F9876011789B04f8698af06cCD6DA`](https://bscscan.com/address/0x51895229E12F9876011789B04f8698af06cCD6DA) | Binds a job to its settlement policy. |
@@ -19,20 +19,20 @@ Every contract below is deployed and live on **BSC mainnet (chain 56)**; this pr
 
 ## AgentAccessMarket: what it does
 
-Creators sell **access** to an agent they own; the underlying ERC-8004 identity token is never transferred, so the agent keeps its on-chain identity. Access is a non-transferable entitlement (`accessExpiry[agentId][buyer]`), sold under one of two pricing models:
+Creators sell access to an agent they own; the underlying ERC-8004 identity token is never transferred, so the agent keeps its on-chain identity. Access is a non-transferable entitlement (`accessExpiry[agentId][buyer]`), sold under one of two pricing models:
 
-- **`buyOneTime(agentId, token)`**: a permanent, one-time license.
-- **`subscribe(agentId, token)`**: access until an expiry, renewable (renewing early extends the existing expiry; renewing late after it's lapsed restarts it).
+- `buyOneTime(agentId, token)`: a permanent, one-time license.
+- `subscribe(agentId, token)`: access until an expiry, renewable (renewing early extends the existing expiry; renewing late after it's lapsed restarts it).
 
-A third model, **pay-per-call via x402**, settles off this contract entirely (a direct per-HTTP-call payment to the creator) and is configured in the UI rather than on-chain.
+A third model, pay-per-call via x402, settles off this contract entirely (a direct per-HTTP-call payment to the creator) and is configured in the UI rather than on-chain.
 
-**Multi-token, fixed whitelist, no swap:** a creator can price the same agent in several tokens, native BNB, USDT, and `$U`, one listing per `(agentId, token)` pair; the **buyer** picks which one to pay with. There's no swap logic in the contract, so there's no slippage or MEV exposure from this contract itself.
+Multi-token, fixed whitelist, no swap: a creator can price the same agent in several tokens, native BNB, USDT, and `$U`, one listing per `(agentId, token)` pair; the buyer picks which one to pay with. There's no swap logic in the contract, so there's no slippage or MEV exposure from this contract itself.
 
-**Security model:** OpenZeppelin `Ownable2Step` / `ReentrancyGuard` / `SafeERC20`; pull-over-push payouts, tracked separately per token; the platform fee is read live from `feeBps` (owner-tunable, hard-capped at 10%, and any change only ever applies to future sales); `feeWallet` is set at deploy from a dedicated wallet, changeable only by the owner; `list()` is gated by an `ownerOf` check against the ERC-8004 registry, so only an agent's actual owner can list it; no admin path exists that can move funds a sale has already settled.
+Security model: OpenZeppelin `Ownable2Step` / `ReentrancyGuard` / `SafeERC20`; pull-over-push payouts, tracked separately per token; the platform fee is read live from `feeBps` (owner-tunable, hard-capped at 10%, and any change only ever applies to future sales); `feeWallet` is set at deploy from a dedicated wallet, changeable only by the owner; `list()` is gated by an `ownerOf` check against the ERC-8004 registry, so only an agent's owner can list it; no admin path exists that can move funds a sale has already settled.
 
-**Current on-chain values** (read live, not from a config file or old notes):
+Current on-chain values (read live, not from a config file or old notes):
 - `feeBps()` -> `250` (2.5%)
-- `feeWallet()` -> `0xBfE58070b39F0F2E1c46A4EF80690B6045934293` — a hardware wallet, so platform fee revenue sits in cold storage rather than behind a hot key. Worth stating plainly what kind of claim this is: nothing on-chain distinguishes a hardware-backed address from any other, so this is an operational fact about how the key is held, not something a reader can verify from the chain the way they can verify `feeBps` or `owner` above.
+- `feeWallet()` -> `0xBfE58070b39F0F2E1c46A4EF80690B6045934293`, a hardware wallet, so platform fee revenue sits in cold storage rather than behind a hot key. Worth stating plainly what kind of claim this is: nothing on-chain distinguishes a hardware-backed address from any other, so this is an operational fact about how the key is held, not something a reader can verify from the chain the way they can verify `feeBps` or `owner` above.
 - `owner()` -> `0x48ce74cdc366e8347f17f7187fbf2ab9240692e9`
 
 ## ERC-8183: the "Hire" flow

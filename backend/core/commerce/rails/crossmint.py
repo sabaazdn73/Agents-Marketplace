@@ -1,9 +1,9 @@
 # rails/crossmint.py
 #
-# Crossmint: the path for physical goods from real merchants.
+# Crossmint: the path for physical goods from merchants.
 #
-# A PRODUCTION KEY IS NOW CONFIGURED, so execute() can place real orders and
-# spend real money. Three guards stand in front of it, each independent, so
+# A PRODUCTION KEY IS NOW CONFIGURED, so execute() can place orders and
+# spend money. Three guards stand in front of it, each independent, so
 # no single mistake is sufficient to cause an unintended purchase.
 #
 #   GUARD 1  execute() is inert unless COMMERCE_ALLOW_REAL_ORDERS is truthy.
@@ -14,7 +14,7 @@
 #
 #   GUARD 2  A hard spend ceiling from core/commerce/limits.py, checked
 #            immediately before the HTTP write. Not an env var: see that
-#            file for why. Raise it there once a real order has worked.
+# file for why. Raise it there once a order has worked.
 #
 #   GUARD 3  A browser profile is NEVER created here, and a browserProfileId
 #            is never sent unless the caller passes explicit per-session
@@ -25,7 +25,7 @@
 #            account. That is a decision for the person whose account it is,
 #            taken each time, not a by-product of buying a coat.
 #
-# ENDPOINTS, FETCHED FROM THE REAL DOCS (2026-09-08, re-verified):
+# ENDPOINTS, FETCHED FROM THE DOCS (2026-09-08, re-verified):
 #   create order    POST /2022-06-09/orders            header X-API-KEY
 #                   body {"payment": {...}, "lineItems": {...}}
 #                   https://docs.crossmint.com/api-reference/headless/create-order
@@ -35,7 +35,7 @@
 #                   body {"label": "..."}; reused as browserProfileId
 #                   https://docs.crossmint.com/agents/payment-flows/agent-checkouts-browser-profiles
 #                   -- documented here so the guard is checkable against the
-#                   real thing. This module never calls it.
+# thing. This module never calls it.
 
 from __future__ import annotations
 
@@ -51,18 +51,18 @@ STAGING_BASE = "https://staging.crossmint.com/api"
 CREATE_ORDER_PATH = "/2022-06-09/orders"
 GET_ORDER_PATH = "/2022-06-09/orders/{order_id}"
 
-# Never called. Named so GUARD 3 can be asserted against a real constant
+# Never called. Named so GUARD 3 can be asserted against a constant
 # rather than against a comment.
 BROWSER_PROFILE_PATH = "/unstable/agent-checkouts/browser-profiles"
 
 TIMEOUT_SECONDS = 30.0
 
-# The real enums, from the create-order reference and confirmed by a live
+# The enums, from the create-order reference and confirmed by a live
 # 400 ("payment.method: Invalid input") when this adapter guessed wrong.
 # Kept here rather than assumed, because sending an unsupported currency is
 # how you find out at settlement time instead of at validation time.
 # LIVE-VERIFIED 2026-09-08, and these override the docs page, which lists
-# `bsc` and the *-sepolia methods. The real API rejects `bsc` outright:
+# `bsc` and the *-sepolia methods. The API rejects `bsc` outright:
 #   "payment.method: 'bsc' is not available for crypto payments.
 #    Expected 'ethereum' | 'polygon' | 'optimism' | 'arbitrum' | 'base'
 #    | 'arbitrumnova' | 'chiliz' | 'world-chain'"
@@ -141,7 +141,7 @@ class CrossmintRail:
 
         A production key against the staging host just 401s, and a staging
         key against production likewise -- but the failure mode that matters
-        is the silent one, where a mismatched setting sends a real key
+        is the silent one, where a mismatched setting sends a key
         somewhere unintended. Crossmint keys are self-describing
         (sk_production… / sk_staging…), so the key decides, and CROSSMINT_ENV
         can only be used to force STAGING, never to force production.
@@ -190,9 +190,9 @@ class CrossmintRail:
         "determines whether an order is officially created or whether it
         simply returns what an order would look like". A draft is not
         persisted, is not queryable, and charges nothing -- so it is the
-        honest way to check that a cart is well-formed and priceable BEFORE
+        way to check that a cart is well-formed and priceable BEFORE
         anyone's money is involved, and it is how this adapter's request
-        shape was verified against the real API without buying anything.
+        shape was verified against the API without buying anything.
 
         GUARD 1 therefore does not apply to a draft: a call that cannot
         spend does not need the flag that exists to authorise spending.
@@ -211,8 +211,8 @@ class CrossmintRail:
             return RailResult(
                 rail=self.name, status="unavailable",
                 detail=(
-                    f"Real orders are disabled. Set {REAL_ORDERS_FLAG}=1 to allow "
-                    "Crossmint to place an actual order. Nothing was sent."
+                    f"orders are disabled. Set {REAL_ORDERS_FLAG}=1 to allow "
+                    "Crossmint to place an order. Nothing was sent."
                 ),
             )
 
@@ -248,7 +248,7 @@ class CrossmintRail:
         # Crossmint's accepted currencies are NOT this pipeline's settlement
         # tokens. The cart is denominated in USDT (what B402 settles), and
         # USDT is not in Crossmint's EVM set at all. Refusing here, with the
-        # real allowed values named, is far better than discovering it from
+        # allowed values named, is far better than discovering it from
         # a 400 mid-checkout -- or worse, from a wrong charge.
         raw_method = os.environ.get("CROSSMINT_PAYMENT_METHOD") or DEFAULT_PAYMENT_METHOD
         if not raw_method:
@@ -310,7 +310,7 @@ class CrossmintRail:
             # from the merchant listing itself, so a price we computed would
             # either be ignored or, worse, disagree with what is charged.
             # The cart total is still checked against the spend cap before
-            # we get here, and the real total must be read back from the
+            # we get here, and the total must be read back from the
             # draft response rather than assumed.
             "lineItems": [
                 {
@@ -333,7 +333,7 @@ class CrossmintRail:
                 )
         except (httpx.HTTPError, OSError) as e:
             # Order creation is a write. An ambiguous failure is NOT retried:
-            # a duplicate order is a real charge against a real person.
+            # a duplicate order is a charge against a person.
             return RailResult(
                 rail=self.name, status="indeterminate",
                 detail=(

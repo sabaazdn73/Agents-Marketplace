@@ -1,12 +1,12 @@
 // Pagination.jsx
 //
-// Real numbered pagination for the web Marketplace grid/table — reference:
+// numbered pagination for the web Marketplace grid/table, reference:
 // mercor.com's own real, live listing page (work.mercor.com/jobs), fetched
 // and read before building this, not guessed at from scratch: real
 // numbered pages with Previous/Next at the ends ("Previous | 1 | 2 | 3 | 4
 // | … | 24 | 25 | Next"), which is exactly the shape this reproduces.
 //
-// Purely client-side — the caller already has the FULL filtered/sorted list
+// Purely client-side, the caller already has the FULL filtered/sorted list
 // in memory (this project's known_agents list is fetched once, in full,
 // and cached in localStorage; see useMarketplaceAgents in
 // AgentMarketplaceApp.web.jsx), so this only ever slices an array already
@@ -16,7 +16,7 @@ import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /** Always includes page 1, the last page, and current±1; "…" fills real
- * gaps — the same shape real numbered pagination (Mercor's included)
+ * gaps, the same shape numbered pagination (Mercor's included)
  * uses so the control never grows unboundedly wide for a large page count. */
 function pageNumbers(current, total) {
   const keep = new Set([1, total, current - 1, current, current + 1]);

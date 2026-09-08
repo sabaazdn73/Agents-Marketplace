@@ -1,15 +1,15 @@
 // InfoTooltip.jsx
 //
-// Real, small on-demand info popover — click-to-toggle (not hover-only, so
+// Real, small on-demand info popover, click-to-toggle (not hover-only, so
 // it works the same on a touch device as a mouse), closes on outside
 // click/Escape. Built to de-clutter the marketplace's top stats/filter area
 // (2026-08-28): several genuinely useful explanations (the diversity-limit
 // note, the service-health legend, the verification-tier legend) used to
 // each render as a permanent, always-visible paragraph box stacked one
-// after another — real information, but competing for attention with
+// after another, information, but competing for attention with
 // everything else in that area regardless of whether anyone needed it right
-// now. This moves that same real content behind a small (i) a reader
-// chooses to open, without cutting anything the text actually said.
+// now. This moves that same content behind a small (i) a reader
+// chooses to open, without cutting anything the text said.
 //
 // Shared by web + mobile so the interaction can't drift between them.
 

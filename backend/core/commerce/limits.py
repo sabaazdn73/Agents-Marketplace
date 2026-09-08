@@ -2,7 +2,7 @@
 #
 # ════════════════════════════════════════════════════════════════════════
 #  THE HARD SPEND CAP LIVES HERE. Raise MAX_ORDER_VALUE_MINOR_UNITS below
-#  once a real order has completed successfully.
+# once a order has completed successfully.
 # ════════════════════════════════════════════════════════════════════════
 #
 # One constant, one file, so there is exactly one place to look and exactly
@@ -14,7 +14,7 @@
 # The cap is enforced in TWO places on purpose (defence in depth):
 #   1. agents/payment.py -- before any rail is chosen, so it applies to
 #      every rail including B402, not just Crossmint.
-#   2. rails/crossmint.py -- immediately before the real HTTP write, so a
+# 2. rails/crossmint.py -- immediately before the HTTP write, so a
 #      future caller that bypasses the payment agent still cannot exceed it.
 # Neither is redundant: the first is the policy, the second is the fuse.
 

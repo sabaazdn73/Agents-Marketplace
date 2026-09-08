@@ -22,7 +22,7 @@ function useJobStatusPolling(intervalMs = 30000) {
             addNotification(`Job #${jobId}: ${plain}`, `One of your hires just changed status to "${plain}".`);
             setJobStatus(jobId, j.statusName);
           }
-        } catch { /* transient RPC error — retry next tick */ }
+        } catch { /* transient RPC error, retry next tick */ }
       }
     };
     const id = setInterval(poll, intervalMs);
@@ -46,7 +46,7 @@ export default function NotificationBell({ variant = 'light' }) {
   const ref = useRef(null);
   const btnRef = useRef(null);
   // Viewport coordinates for the panel. It is rendered through a portal
-  // rather than as a child of the bell, so it needs real coordinates
+ // rather than as a child of the bell, so it needs coordinates
   // instead of `absolute right-0`.
   const [pos, setPos] = useState(null);
   useJobStatusPolling();

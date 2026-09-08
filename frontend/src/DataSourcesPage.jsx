@@ -1,8 +1,8 @@
 // DataSourcesPage.jsx
 //
-// Dedicated "Data Sources / Powered by" page, linked from the footer —
-// real provider, real logo, real link, real description of what it's
-// actually used for in this codebase. See dataSources.js for the source of
+// Dedicated "Data Sources / Powered by" page, linked from the footer,
+// provider, logo, link, description of what it's
+// used for in this codebase. See dataSources.js for the source of
 // truth these render from.
 import React, { useState } from 'react';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
@@ -26,7 +26,7 @@ export default function DataSourcesPage({ onBack }) {
 
         <h1 className="text-2xl font-bold mb-1">Data sources</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-          Every real external provider this project uses, and what each one actually does here.
+ Every external provider this project uses, and what each one does here.
           Live reachability for these is tracked on <a href="/status" className="text-indigo-500 hover:underline">/status</a>.
         </p>
 

@@ -1,18 +1,18 @@
 // AgentAvatar.jsx
 //
-// Real per-agent avatar, shared by web + mobile.
+// per-agent avatar, shared by web + mobile.
 //
 // Checked honestly first (2026-08-25): 8004scan's /api/v1/agents DOES carry a
-// real image_url field (confirmed live against 264 real BSC agents) — 89/264
-// (~34%) have one, drawn from 24 distinct real per-publisher image sets
+// image_url field (confirmed live against 264 BSC agents), 89/264
+// (~34%) have one, drawn from 24 distinct per-publisher image sets
 // (e.g. evoevo.ai's avatar pack, Termix's listing images), not fabricated.
-// owner_avatar_url also exists as a field but was null on every real agent
+// owner_avatar_url also exists as a field but was null on every agent
 // checked, so it's not used here.
 //
 // For the other ~66% with no image_url, this falls back to a deterministic
-// identicon generated from the agent's real owner address, via
+// identicon generated from the agent's owner address, via
 // danfinlay/jazzicon (the same generator MetaMask itself uses for account
-// icons) — a small, well-known, standard Web3 pattern, not hand-rolled pixel
+// icons), a small, well-known, standard Web3 pattern, not hand-rolled pixel
 // generation. Every agent card ends up with a real, distinct visual either
 // way, never a blank placeholder.
 import React, { useState } from 'react';
@@ -21,9 +21,9 @@ import Jazzicon, { jsNumberForAddress } from 'react-jazzicon';
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 /** jsNumberForAddress assumes a real "0x…" address and will return NaN on
- * anything else. Real agents always have owner_address, but this stays safe
+ * anything else. agents always have owner_address, but this stays safe
  * for the rare malformed/missing case by hashing the agent's id/name into a
- * stable pseudo-seed instead — still deterministic per agent, never random. */
+ * stable pseudo-seed instead, still deterministic per agent, never random. */
 function seedForAgent(agent) {
   if (agent?.ownerAddress && ADDRESS_RE.test(agent.ownerAddress)) {
     return jsNumberForAddress(agent.ownerAddress);

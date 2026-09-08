@@ -1,8 +1,8 @@
 // categoryHints.js
 //
 // Copy audit (2026-08-22): the category taxonomy itself (backend/core/
-// categorize.py) uses real trading/DeFi terms as its category NAMES —
-// "Health Factor Monitoring", "Yield Optimisation", etc. — because those
+// categorize.py) uses trading/DeFi terms as its category NAMES,
+// "Health Factor Monitoring", "Yield Optimisation", etc., because those
 // names double as the keyword-matching labels and changing them would touch
 // backend classification logic, not just display text. Renaming them here
 // isn't safe to do blind, so instead: every category gets a short, plain-
@@ -19,14 +19,14 @@ export const CATEGORY_HINTS = {
   'Smart Contract Auditing': 'Checks a piece of blockchain code for bugs or security holes before you trust it.',
   'Data Analysis': 'Digs through data and turns it into charts, summaries, or reports.',
   'Research': 'Looks things up and writes up findings, like a research assistant.',
-  'Content & Copywriting': 'Writes text for you — articles, posts, product descriptions, and the like.',
-  'Identity & Verification': 'Checks who someone or something really is.',
+  'Content & Copywriting': 'Writes text for you, articles, posts, product descriptions, and the like.',
+ 'Identity & Verification': 'Checks who someone or something really is.',
   'Customer Support': 'Answers customer questions automatically.',
   'NFT & Generative Art': 'Creates or manages digital collectible art (NFTs).',
   'Gaming': 'Plays or manages tasks inside a game.',
-  'Prediction Markets': 'Lets people bet on the outcome of real-world events.',
+ 'Prediction Markets': 'Lets people bet on the outcome of real-world events.',
   'Social & Community': 'Helps run or moderate an online community or social account.',
   'Payments & Settlement': 'Sends, receives, or manages payments.',
   'Developer Tools': 'Helps programmers build or test software.',
-  'Unclassified': "We couldn't tell what this agent does from its description — read its details before hiring.",
+  'Unclassified': "We couldn't tell what this agent does from its description, read its details before hiring.",
 };

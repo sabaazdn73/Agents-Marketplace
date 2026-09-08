@@ -15,7 +15,7 @@
 //
 // The address is configuration, not a constant, because the contract is
 // deployed separately and deliberately has no address baked in here until
-// it exists. `isBudgetEscrowConfigured()` is the honest gate -- every
+// it exists. `isBudgetEscrowConfigured()` is the gate -- every
 // surface that offers budget mode must check it rather than rendering a
 // hire button that would revert.
 
@@ -108,7 +108,7 @@ export const BUDGET_ESCROW_ABI = [
 
 export const BUDGET_STATUS = ['NONE', 'OPEN', 'CLOSED', 'RECLAIMED'];
 
-/** Reads one budget's real on-chain state. Never optimistic: every caller
+/** Reads one budget's on-chain state. Never optimistic: every caller
  *  re-reads after a write rather than assuming the write's intent. */
 export function useBudgetRead(budgetId) {
   const publicClient = usePublicClient();
@@ -149,7 +149,7 @@ export function useBudgetRead(budgetId) {
  *     and returns NOTHING for the same event inside a 2,000-block window
  *     -- no error, just missing data;
  *   - even 200-block chunks recovered only 3 of the ~7 events that
- *     provably exist, since contract state showed 2 budgets and a real
+ * provably exist, since contract state showed 2 budgets and a real
  *     draw whose 2.5% fee is sitting in the escrow.
  * A feed built on that would have shown "nothing drawn yet" directly
  * above a balance saying otherwise.
@@ -174,7 +174,7 @@ export function useDrawFeed(budgetId, { lookbackBlocks = 4000, chunkSize = 200 }
     const common = { address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI };
     const drawnEvent = BUDGET_ESCROW_ABI.find((e) => e.type === 'event' && e.name === 'Drawn');
 
-    // Small windows, because that is what these providers actually answer
+ // Small windows, because that is what these providers answer
     // correctly. Bounded rather than scanning to genesis: a wide scan is
     // both slow and, as measured above, quietly wrong.
     (async () => {

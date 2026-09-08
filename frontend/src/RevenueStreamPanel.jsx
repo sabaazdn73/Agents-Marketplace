@@ -1,44 +1,44 @@
 // RevenueStreamPanel.jsx
 //
-// Real "Revenue Stream" — how much an agent has actually, verifiably
-// earned as a real ERC-8183 provider, over time. See
+// Real "Revenue Stream", how much an agent has actually, verifiably
+// earned as a ERC-8183 provider, over time. See
 // backend/core/revenue.py's own module docstring for the full real
-// methodology: sums real SUBMITTED/COMPLETED job budgets into a real
-// chronological timeline, and shows the real ERC-8183 settlement token's
-// own symbol — read live on the backend, never hardcoded or guessed here.
+// methodology: sums SUBMITTED/COMPLETED job budgets into a real
+// chronological timeline, and shows the ERC-8183 settlement token's
+// own symbol, read live on the backend, never hardcoded or guessed here.
 //
 // Real, important correction (2026-08-28): this used to reuse
 // AgentMarketplaceApp's own "Past Hires" scan, which only looks at the
-// most recent 1,500 real job ids marketplace-wide — live-confirmed to
-// silently exclude ~97% of all real job history on the shared contract.
+// most recent 1,500 job ids marketplace-wide, live-confirmed to
+// silently exclude ~97% of all job history on the shared contract.
 // Now backed by backend/core/job_index.py's own real, COMPLETE job index
 // instead (see docs/verification-methodology.md for the full real
-// investigation and before/after numbers) — `index_completeness` in the
-// real response is always surfaced honestly below rather than implying a
-// number is final while a real backfill is still catching up.
+// investigation and before/after numbers), `index_completeness` in the
+// response is always surfaced honestly below rather than implying a
+// number is final while a backfill is still catching up.
 //
-// Deliberately NOT gated to Trading & DeFi — unlike PnLPanel.jsx and
+// Deliberately NOT gated to Trading & DeFi, unlike PnLPanel.jsx and
 // OnchainPerformancePanel.jsx (both DeFi-specific questions: "did this
-// agent's real portfolio grow"), earning $U for a delivered job is a
+// agent's portfolio grow"), earning $U for a delivered job is a
 // real, universal concept across every category. Shown for any agent
-// with a real owner_address, same as the existing "Past Hires" stats
+// with a owner_address, same as the existing "Past Hires" stats
 // block right above it.
 //
 // Auto-fetched on mount (like AgentPerformance's own "Past Hires" fetch
-// right above this) — this is a real, free, already-cached backend RPC
+// right above this), this is a real, free, already-cached backend RPC
 // read, not a Zerion call, so there's no quota reason to make it opt-in.
 //
 // Real, honest, always-visible zero-state per the explicit real
-// requirement this was built against: an agent with no real settled jobs
+// requirement this was built against: an agent with no settled jobs
 // shows "$0 earned yet" plainly, never hidden and never a blank/
 // misleading state. Shared verbatim by web and mobile.
 //
 // Real, independent cross-reference (2026-08-28): also surfaces TermiX's
 // own AACP completedJobs/reputationScore for the same agent (reusing the
-// existing useTermixPerformance hook — zero new backend code) as one more
+// existing useTermixPerformance hook, zero new backend code) as one more
 // real, honestly-labeled data point, per the same "don't rely on our own
 // data alone" principle already applied to Historical on-chain
-// performance. NOT presented as a more-complete or protocol-wide total —
+// performance. NOT presented as a more-complete or protocol-wide total,
 // see useTermixPerformance.js's own real, corrected header for why.
 
 import React, { useEffect, useState } from 'react';
@@ -48,9 +48,9 @@ import { useTermixPerformance } from './useTermixPerformance';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 function fmtAmount(v) {
-  if (v == null) return '—';
-  // Real token amounts here are typically small (this marketplace's real
-  // jobs so far run ~0.1–few $U) — up to 4 real decimals so a real, small
+  if (v == null) return 'n/a';
+ // token amounts here are typically small (this marketplace's real
+ // jobs so far run ~0.1 to few $U), up to 4 decimals so a real, small
   // per-job amount doesn't round away to "0".
   return v.toLocaleString(undefined, { maximumFractionDigits: 4 });
 }
@@ -60,14 +60,14 @@ function fmtDate(unixSeconds) {
   return new Date(unixSeconds * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-// Real, dependency-free cumulative-earnings sparkline — this project has
+// Real, dependency-free cumulative-earnings sparkline, this project has
 // no charting library installed anywhere (checked before building this;
 // PnLPanel.jsx's own "LineChart" import is just a lucide icon, not a real
 // chart), and pulling one in for a single small inline visual isn't worth
-// the real bundle-size cost (this app's build already warns about large
+// the bundle-size cost (this app's build already warns about large
 // chunks). A plain SVG polyline over the real, already-computed
-// running_total values is enough to show a real growth trend at a glance.
-// Real, independent cross-reference row — TermiX's own AACP completedJobs
+// running_total values is enough to show a growth trend at a glance.
+// Real, independent cross-reference row, TermiX's own AACP completedJobs
 // + reputationScore for the SAME agent, shown honestly as a differently-
 // scoped second opinion, never implied to be a more-complete or
 // protocol-wide total (see this file's own header, and
@@ -127,7 +127,7 @@ export default function RevenueStreamPanel({ ownerAddress }) {
   if (state.status === 'loading') {
     return (
       <div className="mt-3 flex items-center gap-2 text-gray-400 text-xs">
-        <Loader2 size={13} className="animate-spin" /> Looking up this agent's real earnings…
+ <Loader2 size={13} className="animate-spin" /> Looking up this agent's earnings…
       </div>
     );
   }
@@ -135,7 +135,7 @@ export default function RevenueStreamPanel({ ownerAddress }) {
   if (state.status === 'error') {
     return (
       <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
-        Couldn't look up this agent's real revenue right now.
+ Couldn't look up this agent's revenue right now.
         <button onClick={load} className="text-indigo-500 hover:underline font-medium">Try again</button>
       </div>
     );
@@ -148,7 +148,7 @@ export default function RevenueStreamPanel({ ownerAddress }) {
       <div className="mt-3 p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40">
         <h3 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Coins size={14} /> Revenue Stream</h3>
         <p className="text-[11px] text-gray-400">
-          {data?.reason || 'No real completed jobs yet — $0 earned so far.'}
+          {data?.reason || 'No completed jobs yet, $0 earned so far.'}
         </p>
         <TermixCrossReference termix={termix} />
       </div>
@@ -166,10 +166,10 @@ export default function RevenueStreamPanel({ ownerAddress }) {
         </span>
       </div>
       <p className="text-[10px] text-gray-400 mb-1">
-        Real, verifiably earned as a provider — {jobs_counted} real delivered job{jobs_counted === 1 ? '' : 's'} (SUBMITTED or COMPLETED), against this agent's{' '}
+ Real, verifiably earned as a provider, {jobs_counted} delivered job{jobs_counted === 1 ? '' : 's'} (SUBMITTED or COMPLETED), against this agent's{' '}
         {index_completeness?.complete
-          ? 'complete real on-chain job history'
-          : `real job history indexed so far (job #${index_completeness?.indexed_through_job_id?.toLocaleString()} of ${index_completeness?.job_counter?.toLocaleString()} — a real, one-time backfill is still catching up, more may appear as it completes)`}.
+ ? 'complete on-chain job history'
+ : `job history indexed so far (job #${index_completeness?.indexed_through_job_id?.toLocaleString()} of ${index_completeness?.job_counter?.toLocaleString()}, a real, one-time backfill is still catching up, more may appear as it completes)`}.
       </p>
 
       <RevenueSparkline timeline={timeline} />
@@ -180,7 +180,7 @@ export default function RevenueStreamPanel({ ownerAddress }) {
             <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
               Job #{t.job_id} <span className="text-[10px] text-gray-400">· {fmtDate(t.submitted_at)}</span>
               {t.status === 'SUBMITTED' && (
-                <span className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400" title="Delivered, not yet formally settled — an un-disputed delivery auto-resolves to completed after the review window">pending settlement</span>
+                <span className="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-400" title="Delivered, not yet formally settled, an un-disputed delivery auto-resolves to completed after the review window">pending settlement</span>
               )}
             </span>
             <span className="font-mono text-gray-600 dark:text-gray-300 shrink-0">
@@ -191,7 +191,7 @@ export default function RevenueStreamPanel({ ownerAddress }) {
       </div>
 
       <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
-        <TrendingUp size={10} /> Real on-chain job budgets, in the real settlement token ({token_symbol}) — no USD conversion applied.
+ <TrendingUp size={10} /> on-chain job budgets, in the settlement token ({token_symbol}), no USD conversion applied.
       </p>
 
       <TermixCrossReference termix={termix} />

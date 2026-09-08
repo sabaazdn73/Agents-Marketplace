@@ -1,7 +1,7 @@
 # chain_capabilities.py
 #
 # Which evaluation signals are genuinely available for a given chain, and
-# for the ones that are not, the real reason.
+# for the ones that are not, the reason.
 #
 # The chain views used to solve this by omission: BSC showed a rich
 # evaluation and the other chains showed a thinner one, with nothing saying
@@ -17,7 +17,7 @@
 #                          EVM chains and all six answered. The same
 #                          address returned genuinely per-chain results
 #                          (compiler v0.8.24 on Base/Arbitrum/Ethereum vs
-#                          v0.8.28 on BSC), so these are real per-chain
+# v0.8.28 on BSC), so these are per-chain
 #                          lookups, not one chain's answer reused.
 #                          Solana refuses: "Missing or unsupported chainid
 #                          parameter", correctly, since it is not EVM.
@@ -25,7 +25,7 @@
 #                          binance-smart-chain, base, arbitrum, celo and
 #                          monad are all present.
 #   DefiLlama              /protocols carries Ethereum, Base, Arbitrum,
-#                          Celo, Monad and Solana as real chain names
+# Celo, Monad and Solana as chain names
 #                          alongside Binance (DefiLlama's own name for
 #                          BSC -- not "BSC" or "BNB", confirmed earlier in
 #                          adapters/defillama.py).
@@ -46,7 +46,7 @@ from __future__ import annotations
 
 from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 
-# ERC-8183's real deployment. See frontend/src/erc8183.js and the SDK's own
+# ERC-8183's deployment. See frontend/src/erc8183.js and the SDK's own
 # constants -- mainnet 56 and testnet 97, nothing else.
 ERC8183_CHAIN_IDS = (56, 97)
 
@@ -70,19 +70,19 @@ _ZERION_CHAINS = {
 _THEGRAPH_CHAINS = {56}
 
 # 8004scan's Quality Center works on EVERY chain -- it was assumed BSC-only
-# and is not. Verified per chain against real stored agents: the endpoint
+# and is not. Verified per chain against stored agents: the endpoint
 # returns the requested chain_id and genuinely per-agent scoring (Base
 # #45071 scored engagement 3.53 / service 30 / publisher 49.96 /
-# compliance 69 / momentum 11.98 with a real domain_verification_failed
+# compliance 69 / momentum 11.98 with a domain_verification_failed
 # flag). It is flaky -- intermittent DATABASE_ERROR 500s -- which is a
 # reliability property, not a coverage one.
 _QUALITY_CHAINS = {1, 56, 8453, 42161, 42220, 143}
 
 # Binance's token-risk endpoint answers for every chain, but the DEPTH
 # degrades sharply and a field count alone would have hidden that. Measured
-# on a real stablecoin per chain, counting genuinely populated fields:
+# on a stablecoin per chain, counting genuinely populated fields:
 # BSC 89/101, Ethereum 83, Base 79, Arbitrum 40 (no holders), Celo 18
-# (real but tiny liquidity), Monad 5 (effectively nothing). Recorded as a
+# (but tiny liquidity), Monad 5 (effectively nothing). Recorded as a
 # tier so the UI can say "partial" rather than implying parity.
 _BINANCE_TIERS = {56: "full", 1: "full", 8453: "full", 42161: "partial", 42220: "thin", 143: "none"}
 
@@ -106,7 +106,7 @@ def _signal(available: bool, name: str, detail: str, reason: str = "") -> dict:
 
 
 def get_chain_capabilities(chain_id: int) -> dict:
-    """Per-signal availability for one chain, with a real reason for each
+    """Per-signal availability for one chain, with a reason for each
     absence. Pure and side-effect free -- it describes what could be
     produced, and never itself performs a lookup."""
     is_evm = chain_id in _EVM_EXPLORER_SUPPORTED
@@ -151,7 +151,7 @@ def get_chain_capabilities(chain_id: int) -> dict:
         _signal(has_escrow, "escrow_compatibility",
                 "Whether the agent can accept an ERC-8183 escrowed job.", _NO_ERC8183),
         _signal(has_escrow, "delivery_record",
-                "Real completed and disputed jobs, read from the escrow contract.", _NO_ERC8183),
+                "completed and disputed jobs, read from the escrow contract.", _NO_ERC8183),
         _signal(has_escrow, "canary_results",
                 "Results of the test jobs this marketplace runs against agents itself.",
                 _NO_ERC8183 + " Canary tests are paid jobs, so they can't run here either."),

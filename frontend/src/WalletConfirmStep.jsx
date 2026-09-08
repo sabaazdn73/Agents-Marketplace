@@ -1,19 +1,19 @@
 // WalletConfirmStep.jsx
 //
-// Real, shared "is this the wallet I think it is" checkpoint — added
+// Real, shared "is this the wallet I think it is" checkpoint, added
 // 2026-08-28, the direct fix for a real, confirmed UX gap: a user with
 // several identically-labeled saved passkeys had no way to tell a real,
 // previously-funded wallet apart from a real, empty, orphaned one without
-// a doomed real attempt first (see docs/venus-skill-revert-investigation.md
+// a doomed attempt first (see docs/venus-skill-revert-investigation.md
 // for the full incident this traces back to).
 //
-// Real, deliberate placement: shown right after a real wallet is recovered
+// Real, deliberate placement: shown right after a wallet is recovered
 // or created, BEFORE the caller proceeds to grant a session or sign
-// anything — a genuine pause, not decorative info shown while the flow
+// anything, a pause, not decorative info shown while the flow
 // silently continues behind it. The user must explicitly continue.
 //
 // Shared verbatim by web and mobile, by AltanaSkillsPanel.jsx (x402
-// payments), NativeAgentMarketplace.jsx, and every direct-wallet flow —
+// payments), NativeAgentMarketplace.jsx, and every direct-wallet flow,
 // one component, not several copies that could drift.
 
 import React from 'react';

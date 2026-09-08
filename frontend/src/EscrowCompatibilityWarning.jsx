@@ -2,44 +2,44 @@
 //
 // Real, conservative warning for a real, confirmed agent class: registered
 // on-chain, but a SaaS/off-chain business tool that never implements or
-// listens for ERC-8183 job events at all (real, confirmed example: "AIDA —
-// AI Medical Receptionist" — a real HTTP 405 on every real A2A/JSON-RPC
-// format tried). Funding a real escrow job against one of these agents has
-// zero real chance of ever being delivered — the money just sits on hold
-// until the real deadline. See backend/core/protocol_compat.py for the
-// full real detection methodology (a real, live protocol probe against the
+// listens for ERC-8183 job events at all (real, confirmed example: "AIDA,
+// AI Medical Receptionist", a HTTP 405 on every A2A/JSON-RPC
+// format tried). Funding a escrow job against one of these agents has
+// zero chance of ever being delivered, the money just sits on hold
+// until the deadline. See backend/core/protocol_compat.py for the
+// full detection methodology (a real, live protocol probe against the
 // agent's own registered endpoint, conservatively combined with
-// supporting-only metadata evidence from its own submitted description —
+// supporting-only metadata evidence from its own submitted description,
 // never category or reputation alone, and never a hard verdict from
 // keyword matching by itself).
 //
 // Deliberately AUTO-FETCHED (unlike WalletPortfolioPanel.jsx's opt-in
-// button) — this probe costs no Zerion quota, and the whole point is to
+// button), this probe costs no Zerion quota, and the whole point is to
 // warn a buyer BEFORE they open the funding flow, not only if they
 // remember to ask. Shared verbatim by web and mobile; used in two real
 // places:
-//   1. EscrowCompatibilityNotice below — real, standalone warning content
-//      (headline/body/evidence/external link). As of the real
+// 1. EscrowCompatibilityNotice below, real, standalone warning content
+// (headline/body/evidence/external link). As of the real
 //      category-aware evaluation generalization (2026-08-28), the agent
-//      detail page no longer renders this directly — it's folded into
+//      detail page no longer renders this directly, it's folded into
 //      AgentMetrics.jsx's own unified interaction-guidance block instead
-//      (the real, final consolidation of what used to be
+// (the real, final consolidation of what used to be
 //      AgentEvaluationSection.jsx + AgentInvestigationSection.jsx), so a
 //      buyer sees ONE coherent "Metrics" section, not several separate,
 //      back-to-back ones. The component itself stays exported and
 //      unchanged in case anywhere else ever wants the same standalone
 //      warning.
-//   2. The actual funding modal (useHireFlowEscrowGate) — the real,
-//      last-chance placement, right before real money moves on-chain.
-//      Requires an explicit acknowledgment checkbox before the real fund
+// 2. The funding modal (useHireFlowEscrowGate), the real,
+// last-chance placement, right before money moves on-chain.
+//      Requires an explicit acknowledgment checkbox before the fund
 //      button is enabled, rather than hard-blocking it outright: this is
-//      real, evidence-based detection, not infallible, so a buyer who has
-//      their own reason to proceed still can — just never as the default,
-//      accidental, one-click path. Unchanged by this generalization — a
+// real, evidence-based detection, not infallible, so a buyer who has
+//      their own reason to proceed still can, just never as the default,
+//      accidental, one-click path. Unchanged by this generalization, a
 //      different, still-necessary concern (safety at the moment money
-//      actually moves), not top-level presentation.
+// moves), not top-level presentation.
 //
-// Never hides the agent from the registry/marketplace listing — per the
+// Never hides the agent from the registry/marketplace listing, per the
 // real, explicit scope this was built to: "don't hide these agents
 // entirely, just prevent the specific 'fund an escrow job that can never
 // complete' failure mode." This only ever touches the hire/fund flow.
@@ -49,19 +49,19 @@ import { AlertTriangle, ExternalLink, ChevronDown, ShieldQuestion } from 'lucide
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-// Real, session-local memo only — the backend (core/protocol_compat.py)
+// Real, session-local memo only, the backend (core/protocol_compat.py)
 // already keeps its own real 24h cache; this just avoids a redundant
 // round trip when both the detail page and the funding modal mount for
 // the same agent back to back in one visit.
 //
 // Real, confirmed bug fix (2026-08-28): this used to be keyed by
-// ownerAddress ALONE — exactly the same real collision as the backend's
+// ownerAddress ALONE, exactly the same collision as the backend's
 // own now-fixed owner-only lookup (see server.py's _resolve_agent), just
 // client-side. Real, confirmed, publicly-visible incident: opening
-// Sentinels Audit's detail page after AIDA's (same real owner,
+// Sentinels Audit's detail page after AIDA's (same owner,
 // SmartSentinels) had already been fetched in the same session served
 // AIDA's cached, wrong result right back. Now keyed by agentId when
-// available (every real caller has one), falling back to ownerAddress
+// available (every caller has one), falling back to ownerAddress
 // only for the rare legacy call that doesn't.
 const _cache = new Map();
 
@@ -96,7 +96,7 @@ export function useEscrowCompatibility(ownerAddress, agentId) {
   return state;
 }
 
-// Exported (2026-08-28) — reused by AgentMetrics.jsx, which folds this
+// Exported (2026-08-28), reused by AgentMetrics.jsx, which folds this
 // file's own warning content into the unified Metrics section rather
 // than duplicating the same hostname-extraction logic.
 export function hostnameOf(url) {
@@ -104,12 +104,12 @@ export function hostnameOf(url) {
 }
 
 const WARNING_HEADLINE = "This agent doesn't appear to operate through Tnega's on-chain escrow system.";
-const WARNING_BODY = "We tested this agent's real, registered endpoint directly, and it rejected every real job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, there's a real chance no one is listening for it — your payment would sit on hold until the deadline, with no way for this agent to actually deliver.";
+const WARNING_BODY = "We tested this agent's real, registered endpoint directly, and it rejected every job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, there's a chance no one is listening for it, your payment would sit on hold until the deadline, with no way for this agent to deliver.";
 
-/** Supplementary warning for the agent detail page — sits next to the real
+/** Supplementary warning for the agent detail page, sits next to the real
  * "Hire this agent" button, never replaces it (the detail page still lets
  * a buyer proceed to the funding modal; the real, harder gate lives there
- * instead — see useHireFlowEscrowGate below). */
+ * instead, see useHireFlowEscrowGate below). */
 export function EscrowCompatibilityNotice({ ownerAddress, agentId }) {
   const { status, data } = useEscrowCompatibility(ownerAddress, agentId);
   const [showEvidence, setShowEvidence] = useState(false);
@@ -144,14 +144,14 @@ export function EscrowCompatibilityNotice({ ownerAddress, agentId }) {
 }
 
 /** Real, non-blocking caution (2026-08-28, from the full interaction-
- * pattern investigation — see docs/agent-interaction-patterns.md) for the
- * real, distinct auth-gated case: a genuine 401/403, real and previously
+ * pattern investigation, see docs/agent-interaction-patterns.md) for the
+ * real, distinct auth-gated case: a genuine 401/403, and previously
  * invisible at this last-chance step, but genuinely inconclusive rather
- * than a confirmed hard rejection — so it's shown plainly, without the
+ * than a confirmed hard rejection, so it's shown plainly, without the
  * harder checkbox-gate below reserved for confirmed-incompatible agents.
- * Matches the explicit "default to the most cautious real action" intent
+ * Matches the explicit "default to the most cautious action" intent
  * without over-blocking on evidence this project has always treated as
- * real but inconclusive. */
+ * but inconclusive. */
 function AuthGatedCaution({ data }) {
   return (
     <div className="mb-6 p-4 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10">
@@ -159,21 +159,21 @@ function AuthGatedCaution({ data }) {
         <ShieldQuestion size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
         <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
           <p className="font-semibold mb-1">Before you fund this job: this agent's endpoint requires a credential we don't have.</p>
-          <p>Live evidence: its own registered endpoint returned a 401/403 when we checked. This isn't a confirmed protocol failure (it may work fine once the agent is notified some other way), but there's a real chance it never learns this job was funded without a credential this marketplace doesn't hold.</p>
+          <p>Live evidence: its own registered endpoint returned a 401/403 when we checked. This isn't a confirmed protocol failure (it may work fine once the agent is notified some other way), but there's a chance it never learns this job was funded without a credential this marketplace doesn't hold.</p>
         </div>
       </div>
     </div>
   );
 }
 
-/** The real, harder gate — used inside the actual funding modal, right
+/** The real, harder gate, used inside the funding modal, right
  * before money moves on-chain. When this agent is flagged, returns
  * `blocked: true` until the buyer explicitly checks an acknowledgment box
- * (never a silent, un-skippable hard block — this is real, evidence-based
- * detection, not infallible — but never the default, accidental path
+ * (never a silent, un-skippable hard block, this is real, evidence-based
+ * detection, not infallible, but never the default, accidental path
  * either). `node` is the warning JSX to render above the fund controls;
  * null when the agent isn't flagged. Real, auth-gated agents (2026-08-28)
- * get the real, non-blocking caution above instead — genuinely
+ * get the real, non-blocking caution above instead, genuinely
  * inconclusive evidence, never treated as harshly as a confirmed
  * rejection, but never silently invisible either. */
 export function useHireFlowEscrowGate(ownerAddress, agentId) {
@@ -182,7 +182,7 @@ export function useHireFlowEscrowGate(ownerAddress, agentId) {
   const flagged = status === 'ready' && !!data?.escrow_incompatible;
   const authGated = status === 'ready' && !flagged && !!data?.auth_gated;
 
-  // Real, deliberate reset — a fresh agent (or reopening the modal for a
+ // Real, deliberate reset, a fresh agent (or reopening the modal for a
   // different one) must never inherit a previous agent's acknowledgment.
   useEffect(() => { setAcknowledged(false); }, [ownerAddress, agentId]);
 

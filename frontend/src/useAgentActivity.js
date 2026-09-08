@@ -1,12 +1,12 @@
 // useAgentActivity.js
 //
-// Real, opt-in fetch for one job's "Agent activity" transparency view — see
-// AgentActivityPanel.jsx's own docstring for the full real feature. This is
+// Real, opt-in fetch for one job's "Agent activity" transparency view, see
+// AgentActivityPanel.jsx's own docstring for the full feature. This is
 // NOT a useEffect-driven auto-fetch: `fetchActivity` is called manually,
-// only when a user actually expands the section, matching this project's
-// established real Zerion rate-budget discipline (the same "opt-in,
+// only when a user expands the section, matching this project's
+// established Zerion rate-budget discipline (the same "opt-in,
 // on-demand, one agent's detail page at a time" rule get_wallet_portfolio
-// already follows — see backend/adapters/zerion.py).
+// already follows, see backend/adapters/zerion.py).
 
 import { useState } from 'react';
 

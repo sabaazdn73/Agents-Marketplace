@@ -66,14 +66,14 @@ export function notifyPipelineResult(result) {
       // Explicitly not a purchase.
       addNotification(
         'Your cart is ready to check out',
-        `Nothing has been paid yet — you complete the purchase yourself.${
+        `Nothing has been paid yet, you complete the purchase yourself.${
           p.checkout_url ? ` Open: ${p.checkout_url}` : ''
         }`,
       );
       raised += 1;
     } else if (p.status === 'indeterminate') {
       addNotification(
-        'Payment outcome unknown — check before retrying',
+        'Payment outcome unknown, check before retrying',
         `${p.detail || 'The settlement result could not be confirmed.'} It was NOT retried automatically, `
         + 'because retrying an ambiguous payment can charge you twice.',
       );

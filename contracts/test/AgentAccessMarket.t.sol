@@ -7,8 +7,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @dev Runs against a REAL fork of BSC mainnet: the real ERC-8004 registry +
-///      the real whitelisted tokens (USDT, $U) and native BNB.
+/// @dev Runs against a fork of BSC mainnet: the ERC-8004 registry +
+/// the whitelisted tokens (USDT, $U) and native BNB.
 contract AgentAccessMarketForkTest is Test {
     address constant USDT = 0x55d398326f99059fF775485246999027B3197955;
     address constant U = 0xcE24439F2D9C6a2289F741120FE202248B666666;
@@ -29,8 +29,8 @@ contract AgentAccessMarketForkTest is Test {
         NATIVE = market.NATIVE();
     }
 
-    // Binance hot wallet — holds >490M of both USDT and $U on live BSC. Used to
-    // fund buyers with REAL tokens on the fork (robust for $U, whose proxy
+    // Binance hot wallet, holds >490M of both USDT and $U on live BSC. Used to
+    // fund buyers with tokens on the fork (robust for $U, whose proxy
     // balanceOf isn't a plain storage slot, so forge's `deal` is unreliable).
     address constant WHALE = 0xF977814e90dA44bFA03b6295A0616a897441aceC;
 

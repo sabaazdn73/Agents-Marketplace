@@ -2,13 +2,13 @@
 universal_search.py
 
 Real, live fallback for a search that isn't answered by the local
-known_agents cache — see docs/universal-search.md for the full real
+known_agents cache, see docs/universal-search.md for the full real
 investigation and design reasoning behind what's built here.
 
 Real, deliberate scope: only ever triggers for input that already LOOKS
 like an agent id or an address. A plain-text name search that just
 doesn't match anything stays a plain "no results" (the existing,
-unchanged client-side name filter) — this module never guesses at what
+unchanged client-side name filter), this module never guesses at what
 free-text input might mean, only classifies genuinely structured input
 (a UUID, a numeric token id, a 0x-address) and looks up the real,
 authoritative source for whichever kind it is.
@@ -19,7 +19,7 @@ listing, NOT the real, on-chain ERC-8004 tokenId a user would see
 referenced anywhere else (BscScan, 8004scan's own public pages, an
 on-chain job's provider metadata). The real, on-chain id is the
 separate `token_id` integer field. A user pasting a plain number almost
-certainly means the real token id, not our internal UUID — this module
+certainly means the token id, not our internal UUID, this module
 checks token_id for a numeric query, not _id.
 """
 
@@ -42,10 +42,10 @@ _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 _NUMERIC_ID_RE = re.compile(r"^\d+$")
 
 # Real, short cache per the explicit ask: a live lookup at search time,
-# not a permanent one — repeat searches of the same real input within
+# not a permanent one, repeat searches of the same input within
 # this window are served from memory instead of re-hitting a live API/RPC.
 _TTL_SECONDS = 5 * 60
-_CACHE_MAX_ENTRIES = 5_000  # real, bounded — same discipline as the recent
+_CACHE_MAX_ENTRIES = 5_000 # real, bounded, same discipline as the recent
 # protocol_compat.py OOM fix; this cache is keyed by arbitrary user input
 # (never validated against a real, bounded population the way
 # service_endpoint is), so it needs its own explicit ceiling from day one.
@@ -66,7 +66,7 @@ def _cache_set(key: str, value: dict) -> None:
 
 
 def classify_query(raw: str) -> str:
-    """Real, plain classification — 'address' | 'uuid' | 'token_id' |
+    """Real, plain classification, 'address' | 'uuid' | 'token_id' |
     'unrecognized'. Never guesses at free text; only these three
     structured shapes are treated as a live-lookup candidate."""
     q = (raw or "").strip()
@@ -79,11 +79,11 @@ def classify_query(raw: str) -> str:
     return "unrecognized"
 
 
-# ---- Known, real, hardcoded contracts — mirrors the exact same real
+# ---- Known, real, hardcoded contracts, mirrors the exact same real
 # addresses already hardcoded on the frontend (erc8183.js, defiSkills.js,
 # pancakeswapSkill.js, agentMarket.js), never guessed or independently
 # sourced. Kept small and literal on purpose, same discipline as
-# protocol_compat.py's own _SAAS_LANGUAGE_MARKERS — a real, curated list,
+# protocol_compat.py's own _SAAS_LANGUAGE_MARKERS, a real, curated list,
 # not an attempt at general-purpose contract identification. ----
 _KNOWN_CONTRACTS = {
     "0xea4daa3100a767e86fded867729ae7446476eba6": "Tnega's own AgenticCommerce contract (ERC-8183 escrow)",
@@ -108,9 +108,9 @@ _ERC20_SELECTORS = {
 
 
 async def _rpc_batch(calls: list[dict]) -> dict[int, dict]:
-    """Real, shared batched JSON-RPC helper — one POST, N calls, mapped
+    """Real, shared batched JSON-RPC helper, one POST, N calls, mapped
     back by the id each call was assigned (batch responses aren't
-    guaranteed to come back in request order, same real discipline as
+    guaranteed to come back in request order, same discipline as
     adapters/bsc_balance.py)."""
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await rpc_post(client, calls)
@@ -120,9 +120,9 @@ async def _rpc_batch(calls: list[dict]) -> dict[int, dict]:
 
 
 async def resolve_agent_id(query: str) -> dict:
-    """Real handling for a numeric token id or a 8004scan-internal UUID.
+    """handling for a numeric token id or a 8004scan-internal UUID.
     Always local-first (free, fast); only makes a real, live 8004scan
-    call on a genuine local miss for a numeric token id — a UUID miss is
+    call on a local miss for a numeric token id, a UUID miss is
     reported honestly rather than guessed at (8004scan's own public API
     is keyed by token_id+chain, not by their internal listing UUID, so
     there's no live path to resolve one we don't already have)."""
@@ -141,7 +141,7 @@ async def resolve_agent_id(query: str) -> dict:
             if agent else
             {"input_kind": "uuid", "source": "local", "found": False,
              "reason": "Not in our local marketplace index, and this looks like 8004scan's own internal listing id "
-                       "rather than an on-chain agent id — there's no real, live way to look that specific value up "
+                       "rather than an on-chain agent id, there's no real, live way to look that specific value up "
                        "directly. If you have the agent's real, on-chain token id instead (a plain number), search "
                        "for that instead."}
         )
@@ -150,7 +150,7 @@ async def resolve_agent_id(query: str) -> dict:
 
     if kind != "token_id":
         result = {"input_kind": "unrecognized", "found": False,
-                   "reason": "Doesn't look like a real agent id (a plain number) or a wallet/contract address (0x...)."}
+                   "reason": "Doesn't look like a agent id (a plain number) or a wallet/contract address (0x...)."}
         _cache_set(cache_key, result)
         return result
 
@@ -161,7 +161,7 @@ async def resolve_agent_id(query: str) -> dict:
         _cache_set(cache_key, result)
         return result
 
-    # Real, live fallback — the local cache genuinely doesn't have this
+    # Real, live fallback, the local cache genuinely doesn't have this
     # one (a brand-new registration, or one this project's own diversity
     # clustering filtered out of the curated known_agents view). BSC
     # mainnet only, matching this project's own stated scope everywhere
@@ -170,7 +170,7 @@ async def resolve_agent_id(query: str) -> dict:
     if not api_key:
         result = {"input_kind": "token_id", "source": "live_lookup_unavailable", "found": False,
                    "reason": "Not in our local index, and a live 8004scan lookup isn't configured on this deployment "
-                              "(SCAN_8004_API_KEY not set) — can't honestly confirm whether this id is real."}
+                              "(SCAN_8004_API_KEY not set), can't honestly confirm whether this id is real."}
         _cache_set(cache_key, result)
         return result
 
@@ -180,7 +180,7 @@ async def resolve_agent_id(query: str) -> dict:
     if detail is None:
         result = {"input_kind": "token_id", "source": "live_8004scan", "found": False,
                    "reason": f"Checked live against 8004scan's own registry for BSC mainnet (chain {MAINNET_CHAIN_ID}) "
-                              f"— genuinely no agent exists with token id {token_id} there either. Not a caching gap, "
+                              f", genuinely no agent exists with token id {token_id} there either. Not a caching gap, "
                               f"this id doesn't appear to be a real, registered agent on this chain."}
         _cache_set(cache_key, result)
         return result
@@ -196,7 +196,7 @@ async def resolve_agent_id(query: str) -> dict:
             "total_score": detail.get("total_score"), "is_active": detail.get("is_active"),
             "created_tx_hash": detail.get("created_tx_hash"),
         },
-        "reason": "This is a real, registered ERC-8004 agent, confirmed live against 8004scan — it's just not in "
+        "reason": "This is a real, registered ERC-8004 agent, confirmed live against 8004scan, it's just not in "
                    "our own curated marketplace listing (a brand-new registration, or filtered out by this "
                    "marketplace's own diversity limits). Shown here from the live registry directly.",
     }
@@ -216,10 +216,10 @@ def _agent_summary(agent: dict) -> dict:
 async def classify_address(address: str) -> dict:
     """Real, live classification for a 0x-address that isn't a known
     agent owner in the local cache: EOA vs contract (eth_getCode), with
-    real balance/activity for an EOA, and real, best-effort identification
+    balance/activity for an EOA, and real, best-effort identification
     for a contract (a known, hardcoded address first, then a live ERC-20
     metadata self-check). Every branch returns a real, honest, non-dead-
-    end answer — including the case where nothing further can be said."""
+    end answer, including the case where nothing further can be said."""
     addr = address.strip().lower()
     cache_key = f"addr:{addr}"
     cached = _cache_get(cache_key)
@@ -227,7 +227,7 @@ async def classify_address(address: str) -> dict:
         return cached
 
     db = get_db()
-    # Real, unambiguous — every registered agent this address owns, not
+    # Real, unambiguous, every registered agent this address owns, not
     # just a best-effort single pick (see agent_store.get_agent_by_owner's
     # own docstring for why picking just one would be dishonest here).
     owned_agents = await db.known_agents.find(
@@ -243,7 +243,7 @@ async def classify_address(address: str) -> dict:
         by_id = await _rpc_batch(calls)
     except Exception as e:
         result = {"input_kind": "address", "found": False,
-                   "reason": f"Couldn't reach a real BSC RPC to check this address live: {e}. Try again shortly."}
+                   "reason": f"Couldn't reach a BSC RPC to check this address live: {e}. Try again shortly."}
         _cache_set(cache_key, result)
         return result
 
@@ -271,20 +271,20 @@ async def classify_address(address: str) -> dict:
             "input_kind": "address", "found": True, "address_kind": "wallet",
             "registered_agent_owner": False,
             "bnb_balance": bnb_balance, "transaction_count": tx_count,
-            "reason": "A real, live BNB Chain wallet (confirmed via eth_getCode — no contract code), "
+            "reason": "A real, live BNB Chain wallet (confirmed via eth_getCode, no contract code), "
                        "not a registered agent owner in our marketplace.",
         }
         _cache_set(cache_key, result)
         return result
 
-    # Real contract path — known list first (free), then a live ERC-20
+    # contract path, known list first (free), then a live ERC-20
     # self-check (four cheap eth_calls, one batch) before giving up honestly.
     known_name = _KNOWN_CONTRACTS.get(addr)
     if known_name:
         result = {
             "input_kind": "address", "found": True, "address_kind": "contract",
             "registered_agent_owner": False, "contract_identity": known_name,
-            "reason": f"A real, live smart contract — identified as {known_name}.",
+            "reason": f"A real, live smart contract, identified as {known_name}.",
         }
         _cache_set(cache_key, result)
         return result
@@ -308,7 +308,7 @@ async def classify_address(address: str) -> dict:
         except Exception:
             # Some real, older BSC tokens return a raw bytes32, not a
             # dynamic string (a real, known ERC-20 non-conformance, not
-            # a bug here) — try that shape before giving up on this field.
+            # a bug here), try that shape before giving up on this field.
             try:
                 raw = bytes.fromhex(hex_result[2:])
                 return raw.rstrip(b"\x00").decode("utf-8", errors="ignore") or None
@@ -330,7 +330,7 @@ async def classify_address(address: str) -> dict:
             "token_name": name, "token_symbol": symbol, "token_decimals": decimals,
             "token_total_supply_raw": total_supply,
             "reason": f"A real, live smart contract that answers as an ERC-20 token"
-                       f"{f' ({symbol})' if symbol else ''} — confirmed via a live on-chain read, not a static list.",
+                       f"{f' ({symbol})' if symbol else ''}, confirmed via a live on-chain read, not a static list.",
         }
         _cache_set(cache_key, result)
         return result
@@ -338,7 +338,7 @@ async def classify_address(address: str) -> dict:
     result = {
         "input_kind": "address", "found": True, "address_kind": "contract",
         "registered_agent_owner": False, "contract_identity": None,
-        "reason": "A real, live smart contract (confirmed via eth_getCode) — not a registered agent owner, not a "
+        "reason": "A real, live smart contract (confirmed via eth_getCode), not a registered agent owner, not a "
                    "recognized token, and not one of the known contracts this project can identify by name. "
                    "Genuinely unidentified, not a failed lookup.",
     }
@@ -347,14 +347,14 @@ async def classify_address(address: str) -> dict:
 
 
 async def resolve_search_fallback(raw_query: str) -> dict:
-    """The one, real entry point — classifies the input and routes to the
+    """The one, entry point, classifies the input and routes to the
     right real, live lookup. Always returns a real, honest, categorized
-    answer, never a bare 'not found' — the whole point of this module."""
+    answer, never a bare 'not found', the whole point of this module."""
     kind = classify_query(raw_query)
     if kind == "address":
         return await classify_address(raw_query)
     if kind in ("uuid", "token_id"):
         return await resolve_agent_id(raw_query)
     return {"input_kind": "unrecognized", "found": False,
-            "reason": "Doesn't look like a real agent id (a plain number) or a wallet/contract address (0x...) — "
+            "reason": "Doesn't look like a agent id (a plain number) or a wallet/contract address (0x...), "
                        "nothing further to check live for this input."}

@@ -1,13 +1,13 @@
 // defiSkills.js
 //
-// Real execution for the lending/staking skills, addresses and function
+// execution for the lending/staking skills, addresses and function
 // behavior copied exactly from each skill's own SKILL.md in Altana's public
 // registry (confirmed live 9 Aug 2026). Each function follows that skill's
 // own Guards verbatim, especially "verify balances changed, success of the
 // transaction alone doesn't mean the operation succeeded".
 //
 // Execution is done through an injected `executor` ({ walletAddress,
-// publicClient, execute(calls) }) — the user's own connected wallet
+// publicClient, execute(calls) }), the user's own connected wallet
 // (useDirectWalletExecutor.js), the only path these tx skills run through.
 
 import { encodeFunctionData, parseAbi } from 'viem';
@@ -40,44 +40,44 @@ export async function venusSupply(executor, { usdtAmount }) {
 }
 
 /**
- * Real, read-only pre-flight diagnostic — added 2026-08-28 after a real,
+ * Real, read-only pre-flight diagnostic, added 2026-08-28 after a real,
  * confirmed incident: a Venus Lending skill attempt failed with a raw,
  * reason-less relay revert ("Reason: 0x Details: 0x"). Live investigation
  * that session (see docs/venus-skill-revert-investigation.md) directly
- * ruled out a real decimal/amount-encoding mismatch, the real vUSDT
- * market being paused, and the real supply cap being hit — all confirmed
- * via live on-chain reads, not assumed — but couldn't check the one real
- * remaining, wallet-specific hypothesis (insufficient real balance/
- * allowance) without the actual failing wallet address. This gives that
- * exact real check, cheaply, BEFORE a real attempt — never blocks a
+ * ruled out a decimal/amount-encoding mismatch, the vUSDT
+ * market being paused, and the supply cap being hit, all confirmed
+ * via live on-chain reads, not assumed, but couldn't check the one real
+ * remaining, wallet-specific hypothesis (insufficient balance/
+ * allowance) without the failing wallet address. This gives that
+ * exact check, cheaply, BEFORE a attempt, never blocks a
  * genuinely-fine attempt, only surfaces a real, concrete, human-readable
- * warning when the wallet's own real on-chain state would make it fail.
+ * warning when the wallet's own on-chain state would make it fail.
  */
 export async function venusSupplyPreflight(readClient, walletAddress, usdtAmount) {
   const amountRaw = BigInt(Math.round(usdtAmount * 1e18));
-  const [realBalance, realBnbBalance] = await Promise.all([
+ const [realBalance, realBnbBalance] = await Promise.all([
     readClient.readContract({ address: USDT_BSC, abi: ERC20_ABI, functionName: 'balanceOf', args: [walletAddress] }),
     readClient.getBalance({ address: walletAddress }),
   ]);
   const problems = [];
-  if (realBalance < amountRaw) {
-    problems.push(`This wallet's real USDT balance (${(Number(realBalance) / 1e18).toLocaleString()} USDT) is less than the ${usdtAmount.toLocaleString()} USDT you're trying to supply.`);
+ if (realBalance < amountRaw) {
+ problems.push(`This wallet's USDT balance (${(Number(realBalance) / 1e18).toLocaleString()} USDT) is less than the ${usdtAmount.toLocaleString()} USDT you're trying to supply.`);
   }
-  if (realBnbBalance === 0n) {
-    problems.push("This wallet's real BNB balance is 0 — even a session-relayed transaction needs some real gas behind it, depending on how the relay sponsors fees.");
+ if (realBnbBalance === 0n) {
+ problems.push("This wallet's BNB balance is 0, even a session-relayed transaction needs some gas behind it, depending on how the relay sponsors fees.");
   }
   return {
     ok: problems.length === 0,
     problems,
-    realUsdtBalance: Number(realBalance) / 1e18,
-    realBnbBalance: Number(realBnbBalance) / 1e18,
+ realUsdtBalance: Number(realBalance) / 1e18,
+ realBnbBalance: Number(realBnbBalance) / 1e18,
   };
 }
 
 export async function venusWithdraw(executor, { usdtAmount, withdrawAll = false }) {
   if (withdrawAll) {
-    // Real flow per the skill: read full vToken balance, redeem() it entirely.
-    throw new Error("Couldn't withdraw everything — please try again, or contact support if it keeps happening.");
+ // flow per the skill: read full vToken balance, redeem() it entirely.
+    throw new Error("Couldn't withdraw everything, please try again, or contact support if it keeps happening.");
   }
   const amountRaw = BigInt(Math.round(usdtAmount * 1e18));
   const calldata = encodeFunctionData({ abi: VENUS_ABI, functionName: 'redeemUnderlying', args: [amountRaw] });
@@ -112,43 +112,43 @@ const LISTA_ABI = parseAbi(['function deposit() payable']);
 export async function listaStake(executor, { bnbAmount }) {
   const amountRaw = BigInt(Math.round(bnbAmount * 1e18));
   const calldata = encodeFunctionData({ abi: LISTA_ABI, functionName: 'deposit', args: [] });
-  // Real payable call, native value attached, per the skill's own note:
+ // payable call, native value attached, per the skill's own note:
   // "the session must be allowed to send native value to the manager."
   return executor.execute([{ to: LISTA_MANAGER, data: calldata, value: amountRaw }]);
 }
 
 // Real, live-verified 2026-09-01 via a direct eth_call against BSC
-// mainnet: Lista's real minBnb() returns 0.001 BNB, and paused() reads
-// false. Read-only, never blocks — surfaces a real, concrete reason
+// mainnet: Lista's minBnb() returns 0.001 BNB, and paused() reads
+// false. Read-only, never blocks, surfaces a real, concrete reason
 // before a doomed attempt, same pattern as venusSupplyPreflight.
 export const LISTA_MIN_STAKE_BNB = 0.001;
 
 export async function listaStakePreflight(readClient, walletAddress, bnbAmount) {
-  const realBnbBalance = await readClient.getBalance({ address: walletAddress });
+ const realBnbBalance = await readClient.getBalance({ address: walletAddress });
   const problems = [];
   if (bnbAmount < LISTA_MIN_STAKE_BNB) {
-    problems.push(`Lista's real minimum stake is ${LISTA_MIN_STAKE_BNB} BNB — this amount is below that.`);
+ problems.push(`Lista's minimum stake is ${LISTA_MIN_STAKE_BNB} BNB, this amount is below that.`);
   }
-  // Real fix (2026-09-05, found while building the Trading agent's own
+ // fix (2026-09-05, found while building the Trading agent's own
   // preflight the same way): this used to check only the stake amount
-  // itself, not stake + the real Native Agent fee runNativeStake also
-  // sends — a wallet with exactly enough for the stake alone would pass
-  // this check and then genuinely fail on-chain for the fee's own
+  // itself, not stake + the Native Agent fee runNativeStake also
+  // sends, a wallet with exactly enough for the stake alone would pass
+ // this check and then genuinely fail on-chain for the fee's own
   // native transfer.
   const { amountRaw, feeRaw } = computeNativeAgentFee(bnbAmount);
-  if (realBnbBalance < amountRaw + feeRaw) {
-    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB stake plus the real 0.75% fee.`);
+ if (realBnbBalance < amountRaw + feeRaw) {
+ problems.push(`This wallet's BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB stake plus the real 0.75% fee.`);
   }
-  return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
+ return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
 }
 
 // ── Ankr Liquid Staking ──
 // Real, verified BSC mainnet addresses (2026-09-01, via BscScan's own
-// getsourcecode/getabi — this proxy's real implementation, not guessed):
+// getsourcecode/getabi, this proxy's implementation, not guessed):
 // BNBStakingPool proxy 0x9e347Af362059bf2E55839002c699F7A5BaFE86E,
 // implementation 0xbbBC99198f62E56c20B44D2E6E63a7Ebce88a9AC. `stakeBonds()`
-// is the real function matching DefiLlama's tracked ANKRBNB (rebasing
-// "bond" balance) pool — the sibling `stakeCerts()` mints a DIFFERENT,
+// is the function matching DefiLlama's tracked ANKRBNB (rebasing
+// "bond" balance) pool, the sibling `stakeCerts()` mints a DIFFERENT,
 // non-rebasing certificate token (aBNBc) and is deliberately NOT used
 // here, since it isn't the token this project's own comparison data is
 // sourced against.
@@ -163,38 +163,38 @@ export async function ankrStake(executor, { bnbAmount }) {
 }
 
 export async function ankrStakePreflight(readClient, walletAddress, bnbAmount) {
-  const realBnbBalance = await readClient.getBalance({ address: walletAddress });
+ const realBnbBalance = await readClient.getBalance({ address: walletAddress });
   const problems = [];
   if (bnbAmount < ANKR_MIN_STAKE_BNB) {
-    problems.push(`Ankr's real minimum stake is ${ANKR_MIN_STAKE_BNB} BNB — this amount is below that.`);
+ problems.push(`Ankr's minimum stake is ${ANKR_MIN_STAKE_BNB} BNB, this amount is below that.`);
   }
-  // Real fix (2026-09-05) — same real gap as listaStakePreflight's own
-  // matching comment: check stake + the real Native Agent fee, not the
+ // fix (2026-09-05), same gap as listaStakePreflight's own
+  // matching comment: check stake + the Native Agent fee, not the
   // stake amount alone.
   const { amountRaw, feeRaw } = computeNativeAgentFee(bnbAmount);
-  if (realBnbBalance < amountRaw + feeRaw) {
-    problems.push(`This wallet's real BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB stake plus the real 0.75% fee.`);
+ if (realBnbBalance < amountRaw + feeRaw) {
+ problems.push(`This wallet's BNB balance (${(Number(realBnbBalance) / 1e18).toLocaleString()} BNB) is less than the ${bnbAmount.toLocaleString()} BNB stake plus the real 0.75% fee.`);
   }
-  return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
+ return { ok: problems.length === 0, problems, realBnbBalance: Number(realBnbBalance) / 1e18 };
 }
 
 // ── Native Agent Marketplace: entry fee ──
 //
 // Real, deliberate distinction from every existing Skill above (which
-// charge 0% — pure pass-throughs to Altana's third-party registry
+// charge 0%, pure pass-throughs to Altana's third-party registry
 // protocols): a Native Agent is Tnega's OWN designed comparison +
 // routing logic (see backend/adapters/native_staking.py), a genuinely
 // higher-value-add step, so it's the first mechanism in this codebase
 // that takes a real, disclosed fee. Investigated first (2026-08-31):
-// real DEX aggregators mostly charge 0% direct (1inch) or a fraction of
+// DEX aggregators mostly charge 0% direct (1inch) or a fraction of
 // a percent; a flat cut of PRINCIPAL (not yield) above ~1% would exceed
-// every real comparable and give users a direct incentive to just use
-// Lista/Ankr for free — settled on 0.75% (mid of the proposed 0.5–1%
+// every comparable and give users a direct incentive to just use
+// Lista/Ankr for free, settled on 0.75% (mid of the proposed 0.5 to 1%
 // range) as the real, implemented number.
 //
 // Implementation: one extra plain native-BNB transfer call, batched
-// alongside the real stake call via the same executor.execute([...])
-// this file already uses for approve+mint (Venus) — no new contract, no
+// alongside the stake call via the same executor.execute([...])
+// this file already uses for approve+mint (Venus), no new contract, no
 // new audit surface. Reuses the SAME real, already-deployed, already-
 // live platform fee wallet AgentAccessMarket.sol pays into on BSC
 // mainnet (see contracts/README.md / the agent-access-market-contract
@@ -209,25 +209,25 @@ export function computeNativeAgentFee(bnbAmount) {
 }
 
 /** Real, shared runner for every Native Agent's staking action: batches
- * the real fee transfer ahead of the real protocol call, in ONE
- * executor.execute() — one real signature (or one real atomic batch)
+ * the fee transfer ahead of the protocol call, in ONE
+ * executor.execute(), one signature (or one atomic batch)
  * covers both, same pattern as Venus's approve+mint. `protocolId` picks
- * the real call (`lista` or `ankr`); the fee is computed from the SAME
+ * the call (`lista` or `ankr`); the fee is computed from the SAME
  * bnbAmount the protocol call spends, never silently added on top of a
  * balance check that didn't account for it. */
 export async function runNativeStake(executor, { protocolId, bnbAmount }) {
   const { feeRaw, feeBnb } = computeNativeAgentFee(bnbAmount);
-  // Real bug fixed 2026-09-05, reproduced live: viem's own sendCalls (the
+ // bug fixed 2026-09-05, reproduced live: viem's own sendCalls (the
   // atomic-batch path in useDirectWalletExecutor.js) passes this call's
   // `data` straight through to the wallet's own wallet_sendCalls RPC
-  // validation. `data: '0x'` is a real, live failure there — confirmed
+ // validation. `data: '0x'` is a real, live failure there, confirmed
   // directly against this project's own installed @metamask/utils
-  // StrictHexStruct (/^0x[0-9a-f]+$/), which requires at least one real
+ // StrictHexStruct (/^0x[0-9a-f]+$/), which requires at least one real
   // hex digit after 0x and rejects a bare '0x' with exactly the reported
   // "Invalid params - 0 > calls > 0 > data" error. A plain native-BNB
-  // transfer has no real calldata at all, so the field is omitted
-  // entirely instead — an optional field per EIP-5792, confirmed to pass
-  // the same real validator once absent, not just given an empty value.
+  // transfer has no calldata at all, so the field is omitted
+  // entirely instead, an optional field per EIP-5792, confirmed to pass
+  // the same validator once absent, not just given an empty value.
   const feeCall = { to: NATIVE_AGENT_FEE_WALLET, value: feeRaw };
 
   const protocolAmountRaw = BigInt(Math.round(bnbAmount * 1e18));
@@ -259,7 +259,7 @@ const ROUTER_LIQ_ABI = parseAbi([
 ]);
 const PANCAKESWAP_ROUTER = '0x10ED43C718714eb63d5aA57B78B54704E256024E';
 
-/** Real quote: sizes the second token to match the LIVE pool ratio,
+/** quote: sizes the second token to match the LIVE pool ratio,
  * per the skill's own quirk: "never assume a 50/50 or a stale ratio." */
 export async function quoteLiquidityRatio(publicClient, tokenA, tokenB, amountADesired) {
   const pairAddress = await publicClient.readContract({ address: PANCAKESWAP_FACTORY, abi: FACTORY_ABI, functionName: 'getPair', args: [tokenA, tokenB] });

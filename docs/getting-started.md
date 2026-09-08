@@ -1,6 +1,6 @@
 # Getting Started (Local Development)
 
-Current setup steps for this exact codebase, verified against the actual source, not a generic template.
+Current setup steps for this exact codebase, verified against the source, not a generic template.
 
 ## Backend (FastAPI, Python 3.13)
 
@@ -9,7 +9,7 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env    # fill in real values, see below
+cp .env.example .env # fill in values, see below
 uvicorn server:app --reload --port 8000
 ```
 
@@ -24,7 +24,7 @@ The values read by `backend/server.py` and its `core`/`adapters` modules (`os.en
 | `MONGODB_URI` | Everything durable | Agent store, job timing, deliverable durability. |
 | `MONGODB_DB_NAME` | Same | Defaults to `agents_marketplace` if unset. |
 | `BSC_MAINNET_RPC_URL` | On-chain reads (job scans, health checks, performance stats) | Falls back to a public node if unset; an archive-capable RPC (this project uses bloXroute) is needed for anything that scans logs. |
-| `INFURA_API_KEY` | Automatic RPC backup only | Optional. `core/rpc.py`'s `rpc_post()` tries the primary above first, falling back to Infura's real BSC endpoint only on a primary failure, never as a second primary. Without it, every real on-chain read still works exactly as before, just with no backup. |
+| `INFURA_API_KEY` | Automatic RPC backup only | Optional. `core/rpc.py`'s `rpc_post()` tries the primary above first, falling back to Infura's BSC endpoint only on a primary failure, never as a second primary. Without it, every on-chain read still works exactly as before, just with no backup. |
 | `AGENT_BUILDS_ROOT` | "Build Your Agent" | Optional, has a default. |
 | `BAG_BIN` | "Build Your Agent" | Optional, has a default; only needed if you're running the `bag` CLI locally. |
 
@@ -90,8 +90,8 @@ Grepped directly from `import.meta.env.VITE_*` usage across `frontend/src`:
 | `VITE_API_BASE_URL` | Every `/api/*` call | Defaults to `http://localhost:8000`. |
 | `VITE_AGENT_MARKET_ADDRESS` | Sell Your Agent / Creator Earnings | Defaults to the deployed `AgentAccessMarket` address. |
 | `VITE_MOBILE_URL` | The "open on your phone" QR code | Defaults to the page's own origin. |
-| `VITE_MAINNET_READ_RPC` | Every real on-chain read the frontend makes (connected-wallet reads via wagmiConfig.js, deliverable-URL lookup, copy-trade/wallet-tracker skills, all via `rpcTransport.js`) | Defaults to a tested bloXroute endpoint; the SDK's default public RPC refuses the `getLogs` calls the read-only skills need. |
-| `VITE_INFURA_API_KEY` | Automatic RPC backup only | Optional. `rpcTransport.js`'s `getBscTransport()` tries the primary above first (viem's `fallback()`, in order, never ranked), falling back to Infura's real BSC endpoint only on a primary failure. Without it, every real read still works exactly as before, just with no backup. |
+| `VITE_MAINNET_READ_RPC` | Every on-chain read the frontend makes (connected-wallet reads via wagmiConfig.js, deliverable-URL lookup, copy-trade/wallet-tracker skills, all via `rpcTransport.js`) | Defaults to a tested bloXroute endpoint; the SDK's default public RPC refuses the `getLogs` calls the read-only skills need. |
+| `VITE_INFURA_API_KEY` | Automatic RPC backup only | Optional. `rpcTransport.js`'s `getBscTransport()` tries the primary above first (viem's `fallback()`, in order, never ranked), falling back to Infura's BSC endpoint only on a primary failure. Without it, every read still works exactly as before, just with no backup. |
 | `VITE_SKILL_SCAN_BLOCKS` | Copy-trade / wallet-tracker skills | How many blocks back to scan; defaults to 1000. |
 | `VITE_PRIVY_APP_ID` | Passkey/email login (Privy) | Get one at dashboard.privy.io. |
 | `VITE_WALLETCONNECT_PROJECT_ID` | RainbowKit wallet connections | Get one free at cloud.walletconnect.com. |

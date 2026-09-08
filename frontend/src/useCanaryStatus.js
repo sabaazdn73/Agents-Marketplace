@@ -1,11 +1,11 @@
 // useCanaryStatus.js
 //
-// Real, bulk canary-verification status — GET /api/canary/status-bulk
+// Real, bulk canary-verification status, GET /api/canary/status-bulk
 // (backend/core/canary.py's get_canary_status_bulk()). One fetch for the
 // whole marketplace, mirroring useAgentPerformanceBulk.js's own real
-// retry/error-state discipline (a real fetch failure here must never be
+// retry/error-state discipline (a fetch failure here must never be
 // silently indistinguishable from "no agent has ever passed a canary
-// test" — same class of gap already found and fixed in that file).
+// test", same class of gap already found and fixed in that file).
 import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';

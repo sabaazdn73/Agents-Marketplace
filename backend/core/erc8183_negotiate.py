@@ -1,52 +1,52 @@
 """
 erc8183_negotiate.py
 
-Real, server-side proxy for the ERC-8183 `negotiate` A2A skill — the missing
+Real, server-side proxy for the ERC-8183 `negotiate` A2A skill, the missing
 step that caused a real, confirmed incident (2026-08-21/22): job #56636 was
 funded through the marketplace's generic hire flow (a fixed plain-text
 description, no negotiate step) and was then PERMANENTLY rejected by the
 explainer agent's own `notify_funded` handler with "no signed quote anchored
-in job description". Traced through the real SDK verification logic
+in job description". Traced through the SDK verification logic
 (bnbagent_studio_core.erc8183.verify.verify_signed_job): a strict ERC-8183
 seller requires the on-chain job description to be a Schema-v1 JobDescription
-carrying a `negotiation_hash` + `provider_sig` this exact provider signed —
+carrying a `negotiation_hash` + `provider_sig` this exact provider signed,
 which only the `negotiate` skill produces. Confirmed live (2026-08-22)
-against the explainer agent's real negotiate response, run through the SDK's
+against the explainer agent's negotiate response, run through the SDK's
 own `build_job_description` + `recover_quote_signer`: the reconstructed
 description round-trips and recovers the correct signer address.
 
 Why this lives server-side, not called directly from the browser: confirmed
-live (2026-08-22) that the explainer agent's endpoint has NO CORS support —
-a real OPTIONS preflight returned 405 with no Access-Control-Allow-Origin
+live (2026-08-22) that the explainer agent's endpoint has NO CORS support,
+a OPTIONS preflight returned 405 with no Access-Control-Allow-Origin
 header, so a direct browser fetch would be blocked outright by the browser
 itself, for every marketplace agent, not just this one (no agent built for
 this marketplace advertises CORS headers; that's a reasonable default for a
 server meant to be called server-to-server, same reasoning documented in
 core/agent_health.py for why health checks run backend-side too).
 
-Real, honest scope: this only works for agents that (a) have a real
+Real, scope: this only works for agents that (a) have a real
 `service_endpoint` on record (see core/agent_health.py) and (b) actually
 implement the A2A `negotiate` skill the way this SDK's seller template does.
-Many marketplace agents will not — this proxy returns None cleanly in every
-failure case (no endpoint, endpoint isn't a real A2A agent card, timeout,
+Many marketplace agents will not, this proxy returns None cleanly in every
+failure case (no endpoint, endpoint isn't a A2A agent card, timeout,
 negotiation rejected) so the caller (server.py's endpoint, then
 useHireAgent.js) can fall back to the existing plain-description flow
 exactly as before, rather than break hiring for agents that never supported
 negotiate in the first place.
 
-Real SSRF gap found and fixed (2026-08-27 security audit): unlike
-deliverable_proxy.py (guarded from the start — see that module's own real
+SSRF gap found and fixed (2026-08-27 security audit): unlike
+deliverable_proxy.py (guarded from the start, see that module's own real
 threat-model note), this proxy had NO host-safety validation at all. While
 `service_endpoint` is resolved server-side (server.py never accepts a raw
-URL from the client directly, only an owner_address), its real VALUE is
+URL from the client directly, only an owner_address), its VALUE is
 still attacker-influenced: whoever registers an agent on-chain sets it, so
 a malicious registrant could point it at internal infrastructure (a cloud
-metadata IP, an internal admin service) and get every real user who tries
-to hire that "agent" to make this backend proxy a request there — the same
-real threat deliverable_proxy.py's own docstring describes, just via
+metadata IP, an internal admin service) and get every user who tries
+to hire that "agent" to make this backend proxy a request there, the same
+threat deliverable_proxy.py's own docstring describes, just via
 registration instead of a job's submit(). Worse here: `_jsonrpc_candidates`
 below ALSO trusts a `url` field pulled out of whatever JSON the endpoint's
-own `.well-known/agent-card.json` happens to return — a second,
+own `.well-known/agent-card.json` happens to return, a second,
 attacker-controlled hop that could point anywhere even if the original
 service_endpoint looked benign. Fixed by reusing deliverable_proxy.py's
 already-proven `_is_safe_public_host` guard (DNS-resolve-time private/
@@ -55,9 +55,9 @@ agent-card fetch, and before trusting any `url` the card itself claims.
 
 Real, multi-format retry (2026-08-27), from a real, live investigation
 against 3 genuinely different agents: this used to send exactly one real
-message shape — a `{"kind": "data", "data": skill_data}` part — and give
+message shape, a `{"kind": "data", "data": skill_data}` part, and give
 up on anything else. Real, confirmed live findings that made this
-insufficient: OnyxOracle's real endpoint (app.singularry.org/api/a2a) is a
+insufficient: OnyxOracle's endpoint (app.singularry.org/api/a2a) is a
 genuinely working A2A server that rejects a `data` part outright
 ("Only text parts are accepted by this endpoint") but returns a real
 HTTP 200 for the exact same skill_data wrapped in a `{"kind": "text",
@@ -66,10 +66,10 @@ doesn't implement A2A JSON-RPC at all (a real 405 on POST, not a format
 problem); mandaterebalance-agent requires an OAuth2 Bearer token only its
 own operator can issue (a real 401, also not a format problem). `data` and
 `text` are the two real, spec-defined A2A Part kinds relevant to a skill
-call (the third, `file`, doesn't apply here) — not a guess, and not
+call (the third, `file`, doesn't apply here), not a guess, and not
 extended further than what's actually been observed live. Now tries both
-shapes, in order, against each real candidate URL, and logs which one (if
-any) got a genuine, structured acknowledgment — never fabricating success
+shapes, in order, against each candidate URL, and logs which one (if
+any) got a genuine, structured acknowledgment, never fabricating success
 for a reply that merely returned 200 without actually confirming it
 understood the request (see _extract_structured_reply below for exactly
 what counts as "genuine").
@@ -87,12 +87,12 @@ from core.deliverable_proxy import _is_safe_public_host
 _TIMEOUT = 15.0
 
 # Real, spec-defined A2A message Part "kind" values relevant to a skill
-# call — see module docstring for why only these two, and why not more.
+# call, see module docstring for why only these two, and why not more.
 _PART_SHAPES = ("data", "text")
 
 
 def _is_safe_url(url: str) -> bool:
-    """Real, shared guard for any URL this module is about to fetch —
+    """Real, shared guard for any URL this module is about to fetch,
     scheme + resolved-host safety, same standard as deliverable_proxy.py."""
     from urllib.parse import urlparse
     parsed = urlparse(url)
@@ -102,53 +102,53 @@ def _is_safe_url(url: str) -> bool:
 
 
 async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) -> list[str]:
-    """Real candidate JSON-RPC URLs for `service_endpoint`, ordered by
+    """candidate JSON-RPC URLs for `service_endpoint`, ordered by
     DEMONSTRATED reliability across the real, live agents this has
-    actually been tested against — not by protocol purity.
+    actually been tested against, not by protocol purity.
 
-    Real gap found and fixed (2026-08-27): this used to NEVER try
-    `service_endpoint` itself as a direct POST target — only a same-origin
+    gap found and fixed (2026-08-27): this used to NEVER try
+    `service_endpoint` itself as a direct POST target, only a same-origin
     root guess (tuned to our own explainer agent's own specific bug, see
     below) and whatever URL a fetched agent-card happened to claim. Real,
-    live, confirmed miss: OnyxOracle's actual registered service_endpoint
+    live, confirmed miss: OnyxOracle's registered service_endpoint
     (app.singularry.org/api/a2a) IS the real, correct, directly-POSTable
-    JSON-RPC target — a real, live POST there succeeds — but it was never
+    JSON-RPC target, a real, live POST there succeeds, but it was never
     even attempted, because it isn't the same-origin root and its own
     agent-card fetch didn't hand back a matching `url`. The standard A2A
     expectation is that the registered endpoint just works directly; our
-    own agent's same-origin-root quirk (below) is real but was one agent's
+    own agent's same-origin-root quirk (below) is but was one agent's
     specific bug, not the general case, now confirmed by a second real
     agent that behaves the standard way instead. `service_endpoint` itself
     is now tried FIRST for that reason.
 
     Real, confirmed finding (2026-08-22), kept as a fallback: the agent
-    card's own advertised `url` field is NOT trustworthy — live-checked
+    card's own advertised `url` field is NOT trustworthy, live-checked
     against our own explainer agent and it reports `http://localhost:10000/`
     (a local-dev placeholder) even after correctly setting the documented
     AGENTCORE_RUNTIME_URL env var and restarting; this looks like a real
     bug in the installed `bedrock_agentcore` package's URL-override path,
-    not a configuration problem on our side. That project's own real A2A
+    not a configuration problem on our side. That project's own A2A
     convention (`bedrock_agentcore.runtime.a2a`, confirmed by reading its
     source) serves JSON-RPC at the SAME origin's root path "/" regardless
-    of what the card claims — kept as a fallback candidate.
+    of what the card claims, kept as a fallback candidate.
 
     Real, confirmed gap found and fixed (2026-08-28, while building
     core/protocol_compat.py's escrow-compatibility probe): for a real,
-    MULTI-TENANT host — several distinct real agents sharing one domain,
-    each at its own real sub-path (confirmed live: agents.chainhelix.io/
-    healthmon/, /gridtrader/, /rebalancer/ — three real, DIFFERENT agents
-    with real, confirmed completed jobs, all on one shared domain) — the
+    MULTI-TENANT host, several distinct agents sharing one domain,
+    each at its own sub-path (confirmed live: agents.chainhelix.io/
+    healthmon/, /gridtrader/, /rebalancer/, three real, DIFFERENT agents
+    with real, confirmed completed jobs, all on one shared domain), the
     bare domain root is the WRONG tenant (a real 404, or a different
     agent/landing page entirely), and the card's own claimed `url` is
     often a real, non-public placeholder (confirmed live: healthmon-agent's
-    real card claims `http://127.0.0.1:9104/`, correctly rejected by the
-    real SSRF guard) — so neither existing candidate ever reaches the real,
-    correct target. Live-confirmed the real fix: `.../healthmon/` (the real
+    card claims `http://127.0.0.1:9104/`, correctly rejected by the
+    SSRF guard), so neither existing candidate ever reaches the real,
+    correct target. Live-confirmed the fix: `.../healthmon/` (the real
     DIRECTORY the registered `.well-known/agent-card.json` lives in, not
-    the bare domain root) IS the real, correct, working RPC target — a
-    real HTTP 200 with a valid JSON-RPC response. Added as a real
+    the bare domain root) IS the real, correct, working RPC target, a
+    HTTP 200 with a valid JSON-RPC response. Added as a real
     candidate whenever service_endpoint ends in the real, standard
-    `.well-known/agent-card.json` suffix (a well-defined, real convention,
+    `.well-known/agent-card.json` suffix (a well-defined, convention,
     not a guessed path)."""
     from urllib.parse import urlparse
 
@@ -159,7 +159,7 @@ async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) 
     if _is_safe_url(service_endpoint):
         candidates.append(service_endpoint)
 
-    # Real fix for the real multi-tenant-host gap above — tried right after
+    # fix for the multi-tenant-host gap above, tried right after
     # the literal endpoint, before the bare domain root, since it's a more
     # targeted, more likely-correct guess for a multi-tenant setup.
     if service_endpoint.endswith(_WELL_KNOWN_CARD_SUFFIX):
@@ -175,7 +175,7 @@ async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) 
     if parsed.scheme and parsed.netloc:
         card_urls.append(f"{parsed.scheme}://{parsed.netloc}/.well-known/agent-card.json")
     for url in card_urls:
-        # Real SSRF guard, first hop — see module docstring.
+        # SSRF guard, first hop, see module docstring.
         if not _is_safe_url(url):
             continue
         try:
@@ -185,21 +185,21 @@ async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) 
         except Exception:
             continue
 
-        # Real, genuine bug found and fixed (2026-08-28, during the full
+        # Real, bug found and fixed (2026-08-28, during the full
         # marketplace-wide escrow-compatibility audit that followed the
-        # Sentinels Audit incident): only ever read a real card's
+        # Sentinels Audit incident): only ever read a card's
         # TOP-LEVEL `url` field. Real, confirmed live miss: BNB Lending
         # Guardian's and BNB Yield Optimizer's own real, live agent-cards
-        # (both fully functioning, real HTTP 200 JSON-RPC endpoints,
-        # confirmed live) don't have a top-level `url` at all — they use
+        # (both fully functioning, HTTP 200 JSON-RPC endpoints,
+        # confirmed live) don't have a top-level `url` at all, they use
         # the real, also-valid `supportedInterfaces: [{url, ...}]` card
-        # shape instead, a genuinely different real convention this
+        # shape instead, a genuinely different convention this
         # module never accounted for. Both agents were being flagged
-        # escrow-incompatible (a real HTTP 404 on the registered
-        # `service_endpoint` and the bare origin — neither is the real,
+        # escrow-incompatible (a HTTP 404 on the registered
+        # `service_endpoint` and the bare origin, neither is the real,
         # correct endpoint) purely because this parsing gap meant their
         # own card's real, correct URL was never even tried. Now checks
-        # both real shapes: the top-level `url` (unchanged, still tried
+        # both shapes: the top-level `url` (unchanged, still tried
         # first) and every real, safe URL found in `supportedInterfaces`.
         candidate_urls = []
         top_level_url = card.get("url")
@@ -212,29 +212,29 @@ async def _jsonrpc_candidates(service_endpoint: str, client: httpx.AsyncClient) 
                     candidate_urls.append(iface_url)
 
         for rpc_url in candidate_urls:
-            # Real, genuine fix found alongside the supportedInterfaces gap
+            # Real, fix found alongside the supportedInterfaces gap
             # above: BNB Lending Guardian's/BNB Yield Optimizer's own real
             # card declares its interface as a plain `http://` URL even
             # though the real, live service only actually answers over
             # https (confirmed live: the plain http:// URL 301-redirects
             # straight to the https one). Upgrading the scheme here when
             # the ORIGINAL service_endpoint was already https is a real,
-            # safe heuristic — never downgrades security, and avoids
+            # safe heuristic, never downgrades security, and avoids
             # relying on probe_a2a_protocol's own (also real, separately
-            # fixed below) 3xx handling to recover the same real result
+            # fixed below) 3xx handling to recover the same result
             # the hard way.
             if rpc_url.startswith("http://") and parsed.scheme == "https":
                 rpc_url = "https://" + rpc_url[len("http://"):]
             if rpc_url not in candidates and _is_safe_url(rpc_url):
                 candidates.append(rpc_url)
-        break  # first real card fetch that succeeds is enough
+        break # first card fetch that succeeds is enough
 
     return candidates
 
 
 def _build_payload(skill_data: dict, shape: str) -> dict:
     """Real, spec-defined A2A message envelope, varying only the Part
-    `kind` — see module docstring for why exactly these two shapes."""
+    `kind`, see module docstring for why exactly these two shapes."""
     if shape == "data":
         part = {"kind": "data", "data": skill_data}
     elif shape == "text":
@@ -260,14 +260,14 @@ def _build_payload(skill_data: dict, shape: str) -> dict:
 
 
 def _extract_structured_reply(body: dict) -> dict | None:
-    """Real, honest extraction — deliberately conservative. Returns
+    """Real, extraction, deliberately conservative. Returns
     something only when the reply is GENUINELY structured: a real
     `data`-kind part (used as-is, the strict/original contract), or a real
     `text`-kind part whose own content happens to be valid, parseable JSON
-    (some agents that insist on text parts still reply with real JSON
+    (some agents that insist on text parts still reply with JSON
     inside one). A real, live, generic-sounding text reply that ISN'T
     valid JSON (confirmed live: OnyxOracle's own identity/capability blurb,
-    sent back regardless of what we asked) returns None here — the whole
+    sent back regardless of what we asked) returns None here, the whole
     point of this function is to never treat "the HTTP call succeeded" as
     "the agent genuinely acknowledged this specific request", which would
     be fabricating success where none occurred."""
@@ -291,14 +291,14 @@ def _extract_structured_reply(body: dict) -> dict | None:
 
 async def _call_skill(service_endpoint: str, skill_data: dict) -> tuple[dict, str] | None:
     """Shared A2A `message/send` plumbing for both `negotiate` and
-    `notify_funded`: resolve the real JSON-RPC candidates, and for EACH
-    one, try every real known message shape (_PART_SHAPES) in order —
+    `notify_funded`: resolve the JSON-RPC candidates, and for EACH
+    one, try every known message shape (_PART_SHAPES) in order,
     real, multi-format retry (2026-08-27), not giving up after one fixed
     shape. Returns (data, shape) on the first genuine, structured reply
     (see _extract_structured_reply), logging exactly which real
-    candidate+shape combination worked — or None if every real combination
-    was tried and none produced a genuine acknowledgment (no endpoint, not
-    a real A2A agent, timeout, auth rejection, or a real reply we can't
+    candidate+shape combination worked, or None if every combination
+    was tried and none produced a acknowledgment (no endpoint, not
+    a A2A agent, timeout, auth rejection, or a reply we can't
     honestly parse as structured). Callers apply their own skill-specific
     acceptance check on the result."""
     if not service_endpoint:
@@ -309,12 +309,12 @@ async def _call_skill(service_endpoint: str, skill_data: dict) -> tuple[dict, st
             return None
 
         for rpc_url in candidates:
-            # Real, defense-in-depth SSRF guard — candidates are already
+            # Real, defense-in-depth SSRF guard, candidates are already
             # filtered in _jsonrpc_candidates above, but re-checking here
             # too means this loop is safe even if a future change ever
             # adds a candidate through a different path.
             if not _is_safe_url(rpc_url):
-                print(f"[erc8183_negotiate] candidate {rpc_url} failed the real host-safety check, skipping")
+                print(f"[erc8183_negotiate] candidate {rpc_url} failed the host-safety check, skipping")
                 continue
 
             for shape in _PART_SHAPES:
@@ -324,81 +324,81 @@ async def _call_skill(service_endpoint: str, skill_data: dict) -> tuple[dict, st
                     resp.raise_for_status()
                     body = resp.json()
                 except Exception as e:
-                    print(f"[erc8183_negotiate] {rpc_url} ({shape} part) failed, trying next real format: {e}")
+                    print(f"[erc8183_negotiate] {rpc_url} ({shape} part) failed, trying next format: {e}")
                     continue
 
                 if "error" in body:
-                    print(f"[erc8183_negotiate] {rpc_url} ({shape} part): real JSON-RPC error, trying next real format: {body['error']}")
+                    print(f"[erc8183_negotiate] {rpc_url} ({shape} part): JSON-RPC error, trying next format: {body['error']}")
                     continue
 
                 data = _extract_structured_reply(body)
                 if data is not None:
-                    print(f"[erc8183_negotiate] {rpc_url} ({shape} part): genuine, structured reply received — using this real format")
+                    print(f"[erc8183_negotiate] {rpc_url} ({shape} part): genuine, structured reply received, using this format")
                     return data, shape
 
-                print(f"[erc8183_negotiate] {rpc_url} ({shape} part): real HTTP 200 but no genuine structured reply "
+                print(f"[erc8183_negotiate] {rpc_url} ({shape} part): HTTP 200 but no structured reply "
                       f"(not treated as acceptance): {json.dumps(body)[:300]}")
 
         return None
 
 
-# Real, protocol-level rejection statuses — the endpoint itself is
+# Real, protocol-level rejection statuses, the endpoint itself is
 # telling us it doesn't support this HTTP method/resource at all, not
 # just rejecting this specific request's content. Confirmed live: AIDA's
-# real registered endpoint returns 405 on every real candidate+format
+# registered endpoint returns 405 on every candidate+format
 # combination (see core/protocol_compat.py for the full real
 # investigation this was built for).
 _HARD_PROTOCOL_REJECTION_STATUSES = {404, 405, 501}
-# Real, DIFFERENT situation — the endpoint IS gating access, which means
+# Real, DIFFERENT situation, the endpoint IS gating access, which means
 # it's aware enough to check auth before even looking at the request
-# shape. Confirmed live: mandaterebalance-agent's real endpoint returns
+# shape. Confirmed live: mandaterebalance-agent's endpoint returns
 # 401 and requires an operator-issued OAuth2 token. NOT evidence the
-# agent fails to implement A2A/ERC-8183 — a real, separate, "can't reach
+# agent fails to implement A2A/ERC-8183, a real, separate, "can't reach
 # it without credentials" situation, never conflated with AIDA's "doesn't
 # speak the protocol at all".
 _AUTH_GATED_STATUSES = {401, 403}
 
 
 async def probe_a2a_protocol(service_endpoint: str) -> dict:
-    """Real, dedicated protocol-compatibility probe — reuses the exact
-    same real candidate-discovery (_jsonrpc_candidates) and multi-format
+    """Real, dedicated protocol-compatibility probe, reuses the exact
+    same candidate-discovery (_jsonrpc_candidates) and multi-format
     retry (_PART_SHAPES/_build_payload) as negotiate()/notify_funded()
-    above, but answers a DIFFERENT real question: not "did this specific
+    above, but answers a DIFFERENT question: not "did this specific
     skill call succeed", but "does this endpoint speak the A2A/JSON-RPC
     protocol AT ALL". Sends a lightweight, harmless real 'negotiate' probe
-    (the same real envelope shape negotiate() itself sends — no new
-    format introduced) against every real candidate+shape combination,
+    (the same envelope shape negotiate() itself sends, no new
+    format introduced) against every candidate+shape combination,
     and records each attempt's real, raw outcome instead of collapsing
     everything to a single None the way _call_skill does.
 
     Real, honest, three-way classification (see core/protocol_compat.py
     for how this feeds a real, conservative "can this agent ever fulfill
     an escrowed job" verdict):
-      - `protocol_detected: True` — at least one real attempt got back a
+      - `protocol_detected: True`, at least one attempt got back a
         genuinely valid JSON-RPC response (a real `jsonrpc` key plus a
-        real `result` or `error` key) — the endpoint speaks the real
+        real `result` or `error` key), the endpoint speaks the real
         protocol, REGARDLESS of whether it understood or accepted this
         specific probe.
-      - `protocol_detected: False` — every real attempt that got ANY real
+      - `protocol_detected: False`, every attempt that got ANY real
         response at all was a hard, protocol-level rejection (HTTP
-        404/405/501, or a real response body that isn't valid JSON) —
-        strong, real evidence this endpoint doesn't implement A2A/
-        ERC-8183 at all. Real transport failures (timeouts, connection
+        404/405/501, or a response body that isn't valid JSON),
+        strong, evidence this endpoint doesn't implement A2A/
+        ERC-8183 at all. transport failures (timeouts, connection
         refused) don't count as evidence either way on their own, but
         don't prevent this verdict when a real, clean rejection is ALSO
         present.
-      - `protocol_detected: None` — genuinely inconclusive: nothing but
-        real transport failures, a real auth challenge (401/403 — see
+      - `protocol_detected: None`, genuinely inconclusive: nothing but
+        transport failures, a auth challenge (401/403, see
         _AUTH_GATED_STATUSES above), or a real, non-JSON-RPC-shaped 200
         response mixed in. NOT treated as evidence of non-implementation."""
     if not service_endpoint:
-        return {"protocol_detected": None, "evidence": ["No real service_endpoint on record for this agent."]}
+        return {"protocol_detected": None, "evidence": ["No service_endpoint on record for this agent."]}
 
-    probe_data = {"skill": "negotiate", "task_description": "real escrow-compatibility check (not a real job)", "terms": {}}
+    probe_data = {"skill": "negotiate", "task_description": "escrow-compatibility check (not a job)", "terms": {}}
     evidence: list[str] = []
     saw_valid_jsonrpc = False
     saw_hard_rejection = False
-    saw_only_transport_or_rejection = True  # real, stays True only if nothing ambiguous shows up
+    saw_only_transport_or_rejection = True # real, stays True only if nothing ambiguous shows up
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         candidates = await _jsonrpc_candidates(service_endpoint, client)
@@ -413,51 +413,51 @@ async def probe_a2a_protocol(service_endpoint: str) -> dict:
                 try:
                     resp = await client.post(rpc_url, json=payload, timeout=_TIMEOUT, follow_redirects=False)
                 except Exception as e:
-                    evidence.append(f"{rpc_url} ({shape} part): real transport error ({type(e).__name__}) — inconclusive")
+                    evidence.append(f"{rpc_url} ({shape} part): transport error ({type(e).__name__}), inconclusive")
                     continue
 
                 if resp.status_code in _HARD_PROTOCOL_REJECTION_STATUSES:
                     saw_hard_rejection = True
-                    evidence.append(f"{rpc_url} ({shape} part): real HTTP {resp.status_code} — a real, protocol-level rejection")
+                    evidence.append(f"{rpc_url} ({shape} part): HTTP {resp.status_code}, a real, protocol-level rejection")
                     continue
                 if resp.status_code in _AUTH_GATED_STATUSES:
                     saw_only_transport_or_rejection = False
-                    evidence.append(f"{rpc_url} ({shape} part): real HTTP {resp.status_code} — real auth-gated, not a protocol rejection")
+                    evidence.append(f"{rpc_url} ({shape} part): HTTP {resp.status_code}, auth-gated, not a protocol rejection")
                     continue
                 if 300 <= resp.status_code < 400:
-                    # Real, genuine bug found and fixed (2026-08-28, full
+                    # Real, bug found and fixed (2026-08-28, full
                     # marketplace audit): a real 3xx (this probe never
-                    # follows redirects — see follow_redirects=False above
+                    # follows redirects, see follow_redirects=False above
                     # and the module docstring's own SSRF reasoning) used
                     # to fall straight into the "non-JSON body" except
                     # branch below and get counted as a real, hard
-                    # rejection — wrong. A redirect says nothing about
+                    # rejection, wrong. A redirect says nothing about
                     # whether the protocol is understood, only that this
                     # exact URL/scheme isn't the final one (real, confirmed
                     # live example: BNB Lending Guardian's card-declared
                     # http:// interface 301-redirecting to a real, working
-                    # https:// endpoint — now separately handled by a real
+                    # https:// endpoint, now separately handled by a real
                     # scheme-upgrade in _jsonrpc_candidates above, but this
-                    # endpoint's own real HARD REJECTION verdict must never
-                    # depend on that heuristic catching every real case).
+                    # endpoint's own HARD REJECTION verdict must never
+                    # depend on that heuristic catching every case).
                     # Genuinely ambiguous, same treatment as auth-gated.
                     saw_only_transport_or_rejection = False
-                    evidence.append(f"{rpc_url} ({shape} part): real HTTP {resp.status_code} redirect (not followed) — inconclusive, not a protocol rejection")
+                    evidence.append(f"{rpc_url} ({shape} part): HTTP {resp.status_code} redirect (not followed), inconclusive, not a protocol rejection")
                     continue
 
                 try:
                     body = resp.json()
                 except Exception:
                     saw_hard_rejection = True
-                    evidence.append(f"{rpc_url} ({shape} part): real HTTP {resp.status_code} with a non-JSON real response body")
+                    evidence.append(f"{rpc_url} ({shape} part): HTTP {resp.status_code} with a non-JSON response body")
                     continue
 
                 if isinstance(body, dict) and "jsonrpc" in body and ("result" in body or "error" in body):
                     saw_valid_jsonrpc = True
-                    evidence.append(f"{rpc_url} ({shape} part): real, valid JSON-RPC response (HTTP {resp.status_code}) — this endpoint speaks the real protocol")
+                    evidence.append(f"{rpc_url} ({shape} part): real, valid JSON-RPC response (HTTP {resp.status_code}), this endpoint speaks the protocol")
                 else:
                     saw_only_transport_or_rejection = False
-                    evidence.append(f"{rpc_url} ({shape} part): real HTTP {resp.status_code}, real JSON but not JSON-RPC shaped — ambiguous")
+                    evidence.append(f"{rpc_url} ({shape} part): HTTP {resp.status_code}, JSON but not JSON-RPC shaped, ambiguous")
 
     if saw_valid_jsonrpc:
         protocol_detected = True
@@ -472,11 +472,11 @@ async def probe_a2a_protocol(service_endpoint: str) -> dict:
 async def negotiate(
     service_endpoint: str, task_description: str, terms: dict
 ) -> dict | None:
-    """Real A2A `negotiate` call against a seller agent. Returns the raw
+    """A2A `negotiate` call against a seller agent. Returns the raw
     negotiation-result dict (the same shape `NegotiationResult.to_dict()`
-    produces — request/response/negotiation_hash/provider_sig/chain_id/
-    verifying_contract) on a real accepted quote, or None on ANY failure
-    (no endpoint, not a real A2A agent, timeout, or a genuine rejection) —
+    produces, request/response/negotiation_hash/provider_sig/chain_id/
+    verifying_contract) on a accepted quote, or None on ANY failure
+    (no endpoint, not a A2A agent, timeout, or a rejection),
     the caller's job is to fall back cleanly, not to distinguish why."""
     result = await _call_skill(service_endpoint, {
         "skill": "negotiate",
@@ -489,9 +489,9 @@ async def negotiate(
 
     response = data.get("response") or {}
     if not response.get("accepted"):
-        # A real, genuine rejection (e.g. malformed terms) — not a
+        # A real, rejection (e.g. malformed terms), not a
         # transport failure. Still None: the caller falls back the same
-        # way either way, and the real reason is already logged for us.
+        # way either way, and the reason is already logged for us.
         print(f"[erc8183_negotiate] negotiation not accepted (real {shape}-part reply): {response}")
         return None
     print(f"[erc8183_negotiate] negotiation accepted via a real {shape}-part message")
@@ -499,39 +499,39 @@ async def negotiate(
 
 
 async def notify_funded(service_endpoint: str, job_id: int, authorization: dict | None = None) -> dict | None:
-    """Real A2A `notify_funded` push: "I funded job X — please deliver."
+    """A2A `notify_funded` push: "I funded job X, please deliver."
 
     Real, confirmed gap (2026-08-24): this marketplace's own hire flow
     (useHireAgent.js) creates + funds the on-chain job but never sent this
-    notification — confirmed live against job #56646, which sat funded with
+    notification, confirmed live against job #56646, which sat funded with
     zero delivery activity in the seller's own logs until this call was sent
     manually. A strict ERC-8183 seller (like our own explainer agent) has no
     other trigger to start work: its background "sweep" for missed funded
     jobs only runs as a side effect of ANOTHER buyer's notify_funded landing
-    first (see explainer-agent/seller_core.py's own docstring) — with no
+    first (see explainer-agent/seller_core.py's own docstring), with no
     other buyer ever notifying, a job funded through this marketplace could
     sit forever.
 
     Best-effort by design, same as `negotiate`: returns None only on a
-    TRANSPORT failure (no endpoint, unreachable, malformed reply) — the
+    TRANSPORT failure (no endpoint, unreachable, malformed reply), the
     caller must NEVER treat that None as the hire itself failing, the job
-    is already funded on-chain regardless. Unlike `negotiate`, a REAL reply
+    is already funded on-chain regardless. Unlike `negotiate`, a reply
     from the agent (accepted OR rejected) is returned as-is rather than
-    collapsed to None — a rejection reason (e.g. "authorization_required",
+    collapsed to None, a rejection reason (e.g. "authorization_required",
     "caller_not_job_client") is real, useful signal for the caller/frontend
     to surface, not something to swallow.
 
     `authorization` (optional): a real, EIP-712-signed envelope for sellers
-    that require one — real, confirmed example (2026-08-24): the live
+    that require one, real, confirmed example (2026-08-24): the live
     `stockanalyst-agent` (bnb-chain/stockanalyst-agent-demo pattern)
     unconditionally rejects notify_funded with "authorization_required"
     unless this exact dict is present: {"context": <json string>,
     "expires_at": <int>, "nonce": "0x"+64 hex, "signature": 130 hex (with
-    or without "0x")} — verified against that project's real
+    or without "0x")}, verified against that project's real
     notify_security.py (server-side EIP-712 recovery + expected-client
     check). The signature must be produced client-side by the JOB'S OWN
     CLIENT WALLET (only the frontend, with the connected wallet, can sign
-    it — this function only forwards an already-built envelope, never
+    it, this function only forwards an already-built envelope, never
     builds or signs one itself)."""
     skill_data = {"skill": "notify_funded", "job_id": job_id}
     if authorization is not None:

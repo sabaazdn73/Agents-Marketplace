@@ -6,13 +6,13 @@
 //
 // Simplified 2026-09-03: this used to explain two hire modes side by side
 // (Always Ask, direct wagmi signing; Autonomous, an Altana spend-cap
-// session). Autonomous was removed from the product — a full scan of the
+// session). Autonomous was removed from the product, a full scan of the
 // complete ERC-8183 job index found zero jobs of any status ever
-// completed through that path, in this project's entire real history (see
+// completed through that path, in this project's entire history (see
 // docs/limitations.md). This now describes the one real, working path.
 //
 // One shared, responsive component for both web and mobile (same pattern
-// as StepChecklist/GetULink) — no separate mobile rewrite needed, since
+// as StepChecklist/GetULink), no separate mobile rewrite needed, since
 // this is normal flex/grid layout, not a fixed-coordinate diagram; it
 // naturally stacks under `md:` on a narrow screen and the mobile app's
 // viewport never reaches that breakpoint anyway.
@@ -21,11 +21,11 @@ import { Wallet, MessageSquare, Cpu, ShieldCheck, Link2 } from 'lucide-react';
 import AgentIllustration from './AgentIllustration';
 
 const STEPS = [
-  { icon: Wallet, title: 'Connect', body: 'Connect your own wallet, or set up a passkey wallet with Face ID or a fingerprint — no seed phrase to write down.' },
-  { icon: MessageSquare, title: 'Describe what you want', body: 'Tell the agent the job, or just hit "Hire" — it already knows what it does.' },
+  { icon: Wallet, title: 'Connect', body: 'Connect your own wallet, or set up a passkey wallet with Face ID or a fingerprint, no seed phrase to write down.' },
+  { icon: MessageSquare, title: 'Describe what you want', body: 'Tell the agent the job, or just hit "Hire", it already knows what it does.' },
   { icon: Cpu, title: 'The agent prepares the action', body: 'It works out the exact steps and the price before anything gets signed.' },
   { icon: ShieldCheck, title: 'You approve it', body: "Every step is shown to you first, and you sign it yourself, in your own wallet." },
-  { icon: Link2, title: 'Settles on-chain', body: 'Payment sits in escrow and only reaches the agent once the work is confirmed — never before.' },
+  { icon: Link2, title: 'Settles on-chain', body: 'Payment sits in escrow and only reaches the agent once the work is confirmed, never before.' },
 ];
 
 export default function SessionModesExplainer() {

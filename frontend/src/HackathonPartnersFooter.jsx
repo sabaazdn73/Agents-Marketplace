@@ -1,7 +1,7 @@
 // HackathonPartnersFooter.jsx
 //
 // Small "Built for" attribution strip, styled identically to
-// DataSourcesFooter.jsx — real partner names + real logos (each fetched
+// DataSourcesFooter.jsx, partner names + logos (each fetched
 // directly from the partner's own domain), each linking out to their real
 // site. Shared by web + mobile.
 import React, { useState } from 'react';

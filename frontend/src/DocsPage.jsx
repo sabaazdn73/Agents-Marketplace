@@ -1,22 +1,22 @@
 // DocsPage.jsx
 //
-// Self-hosted documentation viewer at /docs — GitBook-style: a sidebar
-// listing every real page from docs/SUMMARY.md (in that file's real
-// order), a content pane rendering the selected page's real markdown.
-// Renders the actual docs/*.md files directly — nothing here duplicates
+// Self-hosted documentation viewer at /docs, GitBook-style: a sidebar
+// listing every page from docs/SUMMARY.md (in that file's real
+// order), a content pane rendering the selected page's markdown.
+// Renders the docs/*.md files directly, nothing here duplicates
 // or rewrites that content, this is only a renderer for it.
 //
 // Content source, and why: docs/ lives at the repo root, a sibling of
 // frontend/, and is static, versioned content that changes only when a
-// commit changes it — not runtime data. So it's bundled at BUILD TIME via
+// commit changes it, not runtime data. So it's bundled at BUILD TIME via
 // Vite's `import.meta.glob(..., { query: '?raw' })` rather than served
 // from a new backend route: a backend endpoint would mean either
 // duplicating these files into the backend's own tree or re-reading disk
 // on every request for content that's genuinely fixed per-deploy, plus an
 // extra network round trip with nothing gained. Bundling means the docs
 // ship on the same CDN, in the same deploy, as everything else describing
-// them — simpler and more honestly "static" given how this repo is
-// actually laid out. (See vite.config.js's `server.fs.allow` — required
+// them, simpler and more honestly "static" given how this repo is
+// laid out. (See vite.config.js's `server.fs.allow`, required
 // in dev only, to let Vite's dev server read one directory above
 // frontend/; the production build resolves these at build time
 // regardless of that setting.)
@@ -46,9 +46,9 @@ function slugToFilename(slug) {
 // Real, content-derived meta description: the doc's own first
 // substantial paragraph (skipping the H1 line, blank lines, and a
 // blockquote callout if the page opens with one), truncated to a
-// search-result-friendly length. Pulled from the actual real text
+// search-result-friendly length. Pulled from the text
 // rather than a separately hand-maintained description per doc, so it
-// can never drift out of sync with what the page actually says.
+// can never drift out of sync with what the page says.
 function firstParagraph(markdown) {
   const lines = (markdown || '').split('\n');
   for (const line of lines) {
@@ -60,22 +60,40 @@ function firstParagraph(markdown) {
   return 'Tnega technical documentation.';
 }
 
-// Real nav order comes from parsing docs/SUMMARY.md itself — its one list
-// block's link items, in file order — rather than a hardcoded copy that
+// Nav comes from parsing docs/SUMMARY.md rather than a hardcoded copy that
 // could drift out of sync with it.
-const NAV_ITEMS = (() => {
+//
+// SUMMARY.md is now grouped into sections, so this walks the parsed blocks
+// in order and attaches each list of links to the heading above it. Pages
+// listed before any heading, which today is just the Introduction, land in
+// an unnamed first group that renders without a section label.
+const NAV_SECTIONS = (() => {
   const summary = DOCS['SUMMARY.md'];
   if (!summary) return [];
-  const listBlock = parseDocsMarkdown(summary).find((b) => b.type === 'list');
-  if (!listBlock) return [];
-  return listBlock.items
-    .map((inline) => inline.find((p) => p.t === 'link'))
-    .filter(Boolean)
-    .map((link) => ({ title: link.v, filename: link.href, slug: filenameToSlug(link.href) }));
+  const blocks = parseDocsMarkdown(summary);
+  const sections = [];
+  let current = { title: null, items: [] };
+  for (const b of blocks) {
+    if (b.type === 'heading' && b.level >= 2) {
+      if (current.items.length) sections.push(current);
+      current = { title: typeof b.text === 'string' ? b.text : (b.inline || []).map((p) => p.v).join(''), items: [] };
+      continue;
+    }
+    if (b.type === 'list') {
+      for (const inline of b.items) {
+        const link = inline.find((p) => p.t === 'link');
+        if (link) current.items.push({ title: link.v, filename: link.href, slug: filenameToSlug(link.href) });
+      }
+    }
+  }
+  if (current.items.length) sections.push(current);
+  return sections;
 })();
 
-// Real mermaid.js, lazy-loaded only when a /docs page with a diagram is
-// actually opened — matching the code-splitting pattern already used for
+const NAV_ITEMS = NAV_SECTIONS.flatMap((s) => s.items);
+
+// mermaid.js, lazy-loaded only when a /docs page with a diagram is
+// opened, matching the code-splitting pattern already used for
 // EcosystemGlobePage.jsx's three.js, so no visitor pays for this unless
 // they open /docs.
 let mermaidPromise = null;
@@ -137,8 +155,8 @@ function InlineContent({ parts, onNavigate }) {
       );
     }
     if (p.t === 'link') {
-      // Real internal doc link (e.g. "architecture.md" or
-      // "features.md#advantage-report") — resolved within /docs, not left
+ // internal doc link (e.g. "architecture.md" or
+      // "features.md#advantage-report"), resolved within /docs, not left
       // to 404 or point at GitHub.
       const docMatch = p.href.match(/^([\w-]+\.md)(#[\w-]*)?$/i);
       if (docMatch) {
@@ -164,7 +182,7 @@ function InlineContent({ parts, onNavigate }) {
           </a>
         );
       }
-      // Real external link
+ // external link
       return (
         <a key={i} href={p.href} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-0.5">
           {p.v}<ExternalLink size={10} />
@@ -260,11 +278,11 @@ function DocContent({ filename, onNavigate }) {
   );
 }
 
-// No sidebar+content split on narrow screens — a real, honest call: two
-// real columns don't fit a phone width without either column becoming
+// No sidebar+content split on narrow screens, a real, call: two
+// columns don't fit a phone width without either column becoming
 // too cramped to read. A hamburger-triggered drawer for section
 // navigation (the same pattern mobile docs sites/apps generally use) is
-// the more usable real mobile layout, kept as its own explicit branch
+// the more usable mobile layout, kept as its own explicit branch
 // rather than the same JSX squeezed by responsive classes.
 export default function DocsPage({ path, navigate, onBack, isMobile }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -285,7 +303,7 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
 
   useEffect(() => {
     if (hash) {
-      // Real markdown is parsed synchronously, so the target heading's id
+ // markdown is parsed synchronously, so the target heading's id
       // already exists in the DOM by the time this runs.
       document.getElementById(hash)?.scrollIntoView({ block: 'start' });
     } else {
@@ -295,29 +313,38 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
 
   useEffect(() => {
     const navItem = NAV_ITEMS.find((item) => item.slug === slug);
-    const title = navItem ? `${navItem.title} — Docs` : 'Docs';
+    const title = navItem ? `${navItem.title}, Docs` : 'Docs';
     updatePageMeta({ title, description: firstParagraph(DOCS[filename]), path: pathname });
   }, [pathname, slug, filename]);
 
   const sidebar = (
-    <nav className="space-y-0.5">
-      {NAV_ITEMS.map((item) => {
-        const active = item.slug === slug;
-        return (
-          <a
-            key={item.filename}
-            href={`/docs${item.slug ? '/' + item.slug : ''}`}
-            onClick={(e) => { e.preventDefault(); handleNavigate(item.slug, ''); }}
-            className={`block text-sm px-3 py-2 rounded-lg transition-colors ${
-              active
-                ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-semibold'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
-          >
-            {item.title}
-          </a>
-        );
-      })}
+    <nav className="space-y-4">
+      {NAV_SECTIONS.map((section, i) => (
+        <div key={section.title || `intro-${i}`} className="space-y-0.5">
+          {section.title && (
+            <h3 className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              {section.title}
+            </h3>
+          )}
+          {section.items.map((item) => {
+            const active = item.slug === slug;
+            return (
+              <a
+                key={item.filename}
+                href={`/docs${item.slug ? '/' + item.slug : ''}`}
+                onClick={(e) => { e.preventDefault(); handleNavigate(item.slug, ''); }}
+                className={`block text-sm px-3 py-2 rounded-lg transition-colors ${
+                  active
+                    ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-semibold'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                {item.title}
+              </a>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 

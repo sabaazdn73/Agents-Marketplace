@@ -1,10 +1,10 @@
 // OnboardingTour.jsx
 //
-// The dismissible welcome modal itself — shared verbatim by web + mobile
+// The dismissible welcome modal itself, shared verbatim by web + mobile
 // (a centered overlay card works identically at any viewport width, unlike
 // a DOM-anchored spotlight tour, which would need real, separately-
 // maintained positioning logic for web's sidebar vs. mobile's bottom nav).
-// Skippable and closeable at every step — never forced, never blocks the
+// Skippable and closeable at every step, never forced, never blocks the
 // rest of the page (dismissing just closes it; the marketplace underneath
 // is always still there).
 import React, { useState } from 'react';

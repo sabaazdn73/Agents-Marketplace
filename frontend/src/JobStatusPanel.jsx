@@ -1,49 +1,49 @@
 // JobStatusPanel.jsx
 //
-// Real, live ERC-8183 job status + actions — originally extracted
+// Real, live ERC-8183 job status + actions, originally extracted
 // 2026-08-18 from the marketplace's own Altana session-hire panel (removed
 // 2026-09-03, see docs/limitations.md) so "My Agents" (many jobs, one per
-// real hire) could reuse the exact same read/display logic instead of
+// hire) could reuse the exact same read/display logic instead of
 // rebuilding it; kept as a shared component since that reuse value stayed
-// real even after the second caller was removed. Reads are always the
-// same (getJobStatus/getDeliverable — pure on-chain reads, no wallet
+// even after the second caller was removed. Reads are always the
+// same (getJobStatus/getDeliverable, pure on-chain reads, no wallet
 // needed); the WRITE actions (dispute, claim refund) are passed in as
-// callbacks rather than hardcoded — the connected wallet signs directly
+// callbacks rather than hardcoded, the connected wallet signs directly
 // (writeContractAsync straight to the Policy/Commerce contracts), the
-// only real hire path this product has now. Pass onDispute/onClaimRefund
-// only when the caller actually has a real way to sign that action for
+// only hire path this product has now. Pass onDispute/onClaimRefund
+// only when the caller has a way to sign that action for
 // this job; omitting one just hides that button rather than rendering a
 // dead one.
 //
 // Copy pass, 2026-08-19: rewritten in extremely plain language on purpose.
-// Real, honest constraint this whole panel is designed around: for
+// Real, constraint this whole panel is designed around: for
 // third-party marketplace agents, we have NO visibility into what they're
-// doing internally until they submit a real deliverable on-chain — that's
+// doing internally until they submit a deliverable on-chain, that's
 // ERC-8183's own design, not something we're choosing to hide. So every
 // status below either says plainly "there's genuinely nothing to show yet"
-// or, once something real exists (a submitted deliverable), actually shows
-// it — fetched and rendered in whatever real format it turns out to be,
+// or, once something exists (a submitted deliverable), shows
+// it, fetched and rendered in whatever format it turns out to be,
 // not just a bare link.
 //
 // "Live waiting" pass, 2026-08-23: the FUNDED state used to just be one
-// static sentence with no sense of time passing — a real UX complaint
-// ("feels like a black box"). Real, honest constraint investigated before
+// static sentence with no sense of time passing, a UX complaint
+// ("feels like a black box"). Real, constraint investigated before
 // building this: the on-chain job struct (erc8183.js's own ABI) has NO
 // fundedAt/createdAt field, only `expiredAt` (bakes in a per-job, user-
-// chosen buffer + a fixed dispute-window constant — not invertible without
+// chosen buffer + a fixed dispute-window constant, not invertible without
 // knowing that per-job buffer) and `submittedAt`. There's also no indexed
-// event we can scan instead (see agent_performance.py's own docstring —
+// event we can scan instead (see agent_performance.py's own docstring,
 // this project already, deliberately avoids getLogs scans after real,
 // repeated RPC rate-limit/archive-node pain). So a general "typical
 // delivery time" average across arbitrary third-party agents genuinely
-// isn't computable from what's available today — jobTiming.js's own header
-// has the full investigation. What IS real and buildable: a live elapsed
-// timer (jobTiming.js records the real funding moment for jobs hired
-// through this browser, or an honest first-observed fallback otherwise),
-// a real countdown to the actual on-chain expiredAt, faster panel-local
-// polling while a FUNDED job is actually open, and a progress ESTIMATE
-// only for the one agent we've genuinely measured (also in jobTiming.js) —
-// never a fabricated bar for agents we have no real data on.
+// isn't computable from what's available today, jobTiming.js's own header
+// has the full investigation. What IS and buildable: a live elapsed
+// timer (jobTiming.js records the funding moment for jobs hired
+// through this browser, or an first-observed fallback otherwise),
+// a countdown to the on-chain expiredAt, faster panel-local
+// polling while a FUNDED job is open, and a progress ESTIMATE
+// only for the one agent we've genuinely measured (also in jobTiming.js),
+// never a fabricated bar for agents we have no data on.
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Sparkles, Clock, Hourglass, CheckCircle2, XCircle } from 'lucide-react';
@@ -58,12 +58,12 @@ const DELIVERABLE_FETCH_TIMEOUT_MS = 12_000;
 const DELIVERABLE_MAX_CHARS = 4000; // long deliverables get truncated with a "view full" link, not a broken layout
 
 // Panel-local fast poll, distinct from NotificationBell's app-wide 30s
-// background poll — this one only runs while THIS panel is mounted, visible
-// (Page Visibility API — no point hammering RPCs for a backgrounded tab),
-// and the job is actually FUNDED (the only state where anything changes).
+// background poll, this one only runs while THIS panel is mounted, visible
+// (Page Visibility API, no point hammering RPCs for a backgrounded tab),
+// and the job is FUNDED (the only state where anything changes).
 const FAST_POLL_MS = 8_000;
 // Purely cosmetic re-render tick for the live elapsed/countdown/"checked Xs
-// ago" numbers — no network call, that's what makes it feel alive at zero
+// ago" numbers, no network call, that's what makes it feel alive at zero
 // extra RPC cost.
 const TICK_MS = 1_000;
 // How long a real, detected status change stays visually flashed before
@@ -88,7 +88,7 @@ function formatElapsed(ms) {
 }
 
 function formatCountdown(ms) {
-  if (ms <= 0) return null; // past deadline — caller shows the refund path instead
+  if (ms <= 0) return null; // past deadline, caller shows the refund path instead
   const s = Math.floor(ms / 1000);
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
   if (d > 0) return `${d}d ${h}h`;
@@ -97,21 +97,21 @@ function formatCountdown(ms) {
   return `${sec}s`;
 }
 
-/** Fetches the real deliverable URL and figures out, from what actually
- * comes back, how to show it honestly: real JSON pretty-printed, a real
- * image shown inline, real plain text as text. If the fetch itself fails,
- * that's reported honestly too, with the raw link as the fallback — never
+/** Fetches the deliverable URL and figures out, from what actually
+ * comes back, how to show it honestly: JSON pretty-printed, a real
+ * image shown inline, plain text as text. If the fetch itself fails,
+ * that's reported honestly too, with the raw link as the fallback, never
  * silently swallowed into "no deliverable".
  *
- * Real bug fixed 2026-08-24: this used to fetch() `url` DIRECTLY from the
- * browser — confirmed live to fail on every marketplace agent built on this
- * SDK, none of which advertise CORS headers (same real gap
+ * bug fixed 2026-08-24: this used to fetch() `url` DIRECTLY from the
+ * browser, confirmed live to fail on every marketplace agent built on this
+ * SDK, none of which advertise CORS headers (same gap
  * erc8183_negotiate.py's negotiate/notify_funded proxies exist for), always
  * surfacing as the generic "Failed to fetch" even when the content was
  * genuinely there (job #56646). Routed through our own backend's
- * /api/deliverable/proxy instead (see core/deliverable_proxy.py) — same
- * origin, real CORS headers, same content-type-based rendering below,
- * unchanged. The one exception: an actual IMAGE still loads via `<img
+ * /api/deliverable/proxy instead (see core/deliverable_proxy.py), same
+ * origin, CORS headers, same content-type-based rendering below,
+ * unchanged. The one exception: an IMAGE still loads via `<img
  * src={url}>` on the ORIGINAL url in DeliverableViewer below, an <img> tag
  * isn't subject to CORS the way a script-initiated fetch() read is, so it
  * needs no proxying. */
@@ -172,11 +172,11 @@ const HEADING_SIZE_CLASS = {
   4: 'text-[12px] font-semibold',
 };
 
-/** The polished, human-readable rendering of a deliverable's real content
- * field — headings, bold/italic, lists, simple tables, paragraphs. Nothing
- * fabricated: this only re-formats the exact real text extractDeliverableText
+/** The polished, human-readable rendering of a deliverable's content
+ * field, headings, bold/italic, lists, simple tables, paragraphs. Nothing
+ * fabricated: this only re-formats the exact text extractDeliverableText
  * found, never rewrites or trims it (a "thinking preamble" some agents
- * include ahead of their real answer, if present, renders as-is — this is a
+ * include ahead of their answer, if present, renders as-is, this is a
  * general-purpose viewer, not a curated excerpt like AdvantageReport.jsx's
  * own hand-picked one). */
 export function LightMarkdown({ text }) {
@@ -227,7 +227,7 @@ export function LightMarkdown({ text }) {
 }
 
 /** The exact original raw content, with its own expand/collapse for long
- * output — the same rendering used both as the "no polished view available"
+ * output, the same rendering used both as the "no polished view available"
  * fallback and as what a polished view's "View raw" toggle reveals. Access
  * to the real, unmodified raw content is never removed, just not the
  * default when something more readable was found. */
@@ -253,13 +253,13 @@ function RawDeliverableBlock({ content, url }) {
 
 /** Polished view (default) + two SEPARATE, always-visible affordances:
  * "View raw" (reveals the exact original content inline, on this page) and
- * "Open original" (a real, direct link to the actual deliverable URL,
- * un-proxied, for independent/external verification). Real regression fixed
+ * "Open original" (a real, direct link to the deliverable URL,
+ * un-proxied, for independent/external verification). regression fixed
  * 2026-08-28: when this polished view was added, "Open original" ended up
- * nested INSIDE the "View raw" toggle's revealed content — before that, the
+ * nested INSIDE the "View raw" toggle's revealed content, before that, the
  * plain raw-content view (still real, and still what renders below when
  * there's no polished text to show) always had this link visible
- * immediately, no toggle needed. Real fix: promote it back to its own
+ * immediately, no toggle needed. fix: promote it back to its own
  * always-visible link here, independent of whether "View raw" is open. */
 function PolishedDeliverable({ text, raw, url }) {
   const [showRaw, setShowRaw] = useState(false);
@@ -288,7 +288,7 @@ function DeliverableViewer({ url }) {
   if (state.status === 'fetch-failed') {
     return (
       <div className="space-y-1">
-        <div className="opacity-70">Couldn't load it automatically here ({state.error}) — open it directly instead:</div>
+        <div className="opacity-70">Couldn't load it automatically here ({state.error}), open it directly instead:</div>
         <a href={url} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1">Open deliverable <ExternalLink size={11} /></a>
       </div>
     );
@@ -301,9 +301,9 @@ function DeliverableViewer({ url }) {
       </div>
     );
   }
-  // json with a real, identifiable content field → polished by default, raw
+ // json with a real, identifiable content field → polished by default, raw
   // available underneath. json with no such field, or plain text → the raw
-  // view is the only honest representation, shown directly (nothing to
+  // view is the only representation, shown directly (nothing to
   // "polish" beyond it).
   const meaningfulText = state.status === 'json' ? extractDeliverableText(state.parsed) : null;
   if (meaningfulText) {
@@ -312,18 +312,18 @@ function DeliverableViewer({ url }) {
   return <RawDeliverableBlock content={state.content} url={url} />;
 }
 
-// One plain-language line per status, written for a total beginner — no
+// One plain-language line per status, written for a total beginner, no
 // jargon, no assuming the reader knows what "escrow" or "settlement" mean.
 const STATUS_COPY = {
   OPEN: "This job has been created but not paid for yet.",
-  FUNDED: "Your payment is locked and waiting. The agent hasn't finished the work yet — there's nothing to show until it does.",
+  FUNDED: "Your payment is locked and waiting. The agent hasn't finished the work yet, there's nothing to show until it does.",
   SUBMITTED: "The agent says it's done! Here's what it delivered:",
   COMPLETED: "Job finished. The agent got paid, and here's what you received:",
-  REJECTED: "You disputed this delivery, and it was decided in your favor — you got your money back.",
+  REJECTED: "You disputed this delivery, and it was decided in your favor, you got your money back.",
 };
 
 // A friendlier word for the status badge next to the plain-English sentence
-// above — the raw values (OPEN, FUNDED, SUBMITTED…) are the real, internal
+// above, the raw values (OPEN, FUNDED, SUBMITTED…) are the real, internal
 // status names read straight from the blockchain, kept as-is for anyone who
 // wants to look this job up directly; this is just what's SHOWN.
 export const STATUS_DISPLAY_LABEL = {
@@ -342,24 +342,24 @@ export default function JobStatusPanel({
 }) {
   const [status, setStatus] = useState(initialStatus || null);
   const [job, setJob] = useState(null);
-  // Real bug fixed 2026-08-20: this used to be a single undefined/null/string
-  // value, which conflated three genuinely different real states into one —
-  // "still checking", "checked and genuinely nothing there", and "the check
-  // itself failed" (e.g. a real RPC error) all collapsed into the same UI
+ // bug fixed 2026-08-20: this used to be a single undefined/null/string
+ // value, which conflated three genuinely different states into one,
+ // "still checking", "checked and genuinely nothing there", and "the check
+  // itself failed" (e.g. a RPC error) all collapsed into the same UI
   // message, "hasn't posted a result", even when that was false. Confirmed
-  // for real against job #56620: getDeliverable() was THROWING (a real
-  // eth_getLogs rejection from the default RPC — see altana.js's own fix),
-  // not resolving to "not found" — the blanket catch hid a real failure
+ // for against job #56620: getDeliverable() was THROWING (a real
+  // eth_getLogs rejection from the default RPC, see altana.js's own fix),
+  // not resolving to "not found", the blanket catch hid a failure
   // behind a message that implied the agent simply hadn't delivered yet.
   const [deliverableState, setDeliverableState] = useState({ status: 'idle' }); // idle|loading|found|not_found|error
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  // "Live waiting" state — see this file's header + jobTiming.js for the
-  // real investigation behind each of these.
+  // "Live waiting" state, see this file's header + jobTiming.js for the
+ // investigation behind each of these.
   const [lastCheckedAtMs, setLastCheckedAtMs] = useState(null);
-  const [flashKind, setFlashKind] = useState(null); // null | 'submitted' | 'expired' — a real, just-detected change
+ const [flashKind, setFlashKind] = useState(null); // null | 'submitted' | 'expired', a real, just-detected change
   const prevStatusRef = useRef(initialStatus || null);
   const tickerActive = status === 'FUNDED' || flashKind != null;
   useTicker(tickerActive);
@@ -367,17 +367,17 @@ export default function JobStatusPanel({
   const refresh = useCallback(async () => {
     setError(null);
     // "Checked Xs ago" should reflect that we just tried, whether or not it
-    // succeeds — a failed check is still a real check, and silently NOT
+    // succeeds, a failed check is still a check, and silently NOT
     // updating this on failure would make repeated failures look like one
-    // long-stale check instead of what's actually happening.
+ // long-stale check instead of what's happening.
     setLastCheckedAtMs(Date.now());
     try {
       const j = await getJobStatus(jobId);
       setJob(j); setStatus(j.statusName);
       trackJob(jobId, j.statusName);
 
-      // A real, detected change (not the initial load) — trigger the
-      // visual transition once, driven by an actual state flip.
+ // A real, detected change (not the initial load), trigger the
+      // visual transition once, driven by an state flip.
       if (prevStatusRef.current != null && prevStatusRef.current !== j.statusName) {
         if (j.statusName === 'SUBMITTED') { setFlashKind('submitted'); setTimeout(() => setFlashKind(null), FLASH_MS); }
         else if (j.statusName === 'EXPIRED') { setFlashKind('expired'); setTimeout(() => setFlashKind(null), FLASH_MS); }
@@ -402,7 +402,7 @@ export default function JobStatusPanel({
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // Panel-local fast poll — only while a FUNDED job is actually mounted and
+ // Panel-local fast poll, only while a FUNDED job is mounted and
   // the tab is visible. Distinct from NotificationBell's slower, app-wide
   // background poll (still the fallback for jobs not currently open).
   useEffect(() => {
@@ -411,7 +411,7 @@ export default function JobStatusPanel({
     return () => clearInterval(id);
   }, [status, refresh]);
 
-  // The real start-time estimate for the elapsed timer — computed (and, for
+  // The start-time estimate for the elapsed timer, computed (and, for
   // the fallback case, persisted) the moment we first see FUNDED for this
   // job, not recomputed every render/tick.
   const [startEstimate, setStartEstimate] = useState(null);
@@ -419,14 +419,14 @@ export default function JobStatusPanel({
     if (status === 'FUNDED' && !startEstimate) setStartEstimate(getStartEstimate(jobId));
   }, [status, jobId, startEstimate]);
 
-  const nowMs = Date.now(); // safe here — only read during a render driven by useTicker
+  const nowMs = Date.now(); // safe here, only read during a render driven by useTicker
 
   const handleDispute = async () => {
     if (!onDispute) return;
     setBusy(true); setError(null);
     try {
       await onDispute(jobId);
-      await refresh(); // read the real status back — don't optimistically assume
+      await refresh(); // read the status back, don't optimistically assume
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -434,12 +434,12 @@ export default function JobStatusPanel({
     }
   };
 
-  // Real, confirmed gap fixed here (full hire-flow audit, 2026-08-28): the
-  // real "or you approve early" release-payment-now action was described in
-  // docs/README.md but never actually offered anywhere in the product — see
-  // useJobActions.js's approveDirect for the full trace. A real, permanent
+ // Real, confirmed gap fixed here (full hire-flow audit, 2026-08-28): the
+ // real "or you approve early" release-payment-now action was described in
+ // docs/README.md but never offered anywhere in the product, see
+ // useJobActions.js's approveDirect for the full trace. A real, permanent
   // action (moves the job straight to COMPLETED, no more dispute after),
-  // so it's offered but never assumed — the contract enforces real
+ // so it's offered but never assumed, the contract enforces real
   // eligibility, we just surface whatever it reports back.
   const handleApprove = async () => {
     if (!onApprove) return;
@@ -469,56 +469,56 @@ export default function JobStatusPanel({
 
   const submitted = status === 'SUBMITTED';
   const completed = status === 'COMPLETED';
-  // Real condition, verified 2026-08-18 against live on-chain state (job
-  // #56596: expiredAt passed 12+ hours earlier, status still read OPEN) —
+ // condition, verified 2026-08-18 against live on-chain state (job
+  // #56596: expiredAt passed 12+ hours earlier, status still read OPEN),
   // the contract does NOT auto-transition status once expiredAt passes.
   // "EXPIRED" is a status claimRefund() itself sets; before that call, an
-  // overdue job still honestly reads FUNDED. So the actionable case is
+ // overdue job still honestly reads FUNDED. So the actionable case is
   // FUNDED-and-past-expiredAt, not the literal EXPIRED enum value (which
-  // means the refund was already claimed — nothing left to do).
+  // means the refund was already claimed, nothing left to do).
   const nowSec = Math.floor(Date.now() / 1000);
   const canClaimRefund = status === 'FUNDED' && job?.expiredAt != null && nowSec > Number(job.expiredAt);
 
-  // Real time window for the "Agent activity" transparency view — null
-  // (renders nothing) when there's no real, sane window to search. See
-  // jobTiming.js's getActivityWindow for the full real tiering.
+ // Real time window for the "Agent activity" transparency view, null
+ // (renders nothing) when there's no real, sane window to search. See
+  // jobTiming.js's getActivityWindow for the full tiering.
   const activityWindow = job ? getActivityWindow(jobId, job) : null;
 
-  // Real, confirmed bug fix (2026-08-27): "Looks good — release payment
-  // now" used to render (and always revert) for ANY submitted job — the
-  // real deployed EvaluatorRouter.settle() has NO early-approval path,
+ // Real, confirmed bug fix (2026-08-27): "Looks good, release payment
+  // now" used to render (and always revert) for ANY submitted job, the
+ // deployed EvaluatorRouter.settle() has NO early-approval path,
   // confirmed via eth_call: it reverts for every caller, including the
-  // real job.client, until the dispute window has fully elapsed. Mirror
-  // image for dispute() — real, client-only, and ONLY valid BEFORE that
-  // point. Both buttons now gated on the job's REAL on-chain eligibility
+ // job.client, until the dispute window has fully elapsed. Mirror
+ // image for dispute(), real, client-only, and ONLY valid BEFORE that
+ // point. Both buttons now gated on the job's on-chain eligibility
   // instead of just its status, so neither one is offered when it would
   // just fail. See jobTiming.js's isPastDisputeWindow + docs/hire-flow-
-  // audit.md's "Correction" section for the full real investigation.
+  // audit.md's "Correction" section for the full investigation.
   const pastDisputeWindow = job ? isPastDisputeWindow(job) : false;
 
-  // Live-waiting numbers — all derived from real state (startEstimate,
+ // Live-waiting numbers, all derived from state (startEstimate,
   // job.expiredAt, lastCheckedAtMs) re-evaluated every tick, never a fake
-  // incrementing counter running independently of reality.
+ // incrementing counter running independently of reality.
   const elapsedMs = status === 'FUNDED' && startEstimate ? nowMs - startEstimate.atMs : null;
   const countdownMs = status === 'FUNDED' && job?.expiredAt != null ? Number(job.expiredAt) * 1000 - nowMs : null;
   const typical = status === 'FUNDED' ? getKnownTypicalDelivery(job?.provider) : null;
-  // Real UX fix, 2026-08-24: a percentage bar that climbs to 100% and then
+ // UX fix, 2026-08-24: a percentage bar that climbs to 100% and then
   // just sits there once elapsed time passes the typical estimate reads as
-  // stuck/broken — a real user flagged exactly this. Looked at how real
+ // stuck/broken, a user flagged exactly this. Looked at how real
   // products handle "past the estimate" for an async wait (order tracking,
   // package tracking, background job queues): none of them leave a frozen
-  // percentage — they either keep updating the estimate, or drop the numeric
+  // percentage, they either keep updating the estimate, or drop the numeric
   // progress entirely and switch to an open-ended "still working" state
   // anchored on elapsed time, which is what reassures the user something is
-  // still actually happening. `isPastTypical` below is that switch point —
+ // still happening. `isPastTypical` below is that switch point,
   // the percentage bar only ever renders BELOW 100%; past it, the bar
   // disappears in favor of the open-ended state.
   const isPastTypical = typical && elapsedMs != null && elapsedMs >= typical.seconds * 1000;
   const progressPct = typical && elapsedMs != null && !isPastTypical ? (elapsedMs / (typical.seconds * 1000)) * 100 : null;
   const checkedSecAgo = lastCheckedAtMs != null ? Math.max(0, Math.floor((nowMs - lastCheckedAtMs) / 1000)) : null;
 
-  // Flash styling — a real, visible transition ONLY when refresh() just
-  // detected an actual change (flashKind), self-clearing after FLASH_MS.
+ // Flash styling, a real, visible transition ONLY when refresh() just
+  // detected an change (flashKind), self-clearing after FLASH_MS.
   const flashRing = flashKind === 'submitted' ? 'ring-2 ring-emerald-400 dark:ring-emerald-500'
     : flashKind === 'expired' ? 'ring-2 ring-amber-400 dark:ring-amber-500'
     : '';
@@ -536,7 +536,7 @@ export default function JobStatusPanel({
         <div className="flex items-center gap-1.5">
           <span className="font-semibold">Job #{String(jobId)}</span>
           {agentLabel && (
-            agentLink ? <a href={agentLink} className="text-indigo-500 hover:underline">— {agentLabel}</a> : <span className="opacity-60">— {agentLabel}</span>
+            agentLink ? <a href={agentLink} className="text-indigo-500 hover:underline">, {agentLabel}</a> : <span className="opacity-60">, {agentLabel}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -546,7 +546,7 @@ export default function JobStatusPanel({
       </div>
 
       {/* One plain-English line explaining exactly where things stand, before
-          anything else — except FUNDED, where the real live-ticking view
+          anything else, except FUNDED, where the live-ticking view
           below replaces the old static "waiting" text entirely. */}
       {status && status !== 'FUNDED' && STATUS_COPY[status] && <p className="opacity-80 leading-relaxed">{STATUS_COPY[status]}</p>}
 
@@ -561,7 +561,7 @@ export default function JobStatusPanel({
             )}
           </div>
           {startEstimate && !startEstimate.precise && (
-            <p className="text-[10px] opacity-40">We don't have your exact funding moment on record for this job. This counts from when we first saw it funded, so the actual wait may be a bit longer.</p>
+            <p className="text-[10px] opacity-40">We don't have your exact funding moment on record for this job. This counts from when we first saw it funded, so the wait may be a bit longer.</p>
           )}
 
           {typical && progressPct != null && (
@@ -574,16 +574,16 @@ export default function JobStatusPanel({
                 <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${progressPct}%`, background: accent }} />
               </div>
               <p className="text-[10px] opacity-40 mt-1">
-                Most similar jobs finish in about {formatElapsed(typical.seconds * 1000)} — an estimate from {typical.sourceLabel}, not a guarantee.
+                Most similar jobs finish in about {formatElapsed(typical.seconds * 1000)}, an estimate from {typical.sourceLabel}, not a guarantee.
               </p>
             </div>
           )}
 
-          {/* Past the typical estimate — the percentage bar above stops
-              rendering (see isPastTypical's own comment for the real UX
+          {/* Past the typical estimate, the percentage bar above stops
+              rendering (see isPastTypical's own comment for the UX
               research behind this) and this open-ended state takes over
               instead. The elapsed timer and deadline countdown elsewhere in
-              this panel are untouched — they stay accurate regardless. */}
+              this panel are untouched, they stay accurate regardless. */}
           {isPastTypical && (
             <div className="flex items-start gap-1.5 text-[10px] opacity-60">
               <span className="relative flex h-2 w-2 mt-0.5 shrink-0">
@@ -591,7 +591,7 @@ export default function JobStatusPanel({
                 <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: accent }} />
               </span>
               <span>
-                Still working — this is taking longer than the usual ~{formatElapsed(typical.seconds * 1000)} for this agent. The job is still valid and could deliver anytime before its deadline below.
+                Still working, this is taking longer than the usual ~{formatElapsed(typical.seconds * 1000)} for this agent. The job is still valid and could deliver anytime before its deadline below.
               </span>
             </div>
           )}
@@ -600,7 +600,7 @@ export default function JobStatusPanel({
             <div className="flex items-center gap-1.5 text-[11px] opacity-70" title="Time left before this job's on-chain deadline">
               <Clock size={11} />
               {countdownMs > 0
-                ? <span>Deadline in {formatCountdown(countdownMs)} — after that, come back here and claim a refund yourself (it won't happen on its own)</span>
+                ? <span>Deadline in {formatCountdown(countdownMs)}, after that, come back here and claim a refund yourself (it won't happen on its own)</span>
                 : <span>Past its deadline. A refund is now available below</span>}
             </div>
           )}
@@ -611,9 +611,9 @@ export default function JobStatusPanel({
 
       {(submitted || completed) && (
         <div className="space-y-2 pt-1">
-          {/* Real trust feature, general to any agent/any job (not
-              explainer-agent-specific): a SUBMITTED/COMPLETED job's real
-              output must be immediately, visually obvious — not small
+ {/* trust feature, general to any agent/any job (not
+ explainer-agent-specific): a SUBMITTED/COMPLETED job's real
+              output must be immediately, visually obvious, not small
               inline text a user has to hunt for or wonder whether anything
               came back at all. */}
           {deliverableState.status === 'idle' || deliverableState.status === 'loading' ? (
@@ -630,19 +630,19 @@ export default function JobStatusPanel({
           ) : deliverableState.status === 'error' ? (
             <div className="flex items-start gap-1.5 text-amber-600 dark:text-amber-400">
               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-              <span>Couldn't check for a result right now ({deliverableState.error}) — that's a problem on our end, not proof nothing was delivered. <button onClick={refresh} className="underline">Retry</button></span>
+              <span>Couldn't check for a result right now ({deliverableState.error}), that's a problem on our end, not proof nothing was delivered. <button onClick={refresh} className="underline">Retry</button></span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 opacity-60"><FileText size={12} /> We can't find a result from the agent yet.</div>
           )}
 
-          {/* Real "what is this agent actually doing" transparency view —
+ {/* Real "what is this agent doing" transparency view,
               see AgentActivityPanel.jsx's own docstring. Renders nothing
-              when there's no real window to search. */}
+              when there's no window to search. */}
           <AgentActivityPanel ownerAddress={job?.provider} window={activityWindow} />
 
-          {/* Real, honest state once the review window has genuinely
-              passed uncontested — confirmed live (2026-08-27) that
+ {/* Real, state once the review window has genuinely
+              passed uncontested, confirmed live (2026-08-27) that
               settle() becomes callable by ANY address at this point, not
               just the original buyer, so this is stated plainly rather
               than implied as "your job to finish". */}
@@ -654,13 +654,13 @@ export default function JobStatusPanel({
           )}
           {submitted && pastDisputeWindow && onApprove && (
             <button onClick={handleApprove} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold border disabled:opacity-50 flex items-center justify-center gap-1.5" style={{ color: accent, borderColor: accent + '4D' }}>
-              {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Settle now — release payment
+              {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />} Settle now, release payment
             </button>
           )}
           {submitted && !pastDisputeWindow && onDispute && (
             <>
               <button onClick={handleDispute} disabled={busy} className="w-full py-2 rounded-lg text-xs font-semibold text-red-600 border border-red-500/30 disabled:opacity-50 flex items-center justify-center gap-1.5">
-                {busy ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />} This isn't right — dispute it
+                {busy ? <Loader2 size={13} className="animate-spin" /> : <AlertTriangle size={13} />} This isn't right, dispute it
               </button>
               <p className="text-[10px] opacity-50">You can do this within the 7-day review window after delivery. Once that passes without a dispute, this can no longer be disputed: it becomes eligible for settlement instead.</p>
             </>

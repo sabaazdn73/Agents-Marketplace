@@ -1,30 +1,30 @@
 // agentRanking.js
 //
-// Real ranking logic for the marketplace's "Most hired" / "Highest success
-// rate" sort options — built entirely on real, already-computed on-chain
+// ranking logic for the marketplace's "Most hired" / "Highest success
+// rate" sort options, built entirely on real, already-computed on-chain
 // data (agent_performance.py, via useAgentPerformanceBulk.js). No LLM
 // guessing, no fabricated composite score: these two sorts each rank by
-// exactly one real number, honestly labeled. Shared by web and mobile so
+// exactly one number, honestly labeled. Shared by web and mobile so
 // the tiering logic can't silently drift between them.
 //
-// Real handling for agents with zero or very few jobs (most agents right
-// now — per this session's own earlier findings, the large majority have
-// no real hires yet): a plain numeric sort would silently mix a genuine
-// 0-hire agent in among real track records wherever a tie lands, which
-// both crowds out the few agents that DO have a real history AND makes a
-// brand-new agent look ranked/judged on nothing. Real fix: TWO tiers, not
-// one sort — every agent with real history (by the chosen metric) ranked
+// handling for agents with zero or very few jobs (most agents right
+// now, per this session's own earlier findings, the large majority have
+// no hires yet): a plain numeric sort would silently mix a genuine
+// 0-hire agent in among track records wherever a tie lands, which
+// both crowds out the few agents that DO have a history AND makes a
+// brand-new agent look ranked/judged on nothing. fix: TWO tiers, not
+// one sort, every agent with history (by the chosen metric) ranked
 // first among themselves, every agent with none listed after, in the
-// marketplace's own default order (real score, the same baseline ranking
-// used everywhere else) — clearly distinguished by AgentCard/table row
+// marketplace's own default order (score, the same baseline ranking
+// used everywhere else), clearly distinguished by AgentCard/table row
 // (see hasRealHistory below), never silently interleaved.
 //
-// hireCount vs winRate treat "no real history" differently, both for real
+// hireCount vs winRate treat "no history" differently, both for real
 // reasons: 0 hires genuinely means nothing has happened yet, so hireCount
 // = 0 IS the no-history case. But for winRate, 0% (every resolved job
-// failed) is real, meaningful, bad-but-real history — genuinely different
+// failed) is real, meaningful, bad-but-history, genuinely different
 // from null (no job has resolved either way yet). Collapsing those two
-// would hide a real bad track record inside "no data yet", the opposite
+// would hide a bad track record inside "no data yet", the opposite
 // of honest.
 
 export function agentHasRealHistory(agent, key) {
@@ -32,13 +32,13 @@ export function agentHasRealHistory(agent, key) {
   return (agent.hireCount ?? 0) > 0;
 }
 
-/** Real tiered comparator for Array.prototype.sort — every agent WITH real
- * history for `key` sorts first (best real number first); within that,
+/** tiered comparator for Array.prototype.sort, every agent WITH real
+ * history for `key` sorts first (best number first); within that,
  * winRate breaks ties by hireCount (a 100% record on 1 job doesn't
  * outrank a 96% record on 50 jobs just because they'd otherwise tie on
- * the rounded real percentage). Every agent with no real history for this
+ * the rounded percentage). Every agent with no history for this
  * metric sorts after, by the marketplace's own default order (real
- * score) — never scored on a metric it has no real data for. */
+ * score), never scored on a metric it has no data for. */
 export function performanceComparator(key) {
   return (a, b) => {
     const aHas = agentHasRealHistory(a, key);
@@ -56,19 +56,19 @@ export function performanceComparator(key) {
   };
 }
 
-/** Merges real bulk performance data (useAgentPerformanceBulk's byOwner)
- * onto a mapped agent list — hireCount defaults to 0 (a real, honest
+/** Merges bulk performance data (useAgentPerformanceBulk's byOwner)
+ * onto a mapped agent list, hireCount defaults to 0 (a real, honest
  * "hasn't been hired" state, matching agent_performance.py's own
  * zero-history response), winRate stays null when nothing has resolved
  * yet (see the module docstring for why that's not the same as 0).
  *
- * jobsCompleted/jobsSubmitted are the raw real counts (not the win_rate
- * ratio) — added 2026-08-26 as the real basis for agentVerification.js's
+ * jobsCompleted/jobsSubmitted are the raw counts (not the win_rate
+ * ratio), added 2026-08-26 as the basis for agentVerification.js's
  * "Verified working" tier, which needs to know whether a real
  * SUBMITTED/COMPLETED delivery has ever happened, not just a rate. An
  * agent with hires but zero of either (e.g. all REJECTED/EXPIRED) must
- * NOT count as verified — winRate alone can't distinguish that case from
- * "no real history yet" the way these raw counts can. */
+ * NOT count as verified, winRate alone can't distinguish that case from
+ * "no history yet" the way these raw counts can. */
 export function withPerformance(agents, byOwner) {
   if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null, jobsCompleted: 0, jobsSubmitted: 0 }));
   return agents.map((a) => {
@@ -83,8 +83,8 @@ export function withPerformance(agents, byOwner) {
   });
 }
 
-/** Merges real bulk canary-test data (useCanaryStatus's byOwner — see
- * backend/core/canary.py) onto a mapped agent list — the real basis for
+/** Merges bulk canary-test data (useCanaryStatus's byOwner, see
+ * backend/core/canary.py) onto a mapped agent list, the basis for
  * agentVerification.js's "Canary-verified" tier. canaryDelivered counts
  * only real, actually-'delivered' canary tests, never 'pending'/'failed'
  * ones (see canary.py's own non-punitive-failure design). Separate pass

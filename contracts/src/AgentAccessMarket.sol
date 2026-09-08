@@ -21,21 +21,21 @@ import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
  * MULTI-TOKEN, buyer's choice, NO swap: a creator can price the SAME agent in
  * several accepted tokens (one Offer per (agentId, token)); the BUYER chooses
  * which token to pay with via buyOneTime(agentId, token) / subscribe(...). There
- * is deliberately no swap logic, so we take on zero slippage/MEV risk — each
+ * is deliberately no swap logic, so we take on zero slippage/MEV risk, each
  * offer is a fixed price in one whitelisted token. Native BNB is the sentinel
  * address `NATIVE`, paid via msg.value in the payable purchase functions
- * (cheapest for the buyer — no wrap, no approve); ERC-20s are pulled via
+ * (cheapest for the buyer, no wrap, no approve); ERC-20s are pulled via
  * SafeERC20. The whitelist (incl. NATIVE) is owner-controlled and go-forward.
  *
  * Access is a NON-TRANSFERABLE entitlement per (agentId, buyer), token-agnostic
- * once bought — the ERC-8004 identity token is never moved.
+ * once bought, the ERC-8004 identity token is never moved.
  *
- * Security posture (this handles real money):
+ * Security posture (this handles money):
  *  - Ownable2Step / ReentrancyGuard / SafeERC20.
  *  - Pull-over-push payouts, per token; balances zeroed before transfer (CEI).
  *  - Fee capped (MAX_FEE_BPS), future-only. feeWallet from env at deploy.
  *  - No admin function can touch a buyer's or creator's already-settled funds.
- *  - list() gated by the REAL ERC-8004 registry ownerOf().
+ * - list() gated by the ERC-8004 registry ownerOf().
  *  - No receive()/fallback: native BNB only enters through a priced purchase.
  */
 contract AgentAccessMarket is Ownable2Step, ReentrancyGuard {
@@ -69,7 +69,7 @@ contract AgentAccessMarket is Ownable2Step, ReentrancyGuard {
     mapping(address token => uint256 amount) public feesAccrued;
     mapping(address token => mapping(address creator => uint256 balance)) public creatorBalance;
 
-    /// @notice The payee for an agent's sales — the ERC-8004 owner who listed it.
+    /// @notice The payee for an agent's sales, the ERC-8004 owner who listed it.
     mapping(uint256 agentId => address creator) public agentCreator;
     /// @notice One price offer per (agentId, token). model==NONE means "no offer".
     mapping(uint256 agentId => mapping(address token => Offer)) public offers;
@@ -122,7 +122,7 @@ contract AgentAccessMarket is Ownable2Step, ReentrancyGuard {
     /**
      * @notice Set (or update) the price of one accepted `token` for an agent you
      *         own. Call it once per token to offer the agent in multiple tokens.
-     *         Gated by the real ERC-8004 registry ownerOf().
+     * Gated by the ERC-8004 registry ownerOf().
      */
     function list(uint256 agentId, address token, Model model, uint256 price, uint64 period) external {
         if (model != Model.ONE_TIME && model != Model.SUBSCRIPTION) revert InvalidModel();

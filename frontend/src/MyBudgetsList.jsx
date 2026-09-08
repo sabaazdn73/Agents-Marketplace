@@ -39,7 +39,7 @@ import { BUDGET_STATUS, NATIVE_SENTINEL, isBudgetEscrowConfigured } from './budg
 import BudgetSpendView from './BudgetSpendView';
 
 function fmt(v, symbol = 'BNB') {
-  if (v == null) return '—';
+  if (v == null) return 'n/a';
   const n = Number(formatUnits(v, 18));
   return `${n < 0.0001 && n > 0 ? n.toExponential(2) : n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol}`;
 }
@@ -87,7 +87,7 @@ export default function MyBudgetsList({
         <AlertTriangle size={13} className="shrink-0 mt-0.5" />
         <span>
           Couldn't read your budgets from the contract: {error}. Your escrow jobs below are
-          unaffected, and nothing here means a budget is lost — this is a read failing, not a balance.
+          unaffected, and nothing here means a budget is lost, this is a read failing, not a balance.
         </span>
       </div>
     );
@@ -157,7 +157,7 @@ export default function MyBudgetsList({
                   {/* On a RECLAIMED budget the contract sets spent = total as
                       the effects-before-interaction write that blocks a double
                       reclaim. Reading that as "drawn" would report returned
-                      money as gone, so this row says what actually happened. */}
+ money as gone, so this row says what happened. */}
                   <div className="text-[13px] font-semibold tabular-nums">
                     {reclaimed ? fmt(total, symbol) : fmt(spent, symbol)}
                   </div>
@@ -165,7 +165,7 @@ export default function MyBudgetsList({
                 <div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-wide">Remaining</div>
                   <div className="text-[13px] font-semibold tabular-nums">
-                    {reclaimed ? '—' : fmt(remaining, symbol)}
+                    {reclaimed ? ',' : fmt(remaining, symbol)}
                   </div>
                 </div>
               </div>

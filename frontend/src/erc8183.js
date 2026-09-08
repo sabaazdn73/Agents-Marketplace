@@ -1,10 +1,10 @@
 // erc8183.js
 //
-// The REAL ERC-8183 hire mechanism, called directly from the user's own
+// The ERC-8183 hire mechanism, called directly from the user's own
 // connected wallet via wagmi, no backend signer involved. Every address
 // and function signature below was extracted directly from the installed
 // bnbagent-sdk Python package's own source (constants.py + abis/*.json),
-// not guessed, not searched, the actual values the official SDK ships.
+// not guessed, not searched, the values the official SDK ships.
 
 // ── Real, confirmed contract addresses ──
 export const ERC8183_CONTRACTS = {
@@ -22,7 +22,7 @@ export const ERC8183_CONTRACTS = {
   },
 };
 
-// ── Real function signatures (minimal ABI, only what the hire flow uses) ──
+// ── function signatures (minimal ABI, only what the hire flow uses) ──
 // Extracted directly from bnbagent/abis/{AgenticCommerce,EvaluatorRouter,OptimisticPolicy,ERC20}.json
 
 export const AGENTIC_COMMERCE_ABI = [
@@ -82,8 +82,8 @@ export const OPTIMISTIC_POLICY_ABI = [
   { type: 'function', name: 'check', stateMutability: 'view',
     inputs: [{ name: 'jobId', type: 'uint256' }, { name: '', type: 'bytes' }],
     outputs: [{ type: 'uint8' }, { type: 'bytes32' }] },
-  // Real, confirmed 2026-08-19 (bnbagent PolicyClient.dispute_window() ->
-  // contract.functions.disputeWindow()): the seller's real on-chain
+ // Real, confirmed 2026-08-19 (bnbagent PolicyClient.dispute_window() ->
+ // contract.functions.disputeWindow()): the seller's on-chain
   // submission cutoff is `expiredAt - disputeWindow`, NOT `expiredAt`
   // itself. Read this before computing expiredAt in useHireAgent.js.
   { type: 'function', name: 'disputeWindow', stateMutability: 'view',

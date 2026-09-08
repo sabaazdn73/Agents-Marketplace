@@ -1,22 +1,22 @@
 // QualityCenterPanel.jsx
 //
 // Real, on-demand fetch of 8004scan's own independent "Quality Center"
-// assessment for one agent (backend: GET /api/agents/{id}/quality-center —
+// assessment for one agent (backend: GET /api/agents/{id}/quality-center,
 // see that route's own docstring in server.py for the full real
 // investigation behind this). Confirmed live before building this
 // (2026-08-29): sampled 15 real, actually-scored BSC agents via the live
-// 8004scan API, all 15 had at least one real nonzero dimension score, and
+// 8004scan API, all 15 had at least one nonzero dimension score, and
 // 4/4 checked had real, structured risk_flags. score_history/trend was
-// 'insufficient_data' for every agent checked (0/15) — the registry is too
-// young for it yet — so that field is deliberately not surfaced here.
+// 'insufficient_data' for every agent checked (0/15), the registry is too
+// young for it yet, so that field is deliberately not surfaced here.
 //
 // Shared between web and mobile (same pattern as AgentMetrics.jsx), fetched
 // once per agent detail view via the same useResilientFetch discipline
-// already used elsewhere on this page — never blocks the rest of the
+// already used elsewhere on this page, never blocks the rest of the
 // detail view, and shows nothing (not an error) when 8004scan genuinely
 // has no assessment for this agent yet.
 //
-// Deliberately, permanently labeled as 8004scan's OWN assessment — never
+// Deliberately, permanently labeled as 8004scan's OWN assessment, never
 // merged into Tnega's own total_score or any other Tnega-computed number.
 // The two scores come from different methodologies measuring different
 // things; blending them into one opaque number without a real, principled
@@ -51,7 +51,7 @@ export default function QualityCenterPanel({ agentId }) {
       </div>
     );
   }
-  if (!data || !data.available) return null; // real, honest "nothing to show" — never a fabricated section
+ if (!data || !data.available) return null; // real, honest "nothing to show", never a fabricated section
 
   return (
     <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800">
@@ -64,7 +64,7 @@ export default function QualityCenterPanel({ agentId }) {
           {data.dimensions.map((dim) => (
             <div key={dim.key} title={dim.explanation} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/60 text-center">
               <div className="text-[10px] text-gray-400 uppercase tracking-wide">{dim.label}</div>
-              <div className="text-sm font-bold">{dim.score != null ? dim.score.toFixed(0) : '—'}</div>
+              <div className="text-sm font-bold">{dim.score != null ? dim.score.toFixed(0) : 'n/a'}</div>
             </div>
           ))}
         </div>

@@ -1,8 +1,8 @@
 """
 server.py
 
-The real backend the frontend talks to. One endpoint for now:
-GET /api/agents — real, cross-referenced, honestly-incomplete-where-
+The backend the frontend talks to. One endpoint for now:
+GET /api/agents, real, cross-referenced, honestly-incomplete-where-
 it-should-be agent data, no mock arrays.
 
 Run locally: uvicorn server:app --reload --port 8000
@@ -18,17 +18,17 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-# Real fix, found while investigating the practice-fork 429 outage below:
+# fix, found while investigating the practice-fork 429 outage below:
 # Render's log timestamps for this exact incident (2026-08-25 19:35-19:39)
 # showed print() lines that should be seconds apart (the retry loop's own
 # 2s/3s/5s/8s/12s/15s/15s/15s backoff) landing within microseconds of each
-# other, in clusters, after real multi-second gaps with nothing logged at
-# all — the signature of Python's default block-buffered stdout under a
+# other, in clusters, after multi-second gaps with nothing logged at
+# all, the signature of Python's default block-buffered stdout under a
 # non-TTY container (stdout isn't a terminal here, so print() doesn't
 # flush per line by default; it waits for its internal buffer to fill).
-# The retries themselves were firing on schedule the whole time — only the
+# The retries themselves were firing on schedule the whole time, only the
 # LOG LINES describing them were delayed, sometimes by minutes, which
-# would have made "monitor real logs afterward to confirm" below
+# would have made "monitor logs afterward to confirm" below
 # unreliable. reconfigure(line_buffering=True) makes every print() flush
 # immediately, same effect as `PYTHONUNBUFFERED=1` but expressed in code
 # (this service's env vars are set directly in Render's dashboard, not
@@ -74,7 +74,7 @@ load_dotenv()
 app = FastAPI(title="Tnega API")
 
 # Wide open for local dev, tighten this (specific origins only) before
-# any real deployment, per this project's security rules. The API serves
+# any deployment, per this project's security rules. The API serves
 # both GET (agents, performance/history) and POST (build, hire-adjacent
 # writes), so cross-origin POST + its OPTIONS preflight must be allowed.
 app.add_middleware(
@@ -89,27 +89,27 @@ import time
 import asyncio
 
 # Real, best-effort keep-alive for the explainer-agent's own Render free-tier
-# instance (srv-da2api9t0dsc7392afdg) — added 2026-08-21 after a real,
-# confirmed incident: a user's /ping check and a real hire attempt both hit
+# instance (srv-da2api9t0dsc7392afdg), added 2026-08-21 after a real,
+# confirmed incident: a user's /ping check and a hire attempt both hit
 # the agent mid-idle-spindown-restart (a ~25-40s window where uvicorn isn't
-# accepting connections yet), even though nothing had crashed or regressed —
+# accepting connections yet), even though nothing had crashed or regressed,
 # confirmed via direct Render log inspection (clean, repeating
 # shutdown/restart cycles, no OOM/error/rate-limit anywhere). Render's free
 # tier scales to zero after ~15 min of no traffic; this loop pings /ping every
 # 10 minutes (comfortably under that threshold) so the instance ideally never
-# goes idle long enough to spin down during real marketplace usage.
+# goes idle long enough to spin down during marketplace usage.
 #
-# Real removal, 2026-08-26: this briefly also covered anvil-practice-fork
+# removal, 2026-08-26: this briefly also covered anvil-practice-fork
 # (Practice Mode's Anvil fork), removed along with the rest of Practice
-# Mode — see git history if that's ever needed again.
+# Mode, see git history if that's ever needed again.
 #
-# Honest limitation, stated plainly: THIS backend is also on Render's free
-# tier, so this loop only runs while server.py itself happens to be awake —
+# limitation, stated plainly: THIS backend is also on Render's free
+# tier, so this loop only runs while server.py itself happens to be awake,
 # it reduces, but cannot fully eliminate, the explainer-agent's cold-start
 # window (this server's own traffic pattern keeps it warm far more reliably
 # than the explainer-agent's low-traffic norm, but there is no guarantee).
 # The already-existing mitigations (agent_health.py's retry-with-backoff,
-# and the explainer-agent's own pre-warm-on-startup) remain the real backstop
+# and the explainer-agent's own pre-warm-on-startup) remain the backstop
 # for whatever this can't prevent.
 _KEEPALIVE_TARGETS: list[tuple[str, str]] = [
     ("explainer-agent", "https://explainer-agent.onrender.com/ping"),
@@ -127,8 +127,8 @@ async def _keepalive_loop(name: str, url: str):
                 print(f"[keepalive] {name} {path} -> {resp.status_code} "
                       f"({resp.elapsed.total_seconds():.2f}s)")
             except Exception as e:
-                # Real, expected outcome during an actual cold start (the
-                # ping itself is what wakes it up) — not fatal, just logged.
+                # Real, expected outcome during an cold start (the
+                # ping itself is what wakes it up), not fatal, just logged.
                 print(f"[keepalive] {name} {path} failed (likely mid cold-start): {e}")
             await asyncio.sleep(_KEEPALIVE_INTERVAL_SECONDS)
 
@@ -141,14 +141,14 @@ async def _start_keepalive_pingers():
 
 @app.on_event("startup")
 async def _ensure_indexes():
-    """Real fix (2026-08-27): known_agents had no index beyond the default
-    _id, so agent_store.get_stored_agents()'s real sort-by-total_score ran
+    """fix (2026-08-27): known_agents had no index beyond the default
+    _id, so agent_store.get_stored_agents()'s sort-by-total_score ran
     as a COLLSCAN + in-memory SORT (confirmed live via .explain() before
-    this fix) — not the dominant real cost at today's ~10,800-agent scale
+    this fix), not the dominant cost at today's ~10,800-agent scale
     (20ms), but a real, growing risk as the collection keeps being upserted
     by every refresh. create_index is idempotent (a no-op if the index
     already exists), so this is safe to run on every boot rather than
-    depending on a one-off manual step against this specific real database."""
+    depending on a one-off manual step against this specific database."""
     try:
         db = get_db()
         await db.known_agents.create_index([("total_score", -1)])
@@ -185,7 +185,7 @@ async def _ensure_indexes():
 # pagination-based fix later.
 
 # ── Serialize the agent list ONCE per refresh, not once per request ───────
-# Real measurement behind this (2026-09-04, after the field-trim in 7bd4c84
+# measurement behind this (2026-09-04, after the field-trim in 7bd4c84
 # was reverted for removing live evaluation signals):
 #
 #   cached list of dicts, held for an hour : 54.3 MB
@@ -235,7 +235,7 @@ def _set_agents_cache(records: list, fetched_at=None) -> None:
 
 _cache: dict = {"body": None, "count": 0, "fetched_at": 0}
 _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
-# for real agent diversity (aggregate.py: 20 pages × 100 = 20 real 8004scan
+# for agent diversity (aggregate.py: 20 pages × 100 = 20 real 8004scan
 # requests + 1 DefiLlama). Budget math against the free_api tier (30 req/min,
 # 1000 req/day): ≤24 refreshes/day × ~21 = ~504 req/day ⇒ well under 1000, with
 # headroom for occasional force_refresh + 429 retries. TTL was raised from 30→60
@@ -245,71 +245,71 @@ _refresh_in_progress = False  # de-dupes concurrent background refreshes
 
 
 async def _refresh_into_store() -> list[dict]:
-    """One real refresh: draws a fresh, diversified sample and UPSERTs it into
+    """One refresh: draws a fresh, diversified sample and UPSERTs it into
     the persistent known_agents store (never deletes), then returns the FULL
-    served list read back from the store. The store — not this single fetch —
+    served list read back from the store. The store, not this single fetch,
     is the source of truth, so agents from earlier refreshes never vanish just
     because they weren't in this particular sample.
 
-    Real architecture change (2026-08-28): the raw candidate pool now comes
+    architecture change (2026-08-28): the raw candidate pool now comes
     from full_agent_registry (core/aggregate.py's get_agents_from_full_registry
-    — the background ingestion pipeline's own, much larger, continuously-
-    growing dataset — see docs/full-registry-analysis.md) WHEN it has enough
-    real data to be a genuine improvement over a live 8004scan fetch, since
+    , the background ingestion pipeline's own, much larger, continuously-
+    growing dataset, see docs/full-registry-analysis.md) WHEN it has enough
+    data to be a improvement over a live 8004scan fetch, since
     reading already-ingested Mongo data is both faster and draws from a real
     pool orders of magnitude larger than what one live paginated fetch can
-    reach. Falls back to the original real live-fetch path
+    reach. Falls back to the original live-fetch path
     (get_marketplace_agents_as_dicts) when full_agent_registry isn't ready yet
-    — an honest degrade, not a silent regression. Either way, the REST of this
+    , an degrade, not a silent regression. Either way, the REST of this
     function (upsert into known_agents, health-check pass, response shape) is
-    completely unchanged — this is a real change to WHERE the raw sample comes
+    completely unchanged, this is a change to WHERE the raw sample comes
     from, not to the serving contract downstream of it.
 
-    Also runs the real service-liveness health-check (core/agent_health.py)
-    over the served list, on its own shorter TTL — see that module's own
-    docstring for the real investigation behind it (8004scan's API has no
-    endpoint field; the real source is the on-chain ERC-8004 tokenURI).
+    Also runs the service-liveness health-check (core/agent_health.py)
+    over the served list, on its own shorter TTL, see that module's own
+    docstring for the investigation behind it (8004scan's API has no
+    endpoint field; the source is the on-chain ERC-8004 tokenURI).
     Deliberately part of THIS same function, not a separate job: the whole
-    point (per the real product ask) is that every agent already in the
+    point (per the product ask) is that every agent already in the
     store gets checked on an ongoing basis, and any newly-upserted agent
-    gets checked automatically on its very first appearance here — no
+    gets checked automatically on its very first appearance here, no
     separate manual trigger, no second pipeline to keep in sync."""
     api_key = os.environ.get("SCAN_8004_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=500,
             detail="SCAN_8004_API_KEY is not set. The /api/v1/agents endpoint "
-                   "requires a real key, get one at 8004scan.io/developers.",
+                   "requires a key, get one at 8004scan.io/developers.",
         )
-    # Real hardening (2026-08-27, agent-count-flicker investigation): this
-    # used to treat "returned None" and "threw a real exception" the exact
-    # same way — fall back to the small live-fetch path either way. That's
+    # hardening (2026-08-27, agent-count-flicker investigation): this
+    # used to treat "returned None" and "threw a exception" the exact
+    # same way, fall back to the small live-fetch path either way. That's
     # correct for the real, legitimate None case (full_agent_registry
-    # genuinely doesn't have enough data yet — see that function's own
-    # docstring), but was wrong for a genuine transient exception: live-
-    # measured, the live-fetch fallback currently returns ~750 real agents
-    # vs the full-registry path's ~12,700+ — upserting that MUCH smaller
-    # real batch doesn't delete anything from known_agents (upsert_agents
+    # genuinely doesn't have enough data yet, see that function's own
+    # docstring), but was wrong for a transient exception: live-
+    # measured, the live-fetch fallback currently returns ~750 agents
+    # vs the full-registry path's ~12,700+, upserting that MUCH smaller
+    # batch doesn't delete anything from known_agents (upsert_agents
     # never deletes), but it DOES mean the next get_stored_agents() read
-    # reflects whatever got touched by that smaller, real but
-    # unrepresentative batch, and — confirmed as the real, live root cause
+    # reflects whatever got touched by that smaller, but
+    # unrepresentative batch, and, confirmed as the real, live root cause
     # of a reported agent-count flicker between ~13,000 and ~1,900 across
-    # separate page loads — a transient full-registry failure (the same
+    # separate page loads, a transient full-registry failure (the same
     # owner-balance 429 storm fixed in adapters/bsc_balance.py this same
-    # session could plausibly cascade into one) meant SOME real refreshes
-    # served the small fallback's real numbers instead. Now that
-    # full_agent_registry reliably has 60,000+ real BSC docs (function
+    # session could plausibly cascade into one) meant SOME refreshes
+    # served the small fallback's numbers instead. Now that
+    # full_agent_registry reliably has 60,000+ BSC docs (function
     # fully implemented, growing, not a bootstrap concern anymore), a
-    # genuine exception here doesn't need the same "any real fallback is
-    # better than none" reasoning that None-case still deserves — the
+    # exception here doesn't need the same "any fallback is
+    # better than none" reasoning that None-case still deserves, the
     # existing, already-much-larger persistent store is a real, better
     # thing to keep serving than a fresh-but-far-thinner live fetch.
     used_full_registry = True
     try:
         fresh_data = await get_agents_from_full_registry_as_dicts(api_key=api_key)
     except Exception as e:
-        print(f"[server] full-registry-backed refresh failed with a real exception "
-              f"(not the legitimate 'not enough data yet' case) — keeping the "
+        print(f"[server] full-registry-backed refresh failed with a exception "
+              f"(not the legitimate 'not enough data yet' case), keeping the "
               f"existing store as-is rather than falling back to a much smaller "
               f"live fetch: {e}")
         fresh_data = None
@@ -317,8 +317,8 @@ async def _refresh_into_store() -> list[dict]:
 
     if fresh_data is None and used_full_registry:
         # The real, legitimate case: full_agent_registry genuinely doesn't
-        # have enough data yet (a fresh/bootstrap deployment) — falling
-        # back to a real live fetch is still the right, honest degrade here.
+        # have enough data yet (a fresh/bootstrap deployment), falling
+        # back to a live fetch is still the right, degrade here.
         fresh_data = await get_marketplace_agents_as_dicts(api_key=api_key)
 
     if fresh_data:
@@ -328,17 +328,17 @@ async def _refresh_into_store() -> list[dict]:
         # A successful-but-empty fetch is treated as suspect (transient network
         # hiccup / a failed page mid-pagination): we do NOT upsert nothing, and
         # the persistent store keeps serving its existing agents untouched.
-        print("[server] Refresh returned 0 agents — keeping the persistent store as-is.")
+        print("[server] Refresh returned 0 agents, keeping the persistent store as-is.")
     else:
-        print("[server] Skipping this refresh cycle after a real exception — "
+        print("[server] Skipping this refresh cycle after a exception, "
               "keeping the persistent store as-is; the next scheduled refresh will try again.")
 
     served = await agent_store.get_stored_agents()
 
     try:
-        # Real fix (2026-08-29, OOM crash-loop round 3): this call used to pass
+        # fix (2026-08-29, OOM crash-loop round 3): this call used to pass
         # no `limit`, so every refresh cycle re-checked EVERY stale agent in the
-        # entire known_agents store in one shot — a genuinely unbounded read,
+        # entire known_agents store in one shot, a genuinely unbounded read,
         # separate from (and missed by) the two earlier OOM fixes this session,
         # which only bounded the full_agent_registry clustering pool. known_agents
         # is upsert-only/never-delete and had grown past comfort (10,837 when
@@ -351,11 +351,11 @@ async def _refresh_into_store() -> list[dict]:
         # step. `limit` already existed on check_agents_health() for exactly this
         # (built 2026-08-28) and is already used at the /api/agents/health-check
         # route below (limit=1000) -- it just was never wired in here, the one
-        # call site that runs on every real refresh. Same bound applied here.
+        # call site that runs on every refresh. Same bound applied here.
         health_results = await agent_health.check_agents_health(served, limit=1000)
         if health_results:
             updated = await agent_store.update_agent_health(health_results)
-            print(f"[server] Real health-check pass: {len(health_results)} agents "
+            print(f"[server] health-check pass: {len(health_results)} agents "
                   f"checked (TTL-fresh ones skipped), {updated} stored.")
             # Merge the fresh results into what we're about to return so THIS
             # response already reflects them, not just the next refresh.
@@ -363,10 +363,10 @@ async def _refresh_into_store() -> list[dict]:
                 if a.get("id") in health_results:
                     a.update(health_results[a["id"]])
     except Exception as e:
-        # Real health-check failure never blocks serving real agent data —
+        # health-check failure never blocks serving agent data,
         # agents just keep whatever service_status they already had on
         # record (or the honest "not yet checked" absence of one).
-        print(f"[server] Real health-check pass failed: {e}")
+        print(f"[server] health-check pass failed: {e}")
 
     return served
 
@@ -408,13 +408,13 @@ async def _refresh_via_subprocess() -> tuple[bytes, int] | None:
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            print(f"[server] Refresh subprocess exceeded {_REFRESH_TIMEOUT_SECONDS}s — "
+            print(f"[server] Refresh subprocess exceeded {_REFRESH_TIMEOUT_SECONDS}s, "
                   f"killed it, keeping the existing cache.")
             return None
 
         if proc.returncode != 0:
             tail = (stderr or b"").decode("utf-8", "replace").strip().splitlines()[-3:]
-            print(f"[server] Refresh subprocess exited {proc.returncode} — keeping the "
+            print(f"[server] Refresh subprocess exited {proc.returncode}, keeping the "
                   f"existing cache. Last stderr: {tail}")
             return None
 
@@ -422,7 +422,7 @@ async def _refresh_via_subprocess() -> tuple[bytes, int] | None:
             meta = json.loads((stdout or b"").decode().strip().splitlines()[-1])
             count = int(meta["count"])
         except Exception as e:
-            print(f"[server] Refresh subprocess gave unreadable output ({type(e).__name__}) — "
+            print(f"[server] Refresh subprocess gave unreadable output ({type(e).__name__}), "
                   f"keeping the existing cache.")
             return None
 
@@ -430,11 +430,11 @@ async def _refresh_via_subprocess() -> tuple[bytes, int] | None:
             with open(out_path, "rb") as fh:
                 body = fh.read()
         except OSError as e:
-            print(f"[server] Refresh subprocess output unreadable ({e}) — keeping the existing cache.")
+            print(f"[server] Refresh subprocess output unreadable ({e}), keeping the existing cache.")
             return None
 
         if not body or count <= 0:
-            print("[server] Refresh subprocess produced an empty list — keeping the existing cache.")
+            print("[server] Refresh subprocess produced an empty list, keeping the existing cache.")
             return None
 
         return body, count
@@ -477,7 +477,7 @@ async def _background_refresh():
             print("[server] Keeping the previously cached agent list.")
     except Exception as e:
         # A failed background refresh just leaves the existing cache/store
-        # serving as before — nothing user-facing to report, there's no
+        # serving as before, nothing user-facing to report, there's no
         # request waiting on this.
         print(f"[server] Background refresh failed: {e}")
     finally:
@@ -487,29 +487,29 @@ async def _background_refresh():
 @app.get("/api/market/bnb-price")
 async def bnb_price():
     """Real, live BNB/USD price from CoinGecko's public endpoint (5-min
-    server-side cache) — backs the USD context shown next to every agent's
+    server-side cache), backs the USD context shown next to every agent's
     owner-wallet BNB balance. {"usd": null} (never a fabricated number) if
-    CoinGecko couldn't be reached and no prior real price is cached yet."""
+    CoinGecko couldn't be reached and no prior price is cached yet."""
     price = await coingecko.get_bnb_usd_price()
     return {"usd": price}
 
 
 @app.get("/api/agents")
 async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks = None):
-    """Serves INSTANTLY from the persistent store/in-memory cache — never
+    """Serves INSTANTLY from the persistent store/in-memory cache, never
     blocks the response on a live 8004scan fetch. A live refresh (when the
     cache is stale, force_refresh is set, or this is a cold instance with an
     empty in-memory cache but a populated store) is kicked off as a
     background task instead, updating the cache for the next request.
 
     The one exception is a genuinely empty store (first-ever boot, nothing
-    to serve at all) — there we have no choice but to wait for a real fetch,
+    to serve at all), there we have no choice but to wait for a fetch,
     since serving an empty list would just be a worse user experience than a
-    one-time real wait."""
+    one-time wait."""
     now = time.time()
 
     if _cache["body"] is None:
-        # Cold in-memory cache (fresh instance boot) — read the persistent
+        # Cold in-memory cache (fresh instance boot), read the persistent
         # store directly. This is a fast, single Mongo query, not a live
         # 8004scan fetch, so it's fine to await inline.
         try:
@@ -517,7 +517,7 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
 
-    # Real fix (2026-08-29, OOM crash-loop round 4 -- the actual root cause
+    # fix (2026-08-29, OOM crash-loop round 4 -- the root cause
     # tying rounds 1-3 together): this used to compute `is_stale` ONCE at the
     # very top of the function, using whatever `_cache["fetched_at"]` was
     # BEFORE the cold-boot branch above had a chance to run. `_cache` starts
@@ -539,9 +539,9 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
     is_stale = (time.time() - _cache["fetched_at"]) > _CACHE_TTL_SECONDS
 
     if not _cache["count"]:
-        # Truly nothing anywhere yet (first-ever boot, empty store) — the
+        # Truly nothing anywhere yet (first-ever boot, empty store), the
         # only case where we actually wait on a live fetch, since there's
-        # nothing honest to serve otherwise.
+        # nothing to serve otherwise.
         try:
             _set_agents_cache(await _refresh_into_store())
         except HTTPException:
@@ -549,7 +549,7 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
     elif is_stale or force_refresh:
-        # We have real data to serve right now — return it immediately and
+        # We have data to serve right now, return it immediately and
         # let the live refresh happen silently in the background.
         if background_tasks is not None:
             background_tasks.add_task(_background_refresh)
@@ -580,25 +580,25 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
 
 @app.get("/api/search/resolve")
 async def search_resolve(q: str):
-    """Real, live search fallback (2026-08-29) — see
-    docs/universal-search.md for the full real investigation and design
+    """Real, live search fallback (2026-08-29), see
+    docs/universal-search.md for the full investigation and design
     reasoning. The site's own marketplace search is a plain client-side
     name filter over the local known_agents cache; when a user pastes
     something structured (an agent id, or any 0x address) that filter
     can't answer, this endpoint gives a real, honest, live answer instead
-    of a dead "not found" — local-first, then a real, live 8004scan/RPC
-    call on a genuine cache miss, never fabricated.
+    of a dead "not found", local-first, then a real, live 8004scan/RPC
+    call on a cache miss, never fabricated.
 
     Deliberately narrow trigger: only classifies input that already looks
     like an agent id (a plain number, or 8004scan's own internal UUID) or
-    an address (0x...) — a free-text name search that just doesn't match
+    an address (0x...), a free-text name search that just doesn't match
     anything gets the honest "doesn't look like an id or address" answer
     below, never a guess at what the user meant.
 
-    Always returns 200 with a real, categorized `found`/`reason` shape —
+    Always returns 200 with a real, categorized `found`/`reason` shape,
     never a 404. A genuinely nonexistent id/address is itself a real,
     honest, useful answer, not a failure. 5-minute in-process cache per
-    query (core/universal_search.py) — a real, live lookup at search
+    query (core/universal_search.py), a real, live lookup at search
     time, not a permanent one, and bounded so it can't grow unchecked."""
     if not q or not q.strip():
         return {"input_kind": "unrecognized", "found": False, "reason": "Nothing entered to search for."}
@@ -612,28 +612,28 @@ async def search_resolve(q: str):
 @app.get("/api/full-registry-progress")
 async def full_registry_progress():
     """Real, live, public snapshot of the full-registry pipeline's own
-    real progress — added 2026-08-29 specifically so the "every ingested
+    progress, added 2026-08-29 specifically so the "every ingested
     agent gets fully evaluated eventually, in bounded real time"
     guarantee (see docs/full-registry-analysis.md's own "Evaluation
     coverage guarantee" section) is always checkable, never something
     that has to be taken on faith or dug out of a script. Public, not
-    secret-gated — this is read-only aggregate counts, nothing sensitive,
+    secret-gated, this is read-only aggregate counts, nothing sensitive,
     consistent with this project's normal "every route is public" default
     (the batch-TRIGGER endpoints stay gated; this one only reads).
 
     `unanalyzed_backlog` is the real, live number the Background Worker's
     ingestion loop itself pauses/resumes against (worker.py's
-    INGEST_BACKLOG_PAUSE_THRESHOLD/INGEST_BACKLOG_RESUME_THRESHOLD) — the
-    same real number, not a separate estimate.
+    INGEST_BACKLOG_PAUSE_THRESHOLD/INGEST_BACKLOG_RESUME_THRESHOLD), the
+    same number, not a separate estimate.
 
-    `ingestion_skipped_offsets` (added 2026-09-02, same real incident that
-    added the skip-and-retry mechanism itself — see
+    `ingestion_skipped_offsets` (added 2026-09-02, same incident that
+    added the skip-and-retry mechanism itself, see
     core/full_registry_ingest.py's SKIPPED_OFFSETS_COLLECTION docstring):
     real, currently-unresolved pages that failed after their own retry
     budget and are waiting on an automatic retry next batch. A real,
-    persistently non-zero/growing count here is the honest signal that
+    persistently non-zero/growing count here is the signal that
     8004scan's own API is still degraded at the current ingestion depth,
-    not a hidden problem — surfaced here specifically so it's checkable
+    not a hidden problem, surfaced here specifically so it's checkable
     the same way `unanalyzed_backlog` already is."""
     ingest_progress = await full_registry_ingest.get_progress()
     solana_progress = await full_registry_ingest.get_solana_progress()
@@ -661,7 +661,7 @@ async def health():
 # ── Public status page backing endpoint ──
 # Real, live, right-now reachability of every external integration this
 # project depends on (see core/status_checks.py for the honesty rules and
-# the real per-service checks). No auth — deliberately public so hackathon
+# the per-service checks). No auth, deliberately public so hackathon
 # judges (or anyone) can verify these are real, not claimed.
 @app.get("/api/status")
 async def status():
@@ -671,56 +671,56 @@ async def status():
 # ── Real, scheduler-driven full-registry batch trigger (2026-08-28) ──
 # Real, standing gap this closes: core/full_registry_ingest.py and
 # core/full_registry_analysis.py are real, bounded, resumable/checkpointed
-# batch units (see scripts/full_registry_scan.py) — but had NO scheduler at
+# batch units (see scripts/full_registry_scan.py), but had NO scheduler at
 # all. Render Cron Jobs are a paid-plan feature, out of scope per this
 # project's own standing "no paid/unknown-cost infrastructure without an
 # explicit decision" rule (see docs/full-registry-analysis.md), so this
-# pipeline only ever advanced when a human ran the script by hand — real,
+# pipeline only ever advanced when a human ran the script by hand, real,
 # confirmed consequence: known_agents/full_agent_registry can go stale for
-# days at a time with nobody noticing. Real fix: GitHub Actions offers
+# days at a time with nobody noticing. fix: GitHub Actions offers
 # genuinely free scheduled workflows for a public repository (confirmed
-# live against this repo's own real visibility via the GitHub API, and
-# against GitHub's own current docs — "GitHub Actions usage is free for
+# live against this repo's own visibility via the GitHub API, and
+# against GitHub's own current docs, "GitHub Actions usage is free for
 # standard GitHub-hosted runners in public repositories", no minute cap at
-# all, not the 2,000 min/month private-repo figure) —
+# all, not the 2,000 min/month private-repo figure),
 # .github/workflows/full-registry-batch.yml calls THIS endpoint on a
 # schedule instead.
 @app.post("/api/admin/full-registry-batch")
 async def full_registry_batch(request: Request, ingest_seconds: float = 20.0, analyze_seconds: float = 15.0):
     """Real, secret-gated trigger for ONE bounded batch of the full-registry
-    ingestion + analysis pipeline — the exact same real, resumable units
+    ingestion + analysis pipeline, the exact same real, resumable units
     scripts/full_registry_scan.py already runs by hand, now callable over
     HTTP.
 
-    Real security (the explicit real requirement this was built against):
+    security (the explicit requirement this was built against):
     this is the one, deliberate exception to this project's normal "every
-    /api/* route is public, no auth" pattern — this route triggers real,
+    /api/* route is public, no auth" pattern, this route triggers real,
     bounded backend work and real 8004scan API quota use, so leaving it
     open would be a real, exploitable public trigger anyone could hit
-    repeatedly to waste resources. Requires a real shared secret in the
+    repeatedly to waste resources. Requires a shared secret in the
     `X-Batch-Secret` header, checked against `BATCH_TRIGGER_SECRET` (an
     env var set only on this backend service and, identically, as a
-    GitHub Actions repository secret — never committed, never logged,
+    GitHub Actions repository secret, never committed, never logged,
     never echoed back in any response). Real, fail-closed default: if
     `BATCH_TRIGGER_SECRET` isn't configured on this service at all, the
     endpoint refuses every call rather than silently running unauthenticated.
 
     Real, conservative time bounds, each independently capped at 120s as a
     hard ceiling (`ingest_seconds`/`analyze_seconds` let a caller ask for
-    less, never more) — but the real, live-measured DEFAULTS (20s/15s) are
+    less, never more), but the real, live-measured DEFAULTS (20s/15s) are
     tighter than that ceiling, based on a real, direct finding while
     testing this against the live deployment (2026-08-28): Render's own
     exact request-timeout figure isn't publicly documented, but a real
     call requesting 45s ingest + 30s analyze (75s combined) came back a
-    real HTTP 502 at ~75s wall time, while a real call requesting 20s +
+    HTTP 502 at ~75s wall time, while a call requesting 20s +
     15s completed successfully at ~60-66s wall time (each individual page/
-    batch can run a bit past its own requested budget — the loop only
+    batch can run a bit past its own requested budget, the loop only
     checks elapsed time between whole pages/batches, never mid-fetch).
-    These lower defaults keep real wall time comfortably under the
+    These lower defaults keep wall time comfortably under the
     observed failure point. Safe either way regardless of exact timing
     because both halves are genuinely checkpointed
-    (full_registry_ingest.py's own Mongo-backed progress doc) — a short,
-    frequent real batch makes exactly as much real progress as a long one
+    (full_registry_ingest.py's own Mongo-backed progress doc), a short,
+    frequent batch makes exactly as much progress as a long one
     over time, just never risks a hung/cutoff request."""
     secret = os.environ.get("BATCH_TRIGGER_SECRET")
     if not secret:
@@ -755,26 +755,26 @@ async def full_registry_batch(request: Request, ingest_seconds: float = 20.0, an
 # ── Real, scheduler-driven ERC-8183 job-index batch trigger (2026-08-28) ──
 # Real, standing gap this closes: core/revenue.py's "Revenue Stream" was
 # reusing core/agent_performance.py's WINDOW-bounded (most-recent-1,500)
-# job cache, which — live-confirmed — silently excluded ~97% of all real
+# job cache, which, live-confirmed, silently excluded ~97% of all real
 # job history on the shared AgenticCommerce contract (job_counter 56,665
 # vs. WINDOW 1,500). core/job_index.py builds a real, complete, persistent
 # index instead (a real, one-time linear backfill plus ongoing bounded
 # catch-up), same resumable/checkpointed shape as the full-registry
 # pipeline above. Kept as a SEPARATE endpoint/call (not folded into
 # /api/admin/full-registry-batch) so each individual HTTP call stays
-# safely inside the real, observed ~75s failure zone documented above —
+# safely inside the real, observed ~75s failure zone documented above,
 # .github/workflows/full-registry-batch.yml calls this as a second step
 # on the same schedule, same shared secret.
 @app.post("/api/admin/job-index-batch")
 async def job_index_batch(request: Request, index_seconds: float = 20.0, recheck_seconds: float = 10.0):
     """Real, secret-gated trigger for one bounded batch of
-    core/job_index.py's real, complete ERC-8183 job index — see that
-    module's own docstring for the full real methodology (forward
-    backfill + bounded re-check of non-terminal jobs). Same real security
+    core/job_index.py's real, complete ERC-8183 job index, see that
+    module's own docstring for the full methodology (forward
+    backfill + bounded re-check of non-terminal jobs). Same security
     model as /api/admin/full-registry-batch (shared X-Batch-Secret,
-    fail-closed if BATCH_TRIGGER_SECRET isn't configured) — deliberately
+    fail-closed if BATCH_TRIGGER_SECRET isn't configured), deliberately
     reuses the exact same secret rather than introducing a second one,
-    since both routes protect the same real concern (an unauthenticated
+    since both routes protect the same concern (an unauthenticated
     public trigger for real, bounded backend work)."""
     secret = os.environ.get("BATCH_TRIGGER_SECRET")
     if not secret:
@@ -791,18 +791,18 @@ async def job_index_batch(request: Request, index_seconds: float = 20.0, recheck
 # ── Real, independent Live Status reliability pass (2026-08-28) ──
 # Real, confirmed gap this closes: the marketplace's own service-health
 # check (agent_health.check_agents_health) previously only ran as a side
-# effect of _refresh_into_store's own much heavier, real full-registry-
-# backed refresh — the exact same real path confirmed this session to
-# repeatedly OOM-crash under real memory pressure (see
-# core/aggregate.py's own real fix commits). When that heavier refresh
+# effect of _refresh_into_store's own much heavier, full-registry-
+# backed refresh, the exact same path confirmed this session to
+# repeatedly OOM-crash under memory pressure (see
+# core/aggregate.py's own fix commits). When that heavier refresh
 # fails partway through, the health-check pass never runs either that
 # cycle, silently letting Live Status go stale for however long the
 # crash-loop persists. This endpoint decouples the two: a real, cheap,
 # independent pass over the ALREADY-diversified known_agents store
-# (agent_store.get_stored_agents() — no 64,000+-doc raw pool involved),
+# (agent_store.get_stored_agents(), no 64,000+-doc raw pool involved),
 # re-checking only agents whose service_status is stale
-# (agent_health.py's own real 20-minute TTL, unchanged — a safe, cheap
-# no-op for anything already fresh). Same real security model as the
+# (agent_health.py's own real 20-minute TTL, unchanged, a safe, cheap
+# no-op for anything already fresh). Same security model as the
 # sibling batch endpoints (shared X-Batch-Secret).
 @app.post("/api/admin/health-check-batch")
 async def health_check_batch(request: Request, batch_limit: int = 500):
@@ -813,10 +813,10 @@ async def health_check_batch(request: Request, batch_limit: int = 500):
         raise HTTPException(status_code=401, detail="Invalid or missing X-Batch-Secret header.")
 
     # Real, deliberate bound (found live: check_agents_health is genuinely
-    # unbounded without one — a real, large stale share of the store could
-    # otherwise try to probe thousands of real endpoints in one call).
+    # unbounded without one, a real, large stale share of the store could
+    # otherwise try to probe thousands of endpoints in one call).
     # 500/run at a 20-minute TTL comfortably keeps pace with a
-    # ~14,000-agent real store on the same 6-hour schedule as the sibling
+    # ~14,000-agent store on the same 6-hour schedule as the sibling
     # batch endpoints.
     served = await agent_store.get_stored_agents()
     health_results = await agent_health.check_agents_health(served, limit=min(batch_limit, 1000))
@@ -830,16 +830,16 @@ async def health_check_batch(request: Request, batch_limit: int = 500):
 # ── Real, dedicated Solana ingestion batch (2026-08-28) ──
 # Real, urgent correction this closes: earlier assumed Solana "needs its
 # own real, separate integration" and scoped it out entirely. Wrong,
-# confirmed live — 8004scan's own unified /api/v1/agents endpoint already
+# confirmed live, 8004scan's own unified /api/v1/agents endpoint already
 # indexes Solana, just needs the real, correct `chain_id=101` param (see
 # core/full_registry_ingest.py's own docstring for the full real
 # correction). What genuinely IS true: Solana never appears in the shared,
 # unfiltered EVM scan the other three chains ride along in for free, so it
-# can't just be added to TARGET_CHAIN_IDS — it needs this own real,
-# separate, cheap batch endpoint (real total is tiny, ~1,462 agents, vs.
+# can't just be added to TARGET_CHAIN_IDS, it needs this own real,
+# separate, cheap batch endpoint (total is tiny, ~1,462 agents, vs.
 # 787,000+ combined EVM). Stores into the SAME full_agent_registry
 # collection as Base/Ethereum (not surfaced on the live BSC-only
-# marketplace — see agent_store.py, still BSC-only there), same real
+# marketplace, see agent_store.py, still BSC-only there), same real
 # security model as the sibling batch endpoints.
 @app.post("/api/admin/solana-registry-batch")
 async def solana_registry_batch(request: Request, ingest_seconds: float = 45.0):
@@ -858,13 +858,13 @@ async def solana_registry_batch(request: Request, ingest_seconds: float = 45.0):
 
 
 # ── Real, additional single-chain registries batch (2026-09-10) ──
-# Same real reasoning as the Solana batch above, generalized to five more
+# Same reasoning as the Solana batch above, generalized to five more
 # chains none of which ride along for free in the shared, unfiltered EVM
-# scan: Monad (chain_id 143, ~10,158 real agents), Billions Network
+# scan: Monad (chain_id 143, ~10,158 agents), Billions Network
 # (chain_id 45056, ~25,977, a real, separate proof-of-personhood/
 # AI-agent-verification network), Robinhood Chain (chain_id 4663, ~32),
 # Celo (chain_id 42220, ~9,759), Arbitrum (chain_id 42161, ~1,377). Same
-# real full_agent_registry collection, same real security model, own real
+# full_agent_registry collection, same security model, own real
 # progress checkpoint per chain (core/full_registry_ingest.py's
 # ADDITIONAL_CHAINS). Not surfaced on the live BSC-only marketplace,
 # background collection only, same as Solana/Base/Ethereum today.
@@ -889,15 +889,15 @@ async def multichain_registry_batch(request: Request, ingest_seconds_per_chain: 
 # ── Real, marketplace-wide escrow-compatibility audit batch (2026-08-28) ──
 # Real, urgent gap this closes: the Sentinels Audit incident (a genuinely
 # escrow-compatible agent shown live as incompatible, root-caused to a
-# real owner-lookup bug — see _resolve_agent above) raised the real,
-# honest question of whether it was the only real misclassification live
+# owner-lookup bug, see _resolve_agent above) raised the real,
+# question of whether it was the only misclassification live
 # on the site. There was no way to answer that: /api/agents/escrow-
-# compatibility only ever computed one agent's result, live, on request —
+# compatibility only ever computed one agent's result, live, on request,
 # nothing persisted a marketplace-wide picture. This batch does, the same
 # real, resumable, checkpointed way as the sibling batch endpoints above
-# — see core/escrow_compat_audit.py's own docstring for the full real
+#, see core/escrow_compat_audit.py's own docstring for the full real
 # scale/ordering reasoning (6,846 real, currently-responding agents,
-# 6,287 real distinct endpoints, long-tail agents always audited before
+# 6,287 distinct endpoints, long-tail agents always audited before
 # the two dominant mass-registration platforms).
 @app.post("/api/admin/escrow-compat-audit-batch")
 async def escrow_compat_audit_batch(request: Request, audit_seconds: float = 90.0):
@@ -912,19 +912,19 @@ async def escrow_compat_audit_batch(request: Request, audit_seconds: float = 90.
 
 
 # ── Altana Skills Registry proxy ──
-# Real bug (2026-08-19): the frontend used to fetch
+# bug (2026-08-19): the frontend used to fetch
 # raw.githubusercontent.com/altananetwork/skills/main/index.json directly from
 # each visitor's own browser. GitHub's raw-content CDN rate-limits by source
 # IP, and that limit is SHARED across everyone behind the same IP (VPNs,
-# corporate NAT, cloud/CGNAT egress) — so a real visitor could get a real 429
+# corporate NAT, cloud/CGNAT egress), so a visitor could get a real 429
 # through no fault of their own, and it's not reproducible from any one
 # tester's machine (confirmed live: the exact same URL returned a clean 200
 # from here at the time this was fixed). One server-side fetch, cached and
 # served to every visitor, fixes this the same way the /api/agents /
-# known_agents pattern already does: real data, never re-fetched live in the
+# known_agents pattern already does: data, never re-fetched live in the
 # request path once cached.
 _skills_cache: dict = {"data": None, "fetched_at": 0}
-_SKILLS_CACHE_TTL_SECONDS = 60 * 60  # the real registry changes rarely; matches /api/agents' TTL reasoning
+_SKILLS_CACHE_TTL_SECONDS = 60 * 60 # the registry changes rarely; matches /api/agents' TTL reasoning
 _SKILLS_INDEX_URL = "https://raw.githubusercontent.com/altananetwork/skills/main/index.json"
 
 
@@ -937,10 +937,10 @@ async def _fetch_skills_registry() -> list[dict]:
 
 @app.get("/api/skills-registry")
 async def skills_registry():
-    """Serves the real Altana Skills Registry, proxied and cached server-side
+    """Serves the Altana Skills Registry, proxied and cached server-side
     (see the module comment above for why). Same "always serve fast, refresh
-    stale data in the background" shape as /api/agents — a request never
-    blocks on a live GitHub fetch once real data exists in the cache."""
+    stale data in the background" shape as /api/agents, a request never
+    blocks on a live GitHub fetch once data exists in the cache."""
     now = time.time()
     is_stale = (now - _skills_cache["fetched_at"]) > _SKILLS_CACHE_TTL_SECONDS
 
@@ -949,8 +949,8 @@ async def skills_registry():
             _skills_cache["data"] = await _fetch_skills_registry()
             _skills_cache["fetched_at"] = now
         except Exception as e:
-            # Nothing cached yet and the live fetch failed — genuinely nothing
-            # honest to serve. The frontend turns this into a friendly retry
+            # Nothing cached yet and the live fetch failed, genuinely nothing
+            # to serve. The frontend turns this into a friendly retry
             # prompt, not a raw error string.
             raise HTTPException(status_code=502, detail=f"Couldn't reach the skills list right now: {e}")
     elif is_stale:
@@ -958,7 +958,7 @@ async def skills_registry():
             _skills_cache["data"] = await _fetch_skills_registry()
             _skills_cache["fetched_at"] = now
         except Exception as e:
-            # Stale-but-real data beats no data — keep serving what we have
+            # Stale-but-data beats no data, keep serving what we have
             # and try again on the next request past the TTL.
             print(f"[server] Skills registry refresh failed, serving stale cache: {e}")
 
@@ -966,19 +966,19 @@ async def skills_registry():
 
 
 # NOTE: the "Ask our explainer agent" widget + its backing
-# /api/explainer-agent/ask endpoint were removed 2026-08-20 — real user
-# feedback: paying and waiting up to 10 real minutes just to see a signed
+# /api/explainer-agent/ask endpoint were removed 2026-08-20, user
+# feedback: paying and waiting up to 10 minutes just to see a signed
 # quote, with no visible answer without payment, was confusing UX, not
 # worth keeping as a live site feature. The explainer agent itself is
 # untouched: still real, still deployed on Render (BSC mainnet,
-# self-hosted, ERC-8004 agent_id 270213), still the real infrastructure
-# behind the TermiX Advantage Report's Task 3 (see AdvantageReport.jsx —
-# real jobs #56611/#56616/#56620, the last one delivered end-to-end and
+# self-hosted, ERC-8004 agent_id 270213), still the infrastructure
+# behind the TermiX Advantage Report's Task 3 (see AdvantageReport.jsx,
+# jobs #56611/#56616/#56620, the last one delivered end-to-end and
 # hash-verified). It's just no longer exposed as a site widget.
 
 # NOTE: the old paper-trade feature (Tenderly simulate-and-persist) and its
 # later replacement, the Practice Layer (self-hosted Anvil fork,
-# POST /api/practice/*), have both been removed — real user decision,
+# POST /api/practice/*), have both been removed, user decision,
 # 2026-08-26: the fork's repeated free-tier infrastructure instability
 # risked giving a fake/unreliable impression that outweighed the real
 # trust value of a "try before you spend" sandbox. There is no
@@ -989,20 +989,20 @@ async def skills_registry():
 # The whole createJob -> registerJob -> setBudget -> approve -> fund
 # sequence is driven from the browser by the user's own connected wallet
 # (frontend/src/useHireAgent.js), signed client-side. There is no
-# backend-held key and no /api/hire route anymore — the obsolete
+# backend-held key and no /api/hire route anymore, the obsolete
 # adapters/erc8183.py path was removed.
 
 
 # ── Real "build in the browser" pipeline ──
 # In-memory status store, fine for a single-instance deployment (this
-# project's current scale), each build takes 1-10+ real minutes
+# project's current scale), each build takes 1-10+ minutes
 # (package install, LLM activation, platform deploy), so the client
 # starts a build then polls status rather than waiting on one request.
 _build_status: dict = {}
 
 
 async def _run_build_pipeline(slug: str, description: str):
-    """The real, ordered pipeline. Every step's real ok/output is
+    """The real, ordered pipeline. Every step's ok/output is
     recorded, a failure at any step stops the pipeline honestly rather
     than pretending later steps succeeded."""
     def update(step: str, **kwargs):
@@ -1047,8 +1047,8 @@ async def _run_build_pipeline(slug: str, description: str):
 
 @app.post("/api/build")
 async def start_build(description: str, background_tasks: BackgroundTasks):
-    """Starts the real pipeline, returns immediately with a slug to
-    poll. Doesn't block the request on a multi-minute real deploy."""
+    """Starts the pipeline, returns immediately with a slug to
+    poll. Doesn't block the request on a multi-minute deploy."""
     if not description or not description.strip():
         raise HTTPException(status_code=400, detail="Please describe what you want your agent to do.")
     slug = agent_builder.slugify(description)
@@ -1068,16 +1068,16 @@ async def build_status(slug: str):
 
 @app.get("/api/agents/performance")
 async def agent_perf(owner_address: str):
-    """Real per-agent track record from on-chain ERC-8183 job history (the
-    agent's owner as provider). Honest zero-history state when not yet
-    hired. Real fix (2026-08-28): now reads core/job_index.py's own
-    COMPLETE job index — not core/agent_performance.py's WINDOW-bounded
-    (most-recent-1,500) cache — the same real scoping bug already fixed
+    """per-agent track record from on-chain ERC-8183 job history (the
+    agent's owner as provider). zero-history state when not yet
+    hired. fix (2026-08-28): now reads core/job_index.py's own
+    COMPLETE job index, not core/agent_performance.py's WINDOW-bounded
+    (most-recent-1,500) cache, the same scoping bug already fixed
     for Revenue Stream, found again here while investigating the
     "Verified working" verification tier (this endpoint's own data feeds
     that tier's jobsCompleted/jobsSubmitted). See
     core/job_index.py's own module docstring and
-    docs/verification-methodology.md for the full real investigation."""
+    docs/verification-methodology.md for the full investigation."""
     try:
         return await job_index.get_provider_stats(owner_address)
     except Exception as e:
@@ -1086,36 +1086,36 @@ async def agent_perf(owner_address: str):
 
 @app.get("/api/agents/revenue")
 async def agent_revenue(owner_address: str):
-    """Real "Revenue Stream" — how much this agent has actually,
-    verifiably earned as a real ERC-8183 provider, over time. Real, fixed
+    """Real "Revenue Stream", how much this agent has actually,
+    verifiably earned as a ERC-8183 provider, over time. Real, fixed
     (2026-08-28): now reads core/job_index.py's own COMPLETE, persistent
-    job index — not core/agent_performance.py's WINDOW-bounded recent-jobs
-    cache /api/agents/performance uses — since a real scoping bug there
-    was confirmed to silently exclude ~97% of all real job history (see
+    job index, not core/agent_performance.py's WINDOW-bounded recent-jobs
+    cache /api/agents/performance uses, since a scoping bug there
+    was confirmed to silently exclude ~97% of all job history (see
     core/revenue.py and core/job_index.py's own module docstrings, and
-    docs/verification-methodology.md, for the full real investigation).
-    Sums real SUBMITTED/COMPLETED job budgets into a real chronological
-    timeline, and reads the real ERC-8183 settlement token's own identity
+    docs/verification-methodology.md, for the full investigation).
+    Sums SUBMITTED/COMPLETED job budgets into a chronological
+    timeline, and reads the ERC-8183 settlement token's own identity
     live (never hardcoded). Always 200 with a real, honest {"has_earnings":
-    ..., "reason": ..., "index_completeness": {...}} shape — never a
+    ..., "reason": ..., "index_completeness": {...}} shape, never a
     fabricated number, and never implying the underlying index is complete
-    when a real backfill is still catching up."""
+    when a backfill is still catching up."""
     try:
         return await revenue.get_revenue_timeline(owner_address)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Couldn't look up real revenue history right now: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't look up revenue history right now: {e}")
 
 
 @app.get("/api/agents/performance/bulk")
 async def agent_perf_bulk():
-    """Real, bulk on-chain track record for every real provider — the real
+    """Real, bulk on-chain track record for every provider, the real
     data behind the marketplace's "Most hired"/"Highest success rate" sort
     options AND the "Verified working" verification tier (getVerificationTier
     in frontend/src/agentVerification.js, via useAgentPerformanceBulk.js).
-    Real fix (2026-08-28): now reads core/job_index.py's own COMPLETE job
-    index (a real, one-time linear backfill of every real job id, kept
+    fix (2026-08-28): now reads core/job_index.py's own COMPLETE job
+    index (a real, one-time linear backfill of every job id, kept
     current via a bounded re-check pass) instead of
-    core/agent_performance.py's WINDOW-bounded (most-recent-1,500) cache —
+    core/agent_performance.py's WINDOW-bounded (most-recent-1,500) cache,
     confirmed live before fixing that the verification tier was still
     running off the same narrow window already fixed for Revenue Stream.
     The verification bar itself is unchanged: still requires a real
@@ -1129,16 +1129,16 @@ async def agent_perf_bulk():
 
 @app.get("/api/agents/wallet-portfolio")
 async def agent_wallet_portfolio(owner_address: str):
-    """Real, OPT-IN wallet portfolio via Zerion (core/adapters/zerion.py) —
-    every real token this owner address holds on BSC, with real USD values,
+    """Real, OPT-IN wallet portfolio via Zerion (core/adapters/zerion.py),
+    every token this owner address holds on BSC, with USD values,
     not just the native BNB balance already shown for free on every agent
-    card. Deliberately never called from the bulk marketplace refresh — our
+    card. Deliberately never called from the bulk marketplace refresh, our
     key's real, measured tier is 300 requests/day (confirmed live via
     response headers, not docs), nowhere near enough for 500+ agents; this
     exists only for a buyer who opens ONE specific agent's detail page and
     asks to see more. Always returns 200 with an honest {"available": false,
-    "reason": ...} on any real failure (missing key, rate limited,
-    unreachable) rather than a 5xx — this is a nice-to-have enrichment, never
+    "reason": ...} on any failure (missing key, rate limited,
+    unreachable) rather than a 5xx, this is a nice-to-have enrichment, never
     something that should break the detail page."""
     return await zerion.get_wallet_portfolio(owner_address)
 
@@ -1146,44 +1146,44 @@ async def agent_wallet_portfolio(owner_address: str):
 @app.get("/api/agents/activity")
 async def agent_activity(owner_address: str, min_mined_at: int, max_mined_at: int):
     """Real, opt-in "what is this agent actually doing" transparency view
-    for one job — the agent owner's real on-chain activity (via Zerion,
+    for one job, the agent owner's on-chain activity (via Zerion,
     core/adapters/zerion.py's get_wallet_activity) scoped to a real time
     window in Unix MILLISECONDS, not the wallet's entire history. See
-    JobStatusPanel.jsx for the real UI this backs, and zerion.py's own
+    JobStatusPanel.jsx for the UI this backs, and zerion.py's own
     docstring for the real, live-verified filter format (milliseconds, not
-    seconds — confirmed against job #56646's real, known submit() tx before
+    seconds, confirmed against job #56646's real, known submit() tx before
     this shipped).
 
-    Deliberately per-job, opt-in, on request (never called in bulk) — the
-    same real rate-budget discipline as /api/agents/wallet-portfolio.
+    Deliberately per-job, opt-in, on request (never called in bulk), the
+    same rate-budget discipline as /api/agents/wallet-portfolio.
     Always returns 200 with an honest {"available": false, "reason": ...}
-    on any real failure or genuine "nothing happened in this window" —
+    on any failure or genuine "nothing happened in this window",
     never a fabricated transaction."""
     return await zerion.get_wallet_activity(owner_address, min_mined_at, max_mined_at)
 
 
 @app.get("/api/agents/pnl")
 async def agent_pnl(job_id: int):
-    """Real, on-chain-balance Profit & Loss for one completed real job —
-    see core/pnl.py's own module docstring for the full real methodology,
-    scope, and honesty tiers. Resolves the job's real provider (on-chain)
+    """Real, on-chain-balance Profit & Loss for one completed job,
+    see core/pnl.py's own module docstring for the full methodology,
+    scope, and honesty tiers. Resolves the job's provider (on-chain)
     to its real, current category via known_agents (same source the
     Marketplace's own category groups use), then delegates the real
     eligibility/computation to core/pnl.py. Always returns 200 with a
     real, honest {"available": ..., "applicable": ..., "reason": ...}
-    shape — never a fabricated number, and 404 only for a job_id that
+    shape, never a fabricated number, and 404 only for a job_id that
     genuinely doesn't exist on-chain at all.
 
     Real, honest, KNOWN limitation (2026-08-28, found while fixing the
-    real owner-ambiguity bug elsewhere in this file — see _resolve_agent
+    owner-ambiguity bug elsewhere in this file, see _resolve_agent
     below): this specific lookup genuinely can't be made unambiguous the
-    same way. A completed real job's on-chain record only ever carries
-    its real provider WALLET address, never a specific listing id — if
+    same way. A completed job's on-chain record only ever carries
+    its provider WALLET address, never a specific listing id, if
     that wallet operates more than one real, distinct agent (a real,
     confirmed, non-rare situation), which one actually fulfilled this
     job is genuinely not recoverable from on-chain data alone. Real,
     low-consequence in practice: this category value only steers PnL
-    ELIGIBILITY (Trading & DeFi or not), never money or delivery — worst
+    ELIGIBILITY (Trading & DeFi or not), never money or delivery, worst
     case is an honest "not applicable" shown when it arguably should be,
     or vice versa, not a wrong dollar figure or a misdirected real
     request. Left as the same real, best-effort owner lookup; a genuine
@@ -1192,23 +1192,23 @@ async def agent_pnl(job_id: int):
     not built here."""
     job = await rpc.get_job(job_id)
     if job is None:
-        raise HTTPException(status_code=404, detail=f"No real job #{job_id} found on-chain.")
+        raise HTTPException(status_code=404, detail=f"No job #{job_id} found on-chain.")
     agent = await agent_store.get_agent_by_owner(job["provider"])
     category = agent.get("category") if agent else None
     return await pnl.compute_job_pnl(job_id, category=category)
 
 
 async def _resolve_agent(owner_address: str | None, agent_id: str | None) -> dict | None:
-    """Real, shared resolver — added 2026-08-28 as the real fix for a
+    """Real, shared resolver, added 2026-08-28 as the fix for a
     real, confirmed bug: every one of this endpoint's siblings below used
     to look an agent up by owner_address ALONE, which is genuinely
-    ambiguous whenever one real owner wallet has more than one registered
-    agent (confirmed live: 1,457 real owners currently do — not rare).
+    ambiguous whenever one owner wallet has more than one registered
+    agent (confirmed live: 1,457 owners currently do, not rare).
     Real, confirmed incident: SmartSentinels' Sentinels Audit (escrow-
     compatible) was served AIDA's (escrow-incompatible) data on the live
     site, because both share one owner and the old lookup just picked
     whichever scored higher. Prefers the real, unambiguous agent_id
-    lookup whenever the caller supplies one (every real frontend call
+    lookup whenever the caller supplies one (every frontend call
     site now does); falls back to the real, best-effort owner-only lookup
     only for older callers that haven't been updated, or genuinely don't
     have a specific agent_id to give (never a hard break)."""
@@ -1224,15 +1224,15 @@ async def _resolve_agent(owner_address: str | None, agent_id: str | None) -> dic
 @app.get("/api/agents/pnl-summary")
 async def agent_pnl_summary(owner_address: str, agent_id: str | None = None):
     """Real, aggregate on-chain PnL across one agent's own recent,
-    PnL-eligible real jobs — see core/pnl.py's own compute_agent_pnl_summary
-    docstring for the full real methodology. What the agent detail page
-    actually renders (a real, honest picture across an agent's own real
+    PnL-eligible jobs, see core/pnl.py's own compute_agent_pnl_summary
+    docstring for the full methodology. What the agent detail page
+    actually renders (a real, picture across an agent's own real
     history, not one arbitrary job). Always 200 with a real, honest
     {"applicable": ..., "jobs": [...], "total_pnl_usd": ..., "reason": ...}
-    shape — never a fabricated number.
+    shape, never a fabricated number.
 
-    `agent_id` (optional, real, 2026-08-28): see _resolve_agent above —
-    disambiguates which specific real agent's category this uses when
+    `agent_id` (optional, real, 2026-08-28): see _resolve_agent above,
+    disambiguates which specific agent's category this uses when
     owner_address alone would be ambiguous."""
     agent = await _resolve_agent(owner_address, agent_id)
     category = agent.get("category") if agent else None
@@ -1241,17 +1241,17 @@ async def agent_pnl_summary(owner_address: str, agent_id: str | None = None):
 
 @app.get("/api/agents/onchain-performance")
 async def agent_onchain_performance(owner_address: str, agent_id: str | None = None):
-    """Real, standalone "Historical on-chain performance" signal — see
+    """Real, standalone "Historical on-chain performance" signal, see
     core/onchain_pnl.py's own module docstring for the full real
     methodology. Deliberately INDEPENDENT of /api/agents/pnl-summary
     above: that endpoint only ever looks at real, delivered jobs hired
     through this marketplace; this one looks directly at the agent's own
-    real, on-chain execution history (real trades, deposits,
-    withdrawals, LP mint/burn, claims) on its own real operating wallet —
+    real, on-chain execution history (trades, deposits,
+    withdrawals, LP mint/burn, claims) on its own operating wallet,
     whether or not that activity ever happened through this marketplace.
     Always 200 with a real, honest {"applicable": ..., "has_activity":
-    ..., "attribution_confidence": ..., ...} shape — never a fabricated
-    number, and never a claim of certainty this project's real data
+    ..., "attribution_confidence": ..., ...} shape, never a fabricated
+    number, and never a claim of certainty this project's data
     can't actually back.
 
     `agent_id` (optional, real, 2026-08-28): see _resolve_agent above."""
@@ -1263,17 +1263,17 @@ async def agent_onchain_performance(owner_address: str, agent_id: str | None = N
 
 @app.get("/api/agents/onchain-history")
 async def agent_onchain_history(owner_address: str):
-    """Real "Full on-chain history" — every real transaction type this
+    """Real "Full on-chain history", every transaction type this
     agent's developer wallet has genuinely made on BSC (sends, receives,
-    approvals, trades, mints, contract calls...), via Zerion — see
+    approvals, trades, mints, contract calls...), via Zerion, see
     core/onchain_history.py's own module docstring for the full real
     methodology, including why this is built on Zerion rather than
-    BscScan (live-confirmed: BSCSCAN_API_KEY's real free tier doesn't
+    BscScan (live-confirmed: BSCSCAN_API_KEY's free tier doesn't
     cover BSC's account/txlist module). Deliberately additional to, never
     a duplicate of, core/onchain_pnl.py (DeFi-execution only) and
     core/job_index.py (ERC-8183 job activity only). Always 200 with a
     real, honest {"available": ..., "has_activity": ..., "has_more": ...}
-    shape — never a fabricated transaction, and never implying
+    shape, never a fabricated transaction, and never implying
     completeness beyond the real, deliberate page budget actually
     fetched."""
     return await onchain_history.get_full_onchain_history(owner_address)
@@ -1282,8 +1282,8 @@ async def agent_onchain_history(owner_address: str):
 @app.get("/api/canary/candidates")
 async def canary_candidates(limit: int = canary.DEFAULT_WEEKLY_SAMPLE_SIZE):
     """Real, read-only candidate list for a human operator to review before
-    choosing to canary-test one — see core/canary.py's own docstring for
-    the full real selection rule and the real safety boundary (this never
+    choosing to canary-test one, see core/canary.py's own docstring for
+    the full selection rule and the safety boundary (this never
     spends anything; only a human's own connected wallet, clicking through
     the normal hire flow, ever does)."""
     return {"candidates": await canary.select_candidates(limit=limit)}
@@ -1291,28 +1291,28 @@ async def canary_candidates(limit: int = canary.DEFAULT_WEEKLY_SAMPLE_SIZE):
 
 @app.get("/api/canary/budget-status")
 async def canary_budget_status():
-    """Real, current canary spend vs the real weekly cap — read-only."""
+    """Real, current canary spend vs the weekly cap, read-only."""
     return await canary.get_budget_status()
 
 
 @app.get("/api/canary/status-bulk")
 async def canary_status_bulk():
     """Real, bulk canary-verification status for every agent that's ever
-    been canary-tested — the real data behind the 'Canary-verified' tier."""
+    been canary-tested, the data behind the 'Canary-verified' tier."""
     return {"by_owner": await canary.get_canary_status_bulk()}
 
 
 @app.get("/api/canary/history")
 async def canary_history(owner_address: str):
-    """Real, full canary test history for one agent — every real attempt,
+    """Real, full canary test history for one agent, every attempt,
     success or failure, surfaced transparently."""
     return {"history": await canary.get_canary_history(owner_address)}
 
 
 @app.post("/api/canary/record")
 async def canary_record(request: Request):
-    """Records a real canary hire a human operator's OWN connected wallet
-    just executed through the normal, real hire flow (useHireAgent.js) —
+    """Records a canary hire a human operator's OWN connected wallet
+    just executed through the normal, hire flow (useHireAgent.js),
     this route never signs or spends anything itself, it only logs a real
     transaction that already happened on-chain. Body: {owner_address,
     agent_name, job_id, budget_units, tx_hash?}."""
@@ -1333,7 +1333,7 @@ async def canary_record(request: Request):
 @app.post("/api/canary/check-pending")
 async def canary_check_pending():
     """Real, read-only re-check of every still-pending canary test's actual
-    on-chain status. Never touches money — safe to call on any real
+    on-chain status. Never touches money, safe to call on any real
     schedule (unlike the funding step, which always requires a real,
     connected human wallet)."""
     return await canary.check_pending_results()
@@ -1342,26 +1342,26 @@ async def canary_check_pending():
 @app.get("/api/agents/termix-performance")
 async def agent_termix_performance(owner_address: str, agent_id: str | None = None):
     """Real, independent, protocol-wide track record for one agent, from
-    TermiX's own real AACP registry — NOT this marketplace's data. See
-    adapters/termix.py's own docstring for the full real investigation
+    TermiX's own AACP registry, NOT this marketplace's data. See
+    adapters/termix.py's own docstring for the full investigation
     (including the live, confirmed token-id match this proxy relies on to
     know it found the RIGHT agent, not just a same-named one).
 
-    Real reason this exists (2026-08-28): our own /api/agents/performance
-    stat is young and has had real bugs (the notify_funded authorization-
-    gate bug) fail real jobs for reasons unrelated to an agent's actual
+    reason this exists (2026-08-28): our own /api/agents/performance
+    stat is young and has had bugs (the notify_funded authorization-
+    gate bug) fail jobs for reasons unrelated to an agent's actual
     quality. This gives the agent detail page ("Past Hires") a second, real,
-    less-biased data point to show alongside our own — never blended into
+    less-biased data point to show alongside our own, never blended into
     one number, always honestly labeled and separately sourced.
 
     Always returns 200 with an honest {"available": false, "reason": ...} on
-    any real failure (not on TermiX's registry, network error, malformed
-    reply) — this is a supplementary enrichment, never something that should
+    any failure (not on TermiX's registry, network error, malformed
+    reply), this is a supplementary enrichment, never something that should
     break the detail page.
 
-    `agent_id` (optional, real, 2026-08-28): see _resolve_agent above —
-    without it, an owner with more than one real registered agent could
-    get the WRONG agent's real token_id sent to TermiX here."""
+    `agent_id` (optional, real, 2026-08-28): see _resolve_agent above,
+    without it, an owner with more than one registered agent could
+    get the WRONG agent's token_id sent to TermiX here."""
     agent = await _resolve_agent(owner_address, agent_id)
     if not agent:
         return {"available": False, "reason": "no agent on record for this owner address"}
@@ -1375,8 +1375,8 @@ async def agent_negotiate(request: Request):
     Real, confirmed reason this exists (2026-08-22): job #56636 was funded
     through the old generic hire flow (a fixed plain-text description, no
     negotiate step) and was PERMANENTLY rejected by the seller's own
-    notify_funded — "no signed quote anchored in job description" — traced
-    through the real SDK verification logic. Strict ERC-8183 sellers require
+    notify_funded, "no signed quote anchored in job description", traced
+    through the SDK verification logic. Strict ERC-8183 sellers require
     a Schema-v1 JobDescription carrying a negotiation_hash + provider_sig
     THEY signed, which only `negotiate` produces. See core/erc8183_negotiate.py
     for the full investigation (including why this must run server-side: the
@@ -1384,13 +1384,13 @@ async def agent_negotiate(request: Request):
 
     Body: {"owner_address": "0x...", "task_description": "...", "terms": {...},
     "agent_id": "..."?}. `agent_id` is optional but real, important
-    (2026-08-28, see _resolve_agent above): without it, a real hire
+    (2026-08-28, see _resolve_agent above): without it, a hire
     against an agent whose owner has MORE than one registered agent (a
-    real, confirmed, non-rare situation — 1,457 real owners currently do)
-    could negotiate against a completely different, WRONG real agent's
+    real, confirmed, non-rare situation, 1,457 owners currently do)
+    could negotiate against a completely different, WRONG agent's
     endpoint that just happens to share the same owner. Returns the raw
-    negotiation-result envelope on a real accepted quote, or a clean
-    {"available": false} the frontend can fall back on — never a
+    negotiation-result envelope on a accepted quote, or a clean
+    {"available": false} the frontend can fall back on, never a
     fabricated/synthesized quote."""
     body = await request.json()
     owner_address = body.get("owner_address")
@@ -1407,7 +1407,7 @@ async def agent_negotiate(request: Request):
 
     result = await erc8183_negotiate.negotiate(service_endpoint, task_description, terms)
     if result is None:
-        return {"available": False, "reason": "agent did not accept a real negotiate call (unsupported, unreachable, or rejected)"}
+        return {"available": False, "reason": "agent did not accept a negotiate call (unsupported, unreachable, or rejected)"}
     return {"available": True, "negotiation_result": result}
 
 
@@ -1416,7 +1416,7 @@ async def agent_notify_funded(request: Request):
     """Real, server-side proxy for the ERC-8183 A2A `notify_funded` push.
 
     Real, confirmed gap (2026-08-24): the hire flow (useHireAgent.js) funds
-    a job on-chain but had no way to tell the seller agent to start work — a
+    a job on-chain but had no way to tell the seller agent to start work, a
     strict seller's own background sweep only runs as a side effect of
     ANOTHER buyer's notify_funded landing first, so a job funded through
     this marketplace could sit forever with no delivery. Confirmed live
@@ -1426,18 +1426,18 @@ async def agent_notify_funded(request: Request):
     negotiate (the agent's endpoint has no CORS support).
 
     Body: {"owner_address": "0x...", "job_id": 123, "authorization": {...}?,
-    "agent_id": "..."?}. `authorization` is optional — real, confirmed need
+    "agent_id": "..."?}. `authorization` is optional, real, confirmed need
     (2026-08-24): some sellers (e.g. the live stockanalyst-agent)
     unconditionally require a real, EIP-712-signed envelope here (see
     core/erc8183_negotiate.py's notify_funded() docstring for the exact
-    real shape); most don't and this is simply omitted/forwarded as None
+    shape); most don't and this is simply omitted/forwarded as None
     for them. `agent_id` is optional but real, important (2026-08-28, see
-    _resolve_agent above) — the same real reason as /api/agents/negotiate:
+    _resolve_agent above), the same reason as /api/agents/negotiate:
     without it, this could notify a completely different, WRONG real
     agent that just happens to share an owner with the one actually hired,
     leaving the real, correct agent never notified its job was funded.
     Returns a clean {"notified": false} on ANY failure (no endpoint, agent
-    doesn't implement notify_funded, timeout, rejection) — the caller must
+    doesn't implement notify_funded, timeout, rejection), the caller must
     treat that as "delivery may be slower, not that funding failed": the
     job is already funded on-chain by the time this is ever called."""
     body = await request.json()
@@ -1466,48 +1466,48 @@ async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = 
     """Real, conservative check: can this agent realistically ever fulfill
     a real, escrowed ERC-8183 job through this marketplace's normal hire
     flow, or is it a real, confirmed class of registered-but-off-chain
-    SaaS/business tool (real, confirmed example: "AIDA — AI Medical
-    Receptionist", which returns a real HTTP 405 on every real A2A/
-    JSON-RPC format tried — it simply doesn't speak the protocol at all)?
+    SaaS/business tool (real, confirmed example: "AIDA, AI Medical
+    Receptionist", which returns a HTTP 405 on every A2A/
+    JSON-RPC format tried, it simply doesn't speak the protocol at all)?
 
-    Reuses the exact same real candidate-discovery and multi-format probe
-    logic the actual hire flow's negotiate()/notify_funded() calls depend
+    Reuses the exact same candidate-discovery and multi-format probe
+    logic the hire flow's negotiate()/notify_funded() calls depend
     on (core/erc8183_negotiate.py's probe_a2a_protocol), combined
     conservatively with supporting-only metadata evidence from the agent's
     own real, submitted description (core/protocol_compat.py). Only ever
     flags `escrow_incompatible: true` on a strong, real, hard
-    protocol-level rejection — never on category, reputation, or a
+    protocol-level rejection, never on category, reputation, or a
     keyword match alone.
 
-    24h in-process cache (protocol_compat._cache) — this is a real,
+    24h in-process cache (protocol_compat._cache), this is a real,
     live network probe against the agent's own endpoint, not free, and an
-    agent's real protocol support is a structural property that doesn't
+    agent's protocol support is a structural property that doesn't
     change minute to minute (matches agent_health.py's own caching
     discipline). Always returns 200 with an honest, conservative
-    `escrow_incompatible: false` on any missing/unreachable data — this is
-    a safety warning surfaced ON TOP of the real hire flow, never something
+    `escrow_incompatible: false` on any missing/unreachable data, this is
+    a safety warning surfaced ON TOP of the hire flow, never something
     that itself blocks the page from loading.
 
     Real, additive fields (2026-08-28, from a full, ground-up interaction-
-    pattern investigation — see docs/agent-interaction-patterns.md):
-    `auth_gated` (a real 401/403 — inconclusive, not a hard rejection, but
-    real and previously invisible), `different_protocol` (a real, live
+    pattern investigation, see docs/agent-interaction-patterns.md):
+    `auth_gated` (a real 401/403, inconclusive, not a hard rejection, but
+    and previously invisible), `different_protocol` (a real, live
     JSON API that just doesn't speak A2A, distinct from a plain website),
     `offers_x402_alternative` (the agent's own description explicitly
     mentions x402 pay-per-call access). None of these change the meaning
-    of `escrow_incompatible` itself — existing callers of this endpoint
+    of `escrow_incompatible` itself, existing callers of this endpoint
     are unaffected.
 
     Real, urgent bug fix (2026-08-28): this used to look an agent up by
     `owner_address` ALONE, which is genuinely ambiguous whenever one real
-    owner has more than one registered agent — confirmed live, 1,457 real
+    owner has more than one registered agent, confirmed live, 1,457 real
     owners currently do. Real, confirmed, publicly-visible incident this
     caused: SmartSentinels' real, escrow-compatible "Sentinels Audit" was
     shown this marketplace's real "doesn't speak this marketplace's
     escrow protocol" warning, because the old lookup happened to pick its
     same-owner sibling "AIDA" (genuinely escrow-incompatible) instead.
     `agent_id` (optional, real, new) now lets the caller specify EXACTLY
-    which real agent it means — see _resolve_agent above. Every real
+    which agent it means, see _resolve_agent above. Every real
     frontend call site was updated to always send it; owner_address-only
     callers still get a real, best-effort (if ambiguous) answer rather
     than a hard break.
@@ -1515,12 +1515,12 @@ async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = 
     Real, added serving path (2026-08-28, see core/escrow_compat_audit.py):
     if this exact agent has already been covered by the real, persistent,
     marketplace-wide audit batch (a real `escrow_compat_checked_at` on its
-    own known_agents doc, still within that module's own real TTL), serve
-    that ALREADY-COMPUTED real result directly — instant, no live network
+    own known_agents doc, still within that module's own TTL), serve
+    that ALREADY-COMPUTED result directly, instant, no live network
     probe needed on this request at all. Falls back to a real, live
     compute (unchanged from before) for any agent the batch hasn't reached
-    yet, or whose persisted result has gone stale — this endpoint's real,
-    honest behavior for an unaudited agent is exactly what it always was."""
+    yet, or whose persisted result has gone stale, this endpoint's real,
+    behavior for an unaudited agent is exactly what it always was."""
     agent = await _resolve_agent(owner_address, agent_id)
     if not agent:
         return {"escrow_incompatible": False, "confidence": None, "evidence": ["No agent on record for this owner_address."], "external_link": None, "external_link_kind": None}
@@ -1549,7 +1549,7 @@ async def agent_escrow_compatibility(owner_address: str, agent_id: str | None = 
 # not per-request), so re-fetching it on every single detail-page open
 # would be pure waste, not freshness. Same discipline as
 # protocol_compat._cache and agent_health's HEALTH_TTL_SECONDS elsewhere in
-# this codebase -- a short real TTL, not "cache forever".
+# this codebase -- a short TTL, not "cache forever".
 _QUALITY_CENTER_CACHE: dict[str, tuple[float, dict]] = {}
 _QUALITY_CENTER_CACHE_TTL_SECONDS = 60 * 60
 
@@ -1557,13 +1557,13 @@ _QUALITY_CENTER_CACHE_TTL_SECONDS = 60 * 60
 @app.get("/api/agents/{agent_id}/quality-center")
 async def agent_quality_center(agent_id: str):
     """Real, on-demand fetch of 8004scan's own independent 'Quality Center'
-    assessment for ONE specific agent -- confirmed real and live before
+    assessment for ONE specific agent -- confirmed and live before
     building this (2026-08-29): sampled 15 real, actually-scored BSC
-    agents via the live API, all 15 had at least one real nonzero
+    agents via the live API, all 15 had at least one nonzero
     dimension score, and 4/4 checked had real, structured risk_flags. Its
     score_history/trend is 'insufficient_data' for every agent checked
     (0/15) -- the registry is too young for it yet -- so that field is
-    deliberately NOT surfaced here; worth re-checking real prevalence
+    deliberately NOT surfaced here; worth re-checking prevalence
     later rather than shipping an always-empty field now.
 
     Deliberately detail-page-only, not part of the bulk marketplace
@@ -1615,7 +1615,7 @@ async def agent_quality_center(agent_id: str):
         score = raw.get("score") or {}
         result = {
             "available": True,
-            "source": "8004scan's own independent Quality Center assessment — a separate signal from Tnega's own verification, not blended into it.",
+            "source": "8004scan's own independent Quality Center assessment, a separate signal from Tnega's own verification, not blended into it.",
             "generated_at": raw.get("generated_at"),
             "total_score": score.get("total_score"),
             "last_scored_at": score.get("last_scored_at"),
@@ -1638,18 +1638,18 @@ async def agent_quality_center(agent_id: str):
 @app.get("/api/agents/{agent_id}/contract-verification")
 async def agent_contract_verification(agent_id: str):
     """Real, on-demand check of whether this agent's registered
-    owner_address is a plain wallet or an actual smart contract — and if
+    owner_address is a plain wallet or an smart contract, and if
     a contract, whether its source is verified. See
     adapters/contract_verification.py's own module docstring for the
-    full real prevalence check behind this (~8% of real, sampled agent
-    owner addresses are contracts at all) and the two-step real data flow
+    full prevalence check behind this (~8% of real, sampled agent
+    owner addresses are contracts at all) and the two-step data flow
     (a free eth_getCode RPC check, then BscScan's real, free `contract`
     module only if actually needed).
 
     Detail-page-only by design, same reasoning as /quality-center above:
     real, per-address cost, gated by a human opening one specific agent.
     Always 200; `is_contract: false` is the honest, overwhelmingly common
-    real result, not an error state."""
+    result, not an error state."""
     agent = await agent_store.get_agent_by_id(agent_id)
     if not agent or not agent.get("owner_address"):
         return {"is_contract": None, "reason": "No owner_address on record for this agent."}
@@ -1668,19 +1668,19 @@ _NATIVE_STAKING_CACHE_TTL_SECONDS = 30 * 60
 @app.get("/api/native-agents/staking/recommendation")
 async def native_staking_recommendation():
     """Tnega's own first Native Agent -- a real, autonomous, multi-factor
-    staking recommendation across the real BSC liquid-staking protocols
+    staking recommendation across the BSC liquid-staking protocols
     this codebase can actually execute a stake through (see
     adapters/native_staking.py's module docstring for the full real
-    scope and decision logic: real TVL as the primary real risk/liquidity
-    proxy, real APY as the secondary tiebreak only among comparably-liquid
+    scope and decision logic: TVL as the primary risk/liquidity
+    proxy, APY as the secondary tiebreak only among comparably-liquid
     candidates).
 
     Different in kind from the existing /api/skills-registry: that list
     is third-party protocol know-how pulled from Altana's own registry
-    with no Tnega-designed logic; this is Tnega's own real comparison and
+    with no Tnega-designed logic; this is Tnega's own comparison and
     recommendation, computed here, not sourced from anyone else's list.
 
-    Always 200; `available: false` with an honest reason on any real
+    Always 200; `available: false` with an reason on any real
     live-data failure, never a fabricated recommendation."""
     global _NATIVE_STAKING_CACHE, _NATIVE_STAKING_CACHE_AT
     now = time.time()
@@ -1746,15 +1746,15 @@ async def deliverable_proxy_route(request: Request):
     Real, confirmed reason this exists (2026-08-24): job #56646's deliverable
     showed "Couldn't load it automatically here (Failed to fetch)" in the UI
     even though the content is genuinely fetchable directly. Confirmed live:
-    the agent's endpoint has no CORS support (same real gap as
-    erc8183_negotiate.py's negotiate/notify_funded proxies) — a browser's own
+    the agent's endpoint has no CORS support (same gap as
+    erc8183_negotiate.py's negotiate/notify_funded proxies), a browser's own
     direct fetch() to it is blocked by the browser itself before the response
     body is ever readable. See core/deliverable_proxy.py for the full trace
     and the SSRF guarding this needs (the URL comes from a job's on-chain
-    provider-published deliverable_url — attacker-influenced input).
+    provider-published deliverable_url, attacker-influenced input).
 
     Query: ?url=<the deliverable_url read from the job's on-chain record>.
-    Returns the real fetched bytes with the real content-type, so the
+    Returns the fetched bytes with the content-type, so the
     frontend's existing content-type-based rendering (JSON/image/text) needs
     no changes beyond fetching from this URL instead of the direct one."""
     url = request.query_params.get("url")
@@ -1768,14 +1768,14 @@ async def deliverable_proxy_route(request: Request):
 
 
 # The exact prefixes our own hire flow writes into a job's real, immutable
-# on-chain `description` (useHireAgent.js / the mobile app — both checked
+# on-chain `description` (useHireAgent.js / the mobile app, both checked
 # and matched here). Keep these in sync if either changes.
 #
 # Rebrand note (2026-08-28): the site's brand name changed from "Agents
-# Marketplace" to "Tnega" — useHireAgent.js now writes "Hire via Tnega…"
+# Marketplace" to "Tnega", useHireAgent.js now writes "Hire via Tnega…"
 # for every NEW job. The old "Agents Marketplace" prefix is kept here too,
 # deliberately NOT removed: it's baked into real, already-existing
-# on-chain job descriptions, which are immutable — a job hired before this
+# on-chain job descriptions, which are immutable, a job hired before this
 # rebrand will forever say "Agents Marketplace" on-chain, and removing
 # that prefix here would break _parse_hired_agent_name for every one of
 # those past jobs. Both prefixes are checked, old jobs and new jobs both
@@ -1784,7 +1784,7 @@ async def deliverable_proxy_route(request: Request):
 # The "(Altana session)" variants that used to live here were removed
 # 2026-09-03 along with the Altana session hire path itself: a complete
 # scan of every job this marketplace's kernel has ever processed (56,667
-# jobs, not a sample) found zero using them, ever — safe to drop, not
+# jobs, not a sample) found zero using them, ever, safe to drop, not
 # just unused going forward. See docs/limitations.md for the full finding.
 _HIRE_DESCRIPTION_PREFIXES = [
     "Hire via Tnega: ",
@@ -1794,11 +1794,11 @@ _HIRE_DESCRIPTION_PREFIXES = [
 
 def _parse_hired_agent_name(description: str) -> str | None:
     """Recovers the exact agent name shown at hire time, straight from the
-    job's own real on-chain description — see the real bug this fixes below.
+    job's own on-chain description, see the bug this fixes below.
 
-    Real update 2026-08-22: since useHireAgent.js's negotiate step (see
+    update 2026-08-22: since useHireAgent.js's negotiate step (see
     core/erc8183_negotiate.py), a job hired against a strict ERC-8183 seller
-    no longer has a plain-text description — it's a Schema-v1 JobDescription
+    no longer has a plain-text description, it's a Schema-v1 JobDescription
     JSON blob whose OWN `task` field carries this exact same prefixed string
     (see erc8183Negotiate.js's buildJobDescription: `task` is the sanitized
     task_description passed in, unchanged). Try the JSON `task` field first;
@@ -1811,7 +1811,7 @@ def _parse_hired_agent_name(description: str) -> str | None:
         if isinstance(parsed, dict) and isinstance(parsed.get("task"), str):
             description = parsed["task"]
     except (ValueError, TypeError):
-        pass  # not JSON — the legacy plain-text case, fall through as-is
+        pass # not JSON, the legacy plain-text case, fall through as-is
     for prefix in _HIRE_DESCRIPTION_PREFIXES:
         if description.startswith(prefix):
             return description[len(prefix):].strip() or None
@@ -1820,34 +1820,34 @@ def _parse_hired_agent_name(description: str) -> str | None:
 
 @app.get("/api/my-jobs")
 async def my_jobs(client_address: str):
-    """The real backing for the "My Agents" tab: every ERC-8183 job where the
+    """The backing for the "My Agents" tab: every ERC-8183 job where the
     given wallet is the CLIENT, from the same recent-window on-chain scan
     agent_performance.py already does for providers (see that module's docstring
-    for why this is the right approach — no client-indexed event exists either).
+    for why this is the right approach, no client-indexed event exists either).
 
-    Real bug fixed 2026-08-19: a job's `provider` field is a WALLET address,
-    not an agent identity — and one wallet can genuinely own several distinct
+    bug fixed 2026-08-19: a job's `provider` field is a WALLET address,
+    not an agent identity, and one wallet can genuinely own several distinct
     ERC-8004 agents (confirmed live: the wallet behind job #56606 owns THREE
     registered identities from the same mass-registration cluster). Resolving
-    "the agent" purely by owner_address is ambiguous — it can silently pick a
+    "the agent" purely by owner_address is ambiguous, it can silently pick a
     different one of that wallet's agents than the one actually hired, which
     is exactly what happened (hire-time notification correctly showed
     "Ethgar9qoq1pf7b" from the specific agent object the user clicked;
     owner_address-only resolution here later showed a same-wallet sibling,
     "Chaingarvppv", instead).
 
-    Real fix: our own hire flow (useHireAgent.js — web and mobile) writes
+    fix: our own hire flow (useHireAgent.js, web and mobile) writes
     the exact agent name into the job's own real,
     immutable on-chain `description` field ("Hire via Tnega: {name}", or
     "Hire via Agents Marketplace: {name}" for jobs hired before the
-    2026-08-28 rebrand — see _HIRE_DESCRIPTION_PREFIXES above). That string
+    2026-08-28 rebrand, see _HIRE_DESCRIPTION_PREFIXES above). That string
     is the authoritative record of which agent was
-    actually hired, sourced from the chain itself, not a guess — parsed and
+    actually hired, sourced from the chain itself, not a guess, parsed and
     preferred over the owner_address lookup, which now only breaks the
     provider/name tie (and supplies agent_id for the link) rather than
     picking the name outright. Falls back to owner_address alone only for
-    jobs our own flows didn't create (no parseable description) — honestly
-    a best-effort/ambiguous case in that scenario, same real limitation as
+    jobs our own flows didn't create (no parseable description), honestly
+    a best-effort/ambiguous case in that scenario, same limitation as
     before, now scoped to only where it's unavoidable."""
     try:
         result = await agent_performance.get_my_jobs(client_address)
@@ -1905,9 +1905,9 @@ async def my_jobs(client_address: str):
         candidates = by_owner.get((job["provider"] or "").lower(), [])
         raw_description = job.get("description") or ""
         parsed_name = _parse_hired_agent_name(raw_description)
-        # Real fix, 2026-08-22: a negotiated job's real on-chain description
+        # fix, 2026-08-22: a negotiated job's on-chain description
         # is a JobDescription JSON blob (see _parse_hired_agent_name's own
-        # docstring), not readable prose — show its `task` field in the UI
+        # docstring), not readable prose, show its `task` field in the UI
         # instead of the raw JSON. Legacy plain-text descriptions pass
         # through unchanged.
         try:
@@ -1919,7 +1919,7 @@ async def my_jobs(client_address: str):
 
         agent = None
         if parsed_name:
-            # The real, on-chain-sourced name wins — find the specific known
+            # The real, on-chain-sourced name wins, find the specific known
             # agent that's BOTH this provider wallet AND this exact name.
             agent = next((a for a in candidates if a.get("name") == parsed_name), None)
 
@@ -1927,19 +1927,19 @@ async def my_jobs(client_address: str):
             job["agent_id"] = agent.get("id")
             job["agent_name"] = agent.get("name")
         elif parsed_name:
-            # We know the real name (it's on-chain) but this specific agent
-            # isn't in our store (or the store is momentarily behind) — show
-            # the real name honestly, just without a working detail-page link.
+            # We know the name (it's on-chain) but this specific agent
+            # isn't in our store (or the store is momentarily behind), show
+            # the name honestly, just without a working detail-page link.
             job["agent_id"] = None
             job["agent_name"] = parsed_name
         elif len(candidates) == 1:
             # No parseable description (not one of our own hire flows), but
-            # this wallet only has one known agent — unambiguous.
+            # this wallet only has one known agent, unambiguous.
             job["agent_id"] = candidates[0].get("id")
             job["agent_name"] = candidates[0].get("name")
         else:
             # Genuinely ambiguous (multiple same-wallet agents, no on-chain
-            # name to disambiguate with) or simply unknown — the honest
+            # name to disambiguate with) or simply unknown, the honest
             # fallback is the raw provider address, not a guess.
             job["agent_id"] = None
             job["agent_name"] = None
@@ -1948,9 +1948,9 @@ async def my_jobs(client_address: str):
 
 
 # ---------------------------------------------------------------------------
-# Tnega PayBox — real B402 (x402-on-BSC) checkout sessions
+# Tnega PayBox, B402 (x402-on-BSC) checkout sessions
 # ---------------------------------------------------------------------------
-# The real implementation of the session API designed in
+# The implementation of the session API designed in
 # docs/future-tnega-paybox.md, now that a settlement rail that actually
 # works from BSC exists (see core/b402.py). A merchant backend's
 # `StorefrontBackend.checkout_handoff()` calls POST /api/paybox/sessions
@@ -1960,15 +1960,15 @@ async def my_jobs(client_address: str):
 
 @app.get("/api/paybox/readiness")
 async def paybox_readiness():
-    """Real, live readiness check for the B402 integration — calls the real
+    """Real, live readiness check for the B402 integration, calls the real
     /supported endpoint and reports what this account can genuinely accept
     right now.
 
     Deliberately public and read-only: it exposes no credential and no
     secret, only the same capability list B402 would tell any authorized
-    caller, and it's the honest way to answer "is PayBox actually live?"
+    caller, and it's the way to answer "is PayBox actually live?"
     without a fabricated status badge. `available: false` with a real
-    `reason` is a real answer, never an exception to the caller."""
+    `reason` is a answer, never an exception to the caller."""
     try:
         async with httpx.AsyncClient() as client:
             supported = await b402.get_supported(client)
@@ -1984,7 +1984,7 @@ async def paybox_readiness():
         "available": True,
         "network": "eip155:56",
         "network_label": "BNB Smart Chain (mainnet)",
-        "source": "Binance B402 — the x402 payment standard settled natively on BSC. "
+        "source": "Binance B402, the x402 payment standard settled natively on BSC. "
                   "No bridge and no fiat-card dependency, unlike the MetaMask Card / "
                   "MoonPay paths previously researched for this feature.",
         "supported_kinds": kinds,
@@ -1995,22 +1995,22 @@ async def paybox_readiness():
 
 @app.post("/api/paybox/sessions")
 async def paybox_create_session(request: Request):
-    """Create a real PayBox checkout session and return a real HTTP 402
+    """Create a PayBox checkout session and return a HTTP 402
     with live x402 payment requirements.
 
     Body: {"amount": "1.50", "order_reference": "...", "description"?: str,
            "asset"?: "U"|"USDT"|"USDC"|"USD1", "scheme"?: "exact"|"upto",
            "merchant_id"?: str, "success_url"?: str, "cancel_url"?: str}
 
-    Responds 402 Payment Required (the real, correct x402 status — this is
+    Responds 402 Payment Required (the real, correct x402 status, this is
     the whole point of the standard, not an error) with an `accepts` array
-    of real requirements sourced from a live B402 /supported call, plus
+    of requirements sourced from a live B402 /supported call, plus
     the `session_id` and `checkout_url` a merchant's own
     `checkout_handoff()` needs."""
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Body must be real JSON.")
+        raise HTTPException(status_code=400, detail="Body must be JSON.")
 
     amount = body.get("amount")
     order_reference = body.get("order_reference")
@@ -2052,9 +2052,9 @@ async def paybox_create_session(request: Request):
 
 @app.get("/api/paybox/sessions/{session_id}")
 async def paybox_get_session(session_id: str):
-    """Real, current status of one PayBox session — the poll target a
+    """Real, current status of one PayBox session, the poll target a
     merchant backend uses to confirm completion, mirroring how this
-    project's own JobStatusPanel polls real on-chain job status rather
+    project's own JobStatusPanel polls on-chain job status rather
     than assuming a webhook arrived."""
     session = await paybox.get_session(session_id)
     if not session:
@@ -2064,21 +2064,21 @@ async def paybox_get_session(session_id: str):
 
 @app.post("/api/paybox/sessions/{session_id}/pay")
 async def paybox_submit_payment(session_id: str, request: Request):
-    """Submit a buyer's signed x402 payment payload for a real session:
+    """Submit a buyer's signed x402 payment payload for a session:
     verify it server-side against the requirements THIS SERVER issued and
     stored, then settle on BSC.
 
-    Body: {"paymentPayload": {...}} — the signed x402 v2 payload.
+    Body: {"paymentPayload": {...}}, the signed x402 v2 payload.
 
     The payment requirements are deliberately NOT accepted from this body.
     They're re-loaded from the stored session by id, because verifying a
     client-supplied payload against client-supplied requirements only
-    proves the client agrees with itself — see core/paybox.py's own module
+    proves the client agrees with itself, see core/paybox.py's own module
     docstring on why that's the one rule this whole layer exists for."""
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Body must be real JSON.")
+        raise HTTPException(status_code=400, detail="Body must be JSON.")
 
     payment_payload = body.get("paymentPayload") or body.get("payment_payload")
     if not isinstance(payment_payload, dict):
@@ -2096,26 +2096,26 @@ async def paybox_submit_payment(session_id: str, request: Request):
 
 @app.get("/api/token-risk/{contract_address}")
 async def token_risk(contract_address: str, chain_id: int = 56):
-    """Real holder-concentration risk signals for one token, from Binance's
-    own Web3 Market API — an additional, independent risk source for the
+    """holder-concentration risk signals for one token, from Binance's
+    own Web3 Market API, an additional, independent risk source for the
     Trading Agent alongside its existing on-chain price-impact and
     liquidity-depth checks.
 
     Proxied through this backend rather than called from the browser for
-    the same real reason as this project's other proxied reads: it's a
+    the same reason as this project's other proxied reads: it's a
     cross-origin endpoint a browser can't reliably call directly, and
     proxying lets one real 10-minute cache serve every user instead of
     each browser re-fetching holder data that changes on the timescale of
     hours (see adapters/binance_market.py's own caching note).
 
     Always 200 with a real `available: false` + `reason` when Binance
-    genuinely has no data for a token — never a fabricated all-clear."""
+    genuinely has no data for a token, never a fabricated all-clear."""
     return await binance_market.get_token_risk(contract_address, chain_id)
 
 
 @app.get("/api/agents/{agent_id}")
 async def agent_detail(agent_id: str):
-    """One real agent's FULL record, including every field GET /api/agents
+    """One agent's FULL record, including every field GET /api/agents
     deliberately no longer sends (none, currently -- the field-trim that made this necessary was reverted; see the note above /api/agents).
 
     Added 2026-09-04 as the other half of the list/detail split that fixed
@@ -2239,7 +2239,7 @@ async def chain_agent_evaluation(chain_id: int, token_id: int, owner: str = ""):
 # Endpoint-only surface by design for this pass: no UI tab yet. One POST to
 # exercise the pipeline, one GET to inspect what is actually available.
 #
-# Real in this build: Profile (Gemini-backed) and QA (deterministic). Context,
+# in this build: Profile (Gemini-backed) and QA (deterministic). Context,
 # Search and Styling return not_implemented and the pipeline HALTS there --
 # it never fabricates candidates, because invented products would be priced,
 # reviewed and potentially paid for. See core/commerce/__init__.py.

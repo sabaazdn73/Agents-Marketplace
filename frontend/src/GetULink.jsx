@@ -3,7 +3,7 @@
 // One shared, honest "Get $U" link, reused everywhere $U is a required
 // currency (hire budget, Altana session spend cap, buy/subscribe in $U).
 // Single source of truth for the URL so every instance can't drift/typo.
-// Real Binance price/trading page for United Stables — not altered, not
+// Binance price/trading page for United Stables, not altered, not
 // guessed at a different path.
 
 import React from 'react';

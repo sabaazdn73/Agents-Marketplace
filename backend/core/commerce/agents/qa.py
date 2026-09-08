@@ -1,6 +1,6 @@
 # agents/qa.py
 #
-# The gate before money moves. REAL in this pass.
+# The gate before money moves. in this pass.
 #
 # WRITTEN AS A REJECTION CHECKLIST, NOT AN APPROVAL ONE
 # -----------------------------------------------------

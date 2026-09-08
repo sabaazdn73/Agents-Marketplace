@@ -1,12 +1,12 @@
 // SolanaView.jsx
 //
 // Solana is marked Coming Soon deliberately, and the distinction matters:
-// the data is real and already ingested (~1,465 agents), but Solana is not
+// the data is and already ingested (~1,465 agents), but Solana is not
 // an EVM chain. None of this project's on-chain reads, escrow, wallet
 // connection or signing paths apply to it, so presenting the agents as if
 // they behaved like the EVM views would overstate what the app can do.
 //
-// It still shows real counts and a sample rather than an empty promise,
+// It still shows counts and a sample rather than an empty promise,
 // so the claim is checkable rather than aspirational.
 
 import React from 'react';
@@ -27,12 +27,12 @@ export default function SolanaView({ mutedBorder = 'border-gray-200 dark:border-
       <div className="p-4 rounded-xl border border-indigo-500/25 bg-indigo-500/5 mb-4">
         <div className="flex items-center gap-2 mb-1.5">
           <Clock size={15} className="text-indigo-500" />
-          <span className="font-semibold text-sm">Solana — coming soon</span>
+          <span className="font-semibold text-sm">Solana, coming soon</span>
         </div>
         <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
           These agents are already indexed and stored. Solana is not an EVM chain, so
           this app's wallet connection, on-chain reads and escrow do not apply to it
-          yet — which is why this is a preview rather than a browsable view. A sample
+          yet, which is why this is a preview rather than a browsable view. A sample
           of what is stored is shown below.
         </p>
       </div>

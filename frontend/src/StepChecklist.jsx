@@ -1,20 +1,20 @@
 // StepChecklist.jsx
 //
 // A real, visible step checklist for any multi-signature on-chain flow in
-// this app (hire, buy access, Altana session grant). Purely presentational —
-// every row's state comes from the CALLER's real hook state (useHireAgent's
+// this app (hire, buy access, Altana session grant). Purely presentational,
+// every row's state comes from the CALLER's hook state (useHireAgent's
 // step/completedSteps/skippedSteps/stepHashes/error, useBuyAccess's
 // equivalent, etc.), never simulated/invented progress here.
 //
-// Four honest states per step, not three — "skipped" is real (the approve
+// Four states per step, not three, "skipped" is real (the approve
 // step in both the hire and buy-access flows is genuinely conditional, and
 // showing it stuck on "pending" forever when it will never run would be
 // exactly the kind of dishonest UI this project avoids elsewhere):
-//   pending  — hollow circle, greyed out, not reached yet
-//   active   — spinner, wallet prompt open / tx confirming right now
-//   complete — checkmark, done — links to BscScan ONLY if a real hash exists
-//   skipped  — dash, this run didn't need this step (e.g. already approved)
-//   error    — red X, this exact step is where it failed, real message shown
+//   pending, hollow circle, greyed out, not reached yet
+//   active, spinner, wallet prompt open / tx confirming right now
+//   complete, checkmark, done, links to BscScan ONLY if a hash exists
+//   skipped, dash, this run didn't need this step (e.g. already approved)
+// error, red X, this exact step is where it failed, message shown
 
 import React from 'react';
 import { CheckCircle2, XCircle, Loader2, Circle, MinusCircle, ExternalLink } from 'lucide-react';
@@ -38,7 +38,7 @@ const LABEL_CLS = {
 /**
  * steps: [{ key, label, description, status, hash?, errorMessage? }]
  * Each `status` is one of pending|active|complete|skipped|error, computed
- * by the caller from its own real hook state — this component renders
+ * by the caller from its own hook state, this component renders
  * exactly what it's given, nothing more.
  */
 export default function StepChecklist({ steps }) {

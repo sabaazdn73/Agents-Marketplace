@@ -1,45 +1,45 @@
 // AgentMetrics.jsx
 //
-// Real, final, unified per-agent "Metrics" presentation — replaces the two
+// Real, final, unified per-agent "Metrics" presentation, replaces the two
 // separate sections this session built in sequence (AgentEvaluationSection,
 // AgentInvestigationSection), consolidating them into ONE coherent block
 // with a real, agent-nature-aware routing order, per the explicit design
 // intent this was built against:
 //
-//   1. Agents that genuinely speak this marketplace's escrow protocol —
+// 1. Agents that genuinely speak this marketplace's escrow protocol,
 //      hireable directly, exactly as already built. No new logic here;
 //      this file only repositions the existing "Hire this agent" block.
-//   2. Agents that need a different interaction model — routed by the
-//      real, evidence-based per-agent classification already built this
+//   2. Agents that need a different interaction model, routed by the
+// real, evidence-based per-agent classification already built this
 //      session (core/protocol_compat.py's escrow_incompatible/auth_gated/
-//      different_protocol/offers_x402_alternative, all from a real, live
-//      protocol probe against the agent's OWN endpoint — never a category
+// different_protocol/offers_x402_alternative, all from a real, live
+//      protocol probe against the agent's OWN endpoint, never a category
 //      or reputation guess). See docs/agent-interaction-patterns.md and
-//      docs/agent-interaction-patterns-audit.md for the full real
-//      investigation and the real, ongoing marketplace-wide audit this
+// docs/agent-interaction-patterns-audit.md for the full real
+// investigation and the real, ongoing marketplace-wide audit this
 //      reads from.
-//   3. Financial/pool/fund-management agents — real cash flow (Delivery
-//      Record's cumulative $U earnings) and real profit (Financial Track
+// 3. Financial/pool/fund-management agents, cash flow (Delivery
+// Record's cumulative $U earnings) and profit (Financial Track
 //      Record's wallet-balance PnL + independent on-chain execution
-//      history), promoted to lead the metrics for this real category
+//      history), promoted to lead the metrics for this category
 //      group specifically, per the explicit instruction that this is
 //      what should be shown for this agent nature.
 //
 // Real, deliberate ordering: the interaction-guidance block (can/should
-// you hire this agent HERE, at all) now leads, before any metric —
+// you hire this agent HERE, at all) now leads, before any metric,
 // previously it was the LAST thing on the page, after four data panels,
 // which meant a buyer had to scroll past "0 hires yet" for an agent that
 // was never hireable through Tnega's escrow in the first place before
-// reaching the one fact that actually explains why. Real, live-status
+// reaching the one fact that explains why. Real, live-status
 // guidance now also skips a real, duplicate paragraph the old
 // AgentInvestigationSection's own Live Status block used to repeat
 // verbatim under a different heading.
 //
 // Nothing underlying was rebuilt: every sub-component below
 // (DeliveryRecord, FinancialTrackRecord, IndependentCorroboration,
-// LiveStatusBadges, the three real CTA states) is the exact same real
+// LiveStatusBadges, the three CTA states) is the exact same real
 // logic/hooks/endpoints AgentEvaluationSection.jsx and
-// AgentInvestigationSection.jsx already had — this file is a real
+// AgentInvestigationSection.jsx already had, this file is a real
 // presentation-layer consolidation and reordering, not a new data
 // pipeline, per the explicit "not a rebuild of any of it" instruction.
 //
@@ -70,7 +70,7 @@ async function fetchJson(url) {
 }
 
 function fmtAmount(v, digits = 4) {
-  if (v == null) return '—';
+  if (v == null) return 'n/a';
   const sign = v > 0 ? '+' : '';
   return `${sign}${v.toLocaleString(undefined, { maximumFractionDigits: digits })}`;
 }
@@ -90,16 +90,16 @@ function X402Note({ show }) {
   return (
     <p className="text-[10px] text-gray-400 mt-2.5 flex items-center gap-1.5">
       <Zap size={10} className="shrink-0 text-amber-400" />
-      This agent's own listing also mentions direct, pay-per-call (x402) access outside Tnega's escrow — check its own site for details.
+      This agent's own listing also mentions direct, pay-per-call (x402) access outside Tnega's escrow, check its own site for details.
     </p>
   );
 }
 
-// ── 1 & 2: REAL INTERACTION GUIDANCE (leads the section) ──────────────
+// ── 1 & 2: INTERACTION GUIDANCE (leads the section) ──────────────
 // The real, per-agent, evidence-based routing: hireable here (group 1),
 // hireable-with-a-real-caveat, or genuinely a different interaction model
-// (group 2). Exactly the same real logic agentEvaluation.js/
-// protocol_compat.py already compute — this only changes WHERE it renders.
+// (group 2). Exactly the same logic agentEvaluation.js/
+// protocol_compat.py already compute, this only changes WHERE it renders.
 function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
   const [showEvidence, setShowEvidence] = useState(false);
 
@@ -108,7 +108,7 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
       <div>
         <p className="text-[10px] text-gray-400 mb-2 flex items-center gap-1.5">
           <ShieldCheck size={11} className="text-indigo-400 shrink-0" />
-          Evaluated by on-chain job delivery. You pay through Tnega's escrow, and funds are only released once this agent actually delivers.
+ Evaluated by on-chain job delivery. You pay through Tnega's escrow, and funds are only released once this agent delivers.
         </p>
         <button onClick={() => onHire(agent)} className="w-full py-4 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/25 transition-all text-sm tracking-wide">
           Hire this agent →
@@ -148,7 +148,7 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
     );
   }
 
-  // Confirmed a different real interaction model — group 2.
+ // Confirmed a different interaction model, group 2.
   return (
     <div>
       <div className="p-4 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 mb-3">
@@ -157,9 +157,9 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
           <div className="text-xs text-red-800 dark:text-red-300 leading-relaxed">
             <p className="font-semibold mb-1">This agent doesn't appear to operate through Tnega's on-chain escrow system.</p>
             {evaluation.differentProtocol ? (
-              <p>We tested this agent's registered endpoint directly: it's a live, working service, just one that speaks a different protocol, not ERC-8183/A2A. If you fund a job here, no one may be listening for it in the shape this marketplace sends. Your payment would sit on hold until the deadline, with no way for this agent to actually deliver through Tnega specifically.</p>
+ <p>We tested this agent's registered endpoint directly: it's a live, working service, just one that speaks a different protocol, not ERC-8183/A2A. If you fund a job here, no one may be listening for it in the shape this marketplace sends. Your payment would sit on hold until the deadline, with no way for this agent to deliver through Tnega specifically.</p>
             ) : (
-              <p>We tested this agent's registered endpoint directly, and it rejected every job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, no one may be listening for it. Your payment would sit on hold until the deadline, with no way for this agent to actually deliver.</p>
+ <p>We tested this agent's registered endpoint directly, and it rejected every job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, no one may be listening for it. Your payment would sit on hold until the deadline, with no way for this agent to deliver.</p>
             )}
             {escrowData?.evidence?.length > 0 && (
               <button onClick={() => setShowEvidence((v) => !v)} className="flex items-center gap-1 mt-2 text-[11px] font-semibold text-red-700 dark:text-red-400 hover:underline">
@@ -175,7 +175,7 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
         </div>
       </div>
 
-      {/* What the link actually is, rather than calling everything a site.
+ {/* What the link is, rather than calling everything a site.
           This used to read "Visit <host>" for every agent that had any URL
           at all, including ones whose registered endpoint is a
           machine-readable agent-card.json. The backend now reports a kind
@@ -255,8 +255,8 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
         {p && (
           <p className="text-[10px] text-gray-400 mt-1.5">
             {escrowIncompatible
-              ? "This agent doesn't operate through Tnega's on-chain escrow, so no real delivery history is expected here — see the guidance above."
-              : (p.note || 'No real delivery history found for this agent yet — it may just be new.')}
+              ? "This agent doesn't operate through Tnega's on-chain escrow, so no delivery history is expected here, see the guidance above."
+              : (p.note || 'No delivery history found for this agent yet, it may just be new.')}
           </p>
         )}
       </div>
@@ -272,11 +272,11 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
       <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5">
         <div className="grid grid-cols-3 gap-3 mb-2">
           <div title="How many times people have hired this agent"><div className="text-[10px] uppercase text-gray-500">Times Hired</div><div className="text-lg font-bold" style={{ color: '#4F46E5' }}>{p.hire_count}</div></div>
-          <div title="Out of the jobs that finished, how many were successfully completed"><div className="text-[10px] uppercase text-gray-500">Success Rate</div><div className="text-lg font-bold">{p.completion_rate != null ? `${Math.round(p.completion_rate * 100)}%` : '—'}</div></div>
-          <div title="Cumulative $U earned as a provider: this agent's complete job history, not a recent window"><div className="text-[10px] uppercase text-gray-500">Earned</div><div className="text-lg font-bold">{earned ? `${fmtAmount(r.total_earned)} ${r.token_symbol}` : '—'}</div></div>
+          <div title="Out of the jobs that finished, how many were successfully completed"><div className="text-[10px] uppercase text-gray-500">Success Rate</div><div className="text-lg font-bold">{p.completion_rate != null ? `${Math.round(p.completion_rate * 100)}%` : 'n/a'}</div></div>
+          <div title="Cumulative $U earned as a provider: this agent's complete job history, not a recent window"><div className="text-[10px] uppercase text-gray-500">Earned</div><div className="text-lg font-bold">{earned ? `${fmtAmount(r.total_earned)} ${r.token_symbol}` : 'n/a'}</div></div>
         </div>
         <div className="text-[11px] text-gray-500 dark:text-gray-400" title="Rejected means the buyer wasn't happy with the finished work. Timed out means the agent never finished before the deadline.">
-          Finished {p.completed} · Rejected {p.rejected} · Missed deadline {p.expired}{p.completion_rate == null ? ' — none finished yet' : ''}. {p.note}
+          Finished {p.completed} · Rejected {p.rejected} · Missed deadline {p.expired}{p.completion_rate == null ? ', none finished yet' : ''}. {p.note}
         </div>
         {hint && (
           <div className="mt-3 flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300">
@@ -300,8 +300,8 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
 }
 
 // ── 3: FINANCIAL TRACK RECORD (Trading & DeFi / fund-management only) ──
-// Real cash flow (Delivery Record's Earned figure, shown alongside) and
-// real profit — the explicit real content this agent nature should lead
+// cash flow (Delivery Record's Earned figure, shown alongside) and
+// profit, the explicit content this agent nature should lead
 // with, per the design intent this was built against.
 function FinancialTrackRecord({ ownerAddress, agentId, category }) {
   const [showSecondary, setShowSecondary] = useState(false);
@@ -324,17 +324,17 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
 
   return (
     <div>
-      <SectionHeader icon={TrendingUp} title="Financial Track Record" hint="On-chain balance of the hiring wallet, before and after. The most direct real signal for a fund-managing agent." />
+ <SectionHeader icon={TrendingUp} title="Financial Track Record" hint="On-chain balance of the hiring wallet, before and after. The most direct signal for a fund-managing agent." />
       {pnl.status === 'loading' && !d ? (
         <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking hire outcomes…</div>
       ) : !d || !d.jobs?.length ? (
-        <p className="text-[11px] text-gray-400">{d?.reason || 'No real, delivered Trading & DeFi hires yet to measure.'}</p>
+ <p className="text-[11px] text-gray-400">{d?.reason || 'No real, delivered Trading & DeFi hires yet to measure.'}</p>
       ) : (
         <div className="p-3 rounded-xl border border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/40 dark:bg-emerald-500/5">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1.5">
               {d.total_pnl_usd != null && d.total_pnl_usd >= 0 ? <TrendingUp size={12} className="text-emerald-500" /> : <TrendingDown size={12} className="text-red-500" />}
-              Real hiring-wallet balance change
+ hiring-wallet balance change
             </span>
             {d.total_pnl_usd != null && (
               <span className={`text-sm font-mono font-bold ${d.total_pnl_usd >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -343,7 +343,7 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
             )}
           </div>
           <p className="text-[10px] text-gray-400">
-            The real wallet that funded {d.jobs.filter((j) => j.available).length > 1 ? 'these hires' : 'this hire'}, balance before vs. after — never a creator-submitted or backtested number.
+            The wallet that funded {d.jobs.filter((j) => j.available).length > 1 ? 'these hires' : 'this hire'}, balance before vs. after, never a creator-submitted or backtested number.
           </p>
           {d.reason && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">{d.reason}</p>}
         </div>
@@ -357,13 +357,13 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
           {onchain.status === 'loading' && !onchain.data ? (
             <div className="flex items-center gap-1.5"><Loader2 size={11} className="animate-spin" /> Checking…</div>
           ) : !onchain.data?.has_activity ? (
-            <p className="text-gray-400">{onchain.data?.reason || 'No independent real DeFi execution activity found.'}</p>
+ <p className="text-gray-400">{onchain.data?.reason || 'No independent DeFi execution activity found.'}</p>
           ) : (
-            <p>{onchain.data.defi_tx_count} real DeFi transaction{onchain.data.defi_tx_count === 1 ? '' : 's'} found, independent of any hire{onchain.data.real_protocols_seen?.length > 0 && ` (${onchain.data.real_protocols_seen.join(', ')})`}. {onchain.data.pnl ? `${onchain.data.pnl.pnl_usd >= 0 ? '+' : ''}$${onchain.data.pnl.pnl_usd.toFixed(2)} over that window.` : onchain.data.pnl_reason}
-              {/* Real, independent second PnL number (2026-08-30) — Zerion's
+ <p>{onchain.data.defi_tx_count} DeFi transaction{onchain.data.defi_tx_count === 1 ? '' : 's'} found, independent of any hire{onchain.data.real_protocols_seen?.length > 0 && ` (${onchain.data.real_protocols_seen.join(', ')})`}. {onchain.data.pnl ? `${onchain.data.pnl.pnl_usd >= 0 ? '+' : ''}$${onchain.data.pnl.pnl_usd.toFixed(2)} over that window.` : onchain.data.pnl_reason}
+ {/* Real, independent second PnL number (2026-08-30), Zerion's
                   own dedicated FIFO cost-basis calculation over the same
                   window, deliberately shown separate rather than blended
-                  into the number above (different real methodology, can
+ into the number above (different methodology, can
                   legitimately disagree). */}
               {onchain.data.zerion_pnl?.available && (
                 <> {' '}(Zerion's own FIFO-based number: {onchain.data.zerion_pnl.total_pnl_usd >= 0 ? '+' : ''}${onchain.data.zerion_pnl.total_pnl_usd.toFixed(2)})</>
@@ -391,20 +391,20 @@ function IndependentCorroboration({ ownerAddress, agentId, category }) {
 
   return (
     <div>
-      <SectionHeader icon={ShieldQuestion} title="Independent Corroboration" hint="A second, real opinion from outside this marketplace — never blended into this marketplace's own numbers." />
+ <SectionHeader icon={ShieldQuestion} title="Independent Corroboration" hint="A second, opinion from outside this marketplace, never blended into this marketplace's own numbers." />
       {termix.status === 'loading' && !t ? (
         <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking TermiX's registry…</div>
       ) : t?.available ? (
         <div className="flex items-center gap-4 flex-wrap text-[11px]">
           <div title="Completed jobs TermiX's own registry has recorded for this agent: a differently-scoped data point, not a complete protocol-wide total"><span className="text-base font-bold" style={{ color: '#4F46E5' }}>{t.completed_jobs}</span> <span className="text-[10px] text-gray-500 uppercase">completed (via TermiX)</span></div>
-          <div title="TermiX's own reputation score (0–100)"><span className="text-base font-bold">{t.reputation_score ?? '—'}</span> <span className="text-[10px] text-gray-500 uppercase">reputation</span></div>
+          <div title="TermiX's own reputation score (0 to 100)"><span className="text-base font-bold">{t.reputation_score ?? 'n/a'}</span> <span className="text-[10px] text-gray-500 uppercase">reputation</span></div>
         </div>
       ) : (
-        <p className="text-[11px] text-gray-400">No TermiX data for this agent{t?.reason ? ` — ${t.reason}` : '.'}</p>
+        <p className="text-[11px] text-gray-400">No TermiX data for this agent{t?.reason ? `, ${t.reason}` : '.'}</p>
       )}
 
       <button onClick={() => setShowMore((v) => !v)} className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-        {showMore ? 'Hide' : 'Show'} full real wallet portfolio &amp; complete on-chain history <ChevronDown size={10} className={`transition-transform ${showMore ? 'rotate-180' : ''}`} />
+        {showMore ? 'Hide' : 'Show'} full wallet portfolio &amp; complete on-chain history <ChevronDown size={10} className={`transition-transform ${showMore ? 'rotate-180' : ''}`} />
       </button>
       {showMore && (
         <div className="mt-1.5 space-y-2">
@@ -416,7 +416,7 @@ function IndependentCorroboration({ ownerAddress, agentId, category }) {
   );
 }
 
-// ── LIVE STATUS (compact — the interaction guidance above already
+// ── LIVE STATUS (compact, the interaction guidance above already
 // explains WHAT the protocol-compatibility finding means; this stays a
 // short, factual badge row, not a second copy of the same paragraph) ──
 function LiveStatus({ agent, escrowData }) {
@@ -457,10 +457,10 @@ export default function AgentMetrics({ agent, onHire, onTrySkill }) {
 
       <InteractionGuidance agent={agent} evaluation={evaluation} escrowData={escrowData} onHire={onHire} />
 
-      {/* Real, agent-nature-aware order: a fund-management agent leads
-          with its real cash flow/profit (group 3's own explicit real
+ {/* Real, agent-nature-aware order: a fund-management agent leads
+ with its cash flow/profit (group 3's own explicit real
           content, FinancialTrackRecord promoted ahead of Delivery Record);
-          every other agent's FinancialTrackRecord is a real no-op (it
+          every other agent's FinancialTrackRecord is a no-op (it
           gates on the same category check and renders nothing) so it's
           only ever placed here, never duplicated. See module header. */}
       {isFundManagement && (

@@ -1,6 +1,6 @@
 // CreatorEarningsPanel.jsx
 //
-// Creator dashboard, shared VERBATIM by web and mobile: real withdrawable
+// Creator dashboard, shared VERBATIM by web and mobile: withdrawable
 // earnings per token (pull-over-push withdraw), plus the creator's own listings
 // with a pause/resume toggle. Earnings are fully on-chain. "Your listings" are
 // the agent IDs this browser recorded when listing through the form (the
@@ -77,7 +77,7 @@ export default function CreatorEarningsPanel() {
         <p className="text-[11px] text-gray-500">Connect your wallet to see your withdrawable earnings and listings.</p>
       ) : (
         <>
-          {/* Withdrawable earnings per token (real, on-chain, pull-over-push) */}
+ {/* Withdrawable earnings per token (real, on-chain, pull-over-push) */}
           {nonzero.length === 0 ? (
             <p className="text-[11px] text-gray-500">No money to withdraw yet. When someone buys your agent, your share builds up here, separately for each currency.</p>
           ) : (

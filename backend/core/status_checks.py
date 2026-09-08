@@ -3,23 +3,23 @@ status_checks.py
 
 Backs the public /api/status endpoint (and the frontend /status page):
 real, live, right-now reachability checks against every external
-integration this project actually depends on — 8004scan, Zerion, CoinGecko,
-the BSC RPC (primary AND, separately, the real Infura backup added
-2026-09-04 — see core/rpc.py), the explainer-agent service, MongoDB, and
-TermiX's AACP registry (added 2026-08-28 — see adapters/termix.py for what
+integration this project actually depends on, 8004scan, Zerion, CoinGecko,
+the BSC RPC (primary AND, separately, the Infura backup added
+2026-09-04, see core/rpc.py), the explainer-agent service, MongoDB, and
+TermiX's AACP registry (added 2026-08-28, see adapters/termix.py for what
 it's used for).
 
 Honesty rules, matching this project's standing discipline elsewhere:
-  - Every check is a REAL network/DB call made at request time (through the
+  - Every check is a network/DB call made at request time (through the
     short TTL cache below), never a hardcoded "ok: true".
-  - No fabricated uptime percentage or history — this is a snapshot, not a
-    monitor. Each result reports THIS check's own real response time, not an
+  - No fabricated uptime percentage or history, this is a snapshot, not a
+    monitor. Each result reports THIS check's own response time, not an
     average or a claim about the past.
-  - A check that fails is reported as a real failure (ok: False + the real
+  - A check that fails is reported as a failure (ok: False + the real
     error), never silently hidden or downgraded.
 
 CoinGecko note (honest, not swept under the rug): this project doesn't yet
-have a live data-consuming CoinGecko integration anywhere in the codebase —
+have a live data-consuming CoinGecko integration anywhere in the codebase,
 checked before writing this (2026-08-25), confirmed absent. It's included
 here as a real, live reachability check against CoinGecko's own public ping
 endpoint anyway, both because a credit commitment was made in their grant
@@ -27,11 +27,11 @@ application (see the "Data Sources" attribution page) and because a status
 page is a reasonable place to track a provider before code depends on it.
 Reported honestly as "reachable", not as "in active use".
 
-Short real TTL cache (30s, process-local): a status page is exactly the kind
+Short TTL cache (30s, process-local): a status page is exactly the kind
 of endpoint hackathon judges/visitors might hit repeatedly, and two of these
-checks (8004scan, Zerion) run against keys with real daily budgets — this
+checks (8004scan, Zerion) run against keys with daily budgets, this
 keeps a page full of visitors from burning that budget on checks that would
-report the same real answer a few seconds apart anyway.
+report the same answer a few seconds apart anyway.
 """
 
 from __future__ import annotations
@@ -64,7 +64,7 @@ async def _timed(name: str, coro) -> dict:
             "detail": detail,
         }
     except Exception as e:
-        # Real bug, found live during an actual 8004scan outage (2026-09-06):
+        # bug, found live during an actual 8004scan outage (2026-09-06):
         # this reported `"detail": ""` for the one service that was actually
         # down. httpx's timeout exceptions stringify to the empty string, so
         # `str(e)` erased the reason at exactly the moment the status page
@@ -86,7 +86,7 @@ async def _check_8004scan() -> str:
         raise RuntimeError("SCAN_8004_API_KEY not set")
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
-            # Real host migration 2026-08-27 — see adapters/bsc.py's module
+            # host migration 2026-08-27, see adapters/bsc.py's module
             # docstring for the live verification.
             "https://api.8004scan.io/api/v1/agents",
             params={"chainId": 56, "offset": 0, "limit": 1},
@@ -117,11 +117,11 @@ async def _check_coingecko() -> str:
 
 
 async def _check_bsc_rpc() -> str:
-    # Deliberately tests the real PRIMARY specifically, never through
-    # core/rpc.py's own rpc_post() fallback (added 2026-09-04) — a status
-    # page exists to report each real provider's own real health;
+    # Deliberately tests the PRIMARY specifically, never through
+    # core/rpc.py's own rpc_post() fallback (added 2026-09-04), a status
+    # page exists to report each provider's own health;
     # silently succeeding through a hidden backup would defeat the entire
-    # point. See _check_bsc_rpc_backup below for the real Infura row.
+    # point. See _check_bsc_rpc_backup below for the Infura row.
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
             _bsc_rpc_url(),
@@ -136,16 +136,16 @@ async def _check_bsc_rpc() -> str:
 
 
 async def _check_bsc_rpc_backup() -> str:
-    # The real Infura BSC endpoint, added 2026-09-04 as an automatic
-    # backup transport (see core/rpc.py's own module docstring) — reported
+    # The Infura BSC endpoint, added 2026-09-04 as an automatic
+    # backup transport (see core/rpc.py's own module docstring), reported
     # here as its OWN real, separate row for the same reason
     # _check_bsc_rpc above tests the primary in isolation: an honest
-    # status page shows each real provider's own real health, not a
+    # status page shows each provider's own health, not a
     # merged result that could hide one of them quietly failing.
     from core.rpc import get_bsc_fallback_rpc_url
     url = get_bsc_fallback_rpc_url()
     if not url:
-        raise RuntimeError("INFURA_API_KEY not configured — no real backup exists yet")
+        raise RuntimeError("INFURA_API_KEY not configured, no backup exists yet")
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
             url,
@@ -173,8 +173,8 @@ async def _check_mongodb() -> str:
 
 
 async def _check_termix() -> str:
-    # Real, unauthenticated public API — no key needed. See
-    # adapters/termix.py's own docstring for the full real investigation
+    # Real, unauthenticated public API, no key needed. See
+    # adapters/termix.py's own docstring for the full investigation
     # behind why this integration exists.
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
@@ -187,8 +187,8 @@ async def _check_termix() -> str:
 
 async def get_status(force_refresh: bool = False) -> dict:
     """Returns {checked_at, cache_age_seconds, services: [...]}. Cached for
-    _CACHE_TTL_SECONDS so repeated real visitors don't each burn a fresh
-    hit against rate-limited real keys (8004scan, Zerion)."""
+    _CACHE_TTL_SECONDS so repeated visitors don't each burn a fresh
+    hit against rate-limited keys (8004scan, Zerion)."""
     now = time.time()
     if not force_refresh and _cache["data"] and (now - _cache["checked_at"]) < _CACHE_TTL_SECONDS:
         return {

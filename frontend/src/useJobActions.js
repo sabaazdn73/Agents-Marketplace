@@ -2,11 +2,11 @@
 //
 // Real, direct-wagmi post-hire actions (dispute, approve early, claim
 // refund) for jobs hired through the direct wagmi path (useHireAgent.js),
-// the only real hire path this product has (the Altana session path was
+// the only hire path this product has (the Altana session path was
 // removed 2026-09-03, see docs/limitations.md). "My Agents" lists jobs
-// for whatever address wagmi says is connected, so the only honest way to
+// for whatever address wagmi says is connected, so the only way to
 // sign an action for those jobs is a direct contract write through that
-// same connected wallet — dispute() on the Policy contract, claimRefund()
+// same connected wallet, dispute() on the Policy contract, claimRefund()
 // on the Commerce contract. Both ABIs already exist in erc8183.js.
 
 import { useCallback } from 'react';
@@ -14,7 +14,7 @@ import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchCha
 import { bsc } from 'wagmi/chains';
 import { getContracts, AGENTIC_COMMERCE_ABI, OPTIMISTIC_POLICY_ABI, EVALUATOR_ROUTER_ABI } from './erc8183';
 
-const RECEIPT_TIMEOUT_MS = 90_000; // same honest timeout as useHireAgent.js
+const RECEIPT_TIMEOUT_MS = 90_000; // same timeout as useHireAgent.js
 
 export function useJobActions() {
   const { address } = useAccount();
@@ -41,7 +41,7 @@ export function useJobActions() {
     if (chainId !== bsc.id) await switchChainAsync({ chainId: bsc.id });
   }, [chainId, switchChainAsync]);
 
-  /** Client-only, real on-chain call to Policy.dispute(jobId) — valid only
+ /** Client-only, on-chain call to Policy.dispute(jobId), valid only
    * inside the dispute window; the contract reverts otherwise. */
   const disputeDirect = useCallback(async (jobId) => {
     if (!address) throw new Error('Connect a wallet first.');
@@ -53,18 +53,18 @@ export function useJobActions() {
     });
   }, [address, ensureChain, writeAndConfirm]);
 
-  /** Real, confirmed gap fixed here (full hire-flow audit, 2026-08-28): the
-   * router's own real `settle(jobId, evidence)` — a real, client-callable
+ /** Real, confirmed gap fixed here (full hire-flow audit, 2026-08-28): the
+ * router's own real `settle(jobId, evidence)`, a real, client-callable
    * "approve early" action letting a satisfied buyer release payment
-   * immediately instead of waiting out the rest of the dispute window —
+   * immediately instead of waiting out the rest of the dispute window,
    * was never wired to ANY button in this app, on either hire path, despite
-   * docs/README.md openly advertising "or you approve early" as a real
+ * docs/README.md openly advertising "or you approve early" as a real
    * feature. Confirmed by grep: zero call sites for router.settle anywhere
-   * in the actual UI before this fix (altana.js's own settleJob export was
+   * in the UI before this fix (altana.js's own settleJob export was
    * dead code, same gap on the Altana session path's own hire panel,
-   * since removed — see docs/limitations.md). Real, permanent action: once called, the job
-   * moves to COMPLETED and can no longer be disputed — the contract itself
-   * enforces the real eligibility rule (job must be SUBMITTED), not
+ * since removed, see docs/limitations.md). Real, permanent action: once called, the job
+   * moves to COMPLETED and can no longer be disputed, the contract itself
+   * enforces the eligibility rule (job must be SUBMITTED), not
    * pre-guessed here, same discipline as claimRefundDirect below. */
   const approveDirect = useCallback(async (jobId) => {
     if (!address) throw new Error('Connect a wallet first.');
@@ -76,11 +76,11 @@ export function useJobActions() {
     });
   }, [address, ensureChain, writeAndConfirm]);
 
-  /** Real on-chain call to AgenticCommerce.claimRefund(jobId) — the
+ /** on-chain call to AgenticCommerce.claimRefund(jobId), the
    * guaranteed exit for a FUNDED job whose deadline passed with no
-   * delivery. Reverts if the job isn't actually eligible; we don't
+ * delivery. Reverts if the job isn't eligible; we don't
    * pre-guess eligibility here, the caller (JobStatusPanel) only shows
-   * this action once it's read the real on-chain state that makes it
+   * this action once it's read the on-chain state that makes it
    * eligible. */
   const claimRefundDirect = useCallback(async (jobId) => {
     if (!address) throw new Error('Connect a wallet first.');

@@ -1,16 +1,16 @@
 // AdvantageReport.jsx
 //
-// The real TermiX Advantage Report: 3 real tasks, each run both with and
+// The TermiX Advantage Report: 3 tasks, each run both with and
 // without an agent, real time/cost/quality. Shared verbatim by web and
-// mobile. Built 2026-08-19 from real, captured test data — not live-fetched
-// (these are fixed, one-time real runs, same as this project's other
+// mobile. Built 2026-08-19 from real, captured test data, not live-fetched
+// (these are fixed, one-time runs, same as this project's other
 // "verified this session" findings), so the numbers below are exactly what
-// was actually measured, with honest gaps left as TODOs rather than filled
+// was measured, with gaps left as TODOs rather than filled
 // with placeholder-looking fake data.
 //
-// Real, deliberate scoping: this is the entire Report tab's content — the
+// Real, deliberate scoping: this is the entire Report tab's content, the
 // Practice Layer this once sat above (general testing activity across all
-// users) was fully removed 2026-08-26, real user decision given repeated
+// users) was fully removed 2026-08-26, user decision given repeated
 // free-tier infrastructure instability on its Anvil fork.
 
 import React from 'react';
@@ -19,12 +19,12 @@ import { LightMarkdown } from './JobStatusPanel';
 
 const ACCENT = '#4F46E5';
 
-// Real, complete delivered content for job #56646 — the actual final
+// Real, complete delivered content for job #56646, the final
 // write-up the agent submitted, pulled via extractDeliverableText() from
 // the real, live deliverable URL and captured here verbatim (only the
 // model's own pre-answer planning notes ahead of the real "# ERC-8004 &
 // ERC-8183..." title are cut, same as job #56620's card used to flag as
-// separate "draft notes" — nothing in the real answer itself is trimmed
+// separate "draft notes", nothing in the answer itself is trimmed
 // or reworded). Rendered below through the exact same LightMarkdown
 // component JobStatusPanel's own PolishedDeliverable view uses, not a
 // re-implementation, so what's shown here is byte-identical formatting to
@@ -47,19 +47,19 @@ Two standards fix these:
 
 ## ERC-8004: Your digital I.D. badge
 
-**Analogy:** Imagine a conference with 5,000 people wearing badges. Your badge has your photo, your real name, your employer, and what you do. Everyone can glance at it and know exactly who they're dealing with — and no one else can wear *your* badge because it has your picture and signature on it.
+**Analogy:** Imagine a conference with 5,000 people wearing badges. Your badge has your photo, your name, your employer, and what you do. Everyone can glance at it and know exactly who they're dealing with, and no one else can wear *your* badge because it has your picture and signature on it.
 
 **ERC-8004 is that badge, but on the blockchain for AI agents (and people/companies too).**
 
 On-chain, an "agent" is just software that can do tasks (answer questions, fetch data, write code, whatever). An ERC-8004 record connects three things:
 
-1. **Who owns it** — the wallet address (your signature/photo).
-2. **A unique ID number** — like a badge number, so there's no "two agents, same name" confusion.
-3. **A profile page (URI)** — a link to a description of what the agent offers and how to reach its service.
+1. **Who owns it**, the wallet address (your signature/photo).
+2. **A unique ID number**, like a badge number, so there's no "two agents, same name" confusion.
+3. **A profile page (URI)**, a link to a description of what the agent offers and how to reach its service.
 
-**Real example from the chain I just checked:** Agent #1157 belongs to wallet \`0xD8c...35f\` and its profile says it's named *"smoke-033-clean"* and it registers a service called *"test"* at a web endpoint. That's the full badge: one ID, one owner, one profile.
+**example from the chain I just checked:** Agent #1157 belongs to wallet \`0xD8c...35f\` and its profile says it's named *"smoke-033-clean"* and it registers a service called *"test"* at a web endpoint. That's the full badge: one ID, one owner, one profile.
 
-**Why it matters:** You can look up an agent's history, see who owns it, and trust that the "agent" you're hiring is the same one that did good work before — not a random impersonator.
+**Why it matters:** You can look up an agent's history, see who owns it, and trust that the "agent" you're hiring is the same one that did good work before, not a random impersonator.
 
 ---
 
@@ -69,14 +69,14 @@ On-chain, an "agent" is just software that can do tasks (answer questions, fetch
 
 **ERC-8183 is that lawyer, as a smart contract.** It's a job board + safety deposit box combined. Here's the flow, step by step:
 
-1. **Client posts a job** — "I need the latest BNB Chain ecosystem news" — and names a budget in a specific token (here, a token called "U").
-2. **Money goes into escrow** — the client's payment is locked in the contract. Neither side can touch it alone. The job is now **FUNDED** (I saw many jobs in this exact state on-chain).
-3. **A provider accepts** — an agent (identified by its ERC-8004 badge) agrees to do the work.
-4. **Provider delivers** — submits their finished work, usually a link to the result (a "deliverable URL"). On the chain I looked at, completed jobs have this field filled in.
-5. **Approval & payout** — an evaluator (the client, or a trusted third party) checks the work. If it's good, the escrow releases the money. The job is now **COMPLETED**.
-6. **Dispute / rejection** — if the work is bad or the deadline passes, the job can be **REJECTED** and the money goes back to the client. No one loses unfairly.
+1. **Client posts a job**, "I need the latest BNB Chain ecosystem news", and names a budget in a specific token (here, a token called "U").
+2. **Money goes into escrow**, the client's payment is locked in the contract. Neither side can touch it alone. The job is now **FUNDED** (I saw many jobs in this exact state on-chain).
+3. **A provider accepts**, an agent (identified by its ERC-8004 badge) agrees to do the work.
+4. **Provider delivers**, submits their finished work, usually a link to the result (a "deliverable URL"). On the chain I looked at, completed jobs have this field filled in.
+5. **Approval & payout**, an evaluator (the client, or a trusted third party) checks the work. If it's good, the escrow releases the money. The job is now **COMPLETED**.
+6. **Dispute / rejection**, if the work is bad or the deadline passes, the job can be **REJECTED** and the money goes back to the client. No one loses unfairly.
 
-**Real example from the chain:** Job #1 on this network is *"Latest BNB Chain ecosystem news"*, funded with **1 U** (the escrow token), and currently sits in **FUNDED** status — the money is safely locked while the work happens. Job #4 is **COMPLETED**, meaning it went through the whole cycle and the provider got paid.
+**example from the chain:** Job #1 on this network is *"Latest BNB Chain ecosystem news"*, funded with **1 U** (the escrow token), and currently sits in **FUNDED** status, the money is safely locked while the work happens. Job #4 is **COMPLETED**, meaning it went through the whole cycle and the provider got paid.
 
 ---
 
@@ -96,7 +96,7 @@ You find an agent via its 8004 badge, check who owns it, then hire it through an
 | Term | Plain meaning |
 |---|---|
 | **Agent** | A software worker that can do tasks for you. |
-| **Wallet address** | A unique account ID on the blockchain — like your email address, but for money. |
+| **Wallet address** | A unique account ID on the blockchain, like your email address, but for money. |
 | **ERC-8004** | The standard for an agent's identity badge. |
 | **ERC-8183** | The standard for hiring with money held safely (escrow). |
 | **Escrow** | Money held by a neutral third party until work is done. |
@@ -105,7 +105,7 @@ You find an agent via its 8004 badge, check who owns it, then hire it through an
 | **REJECTED** | Work refused; money goes back to the client. |
 | **URI** | A web link to the agent's profile/services. |
 
-**In one sentence:** ERC-8004 gives every agent a trustworthy identity card, and ERC-8183 makes every job safe by holding the payment hostage until the work is actually done — so strangers can do business with each other without fear.`;
+**In one sentence:** ERC-8004 gives every agent a trustworthy identity card, and ERC-8183 makes every job safe by holding the payment hostage until the work is done, so strangers can do business with each other without fear.`;
 
 function TaskCard({ icon: Icon, title, statusLabel, statusColor, children }) {
   return (
@@ -145,7 +145,7 @@ export default function AdvantageReport() {
         3 tasks, each run with an agent and by hand. Every number is measured unless labelled an estimate, and the two are never blurred together.
       </div>
 
-      {/* Task 1 — COMPLETE */}
+      {/* Task 1, COMPLETE */}
       <TaskCard icon={ShieldAlert} title="Task 1, Security/trading risk check" statusLabel="Complete" statusColor="#10B981">
         <Side label="With an agent (Token Radar skill)">
           <Row label="Target" value="犇犇/WBNB" />
@@ -161,7 +161,7 @@ export default function AdvantageReport() {
         </Side>
       </TaskCard>
 
-      {/* Task 2 — COMPLETE, real mainnet delivery captured 2026-08-29 */}
+ {/* Task 2, COMPLETE, mainnet delivery captured 2026-08-29 */}
       <TaskCard icon={Coins} title="Task 2, DeFi execution (Venus Lending supply)" statusLabel="Complete" statusColor="#10B981">
         <Side label="With an agent (Venus Skill, direct-connected-wallet path)">
           <Row label="Time taken" value="6s" hint="Elapsed time between the approve and mint transactions, measured from block timestamps, not estimated or rounded from block count." />
@@ -181,11 +181,11 @@ export default function AdvantageReport() {
         </Side>
       </TaskCard>
 
-      {/* Task 3 — COMPLETE, real mainnet delivery captured 2026-08-19 */}
+ {/* Task 3, COMPLETE, mainnet delivery captured 2026-08-19 */}
       <TaskCard icon={GraduationCap} title="Task 3, Knowledge/content (ERC-8004/8183 explainer agent)" statusLabel="Complete" statusColor="#10B981">
         <Side label="With an agent (self-hosted, on mainnet)">
           <Row label="Build time" value="~50s (scaffold → AI)" />
-          <Row label="Price quoted" value="0.1 $U" hint="$U is a type of digital dollar — 1 $U is worth about $1." />
+          <Row label="Price quoted" value="0.1 $U" hint="$U is a type of digital dollar, 1 $U is worth about $1." />
           <Row label="Delivery time" value="~60s (notified → delivered)" />
           <Row label="Job number" value="#56646" />
           <p className="text-[11px] text-gray-400 leading-relaxed mt-1">

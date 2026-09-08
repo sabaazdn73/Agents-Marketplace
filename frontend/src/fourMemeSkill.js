@@ -1,10 +1,10 @@
 // fourMemeSkill.js
 //
-// Real execution for Four.meme's bonding-curve trading, addresses and
+// execution for Four.meme's bonding-curve trading, addresses and
 // function behavior copied exactly from the skill's own SKILL.md.
 //
 // Execution goes through an injected `executor` ({ walletAddress,
-// publicClient, execute(calls) }) — the user's own connected wallet
+// publicClient, execute(calls) }), the user's own connected wallet
 // (useDirectWalletExecutor.js), the only path this tx skill runs through.
 
 import { encodeFunctionData, parseAbi } from 'viem';
@@ -23,7 +23,7 @@ const MANAGER_ABI = parseAbi([
 ]);
 const ERC20_ABI = parseAbi(['function approve(address spender, uint256 amount) returns (bool)', 'function balanceOf(address) view returns (uint256)']);
 
-/** Real graduation check, must happen before any curve write per the
+/** graduation check, must happen before any curve write per the
  * skill's Guards: "Check liquidityAdded before any curve write." */
 export async function getCurveStatus(publicClient, tokenAddress) {
   const info = await publicClient.readContract({ address: TOKEN_MANAGER_HELPER_3, abi: HELPER_ABI, functionName: 'getTokenInfo', args: [tokenAddress] });
@@ -37,7 +37,7 @@ export async function getCurveStatus(publicClient, tokenAddress) {
 
 export async function buyOnCurve(executor, { tokenAddress, bnbToSpend, slippagePct = 3 }) {
   const status = await getCurveStatus(executor.publicClient, tokenAddress);
-  if (status.liquidityAdded) throw new Error("This token has already moved to full trading on PancakeSwap — use the PancakeSwap Trading skill for it instead.");
+  if (status.liquidityAdded) throw new Error("This token has already moved to full trading on PancakeSwap, use the PancakeSwap Trading skill for it instead.");
 
   const fundsRaw = BigInt(Math.round(bnbToSpend * 1e18));
 
@@ -51,7 +51,7 @@ export async function buyOnCurve(executor, { tokenAddress, bnbToSpend, slippageP
 
 export async function sellOnCurve(executor, { tokenAddress, tokenAmount, slippagePct = 3 }) {
   const status = await getCurveStatus(executor.publicClient, tokenAddress);
-  if (status.liquidityAdded) throw new Error("This token has already moved to full trading on PancakeSwap — use the PancakeSwap Trading skill for it instead.");
+  if (status.liquidityAdded) throw new Error("This token has already moved to full trading on PancakeSwap, use the PancakeSwap Trading skill for it instead.");
 
   const amountRaw = BigInt(Math.round(tokenAmount * 1e18));
 

@@ -1,51 +1,51 @@
 // tradingAgent.js
 //
 // Real, multi-DEX price comparison for the Native Agent Marketplace's
-// Trading Agent — genuinely different from (and a real superset of) the
+// Trading Agent, genuinely different from (and a superset of) the
 // free pancakeswap-trading Skill in pancakeswapSkill.js, which only ever
 // routes through PancakeSwap. Also real, small price-trend CONTEXT (a
-// real 24h % change, see getPriceTrend below, added 2026-09-08) —
+// real 24h % change, see getPriceTrend below, added 2026-09-08),
 // deliberately not technical analysis or a buy/sell recommendation, a
 // real, separate, bigger future project already noted for later.
 //
 // Real, correct critique (2026-09-06): a single-DEX Trading Agent is
 // functionally redundant with what a connected wallet (or visiting
 // PancakeSwap directly) already offers. This module exists to genuinely
-// compare real, live quotes across multiple real BSC DEXs and execute
-// through whichever one actually offers the best real price — the same
+// compare real, live quotes across multiple BSC DEXs and execute
+// through whichever one offers the best price, the same
 // real, evidence-based, multi-candidate philosophy the Staking Agent
 // already uses comparing Lista vs. Ankr, not a black-box single-source
 // pass-through.
 //
-// Real DEXes compared, confirmed live (2026-09-06) via BscScan's own
+// DEXes compared, confirmed live (2026-09-06) via BscScan's own
 // getsourcecode/getabi before writing any of this: all three are real,
 // verified, non-proxy contracts sharing the exact same standard
 // Uniswap-V2-fork interface (getAmountsOut/swapExactTokensForTokens/
-// factory/WETH) — this project's existing self-encoded, no-external-API
+// factory/WETH), this project's existing self-encoded, no-external-API
 // pattern applies identically to all of them, not just PancakeSwap:
 //   - PancakeSwap: 0x10ED43C718714eb63d5aA57B78B54704E256024E (already
-//     live elsewhere in this codebase — pancakeswapSkill.js)
+//     live elsewhere in this codebase, pancakeswapSkill.js)
 //   - Biswap: 0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8 (ContractName
 //     BiswapRouter02)
 //   - ApeSwap: 0xcF0feBd3f17CEf5b47b0cD257aCf6025c5BFf3b7 (ContractName
 //     ApeRouter)
 //
 // Real, live-measured liquidity check before building anything (not
-// assumed) — 1,000 USDT quoted on each, real numbers:
+// assumed), 1,000 USDT quoted on each, numbers:
 //   USDT->WBNB direct:      PancakeSwap 1.4515, Biswap 1.4470, ApeSwap 0.9594
 //   USDT->WBNB->CAKE hop:   PancakeSwap 547.4,  Biswap 529.8,  ApeSwap 343.2
 //   USDT->BSW (Biswap's own token): PancakeSwap 1,596,436 (via WBNB hop),
-//     Biswap 2,480,886 (via WBNB hop) — a real ~55% better real price on
-//     Biswap, exactly the kind of genuine value a single-DEX agent could
-//     never surface. ApeSwap had NO real liquidity for this specific pair
+// Biswap 2,480,886 (via WBNB hop), a real ~55% better price on
+// Biswap, exactly the kind of value a single-DEX agent could
+//     never surface. ApeSwap had NO liquidity for this specific pair
 //     (both direct and hop routes returned effectively nothing).
 // Conclusion: WBNB has real, genuinely comparable liquidity across all
 // three; a DEX-native token's OWN home DEX can win by a wide, real
-// margin; ApeSwap was real but consistently the weakest of the three for
+// margin; ApeSwap was but consistently the weakest of the three for
 // every pair tried here, never fabricated as competitive when it wasn't.
-// Real, honest per-request handling below: a DEX whose real quote comes
-// back under half the real best quote is treated as "no real, comparable
-// liquidity for this pair," not silently presented as a genuine option.
+// Real, per-request handling below: a DEX whose quote comes
+// back under half the best quote is treated as "no real, comparable
+// liquidity for this pair," not silently presented as a option.
 
 import { encodeFunctionData, parseAbi } from 'viem';
 import { NATIVE_AGENT_FEE_WALLET, NATIVE_AGENT_ENTRY_FEE_BPS } from './defiSkills';
@@ -57,7 +57,7 @@ export const DEXES = [
   { id: 'apeswap', label: 'ApeSwap', router: '0xcF0feBd3f17CEf5b47b0cD257aCf6025c5BFf3b7' },
 ];
 
-// Real, standard Uniswap-V2-fork interface — the exact same real function
+// Real, standard Uniswap-V2-fork interface, the exact same function
 // signatures on every router above, confirmed live via each one's own
 // verified ABI (see module docstring), not assumed from PancakeSwap's
 // shape alone.
@@ -79,12 +79,12 @@ const PAIR_ABI = parseAbi([
 ]);
 const FACTORY_ABI = parseAbi(['function getPair(address tokenA, address tokenB) view returns (address)']);
 
-// A real quote under this fraction of the real best quote is treated as
-// "no real, comparable liquidity" for this specific pair on that DEX —
-// live-confirmed the real difference between a genuinely worse price
-// (Biswap ~3-34% behind PancakeSwap on real WBNB/CAKE routes above) and a
+// A quote under this fraction of the best quote is treated as
+// "no real, comparable liquidity" for this specific pair on that DEX,
+// live-confirmed the difference between a genuinely worse price
+// (Biswap ~3-34% behind PancakeSwap on WBNB/CAKE routes above) and a
 // real, effectively dead pool (0.83 CAKE vs. 548 CAKE) is stark, not a
-// judgment call; 50% comfortably separates the two real cases observed.
+// judgment call; 50% comfortably separates the two cases observed.
 const MEANINGFUL_LIQUIDITY_RATIO = 0.5;
 
 async function quoteOnDex(publicClient, router, tokenAddress, usdtAmountRaw) {
@@ -99,11 +99,11 @@ async function quoteOnDex(publicClient, router, tokenAddress, usdtAmountRaw) {
   return directOut >= hopOut ? { path: directPath, amountOut: directOut } : { path: hopPath, amountOut: hopOut };
 }
 
-/** Real, live comparison across every DEX in DEXES — queries each one's
+/** Real, live comparison across every DEX in DEXES, queries each one's
  * own router directly (no external API, no aggregator, just the same
- * real getAmountsOut read this codebase already trusts), picks whichever
- * real quote is genuinely highest, and honestly reports how many of the
- * real candidates actually had comparable liquidity for THIS specific
+ * getAmountsOut read this codebase already trusts), picks whichever
+ * quote is genuinely highest, and honestly reports how many of the
+ * candidates had comparable liquidity for THIS specific
  * pair, never fabricating a 3-way comparison for a pair only one DEX can
  * really trade. */
 export async function quoteBestAcrossDexes(publicClient, tokenAddress, usdtAmountRaw) {
@@ -120,7 +120,7 @@ export async function quoteBestAcrossDexes(publicClient, tokenAddress, usdtAmoun
 
   const withLiquidity = results.filter((r) => r.amountOut > 0n);
   if (withLiquidity.length === 0) {
-    throw new Error("We couldn't find a real, tradeable route for this token on any DEX this agent checks (PancakeSwap, Biswap, ApeSwap).");
+ throw new Error("We couldn't find a real, tradeable route for this token on any DEX this agent checks (PancakeSwap, Biswap, ApeSwap).");
   }
 
   const best = withLiquidity.reduce((a, b) => (b.amountOut > a.amountOut ? b : a));
@@ -138,22 +138,22 @@ export async function quoteBestAcrossDexes(publicClient, tokenAddress, usdtAmoun
 // Real, free, keyless coverage confirmed live before building this
 // (2026-09-08), not assumed: DefiLlama's coins.llama.fi API returns a
 // real 24h % change for BNB/WBNB, CAKE, BSW, and a deliberately
-// less-mainstream real token (BABYDOGE) tried as a spot-check, all by
+// less-mainstream token (BABYDOGE) tried as a spot-check, all by
 // plain contract address, no key. A genuinely untracked token returns an
-// honest empty `{"coins":{}}`, not a fabricated 0% — handled below as
+// empty `{"coins":{}}`, not a fabricated 0%, handled below as
 // `null`, same "never fabricate, just show nothing" discipline as
-// useBnbPrice.js's own real CoinGecko integration. No new API key
+// useBnbPrice.js's own CoinGecko integration. No new API key
 // needed; this is the same free source core/aggregate.py etc. already
-// use elsewhere in this project for TVL, a different real endpoint on
+// use elsewhere in this project for TVL, a different endpoint on
 // the same real, already-trusted provider.
 const DEFILLAMA_PERCENTAGE_URL = 'https://coins.llama.fi/percentage';
 
-/** Real, small, honest price-trend CONTEXT — explicitly not a
+/** Real, small, price-trend CONTEXT, explicitly not a
  * recommendation and not technical analysis (that remains a real,
  * separate, bigger future project): just the traded token's own real
- * 24h price change, clearly labeled with its real source. Returns null
+ * 24h price change, clearly labeled with its source. Returns null
  * (never a fabricated number) if DefiLlama genuinely doesn't track this
- * token or the real request fails for any reason. */
+ * token or the request fails for any reason. */
 export async function getPriceTrend(tokenAddress) {
   try {
     const resp = await fetch(`${DEFILLAMA_PERCENTAGE_URL}/bsc:${tokenAddress}?period=24h`);
@@ -166,9 +166,9 @@ export async function getPriceTrend(tokenAddress) {
   }
 }
 
-/** Real, best-effort token metadata read — symbol + decimals, so a quote
+/** Real, best-effort token metadata read, symbol + decimals, so a quote
  * displays as "≈ 1,234.56 CAKE" instead of a meaningless raw integer.
- * Falls back honestly rather than throwing — a metadata-display nicety
+ * Falls back honestly rather than throwing, a metadata-display nicety
  * shouldn't be able to block a trade the swap itself can still execute. */
 export async function getTokenMeta(publicClient, tokenAddress) {
   try {
@@ -183,13 +183,13 @@ export async function getTokenMeta(publicClient, tokenAddress) {
 }
 
 /** Real, evidence-based risk signals for the WINNING DEX's own real
- * quote — price impact (the realized rate at the full requested trade
+ * quote, price impact (the realized rate at the full requested trade
  * size vs. a small reference trade along the SAME route) and liquidity
  * depth (trade size as a % of that DEX's own real, current USDT-side
- * reserve, resolved via the winning router's own real factory() call —
+ * reserve, resolved via the winning router's own factory() call,
  * each DEX has its own separate factory/pair contracts, never assumed
  * shared with PancakeSwap's). Both computed entirely from on-chain reads,
- * no external API, same real pattern the single-DEX version used. */
+ * no external API, same pattern the single-DEX version used. */
 export async function getTradeRiskSignals(publicClient, tokenAddress, usdtAmountRaw, winner) {
   const { path, amountOut } = winner;
 
@@ -226,10 +226,10 @@ export async function getTradeRiskSignals(publicClient, tokenAddress, usdtAmount
 
   const warnings = [];
   if (priceImpactPct != null && priceImpactPct > 3) {
-    warnings.push(`This trade would move the price on ${winner.label} by ~${priceImpactPct.toFixed(2)}%, a real sign of thin liquidity at this size.`);
+    warnings.push(`This trade would move the price on ${winner.label} by ~${priceImpactPct.toFixed(2)}%, a sign of thin liquidity at this size.`);
   }
   if (tradeSizePctOfReserve != null && tradeSizePctOfReserve > 5) {
-    warnings.push(`This trade is ~${tradeSizePctOfReserve.toFixed(1)}% of ${winner.label}'s real, current USDT liquidity for this pair — expect real slippage beyond this quote.`);
+ warnings.push(`This trade is ~${tradeSizePctOfReserve.toFixed(1)}% of ${winner.label}'s real, current USDT liquidity for this pair, expect slippage beyond this quote.`);
   }
 
   return { priceImpactPct, tradeSizePctOfReserve, reserveUsdt, warnings };
@@ -237,22 +237,22 @@ export async function getTradeRiskSignals(publicClient, tokenAddress, usdtAmount
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-/** Real holder-concentration risk from Binance's own Web3 Market API —
+/** holder-concentration risk from Binance's own Web3 Market API,
  * a genuinely INDEPENDENT second risk source, added 2026-09-04. The
  * existing signals above are all derived from the same place (the DEX
  * pair's own reserves), so they can say a trade is thin but can never
  * say WHO holds the token. This can: top-10 concentration, developer
  * holdings, sniper/bundler/new-wallet share.
  *
- * Real, honest coverage note, measured live across 16+ real BSC tokens
+ * Real, coverage note, measured live across 16+ BSC tokens
  * before wiring this in rather than assumed: `top10_holders_pct` is
- * populated for essentially every real BSC token, developer holdings
- * for most, and `sniper`/`insider` for effectively none — those two
- * exist in the API's real schema but came back null every single time.
+ * populated for essentially every BSC token, developer holdings
+ * for most, and `sniper`/`insider` for effectively none, those two
+ * exist in the API's schema but came back null every single time.
  * The backend therefore reports which fields genuinely have no data
  * (`unavailable_fields`) instead of rendering a missing value as 0%,
  * and this returns null rather than a fabricated all-clear on failure.
- * See backend/adapters/binance_market.py for the full real finding. */
+ * See backend/adapters/binance_market.py for the full finding. */
 export async function getTokenHolderRisk(tokenAddress) {
   try {
     const resp = await fetch(`${API_BASE_URL}/api/token-risk/${tokenAddress}`);
@@ -264,17 +264,17 @@ export async function getTokenHolderRisk(tokenAddress) {
   }
 }
 
-/** Real, full comparison + risk-signal read for a proposed trade — the
- * one call the UI needs: which real DEX wins, what every real candidate
- * quoted, the winning route's own real on-chain risk signals, and the
- * real holder-concentration risk from Binance's Market API.
+/** Real, full comparison + risk-signal read for a proposed trade, the
+ * one call the UI needs: which DEX wins, what every candidate
+ * quoted, the winning route's own on-chain risk signals, and the
+ * holder-concentration risk from Binance's Market API.
  *
  * The two warning sources are deliberately kept as separate arrays as
  * well as a merged one: they measure genuinely different things (route
  * liquidity vs. who holds the supply) from genuinely different sources
  * (on-chain reads vs. Binance's API), and collapsing them into one
  * undifferentiated list would hide which evidence backs which warning.
- * The holder read never blocks a quote — if it fails, the real on-chain
+ * The holder read never blocks a quote, if it fails, the on-chain
  * signals still render exactly as before. */
 export async function getTradeQuote(publicClient, tokenAddress, usdtAmountRaw) {
   const { best, allQuotes, comparedCount } = await quoteBestAcrossDexes(publicClient, tokenAddress, usdtAmountRaw);
@@ -291,35 +291,35 @@ export async function getTradeQuote(publicClient, tokenAddress, usdtAmountRaw) {
   };
 }
 
-/** Real, read-only balance/gas check before spending a real attempt —
+/** Real, read-only balance/gas check before spending a attempt,
  * same pattern as the rest of this codebase's own preflight functions.
- * Checks the trade amount PLUS the real Native Agent fee together, both
- * real USDT this wallet needs to hold. */
+ * Checks the trade amount PLUS the Native Agent fee together, both
+ * USDT this wallet needs to hold. */
 export async function spotTradePreflight(readClient, walletAddress, usdtAmount) {
   const usdtAmountRaw = BigInt(Math.round(usdtAmount * 1e18));
   const feeUsdtRaw = (usdtAmountRaw * BigInt(NATIVE_AGENT_ENTRY_FEE_BPS)) / 10000n;
-  const [realUsdtBalance, realBnbBalance] = await Promise.all([
+ const [realUsdtBalance, realBnbBalance] = await Promise.all([
     readClient.readContract({ address: USDT_BSC, abi: ERC20_ABI, functionName: 'balanceOf', args: [walletAddress] }),
     readClient.getBalance({ address: walletAddress }),
   ]);
   const problems = [];
   const totalUsdtNeeded = usdtAmountRaw + feeUsdtRaw;
-  if (realUsdtBalance < totalUsdtNeeded) {
-    problems.push(`This wallet's real USDT balance (${(Number(realUsdtBalance) / 1e18).toLocaleString()} USDT) is less than the ${usdtAmount.toLocaleString()} USDT trade plus the real 0.75% fee (${(Number(feeUsdtRaw) / 1e18).toFixed(4)} USDT).`);
+ if (realUsdtBalance < totalUsdtNeeded) {
+ problems.push(`This wallet's USDT balance (${(Number(realUsdtBalance) / 1e18).toLocaleString()} USDT) is less than the ${usdtAmount.toLocaleString()} USDT trade plus the real 0.75% fee (${(Number(feeUsdtRaw) / 1e18).toFixed(4)} USDT).`);
   }
-  if (realBnbBalance === 0n) {
-    problems.push("This wallet's real BNB balance is 0 — gas is needed to sign this, even with an atomic batch.");
+ if (realBnbBalance === 0n) {
+ problems.push("This wallet's BNB balance is 0, gas is needed to sign this, even with an atomic batch.");
   }
-  return { ok: problems.length === 0, problems, realUsdtBalance: Number(realUsdtBalance) / 1e18, realBnbBalance: Number(realBnbBalance) / 1e18 };
+ return { ok: problems.length === 0, problems, realUsdtBalance: Number(realUsdtBalance) / 1e18, realBnbBalance: Number(realBnbBalance) / 1e18 };
 }
 
 /**
- * Real, shared Native Agent runner for spot trading — re-quotes across
- * every real DEX right before executing (never trusts a quote that might
+ * Real, shared Native Agent runner for spot trading, re-quotes across
+ * every DEX right before executing (never trusts a quote that might
  * be seconds stale from the UI's own display pass), batches the real
  * 0.75% entry fee (in USDT, alongside the approve+swap, not a separate
- * BNB-conversion step) ahead of the real approve+swap, all through
- * whichever real DEX's router genuinely won this exact quote — in ONE
+ * BNB-conversion step) ahead of the approve+swap, all through
+ * whichever DEX's router genuinely won this exact quote, in ONE
  * executor.execute() call.
  */
 export async function runNativeSpotTrade(executor, { tokenAddress, usdtAmount, slippagePct = 1 }) {

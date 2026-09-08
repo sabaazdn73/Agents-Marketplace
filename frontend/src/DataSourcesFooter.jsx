@@ -1,8 +1,8 @@
 // DataSourcesFooter.jsx
 //
-// Small, standard "Powered by" attribution strip — real provider names +
-// real logos (each fetched directly from the provider's own domain), each
-// linking out to their real site. Shared by web + mobile. A logo that fails
+// Small, standard "Powered by" attribution strip, provider names +
+// logos (each fetched directly from the provider's own domain), each
+// linking out to their site. Shared by web + mobile. A logo that fails
 // to load just disappears (onError) rather than showing a broken-image icon.
 import React, { useState } from 'react';
 import { DATA_SOURCES } from './dataSources';

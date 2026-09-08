@@ -2,7 +2,7 @@
 #
 # Which agents can actually be hired with a drawable budget.
 #
-# This exists because deploying AgentBudgetEscrow created a real dead end:
+# This exists because deploying AgentBudgetEscrow created a dead end:
 # the contract went live, the UI offered budget mode for every agent, and
 # NO registered agent knows how to call draw(). A buyer could fund a budget
 # that nothing on earth could draw against, then pay gas to revoke it. The
@@ -13,14 +13,14 @@
 # and "this agent can use it" are different facts, and only the second one
 # should put a fund button in front of someone.
 #
-# An agent belongs here only on real evidence that it implements the draw
+# An agent belongs here only on evidence that it implements the draw
 # pattern. Today that is exactly one: our own reference implementation.
 # It is labelled as such everywhere it surfaces -- it is a worked example
 # of the pattern, NOT a third party who adopted it, and presenting one as
 # the other would be the same dishonesty as a fabricated review.
 #
-# When a real third-party agent implements draw(), it gets added here with
-# a note on how that was confirmed -- ideally a real draw observed on-chain
+# When a third-party agent implements draw(), it gets added here with
+# a note on how that was confirmed -- ideally a draw observed on-chain
 # from its own address, not a claim in its metadata.
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ _ADDRESS_ENV_VARS = ("BUDGET_AGENT_ADDRESSES", "REFERENCE_AGENT_ADDRESS")
 # The one entry Tnega itself provides. Labelled as a reference
 # implementation wherever it surfaces, since one worked example written by
 # us is not third-party adoption and must never read as if it were.
-REFERENCE_AGENT_LABEL = "Reference implementation — built by Tnega, not a third-party agent"
+REFERENCE_AGENT_LABEL = "Reference implementation, built by Tnega, not a third-party agent"
 REFERENCE_AGENT_WHAT = (
     "Runs a wallet due-diligence report using paid API quota, and draws from the budget "
     "to cover what each call costs. It exists to show the draw pattern working end to end."

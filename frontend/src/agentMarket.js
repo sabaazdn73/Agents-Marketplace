@@ -6,7 +6,7 @@
 // Multi-token, buyer's choice, NO swap: a creator can price the same agent in
 // several accepted tokens (one offer per token); the BUYER picks which token to
 // pay with. Native BNB is the NATIVE sentinel (paid via msg.value); ERC-20s
-// (real USDT + live $U) are approved + pulled. The contract address is read
+// (USDT + live $U) are approved + pulled. The contract address is read
 // from VITE_AGENT_MARKET_ADDRESS; until it's set the UI shows an honest "not
 // live on this network yet" state.
 
@@ -16,8 +16,8 @@ import { ERC8183_ADDRESSES } from '@altananetwork/sdk';
 
 export const REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'; // ERC-8004 AgentIdentity
 export const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'; // == contract NATIVE sentinel
-// Real BSC mainnet deployment (13 Aug 2026, tx 0xa94fca60…d522c26). Public,
-// permanent address — used as the default; VITE_AGENT_MARKET_ADDRESS can still
+// BSC mainnet deployment (13 Aug 2026, tx 0xa94fca60…d522c26). Public,
+// permanent address, used as the default; VITE_AGENT_MARKET_ADDRESS can still
 // override (e.g. pointing at a fork for testing).
 export const MARKET_ADDRESS = import.meta.env?.VITE_AGENT_MARKET_ADDRESS || '0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333';
 
@@ -79,7 +79,7 @@ export function splitByFee(priceRaw, feeBps) {
   return { fee, creatorGets: p - fee };
 }
 
-/** Live platform fee from feeBps() — never hardcoded. */
+/** Live platform fee from feeBps(), never hardcoded. */
 export function useFeeBps() {
   const publicClient = usePublicClient();
   const [feeBps, setFeeBps] = useState(null);
@@ -112,7 +112,7 @@ export function useAgentOwnership(agentIdStr) {
   return state;
 }
 
-/** Read every accepted token's offer for an agent — the buyer's token choices. */
+/** Read every accepted token's offer for an agent, the buyer's token choices. */
 export function useOffers(agentIdStr) {
   const publicClient = usePublicClient();
   const [offers, setOffers] = useState([]);
@@ -227,7 +227,7 @@ export function useCreatorWrites() {
 export const BUY_STEPS = ['approving', 'buying'];
 
 /** Buy/subscribe in a chosen token: native via msg.value, ERC-20 via approve+call.
- * Tracks the same real per-step state as useHireAgent (completedSteps/
+ * Tracks the same per-step state as useHireAgent (completedSteps/
  * skippedSteps/stepHashes) so BuyAccessPanel can drive an honest
  * StepChecklist instead of a single "Approving…/Confirming…" label. */
 export function useBuyAccess() {
@@ -255,8 +255,8 @@ export function useBuyAccess() {
     try {
       const fn = model === MODEL.SUBSCRIPTION ? 'subscribe' : 'buyOneTime';
       if (native) {
-        // Nothing to approve for native BNB — it's paid via msg.value on
-        // the same call, so this run genuinely never has an approve step.
+        // Nothing to approve for native BNB, it's paid via msg.value on
+ // the same call, so this run genuinely never has an approve step.
         setSkippedSteps(['approving']);
         setStep('buying');
         const hash = await writeAndConfirm('buying', { address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args: [BigInt(agentId), token], value: BigInt(priceRaw) });
@@ -282,10 +282,10 @@ export function useBuyAccess() {
 }
 
 // Honest, wallet-matched copy per step. {amount}/{symbol} are filled in by
-// buildBuyStepList from the real offer being purchased.
+// buildBuyStepList from the offer being purchased.
 const BUY_STEP_COPY = {
-  approving: { label: 'Allow the payment', description: "Giving permission to set aside up to {amount} {symbol} — this doesn't spend anything yet, it just unlocks the next step" },
-  buying: { label: 'Pay & unlock access', description: 'Final step — this pays {amount} {symbol} to unlock access' },
+  approving: { label: 'Allow the payment', description: "Giving permission to set aside up to {amount} {symbol}, this doesn't spend anything yet, it just unlocks the next step" },
+  buying: { label: 'Pay & unlock access', description: 'Final step, this pays {amount} {symbol} to unlock access' },
 };
 
 /** Builds the real, current step list for <StepChecklist/>, straight from
@@ -303,7 +303,7 @@ export function buildBuyStepList({ step, completedSteps, skippedSteps, stepHashe
       status,
       hash: stepHashes[key] || null,
       reason: key === 'approving' && status === 'skipped'
-        ? (symbol === 'BNB' ? 'Paying with BNB directly — no approval needed' : 'Already approved — skipped')
+        ? (symbol === 'BNB' ? 'Paying with BNB directly, no approval needed' : 'Already approved, skipped')
         : null,
       errorMessage: status === 'error' ? error : null,
     };

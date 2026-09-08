@@ -224,7 +224,7 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
           </a>
         </div>
 
-        {/* Two ways out, both real links. The sidebar is gone while this
+ {/* Two ways out, both links. The sidebar is gone while this
             page shows, so "Explore Tnega" is the intended exit and this is
             the backstop: a plain href that works even if the click handler
             or the animation never runs. */}

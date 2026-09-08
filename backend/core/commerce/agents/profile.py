@@ -1,12 +1,12 @@
 # agents/profile.py
 #
-# Collects what the purchase needs from the user. REAL in this pass.
+# Collects what the purchase needs from the user. in this pass.
 #
 # ASKS RATHER THAN GUESSES
 # ------------------------
 # The single most damaging thing this stage could do is invent a size. A
 # guessed size produces a cart that passes every downstream check and
-# arrives at someone's door in the wrong size -- a real cost, caused by a
+# arrives at someone's door in the wrong size -- a cost, caused by a
 # confident guess about something only the user knows.
 #
 # So the model's job here is DELIBERATELY NARROW: read the request, report

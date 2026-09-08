@@ -1,13 +1,13 @@
 // MyJobsPanel.jsx
 //
-// "My Agents" — every hire the connected wallet paid for, under EITHER
+// "My Agents", every hire the connected wallet paid for, under EITHER
 // funding model, so a user who just completed a hire has somewhere to find
-// it, see its real status, and act on it. Shared verbatim by web and mobile.
+// it, see its status, and act on it. Shared verbatim by web and mobile.
 //
 // TWO SOURCES, ON PURPOSE, BECAUSE THEY ARE GENUINELY DIFFERENT PLACES
 // --------------------------------------------------------------------
 // ERC-8183 jobs come from /api/my-jobs (a server-side Multicall3 scan,
-// reasoning below). Drawable budgets are NOT in our backend at all — the
+// reasoning below). Drawable budgets are NOT in our backend at all, the
 // only budget knowledge it has is core/budget_agents.py, a static registry
 // of which agents can be hired that way, not an index of who funded what.
 // So budgets are read straight from AgentBudgetEscrow by client address.
@@ -15,18 +15,18 @@
 // That split is why budget hires used to vanish from this screen entirely:
 // this panel asked the backend, and the backend had never heard of them.
 //
-// Real technical path (investigated 2026-08-18 before building, see
+// technical path (investigated 2026-08-18 before building, see
 // backend/core/agent_performance.py's docstring): there's no client-indexed
 // event any more than there's a provider-indexed one, so this reuses the
-// EXACT same approach already built for agent performance — scan the
+// EXACT same approach already built for agent performance, scan the
 // recent-window jobs server-side (Multicall3, cached, TTL'd) and index by
 // client too. A frontend-only on-chain scan was considered and rejected:
 // it would mean re-running the same ~1500-job Multicall3 scan from every
-// visitor's browser instead of once, server-side, shared across everyone —
-// strictly worse for both the RPC budget and load time, no real upside.
+// visitor's browser instead of once, server-side, shared across everyone,
+// strictly worse for both the RPC budget and load time, no upside.
 //
 // Per-job status/actions reuse JobStatusPanel verbatim, wired here to the
-// direct wagmi path (useJobActions.js), the only real hire path this
+// direct wagmi path (useJobActions.js), the only hire path this
 // product has (see docs/limitations.md for why the Altana session path
 // was removed 2026-09-03).
 

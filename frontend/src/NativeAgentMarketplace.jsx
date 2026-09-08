@@ -1,46 +1,46 @@
 // NativeAgentMarketplace.jsx
 //
-// Tnega's own "Native Agent Marketplace" — genuinely different from both
+// Tnega's own "Native Agent Marketplace", genuinely different from both
 // the third-party Marketplace (hiring a registered ERC-8004 agent) and
 // the existing "Ready-made Skills" (third-party protocol know-how pulled
 // verbatim from Altana's public registry, zero Tnega-designed logic,
 // zero fee). Every card here is a real, autonomous, multi-factor Tnega
-// agent: it evaluates real candidates itself and states its own real
+// agent: it evaluates candidates itself and states its own real
 // reasoning, rather than just handing the user a sorted list.
 //
-// First real agent built (2026-09-01): Staking, comparing the only two
-// BSC liquid-staking protocols this codebase can actually execute a
-// stake through (Lista DAO, Ankr) — see backend/adapters/native_staking.py
-// for the full real decision logic and backend/server.py's
+// First agent built (2026-09-01): Staking, comparing the only two
+// BSC liquid-staking protocols this codebase can execute a
+// stake through (Lista DAO, Ankr), see backend/adapters/native_staking.py
+// for the full decision logic and backend/server.py's
 // /api/native-agents/staking/recommendation for the live data this reads.
 //
 // Execution wallet, updated 2026-09-03: runs only through the user's own
-// connected wallet now — the Altana passkey option was removed. Decisive
+// connected wallet now, the Altana passkey option was removed. Decisive
 // finding: a full scan of the complete ERC-8183 job index found zero jobs
 // of any status ever completed through Altana's session path, anywhere in
 // this project, and this agent had no organic usage of its own yet to
 // weigh against that. See docs/limitations.md for the full finding.
 //
-// Second real agent built (2026-09-05): Trading, real spot buys of any
-// BSC token via PancakeSwap's own router — see pancakeswapSkill.js's own
-// "Trading Agent" section for the real risk-signal computation (price
-// impact, liquidity depth) and the real feasibility check confirming this
+// Second agent built (2026-09-05): Trading, spot buys of any
+// BSC token via PancakeSwap's own router, see pancakeswapSkill.js's own
+// "Trading Agent" section for the risk-signal computation (price
+// impact, liquidity depth) and the feasibility check confirming this
 // stays inside the simple, direct-wallet, single-transaction pattern
 // (unlike the investigated-and-rejected Avantis perpetuals concept).
 //
 // Lending/Borrowing, Perpetuals, and Web2 Agents + PayBox are real,
-// intentional "Coming Soon" placeholders — visible so the real, full
+// intentional "Coming Soon" placeholders, visible so the real, full
 // scope of the vision reads clearly, but none of the three is wired to
 // any execution path yet.
 //
 // Web2 Agents + PayBox (added 2026-09-10): a vision/roadmap card only,
-// no code behind it — see docs/future-tnega-paybox.md for the full real
+// no code behind it, see docs/future-tnega-paybox.md for the full real
 // research this summarizes (Anthropic's open-source Commerce Agents
 // blueprint, MoonPay's confirmed direct BSC support). Explicitly two
-// real parts of very different scope: a near-term-demonstrable Web2
+// parts of very different scope: a near-term-demonstrable Web2
 // shopping-agent + PayBox settlement concept, and a genuinely separate,
 // much larger "describe an agent in a prompt, get one built and wired to
-// payment automatically" platform — comparable in scope to BNB Agent
+// payment automatically" platform, comparable in scope to BNB Agent
 // Studio or Claude Code itself, not attempted here or anywhere in this
 // codebase.
 
@@ -58,7 +58,7 @@ import {
 import { getTokenMeta, getTradeQuote, getPriceTrend, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
 
 /** Real, human labels for the holder-risk fields Binance's Market API
- * can genuinely have no data for — used to say "no data for Snipers"
+ * can genuinely have no data for, used to say "no data for Snipers"
  * honestly instead of showing a fabricated 0%. */
 const HOLDER_FIELD_LABELS = {
   top10_holders_pct: 'Top 10 wallets',
@@ -156,7 +156,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       const pre = await preflight(getMainnetReadClient(), directExecutor.walletAddress, amountNum);
       if (!pre.ok) {
         setStep('error');
-        setError2(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+        setError2(`Issue with this wallet, checked before spending a attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
       setStep('executing');
@@ -165,7 +165,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       setStep('done');
     } catch (e) {
       setStep('error');
-      setError2(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+ setError2(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
 
@@ -234,7 +234,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className={`p-3 rounded-xl border text-left ${mutedBorder}`}>
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Wallet size={14} style={{ color: accent }} /> Your connected wallet</div>
               <p className="text-[11px] opacity-60 mb-2">
-                {directExecutor ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly. You sign this yourself, right then.` : 'Connect a wallet to continue — you sign this yourself, right then.'}
+                {directExecutor ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly. You sign this yourself, right then.` : 'Connect a wallet to continue, you sign this yourself, right then.'}
               </p>
               {!directExecutor && <ConnectButton />}
             </div>
@@ -271,11 +271,11 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
-/** Real, debounced quote — re-reads real, live quotes from EVERY DEX this
+/** Real, debounced quote, re-reads real, live quotes from EVERY DEX this
  * agent compares (see tradingAgent.js) 400ms after the user stops typing/
- * changing the amount, not on every keystroke. Real, honest states: idle
- * (nothing valid entered yet), loading, error (a real, live read failed —
- * e.g. no real, tradeable route on any compared DEX), or a real result. */
+ * changing the amount, not on every keystroke. Real, states: idle
+ * (nothing valid entered yet), loading, error (a real, live read failed,
+ * e.g. no real, tradeable route on any compared DEX), or a result. */
 function useTradeQuote(tokenAddress, usdtAmount) {
   const [state, setState] = useState({ status: 'idle', meta: null, quote: null, trend: null, error: null });
   useEffect(() => {
@@ -290,10 +290,10 @@ function useTradeQuote(tokenAddress, usdtAmount) {
       try {
         const client = getMainnetReadClient();
         const usdtAmountRaw = BigInt(Math.round(amountNum * 1e18));
-        // Real, small price-trend context (DefiLlama, no key) fetched
-        // alongside the real quote — never lets a trend-fetch failure
+ // Real, small price-trend context (DefiLlama, no key) fetched
+        // alongside the quote, never lets a trend-fetch failure
         // block the trade itself; getPriceTrend already returns null
-        // rather than throwing on any real failure.
+        // rather than throwing on any failure.
         const [meta, quote, trend] = await Promise.all([
           getTokenMeta(client, tokenAddress),
           getTradeQuote(client, tokenAddress, usdtAmountRaw),
@@ -326,9 +326,9 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   const hasWarnings = (quote?.warnings?.length || 0) > 0;
   const canRun = quoteStatus === 'ready' && quote && (!hasWarnings || ackRisk);
 
-  // Real, honest reset: a genuinely different token/amount invalidates
-  // any earlier risk acknowledgment — never carries a stale "I accept
-  // this risk" past the trade it was actually shown for.
+ // Real, reset: a genuinely different token/amount invalidates
+  // any earlier risk acknowledgment, never carries a stale "I accept
+ // this risk" past the trade it was shown for.
   useEffect(() => { setAckRisk(false); }, [tokenAddress, usdtAmount]);
 
   const formattedOut = (() => {
@@ -352,7 +352,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       const pre = await spotTradePreflight(getMainnetReadClient(), directExecutor.walletAddress, amountNum);
       if (!pre.ok) {
         setStep('error');
-        setError2(`Issue with this wallet, checked before spending a real attempt on it:\n${pre.problems.join('\n')}`);
+        setError2(`Issue with this wallet, checked before spending a attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
       setStep('executing');
@@ -361,7 +361,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       setStep('done');
     } catch (e) {
       setStep('error');
-      setError2(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
+ setError2(e.realReason ? `${e.realReason}\n\n(Raw: ${e.message || String(e)})` : (e.message || String(e)));
     }
   };
 
@@ -375,7 +375,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
         <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
       </div>
       <p className="text-xs opacity-60 mb-4">
-        Compares live quotes for any BSC token across PancakeSwap, Biswap and ApeSwap, and spot-buys through whichever genuinely offers the best price, with a real price-impact and liquidity-depth check shown before you sign, non-custodially, through your own connected wallet.
+ Compares live quotes for any BSC token across PancakeSwap, Biswap and ApeSwap, and spot-buys through whichever genuinely offers the best price, with a price-impact and liquidity-depth check shown before you sign, non-custodially, through your own connected wallet.
       </p>
 
       {!open && (
@@ -413,8 +413,8 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className="p-3 rounded-xl border border-indigo-500/25 bg-indigo-500/5 text-[11px] text-indigo-700 dark:text-indigo-400 space-y-1">
               <div className="font-semibold mb-1">
                 {quote.comparedCount > 1
-                  ? `Why ${quote.winner.label}: real, live quotes checked on ${quote.comparedCount} DEXs — ${quote.winner.label} genuinely offered the best real price.`
-                  : `Only ${quote.winner.label} had real, meaningful liquidity for this pair — the others checked (${quote.allQuotes.filter((q) => q.id !== quote.winner.id).map((q) => q.label).join(', ')}) didn't, shown honestly rather than a fabricated comparison.`}
+ ? `Why ${quote.winner.label}: real, live quotes checked on ${quote.comparedCount} DEXs, ${quote.winner.label} genuinely offered the best price.`
+ : `Only ${quote.winner.label} had real, meaningful liquidity for this pair, the others checked (${quote.allQuotes.filter((q) => q.id !== quote.winner.id).map((q) => q.label).join(', ')}) didn't, shown honestly rather than a fabricated comparison.`}
               </div>
               {quote.allQuotes.map((q) => (
                 <div key={q.id} className="flex justify-between opacity-80">
@@ -422,7 +422,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
                   <span className="font-mono">
                     {q.amountOut > 0n && meta
                       ? (Number(q.amountOut) / 10 ** (meta.decimals ?? 18)).toLocaleString(undefined, { maximumFractionDigits: 6 })
-                      : 'no real route'}
+                      : 'no route'}
                   </span>
                 </div>
               ))}
@@ -439,9 +439,9 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             </div>
           )}
 
-          {/* Real, small price-trend CONTEXT only — not a recommendation,
-              not technical analysis. Shown only when DefiLlama genuinely
-              tracks this token; a real "not covered" case (trend===null)
+ {/* Real, small price-trend CONTEXT only, not a recommendation,
+ not technical analysis. Shown only when DefiLlama genuinely
+ tracks this token; a real "not covered" case (trend===null)
               shows nothing rather than a fabricated 0%. */}
           {quoteStatus === 'ready' && trend && (
             <div className={`p-2.5 rounded-lg border text-[11px] opacity-70 flex items-center justify-between ${mutedBorder}`}>
@@ -450,19 +450,19 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
                 <span className={`font-mono font-semibold ${trend.pct24h >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
                   {Math.abs(trend.pct24h).toFixed(2)}%
                 </span>{' '}
-                over 24h — context only, not a recommendation.
+                over 24h, context only, not a recommendation.
               </span>
               <span className="opacity-50 shrink-0 ml-2">via {trend.source}</span>
             </div>
           )}
 
-          {/* Real holder composition from Binance's own Web3 Market API —
-              a genuinely independent second risk source, since every
+ {/* holder composition from Binance's own Web3 Market API,
+ a genuinely independent second risk source, since every
               signal above is derived from the same DEX pair reserves and
               so can describe the trade but never who holds the token.
-              Shows only the fields Binance genuinely returns for this
+ Shows only the fields Binance genuinely returns for this
               token and names the ones it has no data for, rather than
-              rendering a missing value as a reassuring 0% — the same
+              rendering a missing value as a reassuring 0%, the same
               discipline as the trend block above. */}
           {quoteStatus === 'ready' && quote?.holderRisk && (
             <div className={`p-2.5 rounded-lg border text-[11px] space-y-1.5 ${mutedBorder}`}>
@@ -493,7 +493,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
               {(quote.holderRisk.unavailable_fields?.length || 0) > 0 && (
                 <div className="opacity-50">
                   No data for: {quote.holderRisk.unavailable_fields
-                    .map((f) => HOLDER_FIELD_LABELS[f] || f).join(', ')} — genuinely
+ .map((f) => HOLDER_FIELD_LABELS[f] || f).join(', ')}, genuinely
                   unreported for this token, not measured as zero.
                 </div>
               )}
@@ -507,7 +507,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
               ))}
               <label className="flex items-center gap-1.5 pt-1 cursor-pointer">
                 <input type="checkbox" checked={ackRisk} onChange={(e) => setAckRisk(e.target.checked)} />
-                I understand this trade's real risk and want to continue anyway.
+ I understand this trade's risk and want to continue anyway.
               </label>
             </div>
           )}
@@ -525,7 +525,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
             <div className={`p-3 rounded-xl border text-left ${mutedBorder}`}>
               <div className="flex items-center gap-2 text-sm font-semibold mb-1"><Wallet size={14} style={{ color: accent }} /> Your connected wallet</div>
               <p className="text-[11px] opacity-60 mb-2">
-                {directExecutor ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly. You sign this yourself, right then.` : 'Connect a wallet to continue — you sign this yourself, right then.'}
+                {directExecutor ? `Uses ${directExecutor.walletAddress.slice(0, 6)}...${directExecutor.walletAddress.slice(-4)} directly. You sign this yourself, right then.` : 'Connect a wallet to continue, you sign this yourself, right then.'}
               </p>
               {!directExecutor && <ConnectButton />}
             </div>
@@ -597,37 +597,37 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
         <TradingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
         <ComingSoonAgentCard icon={TrendingUp} title="Lending / Borrowing Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
           blurb="Autonomous collateral and health-factor management across Venus and Aave. Needs its own dedicated liquidation-risk UI, so it's being built as its own complete piece, not bundled in half-finished." />
-        {/* Real finding, 2026-09-04: checked Avantis's own docs + Base's
+ {/* finding, 2026-09-04: checked Avantis's own docs + Base's
             official MCP plugin docs directly. The earlier "no bridge from
             BSC" blocker is stale -- Base is a standard chain a connected
-            wallet can just switch to. The REAL blocker found instead:
+ wallet can just switch to. The blocker found instead:
             Avantis trades aren't self-encodable (calldata is built via a
             live call to their own tx-builder.avantisfi.com, not a known,
             fixed ABI) and don't settle atomically (a signed order fills
-            asynchronously, "usually within seconds," and genuinely
+ asynchronously, "usually within seconds," and genuinely
             expires unfilled after ~15-30s) -- a materially different,
             more complex integration shape than every other Native Agent
             here, not a smaller version of the same pattern. Not built;
-            copy below states this honestly instead of the old, now-wrong
+ copy below states this honestly instead of the old, now-wrong
             reasoning. */}
         <ComingSoonAgentCard icon={Bot} title="Perpetuals Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="Investigated (2026-09-04): Avantis (Base) trades require a live call to their own off-chain calldata-builder API and settle asynchronously, filling within seconds or expiring unfilled -- a real, structurally different pattern than the direct, atomic, single-transaction agents here. Not built; a plain positions dashboard remains a real, smaller, honest option if wanted later." />
+ blurb="Investigated (2026-09-04): Avantis (Base) trades require a live call to their own off-chain calldata-builder API and settle asynchronously, filling within seconds or expiring unfilled -- a real, structurally different pattern than the direct, atomic, single-transaction agents here. Not built; a plain positions dashboard remains a real, smaller, option if wanted later." />
         {/* Tokenized RWA data feasibility, checked live 2026-09-02 against
-            CoinGecko's real API (no key, public tier): /rwas/list,
+ CoinGecko's API (no key, public tier): /rwas/list,
             /rwas/markets, /rwas/{id}, /rwas/issuers/list, and
-            /rwas/issuers/{id} all returned 200 with real data (647 tracked
+ /rwas/issuers/{id} all returned 200 with data (647 tracked
             assets, 34 issuers) with no API key at all. Only /tickers and
-            /market_chart (historical) returned a real 401, "exclusive to
-            Basic plan or above" — confirmed directly, not assumed. A future
+ /market_chart (historical) returned a real 401, "exclusive to
+            Basic plan or above", confirmed directly, not assumed. A future
             comparison agent (asset name/price/market cap/issuer) is
-            genuinely buildable on the free tier; only deep history/venue-
+ genuinely buildable on the free tier; only deep history/venue-
             level tickers would need a paid upgrade, and those are
             secondary, not blockers for a useful first version. */}
         <ComingSoonAgentCard icon={Building2} title="Tokenized Assets Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="Discover and compare tokenized real-world assets, stocks, commodities, pre-IPO shares, bridging crypto-native users into traditional markets and back. Data source checked and free-tier feasible; not built yet." />
-        {/* Vision/roadmap card only — no code behind this one, unlike
+ blurb="Discover and compare tokenized real-world assets, stocks, commodities, pre-IPO shares, bridging crypto-native users into traditional markets and back. Data source checked and free-tier feasible; not built yet." />
+        {/* Vision/roadmap card only, no code behind this one, unlike
             Staking/Trading above. See this file's own top-of-file comment
-            and docs/future-tnega-paybox.md for the full real research. */}
+            and docs/future-tnega-paybox.md for the full research. */}
         <ComingSoonAgentCard icon={ShoppingBag} title="Web2 Agents + PayBox" accent={accent} surface={surface} mutedBorder={mutedBorder}
           learnMoreHref="/docs/future-tnega-paybox"
           blurb="An agent that decides, pays on-chain, and delivers to your door. Web2 shopping agents, like Anthropic's open-source Commerce Agents blueprint, already build a complete tailored cart (age, size, culture, event) and then stop at checkout without ever paying. PayBox connects that last step to on-chain settlement, with MoonPay's direct BSC support as the near-term rail and other chains later. Describing an agent in a prompt and having one built and wired to payment automatically is a separate, much larger project, not scoped here." />
