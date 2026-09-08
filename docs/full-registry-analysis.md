@@ -2,6 +2,51 @@
 
 The curated marketplace previously drew from `known_agents`, a small, live-fetched, diversity-capped snapshot. This pipeline builds a much larger, continuously-growing dataset separately, for analysis and reporting, and, as of 2026-08-28, also as the live marketplace's own background-refreshed source (see [Wiring into the live marketplace](#wiring-into-the-live-marketplace-2026-08-28) below), never a one-off report divorced from the product.
 
+
+## The offset ceiling, and the move to cursor traversal (2026-09-08)
+
+8004scan now rejects any `offset` above 10,000 outright:
+
+```
+HTTP 422
+{"detail":[{"type":"less_than_equal","loc":["query","offset"],
+  "msg":"Input should be less than or equal to 10000",
+  "input":"10400","ctx":{"le":10000}}]}
+```
+
+This is a different thing from the deep-offset slowness recorded elsewhere
+on this page. That was latency, and retrying eventually worked. This is a
+validation error, so no retry budget reaches past agent 10,000 on any
+filter. Every offset-paginated path in this project was reading nothing
+beyond that point.
+
+Their own parameter description names the replacement: "Offset for shallow
+pagination (maximum 10000). Use next_cursor for full traversal." The list
+response already carries `next_cursor` and `has_more`.
+
+The cursor is only honoured alongside certain sorts. With a `chain_id` it
+supports `token_id` sorting, and without one it supports `created_at`. So
+the per-chain walk uses `token_id`, which cannot shift underneath a
+traversal the way a timestamp can, and the unfiltered multi-chain walk uses
+`created_at`.
+
+Both ingest loops were rewritten onto it, and `retry_skipped_offsets` was
+retired. That queue held 8,751 offsets between 40,900 and 1,655,700, some
+retried more than 600 times each, every one of them now permanently
+impossible. It was backed up and cleared.
+
+One measured improvement came with the rewrite. The unfiltered walk now
+passes `is_testnet=false`, which is the same result set it always produced,
+because every testnet row was already discarded client-side against
+`TARGET_CHAIN_IDS`. Measured live over 800 agents: 175 of 800 were on a
+target chain without the filter, 800 of 800 with it, and the traversal
+shrinks from 821,273 agents to 499,459.
+
+Cursor traversal is also faster in practice. A complete non-BSC backfill of
+eight chains, 41,464 agents, ran at roughly 1.5 seconds per 100-agent page
+with the chains walked in parallel, against an offset walk that had been
+timing out entirely at depth.
+
 ## Two corrections, acted on (2026-08-28)
 
 1. Feedback is non-trivial in aggregate; an earlier "feedback doesn't exist" framing was wrong. 8004scan's own live `/networks` page reports 557,074+ feedbacks platform-wide, including 11,719 feedbacks on BSC and 441,569 on Base (Base's feedback density, feedbacks per agent, is roughly 200x BSC's). The earlier claim ("zero feedback exists for any BSC agent") came from this project's own small, diversity-capped sample finding none; a correct result from that sample, but wrongly generalized into a platform-wide claim. See [Feedback distribution](#feedback-distribution) below for what the much larger full-registry sample shows, and [Known Limitations](limitations.md) for the corrected page.

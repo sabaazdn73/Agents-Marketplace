@@ -2,6 +2,41 @@
 
 Both Render services (the web service and the background worker) are OOM-killed by the platform on a 512Mi container cap. As of 2026-09-05 this is a known, accepted condition, not an open bug. Render restarts automatically, the gap is seconds, and the marketplace stays up. This page records why the obvious fixes were rejected, so nobody re-derives it or retries something already measured and ruled out.
 
+
+## The Atlas quota is metered on dataSize, not storageSize (2026-09-08)
+
+Worth its own note here because a headroom check got this wrong and blocked
+writes on the whole cluster.
+
+MongoDB's `dbStats` reports both `storageSize`, the compressed size of the
+files on disk, and `dataSize`, the logical uncompressed size. Atlas free
+tier meters `dataSize + indexSize`. WiredTiger compression roughly halves
+the file size on this data, so the two readings are far apart:
+
+| Reading | Value at the time |
+|---|---|
+| storageSize + indexSize | 256.3 MB |
+| dataSize + indexSize | 511.5 MB |
+
+Atlas reported "using 512 MB of 512 MB" and refused every write, from the
+backfill and from production alike, while a check built on `storageSize`
+was still reporting more than 200 MB free. A quota check on this cluster
+has to read `dataSize + indexSize` or it is not measuring the thing that
+blocks writes.
+
+Recovering it needed deletes, which Atlas still permits over quota. Two
+were made:
+
+| Action | Freed |
+|---|---|
+| `known_agents` cut from 160,912 to the 15,000 actually served | 127.1 MB |
+| `full_registry_skipped_offsets` cleared, 8,759 dead entries | 2.7 MB |
+
+The first was not really a cost. `SERVE_LIMIT` has been 15,000 for weeks, so
+everything past the survivor window was stored, indexed and metered without
+ever being served. The cut used the same rule `get_stored_agents` uses to
+select survivors, so the served list is unchanged.
+
 ## The arithmetic
 
 This is the whole problem, and it is not subtle:

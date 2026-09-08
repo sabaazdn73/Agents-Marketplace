@@ -24,10 +24,17 @@ is visible at a glance and each says whether it is live.
 | Yield Optimisation | Staking agent, relabelled | Live, executes |
 | Health Factor Monitoring | HealthFactorCard | Live, read only |
 | Rebalancing | RebalancingCard | Live plan, signing not wired |
-| Grid Trading | Coming soon card | Not built |
+| Grid Trading | GridTradingCard | Live, executes |
 
 Yield Optimisation is the Staking agent under the category name rather than
 a duplicate card.
+
+All four render as one uniform set: a title row each, expanding one opens a
+panel with that category's detail, one open at a time. The panels mount on
+first open and are then only hidden, never unmounted, so opening one does
+not restart a chain read in another and a half-filled form survives being
+navigated away from. Verified in a browser: twelve open and close cycles
+across the four panels produced zero additional RPC calls.
 
 ## Yield Optimisation (Staking)
 
@@ -162,34 +169,73 @@ had a direct pool.
 
 ## Grid Trading
 
-Not built. The card is present from day one and states the reason, which is
-that a grid that refills as orders fill needs something running between
-visits, and this backend has no scheduler.
+`frontend/src/gridTrading.js` and `GridTradingCard.jsx`. You set a price
+range, a number of levels and a size per level, see every order that will be
+placed, and sign once.
 
-The intended shape, if it is built, is different from that and does not need
-one: a single batched transaction placing every level of the grid at once
-through the EIP-5792 path the app already uses, so the person sets range,
-levels and size, sees every order, signs once, and the orders sit as limit
-orders. That is a grid placed once rather than refilled.
+Each level is a PancakeSwap V3 range order: a concentrated liquidity
+position minted entirely on one side of the current price, which rests until
+price crosses it. That is what makes one signature possible. A range order
+is a transaction rather than an off-chain signed order, so N levels batch
+into one `wallet_sendCalls` through the EIP-5792 path the hire flow already
+uses. A wallet without batching signs the same calls one after another and
+gets the same grid.
 
-The primitive that would carry it on BSC was checked live. PancakeSwap's
-Orbs-based limit orders are deprecated per PancakeSwap's own documentation,
-and the replacement is described as fee-earning limit orders on PancakeSwap
-Infinity, with BNB Chain listed as a supported chain but no contract named.
-What is verifiable on-chain today is PancakeSwap V3 range orders: the
-NonfungiblePositionManager at
-`0x46A15B0b27311cedF172AB29E4f4766fbE7F4364` (name "Pancake V3 Positions
-NFT-V1", factory `0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865`), and the
-WBNB/USDT 0.05% pool at `0x36696169C63e42cd08ce11f5deeBbCeBae652050`. A
-range order is an on-chain mint call, so unlike an off-chain signed order
-protocol it can be batched.
+Contracts, all confirmed on live BSC before any of it was written:
 
-Two caveats that would have to be on the card, not buried: a range order
-fills partially across a band rather than at one price, and it is
-one-directional.
+| Piece | Address |
+|---|---|
+| NonfungiblePositionManager | `0x46A15B0b27311cedF172AB29E4f4766fbE7F4364` |
+| V3 factory | `0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865` |
+| WBNB/USDT 0.05% pool | `0x36696169C63e42cd08ce11f5deeBbCeBae652050` |
 
-Nothing above is built. It is recorded here so the next person does not
-repeat the search.
+The pool reports `token0` USDT, `token1` WBNB, fee 500, tick spacing 10.
+
+### The tick direction is inverted, and it is not intuitive
+
+This is the part that is easy to get backwards, so it was verified against
+the pool rather than reasoned about. A V3 pool prices `token1` in `token0`,
+and here `token0` is the stablecoin, so the pool's own price is WBNB per
+USDT, the reciprocal of the BNB price a person reads.
+
+A higher tick therefore means more WBNB per USDT, which means BNB is
+cheaper. So the two sides land opposite to where naive reading puts them:
+
+| Intent | Where the band sits | What it holds |
+|---|---|---|
+| Buy BNB below spot | ticks above the current tick | USDT only |
+| Sell BNB above spot | ticks below the current tick | WBNB only |
+
+Live confirmation on 2026-09-08: current tick -66227, implying 0.0013302791
+WBNB per USDT, so BNB at 751.72 USDT. Computing `1.0001^tick` reproduced the
+sqrtPrice figure to within 0.0002%.
+
+A level too close to spot cannot rest on one side, because its band would
+straddle the current tick and the position would hold both tokens, which is
+a swap rather than an order. Those levels are reported as skipped with that
+reason rather than quietly moved somewhere else.
+
+### The two caveats, which are on the card
+
+A range order fills gradually as price crosses its band, not all at once at
+a single price. And it is one directional: a sell that fills becomes USDT
+and stays there, it does not turn itself back into a buy. Placing the grid
+again is what resets it.
+
+Both are properties of the instrument rather than gaps in the
+implementation, and stating them is what makes the label accurate. While an
+order waits it is liquidity in the 0.05% pool, so it earns the pool fee.
+
+### What was checked
+
+29 checks over the tick maths and the batch assembly, run against the live
+pool's own numbers. They confirm that buy bands sit entirely above the
+current tick and sell bands entirely below it, that every band lands on the
+pool's tick spacing, that each mint is single sided, that no two levels
+share a band, that approvals always precede the mints that spend against
+them, and that the approved totals equal the sum of the mints. Ranges that
+cannot produce a resting order are refused with a reason rather than
+adjusted.
 
 ## Other native agents
 

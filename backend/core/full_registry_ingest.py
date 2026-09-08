@@ -123,7 +123,6 @@ reasoning.
 
 from __future__ import annotations
 
-import asyncio
 import time
 
 from pymongo import UpdateOne
@@ -236,7 +235,10 @@ async def _get_progress(doc_id: str = PROGRESS_DOC_ID) -> dict:
     if doc:
         return doc
     return {
-        "_id": doc_id, "next_offset": 0, "total_ingested": 0,
+        # `cursor` replaced `next_offset` on 2026-09-08 when 8004scan
+        # capped offset at 10,000. next_offset is kept in the shape so an
+        # existing checkpoint still loads, but nothing reads it any more.
+        "_id": doc_id, "cursor": None, "next_offset": 0, "total_ingested": 0,
         "total_server_reported": None, "started_at": None, "last_run_at": None,
         "completed_at": None, "last_error": None,
     }
@@ -314,119 +316,61 @@ async def get_skipped_offsets_summary() -> dict:
 
 
 async def retry_skipped_offsets(api_key: str, max_seconds: float = 20.0) -> dict:
-    """Real, bounded attempt to recover previously-skipped pages (oldest
-    first), called automatically at the start of every real
-    run_ingest_batch (see below) so every real 6-hourly cycle gives
-    8004scan's own API another chance to have recovered at this
-    depth, with zero extra scheduling/endpoints needed. A success
-    upserts that page's agents into full_agent_registry exactly like
-    the main forward scan does, then DELETES the skip record (it's no
-    longer a gap). A failure just updates the existing record's
-    skip_count/last_error and moves on, never blocks or re-raises, since
-    a still-failing page here is expected, not a new problem."""
-    db = get_db()
-    docs = await db[SKIPPED_OFFSETS_COLLECTION].find(
-        {}, sort=[("first_skipped_at", 1)],
-    ).to_list(length=None)
+    """Retired 2026-09-08. Kept so existing callers still work.
 
-    t0 = time.time()
-    recovered = 0
-    still_failing = 0
-    agents_recovered = 0
-    for doc in docs:
-        if time.time() - t0 > max_seconds:
-            break
-        offset = doc["_id"]
-        try:
-            agents, _total, _raw_len = await bsc.list_agents_for_chains(
-                api_key, TARGET_CHAIN_IDS, offset=offset, limit=PAGE_SIZE,
-                timeout=REQUEST_TIMEOUT, max_retries=2, # lighter retry here, the main loop's own retry already ran once for this exact offset before it ever landed here
-            )
-        except Exception as e:
-            still_failing += 1
-            await _record_skipped_offset(offset, f"{type(e).__name__}: {e}")
-            continue
+    Every entry this ever queued is an offset above 10,000, and 8004scan now
+    answers those with HTTP 422 rather than serving them, so retrying is
+    guaranteed to fail. The queue held 8,751 offsets between 40,900 and
+    1,655,700, some retried more than 600 times each, and it was cleared.
 
-        if agents:
-            ops = []
-            for a in agents:
-                real_id = a.get("id")
-                if not real_id:
-                    continue
-                d = dict(a)
-                d["_id"] = real_id
-                d["_ingested_at"] = time.time()
-                ops.append(d)
-            if ops:
-                await db[FULL_REGISTRY_COLLECTION].bulk_write(
-                    [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
-                    ordered=False,
-                )
-                agents_recovered += len(ops)
-        await db[SKIPPED_OFFSETS_COLLECTION].delete_one({"_id": offset})
-        recovered += 1
-        print(f"[full_registry_ingest] RECOVERED previously-skipped offset {offset} "
-              f"({len(agents)} agents, was skipped {doc.get('skip_count', 1)}x)")
-
-    return {"recovered": recovered, "still_failing": still_failing,
-            "agents_recovered": agents_recovered, "elapsed_seconds": round(time.time() - t0, 1)}
-
+    Coverage past the offset ceiling now comes from cursor traversal, which
+    has no depth limit at all. See list_agents_cursor in adapters/bsc.py.
+    """
+    return {
+        "retried": 0, "recovered": 0, "still_failing": 0,
+        "note": "offset retries are retired: 8004scan caps offset at 10,000 "
+                "and the ingest now walks by cursor instead",
+    }
 
 async def run_ingest_batch(
     api_key: str, max_seconds: float = 600.0, max_pages: int | None = None,
     concurrency: int = INGEST_CONCURRENCY,
 ) -> dict:
-    """Real, resumable ingestion batch, fetches pages starting from
-    the last checkpoint, upserts every agent matching
-    TARGET_CHAIN_IDS into `full_agent_registry` (tagged by its own real
-    chain_id), and stops after `max_seconds` (or `max_pages`, or reaching
-    the end of the registry). Returns a summary of what THIS
-    batch actually did.
+    """The shared multi-chain scan, walked by CURSOR.
 
-    Real, concurrent fetching (2026-08-29), see INGEST_CONCURRENCY's own
-    docstring for the real, live-measured evidence behind this. Pages are
-    fetched `concurrency` at a time via a real, live-parallel window, and
-    each window's results are still processed strictly IN OFFSET
-    ORDER, one at a time, `next_offset` only advances past a page once
-    it's been either successfully upserted OR recorded as a real, logged
-    skip (see below), never silently, out of order.
+    Rewritten 2026-09-08 for the same reason as the single-chain loop:
+    8004scan now caps offset at 10,000 and answers anything beyond it with
+    HTTP 422. This scan used to walk the whole unfiltered registry by
+    offset, so past that point it was reading nothing at all.
 
-    fix (2026-09-02, live incident, see SKIPPED_OFFSETS_COLLECTION's
-    own docstring for the full investigation): a page that still
-    fails after its own internal retry budget (6 attempts) no longer
-    stops the whole batch forever. It's SKIPPED, checkpoint advances past
-    it, a clear log line is printed, and it's recorded in
-    full_registry_skipped_offsets for automatic later retry (this
-    function calls retry_skipped_offsets itself, first, every real
-    invocation), bounded by MAX_NEW_SKIPS_PER_BATCH so a genuine, broad
-    8004scan outage still stops the batch honestly (stopped_reason) rather
-    than skipping through it silently at scale. This replaces the
-    original, stricter "one failure stops the whole window, no data lost,
-    no forward progress either" behavior, which is exactly what let a
-    single persistently-flaky depth stall ingestion for ~70 real
-    hours across 13 consecutive scheduled runs before this fix."""
+    This walk passes no chain_id, and per 8004scan's spec a cursor without
+    chain_id is only supported alongside created_at sorting, so that is the
+    sort here. It keeps the original page-mixing idea: one unfiltered pass
+    picks up every chain in TARGET_CHAIN_IDS from the same requests rather
+    than one full scan per chain.
+
+    The concurrency parameter is now accepted and ignored. A cursor walk is
+    serial by construction, because each page's cursor comes from the page
+    before it. Concurrency across chains is available to the per-chain loop
+    instead, and it is where the parallelism went.
+
+    The skipped-offset machinery is gone with the offsets. A page that fails
+    after its retry budget now ends the batch with a stated reason and an
+    intact cursor, which the next run resumes from. There is nothing to skip
+    past, because there is no numbering to skip within.
+    """
     db = get_db()
     progress = await _get_progress()
     if progress.get("started_at") is None:
         progress["started_at"] = time.time()
 
-    # Real, automatic recovery attempt, every invocation gives
-    # previously-skipped pages a bounded chance to succeed now, before any
-    # new forward progress this call makes. A small, fixed sub-budget
-    # (not carved out of max_seconds), this is deliberately allowed to
-    # add a little wall time on top, since it's the one bounded thing
-    # standing between a skip and it being retried at all.
-    retry_result = await retry_skipped_offsets(api_key, max_seconds=15.0)
-
-    offset = progress["next_offset"]
+    cursor = progress.get("cursor")
     pages_done = 0
     agents_this_batch = 0
-    by_chain_this_batch: dict[int, int] = {}
-    pages_skipped_this_batch = 0
-    t0 = time.time()
-    reached_end = False
-    stopped_early = False
+    by_chain_this_batch: dict = {}
     stopped_reason = None
+    reached_end = False
+    t0 = time.time()
 
     while True:
         if time.time() - t0 > max_seconds:
@@ -434,110 +378,67 @@ async def run_ingest_batch(
         if max_pages is not None and pages_done >= max_pages:
             break
 
-        window = concurrency
-        if max_pages is not None:
-            window = min(window, max_pages - pages_done)
-        window_offsets = [offset + i * PAGE_SIZE for i in range(window)]
-        results = await asyncio.gather(
-            *[
-                bsc.list_agents_for_chains(
-                    api_key, TARGET_CHAIN_IDS, offset=o, limit=PAGE_SIZE,
-                    timeout=REQUEST_TIMEOUT, max_retries=6,
-                )
-                for o in window_offsets
-            ],
-            return_exceptions=True,
-        )
-
-        for i, result in enumerate(results):
-            page_offset = window_offsets[i]
-
-            if isinstance(result, Exception):
-                error_str = f"{type(result).__name__}: {result}"
-                if pages_skipped_this_batch >= MAX_NEW_SKIPS_PER_BATCH:
-                    # safety ceiling hit, stop honestly instead of
-                    # skipping further, in case this is a genuine, broad
-                    # 8004scan outage rather than this-depth flakiness.
-                    stopped_reason = (f"hit MAX_NEW_SKIPS_PER_BATCH ({MAX_NEW_SKIPS_PER_BATCH}) at "
-                                       f"offset {page_offset}: {error_str}")
-                    progress["last_error"] = stopped_reason[:300]
-                    progress["last_run_at"] = time.time()
-                    await _save_progress(progress)
-                    stopped_early = True
-                    break
-
-                print(f"[full_registry_ingest] offset {page_offset} failed after internal retries, "
-                      f"SKIPPING (recorded for automatic later retry): {error_str}")
-                await _record_skipped_offset(page_offset, error_str)
-                pages_skipped_this_batch += 1
-
-                offset = page_offset + PAGE_SIZE
-                pages_done += 1
-                progress["next_offset"] = offset
-                progress["last_run_at"] = time.time()
-                progress["last_error"] = f"offset {page_offset} skipped: {error_str}"[:300]
-                await _save_progress(progress)
-                continue
-
-            agents, total, raw_len = result
-            progress["total_server_reported"] = total
-            if agents:
-                ops = []
-                for a in agents:
-                    real_id = a.get("id")
-                    if not real_id:
-                        continue
-                    doc = dict(a)
-                    doc["_id"] = real_id
-                    doc["_ingested_at"] = time.time()
-                    ops.append(doc)
-                    cid = a.get("chain_id")
-                    by_chain_this_batch[cid] = by_chain_this_batch.get(cid, 0) + 1
-                if ops:
-                    # bug found and fixed (2026-08-28): a full
-                    # ReplaceOne here silently WIPED any service_status/
-                    # category a prior analysis pass
-                    # (full_registry_analysis.py) had already written for
-                    # an agent. fix: $set only the fresh raw-listing
-                    # fields this page actually has, leaving any existing
-                    # analysis fields untouched, a merge, not a
-                    # silent overwrite.
-                    await db[FULL_REGISTRY_COLLECTION].bulk_write(
-                        [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
-                        ordered=False,
-                    )
-                    agents_this_batch += len(ops)
-
-            offset = page_offset + PAGE_SIZE
-            pages_done += 1
-            progress["next_offset"] = offset
-            progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
+        try:
+            items, total, next_cursor, has_more = await bsc.list_agents_cursor(
+                api_key, chain_id=None, cursor=cursor, limit=PAGE_SIZE,
+                sort_by="created_at", mainnet_only=True,
+                timeout=REQUEST_TIMEOUT, max_retries=6,
+            )
+        except Exception as e:
+            stopped_reason = f"page failed after retries: {type(e).__name__}: {e}"
+            progress["last_error"] = stopped_reason[:300]
             progress["last_run_at"] = time.time()
-            progress["last_error"] = None
-            # Distinct from last_run_at, which updates on failures too. This
-            # is the only point in the file where a page genuinely came back
-            # from the upstream and was written, so it is the one honest
-            # answer to "when did discovery last actually work?" -- which is
-            # what core/ingest_status.py reports when 8004scan is down.
-            progress["last_success_at"] = progress["last_run_at"]
             await _save_progress(progress)
+            break
 
-            if raw_len < PAGE_SIZE or (total and offset >= total):
-                reached_end = True
-                progress["completed_at"] = time.time()
-                await _save_progress(progress)
-                stopped_early = True
-                break
+        agents = [a for a in items if a.get("chain_id") in TARGET_CHAIN_IDS]
+        progress["total_server_reported"] = total
 
-        if stopped_early:
+        if agents:
+            ops = []
+            for a in agents:
+                real_id = a.get("id")
+                if not real_id:
+                    continue
+                doc = dict(a)
+                doc["_id"] = real_id
+                doc["_ingested_at"] = time.time()
+                ops.append(doc)
+                cid = a.get("chain_id")
+                by_chain_this_batch[cid] = by_chain_this_batch.get(cid, 0) + 1
+            if ops:
+                # $set only, never ReplaceOne: a full replace here silently
+                # wiped the service_status and category a prior analysis
+                # pass had written. This is a merge, not an overwrite.
+                await db[FULL_REGISTRY_COLLECTION].bulk_write(
+                    [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
+                    ordered=False,
+                )
+                agents_this_batch += len(ops)
+
+        cursor = next_cursor
+        pages_done += 1
+        progress["cursor"] = cursor
+        progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
+        progress["last_run_at"] = time.time()
+        progress["last_error"] = None
+        # Distinct from last_run_at, which updates on failures too. This is
+        # the only point where a page genuinely came back and was written,
+        # so it is the one honest answer to "when did discovery last
+        # actually work?", which core/ingest_status.py reports.
+        progress["last_success_at"] = progress["last_run_at"]
+        await _save_progress(progress)
+
+        if not cursor or not has_more:
+            reached_end = True
+            progress["completed_at"] = time.time()
+            await _save_progress(progress)
             break
 
     return {
         "pages_done": pages_done, "agents_ingested": agents_this_batch,
-        "by_chain": by_chain_this_batch, "next_offset": offset, "reached_end": reached_end,
-        "stopped_reason": stopped_reason,
-        "pages_skipped_this_batch": pages_skipped_this_batch,
-        "recovered_skipped_offsets": retry_result,
+        "by_chain": by_chain_this_batch, "cursor": cursor,
+        "reached_end": reached_end, "stopped_reason": stopped_reason,
         "elapsed_seconds": round(time.time() - t0, 1),
     }
 
@@ -546,28 +447,28 @@ async def _run_single_chain_ingest_batch(
     api_key: str, chain_id: int, progress_doc_id: str,
     max_seconds: float = 60.0, max_pages: int | None = None,
 ) -> dict:
-    """The one, real, shared single-chain (server-side chain_id-filtered)
-    ingest loop. Originally built for Solana (2026-08-28) once 8004scan's
-    own real `chain_id=101` filtering was confirmed live (see this
-    module's own docstring for the full correction); generalized
-    2026-09-10 so ADDITIONAL_CHAINS (Monad/Billions Network/Robinhood
-    Chain/Celo/Arbitrum) can reuse the exact same real, proven logic
-    instead of five near-duplicate copies. Same resumable/
-    checkpointed shape as run_ingest_batch above (own progress doc per
-    chain, own upserts into the SAME `full_agent_registry` collection
-    per the real "store every chain the same way" requirement), but
-    calls adapters/bsc.py's list_agents_by_chain_id (real, correctly
-    server-side-filtered) instead of list_agents_for_chains (real,
-    deliberately-unfiltered page mixing), none of these chain_ids are
-    in TARGET_CHAIN_IDS, confirmed live the same way Solana was, so
-    reusing the shared scan here would silently ingest nothing for any
-    of them."""
+    """The shared single-chain ingest loop, walked by CURSOR.
+
+    Rewritten 2026-09-08. It used to page by offset, which 8004scan now
+    rejects above 10,000 with HTTP 422. Nothing on this chain past agent
+    10,000 was reachable any more, whatever the retry budget. The cursor has
+    no depth limit, and on a live run it was also several times faster than
+    the offset walk it replaces.
+
+    Sorting is by token_id ascending. A token id is fixed for the life of an
+    agent, so a traversal cannot be disturbed part way through by a record
+    being touched, which is a risk with created_at.
+
+    Still resumable and still checkpointed per chain, the checkpoint is just
+    an opaque cursor now rather than a number. Upserts remain $set-only into
+    the same collection, so an analysis pass's own fields are never wiped.
+    """
     db = get_db()
     progress = await _get_progress(progress_doc_id)
     if progress.get("started_at") is None:
         progress["started_at"] = time.time()
 
-    offset = progress["next_offset"]
+    cursor = progress.get("cursor")
     pages_done = 0
     agents_this_batch = 0
     t0 = time.time()
@@ -579,8 +480,8 @@ async def _run_single_chain_ingest_batch(
         if max_pages is not None and pages_done >= max_pages:
             break
         try:
-            agents, total, raw_len = await bsc.list_agents_by_chain_id(
-                api_key, chain_id, offset=offset, limit=PAGE_SIZE,
+            agents, total, next_cursor, has_more = await bsc.list_agents_cursor(
+                api_key, chain_id=chain_id, cursor=cursor, limit=PAGE_SIZE,
                 timeout=REQUEST_TIMEOUT, max_retries=6,
             )
         except Exception as e:
@@ -589,7 +490,7 @@ async def _run_single_chain_ingest_batch(
             await _save_progress(progress)
             return {
                 "pages_done": pages_done, "agents_ingested": agents_this_batch,
-                "next_offset": offset, "stopped_reason": f"error: {type(e).__name__}: {e}",
+                "cursor": cursor, "stopped_reason": f"error: {type(e).__name__}: {e}",
                 "elapsed_seconds": round(time.time() - t0, 1),
             }
 
@@ -605,23 +506,24 @@ async def _run_single_chain_ingest_batch(
                 doc["_ingested_at"] = time.time()
                 ops.append(doc)
             if ops:
-                # Same real $set-only merge discipline as run_ingest_batch
-                # above, never wipe a prior analysis pass's fields.
                 await db[FULL_REGISTRY_COLLECTION].bulk_write(
                     [UpdateOne({"_id": d["_id"]}, {"$set": d}, upsert=True) for d in ops],
                     ordered=False,
                 )
                 agents_this_batch += len(ops)
 
-        offset += PAGE_SIZE
+        cursor = next_cursor
         pages_done += 1
-        progress["next_offset"] = offset
+        progress["cursor"] = cursor
         progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
         progress["last_run_at"] = time.time()
         progress["last_error"] = None
         await _save_progress(progress)
 
-        if raw_len < PAGE_SIZE or (total and offset >= total):
+        # The traversal is over when the server stops handing back a cursor.
+        # Nothing else ends it: a short page in the middle of a cursor walk
+        # is not a signal, unlike with offsets.
+        if not cursor or not has_more:
             reached_end = True
             progress["completed_at"] = time.time()
             await _save_progress(progress)
@@ -629,7 +531,7 @@ async def _run_single_chain_ingest_batch(
 
     return {
         "pages_done": pages_done, "agents_ingested": agents_this_batch,
-        "next_offset": offset, "reached_end": reached_end,
+        "cursor": cursor, "reached_end": reached_end,
         "elapsed_seconds": round(time.time() - t0, 1),
     }
 

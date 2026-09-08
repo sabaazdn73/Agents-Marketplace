@@ -34,9 +34,12 @@
 // any execution path yet.
 //
 // Web2 Agents + PayBox (added 2026-09-10): a vision/roadmap card only,
-// no code behind it, see docs/future-tnega-paybox.md for the full real
-// research this summarizes (Anthropic's open-source Commerce Agents
-// blueprint, MoonPay's confirmed direct BSC support). Explicitly two
+// no code behind it, see docs/future-tnega-paybox.md for the research this
+// summarises (Anthropic's open-source Commerce Agents blueprint, and B402
+// as the settlement rail). Corrected 2026-09-08: this used to name MoonPay
+// as the rail. MoonPay declined partner onboarding on country and industry
+// grounds and nothing is built against it. B402 settles x402 natively on
+// BSC and is what shipped instead. Explicitly two
 // parts of very different scope: a near-term-demonstrable Web2
 // shopping-agent + PayBox settlement concept, and a genuinely separate,
 // much larger "describe an agent in a prompt, get one built and wired to
@@ -45,7 +48,7 @@
 // codebase.
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle, ShoppingBag, Scale, Grid3x3 } from 'lucide-react';
+import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle, ShoppingBag, Scale, Grid3x3, HeartPulse } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { fetchWalletBalanceSnapshot, getMainnetReadClient } from './altana';
 import { useDirectWalletExecutor } from './useDirectWalletExecutor';
@@ -57,6 +60,9 @@ import {
 } from './defiSkills';
 import { getTokenMeta, getTradeQuote, getPriceTrend, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
 import HealthFactorCard from './HealthFactorCard';
+import GridTradingCard from './GridTradingCard';
+import NativeCardShell from './NativeCardShell';
+import DeFiCategoryPanels from './DeFiCategoryPanels';
 import RebalancingCard from './RebalancingCard';
 
 /** Real, human labels for the holder-risk fields Binance's Market API
@@ -123,7 +129,7 @@ function CandidateRow({ candidate, isRecommended, isSelected, onSelect }) {
   );
 }
 
-function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
+function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode, bare = false }) {
   const { loading, data, error, retry } = useStakingRecommendation();
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -174,17 +180,11 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   const canRun = selected && amountNum > 0;
 
   return (
-    <div className={`rounded-2xl border p-5 ${mutedBorder}`} style={{ background: surface }}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg" style={{ background: `${accent}1a` }}><Landmark size={16} style={{ color: accent }} /></div>
-          <span className="font-bold text-sm">Yield Optimisation</span>
-        </div>
-        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">Native</span>
-      </div>
-      <p className="text-xs opacity-60 mb-4">
-        The yield optimisation agent. It compares BSC liquid-staking protocols by liquidity and risk first, yield second, and stakes through whichever it (or you) picks, non-custodially, through your own connected wallet.
-      </p>
+    <NativeCardShell
+      bare={bare} icon={Landmark} title="Yield Optimisation" badge="Native"
+      accent={accent} surface={surface} mutedBorder={mutedBorder}
+      blurb="The yield optimisation agent. It compares BSC liquid-staking protocols by liquidity and risk first, yield second, and stakes through whichever it (or you) picks, non-custodially, through your own connected wallet."
+    >
 
       {loading && <div className="flex items-center gap-2 text-xs opacity-60 py-4"><Loader2 size={14} className="animate-spin" /> Comparing live protocol data...</div>}
       {error && (
@@ -267,7 +267,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
           <button onClick={() => setOpen(false)} className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1"><ChevronRight size={13} className="rotate-180" /> Collapse</button>
         </div>
       )}
-    </div>
+    </NativeCardShell>
   );
 }
 
@@ -594,20 +594,33 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
       </p>
       <p className="text-[11px] opacity-40 mb-4 flex items-center gap-1"><Sparkles size={11} /> A disclosed {(NATIVE_AGENT_ENTRY_FEE_BPS / 100).toFixed(2)}% entry fee applies here, higher-value-add routing than the free, third-party Skills above, always shown before you sign.</p>
 
-      {/* The four DeFi categories this project is judged on, together and in
-          one place, so the set is visible at a glance and each one says
-          whether it is live or not. Staking and Trading follow underneath.
-          Yield Optimisation is the Staking agent, relabelled to the
-          category name rather than duplicated. */}
+      {/* The four DeFi categories this project is judged on, as one uniform
+          set: title only, expand for the detail, one open at a time. All
+          four are live and executable; none is a placeholder.
+
+          Yield Optimisation is the Staking agent under the category name
+          rather than a duplicate card.
+
+          The panels mount once and are then only hidden, never unmounted,
+          so opening one does not restart a chain read in another. See
+          DeFiCategoryPanels.jsx for why that is load bearing. */}
       <h3 className="text-[11px] font-bold uppercase tracking-wider opacity-40 mt-2 mb-2">
         DeFi categories
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
-        <StakingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
-        <HealthFactorCard accent={accent} surface={surface} mutedBorder={mutedBorder} />
-        <RebalancingCard accent={accent} surface={surface} mutedBorder={mutedBorder} />
-        <ComingSoonAgentCard icon={Grid3x3} title="Grid Trading" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          blurb="Places buy and sell orders across a price range and refills them as they fill. It needs something that keeps running between visits, which this backend has no scheduler for yet, so it is the last of the four." />
+      <div className="mb-5">
+        <DeFiCategoryPanels
+          accent={accent} surface={surface} mutedBorder={mutedBorder}
+          categories={[
+            { key: 'yield', title: 'Yield Optimisation', icon: Landmark, badge: 'Native',
+              render: () => <StakingNativeAgentCard bare accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} /> },
+            { key: 'health', title: 'Health Factor Monitoring', icon: HeartPulse, badge: 'Live',
+              render: () => <HealthFactorCard bare accent={accent} surface={surface} mutedBorder={mutedBorder} /> },
+            { key: 'rebalance', title: 'Rebalancing', icon: Scale, badge: 'Live',
+              render: () => <RebalancingCard bare accent={accent} surface={surface} mutedBorder={mutedBorder} /> },
+            { key: 'grid', title: 'Grid Trading', icon: Grid3x3, badge: 'Live',
+              render: () => <GridTradingCard bare accent={accent} surface={surface} mutedBorder={mutedBorder} /> },
+          ]}
+        />
       </div>
 
       <h3 className="text-[11px] font-bold uppercase tracking-wider opacity-40 mb-2">
@@ -648,7 +661,7 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
             and docs/future-tnega-paybox.md for the full research. */}
         <ComingSoonAgentCard icon={ShoppingBag} title="Web2 Agents + PayBox" accent={accent} surface={surface} mutedBorder={mutedBorder}
           learnMoreHref="/docs/future-tnega-paybox"
-          blurb="An agent that decides, pays on-chain, and delivers to your door. Web2 shopping agents, like Anthropic's open-source Commerce Agents blueprint, already build a complete tailored cart (age, size, culture, event) and then stop at checkout without ever paying. PayBox connects that last step to on-chain settlement, with MoonPay's direct BSC support as the near-term rail and other chains later. Describing an agent in a prompt and having one built and wired to payment automatically is a separate, much larger project, not scoped here." />
+          blurb="An agent that decides, pays on-chain, and delivers to your door. Web2 shopping agents, like Anthropic's open-source Commerce Agents blueprint, already build a complete tailored cart (age, size, culture, event) and then stop at checkout without ever paying. PayBox connects that last step to on-chain settlement over B402, which settles x402 natively on BSC, with other chains later. Describing an agent in a prompt and having one built and wired to payment automatically is a separate, much larger project, not scoped here." />
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { planRebalance, currentWeights, formatUnits, RebalanceError, BPS } from './rebalance';
 import { USDT_BSC } from './defiSkills';
 import { quoteBestAcrossDexes } from './tradingAgent';
+import NativeCardShell from './NativeCardShell';
 
 const WBNB = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 const ERC20_ABI = [{
@@ -34,7 +35,7 @@ const ASSETS = [
   { address: USDT_BSC, symbol: 'USDT', decimals: 18 },
 ];
 
-export default function RebalancingCard({ accent, surface, mutedBorder }) {
+export default function RebalancingCard({ accent, surface, mutedBorder, bare = false }) {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const [bnbBps, setBnbBps] = useState(6000);
@@ -99,22 +100,11 @@ export default function RebalancingCard({ accent, surface, mutedBorder }) {
   const weights = plan ? currentWeights(holdings, plan.totalQuote) : new Map();
 
   return (
-    <div className={`rounded-2xl border p-5 ${mutedBorder}`} style={{ background: surface }}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg" style={{ background: `${accent}1a` }}>
-            <Scale size={16} style={{ color: accent }} />
-          </div>
-          <span className="font-bold text-sm">Rebalancing</span>
-        </div>
-        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-          Live
-        </span>
-      </div>
-      <p className="text-xs opacity-60 mb-4">
-        Reads your BNB and USDT, prices them, and works out the swaps that bring them back to
-        the split you set. Every swap is shown before you sign, and you sign them.
-      </p>
+    <NativeCardShell
+      bare={bare} icon={Scale} title="Rebalancing"
+      accent={accent} surface={surface} mutedBorder={mutedBorder}
+      blurb="Reads your BNB and USDT, prices them, and works out the swaps that bring them back to the split you set. Every swap is shown before you sign, and you sign them."
+    >
 
       {!isConnected && (
         <ConnectButton.Custom>
@@ -215,6 +205,6 @@ export default function RebalancingCard({ accent, surface, mutedBorder }) {
           </button>
         </div>
       )}
-    </div>
+    </NativeCardShell>
   );
 }

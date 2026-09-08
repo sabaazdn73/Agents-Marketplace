@@ -200,6 +200,90 @@ async def list_agents_by_chain_id(
     raise last_error
 
 
+async def list_agents_cursor(
+    api_key: str,
+    *,
+    chain_id: int | None = None,
+    cursor: str | None = None,
+    limit: int = 100,
+    sort_by: str | None = None,
+    mainnet_only: bool = False,
+    max_retries: int = 6,
+    timeout: float = 60.0,
+) -> tuple[list[dict], int, str | None, bool]:
+    """One page of /api/v1/agents by CURSOR rather than by offset.
+
+    Why this replaced the offset walk, confirmed live 2026-09-08: 8004scan
+    now rejects any offset above 10,000 outright with HTTP 422, "Input
+    should be less than or equal to 10000". That is a hard validation
+    error, not the deep-offset slowness this pipeline used to work around,
+    so no amount of retrying reaches an agent past that point. Their own
+    parameter description names the replacement: "Offset for shallow
+    pagination (maximum 10000). Use next_cursor for full traversal."
+
+    The cursor is only honoured alongside certain sorts, per the spec:
+    created_at sorting, or token_id sorting when chain_id is given. So a
+    single-chain walk uses token_id, which cannot shift underneath a
+    traversal the way a timestamp can, and an unfiltered walk uses
+    created_at, which is the only option available to it.
+
+    Returns (items, total, next_cursor, has_more). A next_cursor of None
+    means the traversal is finished.
+    """
+    if sort_by is None:
+        sort_by = "token_id" if chain_id is not None else "created_at"
+    params: dict = {"limit": limit, "sort_by": sort_by, "sort_order": "asc"}
+    if chain_id is not None:
+        params["chain_id"] = chain_id
+    if mainnet_only:
+        # Same result set, far fewer requests. The unfiltered walk is
+        # roughly 40% testnet, and every testnet row was already discarded
+        # client-side because this project is mainnet-only. Measured on a
+        # live 800-agent walk: 175 of 800 were target-chain without this,
+        # 800 of 800 with it, and the traversal shrinks from 821,273 agents
+        # to 499,459.
+        params["is_testnet"] = "false"
+    if cursor:
+        params["cursor"] = cursor
+
+    headers = {"X-API-Key": api_key}
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.get(
+                    f"{_8004SCAN_BASE}/api/v1/agents", params=params, headers=headers,
+                )
+                resp.raise_for_status()
+                body = resp.json()
+                return (
+                    body.get("items", []),
+                    body.get("total", 0),
+                    body.get("next_cursor"),
+                    bool(body.get("has_more")),
+                )
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 429 and attempt < max_retries - 1:
+                wait_seconds = 8 * (2 ** attempt)
+                print(f"[list_agents_cursor] 429 (chain_id={chain_id}), attempt "
+                      f"{attempt + 1}/{max_retries}, waiting {wait_seconds}s")
+                last_error = e
+                await asyncio.sleep(wait_seconds)
+                continue
+            raise
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            if attempt < max_retries - 1:
+                wait_seconds = 4 * (2 ** attempt)
+                print(f"[list_agents_cursor] transient {type(e).__name__} "
+                      f"(chain_id={chain_id}), attempt {attempt + 1}/{max_retries}, "
+                      f"waiting {wait_seconds}s")
+                last_error = e
+                await asyncio.sleep(wait_seconds)
+                continue
+            raise
+    raise last_error
+
+
 async def _fetch_agents_page(
     api_key: str, *, offset: int, limit: int, max_retries: int, timeout: float, log_prefix: str,
 ) -> tuple[list[dict], int]:

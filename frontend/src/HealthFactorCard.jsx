@@ -20,6 +20,7 @@ import { HeartPulse, Loader2, RefreshCw, ShieldCheck, AlertTriangle } from 'luci
 import { useAccount, usePublicClient } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { readPositions, riskBand } from './healthFactor';
+import NativeCardShell from './NativeCardShell';
 
 const TONE = {
   red: 'text-red-600 dark:text-red-400',
@@ -36,7 +37,7 @@ function Line({ label, value, tone }) {
   );
 }
 
-export default function HealthFactorCard({ accent, surface, mutedBorder }) {
+export default function HealthFactorCard({ accent, surface, mutedBorder, bare = false }) {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
   const [state, setState] = useState({ loading: false, data: null, error: null });
@@ -63,22 +64,11 @@ export default function HealthFactorCard({ accent, surface, mutedBorder }) {
   const anyPosition = aave?.hasPosition || venus?.hasPosition;
 
   return (
-    <div className={`rounded-2xl border p-5 ${mutedBorder}`} style={{ background: surface }}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg" style={{ background: `${accent}1a` }}>
-            <HeartPulse size={16} style={{ color: accent }} />
-          </div>
-          <span className="font-bold text-sm">Health Factor Monitoring</span>
-        </div>
-        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-          Live
-        </span>
-      </div>
-      <p className="text-xs opacity-60 mb-4">
-        Reads your lending positions on Venus and Aave and shows how close they are to
-        liquidation. Read only, so it never signs or spends anything.
-      </p>
+    <NativeCardShell
+      bare={bare} icon={HeartPulse} title="Health Factor Monitoring"
+      accent={accent} surface={surface} mutedBorder={mutedBorder}
+      blurb="Reads your lending positions on Venus and Aave and shows how close they are to liquidation. Read only, so it never signs or spends anything."
+    >
 
       {!isConnected && (
         <div className="space-y-2">
@@ -185,6 +175,6 @@ export default function HealthFactorCard({ accent, surface, mutedBorder }) {
           </button>
         </div>
       )}
-    </div>
+    </NativeCardShell>
   );
 }
