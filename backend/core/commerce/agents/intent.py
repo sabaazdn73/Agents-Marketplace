@@ -17,6 +17,7 @@ from __future__ import annotations
 import time
 
 from .. import model
+from ..questions import NUMBER, question
 from ..state import Money, MoneyError, StageResult, TaskState
 
 SCHEMA_HINT = """{
@@ -45,7 +46,10 @@ def _prompt(request: str) -> str:
         "- capability is what the service has to do, not a product name.\n"
         "- Only fill volume, budget or priorities if the request states them.\n"
         "- questions must list what someone would have to answer before "
-        "money could responsibly be spent on their behalf."
+        "money could responsibly be spent on their behalf.\n"
+        "- This is a software service, not a physical product. Never ask "
+        "about size, colour, fit, delivery or anything that only makes "
+        "sense for something shipped in a box."
     )
 
 
@@ -73,7 +77,8 @@ async def run(state: TaskState) -> StageResult:
         )
 
     intent: dict = {}
-    questions = [q for q in (out.get("questions") or []) if isinstance(q, str) and q.strip()]
+    model_notes = [q for q in (out.get("questions") or []) if isinstance(q, str) and q.strip()]
+    asks: list[dict] = []
 
     for field in ("capability", "purpose", "volume"):
         v = out.get(field)
@@ -84,24 +89,28 @@ async def run(state: TaskState) -> StageResult:
         if vals:
             intent[field] = vals
 
-    if not intent.get("capability") and not any("do" in q.lower() for q in questions):
-        questions.append("What should the service actually do?")
+    if not intent.get("capability"):
+        carried = state.context.get("capability")
+        if isinstance(carried, str) and carried.strip():
+            intent["capability"] = carried.strip()
+        else:
+            asks.append(question("capability", "What should the service actually do?",
+                                 "context.capability", placeholder="turn text into speech"))
 
-    amount = out.get("budget_amount")
+    amount = out.get("budget_amount") or state.profile.get("budget_text")
     if isinstance(amount, str) and amount.strip():
         symbol = out.get("budget_currency")
         symbol = symbol.strip().upper() if isinstance(symbol, str) and symbol.strip() else DEFAULT_CURRENCY
         try:
             intent["budget"] = Money.from_decimal_string(amount.strip(), DEFAULT_DECIMALS, symbol)
-        except (MoneyError, ArithmeticError, ValueError) as e:
-            questions.append(
-                f"I could not read {amount!r} as a budget ({type(e).__name__}). "
-                "What is the most you want to pay?"
-            )
-    elif not any("budget" in q.lower() or "pay" in q.lower() for q in questions):
-        questions.append("What is the most you want to pay?")
+        except (MoneyError, ArithmeticError, ValueError):
+            asks.append(question(
+                "budget", f"I could not read {amount!r} as an amount. What is the most you want to pay per call?",
+                "profile.budget_text", kind=NUMBER, placeholder="1"))
+    else:
+        asks.append(question("budget", "What is the most you want to pay per call, in $U?",
+                             "profile.budget_text", kind=NUMBER, placeholder="1"))
 
-    intent["questions"] = questions
     state.profile.update({k: v for k, v in intent.items() if k == "budget"})
     state.context["intent"] = {k: v for k, v in intent.items() if k != "budget"}
 
@@ -109,11 +118,13 @@ async def run(state: TaskState) -> StageResult:
         stage="intent", status="ok",
         data={
             **{k: (v.to_dict() if isinstance(v, Money) else v) for k, v in intent.items()},
-            "complete": not questions,
+            "complete": not asks,
+            "questions": asks,
+            "model_notes": model_notes,
         },
         note=(
             f"Need understood: {intent.get('capability')}." if intent.get("capability")
             else "The request does not yet say what the service should do."
-        ) + (f" {len(questions)} question(s) to answer." if questions else ""),
+        ) + (f" Waiting on {len(asks)} answer(s)." if asks else ""),
         started_at=started, ended_at=time.time(),
     )

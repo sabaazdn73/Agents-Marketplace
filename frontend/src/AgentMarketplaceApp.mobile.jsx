@@ -57,7 +57,6 @@ import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
-import PayB402Page from './PayB402Page';
 import AgentStudioPage from './AgentStudioPage';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
@@ -273,8 +272,7 @@ const NAV_ITEMS = [
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build', icon: Hammer },
   { id: 'sell', label: 'Sell', icon: Coins },
-  { id: 'studio', label: 'Studio', icon: Bot },
-  { id: 'pay-b402', label: 'Pay.B402', icon: CreditCard },
+  { id: 'studio', label: 'MultiAgents', icon: Bot },
 ];
 
 // bottom-bar trim (2026-09-04): eight tabs in a phone-width bar left
@@ -1383,7 +1381,6 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
             {nav === 'sell' && <SellYourAgentForm />}
             {nav === 'studio' && <AgentStudioPage accent="#4F46E5" />}
-            {nav === 'pay-b402' && <PayB402Page accent="#4F46E5" />}
 
             {nav === 'learn' && (
               <div className="space-y-6">

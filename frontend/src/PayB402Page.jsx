@@ -46,7 +46,7 @@ function Row({ ok, name, detail }) {
   );
 }
 
-export default function PayB402Page({ accent = '#6366F1' }) {
+export default function PayB402Page({ accent = '#6366F1', embedded = false }) {
   const { address, isConnected } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
 
@@ -160,6 +160,7 @@ export default function PayB402Page({ accent = '#6366F1' }) {
 
   return (
     <div className="space-y-5">
+      {!embedded && (
       <div>
         <h1 className="text-2xl font-bold mb-1">Pay.B402</h1>
         <p className="text-sm text-gray-500 max-w-2xl leading-relaxed">
@@ -168,6 +169,7 @@ export default function PayB402Page({ accent = '#6366F1' }) {
           bridge and no card.
         </p>
       </div>
+      )}
 
       {/* Rail checks, run server side against the live facilitator. */}
       <div className={`${CARD} p-4`}>

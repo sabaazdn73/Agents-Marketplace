@@ -2132,6 +2132,26 @@ async def studio_start_run(request: Request):
     return coordinator.start(flow, text.strip(), seed)
 
 
+@app.post("/api/studio/runs/{run_id}/answers")
+async def studio_answer(run_id: str, request: Request):
+    """Answer the agent that is waiting, and carry on from it.
+
+    Stages before the waiting agent are not run again: their results are
+    already in the shared state."""
+    from core.commerce import coordinator
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Body must be JSON.")
+    answers = (body or {}).get("answers")
+    if not isinstance(answers, dict):
+        raise HTTPException(status_code=400, detail="`answers` (object) is required.")
+    run = coordinator.answer(run_id, answers)
+    if not run:
+        raise HTTPException(status_code=404, detail="No such run, or it has expired.")
+    return run
+
+
 @app.get("/api/studio/runs/{run_id}")
 async def studio_get_run(run_id: str):
     """Poll one run. Returns which agent is working, for how long, what

@@ -38,10 +38,12 @@ from .agents import qa as qa_agent
 from .agents import search as search_agent
 from .agents import styling as styling_agent
 from .pipeline import _cart_from_state
+from .questions import apply_answers, filter_for_flow
 from .state import StageResult, TaskState, _encode
 
 # Robot states the visualisation draws. Nothing else is ever reported.
 IDLE = "idle"
+WAITING = "waiting"
 WORKING = "working"
 DONE = "done"
 BLOCKED = "blocked"
@@ -107,6 +109,32 @@ def flow_spec(flow: str) -> dict:
     return spec
 
 
+def answer(run_id: str, answers: dict) -> dict | None:
+    """Take answers for the waiting agent and carry on from that agent.
+
+    Earlier stages are not run again. Their results are already in the
+    shared state, and repeating them would cost the time twice and could
+    return something different the second time.
+    """
+    run = _RUNS.get(run_id)
+    if not run:
+        return None
+    pending = run.get("pending")
+    if not pending:
+        return public_view(run)
+
+    state = run.get("_state")
+    if state is None:
+        return public_view(run)
+
+    applied = apply_answers(state, pending["questions"], answers)
+    run["answers"] = {**(run.get("answers") or {}), **{k: v for k, v in (answers or {}).items() if k in applied}}
+    run["agents"][pending["agent"]]["state"] = IDLE
+    run["finished_at"] = None
+    asyncio.create_task(_drive(run, pending["resume_at"]))
+    return public_view(run)
+
+
 def _new_run(flow: str, request: str) -> dict:
     spec = flow_spec(flow)
     asleep = spec["asleep"]
@@ -128,13 +156,19 @@ def _new_run(flow: str, request: str) -> dict:
             for a in spec["agents"]
         },
         "stages": [],
-        "questions": [],
+        "pending": None,
+        "answers": {},
         "result": None,
         "error": None,
     }
 
 
-def _record(run: dict, key: str, result: StageResult) -> None:
+def _record(run: dict, key: str, result: StageResult, state: TaskState | None = None) -> None:
+    # The result goes on the shared state as well as the run. Payment checks
+    # state.stage("qa") before it will run, and without this it saw no QA at
+    # all and refused a cart QA had already passed.
+    if state is not None:
+        state.record(result)
     slot = run["agents"][key]
     slot["ended_at"] = time.time()
     slot["state"] = DONE if result.ok else BLOCKED
@@ -142,7 +176,7 @@ def _record(run: dict, key: str, result: StageResult) -> None:
     run["stages"].append(result.to_dict())
 
 
-async def _run_stage(run: dict, key: str, coro_factory) -> StageResult:
+async def _run_stage(run: dict, key: str, coro_factory, state: TaskState | None = None) -> StageResult:
     slot = run["agents"][key]
     slot["state"] = WORKING
     slot["started_at"] = time.time()
@@ -154,7 +188,7 @@ async def _run_stage(run: dict, key: str, coro_factory) -> StageResult:
             stage=key, status="error", data={},
             note=f"{type(e).__name__}: {str(e)[:200]}",
         )
-    _record(run, key, result)
+    _record(run, key, result, state)
     return result
 
 
@@ -163,27 +197,60 @@ def _handoff(run: dict, frm: str, to: str, label: str) -> None:
     run["handoff"] = {"from": frm, "to": to, "label": label, "at": time.time()}
 
 
-async def _physical(run: dict, state: TaskState) -> None:
-    steps = [
+def _physical_steps(state: TaskState):
+    return [
         ("profile", lambda: profile_agent.run(state), "size, budget, where you are"),
         ("context", lambda: context_agent.run(state), "occasion and season"),
         ("merchant_fit", lambda: merchant_fit_agent.run(state), "shops that can serve you"),
         ("search", lambda: search_agent.run(state), "priced candidates"),
         ("styling", lambda: styling_agent.run(state), "a set inside budget"),
     ]
-    previous = None
-    for key, factory, carries in steps:
+
+
+def _api_steps(state: TaskState):
+    return [
+        ("intent", lambda: intent_agent.run(state), "what you need"),
+        ("api_fit", lambda: api_fit_agent.run(state), "matching services"),
+        ("match", lambda: match_agent.run(state), "the chosen service"),
+    ]
+
+
+async def _run_steps(run: dict, state: TaskState, steps: list, start_at: int) -> int | None:
+    """Run steps from an index. Returns the index to resume at when an agent
+    is waiting on an answer, or None when the list completed.
+
+    A waiting agent stops the run without failing it. The stages before it
+    keep their results, which is why resuming starts at the asking agent and
+    not at the beginning."""
+    previous = steps[start_at - 1][0] if start_at > 0 else None
+    for i in range(start_at, len(steps)):
+        key, factory, carries = steps[i]
         if previous:
             _handoff(run, previous, key, carries)
-        result = await _run_stage(run, key, factory)
+        result = await _run_stage(run, key, factory, state)
+
+        asks = filter_for_flow(list((result.data or {}).get("questions") or []), run["flow"])
+        if asks:
+            run["agents"][key]["state"] = WAITING
+            run["pending"] = {"agent": key, "questions": asks, "resume_at": i}
+            return i
+
         if not result.ok:
             run["error"] = f"Stopped at {key}."
-            return
+            return None
         previous = key
+    return None
+
+
+async def _physical(run: dict, state: TaskState, start_at: int = 0) -> None:
+    steps = _physical_steps(state)
+    waiting = await _run_steps(run, state, steps, start_at)
+    if waiting is not None or run.get("error"):
+        return
 
     _handoff(run, "styling", "qa", "the cart")
     cart = _cart_from_state(state)
-    qa_result = await _run_stage(run, "qa", lambda: qa_agent.run(state, cart, check_links=True))
+    qa_result = await _run_stage(run, "qa", lambda: qa_agent.run(state, cart, check_links=True), state)
     if not qa_result.ok or state.findings:
         run["error"] = f"QA raised {len(state.findings)} finding(s). Nothing was charged."
         return
@@ -199,25 +266,15 @@ async def _physical(run: dict, state: TaskState) -> None:
     }
 
 
-async def _api(run: dict, state: TaskState) -> None:
-    steps = [
-        ("intent", lambda: intent_agent.run(state), "what you need"),
-        ("api_fit", lambda: api_fit_agent.run(state), "matching services"),
-        ("match", lambda: match_agent.run(state), "the chosen service"),
-    ]
-    previous = None
-    for key, factory, carries in steps:
-        if previous:
-            _handoff(run, previous, key, carries)
-        result = await _run_stage(run, key, factory)
-        if not result.ok:
-            run["error"] = f"Stopped at {key}."
-            return
-        previous = key
+async def _api(run: dict, state: TaskState, start_at: int = 0) -> None:
+    steps = _api_steps(state)
+    waiting = await _run_steps(run, state, steps, start_at)
+    if waiting is not None or run.get("error"):
+        return
 
     _handoff(run, "match", "qa", "price and terms")
     cart = _cart_from_state(state)
-    qa_result = await _run_stage(run, "qa", lambda: qa_agent.run(state, cart, check_links=False))
+    qa_result = await _run_stage(run, "qa", lambda: qa_agent.run(state, cart, check_links=False), state)
     if not qa_result.ok or state.findings:
         run["error"] = f"QA raised {len(state.findings)} finding(s). Nothing was charged."
         return
@@ -226,7 +283,7 @@ async def _api(run: dict, state: TaskState) -> None:
     # Payment reports which rail would settle. It does not sign: the
     # signature comes from the buyer's wallet on the Pay.B402 surface, and
     # this backend holds no key.
-    pay_result = await _run_stage(run, "payment", lambda: payment_agent.run(state, cart))
+    pay_result = await _run_stage(run, "payment", lambda: payment_agent.run(state, cart), state)
     run["result"] = {
         "kind": "service",
         "selection": _encode(state.selection),
@@ -235,28 +292,31 @@ async def _api(run: dict, state: TaskState) -> None:
     }
 
 
-async def _drive(run: dict) -> None:
-    state = TaskState(request=run["request"])
-    for key, value in (run.get("seed") or {}).items():
-        if key == "profile":
-            state.profile.update(value)
-        elif key == "context":
-            state.context.update(value)
+async def _drive(run: dict, start_at: int = 0) -> None:
+    state = run.get("_state")
+    if state is None:
+        state = TaskState(request=run["request"])
+        for key, value in (run.get("seed") or {}).items():
+            if key == "profile":
+                state.profile.update(value)
+            elif key == "context":
+                state.context.update(value)
+        run["_state"] = state
+    run["pending"] = None
+    run["error"] = None
     try:
         if run["flow"] == FLOW_PHYSICAL:
-            await _physical(run, state)
+            await _physical(run, state, start_at)
         else:
-            await _api(run, state)
+            await _api(run, state, start_at)
     except Exception as e:
         run["error"] = f"{type(e).__name__}: {str(e)[:200]}"
     finally:
         run["current"] = None
-        run["finished_at"] = time.time()
-        run["questions"] = [
-            q for q in (state.profile.get("questions") or [])
-            + ((state.context.get("intent") or {}).get("questions") or [])
-            if isinstance(q, str)
-        ]
+        # A run waiting on an answer is not finished. Marking it finished
+        # would hide the input the person still has to fill in.
+        if not run.get("pending"):
+            run["finished_at"] = time.time()
         for slot in run["agents"].values():
             if slot["state"] == WORKING:
                 slot["state"] = BLOCKED
@@ -300,7 +360,8 @@ def public_view(run: dict) -> dict:
         "current_elapsed_s": elapsed,
         "handoff": run["handoff"],
         "stages": run["stages"],
-        "questions": run["questions"],
+        "pending": run.get("pending"),
+        "answers": run.get("answers") or {},
         "result": run["result"],
         "error": run["error"],
         "finished": run["finished_at"] is not None,

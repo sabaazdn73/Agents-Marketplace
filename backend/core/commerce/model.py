@@ -16,7 +16,21 @@
 # is worse than nothing, because everything downstream would price and
 # potentially BUY against it.
 #
-# MODEL PINNING, from live measurement 2026-09-08
+# MODEL CHOICE, from live measurement 2026-09-09
+# gemini-3.6-flash ran out of free quota and returned 429 RESOURCE_EXHAUSTED
+# on every call. Five Flash models were timed on the same prompt, the Sydney
+# in December case that separates a month lookup from actual reasoning about
+# hemispheres:
+#   gemini-3.7-flash        1.7s   correct
+#   gemini-3.5-flash-lite   0.8s   correct, but it is the smallest tier
+#   gemini-3.5-flash       12.8s   correct
+#   gemini-3.8-flash       77.6s   correct
+#   gemini-3.6-flash          -    429, no quota left
+# gemini-3.7-flash is the default: full Flash tier rather than lite, correct
+# on the case that matters, and forty times faster than what it replaces.
+# COMMERCE_MODEL overrides it, so the next switch is one environment value.
+#
+# EARLIER MODEL PINNING NOTE, from 2026-09-08
 # -----------------------------------------------
 # `gemini-2.5-flash` now 404s for new users -- the API's own error names
 # `gemini-3.6-flash` as the replacement, and that model answered a live call
@@ -32,7 +46,7 @@ import os
 import re
 
 DEFAULT_PROVIDER = "gemini"
-DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.7-flash"
 
 # Every model call is bounded. An unbounded call would hang a request until
 # the client gives up, with no diagnosis of where it stopped.
@@ -45,9 +59,20 @@ DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
 # time and the result is thrown away.
 DEFAULT_TIMEOUT_SECONDS = 90.0
 
+# A quota error is temporary. Failing the stage on the first one turns a
+# few seconds of waiting into a dead run, so one retry is made after a short
+# pause. If it fails again the caller is told it is rate limited, which is a
+# different thing from broken and is offered a retry rather than an error.
+RATE_LIMIT_BACKOFF_SECONDS = 6.0
+
+
 
 class ModelUnavailable(RuntimeError):
     """The provider is configured but the call could not be completed."""
+
+
+class RateLimited(ModelUnavailable):
+    """The provider is throttling. Temporary, and worth retrying."""
 
 
 def provider_name() -> str:
@@ -164,14 +189,31 @@ async def _reason_gemini(prompt: str, schema_hint: str, *, intent: str, timeout:
     def _call():
         return client.models.generate_content(model=model_name(), contents=full)
 
+    async def _once():
+        return await asyncio.wait_for(asyncio.to_thread(_call), timeout=timeout)
+
     try:
-        # The SDK call is blocking, so it goes to a thread; wait_for bounds it
-        # so a hung provider cannot hold the request open indefinitely.
-        resp = await asyncio.wait_for(asyncio.to_thread(_call), timeout=timeout)
+        resp = await _once()
     except asyncio.TimeoutError:
         raise ModelUnavailable(f"model call exceeded {timeout}s") from None
-    except Exception as e:  # provider errors are surfaced, never swallowed
-        raise ModelUnavailable(f"{type(e).__name__}: {str(e)[:200]}") from None
+    except Exception as e:
+        text = f"{type(e).__name__}: {str(e)[:200]}"
+        throttled = "429" in text or "RESOURCE_EXHAUSTED" in text
+        if not throttled:
+            raise ModelUnavailable(text) from None
+        await asyncio.sleep(RATE_LIMIT_BACKOFF_SECONDS)
+        try:
+            resp = await _once()
+        except asyncio.TimeoutError:
+            raise ModelUnavailable(f"model call exceeded {timeout}s") from None
+        except Exception as e2:
+            text2 = f"{type(e2).__name__}: {str(e2)[:160]}"
+            if "429" in text2 or "RESOURCE_EXHAUSTED" in text2:
+                raise RateLimited(
+                    f"{model_name()} is rate limited. Tried again after "
+                    f"{RATE_LIMIT_BACKOFF_SECONDS:.0f}s and it is still throttled."
+                ) from None
+            raise ModelUnavailable(text2) from None
 
     parsed = _extract_json(getattr(resp, "text", "") or "")
     if parsed is None:

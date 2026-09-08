@@ -27,6 +27,7 @@ import time
 from urllib.parse import urlparse
 
 from .. import model
+from ..questions import question
 from ..state import StageResult, TaskState
 
 SCHEMA_HINT = """{
@@ -87,11 +88,14 @@ async def run(state: TaskState) -> StageResult:
     if not country:
         return StageResult(
             stage="merchant_fit", status="error",
-            data={"domains": domains_from(urls)},
+            data={
+                "domains": domains_from(urls),
+                "questions": [question("country", "Which country are you in?",
+                                       "profile.country", placeholder="United Kingdom")],
+            },
             note=(
-                "No country in the profile, so it cannot be said which shops can serve you. "
-                "This stage does not assume a country, because assuming is how a buyer in "
-                "one place gets shown shops in another."
+                "Waiting on your country. Without it there is no way to say which shops can "
+                "serve you, and assuming is how a buyer in one place gets shown shops in another."
             ),
             started_at=started, ended_at=time.time(),
         )

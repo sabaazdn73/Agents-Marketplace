@@ -26,6 +26,7 @@ import {
   User, Calendar, Globe, Search as SearchIcon, Sparkles, ShieldCheck,
   CreditCard, Target, Plug, Scale, Check, X, Moon, Loader2, ExternalLink,
 } from 'lucide-react';
+import PayB402Page from './PayB402Page';
 import './agentStudio.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -97,6 +98,9 @@ export default function AgentStudioPage({ accent = '#6366F1' }) {
   const [request, setRequest] = useState('');
   const [run, setRun] = useState(null);
   const [starting, setStarting] = useState(false);
+  const [answers, setAnswers] = useState({});
+  const [sending, setSending] = useState(false);
+  const [showPay, setShowPay] = useState(false);
   const [error, setError] = useState(null);
   const timer = useRef(null);
 
@@ -119,6 +123,49 @@ export default function AgentStudioPage({ accent = '#6366F1' }) {
       setError(e.message);
     }
   }, []);
+
+  const sendAnswers = async () => {
+    if (!run?.pending) return;
+    setSending(true); setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/studio/runs/${run.run_id}/answers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || 'Could not send the answers.');
+      setAnswers({});
+      setRun(data);
+      poll(data.run_id);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // A rate limited stage is retried by answering with nothing, which
+  // resumes the same agent without changing anything it already knows.
+  const retryStage = async () => {
+    if (!run) return;
+    setSending(true); setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/studio/runs/${run.run_id}/answers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: {} }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || 'Could not retry.');
+      setRun(data);
+      poll(data.run_id);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSending(false);
+    }
+  };
 
   const start = async () => {
     setError(null); setRun(null); setStarting(true);
@@ -261,6 +308,79 @@ export default function AgentStudioPage({ accent = '#6366F1' }) {
         </div>
       )}
 
+      {/* The waiting agent's questions, answerable in place. */}
+      {run?.pending && (
+        <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-3">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-indigo-500">
+            {agents.find((a) => a.key === run.pending.agent)?.label || run.pending.agent} needs an answer
+          </h2>
+          {run.pending.questions.map((q) => (
+            <div key={q.id}>
+              <label className="block text-[12px] mb-1" htmlFor={`q-${q.id}`}>{q.label}</label>
+              <input
+                id={`q-${q.id}`}
+                value={answers[q.id] || ''}
+                onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+                placeholder={q.placeholder || ''}
+                inputMode={q.kind === 'number' ? 'decimal' : 'text'}
+                className="w-full max-w-sm px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent text-sm"
+              />
+            </div>
+          ))}
+          <button
+            onClick={sendAnswers}
+            disabled={sending || !run.pending.questions.some((q) => (answers[q.id] || '').trim())}
+            className="text-sm font-semibold text-white px-4 py-2 rounded-lg disabled:opacity-60"
+            style={{ backgroundColor: accent }}
+          >
+            {sending ? 'Sending…' : 'Answer and carry on'}
+          </button>
+          <p className="text-[11px] text-gray-400">
+            Only this agent runs again. The ones before it keep what they already worked out.
+          </p>
+        </div>
+      )}
+
+      {/* A quota error is temporary, so it offers a retry rather than ending. */}
+      {run?.finished && /rate limited|RESOURCE_EXHAUSTED|429/i.test(
+        run.stages?.[run.stages.length - 1]?.note || '') && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+          <div className="text-[12px] text-amber-700 dark:text-amber-500">
+            The model is rate limited. That is temporary, not a failure of the run.
+          </div>
+          <button
+            onClick={retryStage}
+            disabled={sending}
+            className="text-sm font-medium px-3.5 py-1.5 rounded-lg border border-amber-500/40 text-amber-700 dark:text-amber-500 disabled:opacity-60"
+          >
+            {sending ? 'Retrying…' : 'Try that agent again'}
+          </button>
+        </div>
+      )}
+
+      {/* Payment, folded in from the old Pay.B402 tab. Same endpoints, same
+          server held requirements, same signing. Only its home changed. */}
+      {flow === 'api' && (
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800">
+          <button
+            onClick={() => setShowPay((v) => !v)}
+            className="w-full flex items-center justify-between p-4 text-left"
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              Payment agent, B402 on BNB Chain
+            </span>
+            <span className="text-[11px] text-gray-400">
+              {showPay || run?.current === 'payment' ? 'Hide' : 'Show rail check and pay'}
+            </span>
+          </button>
+          {(showPay || run?.current === 'payment') && (
+            <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800 pt-4">
+              <PayB402Page accent={accent} embedded />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* What each agent actually returned. */}
       {run?.stages?.length > 0 && (
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
@@ -284,19 +404,6 @@ export default function AgentStudioPage({ accent = '#6366F1' }) {
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {run?.questions?.length > 0 && (
-        <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-4">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-indigo-500 mb-2">
-            The agents need answers
-          </h2>
-          <ul className="space-y-1">
-            {run.questions.map((q) => (
-              <li key={q} className="text-[12px] text-gray-700 dark:text-gray-300">{q}</li>
-            ))}
-          </ul>
         </div>
       )}
 

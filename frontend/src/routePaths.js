@@ -34,7 +34,9 @@ export const MAIN_TAB_PATHS = {
   '/learn': 'learn',
   '/build': 'build',
   '/sell': 'sell',
-  '/pay-b402': 'pay-b402',
+  // Pay.B402 folded into the studio. The old path still resolves so any
+  // link that exists keeps landing somewhere.
+  '/pay-b402': 'studio',
   '/studio': 'studio',
 };
 

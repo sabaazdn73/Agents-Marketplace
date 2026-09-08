@@ -23,6 +23,7 @@ from __future__ import annotations
 import time
 
 from .. import model
+from ..questions import NUMBER, question
 from ..state import Money, MoneyError, StageResult, TaskState
 
 SCHEMA_HINT = """{
@@ -85,15 +86,22 @@ async def run(state: TaskState) -> StageResult:
         )
 
     profile: dict = {}
-    questions: list[str] = [q for q in (out.get("questions") or []) if isinstance(q, str)]
+    # The model's own free-text questions are kept as notes only. Anything
+    # the run actually needs is asked as a typed question below, so an
+    # answer has somewhere to go.
+    model_notes = [q for q in (out.get("questions") or []) if isinstance(q, str) and q.strip()]
+    asks: list[dict] = []
 
-    size = out.get("size")
+    # An answer from a previous pause is already in the state, so a
+    # question is only asked when the field is still empty.
+    size = out.get("size") or state.profile.get("size")
     if isinstance(size, str) and size.strip():
         profile["size"] = size.strip()
-    elif not any("size" in q.lower() for q in questions):
-        questions.append("What size do you need?")
+    else:
+        asks.append(question("size", "What size do you need?", "profile.size",
+                             placeholder="M, 42, UK 9"))
 
-    amount = out.get("budget_amount")
+    amount = out.get("budget_amount") or state.profile.get("budget_text")
     if isinstance(amount, str) and amount.strip():
         symbol = (out.get("budget_currency") or DEFAULT_CURRENCY)
         symbol = symbol.strip().upper() if isinstance(symbol, str) else DEFAULT_CURRENCY
@@ -105,13 +113,22 @@ async def run(state: TaskState) -> StageResult:
                 amount.strip(), DEFAULT_DECIMALS, DEFAULT_CURRENCY
                 if symbol == DEFAULT_CURRENCY else symbol,
             )
-        except (MoneyError, ArithmeticError, ValueError) as e:
-            questions.append(
-                f"I couldn't read {amount!r} as a budget ({type(e).__name__}). "
-                "What is the maximum you want to spend?"
-            )
-    elif not any("budget" in q.lower() or "spend" in q.lower() for q in questions):
-        questions.append("What is your maximum budget?")
+        except (MoneyError, ArithmeticError, ValueError):
+            asks.append(question(
+                "budget", f"I could not read {amount!r} as an amount. What is the most you want to spend?",
+                "profile.budget_text", kind=NUMBER, placeholder="200"))
+    else:
+        asks.append(question("budget", "What is the most you want to spend?",
+                             "profile.budget_text", kind=NUMBER, placeholder="200"))
+
+    # Merchant Fit needs a country, and asking here saves a second pause.
+    if not state.profile.get("country"):
+        asks.append(question("country", "Which country are you in?", "profile.country",
+                             placeholder="United Kingdom"))
+    else:
+        profile["country"] = state.profile["country"]
+    if state.profile.get("city"):
+        profile["city"] = state.profile["city"]
 
     if isinstance(out.get("recipient"), str) and out["recipient"].strip():
         profile["recipient"] = out["recipient"].strip()
@@ -119,19 +136,20 @@ async def run(state: TaskState) -> StageResult:
     if notes:
         profile["notes"] = notes
 
-    profile["questions"] = questions
-    state.profile = profile
+    state.profile.update(profile)
 
     return StageResult(
         stage="profile",
         status="ok",
         data={
             **{k: (v.to_dict() if isinstance(v, Money) else v) for k, v in profile.items()},
-            "complete": not questions,
+            "complete": not asks,
+            "questions": asks,
+            "model_notes": model_notes,
         },
         note=(
-            "Profile complete." if not questions
-            else f"{len(questions)} question(s) must be answered before buying."
+            "Profile complete." if not asks
+            else f"Waiting on {len(asks)} answer(s)."
         ),
         started_at=started, ended_at=time.time(),
     )
