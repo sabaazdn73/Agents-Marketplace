@@ -39,7 +39,31 @@ _KEYWORD_RULES: list[tuple[str, list[str]]] = [
         "undercollateralized", "margin call", "loan safety",
     ]),
     ("Grid Trading", [
+        # Widened 2026-09-09. The original three phrases classified 11
+        # agents while 367 mention "grid" somewhere, which looked like the
+        # keywords were far too narrow.
+        #
+        # Checking that assumption rather than acting on it: most of those
+        # 367 are not trading grids at all. They are power grids, network
+        # grids, "grid stability", and a large amount of flavour text in
+        # generated agent names ("the grid", "grid nebula", "flickering
+        # grid of"). Widening to the bare word "grid" would have swept all
+        # of that in.
+        #
+        # So these are phrases that only occur in a trading context. Each
+        # was measured against the live registry before being added: the
+        # set below moves 6 agents out of Unclassified, takes nothing out of
+        # any other category, and produces zero false positives on the
+        # power-grid population.
+        #
+        # Deliberately NOT added: "grid" alone, and "gridrunner". The first
+        # is the false-positive problem above. The second matches exactly
+        # one agent by its name, which is fitting a rule to a row rather
+        # than to a pattern.
         "grid trading", "grid order", "grid bot",
+        "grid trader", "grid strategy", "grid planning", "grid levels",
+        "grid ladder", "grid spacing", "trading grid",
+        "buy and sell ladder", "grid of limit orders", "a grid for",
     ]),
     ("Rebalancing", [
         "rebalanc", "lp range", "liquidity range", "re-center", "recenter",
