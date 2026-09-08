@@ -26,7 +26,7 @@ How it reads data (and why it's bounded):
     payload so the UI never implies it saw the wallet's/agent's entire history,
     a job older than the most recent WINDOW jobs globally won't be found.
 
-Everything here is a on-chain read (public BSC RPC). If a provider/client
+Everything here is an on-chain read (public BSC RPC). If a provider/client
 has no jobs in the window, the response honestly reports zero hires,
 expected for a new marketplace, rather than a fabricated number.
 """

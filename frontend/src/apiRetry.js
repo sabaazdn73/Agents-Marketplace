@@ -32,7 +32,7 @@
 // Retried: network-level failures (the "Failed to fetch" case, which is
 // what a mid-restart connection produces) and 502/503/504, which is what a
 // proxy in front of a restarting service returns. Not 4xx, and not 500: a
-// 500 is the backend answering with a error, and hiding it behind
+// 500 is the backend answering with an error, and hiding it behind
 // retries would make a bug look like slowness.
 
 const RETRY_DELAYS_MS = [1200, 3500, 9000];   // 4 attempts, ~14s total

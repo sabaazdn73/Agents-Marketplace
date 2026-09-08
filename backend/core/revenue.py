@@ -1,7 +1,7 @@
 """
 revenue.py
 
-Real "Revenue Stream" feature: how much has an agent, as a ERC-8183
+Real "Revenue Stream" feature: how much has an agent, as an ERC-8183
 PROVIDER, actually verifiably earned, over time, not just a lifetime
 total. Deliberately simpler than core/pnl.py / core/onchain_pnl.py: no
 Zerion timestamp-matching, no wallet-activity scanning, no session

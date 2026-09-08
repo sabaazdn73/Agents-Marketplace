@@ -49,7 +49,7 @@ export async function venusSupply(executor, { usdtAmount }) {
  * via live on-chain reads, not assumed, but couldn't check the one real
  * remaining, wallet-specific hypothesis (insufficient balance/
  * allowance) without the failing wallet address. This gives that
- * exact check, cheaply, BEFORE a attempt, never blocks a
+ * exact check, cheaply, BEFORE an attempt, never blocks a
  * genuinely-fine attempt, only surfaces a real, concrete, human-readable
  * warning when the wallet's own on-chain state would make it fail.
  */

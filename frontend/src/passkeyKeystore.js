@@ -35,7 +35,7 @@
 // case: if a wallet's original key was ever revoked and a new admin key
 // re-registered out of band, ordering assumptions could theoretically not
 // hold. Even then, this only affects WHICH key we inspect, the curve check
-// on whatever bytes we do read is still a on-chain fact, never
+// on whatever bytes we do read is still an on-chain fact, never
 // fabricated.
 
 import { p256 } from '@noble/curves/p256';

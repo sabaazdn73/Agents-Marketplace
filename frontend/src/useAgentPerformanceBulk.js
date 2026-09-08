@@ -36,7 +36,7 @@
 // (agentRanking.js) treats a null `byOwner` as "no agent anywhere has any
 // history", exactly why the verified-working filter would show
 // zero: every agent's jobsCompleted/jobsSubmitted silently defaulted to 0,
-// indistinguishable from a empty result. Fixed with a real
+// indistinguishable from an empty result. Fixed with a real
 // retry-with-backoff and an honest `status`, so a failure can be
 // shown and retried, not silently mistaken for "no verified agents exist".
 import { useEffect, useState, useCallback } from 'react';

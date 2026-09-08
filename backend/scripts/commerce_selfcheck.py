@@ -389,7 +389,7 @@ async def crossmint_guard_checks() -> None:
     # GUARD 1
     check("GUARD 1 default is OFF", not cm.real_orders_enabled())
     res = await r.execute(cart())
-    check("GUARD 1 blocks a order", res.status == "unavailable", res.detail[:60])
+    check("GUARD 1 blocks an order", res.status == "unavailable", res.detail[:60])
 
     # GUARD 2
     os.environ[cm.REAL_ORDERS_FLAG] = "1"

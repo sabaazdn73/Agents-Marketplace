@@ -252,7 +252,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
       const pre = await exec.preflight(getMainnetReadClient(), executor.walletAddress, values);
       if (!pre.ok) {
         setStep('error');
-        setError(`Issue with this wallet, checked before spending a attempt on it:\n${pre.problems.join('\n')}`);
+        setError(`Issue with this wallet, checked before spending an attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
     }

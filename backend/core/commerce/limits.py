@@ -2,7 +2,7 @@
 #
 # ════════════════════════════════════════════════════════════════════════
 #  THE HARD SPEND CAP LIVES HERE. Raise MAX_ORDER_VALUE_MINOR_UNITS below
-# once a order has completed successfully.
+# once an order has completed successfully.
 # ════════════════════════════════════════════════════════════════════════
 #
 # One constant, one file, so there is exactly one place to look and exactly

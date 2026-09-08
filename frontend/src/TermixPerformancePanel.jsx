@@ -11,7 +11,7 @@
 // Real, correction (2026-08-28): this used to be captioned as
 // "protocol-wide" / "not limited to hires through this marketplace", that
 // claim didn't survive a direct check (TermiX's own registry reports
-// completedJobs: 0 for a agent independently confirmed to have 2 real
+// completedJobs: 0 for an agent independently confirmed to have 2 real
 // on-chain COMPLETED jobs on the same shared AgenticCommerce contract).
 // TermiX's own numbers appear scoped to activity through TermiX's OWN
 // platform, not a complete index of the shared contract, still a

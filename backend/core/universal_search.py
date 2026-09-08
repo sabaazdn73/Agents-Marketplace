@@ -150,7 +150,7 @@ async def resolve_agent_id(query: str) -> dict:
 
     if kind != "token_id":
         result = {"input_kind": "unrecognized", "found": False,
-                   "reason": "Doesn't look like a agent id (a plain number) or a wallet/contract address (0x...)."}
+                   "reason": "Doesn't look like an agent id (a plain number) or a wallet/contract address (0x...)."}
         _cache_set(cache_key, result)
         return result
 
@@ -356,5 +356,5 @@ async def resolve_search_fallback(raw_query: str) -> dict:
     if kind in ("uuid", "token_id"):
         return await resolve_agent_id(raw_query)
     return {"input_kind": "unrecognized", "found": False,
-            "reason": "Doesn't look like a agent id (a plain number) or a wallet/contract address (0x...), "
+            "reason": "Doesn't look like an agent id (a plain number) or a wallet/contract address (0x...), "
                        "nothing further to check live for this input."}

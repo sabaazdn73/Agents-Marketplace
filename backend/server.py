@@ -1087,7 +1087,7 @@ async def agent_perf(owner_address: str):
 @app.get("/api/agents/revenue")
 async def agent_revenue(owner_address: str):
     """Real "Revenue Stream", how much this agent has actually,
-    verifiably earned as a ERC-8183 provider, over time. Real, fixed
+    verifiably earned as an ERC-8183 provider, over time. Real, fixed
     (2026-08-28): now reads core/job_index.py's own COMPLETE, persistent
     job index, not core/agent_performance.py's WINDOW-bounded recent-jobs
     cache /api/agents/performance uses, since a scoping bug there

@@ -1,6 +1,6 @@
 // useViewHistory.js
 //
-// Makes the browser Back button behave like a app instead of exiting
+// Makes the browser Back button behave like an app instead of exiting
 // the site.
 //
 // The bug this fixes (reported 2026-09-04): pressing Back jumped all the
@@ -68,7 +68,7 @@ export function useOverlayHistory(isOpen, setValue, key = 'overlay', fallbackUrl
   /** Open the overlay, optionally moving the URL to `url`.
    *
    * The URL matters as much as the history entry: an entry only survives
-   * within a session, so without a address a refresh on the overlay
+   * within a session, so without an address a refresh on the overlay
    * has nothing to restore from and drops the user back to the section
    * root. Passing a url makes the view addressable by refresh, paste and
    * shared link too. */

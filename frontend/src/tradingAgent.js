@@ -291,7 +291,7 @@ export async function getTradeQuote(publicClient, tokenAddress, usdtAmountRaw) {
   };
 }
 
-/** Real, read-only balance/gas check before spending a attempt,
+/** Real, read-only balance/gas check before spending an attempt,
  * same pattern as the rest of this codebase's own preflight functions.
  * Checks the trade amount PLUS the Native Agent fee together, both
  * USDT this wallet needs to hold. */

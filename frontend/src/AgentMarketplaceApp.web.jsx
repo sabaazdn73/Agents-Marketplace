@@ -184,7 +184,7 @@ function useMarketplaceAgents() {
   // Listed / Reviews / Verified Agents) render unconditionally from
   // `agents`, with no gate of their own, so on a page load with a warm
   // localStorage cache, the FIRST paint shows whatever count was cached
-  // (a number from a earlier fetch, not literally 0/null, but
+  // (a number from an earlier fetch, not literally 0/null, but
   // possibly stale, e.g. from before a backend fix changed the total),
  // then flashes to the real, fresh number once this hook's fetch resolves
   // a moment later. `loading`/`refreshing` can't gate this cleanly on their
@@ -750,7 +750,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  if (deadlineError) return; // bounds, the button itself is also disabled on this, see below
     try {
  // flow: creates + registers + budgets + approves (if needed) +
-      // funds a ERC-8183 job, the user's own connected wallet
+      // funds an ERC-8183 job, the user's own connected wallet
  // signs every step, nothing here is simulated. Real, opt-in
       // alternative: hireBatched() does the exact same on-chain work,
       // just with the register/budget/approve/fund steps signed once as a
@@ -1978,11 +1978,14 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
 
           <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
         </div>
-      </main>
 
-      {/* Replaces the old partner footer. Full width and outside the padded
-          column so it runs the whole way across the bottom. */}
-      <PartnerMarquee />
+        {/* Replaces the old partner footer. It sits INSIDE main, at the end
+            of the content column. The page's outer div is `flex`, so a
+            sibling of main becomes a second flex column: at width 100% it
+            takes the whole row and pushes the sidebar and content out of
+            view, which blanked the page. */}
+        <PartnerMarquee />
+      </main>
     </div>
   );
 }

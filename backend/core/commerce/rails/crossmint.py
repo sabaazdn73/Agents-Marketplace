@@ -14,7 +14,7 @@
 #
 #   GUARD 2  A hard spend ceiling from core/commerce/limits.py, checked
 #            immediately before the HTTP write. Not an env var: see that
-# file for why. Raise it there once a order has worked.
+# file for why. Raise it there once an order has worked.
 #
 #   GUARD 3  A browser profile is NEVER created here, and a browserProfileId
 #            is never sent unless the caller passes explicit per-session

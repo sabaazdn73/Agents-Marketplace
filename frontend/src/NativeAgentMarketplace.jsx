@@ -156,7 +156,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       const pre = await preflight(getMainnetReadClient(), directExecutor.walletAddress, amountNum);
       if (!pre.ok) {
         setStep('error');
-        setError2(`Issue with this wallet, checked before spending a attempt on it:\n${pre.problems.join('\n')}`);
+        setError2(`Issue with this wallet, checked before spending an attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
       setStep('executing');
@@ -352,7 +352,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
       const pre = await spotTradePreflight(getMainnetReadClient(), directExecutor.walletAddress, amountNum);
       if (!pre.ok) {
         setStep('error');
-        setError2(`Issue with this wallet, checked before spending a attempt on it:\n${pre.problems.join('\n')}`);
+        setError2(`Issue with this wallet, checked before spending an attempt on it:\n${pre.problems.join('\n')}`);
         return;
       }
       setStep('executing');

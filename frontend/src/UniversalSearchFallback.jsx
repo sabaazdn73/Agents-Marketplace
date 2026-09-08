@@ -3,7 +3,7 @@
 // Real, live search fallback (2026-08-29), see docs/universal-search.md
 // for the full investigation and reasoning. The marketplace's own
 // search is a plain client-side name filter over the local known_agents
-// cache; when that comes up empty for input that looks like a agent
+// cache; when that comes up empty for input that looks like an agent
 // id or a 0x address, this component makes a real, live call
 // (GET /api/search/resolve) to the authoritative source instead of
 // leaving the user at a dead "no agents found". Shared verbatim by web
@@ -126,7 +126,7 @@ export default function UniversalSearchFallback({ query, agentsWithPerf, onOpenA
     );
   }
 
-  // A agent id/UUID that IS in our local index, just not matched by
+  // an agent id/UUID that IS in our local index, just not matched by
   // the name-text filter (e.g. searched by id, not name), resolve to the
   // full local object and offer to open it directly, no extra network call.
   if ((data.input_kind === 'token_id' || data.input_kind === 'uuid') && data.source === 'local') {

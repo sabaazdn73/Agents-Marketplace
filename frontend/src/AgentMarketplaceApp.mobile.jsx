@@ -485,7 +485,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <div className="flex flex-wrap items-center gap-2 my-4">
           {agent.isVerified && <span title="Registered on-chain, not a quality rating" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><BadgeCheck size={12} />Verified</span>}
           {agent.x402Supported && <span title="Can pay other agents automatically for tools or data it needs, without a person approving each payment" className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Zap size={12} />Pays other agents automatically</span>}
-          {(agent.supportedProtocols || []).map((p) => <span key={p} title={`Works with ${p}, a app it can act on for you`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
+          {(agent.supportedProtocols || []).map((p) => <span key={p} title={`Works with ${p}, an app it can act on for you`} className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"><Coins size={12} />{p}</span>)}
           <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
           {(!agent.serviceStatus || agent.serviceStatus === 'unknown') && (
             <span className="text-[11px] text-gray-400">Not confirmed online yet</span>
@@ -1311,7 +1311,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         </div>
 
                         <div className="flex gap-4 mb-2">
-                          <div title="How trustworthy this agent looks, based on past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || ','}</span></div>
+                          <div title="How trustworthy this agent looks, based on past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || 'n/a'}</span></div>
                           <div title="Total money this agent currently manages for people"><span className="text-[10px] text-gray-500 uppercase block">Funds</span><span className="font-bold text-sm">{agent.tvlUsd ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : '-'}</span></div>
                         </div>
 

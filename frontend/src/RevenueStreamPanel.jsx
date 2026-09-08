@@ -1,7 +1,7 @@
 // RevenueStreamPanel.jsx
 //
 // Real "Revenue Stream", how much an agent has actually, verifiably
-// earned as a ERC-8183 provider, over time. See
+// earned as an ERC-8183 provider, over time. See
 // backend/core/revenue.py's own module docstring for the full real
 // methodology: sums SUBMITTED/COMPLETED job budgets into a real
 // chronological timeline, and shows the ERC-8183 settlement token's
