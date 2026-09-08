@@ -58,6 +58,7 @@ import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
+import MultiAgentIcon from './MultiAgentIcon';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import SessionModesExplainer from './SessionModesExplainer';
@@ -264,15 +265,17 @@ const NAV_ITEMS = [
   // NAV_ITEMS change; see that file's own comment for the full reasoning.
   // Ordered ahead of Skills (2026-09-02, explicit tab-order request).
   { id: 'native', label: 'Native Agents', icon: Bot },
+  // Under Native Agents: both are about agents doing the work, and this
+  // one is where several of them do it together.
+  { id: 'studio', label: 'MultiAgents', icon: MultiAgentIcon },
   // My Agents ahead of Skills (2026-09-07, explicit tab-order request):
   // what you already hired outranks what you could run yourself.
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'report', label: 'Report', icon: FileBarChart },
-  { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build', icon: Hammer },
   { id: 'sell', label: 'Sell', icon: Coins },
-  { id: 'studio', label: 'MultiAgents', icon: Bot },
+  { id: 'learn', label: 'Learn', icon: GraduationCap },
 ];
 
 // bottom-bar trim (2026-09-04): eight tabs in a phone-width bar left
