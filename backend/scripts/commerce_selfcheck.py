@@ -491,6 +491,32 @@ async def stage_checks() -> None:
           cart.currency_symbol == "USD" and cart.total().units == 69 * 10**18,
           f"{cart.currency_symbol} {cart.total().units}")
 
+    # Context reads product links from the request without a model, so a
+    # model outage must not lose them. Checked on the degraded path, which
+    # is the one that runs with no key.
+    from core.commerce.agents import context as context_agent
+    saved_key = os.environ.pop("GEMINI_API_KEY", None)
+    try:
+        st = TaskState(request="Buy me this https://example.com/products/coat for a trip")
+        r = await context_agent.run(st)
+        check(
+            "context keeps product links when no model is available",
+            r.status == "degraded" and st.context.get("product_urls") == ["https://example.com/products/coat"],
+            f"status={r.status} urls={st.context.get('product_urls')}",
+        )
+    finally:
+        if saved_key is not None:
+            os.environ["GEMINI_API_KEY"] = saved_key
+
+    # A season qa.py would not recognise must be dropped, not passed on. A
+    # season it ignores looks the same as no season, except the result claims
+    # one was found.
+    check(
+        "context only allows seasons qa matches on",
+        set(context_agent.KNOWN_SEASONS) >= {"summer", "winter"},
+        str(context_agent.KNOWN_SEASONS),
+    )
+
     # Search invents nothing when it has nothing to work with.
     st = TaskState(request="find me a wool coat")
     st.profile = {"budget": m("200")}

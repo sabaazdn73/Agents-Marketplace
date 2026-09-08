@@ -36,7 +36,14 @@ DEFAULT_GEMINI_MODEL = "gemini-3.6-flash"
 
 # Every model call is bounded. An unbounded call would hang a request until
 # the client gives up, with no diagnosis of where it stopped.
-DEFAULT_TIMEOUT_SECONDS = 45.0
+#
+# 90 seconds, from measurement rather than taste. The first value here was
+# 45, which was a guess, and gemini-3.6-flash on this key answered the
+# context prompt in 34.9s, then timed out at 45.0s, then answered in 44.7s.
+# Sitting the limit on top of the observed range turns a slow model into an
+# intermittent failure, which is the worst of both: the call still costs the
+# time and the result is thrown away.
+DEFAULT_TIMEOUT_SECONDS = 90.0
 
 
 class ModelUnavailable(RuntimeError):

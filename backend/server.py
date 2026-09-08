@@ -2275,7 +2275,7 @@ async def commerce_readiness():
         "rails": rails,
         "stages": {
             "profile": "built",
-            "context": "not_implemented",
+            "context": "built",
             "search": "built, resolves supplied product URLs; no discovery source",
             "styling": "built",
             "qa": "built",

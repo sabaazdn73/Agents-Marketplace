@@ -10,7 +10,11 @@
 #   Profile  Built, model-backed. Extracts only what the request states and
 #            asks for the rest. It never guesses a size or a budget.
 #
-#   Context  Not built. Returns not_implemented and no invented output.
+#   Context  Built, model-backed. Collects occasion, season, destination and
+#            other constraints. A season may be stated or worked out from a
+#            stated destination and time of year, and which of the two it was
+#            is recorded, because the hemisphere decides the answer and QA's
+#            conflict list is written for the northern one.
 #
 #   Search   Built, but narrow. It resolves product URLs into priced
 #            candidates by reading the merchant's own structured data. It
