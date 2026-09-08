@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import time
 
+from ..limits import OrderTooLarge, check_order_value
 from ..rails.base import Cart
 from ..rails.select import select_rail
 from ..state import StageResult, TaskState
@@ -43,6 +44,20 @@ async def run(state: TaskState, cart: Cart) -> StageResult:
         return StageResult(
             stage="payment", status="error", data={},
             note="Payment refused: QA did not run to completion. Nothing was charged.",
+            started_at=started, ended_at=time.time(),
+        )
+
+    # The hard spend ceiling, applied BEFORE a rail is chosen so it governs
+    # every rail rather than only the one that happens to be selected. The
+    # Crossmint adapter checks it again at the point of the HTTP write; that
+    # is deliberate duplication, not an oversight. See core/commerce/limits.py.
+    try:
+        check_order_value(cart.total())
+    except OrderTooLarge as e:
+        return StageResult(
+            stage="payment", status="error",
+            data={"cap_exceeded": str(e)},
+            note=f"Payment refused by the spend cap: {e} Nothing was charged.",
             started_at=started, ended_at=time.time(),
         )
 

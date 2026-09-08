@@ -233,15 +233,31 @@ async def chain_checks() -> None:
            if not isinstance(k.get("decimals"), int) or not (0 <= k["decimals"] <= 36)]
     check("facilitator states plausible decimals", not odd, str(odd[:3]))
 
-    # No testnet leakage anywhere in the commerce package.
-    testnet_markers = ("eip155:97", "chapel", "testnet", "data-seed-prebsc", "97")
+    # No testnet INFRASTRUCTURE anywhere in the commerce package.
+    #
+    # Deliberately not a grep for the word "testnet": that word now appears
+    # legitimately in code whose whole job is to REFUSE testnet values, and
+    # flagging a guard as if it were the thing it guards against would be a
+    # check that punishes the right behaviour. So this looks for real
+    # testnet endpoints and chain ids instead.
+    testnet_infra = ("eip155:97", "chapel", "data-seed-prebsc", "sepolia.", "goerli")
     hits = []
     for p in (ROOT / "core/commerce").rglob("*.py"):
-        text = p.read_text()
-        for marker in testnet_markers[:4]:      # '97' alone is too noisy to grep
-            if marker in text.lower():
+        text = p.read_text().lower()
+        for marker in testnet_infra:
+            if marker in text:
                 hits.append(f"{p.name}:{marker}")
-    check("no testnet marker in the commerce package", not hits, str(hits[:3]))
+    check("no testnet endpoint or chain id in the package", not hits, str(hits[:3]))
+
+    # Stronger than a grep: a testnet payment method must be structurally
+    # unselectable, not merely absent from the source.
+    from core.commerce.rails import crossmint as _cm
+    allowed = _cm.EVM_METHODS | _cm.SOLANA_METHODS | _cm.FIAT_METHODS
+    check(
+        "testnet methods are disjoint from the accepted set",
+        not (_cm.TESTNET_METHODS & allowed),
+        str(sorted(_cm.TESTNET_METHODS & allowed)),
+    )
 
 
 # ───────────────────────── FAILURE BEHAVIOUR ──────────────────────────────
@@ -353,12 +369,77 @@ async def gate_checks() -> None:
         q.rail == "handoff" and q.available for q in quotes))
 
 
+async def crossmint_guard_checks() -> None:
+    """The three guards standing in front of a production key."""
+    print("\nCROSSMINT GUARDS")
+    from core.commerce.rails import crossmint as cm
+    from core.commerce.rails.crossmint import CrossmintRail
+
+    def cart(amount="1.00", sym="USDC"):
+        c = Cart(currency_symbol=sym, currency_decimals=18)
+        c.lines.append(CartLine(
+            title="t", url="https://www.amazon.com/dp/B08N5WRWNW",
+            price=Money.from_decimal_string(amount, 18, sym)))
+        return c
+
+    r = CrossmintRail()
+    saved_flag = os.environ.pop(cm.REAL_ORDERS_FLAG, None)
+    saved_method = os.environ.get("CROSSMINT_PAYMENT_METHOD")
+
+    # GUARD 1
+    check("GUARD 1 default is OFF", not cm.real_orders_enabled())
+    res = await r.execute(cart())
+    check("GUARD 1 blocks a real order", res.status == "unavailable", res.detail[:60])
+
+    # GUARD 2
+    os.environ[cm.REAL_ORDERS_FLAG] = "1"
+    os.environ["CROSSMINT_PAYMENT_METHOD"] = "base"
+    over = await r.execute(cart("9999"))
+    check("GUARD 2 blocks over-cap order", over.status == "failed" and "cap" in over.detail.lower(),
+          over.detail[:70])
+
+    # GUARD 3
+    g3 = await r.execute(cart(), browser_profile_id="p_1")
+    check("GUARD 3 blocks profile id without consent",
+          g3.status == "failed" and "consent" in g3.detail.lower(), g3.detail[:70])
+    src = (ROOT / "core/commerce/rails/crossmint.py").read_text()
+    creates = "browser-profiles" in src and ".post(" in src.split("BROWSER_PROFILE_PATH")[-1][:400]
+    check("GUARD 3 never CREATES a browser profile", not creates)
+
+    # No testnet method may be used with a production key.
+    os.environ["CROSSMINT_PAYMENT_METHOD"] = "base-sepolia"
+    tn = await r.execute(cart())
+    check("testnet method refused", tn.status == "failed", tn.detail[:60])
+
+    # No unsafe default: BSC is not available for Crossmint crypto payments.
+    os.environ.pop("CROSSMINT_PAYMENT_METHOD", None)
+    nd = await r.execute(cart())
+    check("no implicit payment method default", nd.status == "failed" and "not set" in nd.detail,
+          nd.detail[:60])
+    check("bsc is NOT in the accepted method set", "bsc" not in cm.EVM_METHODS)
+
+    # A currency the rail cannot settle is refused before any HTTP call.
+    os.environ["CROSSMINT_PAYMENT_METHOD"] = "base"
+    bad = await r.execute(cart(sym="USDT"))
+    check("unsupported currency refused pre-flight",
+          bad.status == "failed" and "cannot settle" in bad.detail, bad.detail[:60])
+
+    os.environ.pop(cm.REAL_ORDERS_FLAG, None)
+    if saved_flag is not None:
+        os.environ[cm.REAL_ORDERS_FLAG] = saved_flag
+    if saved_method is None:
+        os.environ.pop("CROSSMINT_PAYMENT_METHOD", None)
+    else:
+        os.environ["CROSSMINT_PAYMENT_METHOD"] = saved_method
+
+
 async def main() -> int:
     print("commerce pipeline self-check -- real infrastructure, no mocks")
     money_checks()
     await chain_checks()
     await failure_checks()
     await gate_checks()
+    await crossmint_guard_checks()
 
     failed = [n for n, ok, _ in RESULTS if not ok]
     print(f"\n{len(RESULTS) - len(failed)}/{len(RESULTS)} passed")
