@@ -34,6 +34,7 @@ export const MAIN_TAB_PATHS = {
   '/learn': 'learn',
   '/build': 'build',
   '/sell': 'sell',
+  '/pay-b402': 'pay-b402',
 };
 
 export const NAV_TO_PATH = Object.fromEntries(Object.entries(MAIN_TAB_PATHS).map(([p, id]) => [id, p]));

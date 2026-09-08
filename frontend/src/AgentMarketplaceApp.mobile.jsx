@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -57,6 +57,7 @@ import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
+import PayB402Page from './PayB402Page';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import SessionModesExplainer from './SessionModesExplainer';
@@ -271,6 +272,7 @@ const NAV_ITEMS = [
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build', icon: Hammer },
   { id: 'sell', label: 'Sell', icon: Coins },
+  { id: 'pay-b402', label: 'Pay.B402', icon: CreditCard },
 ];
 
 // bottom-bar trim (2026-09-04): eight tabs in a phone-width bar left
@@ -1378,6 +1380,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             )}
 
             {nav === 'sell' && <SellYourAgentForm />}
+            {nav === 'pay-b402' && <PayB402Page accent="#4F46E5" />}
 
             {nav === 'learn' && (
               <div className="space-y-6">

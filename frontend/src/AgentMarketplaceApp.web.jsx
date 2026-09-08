@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot, Clock
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard
 } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
@@ -84,6 +84,7 @@ import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
+import PayB402Page from './PayB402Page';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
@@ -550,6 +551,7 @@ const NAV_ITEMS = [
   { id: 'learn', label: 'Learn', icon: GraduationCap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
+  { id: 'pay-b402', label: 'Pay.B402', icon: CreditCard },
 ];
 
 export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
@@ -1789,6 +1791,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               via AgentAccessMarket + x402 config for model 3). Shared component,
               identical on web and mobile. */}
           {nav === 'sell' && <SellYourAgentForm />}
+          {nav === 'pay-b402' && <PayB402Page accent={accent} />}
 
           {/* Learn Tab */}
           {nav === 'learn' && (

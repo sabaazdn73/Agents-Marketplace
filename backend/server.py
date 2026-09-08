@@ -2094,6 +2094,20 @@ async def paybox_submit_payment(session_id: str, request: Request):
     return result
 
 
+@app.get("/api/paybox/selfcheck")
+async def paybox_selfcheck():
+    """Run the B402 rail checks against the live facilitator.
+
+    Surfaced on the Pay.B402 tab so a visitor can see whether the rail
+    works, rather than being told that it does. Every check here performs a
+    call; none of them pass because the code compiled."""
+    from core import b402_selfcheck
+    try:
+        return await b402_selfcheck.run_checks()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Self-check failed to run: {type(e).__name__}: {e}")
+
+
 @app.get("/api/token-risk/{contract_address}")
 async def token_risk(contract_address: str, chain_id: int = 56):
     """holder-concentration risk signals for one token, from Binance's
