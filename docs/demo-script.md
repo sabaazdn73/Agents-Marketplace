@@ -299,6 +299,50 @@ Every number read from the chain.
 
 ---
 
+## Appendix. When two seconds is not long enough to read
+
+Two seconds is the default and every scene above is cut to it. Seven scenes
+ask the viewer to read something rather than recognise it, and those are the
+seven the whole argument rests on:
+
+| # | What has to be read |
+|---|---|
+| 36 | `feeBps` returns 250 |
+| 38 | `MAX_FEE_BPS` returns 1000 |
+| 42 | `draw` and its `whenNotPaused` modifier |
+| 43 | `reclaim` with no modifier |
+| 44 | Both signatures together |
+| 48 | The APR chart, four lines |
+| 53 | The grid price axis and markers |
+
+Two seconds is enough to recognise a number that is already on screen. It is
+not enough to find one. So the first defence is framing: expand both fee
+values and scroll to both function signatures before recording, so each
+scene opens on the thing already visible rather than arriving at it.
+
+If it is still not legible on playback, hold those seven at 4 seconds. That
+adds 14 seconds, so seven scenes come out to stay at 2:00. These are the
+seven to drop, chosen because each is a restatement rather than a step:
+
+| Drop | Subtitle | Why it can go |
+|---|---|---|
+| 2 | Every one registered on chain. | Scene 1 already said on chain |
+| 30 | I integrate it. | Scene 29 already drew the line |
+| 34 | This one sells access to an agent. | Not needed for the fee point |
+| 40 | The owner cannot go past it. | Scene 39 said fixed in the code |
+| 46 | This is what passed the checking. | Scene 45 carries it |
+| 49 | Four protocols, over 180 days. | Scene 48 shows the four lines |
+| 54 | Sells above spot, buys below. | Visible in the shot itself |
+
+That variant runs 53 scenes and the same 2:00. The argument is unchanged,
+because nothing in the drop list advances it.
+
+Do not solve this by shortening the held scenes instead. A judge who cannot
+read `MAX_FEE_BPS` has been shown a cap they have to take on trust, which is
+the opposite of the reason that scene exists.
+
+---
+
 ## What was cut, and why
 
 **The Graph integration.** The strongest engineering story in the project.
