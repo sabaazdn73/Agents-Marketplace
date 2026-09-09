@@ -4,8 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard
-} from 'lucide-react';
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, PlayCircle} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -57,7 +56,7 @@ import QualityCenterPanel from './QualityCenterPanel';
 import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
-import SiteLinks from './SiteLinks';
+import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
 import PartnerMarquee from './PartnerMarquee';
@@ -365,12 +364,26 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs }) {
           </div>
         )}
 
+        {/* The recorded walkthrough. On web this sits under Ecosystem view
+            in the sidebar; mobile has no sidebar, so it goes here in the
+            menu sheet, immediately above the project links. */}
+        <a
+          href={DEMO_VIDEO_URL}
+          target="_blank"
+          rel="noreferrer"
+          onClick={onClose}
+          className="mt-6 flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+        >
+          <PlayCircle size={16} className="shrink-0 opacity-70" />
+          Demo Walkthrough
+        </a>
+
         {/* Docs, GitHub and LinkedIn. Previously a single line at the very
             bottom of the page, under two footers. */}
         <SiteLinks
           onOpenDocs={onOpenDocs ? () => { onOpenDocs(); onClose(); } : undefined}
           variant="light"
-          className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800"
+          className="mt-3 pt-4 border-t border-gray-100 dark:border-gray-800"
         />
       </div>
     </div>

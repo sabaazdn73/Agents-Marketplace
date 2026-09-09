@@ -3,8 +3,7 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard
-} from 'lucide-react';
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, PlayCircle} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -84,7 +83,7 @@ import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
 import DataSourcesFooter from './DataSourcesFooter';
-import SiteLinks from './SiteLinks';
+import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
 import PartnerMarquee from './PartnerMarquee';
@@ -1036,6 +1035,18 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 >
                   <Globe size={16} className="shrink-0 opacity-70" /> Ecosystem view
                 </button>
+                {/* The recorded walkthrough, sitting with Ecosystem view
+                    because both are ways of seeing the whole thing at once
+                    rather than tabs you work in. External, so it opens in a
+                    new tab and leaves the app where it was. */}
+                <a
+                  href={DEMO_VIDEO_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all duration-200"
+                >
+                  <PlayCircle size={16} className="shrink-0 opacity-70" /> Demo Walkthrough
+                </a>
               </>
             )}
           </div>
