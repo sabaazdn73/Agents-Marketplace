@@ -58,4 +58,5 @@
 
 * [Hackathon Submission Context](hackathon.md)
 * [Demo Script](demo-script.md)
+* [Demo Footnotes](demo-footnotes.md)
 * [ETHGlobal Online 2026](ethglobal-online-2026.md)
