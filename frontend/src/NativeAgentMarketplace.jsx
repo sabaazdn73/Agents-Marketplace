@@ -61,6 +61,7 @@ import {
 import { getTokenMeta, getTradeQuote, getPriceTrend, spotTradePreflight, runNativeSpotTrade } from './tradingAgent';
 import HealthFactorCard from './HealthFactorCard';
 import GridTradingCard from './GridTradingCard';
+import YieldHistoryChart from './YieldHistoryChart';
 import NativeCardShell from './NativeCardShell';
 import DeFiCategoryPanels from './DeFiCategoryPanels';
 import RebalancingCard from './RebalancingCard';
@@ -267,6 +268,11 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode, bare =
           <button onClick={() => setOpen(false)} className="text-xs opacity-60 hover:opacity-100 flex items-center gap-1"><ChevronRight size={13} className="rotate-180" /> Collapse</button>
         </div>
       )}
+
+      {/* Rendered outside the expand/collapse above on purpose: the chart is
+          what makes the comparison legible, so it should not be behind a
+          second click once the panel is already open. */}
+      <YieldHistoryChart accent={accent} />
     </NativeCardShell>
   );
 }

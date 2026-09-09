@@ -21,6 +21,7 @@ import { planRebalance, currentWeights, formatUnits, RebalanceError, BPS } from 
 import { USDT_BSC } from './defiSkills';
 import { quoteBestAcrossDexes } from './tradingAgent';
 import NativeCardShell from './NativeCardShell';
+import { PairedBars, ChartEmpty } from './MiniChart';
 
 const WBNB = '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c';
 const ERC20_ABI = [{
@@ -160,6 +161,29 @@ export default function RebalancingCard({ accent, surface, mutedBorder, bare = f
               </div>
             ))}
           </div>
+
+          {/* Current weight against target, so the drift is the visible
+              thing. Current comes from currentWeights() over the live
+              balances; target is the slider. Neither is recomputed here. */}
+          {plan?.totalQuote > 0n ? (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider opacity-40 mb-1">
+                Current weight against target
+              </p>
+              <PairedBars
+                rows={holdings.map((h) => ({
+                  label: h.symbol,
+                  a: (weights.get(h.address.toLowerCase()) ?? 0) / 100,
+                  b: (h.address === WBNB ? bnbBps : 10000 - bnbBps) / 100,
+                }))}
+                aLabel="current" bLabel="target"
+                aColor={accent} bColor="#94A3B8"
+                formatV={(v) => `${v.toFixed(1)}%`}
+              />
+            </div>
+          ) : (
+            <ChartEmpty height={72} reason="This wallet holds none of these assets, so there are no weights to compare." />
+          )}
 
           {planError && <div className="text-[11px] text-red-500">{planError}</div>}
 

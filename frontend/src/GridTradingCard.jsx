@@ -21,6 +21,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { getCapabilities, sendCalls, waitForCallsStatus, writeContract, waitForTransactionReceipt } from 'wagmi/actions';
 import { bsc } from 'wagmi/chains';
 import NativeCardShell from './NativeCardShell';
+import { MarkerAxis, ChartLegend } from './MiniChart';
 import {
   WBNB_USDT_POOL, POOL_ABI, POSITION_MANAGER, TOKEN0, TOKEN1, ERC20_ABI,
   buildGrid, buildGridCalls, tickToBnbPrice, formatUnits, parseUnits,
@@ -207,6 +208,31 @@ export default function GridTradingCard({ accent, surface, mutedBorder, bare = f
 
           {plan?.ok && (
             <>
+              {/* Where the orders sit relative to spot. Every value here
+                  comes from the plan and from the pool's own slot0 read;
+                  nothing is computed in the chart. */}
+              <div>
+                <p className="text-[10px] uppercase tracking-wider opacity-40 mb-1">
+                  Your grid against the live pool price
+                </p>
+                <MarkerAxis
+                  min={Math.min(plan.spot, ...plan.orders.map((o) => o.priceLow)) * 0.995}
+                  max={Math.max(plan.spot, ...plan.orders.map((o) => o.priceHigh)) * 1.005}
+                  highlight={plan.spot}
+                  formatX={(v) => v.toFixed(0)}
+                  markers={plan.orders.map((o) => ({
+                    x: o.side === 'sell' ? o.priceHigh : o.priceLow,
+                    side: o.side === 'sell' ? 'up' : 'down',
+                    color: o.side === 'sell' ? '#10B981' : '#6366F1',
+                  }))}
+                />
+                <ChartLegend items={[
+                  { label: `${plan.totals.sells} sell, above spot`, color: '#10B981' },
+                  { label: `${plan.totals.buys} buy, below spot`, color: '#6366F1' },
+                  { label: `spot ${plan.spot.toFixed(2)} USDT`, color: '#111827' },
+                ]} />
+              </div>
+
               <div className="rounded-xl border border-gray-200/60 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800/60">
                 {plan.orders.map((o) => (
                   <div key={`${o.tickLower}:${o.tickUpper}`} className="flex items-center justify-between px-2.5 py-1.5">

@@ -21,6 +21,7 @@ import { useAccount, usePublicClient } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { readPositions, riskBand } from './healthFactor';
 import NativeCardShell from './NativeCardShell';
+import { MarkerAxis, ChartEmpty, ChartLegend } from './MiniChart';
 
 const TONE = {
   red: 'text-red-600 dark:text-red-400',
@@ -130,9 +131,35 @@ export default function HealthFactorCard({ accent, surface, mutedBorder, bare = 
                   <Line label="Liquidation threshold" value={`${aave.liquidationThresholdPct}%`} />
                 )}
                 {aave.hasDebt && (
-                  <p className="text-[10px] opacity-50 mt-1.5 leading-relaxed">
-                    Below 1.00 the position can be liquidated by anyone.
-                  </p>
+                  <>
+                    {/* The distance between the position and liquidation,
+                        drawn. Both numbers come from getUserAccountData;
+                        nothing here is derived. */}
+                    <div className="mt-2">
+                      <MarkerAxis
+                        height={72}
+                        min={0}
+                        max={Math.max(2.5, Number(aave.healthFactor) * 1.25)}
+                        highlight={1}
+                        formatX={(v) => v.toFixed(2)}
+                        markers={[{
+                          x: Number(aave.healthFactor),
+                          side: 'up',
+                          color: band?.tone === 'red' ? '#EF4444' : band?.tone === 'amber' ? '#F59E0B' : '#10B981',
+                        }]}
+                      />
+                      <ChartLegend items={[
+                        { label: `health factor ${aave.healthFactor}`, color: band?.tone === 'red' ? '#EF4444' : band?.tone === 'amber' ? '#F59E0B' : '#10B981' },
+                        { label: 'liquidation at 1.00', color: '#111827' },
+                      ]} />
+                    </div>
+                    <p className="text-[10px] opacity-50 mt-1.5 leading-relaxed">
+                      Below 1.00 the position can be liquidated by anyone.
+                    </p>
+                  </>
+                )}
+                {aave.hasPosition && !aave.hasDebt && (
+                  <ChartEmpty height={56} reason="Nothing borrowed, so there is no distance to liquidation to draw." />
                 )}
               </>
             )}
@@ -161,6 +188,35 @@ export default function HealthFactorCard({ accent, surface, mutedBorder, bare = 
                   value={`$${venus.shortfallUsd}`}
                   tone={venus.liquidatable ? 'red' : undefined}
                 />
+                {/* Deliberately NOT a health factor axis. Venus publishes
+                    headroom and shortfall, and one of the two is always
+                    zero, so this draws that pair on its own USD scale.
+                    Putting Venus on the Aave axis would mean inventing a
+                    denominator, which is the thing healthFactor.js exists
+                    to avoid. */}
+                {venus.hasPosition ? (
+                  <div className="mt-2">
+                    <MarkerAxis
+                      height={72}
+                      min={0}
+                      max={Math.max(Number(venus.liquidityUsd), Number(venus.shortfallUsd), 1) * 1.25}
+                      highlight={0}
+                      formatX={(v) => `$${v.toFixed(0)}`}
+                      markers={[
+                        ...(Number(venus.liquidityUsd) > 0
+                          ? [{ x: Number(venus.liquidityUsd), side: 'up', color: '#10B981' }] : []),
+                        ...(Number(venus.shortfallUsd) > 0
+                          ? [{ x: Number(venus.shortfallUsd), side: 'down', color: '#EF4444' }] : []),
+                      ]}
+                    />
+                    <ChartLegend items={[
+                      { label: `headroom $${venus.liquidityUsd}`, color: '#10B981' },
+                      { label: `shortfall $${venus.shortfallUsd}`, color: '#EF4444' },
+                    ]} />
+                  </div>
+                ) : (
+                  <ChartEmpty height={56} reason="No Venus position, so there is no headroom or shortfall to draw." />
+                )}
                 <p className="text-[10px] opacity-50 mt-1.5 leading-relaxed">
                   Venus has no health factor. It reports headroom before liquidation, or a
                   shortfall once past it, so those are shown instead of a number it does not
