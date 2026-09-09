@@ -312,3 +312,33 @@ flow is best shown up to the funding step.
 and none of them advance the argument, so they were left out of the
 recording. Skills is the one worth adding back if you want a longer cut,
 since it is a different way of using the product rather than another page.
+
+---
+
+## Recording this yourself, with the footnotes burned in
+
+`docs/data/demo-captions.js` puts every footnote on screen while you record,
+so the text is part of the video rather than a separate document.
+
+1. Open tnega.app in Chrome and start your screen recorder.
+2. Open the console with Cmd and Option and J, paste the whole file in, press
+   Enter. A caption bar appears at the bottom of the page.
+3. Right arrow moves to the next caption, left arrow goes back, H hides the
+   bar. A timer in the corner turns amber past 3 seconds so you can hold an
+   even pace without counting.
+4. The bar survives clicks and scrolling but not a page navigation, since the
+   page is replaced. After each navigation, press up arrow then Enter in the
+   console to re-run it. It reopens on the caption you were on.
+
+It carries 41 captions covering the whole site in story order, which is the
+same order as the parts above.
+
+### Why this rather than a recorded file
+
+The browser automation available here can capture a GIF, but it captures its
+own frames at the moment an action fires, before the page has rendered, and
+it ignores anything injected into the page. Tested directly: three
+screenshots produced zero frames, and a nineteen navigation run produced
+nineteen frames that were all the same screen. So a captioned recording could
+not be produced that way, and this script is the honest alternative. Your own
+recorder captures what is actually on screen, captions included.
