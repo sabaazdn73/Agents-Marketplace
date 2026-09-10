@@ -21,6 +21,7 @@ import { Loader2, Wallet, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useBudgetActions, useBudgetEscrowAddress, NATIVE_SENTINEL } from './budgetEscrow';
 import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META, chainName, nativeSymbol, getBudgetEscrowAddress } from './chainContracts';
 import ChainSwitchNotice, { switchToChain } from './ChainSwitchNotice';
+import { formatDecimalString } from './budgetAmounts';
 import { useSwitchChain } from 'wagmi';
 import BudgetSpendView from './BudgetSpendView';
 import { addNotification } from './notifications';
@@ -117,6 +118,9 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
       if (maxWei > totalWei) throw new Error('The per-draw limit cannot exceed the total.');
       if (!agentAddress) throw new Error('This agent has no owner address on record.');
 
+      const fundedText = `${formatDecimalString(total).text} ${nativeLabel}`;
+      const perDrawText = `${formatDecimalString(maxPerDraw).text} ${nativeLabel}`;
+
       const { budgetId: newId } = await openBudget({
         agent: agentAddress,
         token: NATIVE_SENTINEL,
@@ -133,11 +137,12 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
       // notification calls lived only in the ERC-8183 path, so a client
       // who hired this way saw nothing in the bell.
       addNotification(
-        // nativeLabel, not a literal: this notification used to say BNB on
-        // every chain, which was wrong the moment a budget could be opened
-        // anywhere else.
-        `Budget #${newId}: ${total} ${nativeLabel} funded`,
-        `${agent?.name || 'The agent'} can now draw up to ${maxPerDraw} ${nativeLabel} at a time. You can take back whatever is left at any point.`,
+        // Both the symbol and the numbers come from the shared helpers.
+        // This line used to interpolate the raw form strings next to a
+        // hardcoded BNB, so it was wrong in the unit and formatted by a
+        // different rule from every other amount in the flow.
+        `Budget #${newId}: ${fundedText} funded`,
+        `${agent?.name || 'The agent'} can now draw up to ${perDrawText} at a time. You can take back whatever is left at any point.`,
       );
       setBudgetId(newId);
     } catch (e) {
@@ -205,7 +210,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
         {!connected ? 'Connect a wallet first'
           : switching ? `Switching to ${chainName(requiredChainId)}…`
           : pending === 'open' ? 'Funding budget…'
-          : `Fund ${total || '0'} ${nativeLabel} budget`}
+          : `Fund ${formatDecimalString(total || '0').text} ${nativeLabel} budget`}
       </button>
 
       <a

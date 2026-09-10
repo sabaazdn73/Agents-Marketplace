@@ -4,7 +4,13 @@
 // refresh. A window event keeps every mounted bell in sync.
 import { useState, useEffect } from 'react';
 
-const N_KEY = 'aam_notifications_v1';
+// Bumped to v2 on 2026-09-10. The stored notifications from v1 include
+// budget lines written before the token symbol and number formatting were
+// fixed, e.g. "Budget #1: 7.00e-6 BNB returned" for a budget denominated in
+// ETH on Robinhood Chain. Those strings are frozen at write time, so fixing
+// the code does not correct what is already in a user's bell. Bumping the key
+// drops them rather than leaving wrong figures on screen indefinitely.
+const N_KEY = 'aam_notifications_v2';
 const J_KEY = 'aam_tracked_jobs_v1';   // { [jobId]: lastStatusName } for polling
 const MAX = 50;
 const EVT = 'aam-notif-changed';

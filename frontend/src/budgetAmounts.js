@@ -26,7 +26,7 @@
 // the wrong shape for this: there is no sensible fallback token, so a missing
 // chain must produce no symbol rather than a plausible wrong one.
 
-import { formatUnits } from 'viem';
+import { formatUnits, parseUnits } from 'viem';
 // Explicit .js so this module can be imported by the self-check script under
 // plain node, which does not do extensionless resolution. Vite accepts it too.
 import { nativeSymbol } from './chainContracts.js';
@@ -87,9 +87,36 @@ export function formatAmount(value, decimals = 18) {
  * to be labelled BNB.
  */
 export function budgetTokenSymbol(tokenAddress, chainId, nativeSentinel) {
-  if (!chainId) return '';
+  // Fails loudly rather than returning something renderable. Every earlier
+  // version of this had a quiet answer for a missing chain -- first 'BNB',
+  // then ''. Both let a caller that forgot the chain keep working, which is
+  // how the wrong symbol reached three separate surfaces one at a time.
+  // A missing chain is a bug in the caller, and it should stop there.
+  if (!chainId || Number.isNaN(Number(chainId))) {
+    throw new Error(
+      'budgetTokenSymbol needs a chainId. A budget is denominated in the gas '
+      + 'token of the chain it was opened on, so there is no default and no '
+      + 'fallback: guessing here is what labelled ETH as BNB.',
+    );
+  }
   const isNative = (tokenAddress || '').toLowerCase() === (nativeSentinel || '').toLowerCase();
   return isNative ? nativeSymbol(chainId) : 'tokens';
+}
+
+/**
+ * A decimal string typed into a form, rendered the same way as an on-chain
+ * amount. Exists so a form value and a contract value can never be formatted
+ * by two different rules: the funded notification interpolated its raw input
+ * string while every other amount went through formatAmount, which is how one
+ * notification read 0.000007 and its sibling read 7.00e-6.
+ */
+export function formatDecimalString(input, decimals = 18) {
+  if (input == null || input === '') return { text: 'n/a', full: 'n/a' };
+  try {
+    return formatAmount(parseUnits(String(input), decimals), decimals);
+  } catch {
+    return { text: String(input), full: String(input) };
+  }
 }
 
 /** Amount and symbol together, with the exact value for a tooltip. */

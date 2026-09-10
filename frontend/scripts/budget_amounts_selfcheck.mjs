@@ -21,7 +21,9 @@
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { formatAmount, budgetTokenSymbol, formatBudgetAmount } from '../src/budgetAmounts.js';
+import {
+  formatAmount, budgetTokenSymbol, formatBudgetAmount, formatDecimalString,
+} from '../src/budgetAmounts.js';
 
 let pass = 0;
 const failures = [];
@@ -58,11 +60,25 @@ console.log('\nthe symbol always comes from the chain');
 check('native on 4663 is ETH', budgetTokenSymbol(NATIVE, 4663, NATIVE) === 'ETH');
 check('native on 42161 is ETH', budgetTokenSymbol(NATIVE, 42161, NATIVE) === 'ETH');
 check('native on 56 is BNB', budgetTokenSymbol(NATIVE, 56, NATIVE) === 'BNB');
-check('an unknown chain yields NO symbol rather than a guess',
-  budgetTokenSymbol(NATIVE, undefined, NATIVE) === '',
-  'a fallback token symbol is exactly the bug this file exists to stop');
 check('a non-native token is not labelled with the gas token',
   budgetTokenSymbol('0x55d398326f99059fF775485246999027B3197955', 56, NATIVE) === 'tokens');
+
+console.log('\nthe resolver fails loudly instead of guessing');
+let threw = false;
+try { budgetTokenSymbol(NATIVE, undefined, NATIVE); } catch { threw = true; }
+check('no chainId throws rather than returning a symbol', threw,
+  'a quiet answer for a missing chain is how the wrong symbol reached three surfaces');
+let threwNaN = false;
+try { budgetTokenSymbol(NATIVE, 'not-a-chain', NATIVE); } catch { threwNaN = true; }
+check('a non-numeric chainId throws too', threwNaN);
+
+console.log('\nform strings and on-chain amounts format by the same rule');
+check('a typed 0.000007 renders identically to 7000000000000 wei',
+  formatDecimalString('0.000007').text === formatAmount(REAL_ROBINHOOD_BUDGET).text,
+  `"${formatDecimalString('0.000007').text}" vs "${formatAmount(REAL_ROBINHOOD_BUDGET).text}"`);
+check('a typed tiny value does not go exponential',
+  !/e[+-]?\d/i.test(formatDecimalString('0.0000000001').text),
+  `got "${formatDecimalString('0.0000000001').text}"`);
 
 console.log('\nno component re-implements either of these');
 const src = new URL('../src/', import.meta.url).pathname;
@@ -77,6 +93,37 @@ for (const f of budgetFiles) {
   check(`${f} does not float amounts through Number(formatUnits(`,
     !/Number\(\s*formatUnits\(/.test(code),
     'that conversion is what produced the exponent');
+}
+
+console.log('\nno budget surface renders a raw amount next to a symbol');
+// A currency amount must reach the screen through the shared formatter. This
+// looks for a template interpolation sitting immediately before a token
+// symbol, which is the shape the funded notification had:
+//
+//     `Budget #${newId}: ${total} ${nativeLabel} funded`
+//
+// `total` there was the raw form string, so it formatted by a different rule
+// from every other amount in the flow. Anything matching must come from a
+// formatter call.
+const SYMBOL_VARS = /(nativeLabel|symbol|sym)\b/;
+// `text` and `full` are the destructured outputs of formatAmount inside the
+// local fmt/fmtFull helpers, so those two lines ARE the formatter rather than
+// a use of one. Everything else must name a formatter call.
+const FORMATTERS = /^(fmt|fmtFull|formatAmount|formatDecimalString|formatBudgetAmount|text|full)\b/;
+const BUDGET_SURFACES = readdirSync(src).filter((f) => /^(Budget|MyBudgets)/.test(f));
+for (const f of BUDGET_SURFACES) {
+  const body = readFileSync(join(src, f), 'utf8');
+  const code = body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const bad = [];
+  // ${expr} followed by whitespace then ${symbolVar}
+  const re = /\$\{([^{}]+)\}\s*\$\{([^{}]+)\}/g;
+  let m;
+  while ((m = re.exec(code))) {
+    const [, amountExpr, symbolExpr] = m;
+    if (!SYMBOL_VARS.test(symbolExpr)) continue;
+    if (!FORMATTERS.test(amountExpr.trim())) bad.push(`\${${amountExpr.trim()}} \${${symbolExpr.trim()}}`);
+  }
+  check(`${f}: every amount beside a symbol comes from a formatter`, bad.length === 0, bad.join('; '));
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);
