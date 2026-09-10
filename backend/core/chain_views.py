@@ -103,16 +103,17 @@ VIEWS = {
         "served_by": "/api/chain-view/arbitrum",
     },
     "robinhood": {
-        # Its own view, with the data it has and nothing implied beyond it.
-        # 4663 is absent from ANALYSIS_CHAIN_IDS, from NATIVE_RPC_CHAINS and
-        # from the explorer list, so every health field is stripped, the
-        # chain lands in unverified_chains, and the capabilities block
-        # reports each missing signal with its reason. That is the whole
-        # honesty mechanism and it needs no special case here.
+        # Analysed as of 2026-09-10: 4663 is now in ANALYSIS_CHAIN_IDS and
+        # NATIVE_RPC_CHAINS, so its agents carry a real service_status and
+        # _apply_status_policy keeps their health fields instead of
+        # stripping them. It stays OUT of the explorer list, because this
+        # project speaks the Etherscan API and Robinhood Chain publishes a
+        # Blockscout instance, so the contract-code signal alone still
+        # reports its reason. Nothing here special-cases any of that: the
+        # per-agent policy and the capabilities block read the lists.
         #
-        # Not marked coming_soon: the agents are real and stored, and
-        # hiding them behind that flag would understate what is there.
-        # What is missing is the analysis, which the view already says.
+        # Not marked coming_soon: the agents are real, stored and now
+        # checked.
         "label": "Robinhood Chain",
         "chain_ids": [4663],
         "hireable": False,

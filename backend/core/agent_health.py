@@ -347,24 +347,50 @@ async def check_agents_health(agents: list[dict], limit: int | None = None) -> d
 
     async with httpx.AsyncClient(timeout=15) as client:
         uri_by_token: dict[int, str] = {}
+        # Tokens whose registry read never completed. Tracked because "we
+        # could not read it" and "it has no URI" are different facts and
+        # must not collapse into the same status -- see below.
+        unread_tokens: set[int] = set()
         for cid, ids in by_chain.items():
             token_ids = list(ids.values())
             for i in range(0, len(token_ids), _TOKENURI_CHUNK):
+                chunk = token_ids[i:i + _TOKENURI_CHUNK]
                 try:
                     chunk_result = await _multicall_tokenuris(
-                        client, token_ids[i:i + _TOKENURI_CHUNK], chain_id=cid,
+                        client, chunk, chain_id=cid,
                     )
                     uri_by_token.update(chunk_result)
                 except Exception as e:
                     print(f"[agent_health] tokenURI multicall chunk failed (chain {cid}): {e}")
-                    # Real, transient failure for this chunk, those agents just
-                    # keep whatever health data they already had; not fatal.
+                    # Real, transient failure for this chunk. The agents keep
+                    # whatever health data they already had.
+                    #
+                    # Bug fixed 2026-09-10: that is what this comment always
+                    # claimed, but nothing implemented it. A failed chunk
+                    # simply left its tokens out of uri_by_token, and every
+                    # one of those agents then went through _check_one with
+                    # uri=None, which resolves to (None, False) and returns
+                    # "no_endpoint" -- indistinguishable from an agent that
+                    # genuinely registered no service. On BSC "no_endpoint"
+                    # is the status DELETE_CHAIN_IDS acts on, so a single
+                    # transient RPC error could have marked up to
+                    # _TOKENURI_CHUNK (200) real, working agents deletable.
+                    # Never observed firing in production, but it is the same
+                    # shape as the cross-chain false positive that did delete
+                    # 41,379 records, so it is closed the same way: an
+                    # unreadable token yields NO result at all, the caller
+                    # merges nothing for it, and the stored value survives.
+                    unread_tokens.update(chunk)
 
         sem = asyncio.Semaphore(_CONCURRENCY)
         tasks = {
             aid: _check_one({"id": aid}, uri_by_token.get(tid), client, sem)
             for aid, tid in id_to_token.items()
+            if tid not in unread_tokens
         }
+        if unread_tokens:
+            print(f"[agent_health] {len(unread_tokens)} token(s) unreadable this pass; "
+                  f"left untouched rather than statused")
         results = await asyncio.gather(*tasks.values(), return_exceptions=True)
 
     out: dict[str, dict] = {}

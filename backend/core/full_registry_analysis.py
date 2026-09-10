@@ -60,7 +60,18 @@ INGEST_GRACE_SECONDS = 30 * 60
 #   101 Solana  -- not an EVM chain; none of this applies, ever.
 #   42220 Celo, 143 Monad -- have verified RPCs and resolve tokenURIs, but
 #     have not yet had a full analysis pass observed, so they wait their turn.
-ANALYSIS_CHAIN_IDS = [56, 42161, 8453, 1]
+ANALYSIS_CHAIN_IDS = [56, 42161, 8453, 1, 4663]
+# 4663 (Robinhood Chain) added 2026-09-10, one chain at a time and only
+# after being verified against its own real data rather than assumed:
+# eth_chainId returned 4663, the ERC-8004 registry at 0x8004A169.. holds
+# the same 130 bytes of code as every other chain, and a full read-only
+# health pass over all 190 stored agents returned 190 results -- 31
+# responding, 159 no_endpoint, zero resolution failures.
+#
+# ANALYSIS ONLY. DELETE_CHAIN_IDS below stays [56] and is not widened
+# alongside this. Widening deletion in step with analysis is exactly what
+# destroyed 41,379 non-BSC records, and the two lists are kept separate so
+# that adding a chain here can never, on its own, delete anything.
 
 # Chains where a confirmed no_endpoint may be DELETED. Deliberately narrower
 # than ANALYSIS_CHAIN_IDS. Analysis is reversible -- a wrong status can be

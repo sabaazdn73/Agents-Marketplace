@@ -233,11 +233,29 @@ _CHAIN_PRIMARY_RPC = {
     42161: "https://arb1.arbitrum.io/rpc",
     42220: "https://forno.celo.org",
     143: "https://rpc.monad.xyz",
+    # Robinhood Chain, added 2026-09-10. An Arbitrum Orbit L2 with ETH as
+    # its gas token, which is why it carries the same ERC-8004 registry
+    # address as the other EVM chains here. Verified live before being
+    # added, not assumed: eth_chainId returned 4663, the registry at
+    # 0x8004A169.. holds 130 bytes of code (the same length as every other
+    # chain's), and tokenURI resolved for 10 of 10 randomly taken stored
+    # agents, e.g. agent #60 to https://api.spawnr.fun/...
+    #
+    # NO FAILOVER. This is the only public endpoint that answers: two other
+    # candidates were probed and both refused the connection, and Infura
+    # does not cover this chain. It therefore runs primary-alone, the same
+    # arrangement as Celo and Monad below, and get_chain_fallback_rpc_url
+    # returns None for it. Stated here so nobody later reads the absence as
+    # an oversight and assumes a backup exists. A dedicated endpoint from a
+    # provider would give it one; until then a primary outage means "not
+    # checked", never a negative result about an agent.
+    4663: "https://rpc.mainnet.chain.robinhood.com",
 }
 
 # Infura path per chain, used as the failover where Infura covers it. Base
-# and Arbitrum are covered; Celo and Monad are not, so those run on their
-# primary alone -- stated here rather than silently having no backup.
+# and Arbitrum are covered; Celo, Monad and Robinhood Chain are not, so
+# those three run on their primary alone -- stated here rather than
+# silently having no backup.
 _CHAIN_INFURA_PATH = {
     56: "bsc-mainnet",
     8453: "base-mainnet",

@@ -77,7 +77,14 @@ def _is_evm(chain_id: int) -> bool:
     return chain_id not in NON_EVM_CHAIN_IDS
 # Chains we hold our own RPC for -- owner balances are trivially available
 # on every one of them, verified live per chain.
-NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 42220, 143)
+NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 42220, 143, 4663)
+# 4663 (Robinhood Chain) added 2026-09-10: this list only requires a
+# verified RPC, which it now has, and its gas token is ETH. It is
+# deliberately NOT added to _EVM_EXPLORER_SUPPORTED above -- that list
+# drives an Etherscan-style API call, and Robinhood Chain publishes a
+# Blockscout instance instead, which is a different API this project does
+# not speak. So the contract-code signal keeps reporting _NO_EXPLORER for
+# it, which is the truth, rather than being claimed and then failing.
 _ZERION_CHAINS = {
     1: "ethereum", 56: "binance-smart-chain", 8453: "base",
     42161: "arbitrum", 42220: "celo", 143: "monad",
