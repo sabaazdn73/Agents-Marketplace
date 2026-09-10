@@ -1,8 +1,12 @@
 // MultiChainView.jsx
 //
-// Everything with stored data that is not BNB Chain, Ethereum or
-// Solana: Base, Arbitrum, Celo, Monad, Robinhood Chain, Billions Network.
-// Base dominates it (~58,600 of ~65,700).
+// Everything with stored data that has no tab of its own: Base, Celo,
+// Monad and Billions Network. Base dominates it.
+//
+// Arbitrum and Robinhood Chain were part of this view until 2026-09-10,
+// when both were given their own tabs and removed from here. A chain sits
+// in exactly one view, so the tab counts stay additive and one agent cannot
+// appear twice.
 //
 // Polygon is deliberately not represented. The Agent0 subgraph covers it,
 // but this store currently holds zero Polygon agents, and listing a chain

@@ -68,9 +68,17 @@ const LOGOS = {
   bnb: { src: 'https://www.bnbchain.org/favicon.ico', alt: 'BNB Chain' },
   ethereum: { src: 'https://ethereum.org/favicon.ico', alt: 'Ethereum' },
   solana: { src: 'https://solana.com/src/img/branding/solanaLogoMark.svg', alt: 'Solana' },
+  // Added 2026-09-10 with their own tabs. Both checked live before being
+  // hardcoded, same as the three above: arbitrum.io returns a 3.4KB ico and
+  // robinhood.com a 15KB ico, each from the chain's own domain rather than a
+  // third-party mirror.
+  arbitrum: { src: 'https://arbitrum.io/favicon.ico', alt: 'Arbitrum' },
+  robinhood: { src: 'https://robinhood.com/favicon.ico', alt: 'Robinhood Chain' },
 };
 
-// The Multi-Chain cluster, largest-first. Celo's comes from the ecosystem
+// The Multi-Chain cluster, largest-first. Arbitrum was never in it and
+// Robinhood Chain is no longer part of that view at all, since both took
+// their own tabs on 2026-09-10. Celo's comes from the ecosystem
 // chain-icon registry rather than a Celo domain: celo.org's own head points
 // at a Framer CDN asset whose name churns, docs.celo.org serves its
 // Docusaurus mascot, and celo-org/brand ships only logotypes -- wordmarks,
@@ -101,6 +109,7 @@ function ClusterLogo({ src, size, index }) {
 // Fallback tint, used only when a logo fails to load.
 const FALLBACK_COLOR = {
   bnb: '#F0B90B', ethereum: '#627EEA', solana: '#14F195', multichain: '#8B93A7',
+  arbitrum: '#12AAFF', robinhood: '#00C805',
 };
 
 export function ChainMark({ viewId, size = 14, className = '' }) {

@@ -16,13 +16,14 @@ Two honesty constraints are enforced in this module rather than left to
 the UI, because they are properties of the DATA and belong where the data
 is read:
 
-1. `service_status` is never returned for a non-BSC agent. That field is
-   computed by core/agent_health.py, which reads ONE hardcoded identity
-   registry over ONE BSC RPC and has no per-chain awareness. It produced
-   false positives on every other chain, which is why
-   core/full_registry_analysis.py was scoped to chain_id 56 and why 8,304
-   stale non-BSC values were cleared. The projection below simply does not
-   ask for it, so it cannot leak back into a view by accident.
+1. `service_status` is returned only for chains the analysis pass has
+   actually been widened to, which is ANALYSIS_CHAIN_IDS and nothing else.
+   It began as a BSC-only field: core/agent_health.py read ONE hardcoded
+   identity registry over ONE BSC RPC with no per-chain awareness, produced
+   false positives everywhere else, and 8,304 stale non-BSC values were
+   cleared on 2026-09-05. _apply_status_policy strips the field per agent
+   rather than trusting what is stored, so a chain that has not been
+   analysed cannot show a status even if an old value survived the cleanup.
 
 2. Only BSC agents are hireable. ERC-8183 escrow is deployed on BSC only,
    so every non-BSC view reports `hireable: False` and the UI is expected
@@ -51,9 +52,18 @@ CHAIN_NAMES = {
     45056: "Billions Network",
 }
 
-# The four views. BNB is declared here for completeness and so the UI can
-# render one consistent list of tabs, but it is deliberately NOT served by
-# this module: it keeps its existing /api/agents path, untouched.
+# The views, in the order the UI renders their tabs. Python preserves
+# insertion order and describe_views() iterates this dict, so this is the
+# tab order and there is no second list to keep in sync.
+#
+# BNB is declared here for completeness and so the UI can render one
+# consistent list of tabs, but it is deliberately NOT served by this
+# module: it keeps its existing /api/agents path, untouched.
+#
+# Arbitrum and Robinhood Chain were promoted out of Multi-Chain on
+# 2026-09-10 and Multi-Chain moved to the end. A chain with its own tab is
+# removed from Multi-Chain rather than left in both, so the counts stay
+# additive and one agent cannot appear under two tabs.
 VIEWS = {
     "bnb": {
         "label": "BNB Chain",
@@ -81,13 +91,43 @@ VIEWS = {
         "coming_soon": True,
         "served_by": "/api/chain-view/solana",
     },
+    "arbitrum": {
+        # Its own view because the analysis pass already covers it:
+        # 42161 is in ANALYSIS_CHAIN_IDS, so its agents carry a real
+        # service_status and _apply_status_policy keeps their health
+        # fields rather than stripping them.
+        "label": "Arbitrum",
+        "chain_ids": [42161],
+        "hireable": False,
+        "coming_soon": False,
+        "served_by": "/api/chain-view/arbitrum",
+    },
+    "robinhood": {
+        # Its own view, with the data it has and nothing implied beyond it.
+        # 4663 is absent from ANALYSIS_CHAIN_IDS, from NATIVE_RPC_CHAINS and
+        # from the explorer list, so every health field is stripped, the
+        # chain lands in unverified_chains, and the capabilities block
+        # reports each missing signal with its reason. That is the whole
+        # honesty mechanism and it needs no special case here.
+        #
+        # Not marked coming_soon: the agents are real and stored, and
+        # hiding them behind that flag would understate what is there.
+        # What is missing is the analysis, which the view already says.
+        "label": "Robinhood Chain",
+        "chain_ids": [4663],
+        "hireable": False,
+        "coming_soon": False,
+        "served_by": "/api/chain-view/robinhood",
+    },
     "multichain": {
-        # Everything else that has stored data. Polygon (137) is
-        # deliberately absent: it is in CHAIN_NAMES because the Agent0
-        # subgraph covers it, but this store currently holds zero Polygon
-        # agents, so listing it as a covered chain would be inaccurate.
+        # Everything else that has stored data and no tab of its own.
+        # Arbitrum and Robinhood Chain were removed on 2026-09-10 when they
+        # got their own views. Polygon (137) is deliberately absent: it is
+        # in CHAIN_NAMES because the Agent0 subgraph covers it, but this
+        # store currently holds zero Polygon agents, so listing it as a
+        # covered chain would be inaccurate.
         "label": "Multi-Chain",
-        "chain_ids": [8453, 42161, 42220, 143, 4663, 45056],
+        "chain_ids": [8453, 42220, 143, 45056],
         "hireable": False,
         "coming_soon": False,
         "served_by": "/api/chain-view/multichain",
@@ -133,10 +173,12 @@ def _apply_status_policy(doc: dict) -> dict:
     """Keep health fields only for chains in ANALYSIS_CHAIN_IDS; strip them
     otherwise, and say which case this is.
 
-    Applied PER AGENT rather than per view, deliberately: the Multi-Chain
-    view mixes chains, and Arbitrum (analysed) sits in the same list as
-    Base, Celo and Monad (not yet). A view-level rule would either hide
-    Arbitrum's signals or imply the others had been checked.
+    Applied PER AGENT rather than per view, deliberately: Multi-Chain still
+    mixes chains, and Base (analysed) sits in the same list as Celo, Monad
+    and Billions Network (not yet). A view-level rule would either hide
+    Base's signals or imply the others had been checked. Arbitrum was in
+    that same position until it was given its own view on 2026-09-10, and
+    the next chain promoted will be too, so the per-agent rule stays.
 
     Stripping rather than trusting the stored value is the safe direction.
     Any residue from the old BSC-only pass -- 8,304 such values were

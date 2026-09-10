@@ -53,7 +53,28 @@ ERC8183_CHAIN_IDS = (56, 97)
 # Chains this project can reach with its own RPC. Imported lazily inside the
 # function so a missing RPC key can never break a descriptive endpoint.
 
+# Chains whose EXPLORER this project can query. Narrower than "is EVM":
+# a chain can be perfectly EVM and simply not have an explorer wired up
+# here yet.
 _EVM_EXPLORER_SUPPORTED = (1, 56, 8453, 42161, 42220, 143)
+
+# Whether a chain is EVM at all, which is a fact about the chain rather
+# than about what this project has configured. Expressed as the non-EVM
+# set, so a newly ingested EVM chain is correctly treated as EVM instead of
+# being mislabelled the moment it appears.
+#
+# Fixed 2026-09-10. is_evm used to be `chain_id in _EVM_EXPLORER_SUPPORTED`,
+# which conflated the two, so Robinhood Chain and Billions Network were both
+# told "this chain is not EVM-compatible" on their own views. Both are EVM:
+# their stored records carry chain_type "evm", 0x owner addresses, and the
+# same 0x8004... identity registry address as every other EVM chain here.
+# The true reason for those two is that no explorer or RPC is configured,
+# which is what they now say.
+NON_EVM_CHAIN_IDS = (101,)
+
+
+def _is_evm(chain_id: int) -> bool:
+    return chain_id not in NON_EVM_CHAIN_IDS
 # Chains we hold our own RPC for -- owner balances are trivially available
 # on every one of them, verified live per chain.
 NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 42220, 143)
@@ -98,6 +119,10 @@ _NO_ERC8183 = (
     "of the protocol, not something not yet built here."
 )
 _NOT_EVM = "This chain is not EVM-compatible, so the EVM-based checks used elsewhere don't apply."
+_NO_EXPLORER = (
+    "This chain is EVM, but no block explorer is configured for it here yet, "
+    "so the contract check can't run. Nothing is implied about the address."
+)
 
 
 def _signal(available: bool, name: str, detail: str, reason: str = "") -> dict:
@@ -109,7 +134,8 @@ def get_chain_capabilities(chain_id: int) -> dict:
     """Per-signal availability for one chain, with a reason for each
     absence. Pure and side-effect free -- it describes what could be
     produced, and never itself performs a lookup."""
-    is_evm = chain_id in _EVM_EXPLORER_SUPPORTED
+    is_evm = _is_evm(chain_id)
+    has_explorer = chain_id in _EVM_EXPLORER_SUPPORTED
     analysed = chain_id in ANALYSIS_CHAIN_IDS
     has_escrow = chain_id in ERC8183_CHAIN_IDS
 
@@ -123,10 +149,10 @@ def get_chain_capabilities(chain_id: int) -> dict:
                 "This chain's agents haven't been added to the health-checking pass yet. Nothing "
                 "is implied about whether they're online -- they simply haven't been checked."
                 if is_evm else _NOT_EVM),
-        _signal(is_evm, "contract_verification",
+        _signal(has_explorer, "contract_verification",
                 "The owner address is checked on this chain's own explorer: whether it's a contract "
                 "at all, and if so whether its source is verified.",
-                _NOT_EVM),
+                _NO_EXPLORER if is_evm else _NOT_EVM),
         _signal(chain_id in _ZERION_CHAINS, "independent_corroboration",
                 "Independent wallet activity for this chain, read from Zerion.",
                 "Zerion doesn't index this chain, so there's no independent record to corroborate against."),
