@@ -1052,16 +1052,18 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           </div>
 
           {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
-          {/* agents.png is 941x1672 -- a tall portrait. Any fixed height
-              here crops it, because object-cover fills the box and throws
-              away the overflow: the old min-h-[280px] in a 416px-wide
-              column was showing a 1.49:1 slice of a 0.56:1 image, and a
- fixed h-44 cropped it harder still. h-auto is what actually
-              shows the whole picture -- the column sets the width and the
- aspect ratio sets the height, so nothing is cut off and
-              nothing is letterboxed either. It is tall by nature; the
-              sticky wrapper above is already max-h-screen overflow-y-auto,
-              so it scrolls rather than overflowing. */}
+          {/* agents.png is a portrait, 1024x1536 (2:3) since it was replaced
+              on 2026-09-10; it was 941x1672 before. Any fixed height here
+              crops it, because object-cover fills the box and throws away
+              the overflow: an earlier min-h-[280px] in a 416px-wide column
+              was showing a 1.49:1 slice of a portrait image, and a fixed
+              h-44 cropped it harder still. h-auto is what actually shows
+              the whole picture -- the column sets the width and the aspect
+              ratio sets the height, so nothing is cut off and nothing is
+              letterboxed either. The sticky wrapper above is already
+              max-h-screen overflow-y-auto, so it scrolls rather than
+              overflowing, and the new image being less tall than the old
+              one only gives that wrapper more room. */}
           <div className="px-5 mb-1">
             <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
