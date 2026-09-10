@@ -70,7 +70,8 @@ export function performanceComparator(key) {
  * NOT count as verified, winRate alone can't distinguish that case from
  * "no history yet" the way these raw counts can. */
 export function withPerformance(agents, byOwner) {
-  if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null, jobsCompleted: 0, jobsSubmitted: 0 }));
+  if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null, jobsCompleted: 0, jobsSubmitted: 0,
+      deliveryRate: null, delivered: 0, everFunded: 0, fundedExpired: 0, oldestStuckDays: null }));
   return agents.map((a) => {
     const p = byOwner[(a.ownerAddress || '').toLowerCase()];
     return {
@@ -79,6 +80,15 @@ export function withPerformance(agents, byOwner) {
       winRate: p?.win_rate ?? null,
       jobsCompleted: p?.completed ?? 0,
       jobsSubmitted: p?.submitted ?? 0,
+      // Funded versus delivered, from core/job_index.get_all_provider_stats.
+      // Carried through here because a mapper that names fields one by one
+      // drops anything it was not told about, which is how the interaction
+      // sentence went missing on BNB Chain once already.
+      deliveryRate: p?.delivery_rate ?? null,
+      delivered: p?.delivered ?? 0,
+      everFunded: p?.ever_funded ?? 0,
+      fundedExpired: p?.funded_expired ?? 0,
+      oldestStuckDays: p?.oldest_stuck_days ?? null,
     };
   });
 }

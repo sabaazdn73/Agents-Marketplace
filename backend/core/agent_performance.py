@@ -229,6 +229,7 @@ async def get_agent_performance(owner_address: str) -> dict:
     }
 
 
+
 def _win_rate(p: dict) -> float | None:
     """win rate for the marketplace's "Highest success rate" sort,
     a DIFFERENT, deliberately more lenient metric than get_agent_performance's

@@ -56,6 +56,7 @@ import QualityCenterPanel from './QualityCenterPanel';
 import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
+import DeliveryRecord from './DeliveryRecord';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
@@ -524,6 +525,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
         <InteractionLine interaction={agent.interaction} className="mb-4"
           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
+        <DeliveryRecord agent={agent} className="mb-4" />
 
         <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Who owns this agent <PasskeyBadge ownerAddress={agent.ownerAddress} /> {agent.id && <ContractVerificationBadge agentId={agent.id} />}</h3>
         {agent.ownerAddress ? (

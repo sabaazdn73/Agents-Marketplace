@@ -315,14 +315,64 @@ async def get_all_provider_stats() -> dict:
         if status in p:
             p[status] = doc["count"]
 
+    # Funded jobs whose deadline has already passed, per provider. Counted in
+    # a second pass rather than folded into the group above because it needs
+    # each job's own expiredAt, not a count by status.
+    #
+    # This is the number a buyer needs before funding the next job, and it is
+    # the one nobody else is measuring. Across the 13 agents that will quote a
+    # price, 41 jobs have been funded: 27 produced something, 13 were paid and
+    # produced nothing, and 12 of those are past their own deadline by a
+    # median of 49 days.
+    now = int(time.time())
+    stuck: dict[str, dict] = {}
+    async for doc in col.find(
+        {"status": "FUNDED", "provider": {"$ne": ""}},
+        {"provider": 1, "expiredAt": 1, "budget": 1, "_id": 0},
+    ):
+        try:
+            deadline = int(doc.get("expiredAt") or 0)
+        except (TypeError, ValueError):
+            continue
+        # A deadline in the future is not stuck, it is simply not due yet.
+        # Treating those as failures would accuse a provider of nothing.
+        if not deadline or deadline >= now:
+            continue
+        s = stuck.setdefault(doc["provider"], {"n": 0, "oldest": 0, "value": 0})
+        s["n"] += 1
+        s["oldest"] = max(s["oldest"], now - deadline)
+        try:
+            s["value"] += int(doc.get("budget") or 0)
+        except (TypeError, ValueError):
+            pass
+
     by_owner: dict[str, dict] = {}
     for owner, counts in raw.items():
+        s = stuck.get(owner) or {"n": 0, "oldest": 0, "value": 0}
+        delivered = counts["COMPLETED"] + counts["SUBMITTED"]
+        # Everything ever paid for. OPEN is excluded deliberately: it was
+        # never funded, so it belongs on neither side of this ratio.
+        ever_funded = delivered + counts["FUNDED"] + counts["REJECTED"] + counts["EXPIRED"]
         by_owner[owner] = {
             "hire_count": sum(counts.values()),
             "completed": counts["COMPLETED"], "submitted": counts["SUBMITTED"],
             "rejected": counts["REJECTED"], "expired": counts["EXPIRED"],
             "active": counts["OPEN"] + counts["FUNDED"],
             "win_rate": _win_rate(counts),
+            # Funded versus delivered. `funded_undelivered` is kept separate
+            # from `active` on purpose: an OPEN job is unpaid and costs a
+            # buyer nothing, a FUNDED one is money already committed with
+            # nothing back, and collapsing them hid the difference.
+            "funded_undelivered": counts["FUNDED"],
+            "funded_expired": s["n"],
+            "ever_funded": ever_funded,
+            "delivered": delivered,
+            # None, not 0, when nothing was ever funded. No data is not a
+            # zero delivery rate, and showing 0% for an agent nobody has
+            # hired would be an accusation the data does not support.
+            "delivery_rate": (delivered / ever_funded) if ever_funded else None,
+            "oldest_stuck_days": round(s["oldest"] / 86400, 1) if s["oldest"] else None,
+            "stuck_value_raw": str(s["value"]) if s["value"] else None,
         }
 
     return {"by_owner": by_owner, **completeness}

@@ -83,6 +83,7 @@ import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
+import DeliveryRecord from './DeliveryRecord';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
@@ -428,6 +429,8 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             the list and this page cannot change what an agent means. */}
         <InteractionLine interaction={agent.interaction} className="mb-5"
           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
+
+        <DeliveryRecord agent={agent} className="mb-5" />
 
         <h3 className="text-sm font-bold mb-2">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
@@ -1614,6 +1617,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                             cannot differ between them. */}
                         <InteractionLine interaction={agent.interaction} showDetail={false} className="mt-3"
                           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
+                        {/* Funded versus delivered. Only renders for a
+                            provider that has actually been paid before. */}
+                        <DeliveryRecord agent={agent} compact className="mt-2" />
                       </div>
                       
                       <div className="p-5 bg-gray-50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
