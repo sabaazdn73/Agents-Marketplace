@@ -106,3 +106,48 @@ authority and `tokenURI` resolves for every one of them, so they can be
 ingested straight from chain, the same way the health check already reads
 them. Roughly 7 MB at ~0.76 KB per document, against 55.1 MB of headroom as
 of 2026-09-10.
+
+## `unknown` collapses several different failures into one word
+
+Our health check has one status, `unknown`, for every case where an agent's
+metadata could not be resolved. A dead metadata host, a six second timeout, a
+gateway returning 500 and a response that was not JSON all land in the same
+bucket, so a reader cannot tell a permanent problem from a momentary one.
+
+Measured on Ethereum, 2026-09-10, sampling 300 agents sitting at `unknown`:
+45.7% resolved cleanly on a re-check, 37.3% failed to connect to their
+metadata host, 8.0% had a tokenURI that was raw JSON rather than a URI, 4.7%
+returned a body that was not JSON, and the rest were 404s, timeouts and
+protocol errors. One dead publisher host, `agents.exquisite.land`, accounted
+for 29.5% of a 600-agent sample on its own.
+
+Trust8004 ([trust8004.xyz](https://trust8004.xyz)) does this better. Its
+agent records carry `metadataStatus` with values of available, partial or
+unavailable, alongside `metadataReasonCode` and `metadataReasonDetail`. That
+separates a dead host from a timeout from a malformed document, which is
+information we currently throw away.
+
+Worth borrowing regardless of whether that indexer is ever integrated. The
+re-queue fix of 2026-09-10 means an `unknown` is now retried rather than
+settled, which removes the staleness, but it does not make the word carry
+more meaning than it did.
+
+## Trust8004 as a third registry source, not yet integrated
+
+Deliberately deferred until after judging closes.
+
+Trust8004 indexes 31 chains including every chain this project ingests except,
+as far as could be confirmed, Robinhood Chain. Its free tier covers discovery
+and per-agent lookup: `/api/v1/catalog/agents` and
+`/api/v1/catalog/agents/{chainId}:{agentId}`. Search, bulk access, enriched
+profiles and trust scores are pay-per-call in USDC over x402, and
+`/api/v1/agents` returns HTTP 402 accordingly.
+
+Checked against 25 Ethereum agents this project could not resolve: all 25 were
+present with matching ids, 18 carried an endpoint we do not have, and its own
+`metadataStatus` reported 8 available, 3 partial and 14 unavailable. So it
+resolves some of what we cannot, and is honest about the rest.
+
+If added, it should go in the same shape as
+[The Graph Integration](thegraph-integration.md): a coverage fallback beside
+the existing sources rather than a replacement for any of them.
