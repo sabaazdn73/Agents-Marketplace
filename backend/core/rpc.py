@@ -241,21 +241,19 @@ _CHAIN_PRIMARY_RPC = {
     # chain's), and tokenURI resolved for 10 of 10 randomly taken stored
     # agents, e.g. agent #60 to https://api.spawnr.fun/...
     #
-    # NO FAILOVER. This is the only public endpoint that answers: two other
-    # candidates were probed and both refused the connection, and Infura
-    # does not cover this chain. It therefore runs primary-alone, the same
-    # arrangement as Celo and Monad below, and get_chain_fallback_rpc_url
-    # returns None for it. Stated here so nobody later reads the absence as
-    # an oversight and assumes a backup exists. A dedicated endpoint from a
-    # provider would give it one; until then a primary outage means "not
-    # checked", never a negative result about an agent.
+    # Has a failover, in _CHAIN_PUBLIC_BACKUP below. Corrected 2026-09-10:
+    # this was briefly committed as primary-only on the strength of a probe
+    # that found no working alternative. That probe was wrong. The chain
+    # publishes four RPCs and two of them answer correctly, so the entry is
+    # not the primary-alone case that Celo and Monad genuinely are.
     4663: "https://rpc.mainnet.chain.robinhood.com",
 }
 
 # Infura path per chain, used as the failover where Infura covers it. Base
-# and Arbitrum are covered; Celo, Monad and Robinhood Chain are not, so
-# those three run on their primary alone -- stated here rather than
-# silently having no backup.
+# and Arbitrum are covered; Celo and Monad are not, so those two run on
+# their primary alone -- stated here rather than silently having no backup.
+# Robinhood Chain is not covered by Infura either, but it does have a
+# failover: a public endpoint, held in _CHAIN_PUBLIC_BACKUP below.
 _CHAIN_INFURA_PATH = {
     56: "bsc-mainnet",
     8453: "base-mainnet",
@@ -268,6 +266,13 @@ _CHAIN_INFURA_PATH = {
 # reliable one and the free one is what failed.
 _CHAIN_PUBLIC_BACKUP = {
     1: "https://eth.llamarpc.com",
+    # Robinhood Chain. Infura does not cover this chain, so its failover is
+    # a public endpoint rather than an Infura path. Verified against the
+    # primary before being trusted, not taken from a list: it returns
+    # chainId 4663, the ERC-8004 registry at 0x8004A169.. with the same 130
+    # bytes the primary reports, and it resolves tokenURI(60) to the same
+    # value, at a block height within ~15 of the primary.
+    4663: "https://robinhood-rpc.publicnode.com",
 }
 
 
