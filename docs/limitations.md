@@ -59,3 +59,33 @@ The x402 pay-per-call pricing model on AgentAccessMarket saves a creator's confi
 ## Zerion: a confirmed coverage gap
 
 Tnega's own bStock tokens (tokenized equities, built on BEP-8056 rather than plain BEP-20) are not recognized by Zerion's API, confirmed via a decisive "fungible not found" response rather than assumed. This affects only the (currently unbuilt) idea of showing bStock portfolio value via Zerion, not the live wallet-portfolio feature, which works correctly for the tokens Zerion does support.
+
+## ~9,100 working BSC agents missing, because 8004scan never indexed them
+
+**Deferred deliberately until after hackathon judging.** Re-ingesting them is
+a large write, and a large write during the judging window is risk with no
+upside. Pick this up once judging closes.
+
+Confirmed 2026-09-10 while auditing whether a deletion bug had destroyed data
+(it had not — see [Deletion Audit](deletion-audit-2026-09-10.md)). BSC holds
+154,695 agents across token ids 0–334,250, leaving 179,558 absent. Most of
+that absence is correct: those agents registered no service endpoint and were
+deliberately deleted, and sampling 200 of them found 199 with genuinely no
+endpoint and none with a live one.
+
+But roughly **9,100 of the absent agents do have a working service endpoint
+today**. They are concentrated in contiguous blocks that 8004scan never
+indexed: only 3% of ids in those blocks are known to the source, against 100%
+of a stored control. They never entered the pipeline, so nothing deleted
+them — this is a gap in the data source, not damage.
+
+The distortion is worse than the raw count suggests. These are agents *with*
+endpoints, so the missing population is disproportionately the working end of
+the registry, and every registry-wide proportion computed here is measured
+against a store that is missing them.
+
+Recovering them does not need 8004scan. The ERC-8004 registry is the
+authority and `tokenURI` resolves for every one of them, so they can be
+ingested straight from chain, the same way the health check already reads
+them. Roughly 7 MB at ~0.76 KB per document, against 55.1 MB of headroom as
+of 2026-09-10.

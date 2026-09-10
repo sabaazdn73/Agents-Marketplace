@@ -46,12 +46,14 @@
 * [Contract Coverage Gaps](contract-coverage-gaps.md)
 * [GitHub Signal Investigation](github-signal-investigation.md)
 * [Venus Lending Investigation](venus-skill-revert-investigation.md)
+* [Deletion Audit, 2026-09-10](deletion-audit-2026-09-10.md)
 
 ## Reference
 
 * [Features](features.md)
 * [Known Limitations](limitations.md)
 * [AgentBudgetEscrow Mainnet Go-Live](budget-escrow-golive.md)
+* [Arbitrum and Robinhood Deployment](multichain-deploy.md)
 * [Academic References](academic-references.md)
 
 ## Project
