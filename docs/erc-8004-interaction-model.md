@@ -110,6 +110,130 @@ traced back to an endpoint already reachable another way).
 Six patterns is a small enough number to enumerate in a field. That is the
 finding this proposal rests on.
 
+### What happens when you actually try to reach them
+
+Everything above is registry data. This section is what happened when the
+agents were called, which is stronger evidence and changes what the extension
+has to cover.
+
+Method: the 6,369 agents currently responding sit behind 70 distinct hosts.
+Each host was tried with an HTTP GET and POST at its registered endpoint, an
+A2A `message/send` with a text part, an A2A `negotiate` with a well-formed
+data part, and an MCP `initialize`. Probed 2026-09-10 from one network
+position.
+
+| What the host does | Hosts | Agents behind them |
+|---|---|---|
+| Quotes a price on a well-formed `negotiate` | 13 | 13 |
+| Speaks MCP `initialize` | 2 | 2 |
+| Returns 405 to any POST, a GET-only web page | 17 | 5,147 |
+| Returns 404 to any POST | 13 | 775 |
+| Returns non-JSON to everything | 10 | 340 |
+| Requires credentials, 401 or 403 | 3 | 3 |
+
+Fifteen hosts are reachable by any machine protocol at all. Three more serve
+a working paid resource, covered below.
+
+This is the point the registry data could not show. A registration with a live
+service endpoint reads as reachable, and 6,369 of them are. But `evoevo.ai`
+alone accounts for 4,105 of those and is a web platform serving profile pages,
+not an API: it answers a browser and returns 405 to every machine protocol
+tried. Nothing in an ERC-8004 registration distinguishes an endpoint a person
+can open from an endpoint a program can call, and on this corpus that
+distinction is the difference between 6,369 and 15.
+
+### The gap between declaring x402 and serving it
+
+20,085 agents carry an `x402_supported` flag, from 3.65% of BNB Chain
+registrations to 72.31% of Robinhood Chain. Of those, 346 are responding, across
+44 distinct hosts.
+
+Method matters here more than the number, because the wrong method gives the
+wrong answer. Asking each agent's registered endpoint for an HTTP 402 finds
+one host of 44. Reading `/.well-known/x402` and then fetching the resources
+that document lists finds three hosts serving genuine paid resources, with
+full payment requirements: `x402Version 2` on Base at
+`eip155:8453`, a Solana `accepts` block, and a named per-service price.
+
+Both numbers are correct measurements of different things. The registered
+endpoint is not the paid resource; the discovery document names the paid
+resources. A consumer probing the obvious place concludes x402 is dead on this
+corpus, when it is alive on three hosts.
+
+The discovery-document count also needs a control. Three of the seven hosts
+that returned 200 for `/.well-known/x402` return 200 for any path at all, so
+they were discarded by requesting a path that certainly does not exist. Four
+genuine documents remain, and one of those declares `enabled: false`, which is
+a clear and honest statement that the capability is off.
+
+So 20,085 declare the capability and three demonstrably serve it. A declared
+capability that consumers cannot locate is close to no declaration at all, and
+that gap in one number is the argument for this extension.
+
+### The two near-misses
+
+`api.bortagent.xyz` (735 agents) and `app.singularry.org` (213) did not refuse
+to trade. Each rejected the request with a precise, machine-readable complaint
+about the envelope: `a valid agent tokenId is required (path /api/a2a/:agentId)`
+and `Only text parts are accepted by this endpoint`. Following those
+instructions produced a correctly addressed call in both cases.
+
+They are integrated enough to answer, to describe what they want, and to name
+the field that was missing. That is not indifference to being hired. It argues
+that the missing piece is a shared way to say how to engage rather than any
+unwillingness to engage.
+
+What lies behind those doors is a separate matter, recorded here because it
+bears on how much this extension would be worth: every bortagent agent tested
+returned `agent N is not open to inbound A2A calls`, and Singularry returns a
+byte-identical reply to every input, stating it serves identity only during
+beta. Both are operator decisions rather than protocol gaps, and no field in
+any standard changes them.
+
+### What this implies for the fields
+
+The draft above covers how an agent is engaged commercially. This evidence
+says it also has to cover how it is reached technically. Each field below is
+tied to a specific observed failure, and a field that prevents no observed
+failure is not proposed.
+
+| Field | The failure it prevents |
+|---|---|
+| `protocols` with a per-protocol URL | 17 hosts answer a browser and 405 every machine call. A consumer cannot tell which from a registration, and today discovers it by probing |
+| `paid_resources`, or a pointer to a discovery document | Probing the registered endpoint finds 1 payable host, reading the document finds 3. The paid resource is never the registered endpoint |
+| An addressing hint, such as a path template | bortagent needs its own agent id in the path, and that id is not the ERC-8004 token id. It is recoverable only by parsing a registered URL |
+| `input_modes` at the skill level | Singularry accepts text parts and rejects data parts. A2A already carries `defaultInputModes`, and it is not in the registration |
+
+`security`, deliberately not proposed here, is discussed below.
+
+### What no field can fix
+
+Two hosts declare `http://localhost:9000/` as their agent URL and four declare
+no URL at all. These are publishing errors by the agent's developer, not gaps
+in any standard, and a proposal claiming to solve them would be overreaching.
+
+The right consumer behaviour is to surface them as the agent's fault, plainly
+and without retrying: a card that points at localhost is broken in a way the
+registry cannot detect and the consumer can, and saying so is more use to a
+buyer than a generic failure.
+
+### Authentication is a separate proposal
+
+Every agent card inspected declared `security: null`. Anyone can call any of
+these agents as anyone. There is no identity on the request, therefore no
+accountability for the response, and nothing ties a call to a payment.
+
+That is real and it is serious, and it is not what this proposal is about.
+This one is about discoverability: telling a consumer how an agent is meant to
+be engaged. Authentication is about what happens once they engage, and a field
+declaring an auth scheme would not have prevented any failure the probe found,
+because every failure was a consumer unable to work out how to call at all.
+
+Keeping them separate also keeps this proposal falsifiable. A discoverability
+extension can be judged on whether consumers stop having to probe. Bundling an
+authentication scheme in would make it a larger claim resting on the same
+evidence, and the evidence does not reach that far.
+
 ## What the extension proposes
 
 One object in the registration file the registry already points at. No
@@ -215,6 +339,16 @@ The census that produced the enumeration was one chain at one point in time,
 64,821 entries in August 2026. Six patterns held across that corpus. A
 different corpus could contain a seventh, and the enumeration would need to
 grow, which is a real weakness in any closed list.
+
+The reachability probe is one snapshot from one network position on
+2026-09-10, and it is not a clean instrument. Running six requests per host in
+quick succession triggered rate limiting: the first pass reported agent cards
+collapsing from 32 hosts to 3, which was the probe's own fault rather than a
+change in the world, and a slower serial re-check found all sampled cards
+present. The card counts here come from the slower run. The quote count of 13
+is corroborated by two independent runs. Anything measured once should be
+treated as a floor, since this method understates reachability rather than
+overstating it.
 
 The proposal also does nothing for the agents that most need help. An entry
 with no endpoint and no metadata cannot declare anything, and that is 26.7%
