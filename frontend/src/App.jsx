@@ -20,7 +20,11 @@ import { updatePageMeta } from './seoMeta.js';
 // title from inside DocsPage.jsx instead, since only that component
 // knows which doc is open.
 const PAGE_META = {
-  '/': { description: "Tnega, an agent marketplace for BNB Agent Studio: discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain." },
+  // Must say the same thing as index.html's static og:/twitter: tags.
+  // Social scrapers read the raw HTML and never run this; search crawlers
+  // run it and see this instead. If the two disagree, a shared link and a
+  // search result describe the site differently.
+  '/': { description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain." },
   '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents on BNB Smart Chain, with on-chain escrow protecting every payment.' },
   '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions, Venus lending, PancakeSwap trading, and more, you run yourself through your own wallet.' },
   '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
