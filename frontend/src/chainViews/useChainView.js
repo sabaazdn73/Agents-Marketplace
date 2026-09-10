@@ -45,12 +45,13 @@ export function useChainViewIndex() {
  * it by accident. */
 export function useChainView(viewId) {
   const [agents, setAgents] = useState([]);
-  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null, hire_paths: null });
+  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null, hire_paths: null, total: null });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState(null);
   const offsetRef = useRef(0);
+  const [page, setPage] = useState(1);
 
   const fetchPage = useCallback(async (offset, append) => {
     const res = await fetch(`${API_BASE_URL}/api/chain-view/${viewId}?offset=${offset}&limit=${CHAIN_VIEW_PAGE_SIZE}`);
@@ -75,6 +76,9 @@ export function useChainView(viewId) {
       // is invisible to the UI until it is added on this line. That is what
       // hid hire_paths on first wiring.
       hire_paths: d.hire_paths || null,
+      // Total agents in this view, so a hireable chain can show numbered
+      // pages instead of an open-ended "load more".
+      total: typeof d.total === 'number' ? d.total : null,
     });
     setAgents((prev) => (append ? [...prev, ...(d.agents || [])] : (d.agents || [])));
     setHasMore(!!d.has_more);
@@ -84,12 +88,26 @@ export function useChainView(viewId) {
   useEffect(() => {
     if (!viewId) return;
     let cancelled = false;
-    setLoading(true); setError(null); setAgents([]); offsetRef.current = 0;
+    setLoading(true); setError(null); setAgents([]); offsetRef.current = 0; setPage(1);
     fetchPage(0, false)
       .catch((e) => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [viewId, fetchPage]);
+
+  /** Jump to a numbered page, replacing the list rather than appending.
+   *
+   * The read-only theme keeps loadMore below; a hireable chain uses this.
+   * Both go through the same fetchPage, so the two themes cannot end up
+   * fetching differently, only presenting differently. */
+  const goToPage = useCallback((pageNumber) => {
+    const n = Math.max(1, Number(pageNumber) || 1);
+    setLoading(true); setError(null);
+    fetchPage((n - 1) * CHAIN_VIEW_PAGE_SIZE, false)
+      .then(() => { setPage(n); })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [fetchPage]);
 
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
@@ -99,5 +117,6 @@ export function useChainView(viewId) {
       .finally(() => setLoadingMore(false));
   }, [fetchPage, hasMore, loadingMore]);
 
-  return { agents, ...meta, loading, loadingMore, hasMore, error, loadMore };
+  return { agents, ...meta, loading, loadingMore, hasMore, error, loadMore,
+    page, goToPage, pageSize: CHAIN_VIEW_PAGE_SIZE };
 }

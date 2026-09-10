@@ -18,31 +18,16 @@
 // because that contract is Altana's rather than ours, which is a property of
 // the protocol rather than something pending here. The view states both.
 
+//
+// Uses the HIREABLE theme (HireableChainView): the BNB Chain card design with
+// an action on it and numbered pages. That is the rule now, not a one-off --
+// a chain switches to this theme when its agents become hireable, and back to
+// the read-only listing if that ever stops being true.
 import React from 'react';
 import { useChainView } from './useChainView';
-import {
-  ChainAgentCard, ChainViewStates, LoadMoreButton,
-  HireabilityNotice, UnverifiedStatusNote,
-  ChainCapabilities,
-} from './ChainViewShared';
+import HireableChainView from './HireableChainView';
 
 export default function ArbitrumView({ mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { agents, label, statusNote, hire_paths: hirePaths, verifiedChains, unverifiedChains, capabilities, loading, loadingMore, hasMore, error, loadMore } =
-    useChainView('arbitrum');
-
-  const state = <ChainViewStates loading={loading} error={error} empty={!agents.length} label="Arbitrum" />;
-  if (state && (loading || error || !agents.length)) return state;
-
-  return (
-    <div>
-      <HireabilityNotice label={label} hirePaths={hirePaths} />
-      <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
-      <ChainCapabilities capabilities={capabilities} />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder}
-            budgetHireable={!!hirePaths?.budget?.chains?.some((c) => c.chain_id === a.chain_id)} />)}
-      </div>
-      <LoadMoreButton hasMore={hasMore} loadingMore={loadingMore} onClick={loadMore} />
-    </div>
-  );
+  const view = useChainView('arbitrum');
+  return <HireableChainView view={view} label={view.label || 'Arbitrum'} />;
 }

@@ -162,6 +162,14 @@ _PROJECTION = {
     "chain_id": 1, "token_id": 1, "owner_address": 1,
     "created_at": 1, "total_score": 1, "total_feedbacks": 1,
     "source": 1,
+    # Added 2026-09-10 so a hireable chain's card can carry the same
+    # information BSC's does. Every one of these is stored identically on
+    # every chain (checked across 400-agent samples on 56, 42161 and 4663),
+    # and none of them is computed by a BSC-specific method, so showing them
+    # off BSC is reporting stored registry data rather than implying a check
+    # that never ran.
+    "star_count": 1, "average_score": 1, "image_url": 1,
+    "is_verified": 1, "x402_supported": 1,
     # Requested, but NOT unconditionally returned -- see _apply_status_policy.
     "service_status": 1, "service_endpoint": 1, "service_checked_at": 1,
 }
@@ -313,9 +321,15 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
     for d in docs:
         d["chain_name"] = CHAIN_NAMES.get(d.get("chain_id"), str(d.get("chain_id")))
         _apply_status_policy(d)
+    # Total for this view, so the UI can show numbered pages rather than an
+    # open-ended "load more". Counted per request: these views are not cached
+    # and the count is a covered index lookup on chain_id.
+    total = await col.count_documents(q)
+
     return {
         "view": view,
         "label": v["label"],
+        "total": total,
         "hireable": _hire_paths(v["chain_ids"])["any"],
         "hire_paths": _hire_paths(v["chain_ids"]),
         "coming_soon": v["coming_soon"],

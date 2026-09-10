@@ -24,7 +24,7 @@ import BudgetHirePanel from '../BudgetHirePanel';
  * though this app cannot check its liveness. Only chains present
  * in the data are listed; anything else simply gets no link rather than a
  * guessed URL. */
-const EXPLORERS = {
+export const EXPLORER_BASE = {
   1: 'https://etherscan.io/address/',
   8453: 'https://basescan.org/address/',
   42161: 'https://arbiscan.io/address/',
@@ -200,7 +200,7 @@ export function ChainCapabilities({ capabilities }) {
 }
 
 export function ChainAgentCard({ agent, mutedBorder, budgetHireable = false }) {
-  const explorer = EXPLORERS[agent.chain_id];
+  const explorer = EXPLORER_BASE[agent.chain_id];
   return (
     <div className={`bg-white dark:bg-[#1E293B] rounded-2xl border ${mutedBorder} p-4 flex flex-col gap-2`}>
       <div className="flex items-start justify-between gap-2">

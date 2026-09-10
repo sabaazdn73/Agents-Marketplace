@@ -26,31 +26,15 @@
 // 2026-09-10, because is_evm was derived from the explorer allowlist rather
 // than from the chain. See core/chain_capabilities.py.
 
+//
+// Uses the HIREABLE theme (HireableChainView), same as Arbitrum: the BNB
+// Chain card design with an action on it and numbered pages, adopted because
+// AgentBudgetEscrow is deployed here and these agents can genuinely be hired.
 import React from 'react';
 import { useChainView } from './useChainView';
-import {
-  ChainAgentCard, ChainViewStates, LoadMoreButton,
-  HireabilityNotice, UnverifiedStatusNote,
-  ChainCapabilities,
-} from './ChainViewShared';
+import HireableChainView from './HireableChainView';
 
 export default function RobinhoodView({ mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { agents, label, statusNote, hire_paths: hirePaths, verifiedChains, unverifiedChains, capabilities, loading, loadingMore, hasMore, error, loadMore } =
-    useChainView('robinhood');
-
-  const state = <ChainViewStates loading={loading} error={error} empty={!agents.length} label="Robinhood Chain" />;
-  if (state && (loading || error || !agents.length)) return state;
-
-  return (
-    <div>
-      <HireabilityNotice label={label} hirePaths={hirePaths} />
-      <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
-      <ChainCapabilities capabilities={capabilities} />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder}
-            budgetHireable={!!hirePaths?.budget?.chains?.some((c) => c.chain_id === a.chain_id)} />)}
-      </div>
-      <LoadMoreButton hasMore={hasMore} loadingMore={loadingMore} onClick={loadMore} />
-    </div>
-  );
+  const view = useChainView('robinhood');
+  return <HireableChainView view={view} label={view.label || 'Robinhood Chain'} />;
 }

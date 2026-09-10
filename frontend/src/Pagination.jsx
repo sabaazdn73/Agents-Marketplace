@@ -6,6 +6,12 @@
 // numbered pages with Previous/Next at the ends ("Previous | 1 | 2 | 3 | 4
 // | … | 24 | 25 | Next"), which is exactly the shape this reproduces.
 //
+// Touch targets are 44px minimum (2026-09-10). They were about 34px, which
+// was already below the platform minimum on the BNB page and became more
+// visible when the hireable chain views started using this control on mobile
+// too. Widened with min-h/min-w rather than by growing the text, so the
+// control looks the same on a desktop and is actually usable on a phone.
+//
 // Purely client-side, the caller already has the FULL filtered/sorted list
 // in memory (this project's known_agents list is fetched once, in full,
 // and cached in localStorage; see useMarketplaceAgents in
@@ -39,7 +45,7 @@ export default function Pagination({ page, pageCount, onChange }) {
       <button
         onClick={() => onChange(Math.max(1, page - 1))}
         disabled={page === 1}
-        className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        className="flex items-center justify-center gap-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
       >
         <ChevronLeft size={14} /> Previous
       </button>
@@ -50,7 +56,7 @@ export default function Pagination({ page, pageCount, onChange }) {
           key={n}
           onClick={() => onChange(n)}
           aria-current={n === page ? 'page' : undefined}
-          className={`min-w-[32px] px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
+          className={`inline-flex items-center justify-center min-w-[44px] min-h-[44px] px-2.5 py-2 rounded-lg text-xs font-semibold transition-colors ${
             n === page
               ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-transparent'
@@ -62,7 +68,7 @@ export default function Pagination({ page, pageCount, onChange }) {
       <button
         onClick={() => onChange(Math.min(pageCount, page + 1))}
         disabled={page === pageCount}
-        className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        className="flex items-center justify-center gap-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-medium border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
       >
         Next <ChevronRight size={14} />
       </button>
