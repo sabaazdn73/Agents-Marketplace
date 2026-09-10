@@ -285,7 +285,50 @@ async def count_view(view: str) -> int:
     return await col.count_documents({"chain_id": {"$in": v["chain_ids"]}})
 
 
-async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
+async def fetch_agent(chain_id: int, token_id: str) -> dict | None:
+    """One agent's stored record, for its own page.
+
+    Exists so a chain agent's URL survives a refresh. The BSC detail view
+    resolves a deep link by scanning the fully-loaded marketplace list, which
+    these views cannot do: they are paginated server-side and deliberately
+    uncached, so the agent on page 40 is not in memory. This reads the single
+    document instead.
+
+    The same status policy as the list applies, so an unanalysed chain cannot
+    leak a health field through the detail page that the list would strip."""
+    col = get_db()[FULL_REGISTRY_COLLECTION]
+    doc = await col.find_one(
+        {"chain_id": int(chain_id), "token_id": str(token_id)}, _PROJECTION,
+    )
+    if not doc:
+        return None
+    doc["chain_name"] = CHAIN_NAMES.get(doc.get("chain_id"), str(doc.get("chain_id")))
+    _apply_status_policy(doc)
+    doc["capabilities"] = _capabilities_with_names([int(chain_id)])
+    doc["hire_paths"] = _hire_paths([int(chain_id)])
+    return doc
+
+
+async def category_facets(view: str) -> list[dict]:
+    """Category counts for one view, for the category tabs.
+
+    Aggregated rather than counted client-side: these views never hold the
+    whole set in memory, so the count for a category has to come from the
+    database or it would only ever describe the current page."""
+    v = VIEWS.get(view)
+    if not v:
+        return []
+    col = get_db()[FULL_REGISTRY_COLLECTION]
+    rows = await col.aggregate([
+        {"$match": {"chain_id": {"$in": v["chain_ids"]}}},
+        {"$group": {"_id": "$category", "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}},
+    ]).to_list(length=200)
+    return [{"category": r["_id"] or "Unclassified", "count": r["n"]} for r in rows]
+
+
+async def fetch_page(view: str, *, offset: int = 0, limit: int = 24,
+                     category: str | None = None) -> dict:
     """One bounded page. No caching, by design (see module docstring).
 
     Sorted by total_score descending so a page is a meaningful slice
@@ -311,6 +354,11 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
 
     col = get_db()[FULL_REGISTRY_COLLECTION]
     q = {"chain_id": {"$in": v["chain_ids"]}}
+    # Category filter, applied in the query rather than after paging. Filtering
+    # a page would give a page of fewer than `limit` agents and a total that
+    # described the unfiltered set.
+    if category and category != "All":
+        q["category"] = category
     docs = await (
         col.find(q, _PROJECTION)
         .sort([("total_score", -1), ("id", 1)])
@@ -330,6 +378,7 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
         "view": view,
         "label": v["label"],
         "total": total,
+        "category": category or "All",
         "hireable": _hire_paths(v["chain_ids"])["any"],
         "hire_paths": _hire_paths(v["chain_ids"]),
         "coming_soon": v["coming_soon"],

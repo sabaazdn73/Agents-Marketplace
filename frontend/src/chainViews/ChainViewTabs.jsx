@@ -13,7 +13,7 @@
 // Web and mobile both use this, so a chain view cannot silently exist on
 // one and not the other.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useChainViewIndex } from './useChainView';
 import { ChainMark } from './chainMarks';
 import EthereumView from './EthereumView';
@@ -21,6 +21,24 @@ import SolanaView from './SolanaView';
 import ArbitrumView from './ArbitrumView';
 import RobinhoodView from './RobinhoodView';
 import MultiChainView from './MultiChainView';
+
+// Which tab owns a given chain id. Needed so that landing directly on an
+// agent's own URL opens that agent's chain rather than the default tab.
+//
+// Bug found in the browser 2026-09-10: /chain-agent/42161/734 opened the BNB
+// tab. The route was read inside HireableChainView, which only mounts once
+// its tab is active, so on a cold load nothing ever looked at the URL and the
+// agent page could not survive a refresh. The lesson is that the tab strip is
+// part of the routing, not just a control above it.
+const CHAIN_TO_VIEW = {
+  42161: 'arbitrum',
+  4663: 'robinhood',
+};
+
+function viewFromLocation() {
+  const m = window.location.pathname.match(/^\/chain-agent\/(\d+)\//);
+  return m ? CHAIN_TO_VIEW[Number(m[1])] || null : null;
+}
 
 const VIEW_COMPONENTS = {
   ethereum: EthereumView,
@@ -48,7 +66,18 @@ const compactCount = (n) =>
   new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
 export default function ChainViewTabs({ mutedBorder, children }) {
-  const [active, setActive] = useState('bnb');
+  const [active, setActive] = useState(() => viewFromLocation() || 'bnb');
+
+  // Keep the tab in step with back/forward, so returning to an agent's URL
+  // reopens its chain rather than leaving the strip pointing elsewhere.
+  useEffect(() => {
+    const onPop = () => {
+      const v = viewFromLocation();
+      if (v) setActive(v);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const { views, loading } = useChainViewIndex();
 
   // Until the index loads, render BSC alone. The marketplace must never be

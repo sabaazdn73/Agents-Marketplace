@@ -47,6 +47,11 @@ import httpx
 _ETHERSCAN_V2_BASE = "https://api.etherscan.io/v2/api"
 _BSC_CHAIN_ID = 56
 
+# Chains checked through Sourcify rather than an Etherscan-style explorer.
+# Must stay in step with core/chain_capabilities._SOURCIFY_VERIFY_CHAINS.
+_SOURCIFY_CHAINS = (4663,)
+_SOURCIFY_BASE = "https://sourcify.dev/server"
+
 _TTL_SECONDS = 24 * 60 * 60  # a contract's own verification status is a structural
 # property that essentially never changes minute to minute — a full day's cache is
 # honest and real, not stale-looking, same reasoning protocol_compat._cache uses
@@ -123,6 +128,39 @@ async def check_owner_contract_verification(address: str, chain_id: int = _BSC_C
         return result
     if not is_contract:
         result = {"is_contract": False}
+        _cache[key] = (time.time(), result)
+        return result
+
+    # Chains with no Etherscan-style explorer resolve through Sourcify
+    # instead. Added 2026-09-10 for Robinhood Chain, whose Blockscout API sits
+    # behind a Cloudflare interstitial and returns 403 to a client.
+    #
+    # Added because core/chain_capabilities.py had already been told this
+    # chain could answer the contract check, and a capability list that
+    # promises what the adapter cannot deliver is a false claim. The same
+    # mistake was made with Zerion on the same day; see adapters/zerion.py.
+    #
+    # Verified on real addresses on 4663: our own escrow and the ERC-8004
+    # registry both return exact_match with non-zero code, and real agent
+    # owner addresses return zero code, which is handled above as a wallet.
+    if chain_id in _SOURCIFY_CHAINS:
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get(f"{_SOURCIFY_BASE}/v2/contract/{chain_id}/{addr}")
+            if resp.status_code == 404:
+                result = {"is_contract": True, "verified": False}
+            elif resp.status_code == 200:
+                body = resp.json()
+                match = body.get("match") or body.get("runtimeMatch")
+                result = {"is_contract": True, "verified": bool(match),
+                          "contract_name": None, "compiler_version": None, "is_proxy": None,
+                          "source": "Sourcify"}
+            else:
+                result = {"is_contract": True, "verified": None,
+                          "reason": f"Sourcify returned HTTP {resp.status_code}"}
+        except Exception as e:
+            result = {"is_contract": True, "verified": None,
+                      "reason": f"couldn't reach Sourcify: {e}"}
         _cache[key] = (time.time(), result)
         return result
 

@@ -2246,7 +2246,7 @@ async def chain_views_index():
 
 
 @app.get("/api/chain-view/{view}")
-async def chain_view_page(view: str, offset: int = 0, limit: int = 24):
+async def chain_view_page(view: str, offset: int = 0, limit: int = 24, category: str = ""):
     """One bounded page of a non-BSC chain view.
 
     `bnb` is deliberately rejected here rather than served: the BSC list
@@ -2261,9 +2261,39 @@ async def chain_view_page(view: str, offset: int = 0, limit: int = 24):
                    "non-BSC views only.",
         )
     try:
-        return await chain_views.fetch_page(view, offset=offset, limit=limit)
+        return await chain_views.fetch_page(
+            view, offset=offset, limit=limit, category=category or None,
+        )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/chain-view/{view}/categories")
+async def chain_view_categories(view: str):
+    """Category counts for one view, for its category tabs.
+
+    Separate from the page endpoint because the counts describe the whole
+    view and do not change as someone pages through it, so re-sending them
+    with every page would be waste."""
+    if view == "bnb":
+        raise HTTPException(status_code=400, detail="The BNB Chain view is served by /api/agents.")
+    return {"view": view, "categories": await chain_views.category_facets(view)}
+
+
+@app.get("/api/chain-agent/{chain_id}/{token_id}")
+async def chain_agent_record(chain_id: int, token_id: str):
+    """One chain agent's stored record, so its own page can survive a refresh.
+
+    The BSC detail view resolves a deep link from the fully-loaded
+    marketplace list. These views are paginated server-side and uncached, so
+    an agent deep in the set is not in memory and has to be read directly."""
+    doc = await chain_views.fetch_agent(chain_id, token_id)
+    if not doc:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No agent {token_id} stored on chain {chain_id}.",
+        )
+    return doc
 
 
 @app.get("/api/first-visit")

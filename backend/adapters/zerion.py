@@ -50,6 +50,18 @@ _BSC_CHAIN_ID = "binance-smart-chain"  # Zerion's real, string chain identifier 
 ZERION_CHAIN_SLUGS = {
     1: "ethereum", 56: _BSC_CHAIN_ID, 8453: "base",
     42161: "arbitrum", 42220: "celo", 143: "monad",
+    # 4663 added 2026-09-10. Zerion lists Robinhood Chain as "robinhood",
+    # external_id 0x1237, and three real stored Robinhood owner addresses
+    # returned live positions (2, 1 and 1) rather than empty 200s.
+    #
+    # Added here as well as in core/chain_capabilities.py, and the two must
+    # stay in step. They were briefly out of step, which is worse than either
+    # being wrong alone: the capabilities panel claimed Zerion covered the
+    # chain while the per-agent evaluation said it did not index it, on the
+    # same page. A capability list that promises what the adapter cannot
+    # deliver is exactly the kind of claim this project is not supposed to
+    # make.
+    4663: "robinhood",
 }
 
 

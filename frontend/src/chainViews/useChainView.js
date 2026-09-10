@@ -52,9 +52,16 @@ export function useChainView(viewId) {
   const [error, setError] = useState(null);
   const offsetRef = useRef(0);
   const [page, setPage] = useState(1);
+  // Category tab state. The selected category is part of the QUERY, not a
+  // filter over the current page: these views never hold the whole set in
+  // memory, so filtering client-side would only ever filter the 24 agents on
+  // screen and leave the total describing something else.
+  const [category, setCategoryState] = useState('All');
+  const [categories, setCategories] = useState([]);
 
-  const fetchPage = useCallback(async (offset, append) => {
-    const res = await fetch(`${API_BASE_URL}/api/chain-view/${viewId}?offset=${offset}&limit=${CHAIN_VIEW_PAGE_SIZE}`);
+  const fetchPage = useCallback(async (offset, append, cat = category) => {
+    const catQ = cat && cat !== 'All' ? `&category=${encodeURIComponent(cat)}` : '';
+    const res = await fetch(`${API_BASE_URL}/api/chain-view/${viewId}?offset=${offset}&limit=${CHAIN_VIEW_PAGE_SIZE}${catQ}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
     setMeta({
@@ -83,7 +90,7 @@ export function useChainView(viewId) {
     setAgents((prev) => (append ? [...prev, ...(d.agents || [])] : (d.agents || [])));
     setHasMore(!!d.has_more);
     offsetRef.current = offset + (d.agents || []).length;
-  }, [viewId]);
+  }, [viewId, category]);
 
   useEffect(() => {
     if (!viewId) return;
@@ -95,11 +102,35 @@ export function useChainView(viewId) {
     return () => { cancelled = true; };
   }, [viewId, fetchPage]);
 
+  // Category counts for the tabs. Fetched once per view rather than with each
+  // page, since they describe the whole view and do not change as you page.
+  useEffect(() => {
+    if (!viewId) return undefined;
+    let cancelled = false;
+    setCategories([]);
+    setCategoryState('All');
+    fetch(`${API_BASE_URL}/api/chain-view/${viewId}/categories`)
+      .then((r) => (r.ok ? r.json() : { categories: [] }))
+      .then((d) => { if (!cancelled) setCategories(d.categories || []); })
+      .catch(() => { if (!cancelled) setCategories([]); });
+    return () => { cancelled = true; };
+  }, [viewId]);
+
   /** Jump to a numbered page, replacing the list rather than appending.
    *
    * The read-only theme keeps loadMore below; a hireable chain uses this.
    * Both go through the same fetchPage, so the two themes cannot end up
    * fetching differently, only presenting differently. */
+  /** Switch category. Resets to page 1, because page 7 of one category is
+   *  meaningless in another. */
+  const setCategory = useCallback((next) => {
+    setCategoryState(next);
+    setLoading(true); setError(null); setPage(1);
+    fetchPage(0, false, next)
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [fetchPage]);
+
   const goToPage = useCallback((pageNumber) => {
     const n = Math.max(1, Number(pageNumber) || 1);
     setLoading(true); setError(null);
@@ -118,5 +149,6 @@ export function useChainView(viewId) {
   }, [fetchPage, hasMore, loadingMore]);
 
   return { agents, ...meta, loading, loadingMore, hasMore, error, loadMore,
-    page, goToPage, pageSize: CHAIN_VIEW_PAGE_SIZE };
+    page, goToPage, pageSize: CHAIN_VIEW_PAGE_SIZE,
+    category, setCategory, categories };
 }

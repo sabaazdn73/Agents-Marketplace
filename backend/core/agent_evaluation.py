@@ -67,6 +67,10 @@ from core.rpc import chain_rpc_post, supported_rpc_chain_ids
 # unit. A chain absent here still reports its balance, just unlabelled.
 NATIVE_SYMBOL = {
     1: "ETH", 56: "BNB", 8453: "ETH", 42161: "ETH", 42220: "CELO", 143: "MON",
+    # 4663 (Robinhood Chain) is an Arbitrum Orbit L2 with ETH as its gas
+    # token. Without this the owner balance rendered as a bare number with
+    # no unit, which reads as a quantity of nothing.
+    4663: "ETH",
 }
 
 
