@@ -92,7 +92,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   }
 
   if (budgetId != null) {
-    return <BudgetSpendView budgetId={budgetId} />;
+    return <BudgetSpendView budgetId={budgetId} chainId={budgetChainId} />;
   }
 
   const submit = async () => {
@@ -133,8 +133,11 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
       // notification calls lived only in the ERC-8183 path, so a client
       // who hired this way saw nothing in the bell.
       addNotification(
-        `Budget #${newId}: ${total} BNB funded`,
-        `${agent?.name || 'The agent'} can now draw up to ${maxPerDraw} BNB at a time. You can take back whatever is left at any point.`,
+        // nativeLabel, not a literal: this notification used to say BNB on
+        // every chain, which was wrong the moment a budget could be opened
+        // anywhere else.
+        `Budget #${newId}: ${total} ${nativeLabel} funded`,
+        `${agent?.name || 'The agent'} can now draw up to ${maxPerDraw} ${nativeLabel} at a time. You can take back whatever is left at any point.`,
       );
       setBudgetId(newId);
     } catch (e) {

@@ -15,14 +15,24 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Loader2, ArrowDownRight, ShieldAlert, Clock, Undo2 } from 'lucide-react';
-import { formatUnits } from 'viem';
-import { useBudgetRead, useDrawFeed, useBudgetActions, BUDGET_STATUS, NATIVE_SENTINEL } from './budgetEscrow';
+import { useBudgetRead, useDrawFeed, useBudgetActions, BUDGET_STATUS, NATIVE_SENTINEL, useBudgetEscrowAddress } from './budgetEscrow';
 import { addNotification } from './notifications';
+import { formatAmount, budgetTokenSymbol } from './budgetAmounts';
 
-function fmt(v, symbol = 'BNB') {
-  if (v == null) return 'n/a';
-  const n = Number(formatUnits(v, 18));
-  return `${n < 0.0001 && n > 0 ? n.toExponential(2) : n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol}`;
+// Every amount in this component goes through the shared formatter. The local
+// copy that used to live here defaulted the symbol to 'BNB' and switched to
+// exponential notation below 0.0001, so a real budget rendered "7.00e-6 BNB"
+// on Robinhood Chain: wrong unit, and a number nobody should have to decode.
+// See budgetAmounts.js.
+function fmt(v, symbol) {
+  const { text } = formatAmount(v);
+  return symbol ? `${text} ${symbol}` : text;
+}
+
+/** The exact value, for a title attribute, so trimming never hides money. */
+function fmtFull(v, symbol) {
+  const { full } = formatAmount(v);
+  return symbol ? `${full} ${symbol}` : full;
 }
 
 /** bytes32 -> readable text, or null when it isn't text.
@@ -42,9 +52,18 @@ function memoText(memo) {
   return s || null;
 }
 
-export default function BudgetSpendView({ budgetId, onRevoked }) {
-  const { budget, drawable, loading, error, refresh } = useBudgetRead(budgetId);
-  const { draws, accountedFor, scanned } = useDrawFeed(budgetId);
+export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedChainId = null }) {
+  // The chain the budget lives on. Every symbol on this card resolves from
+  // it, and there is no fallback token: an unknown chain renders no symbol
+  // rather than a plausible wrong one.
+  //
+  // The caller may pin it. BudgetHirePanel does, because it knows which chain
+  // the budget was just opened on, and the wallet can move afterwards. Left
+  // to the wallet alone, switching chains after funding would relabel a
+  // Robinhood budget as BNB while still showing its real amounts.
+  const { chainId } = useBudgetEscrowAddress(forcedChainId);
+  const { budget, drawable, loading, error, refresh } = useBudgetRead(budgetId, forcedChainId);
+  const { draws, accountedFor, scanned } = useDrawFeed(budgetId, undefined, forcedChainId);
   const { reclaim, pending } = useBudgetActions();
 
   // One notification per draw, raised from the same feed the list renders.
@@ -61,7 +80,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
   useEffect(() => {
     if (!draws.length) return;
     if (announced.current === null) { announced.current = new Set(draws.map((d) => String(d.spent))); return; }
-    const sym = budget?.token?.toLowerCase() === NATIVE_SENTINEL.toLowerCase() ? 'BNB' : 'tokens';
+    const sym = budgetTokenSymbol(budget?.token, chainId, NATIVE_SENTINEL);
     for (const d of draws) {
       const key = String(d.spent);
       if (announced.current.has(key)) continue;
@@ -87,7 +106,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
   }
   if (!budget) return null;
 
-  const symbol = budget.token?.toLowerCase() === NATIVE_SENTINEL.toLowerCase() ? 'BNB' : 'tokens';
+  const symbol = budgetTokenSymbol(budget.token, chainId, NATIVE_SENTINEL);
   const total = budget.total;
   const spent = budget.spent;
   const remaining = total - spent;
@@ -132,8 +151,8 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
           </div>
         </div>
         <div className="text-right">
-          <div className="text-lg font-bold tabular-nums">{fmt(remaining, symbol)}</div>
-          <div className="text-[10px] text-gray-500">left of {fmt(total, symbol)}</div>
+          <div className="text-lg font-bold tabular-nums" title={fmtFull(remaining, symbol)}>{fmt(remaining, symbol)}</div>
+          <div className="text-[10px] text-gray-500" title={fmtFull(total, symbol)}>left of {fmt(total, symbol)}</div>
         </div>
       </div>
 
@@ -142,8 +161,8 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
         <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
       </div>
       <div className="flex justify-between text-[10px] text-gray-500 mb-3">
-        <span>{reclaimed ? 'Closed, unspent remainder returned to you' : `${fmt(spent, symbol)} spent (${pct}%)`}</span>
-        {isOpen && !expired && <span>up to {fmt(drawable, symbol)} in the next draw</span>}
+        <span title={reclaimed ? undefined : fmtFull(spent, symbol)}>{reclaimed ? 'Closed, unspent remainder returned to you' : `${fmt(spent, symbol)} spent (${pct}%)`}</span>
+        {isOpen && !expired && <span title={fmtFull(drawable, symbol)}>up to {fmt(drawable, symbol)} in the next draw</span>}
       </div>
 
       {isOpen && (
@@ -220,7 +239,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
               <div key={`${d.spent}-${i}`} className="flex items-start gap-2 text-[11px]">
                 <ArrowDownRight size={12} className="text-amber-500 shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
-                  <span className="font-medium tabular-nums">{fmt(d.amount, symbol)}</span>
+                  <span className="font-medium tabular-nums" title={fmtFull(d.amount, symbol)}>{fmt(d.amount, symbol)}</span>
                   {m && <span className="text-gray-500"> · {m}</span>}
                 </div>
                 <span className="text-gray-400 tabular-nums shrink-0">
@@ -248,6 +267,7 @@ export default function BudgetSpendView({ budgetId, onRevoked }) {
       {status !== 'RECLAIMED' && remaining > 0n && (
         <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
           <button
+            title={`The exact remainder is ${fmtFull(remaining, symbol)}`}
             onClick={doRevoke}
             disabled={pending === 'reclaim'}
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[12px] font-semibold border border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 disabled:opacity-60"

@@ -48,8 +48,13 @@ import {
 export const NATIVE_SENTINEL = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
 /** Is budget hiring available on the chain the wallet is currently on? */
-export function useBudgetEscrowAddress() {
-  const chainId = useChainId();
+export function useBudgetEscrowAddress(forcedChainId = null) {
+  const walletChainId = useChainId();
+  // A caller that knows which chain a budget lives on may pin it. Everything
+  // downstream -- the escrow address, the reads, and the token symbol -- then
+  // resolves from that one chain, so a card can never label amounts with one
+  // chain's token while reading them from another's contract.
+  const chainId = forcedChainId ? Number(forcedChainId) : walletChainId;
   return { chainId, address: getBudgetEscrowAddress(chainId),
            configured: isBudgetHiringAvailable(chainId),
            chainLabel: chainName(chainId), nativeLabel: nativeSymbol(chainId) };
@@ -132,9 +137,11 @@ export const BUDGET_STATUS = ['NONE', 'OPEN', 'CLOSED', 'RECLAIMED'];
 
 /** Reads one budget's on-chain state. Never optimistic: every caller
  *  re-reads after a write rather than assuming the write's intent. */
-export function useBudgetRead(budgetId) {
-  const publicClient = usePublicClient();
-  const { address: escrowAddress, configured } = useBudgetEscrowAddress();
+export function useBudgetRead(budgetId, forcedChainId = null) {
+  // The client is pinned to the same chain as the address. Without this the
+  // reads would follow the wallet while the labels followed the pin.
+  const { chainId, address: escrowAddress, configured } = useBudgetEscrowAddress(forcedChainId);
+  const publicClient = usePublicClient({ chainId });
   const [state, setState] = useState({ loading: false, budget: null, drawable: null, error: null });
 
   const refresh = useCallback(async () => {
@@ -185,9 +192,9 @@ export function useBudgetRead(budgetId) {
  * is missing. Incompleteness is therefore DETECTED rather than assumed,
  * which works no matter how badly a given RPC behaves.
  */
-export function useDrawFeed(budgetId, { lookbackBlocks = 4000, chunkSize = 200 } = {}) {
-  const publicClient = usePublicClient();
-  const { address: escrowAddress, configured } = useBudgetEscrowAddress();
+export function useDrawFeed(budgetId, { lookbackBlocks = 4000, chunkSize = 200 } = {}, forcedChainId = null) {
+  const { chainId, address: escrowAddress, configured } = useBudgetEscrowAddress(forcedChainId);
+  const publicClient = usePublicClient({ chainId });
   const [draws, setDraws] = useState([]);
   const [scanned, setScanned] = useState(false);
   const [error, setError] = useState(null);

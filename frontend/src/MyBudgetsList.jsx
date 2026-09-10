@@ -33,15 +33,24 @@
 // rather than being written a second time.
 
 import React, { useState } from 'react';
-import { formatUnits } from 'viem';
 import { Loader2, Wallet, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { BUDGET_STATUS, NATIVE_SENTINEL, useBudgetEscrowAddress } from './budgetEscrow';
 import BudgetSpendView from './BudgetSpendView';
 
-function fmt(v, symbol = 'BNB') {
-  if (v == null) return 'n/a';
-  const n = Number(formatUnits(v, 18));
-  return `${n < 0.0001 && n > 0 ? n.toExponential(2) : n.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol}`;
+// Every amount in this component goes through the shared formatter. The local
+// copy that used to live here defaulted the symbol to 'BNB' and switched to
+// exponential notation below 0.0001, so a real budget rendered "7.00e-6 BNB"
+// on Robinhood Chain: wrong unit, and a number nobody should have to decode.
+// See budgetAmounts.js.
+function fmt(v, symbol) {
+  const { text } = formatAmount(v);
+  return symbol ? `${text} ${symbol}` : text;
+}
+
+/** The exact value, for a title attribute, so trimming never hides money. */
+function fmtFull(v, symbol) {
+  const { full } = formatAmount(v);
+  return symbol ? `${full} ${symbol}` : full;
 }
 
 function shortAddr(a) {
@@ -67,7 +76,9 @@ export default function MyBudgetsList({
   accent = '#6366F1', mutedBorder = 'border-gray-200 dark:border-gray-800',
 }) {
   const [openId, setOpenId] = useState(null);
-  const { configured } = useBudgetEscrowAddress();
+  // Budgets are read from the escrow on the wallet's current chain, so that
+  // chain is the one every amount on this list is denominated in.
+  const { configured, chainId } = useBudgetEscrowAddress();
 
   // Not deployed on the chain the wallet is currently on. Render nothing
   // rather than an error: a user who never used budget mode should not see a
@@ -109,7 +120,7 @@ export default function MyBudgetsList({
 
       {budgets.map((b) => {
         const id = b.id;
-        const symbol = b.token?.toLowerCase() === NATIVE_SENTINEL.toLowerCase() ? 'BNB' : 'tokens';
+        const symbol = budgetTokenSymbol(b.token, chainId, NATIVE_SENTINEL);
         const status = BUDGET_STATUS[b.status] || 'UNKNOWN';
         const reclaimed = status === 'RECLAIMED';
         const total = b.total;
@@ -186,7 +197,7 @@ export default function MyBudgetsList({
               <div className={`border-t ${mutedBorder} p-4`}>
                 {/* The whole spend view, including reclaim and the feed's
                     reconciliation against the contract's own `spent`. */}
-                <BudgetSpendView budgetId={id} onRevoked={refresh} />
+                <BudgetSpendView budgetId={id} onRevoked={refresh} chainId={chainId} />
               </div>
             )}
           </div>
