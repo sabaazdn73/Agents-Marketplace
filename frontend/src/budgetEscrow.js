@@ -36,7 +36,7 @@ import { decodeEventLog } from 'viem';
  * responding, WRONG contract. See the warning at the top of chainContracts.js.
  */
 import {
-  getBudgetEscrowAddress, isBudgetHiringAvailable, chainName, nativeSymbol,
+  getBudgetEscrowAddress, isBudgetHiringAvailable, chainName, nativeSymbol, CHAIN_META,
 } from './chainContracts';
 
 /**
@@ -48,6 +48,37 @@ import {
 export const NATIVE_SENTINEL = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
 /** Is budget hiring available on the chain the wallet is currently on? */
+
+/** Wait for a receipt, and if the wait times out, ask the chain directly
+ *  before concluding anything.
+ *
+ *  Returns the receipt. Throws only when the transaction genuinely cannot be
+ *  found, and the message says plainly that it may still confirm, because
+ *  "we stopped waiting" and "it failed" are different facts and only one of
+ *  them should ever reach a user who has just spent money. */
+async function waitForReceiptOrAsk(publicClient, hash, chainId) {
+  try {
+    return await publicClient.waitForTransactionReceipt({ hash, timeout: 90_000 });
+  } catch (err) {
+    // Poll the receipt directly. Six attempts over roughly a minute, which
+    // covers a rate-limited endpoint recovering.
+    for (let i = 0; i < 6; i += 1) {
+      await new Promise((r) => setTimeout(r, 10_000));
+      try {
+        const receipt = await publicClient.getTransactionReceipt({ hash });
+        if (receipt) return receipt;
+      } catch { /* not mined yet, or the read itself failed; keep asking */ }
+    }
+    const explorer = CHAIN_META[chainId]?.explorer;
+    throw new Error(
+      'Your wallet sent the transaction, but we could not confirm it in time. '
+      + 'It may still go through, so do NOT fund again until you have checked. '
+      + `Transaction ${hash}`
+      + (explorer ? `, view it at ${explorer}/tx/${hash}` : ''),
+    );
+  }
+}
+
 export function useBudgetEscrowAddress(forcedChainId = null) {
   const walletChainId = useChainId();
   // A caller that knows which chain a budget lives on may pin it. Everything
@@ -263,7 +294,7 @@ function dedupe(list) {
  *  than reporting success from the transaction alone. */
 export function useBudgetActions() {
   const { address } = useAccount();
-  const { address: escrowAddress, configured, chainLabel } = useBudgetEscrowAddress();
+  const { chainId, address: escrowAddress, configured, chainLabel } = useBudgetEscrowAddress();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [pending, setPending] = useState(null);
@@ -278,7 +309,25 @@ export function useBudgetActions() {
         args: [agent, token, amount, maxPerDraw, BigInt(deadline), BigInt(cooldown)],
         value: isNative ? amount : 0n,
       });
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      // A TIMEOUT IS NOT A FAILURE.
+      //
+      // Reported live 2026-09-10: a budget opened on Arbitrum showed
+      // "Timed out while waiting for transaction ... to be confirmed" while
+      // the transaction had in fact been mined, the BudgetOpened event had
+      // fired and the escrow was holding the funds. The user was told their
+      // hire failed while their money sat in the contract, which invites
+      // funding a second time.
+      //
+      // viem's waitForTransactionReceipt gives up after 180 seconds. That is
+      // ample for a chain to produce a block, but this is polling a public
+      // Arbitrum endpoint that rate-limits, so the receipt read can fail for
+      // reasons that have nothing to do with the transaction.
+      //
+      // So when the wait gives up, the chain is asked directly a few more
+      // times before anything is called a failure. Only if the receipt is
+      // genuinely not there after that does this throw, and what it throws
+      // says the transaction may still land and carries the hash.
+      const receipt = await waitForReceiptOrAsk(publicClient, hash, chainId);
 
       // The budget id is READ from the BudgetOpened event in this
       // transaction's own receipt. It is deliberately not inferred from
@@ -297,7 +346,7 @@ export function useBudgetActions() {
       }
       return { hash, budgetId };
     } finally { setPending(null); }
-  }, [writeContractAsync, publicClient, escrowAddress, configured, chainLabel]);
+  }, [writeContractAsync, publicClient, escrowAddress, configured, chainLabel, chainId]);
 
   const reclaim = useCallback(async (budgetId) => {
     if (!configured) throw new Error(`AgentBudgetEscrow is not deployed on ${chainLabel}.`);
@@ -307,7 +356,7 @@ export function useBudgetActions() {
         address: escrowAddress, abi: BUDGET_ESCROW_ABI,
         functionName: 'reclaim', args: [BigInt(budgetId)],
       });
-      await publicClient.waitForTransactionReceipt({ hash });
+      await waitForReceiptOrAsk(publicClient, hash, chainId);
       return hash;
     } finally { setPending(null); }
   }, [writeContractAsync, publicClient, escrowAddress, configured, chainLabel]);

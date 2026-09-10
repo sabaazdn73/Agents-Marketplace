@@ -1,5 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { http } from 'viem';
+import { http, fallback } from 'viem';
 import { bsc, arbitrum, robinhood } from 'wagmi/chains';
 import { getBscTransport } from './rpcTransport';
 
@@ -60,8 +60,29 @@ export const wagmiConfig = getDefaultConfig({
     // bloXroute/Infura fallback, which is BSC-specific. Arbitrum's public
     // endpoint is the one the backend already uses; Robinhood's is the only
     // one that answers, which core/rpc.py records in full.
-    [arbitrum.id]: http('https://arb1.arbitrum.io/rpc'),
-    [robinhood.id]: http('https://rpc.mainnet.chain.robinhood.com'),
+    // Both get a fallback rather than a single URL. Reported live
+    // 2026-09-10: a budget opened on Arbitrum showed "Timed out while
+    // waiting for transaction to be confirmed" while the transaction had
+    // been mined and the escrow was holding the funds. The transaction was
+    // never the problem; polling the receipt on a rate-limited public
+    // endpoint was. This is the same failure, and the same fix, as the
+    // 2026-08-29 incident recorded above.
+    //
+    // In-order, not ranked: the primary is always tried first and the
+    // backup only sees traffic when it genuinely fails.
+    // The backup was CHOSEN by testing the thing that failed, not by
+    // picking a name off a list. publicnode's Arbitrum endpoint tracks the
+    // head correctly but returned no receipt for the very transaction this
+    // incident was about, which makes it useless as a backup here. drpc was
+    // at the same block height and did serve that receipt.
+    [arbitrum.id]: fallback([
+      http('https://arb1.arbitrum.io/rpc'),
+      http('https://arbitrum.drpc.org'),
+    ], { rank: false }),
+    [robinhood.id]: fallback([
+      http('https://rpc.mainnet.chain.robinhood.com'),
+      http('https://robinhood-rpc.publicnode.com'),
+    ], { rank: false }),
   },
   ssr: false,
 });

@@ -132,7 +132,16 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
       // Read out of the transaction's own BudgetOpened event -- see
       // useBudgetActions. If it somehow isn't there, say so rather than
       // showing a spend view for a budget we cannot identify.
-      if (newId == null) throw new Error("Funded, but couldn't read the budget id back from the transaction. Check BscScan before funding again.");
+      // Named the wrong explorer on every chain but BNB. The budget is open
+      // either way; only the id could not be read back.
+      if (newId == null) {
+        const ex = CHAIN_META[budgetChainId]?.explorer;
+        throw new Error(
+          'Funded successfully, but we could not read the budget id back from the transaction. '
+          + 'Your budget IS open, so do not fund again'
+          + (ex ? `. Check ${ex}/address/${getBudgetEscrowAddress(budgetChainId)}` : '.'),
+        );
+      }
       // Budget hires produced no notification at all until now: the
       // notification calls lived only in the ERC-8183 path, so a client
       // who hired this way saw nothing in the bell.
