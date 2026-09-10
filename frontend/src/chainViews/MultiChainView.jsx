@@ -36,8 +36,7 @@ export default function MultiChainView({ mutedBorder = 'border-gray-200 dark:bor
       <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
       <ChainCapabilities capabilities={capabilities} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder}
-            budgetHireable={!!hirePaths?.budget?.chains?.some((c) => c.chain_id === a.chain_id)} />)}
+        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder} />)}
       </div>
       <LoadMoreButton hasMore={hasMore} loadingMore={loadingMore} onClick={loadMore} />
     </div>

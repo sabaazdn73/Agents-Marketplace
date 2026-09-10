@@ -22,7 +22,6 @@
 import React from 'react';
 import AgentAvatar from './AgentAvatar';
 import ServiceHealthBadge from './ServiceHealthBadge';
-import BudgetHirePanel from './BudgetHirePanel';
 import InteractionLine from './InteractionLine';
 
 /** One cell of the three-stat block. `unavailableReason` turns the dash into
@@ -141,20 +140,23 @@ export default function HireableAgentCard({
         </div>
       </div>
 
-      {/* The action, in its own footer band, matching the BNB card. The panel
-          itself refuses to open a budget while the wallet is on a different
-          chain, so this cannot quietly fund the wrong chain. */}
+      {/* The action, in its own footer band, matching the BNB card.
+          It NAVIGATES to the agent's own page rather than opening a hire
+          panel inside the card. The panel used to expand here, which put a
+          funding form inside a grid cell: amount fields, draw limits and the
+          chain-switch step all had to fit in a column beside two other
+          agents. Hiring is a decision that deserves the whole page, and it is
+          the same page a click on the agent itself opens, so a card now has
+          one destination rather than two different behaviours. */}
       <div className="p-5 bg-gray-50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
-        <details>
-          <summary className="list-none cursor-pointer">
-            <span className="block w-full text-center py-3 rounded-xl text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 transition-all shadow-sm">
-              Hire this agent
-            </span>
-          </summary>
-          <div className="mt-3">
-            <BudgetHirePanel agent={agent} requiredChainId={agent.chainId} />
-          </div>
-        </details>
+        <button
+          type="button"
+          onClick={onOpen ? () => onOpen(agent) : undefined}
+          disabled={!onOpen}
+          className="block w-full text-center py-3 rounded-xl text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 transition-all shadow-sm disabled:opacity-50"
+        >
+          Hire this agent
+        </button>
       </div>
     </div>
   );

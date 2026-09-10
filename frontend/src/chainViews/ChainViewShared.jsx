@@ -19,7 +19,6 @@ import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } fro
 import ServiceHealthBadge from '../ServiceHealthBadge';
 import ChainAgentEvaluation from '../ChainAgentEvaluation';
 import InteractionLine from '../InteractionLine';
-import BudgetHirePanel from '../BudgetHirePanel';
 
 /** Block explorer per chain, so an agent is verifiable at source even
  * though this app cannot check its liveness. Only chains present
@@ -200,7 +199,7 @@ export function ChainCapabilities({ capabilities }) {
   );
 }
 
-export function ChainAgentCard({ agent, mutedBorder, budgetHireable = false }) {
+export function ChainAgentCard({ agent, mutedBorder }) {
   const explorer = EXPLORER_BASE[agent.chain_id];
   return (
     <div className={`bg-white dark:bg-[#1E293B] rounded-2xl border ${mutedBorder} p-4 flex flex-col gap-2`}>
@@ -241,21 +240,6 @@ export function ChainAgentCard({ agent, mutedBorder, budgetHireable = false }) {
           />
         </div>
       </details>
-
-      {/* A hireable agent gets a hire path on the card, the same as a BSC
-          agent does. Only rendered where AgentBudgetEscrow is actually
-          deployed for this agent's chain, and the panel itself refuses to
-          open a budget while the wallet is on a different chain. */}
-      {budgetHireable && (
-        <details className="mt-1">
-          <summary className="text-[11px] text-emerald-600 dark:text-emerald-400 cursor-pointer hover:underline select-none">
-            Hire with a budget
-          </summary>
-          <div className="mt-2">
-            <BudgetHirePanel agent={agent} requiredChainId={agent.chain_id} />
-          </div>
-        </details>
-      )}
 
       <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-500 mt-auto pt-2">
         {agent.token_id != null && <span className="font-mono">#{agent.token_id}</span>}
