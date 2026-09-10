@@ -27,6 +27,7 @@ import AgentAvatar from '../AgentAvatar';
 import ServiceHealthBadge from '../ServiceHealthBadge';
 import ChainAgentEvaluation from '../ChainAgentEvaluation';
 import BudgetHirePanel from '../BudgetHirePanel';
+import InteractionLine from '../InteractionLine';
 import { copyShareLink } from '../shareLink';
 import { normalizeChainAgent } from './normalizeChainAgent';
 import { ChainCapabilities, EXPLORER_BASE } from './ChainViewShared';
@@ -176,6 +177,10 @@ export default function ChainAgentDetail({ chainId, tokenId, onBack }) {
             Where we check on it: <span className="font-mono">{raw.service_endpoint}</span>
           </p>
         )}
+
+        {/* Same sentence as the card, from the same component, with the
+            second line kept here because there is room for it. */}
+        <InteractionLine interaction={raw.interaction} className="mb-5" />
 
         <h3 className="font-bold mb-2">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">

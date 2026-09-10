@@ -18,6 +18,7 @@ import React from 'react';
 import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 import ServiceHealthBadge from '../ServiceHealthBadge';
 import ChainAgentEvaluation from '../ChainAgentEvaluation';
+import InteractionLine from '../InteractionLine';
 import BudgetHirePanel from '../BudgetHirePanel';
 
 /** Block explorer per chain, so an agent is verifiable at source even
@@ -215,6 +216,8 @@ export function ChainAgentCard({ agent, mutedBorder, budgetHireable = false }) {
       <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">
         {agent.description || 'No description provided.'}
       </p>
+      <InteractionLine interaction={agent.interaction} showDetail={false} />
+
       {/* Rendered only when the backend marked this agent's chain as
  genuinely analysed. An unverified agent has no health fields at
           all, so there is nothing here to render even by accident. */}

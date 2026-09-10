@@ -54,6 +54,8 @@ from datetime import datetime, timezone, timedelta
 from core.db import get_db
 import gc
 
+from core.interaction_summary import describe_interaction
+from core.chain_views import BUDGET_HIRE_CHAIN_IDS, ESCROW_HIRE_CHAIN_IDS
 from core.clustering import cluster_agents as _cluster_agents
 from core.clustering import diversify as _diversify # same multi-signal cluster-cap used at fetch time, see core/clustering.py
 
@@ -439,10 +441,21 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
     # more headroom is ever needed again.
     _EXCLUDE_FIELDS = (
         "category_matched_keywords", "cross_chain_versions", "health_score", "defillama_slug",
-        "escrow_compat_auth_gated", "escrow_compat_checked_at", "escrow_compat_different_protocol",
-        "escrow_compat_evidence", "escrow_compat_external_link", "escrow_compat_incompatible",
-        "escrow_compat_offers_x402", "owner_bnb_balance_checked_at", "first_seen_at",
+        "escrow_compat_checked_at",
+        "escrow_compat_evidence", "escrow_compat_external_link",
+        "owner_bnb_balance_checked_at", "first_seen_at",
         "service_http_status", "service_error",
+    )
+    # The four escrow_compat booleans came OFF this exclusion list on
+    # 2026-09-10 so the interaction sentence can be decided from them. They
+    # are four booleans per document, which is a fraction of what was cut
+    # here (escrow_compat_evidence is an array and stays excluded), and they
+    # are stripped from the payload again in the loop below: they are read to
+    # DECIDE the code and never sent, so the response gains one short code
+    # per agent rather than four fields and a sentence.
+    _INTERACTION_ONLY_FIELDS = (
+        "escrow_compat_incompatible", "escrow_compat_auth_gated",
+        "escrow_compat_different_protocol", "escrow_compat_offers_x402",
     )
     # _id is excluded at the query rather than popped after the fact. The
     # loop below pops it anyway because it duplicates `id`, but popping
@@ -553,6 +566,17 @@ async def get_stored_agents(limit: int = SERVE_LIMIT) -> list[dict]:
         last_seen = d.get("last_seen_at", "")
         d["possibly_delisted"] = bool(last_seen and last_seen < cutoff_iso)
         d.pop("_id", None)  # _id duplicates the existing 'id' field
+        # How a person actually interacts with this agent, as one short code
+        # the UI turns into a sentence. Decided here, from the escrow probe
+        # results, then those raw fields are dropped so the payload does not
+        # carry them.
+        d["interaction"] = describe_interaction(
+            d,
+            budget_chain_ids=BUDGET_HIRE_CHAIN_IDS,
+            escrow_chain_ids=ESCROW_HIRE_CHAIN_IDS,
+        )
+        for f in _INTERACTION_ONLY_FIELDS:
+            d.pop(f, None)
         out.append(d)
 
     # Active agents on top (score desc), possibly-delisted at the bottom.

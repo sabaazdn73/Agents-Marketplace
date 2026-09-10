@@ -39,6 +39,7 @@ from __future__ import annotations
 from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
 from core.chain_capabilities import summarize_view_capabilities
+from core.interaction_summary import describe_interaction
 from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 
 # Chains where each hire path actually works. Kept as data next to the views
@@ -247,6 +248,16 @@ def _apply_status_policy(doc: dict) -> dict:
         for f in _HEALTH_FIELDS:
             doc.pop(f, None)
     doc["status_verified"] = verified
+    # One plain sentence saying how a person would actually interact with this
+    # agent. Attached here, in the same place the health policy is applied, so
+    # a chain whose health fields were just stripped cannot get a sentence
+    # that claims to know its status. The list and the agent's own page both
+    # go through this function, so they cannot show different sentences.
+    doc["interaction"] = describe_interaction(
+        doc,
+        budget_chain_ids=BUDGET_HIRE_CHAIN_IDS,
+        escrow_chain_ids=ESCROW_HIRE_CHAIN_IDS,
+    )
     return doc
 
 MAX_LIMIT = 100

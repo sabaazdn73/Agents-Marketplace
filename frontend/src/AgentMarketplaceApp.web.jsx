@@ -82,6 +82,7 @@ import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
+import InteractionLine from './InteractionLine';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
@@ -121,6 +122,11 @@ function mapAgent(a) {
     x402Supported: a.x402_supported, supportedProtocols: a.supported_protocols || [],
     ownerAddress: a.owner_address, ownerEns: a.owner_ens, ownerUsername: a.owner_username,
     imageUrl: a.image_url, strategy: a.description || 'No description provided.',
+    // Carried through as-is. This mapper renames the API's snake_case into
+    // the shape the app uses, and anything it does not name is dropped: that
+    // is why the interaction sentence rendered on the chain views and nowhere
+    // on BNB Chain until this line existed.
+    interaction: a.interaction,
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
     defillamaUrl: a.defillama_url, ownerBnbBalance: a.owner_bnb_balance,
  // Real, added 2026-08-29, same DefiLlama match, zero extra API calls.
@@ -417,6 +423,11 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         {agent.serviceEndpoint && (
           <p className="text-[11px] text-gray-400 mb-2 -mt-3 break-all" title="The web address we contact to check whether this agent is turned on">Where we check on it: <span className="font-mono">{agent.serviceEndpoint}</span></p>
         )}
+
+        {/* Same sentence as the card, same component, so moving between
+            the list and this page cannot change what an agent means. */}
+        <InteractionLine interaction={agent.interaction} className="mb-5"
+          deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
 
         <h3 className="text-sm font-bold mb-2">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
@@ -1598,6 +1609,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         </div>
 
                         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">{agent.strategy}</p>
+                        {/* How someone actually uses this agent, from the
+                            same component the chain views use so the sentence
+                            cannot differ between them. */}
+                        <InteractionLine interaction={agent.interaction} showDetail={false} className="mt-3"
+                          deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
                       </div>
                       
                       <div className="p-5 bg-gray-50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">

@@ -23,6 +23,7 @@ import React from 'react';
 import AgentAvatar from './AgentAvatar';
 import ServiceHealthBadge from './ServiceHealthBadge';
 import BudgetHirePanel from './BudgetHirePanel';
+import InteractionLine from './InteractionLine';
 
 /** One cell of the three-stat block. `unavailableReason` turns the dash into
  *  something a reader can act on, via the title attribute. */
@@ -117,6 +118,11 @@ export default function HireableAgentCard({
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">
           {agent.strategy || 'No description provided.'}
         </p>
+
+        {/* How someone actually uses this agent. On the card the second line
+            is suppressed: one sentence is the point here, and the agent's own
+            page carries the rest. */}
+        <InteractionLine interaction={agent.interaction} showDetail={false} className="mt-3" />
 
         <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-500 mt-4">
           {agent.tokenId != null && <span className="font-mono">#{agent.tokenId}</span>}

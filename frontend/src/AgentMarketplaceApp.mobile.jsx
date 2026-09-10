@@ -55,6 +55,7 @@ import AgentMetrics from './AgentMetrics';
 import QualityCenterPanel from './QualityCenterPanel';
 import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
+import InteractionLine from './InteractionLine';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
@@ -154,6 +155,11 @@ function mapAgent(a) {
     ownerAddress: a.owner_address, x402Supported: a.x402_supported,
     supportedProtocols: a.supported_protocols || [], defillamaUrl: a.defillama_url,
     strategy: a.description || 'No description provided.',
+    // Carried through as-is. This mapper renames the API's snake_case into
+    // the shape the app uses, and anything it does not name is dropped: that
+    // is why the interaction sentence rendered on the chain views and nowhere
+    // on BNB Chain until this line existed.
+    interaction: a.interaction,
     financialDataAvailable: a.financial_data_available, tvlUsd: a.tvl_usd,
  // Real, added 2026-08-29, same DefiLlama match as tvlUsd, zero extra
  // API calls, see the matching web.jsx comment for the full real
@@ -516,6 +522,8 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
 
         <h3 className="text-sm font-bold mb-1">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
+        <InteractionLine interaction={agent.interaction} className="mb-4"
+          deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
 
         <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Who owns this agent <PasskeyBadge ownerAddress={agent.ownerAddress} /> {agent.id && <ContractVerificationBadge agentId={agent.id} />}</h3>
         {agent.ownerAddress ? (
