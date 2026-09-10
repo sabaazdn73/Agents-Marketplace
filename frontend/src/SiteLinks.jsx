@@ -1,7 +1,7 @@
 // SiteLinks.jsx
 //
-// The project links row: Docs, GitHub, LinkedIn, then Ecosystem and the demo
-// video as icons.
+// The project links row: Docs, GitHub, LinkedIn and X, then Ecosystem and
+// the demo video as icons.
 //
 // These used to be one "Full documentation" line at the bottom of the page,
 // below the partner and data-source footers, where almost nobody scrolled.
@@ -36,6 +36,7 @@ import { BookOpen, Github, Linkedin, Globe, Youtube } from 'lucide-react';
 
 export const GITHUB_URL = 'https://github.com/sabaazdn73/Agents-Marketplace';
 export const LINKEDIN_URL = 'https://www.linkedin.com/in/saba-azadegan-2974b622a';
+export const X_URL = 'https://x.com/SabaAzadegan';
 // The recorded walkthrough of the site. Lives here rather than in either
 // app, so web and mobile cannot end up pointing at different videos.
 export const DEMO_VIDEO_URL = 'https://youtu.be/D3cHUVap-WY';
@@ -45,7 +46,12 @@ export const DEMO_VIDEO_URL = 'https://youtu.be/D3cHUVap-WY';
  *  Hand-drawn rather than taken from an icon set: lucide ships an `X` glyph,
  *  but that is the close/dismiss cross, not the brand. Using it would put a
  *  dismiss icon next to GitHub and LinkedIn and hope nobody read it as one.
- *  This is the actual mark, and it inherits currentColor like the rest. */
+ *  This is the actual mark, and it inherits currentColor like the rest.
+ *
+ *  Drawn one pixel smaller than the lucide icons beside it (12 against 13).
+ *  Those are stroked outlines with built-in padding; this is a solid fill
+ *  that reaches its own edges, so matching the nominal size makes it read as
+ *  the heaviest thing in the row. */
 export function XMark({ size = 13, className = '' }) {
   return (
     <svg
@@ -100,6 +106,14 @@ export default function SiteLinks({
         <Linkedin size={13} className="shrink-0" />
         <span>LinkedIn</span>
       </a>
+      {dot}
+      {/* Labelled like GitHub and LinkedIn rather than left as a bare glyph.
+          The mark alone is recognisable, but sitting between two labelled
+          links an unlabelled one reads as a decoration rather than a link. */}
+      <a href={X_URL} target="_blank" rel="noreferrer" className={item}>
+        <XMark size={12} className="shrink-0" />
+        <span>X</span>
+      </a>
 
       {/* Ecosystem and the walkthrough, icon-only. Rendered after the named
           links because these two are ways of looking at the whole thing
@@ -110,9 +124,15 @@ export default function SiteLinks({
           fit on one line there, so it wraps: without the group it broke
           between the two icons and left the video on a line of its own after
           a trailing dot, which read as a rendering fault. Grouped, the pair
-          wraps together and looks deliberate. */}
-      {dot}
-      <span className="inline-flex items-center gap-2">
+          wraps together and looks deliberate.
+
+          Separated by spacing rather than a dot, because a dot here is
+          punctuation that can end up stranded. With X added the row wraps in
+          the sidebar, and a dot before the group sat at the end of the first
+          line with nothing after it. Spacing survives the wrap in a way
+          punctuation does not: the named links end cleanly at X, and the
+          icons read as their own group on the next line. */}
+      <span className="inline-flex items-center gap-2 ml-1">
         {onOpenEcosystem && (
           <button
             type="button"
