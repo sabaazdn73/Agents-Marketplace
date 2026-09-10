@@ -215,7 +215,12 @@ function DocContent({ filename, onNavigate }) {
         }
         if (b.type === 'paragraph') {
           return (
-            <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4">
+            // max-w-3xl on text only. The pane is now wide enough that an
+            // unconstrained paragraph would run past a comfortable measure,
+            // so prose keeps a reading column while tables, code blocks and
+            // diagrams below are free to use the full width. That asymmetry
+            // is the whole point of widening this page.
+            <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4 max-w-3xl">
               <InlineContent parts={b.inline} onNavigate={onNavigate} />
             </p>
           );
@@ -223,7 +228,7 @@ function DocContent({ filename, onNavigate }) {
         if (b.type === 'list') {
           const ListTag = b.ordered ? 'ol' : 'ul';
           return (
-            <ListTag key={i} className={`text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4 pl-5 space-y-1.5 ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
+            <ListTag key={i} className={`text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4 pl-5 space-y-1.5 max-w-3xl ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
               {b.items.map((item, j) => <li key={j}><InlineContent parts={item} onNavigate={onNavigate} /></li>)}
             </ListTag>
           );
@@ -350,7 +355,13 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
 
   return (
     <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+      {/* Was max-w-5xl (1024px). Measured at a 1730px viewport that left 353px
+          unused on EACH side while the content pane was only 720px, and both
+          tables on the Smart Contracts page were clipped with their last
+          column scrolled out of sight. Docs here are unusually table-heavy
+          (53 across the section), so the width was costing legibility rather
+          than only looking sparse. 1400px matches the marketplace shell. */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
             <ArrowLeft size={16} /> Back to Marketplace
@@ -364,7 +375,11 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
 
         <div className="flex gap-8 items-start">
           {!isMobile && (
-            <aside className="w-56 shrink-0">
+            // 16rem rather than 14rem: several entries wrapped to two lines
+            // at 224px ("Drawable Budgets: Integration Guide", "Data
+            // Handling and Third-Party Terms"), and the extra 32px comes out
+            // of space that was empty anyway.
+            <aside className="w-64 shrink-0">
               <div className="sticky top-6">{sidebar}</div>
             </aside>
           )}
