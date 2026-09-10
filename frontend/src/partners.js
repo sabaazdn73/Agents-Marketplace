@@ -49,6 +49,7 @@ export const PARTNER_KIND = {
   EVENT: 'event',
   SERVICE: 'service',
   TOOL: 'tool',
+  CHAIN: 'chain',
 };
 
 export const PARTNERS = [
@@ -70,6 +71,29 @@ export const PARTNERS = [
   { name: 'CoinGecko', kind: PARTNER_KIND.SERVICE, url: 'https://www.coingecko.com', logo: 'https://www.coingecko.com/favicon.ico' },
   { name: 'DexScreener', kind: PARTNER_KIND.SERVICE, url: 'https://dexscreener.com', logo: 'https://dexscreener.com/favicon.ico' },
   { name: 'GeckoTerminal', kind: PARTNER_KIND.SERVICE, url: 'https://www.geckoterminal.com', logo: 'https://www.geckoterminal.com/favicon.ico' },
+
+  // Chains whose agents can actually be hired. Added 2026-09-10, when
+  // AgentBudgetEscrow went live on both. BNB Chain is above under events
+  // rather than here, because that is how it entered this list.
+  //
+  // Both logos were fetched and the bytes inspected, the same check the note
+  // at the top of this file describes.
+  //
+  //   Arbitrum   arbitrum.io/favicon.ico, a 3,410 byte .ico carrying one
+  //              64x64 PNG. arbitrum.foundation serves the identical file.
+  //
+  //   Robinhood  robinhood.com/favicon.ico, a 15,086 byte .ico with three
+  //              sizes. This is Robinhood's own corporate mark, NOT a
+  //              chain-specific one, and that is worth stating: no
+  //              chain-specific mark resolves anywhere. chain.robinhood.com
+  //              serves no HTTP at all (only its rpc subdomain answers), and
+  //              every icon path on the Blockscout explorer returns 404
+  //              behind the same Cloudflare interstitial that blocks its API.
+  //              Unlike the Gemini case above, the corporate mark here is the
+  //              same brand the chain is named for, so it identifies rather
+  //              than misrepresents.
+  { name: 'Arbitrum', kind: PARTNER_KIND.CHAIN, url: 'https://arbitrum.io', logo: 'https://arbitrum.io/favicon.ico' },
+  { name: 'Robinhood Chain', kind: PARTNER_KIND.CHAIN, url: 'https://robinhood.com', logo: 'https://robinhood.com/favicon.ico' },
 
   // Tools in the build and payment path.
   { name: 'MetaMask', kind: PARTNER_KIND.TOOL, url: 'https://metamask.io', logo: 'https://metamask.io/favicon.ico' },

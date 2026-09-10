@@ -19,8 +19,9 @@ import React, { useState } from 'react';
 import { parseUnits } from 'viem';
 import { Loader2, Wallet, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useBudgetActions, useBudgetEscrowAddress, NATIVE_SENTINEL } from './budgetEscrow';
-import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META, chainName } from './chainContracts';
-import ChainSwitchNotice from './ChainSwitchNotice';
+import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META, chainName, nativeSymbol, getBudgetEscrowAddress } from './chainContracts';
+import ChainSwitchNotice, { switchToChain } from './ChainSwitchNotice';
+import { useSwitchChain } from 'wagmi';
 import BudgetSpendView from './BudgetSpendView';
 import { addNotification } from './notifications';
 
@@ -38,9 +39,19 @@ const COOLDOWNS = [
 
 export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   const { openBudget, pending, connected } = useBudgetActions();
+  const { switchChainAsync } = useSwitchChain();
+  const [switching, setSwitching] = useState(false);
   // Address, availability and the native-token label all come from the chain
   // the wallet is on. Nothing here assumes BNB or BSC any more.
-  const { chainId, address: escrowAddress, configured, nativeLabel } = useBudgetEscrowAddress();
+  const { chainId, address: escrowAddress, configured } = useBudgetEscrowAddress();
+  // The budget is opened on the AGENT's chain, so every token label has to
+  // name that chain's gas token, not the one the wallet happens to be on.
+  // Caught in the browser: a Robinhood Chain agent read "Total budget (BNB)"
+  // while the wallet sat on BSC. The amount would have been correct, since
+  // the switch happens before funding, but the label was naming the wrong
+  // asset at the moment someone decides how much to commit.
+  const budgetChainId = requiredChainId ? Number(requiredChainId) : chainId;
+  const nativeLabel = nativeSymbol(budgetChainId);
   const [total, setTotal] = useState('0.01');
   const [maxPerDraw, setMaxPerDraw] = useState('0.002');
   const [hours, setHours] = useState(24);
@@ -54,21 +65,15 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   // is now three chains rather than one. Where it is not, say which chain the
   // wallet is on and offer to move -- rather than the old blanket "not
   // deployed yet", which is no longer true anywhere it is shown.
-  // Hiring an agent that lives on another chain would open the budget on
-  // whatever chain the wallet happens to be on, paying that chain's native
-  // token. The addresses are the same shape so nothing would revert, which is
-  // exactly why this is checked rather than left to fail: the budget would
-  // simply be on the wrong chain. Callers that know the agent's chain pass it.
-  if (requiredChainId && Number(requiredChainId) !== Number(chainId)) {
-    return (
-      <ChainSwitchNotice
-        currentChainId={chainId}
-        targetChainIds={[Number(requiredChainId)]}
-        actionLabel="Hiring this agent"
-        reason={`This agent is registered on ${chainName(requiredChainId)}, so its budget has to be opened there.`}
-      />
-    );
-  }
+  // Hiring an agent on another chain used to stop here with a notice and a
+  // "switch first" button. That was a worse experience than BNB Chain's,
+  // where hiring is one action, so the switch now happens as part of
+  // funding: fill the form, press the button, and the wallet is asked to
+  // move to the agent's chain before the budget is opened.
+  //
+  // Switching still cannot be skipped. A budget opened on the wrong chain
+  // would pay the wrong native token to an address that means nothing there,
+  // and nothing would revert to tell anyone.
 
   if (!configured) {
     const opts = hiringOptionsFor(chainId);
@@ -93,6 +98,19 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   const submit = async () => {
     setError(null);
     try {
+      // Move to the agent's chain first, if we are not on it. Errors from
+      // here are surfaced as they are: switchToChain already turns a refusal
+      // or an unknown chain into a sentence, and it offers to ADD the chain
+      // rather than telling anyone to go and do it by hand.
+      if (requiredChainId && Number(requiredChainId) !== Number(chainId)) {
+        setSwitching(true);
+        try {
+          await switchToChain(switchChainAsync, requiredChainId);
+        } finally {
+          setSwitching(false);
+        }
+      }
+
       const totalWei = parseUnits(total || '0', 18);
       const maxWei = parseUnits(maxPerDraw || '0', 18);
       if (totalWei <= 0n) throw new Error('Enter a total budget.');
@@ -128,7 +146,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-[11px] font-semibold text-gray-500">Total budget (BNB)</span>
+          <span className="text-[11px] font-semibold text-gray-500">Total budget ({nativeLabel})</span>
           <input
             type="number" step="0.001" min="0" value={total}
             onChange={(e) => setTotal(e.target.value)}
@@ -137,7 +155,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
           <span className="text-[10px] text-gray-500">The most you can lose.</span>
         </label>
         <label className="block">
-          <span className="text-[11px] font-semibold text-gray-500">Max per draw (BNB)</span>
+          <span className="text-[11px] font-semibold text-gray-500">Max per draw ({nativeLabel})</span>
           <input
             type="number" step="0.001" min="0" value={maxPerDraw}
             onChange={(e) => setMaxPerDraw(e.target.value)}
@@ -177,15 +195,18 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
 
       <button
         onClick={submit}
-        disabled={!connected || pending === 'open'}
+        disabled={!connected || pending === 'open' || switching}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50"
       >
-        {pending === 'open' ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />}
-        {!connected ? 'Connect a wallet first' : pending === 'open' ? 'Funding budget…' : `Fund ${total || '0'} ${nativeLabel} budget`}
+        {(pending === 'open' || switching) ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />}
+        {!connected ? 'Connect a wallet first'
+          : switching ? `Switching to ${chainName(requiredChainId)}…`
+          : pending === 'open' ? 'Funding budget…'
+          : `Fund ${total || '0'} ${nativeLabel} budget`}
       </button>
 
       <a
-        href={`${CHAIN_META[chainId]?.explorer || ''}/address/${escrowAddress}`}
+        href={`${CHAIN_META[budgetChainId]?.explorer || ''}/address/${getBudgetEscrowAddress(budgetChainId)}`}
         target="_blank" rel="noopener noreferrer"
         className="text-[10px] text-gray-500 hover:text-indigo-500 inline-flex items-center gap-1"
       >

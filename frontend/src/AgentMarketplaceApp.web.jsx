@@ -1411,7 +1411,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
               {!loading && !error && filtered.length > 0 && (
                 <div className="mb-4 text-xs text-gray-400">
-                  Showing {(currentPage - 1) * PAGE_SIZE + 1},{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length.toLocaleString()} agents
+                  Showing {((currentPage - 1) * PAGE_SIZE + 1).toLocaleString()}&ndash;{Math.min(currentPage * PAGE_SIZE, filtered.length).toLocaleString()} of {filtered.length.toLocaleString()} agents
                 </div>
               )}
 
