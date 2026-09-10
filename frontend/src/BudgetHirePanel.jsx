@@ -22,6 +22,8 @@ import { useBudgetActions, useBudgetEscrowAddress, NATIVE_SENTINEL } from './bud
 import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META, chainName, nativeSymbol, getBudgetEscrowAddress } from './chainContracts';
 import ChainSwitchNotice, { switchToChain } from './ChainSwitchNotice';
 import { formatDecimalString } from './budgetAmounts';
+import { useBudgetModeStatus } from './budgetEscrow';
+import { UndeclaredAgentWarning } from './HireModePicker';
 import { useSwitchChain } from 'wagmi';
 import BudgetSpendView from './BudgetSpendView';
 import { addNotification } from './notifications';
@@ -61,6 +63,10 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   const [error, setError] = useState(null);
 
   const agentAddress = agent?.ownerAddress || agent?.owner_address;
+  // Whether THIS agent has said it implements draw(). Checked here rather
+  // than in the BNB hire flow, because this panel is what takes the money and
+  // it renders on every chain the escrow is deployed to.
+  const budgetMode = useBudgetModeStatus(agentAddress);
 
   // Budget hiring is available wherever AgentBudgetEscrow is deployed, which
   // is now three chains rather than one. Where it is not, say which chain the
@@ -161,6 +167,11 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
 
   return (
     <div className="space-y-4">
+      {/* Shown ABOVE the amount fields on purpose. It is information someone
+          needs before deciding how much to commit, not a footnote under the
+          button they have already pressed. */}
+      {budgetMode.declared === false && <UndeclaredAgentWarning />}
+
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <span className="text-[11px] font-semibold text-gray-500">Total budget ({nativeLabel})</span>

@@ -51,8 +51,15 @@ const COPY = {
     detail: 'If it never delivers, you take the money back yourself.',
   },
   fund_budget: {
-    line: 'You can fund a budget here and it draws from that as it works.',
-    detail: 'Nothing leaves your wallet until it draws, and you can take back whatever is left.',
+    // Reworded 2026-09-10. This read "You can fund a budget here and it draws
+    // from that as it works", which is a claim about THIS agent, and for
+    // almost every agent it is a claim we cannot support: exactly one agent
+    // in the corpus has told us it implements draw(), and that one is our own
+    // reference implementation. The line now describes what the buyer can do
+    // and is honest that the other half is unknown. The hire panel carries
+    // the full warning.
+    line: 'You can fund a budget here, though this agent has not said whether it can draw from one.',
+    detail: 'Nothing leaves your wallet unless it draws, and you can take back whatever is left at any time.',
   },
   running_no_hire_path: {
     line: 'It is running, but it is on a chain this marketplace cannot hire on, so you would use it directly with its owner.',

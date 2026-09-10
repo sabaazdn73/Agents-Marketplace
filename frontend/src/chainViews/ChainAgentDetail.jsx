@@ -209,8 +209,8 @@ export default function ChainAgentDetail({ chainId, tokenId, onBack }) {
 
         <h3 className="font-bold mb-1 flex items-center gap-2"><Wallet size={15} /> Hire this agent</h3>
         <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">
-          Hiring here funds a budget in {symbol} on {chainName(chainId)}, and the agent draws
-          against it as it works. You can revoke the remainder at any time.
+          Hiring here funds a budget in {symbol} on {chainName(chainId)}, which the agent
+          draws against as it works. You can revoke the remainder at any time.
         </p>
         <BudgetHirePanel agent={a} requiredChainId={chainId} />
 

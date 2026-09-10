@@ -124,7 +124,11 @@ export default function HireModePicker({ value, onChange, budgetAvailable, budge
  * past; what a client needs is the mechanic (nothing is spent if
  * the agent never draws), the remedy (reclaim, any time), and the
  * next step (ask the developer, here is the spec). */
-function UndeclaredAgentWarning() {
+/** Exported 2026-09-10. This lived inside HireModePicker, which only the BNB
+ *  hire flow renders, so the warning was BNB-only while budget funding had
+ *  become available on three chains. The panel that actually takes the money
+ *  now shows it, wherever that panel appears. */
+export function UndeclaredAgentWarning() {
   return (
     <div className="mt-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
       <div className="flex items-start gap-2">
