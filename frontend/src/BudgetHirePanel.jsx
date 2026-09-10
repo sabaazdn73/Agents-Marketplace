@@ -142,6 +142,14 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
       // either way; only the id could not be read back.
       if (newId == null) {
         const ex = CHAIN_META[budgetChainId]?.explorer;
+        // Notify BEFORE throwing. The money is committed whether or not we
+        // could read the id, and the bell is where someone looks later to
+        // find out what happened to it.
+        addNotification(
+          `${fundedText} funded, budget id unknown`,
+          `${agent?.name || 'The agent'} was funded, but the budget id could not be read back. `
+          + 'The budget is open. Do not fund again; find it under your budgets.',
+        );
         throw new Error(
           'Funded successfully, but we could not read the budget id back from the transaction. '
           + 'Your budget IS open, so do not fund again'
@@ -161,6 +169,21 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
       );
       setBudgetId(newId);
     } catch (e) {
+      // A hire that fails AFTER the funding transaction is sent is the case
+      // that most needs a notification, and until now it was the only case
+      // that produced none: the notification sat at the end of the happy
+      // path, so a receipt that timed out took it down with it even though
+      // the money had already left the wallet. waitForReceiptOrAsk marks
+      // those errors with `moneyMoved` and carries the hash on them.
+      if (e?.moneyMoved) {
+        const ex = CHAIN_META[budgetChainId]?.explorer;
+        addNotification(
+          `Funding sent, not yet confirmed`,
+          `Your funding transaction for ${agent?.name || 'the agent'} was sent but we could not `
+          + 'confirm it in time. It may still confirm. Do not fund again before checking'
+          + (ex && e.hash ? `: ${ex}/tx/${e.hash}` : '.'),
+        );
+      }
       setError(e.shortMessage || e.message);
     }
   };

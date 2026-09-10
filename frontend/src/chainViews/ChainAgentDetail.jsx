@@ -28,6 +28,7 @@ import ServiceHealthBadge from '../ServiceHealthBadge';
 import ChainAgentEvaluation from '../ChainAgentEvaluation';
 import BudgetHirePanel from '../BudgetHirePanel';
 import InteractionLine from '../InteractionLine';
+import BudgetRecord from '../BudgetRecord';
 import { copyShareLink } from '../shareLink';
 import { normalizeChainAgent } from './normalizeChainAgent';
 import { ChainCapabilities, EXPLORER_BASE } from './ChainViewShared';
@@ -181,6 +182,12 @@ export default function ChainAgentDetail({ chainId, tokenId, onBack }) {
         {/* Same sentence as the card, from the same component, with the
             second line kept here because there is room for it. */}
         <InteractionLine interaction={raw.interaction} className="mb-5" />
+
+        {/* What happened to the budgets people funded for this agent. The
+            full variant here rather than the compact one on the card: this
+            page has room to say why a single budget is not a rate, and that
+            caveat is the part that stops one data point reading as a verdict. */}
+        <BudgetRecord agent={raw} className="mb-6" />
 
         <h3 className="font-bold mb-2">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6">

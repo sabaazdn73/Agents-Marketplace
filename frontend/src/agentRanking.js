@@ -71,7 +71,8 @@ export function performanceComparator(key) {
  * "no history yet" the way these raw counts can. */
 export function withPerformance(agents, byOwner) {
   if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null, jobsCompleted: 0, jobsSubmitted: 0,
-      deliveryRate: null, delivered: 0, everFunded: 0, fundedExpired: 0, oldestStuckDays: null }));
+      deliveryRate: null, delivered: 0, everFunded: 0, fundedExpired: 0, oldestStuckDays: null,
+      budget_record: null }));
   return agents.map((a) => {
     const p = byOwner[(a.ownerAddress || '').toLowerCase()];
     return {
@@ -89,6 +90,12 @@ export function withPerformance(agents, byOwner) {
       everFunded: p?.ever_funded ?? 0,
       fundedExpired: p?.funded_expired ?? 0,
       oldestStuckDays: p?.oldest_stuck_days ?? null,
+      // The AgentBudgetEscrow half of the record, from core/budget_index.
+      // BNB Chain has both hire paths and reported only the ERC-8183 one, so
+      // an agent that took a drawable budget and never drew from it read as
+      // an agent with no history. Kept in snake_case to match what the API
+      // sends and what BudgetRecord.jsx reads.
+      budget_record: p?.budget_record ?? null,
     };
   });
 }

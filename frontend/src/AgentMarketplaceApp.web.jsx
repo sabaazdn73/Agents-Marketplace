@@ -84,6 +84,7 @@ import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
+import BudgetRecord from './BudgetRecord';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
@@ -431,6 +432,10 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
 
         <DeliveryRecord agent={agent} className="mb-5" />
+        {/* BNB Chain has both hire paths, so it gets both records. The
+            ERC-8183 one above covers escrow jobs; this covers drawable
+            budgets, which the job index cannot see at all. */}
+        <BudgetRecord agent={agent} className="mb-5" />
 
         <h3 className="text-sm font-bold mb-2">About</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
@@ -804,6 +809,19 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       setSelectedAgent(null);
       setHiring(false);
     } catch (e) {
+      // A hire that fails after a funding transaction is already on chain is
+      // the case that most needs a notification, and it was the only one that
+      // produced none: the notify call above sits past this throw, so a
+      // receipt that timed out took it down with it. writeAndConfirm attaches
+      // the hash and the step to exactly those errors.
+      if (e?.hash) {
+        addNotification(
+          'Hire sent, not yet confirmed',
+          `A step of your hire of ${selectedAgent?.name || 'this agent'} was sent but could not be `
+          + 'confirmed in time. It may still confirm. Check it before trying again, '
+          + `otherwise you could pay twice: https://bscscan.com/tx/${e.hash}`,
+        );
+      }
       // hireError (from the hook) already carries the message,
       // surfaced in the modal UI, no silent failure.
     }
@@ -1620,6 +1638,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         {/* Funded versus delivered. Only renders for a
                             provider that has actually been paid before. */}
                         <DeliveryRecord agent={agent} compact className="mt-2" />
+                        <BudgetRecord agent={agent} compact className="mt-1" />
                       </div>
                       
                       <div className="p-5 bg-gray-50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">

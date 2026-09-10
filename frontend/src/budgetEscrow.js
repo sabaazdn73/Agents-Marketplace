@@ -72,12 +72,19 @@ async function waitForReceiptOrAsk(publicClient, hash, chainId) {
       } catch { /* not mined yet, or the read itself failed; keep asking */ }
     }
     const explorer = CHAIN_META[chainId]?.explorer;
-    throw new Error(
+    // The hash rides on the error. Without it the caller loses the one fact
+    // that matters after a failed wait: money already left the wallet, and
+    // the transaction may still confirm. Losing it is why a timed-out hire
+    // produced no notification at all.
+    const unconfirmed = new Error(
       'Your wallet sent the transaction, but we could not confirm it in time. '
       + 'It may still go through, so do NOT fund again until you have checked. '
       + `Transaction ${hash}`
       + (explorer ? `, view it at ${explorer}/tx/${hash}` : ''),
     );
+    unconfirmed.hash = hash;
+    unconfirmed.moneyMoved = true;
+    throw unconfirmed;
   }
 }
 

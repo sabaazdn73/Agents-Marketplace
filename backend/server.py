@@ -1079,9 +1079,28 @@ async def agent_perf(owner_address: str):
     core/job_index.py's own module docstring and
     docs/verification-methodology.md for the full investigation."""
     try:
-        return await job_index.get_provider_stats(owner_address)
+        stats = await job_index.get_provider_stats(owner_address)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
+
+    # The AgentBudgetEscrow half of the same question, chain 56 only: this
+    # endpoint feeds the BNB Chain agent page, and an owner's Arbitrum budget
+    # is not a fact about their BNB Chain agent.
+    #
+    # Attached here as well as on the bulk endpoint because the agent page
+    # reads this one directly rather than the merged marketplace list, so a
+    # field added only to the bulk route never reaches it.
+    try:
+        from core import budget_index
+        rec = (await budget_index.get_agent_budget_stats(get_db(), [56])).get(
+            (owner_address or "").lower()
+        )
+        if isinstance(stats, dict):
+            stats["budget_record"] = rec
+    except Exception as e:
+        print(f"[perf] budget record unavailable: {e}")
+
+    return stats
 
 
 @app.get("/api/agents/revenue")
@@ -1122,9 +1141,40 @@ async def agent_perf_bulk():
     on-chain SUBMITTED/COMPLETED job, just checked against this agent's
     real, complete history instead of a recent slice of it."""
     try:
-        return await job_index.get_all_provider_stats()
+        stats = await job_index.get_all_provider_stats()
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
+
+    # The budget record, merged in alongside the ERC-8183 one.
+    #
+    # BNB Chain has both hire paths, and until now this endpoint reported only
+    # the ERC-8183 half. Two of the three budgets ever opened on BNB Chain were
+    # never drawn from, and none of that reached a card, so an agent could show
+    # a clean ERC-8183 record while having taken a budget and done nothing.
+    #
+    # Attached per owner under its own key rather than folded into the job
+    # numbers: a drawn budget and a delivered job are different events, and
+    # summing them would produce a rate that describes neither.
+    #
+    # Best-effort. This endpoint's contract is the ERC-8183 record, and a
+    # budget-index hiccup must not take that down with it.
+    try:
+        from core import budget_index
+        # BNB Chain only. This endpoint feeds the BSC marketplace, and an
+        # owner's Arbitrum budget is not a fact about their BSC agent.
+        budgets = await budget_index.get_agent_budget_stats(get_db(), [56])
+        by_owner = stats.get("by_owner") or {}
+        for owner, rec in budgets.items():
+            entry = by_owner.setdefault(owner, {})
+            entry["budget_record"] = rec
+            # Owners known only from a budget still need the key the frontend
+            # merges on, or they would be dropped on the way in.
+            entry.setdefault("owner", owner)
+        stats["by_owner"] = by_owner
+    except Exception as e:
+        print(f"[perf/bulk] budget record unavailable: {e}")
+
+    return stats
 
 
 @app.get("/api/agents/wallet-portfolio")

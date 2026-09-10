@@ -23,6 +23,7 @@ import React from 'react';
 import AgentAvatar from './AgentAvatar';
 import ServiceHealthBadge from './ServiceHealthBadge';
 import InteractionLine from './InteractionLine';
+import BudgetRecord from './BudgetRecord';
 
 /** One cell of the three-stat block. `unavailableReason` turns the dash into
  *  something a reader can act on, via the title attribute. */
@@ -104,15 +105,25 @@ export default function HireableAgentCard({
         {/* The BNB card shows an ERC-8183 hire record here. That contract is
             BNB Chain only, so on other chains this states the budget position
             instead, which is the hire path that genuinely exists here. */}
-        <div
-          className="mb-4 text-[11px] text-gray-500 dark:text-gray-400"
-          title={
-            'Hiring on this chain runs through AgentBudgetEscrow. The ERC-8183 job history shown '
-            + 'on BNB Chain cannot exist here, because that contract is deployed on BNB Chain only.'
-          }
-        >
-          <span className="text-gray-400 dark:text-gray-500">No budget history yet</span>
-        </div>
+        {/* The budget delivery record, which is this chain's equivalent of
+            the ERC-8183 hire record on the BNB card. A budget funded and
+            never drawn from is the same fact as a funded job never
+            delivered. It renders nothing when no budget was ever opened
+            against this agent, and the placeholder below covers that case
+            rather than leaving a blank. */}
+        {(agent.budget_record || agent.budgetRecord) ? (
+          <BudgetRecord agent={agent} compact className="mb-4" />
+        ) : (
+          <div
+            className="mb-4 text-[11px] text-gray-500 dark:text-gray-400"
+            title={
+              'Hiring on this chain runs through AgentBudgetEscrow. The ERC-8183 job history shown '
+              + 'on BNB Chain cannot exist here, because that contract is deployed on BNB Chain only.'
+            }
+          >
+            <span className="text-gray-400 dark:text-gray-500">No budget history yet</span>
+          </div>
+        )}
 
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">
           {agent.strategy || 'No description provided.'}

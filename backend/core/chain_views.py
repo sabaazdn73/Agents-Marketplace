@@ -40,6 +40,7 @@ from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
 from core.chain_capabilities import summarize_view_capabilities
 from core.interaction_summary import describe_interaction
+from core import budget_index
 from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 
 # Chains where each hire path actually works. Kept as data next to the views
@@ -296,6 +297,46 @@ async def count_view(view: str) -> int:
     return await col.count_documents({"chain_id": {"$in": v["chain_ids"]}})
 
 
+async def _attach_budget_record(docs: list[dict]) -> None:
+    """Attach the AgentBudgetEscrow delivery record to each agent.
+
+    This is the non-BSC answer to the ERC-8183 delivery rate. BNB Chain can
+    say "delivered 27 of 41 jobs it was paid for" because ERC-8183 records
+    it; Arbitrum and Robinhood Chain cannot, and until now showed nothing,
+    which read as "nobody has looked" rather than "this is what happened".
+
+    A budget funded and never drawn from is the same fact as a funded job
+    never delivered, and budget_index reads it from Drawn events rather than
+    from the contract's `spent` field, which reclaim overwrites. See that
+    module for why the obvious reading is wrong.
+
+    A failed lookup attaches nothing and leaves the rest of the page intact.
+    This is a supplementary signal, and a card without it is honest; a page
+    that 500s because an RPC blinked is not.
+    """
+    if not docs:
+        return
+    # Scoped to each agent's OWN chain, not to the owner across all chains.
+    # An owner can hold agents on several chains, and a budget funded on
+    # Arbitrum says nothing about that owner's BNB Chain agent. Attaching it
+    # there would put a real number under the wrong agent, which is the same
+    # class of error as showing a signal a chain cannot support. Views that
+    # mix chains (Multi-Chain) therefore resolve per chain, not per page.
+    chain_ids = sorted({int(d["chain_id"]) for d in docs if d.get("chain_id") is not None})
+    for cid in chain_ids:
+        try:
+            stats = await budget_index.get_agent_budget_stats(get_db(), [cid])
+        except Exception as e:  # noqa: BLE001 -- supplementary, never fatal
+            print(f"[chain_views] budget record unavailable for chain {cid}: {e}")
+            continue
+        for d in docs:
+            if int(d.get("chain_id") or -1) != cid:
+                continue
+            owner = (d.get("owner_address") or "").lower()
+            if owner and owner in stats:
+                d["budget_record"] = stats[owner]
+
+
 async def fetch_agent(chain_id: int, token_id: str) -> dict | None:
     """One agent's stored record, for its own page.
 
@@ -317,6 +358,7 @@ async def fetch_agent(chain_id: int, token_id: str) -> dict | None:
     _apply_status_policy(doc)
     doc["capabilities"] = _capabilities_with_names([int(chain_id)])
     doc["hire_paths"] = _hire_paths([int(chain_id)])
+    await _attach_budget_record([doc])
     return doc
 
 
@@ -380,6 +422,7 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24,
     for d in docs:
         d["chain_name"] = CHAIN_NAMES.get(d.get("chain_id"), str(d.get("chain_id")))
         _apply_status_policy(d)
+    await _attach_budget_record(docs)
     # Total for this view, so the UI can show numbered pages rather than an
     # open-ended "load more". Counted per request: these views are not cached
     # and the count is a covered index lookup on chain_id.

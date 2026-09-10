@@ -250,13 +250,21 @@ export function useHireAgent() {
     try {
       receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
     } catch (e) {
-      throw new Error(
+      // The hash and the step ride on the error. A caller that only receives
+      // a message string cannot tell a hire that never started from one whose
+      // transaction is sitting unconfirmed on chain, and so cannot notify
+      // about the second. That is why a timed-out hire produced no
+      // notification at all: the notify call sat past this throw.
+      const timeout = new Error(
         `This step is taking longer than expected to go through (over ${RECEIPT_TIMEOUT_MS / 1000} seconds). ` +
         `It might still complete, check its status here before doing anything else: https://bscscan.com/tx/${hash} . ` +
         `If that page says the transaction was never found after a few minutes, it likely never left your ` +
         `wallet, and it's safe to try this step again. Please check first, though, trying again without checking ` +
         `could end up paying twice.`
       );
+      timeout.hash = hash;
+      timeout.pendingStep = stepKey;
+      throw timeout;
     }
     setCompletedSteps((prev) => [...prev, stepKey]);
     return { hash, receipt };

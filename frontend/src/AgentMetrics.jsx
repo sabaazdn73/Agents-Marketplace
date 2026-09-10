@@ -51,6 +51,9 @@ import {
   ChevronDown, Loader2, Radio, Blocks, ExternalLink, Zap, BarChart3,
 } from 'lucide-react';
 import { useResilientFetch } from './useResilientFetch';
+// Named BudgetEscrowRecord on import because this file already defines a
+// local DeliveryRecord for the ERC-8183 job history.
+import BudgetEscrowRecord from './BudgetRecord';
 import { useEscrowCompatibility, hostnameOf } from './EscrowCompatibilityWarning';
 import { evaluateAgent, PRIMARY_CTA } from './agentEvaluation';
 import { groupForCategory } from './categoryGroups';
@@ -237,6 +240,14 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
   if (!ownerAddress) return null;
   const p = perf.data;
   const r = revenue.data;
+  // The budget half of the record, rendered from the SAME fetched payload the
+  // rest of this panel uses. It was first hung off the `agent` prop, which
+  // looked right and rendered nothing: this page does not receive the
+  // performance-merged agent, it fetches per owner. Anything shown here has
+  // to come from `p`.
+  const budgetBlock = p?.budget_record
+    ? <BudgetEscrowRecord agent={{ budget_record: p.budget_record }} className="mt-4" />
+    : null;
 
   if (perf.status === 'loading' && !p) {
     return (
@@ -295,6 +306,9 @@ function DeliveryRecord({ agent, onTrySkill, escrowIncompatible }) {
           </div>
         )}
       </div>
+      {/* Both records, never merged: a drawn budget and a delivered job are
+          different events, and one sum would describe neither. */}
+      {budgetBlock}
     </div>
   );
 }

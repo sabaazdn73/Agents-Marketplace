@@ -57,6 +57,7 @@ import ContractVerificationBadge from './ContractVerificationBadge';
 import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
+import BudgetRecord from './BudgetRecord';
 import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
@@ -526,6 +527,10 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <InteractionLine interaction={agent.interaction} className="mb-4"
           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
         <DeliveryRecord agent={agent} className="mb-4" />
+        {/* BNB Chain has both hire paths, so it gets both records. The
+            ERC-8183 one above covers escrow jobs; this covers drawable
+            budgets, which the job index cannot see at all. */}
+        <BudgetRecord agent={agent} className="mb-4" />
 
         <h3 className="text-sm font-bold mb-1 flex items-center gap-2">Who owns this agent <PasskeyBadge ownerAddress={agent.ownerAddress} /> {agent.id && <ContractVerificationBadge agentId={agent.id} />}</h3>
         {agent.ownerAddress ? (
@@ -761,6 +766,19 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       setSelectedAgent(null);
       setHiring(false);
     } catch (e) {
+      // A hire that fails after a funding transaction is already on chain is
+      // the case that most needs a notification, and it was the only one that
+      // produced none: the notify call above sits past this throw, so a
+      // receipt that timed out took it down with it. writeAndConfirm attaches
+      // the hash and the step to exactly those errors.
+      if (e?.hash) {
+        addNotification(
+          'Hire sent, not yet confirmed',
+          `A step of your hire of ${selectedAgent?.name || 'this agent'} was sent but could not be `
+          + 'confirmed in time. It may still confirm. Check it before trying again, '
+          + `otherwise you could pay twice: https://bscscan.com/tx/${e.hash}`,
+        );
+      }
       // hireError from the hook is surfaced in the modal, no silent failure
     }
   };

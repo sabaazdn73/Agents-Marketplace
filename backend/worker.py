@@ -62,6 +62,8 @@ load_dotenv()
 from core.escrow_compat_audit import run_audit_batch  # noqa: E402  (after load_dotenv)
 from core.full_registry_ingest import run_ingest_batch  # noqa: E402
 from core.full_registry_analysis import run_analysis_batch, get_unanalyzed_backlog  # noqa: E402
+from core.budget_index import refresh_chain as refresh_budget_chain  # noqa: E402
+from core.db import get_db  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("worker")
@@ -197,9 +199,46 @@ async def ingest_loop() -> None:
             await asyncio.sleep(backoff)
 
 
+# ── Budget index ──
+#
+# Keeps the AgentBudgetEscrow delivery record current on every chain the
+# escrow is deployed to. This is what gives Arbitrum and Robinhood Chain a
+# delivery signal at all: they have no ERC-8183, so a funded budget never
+# drawn from is the only record of a client who paid and got nothing.
+#
+# Cheap after the first pass. The cursor advances to the head each run, so a
+# later run scans only new blocks, and there are five budgets in total across
+# three chains. Hourly is far more often than the data changes.
+BUDGET_INDEX_CHAIN_IDS = (56, 42161, 4663)
+BUDGET_INDEX_IDLE_SECONDS = 60 * 60
+
+
+async def budget_index_loop() -> None:
+    log.info("Budget index loop starting for chains %s.", list(BUDGET_INDEX_CHAIN_IDS))
+    consecutive_errors = 0
+    while True:
+        try:
+            db = get_db()
+            for chain_id in BUDGET_INDEX_CHAIN_IDS:
+                # Per chain, so one unreachable RPC cannot stall the others.
+                try:
+                    r = await refresh_budget_chain(db, chain_id)
+                    log.info("[budget-index] chain %s: %s", chain_id, r)
+                except Exception:
+                    log.exception("[budget-index] chain %s failed", chain_id)
+            consecutive_errors = 0
+            await asyncio.sleep(BUDGET_INDEX_IDLE_SECONDS)
+        except Exception:
+            consecutive_errors += 1
+            backoff = min(300.0, 5.0 * (2 ** min(consecutive_errors, 6)))
+            log.exception("[budget-index] pass failed (consecutive_errors=%d), backing off %.0fs",
+                          consecutive_errors, backoff)
+            await asyncio.sleep(backoff)
+
+
 async def main() -> None:
-    log.info("Worker starting: escrow-compat audit + full-registry ingestion + full-registry analysis, concurrently.")
-    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop())
+    log.info("Worker starting: escrow-compat audit + full-registry ingestion + full-registry analysis + budget index, concurrently.")
+    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop(), budget_index_loop())
 
 
 if __name__ == "__main__":
