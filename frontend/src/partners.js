@@ -102,6 +102,22 @@ export const PARTNERS = [
 
 /** Credited in text because their terms do not allow us to show the mark. */
 export const CREDITED_WITHOUT_LOGO = [
+  // Arbitrum Open House Singapore, the buildathon Arbitrum and Robinhood
+  // Chain support was built for. Checked 2026-09-10 and left out on purpose.
+  //
+  // The only asset that resolves on arbitrum-singapore.hackquest.io is
+  // /favicon.ico, a real 15,086 byte .ico carrying 48x48 and 32x32 images.
+  // It was fetched and rendered before being judged, and it is HackQuest's
+  // own platform mark, a green wordmark on black, not the event's. The page
+  // declares no og:image and serves no apple-touch-icon, and both
+  // hackquest.io and www.hackquest.io return 404 for a favicon.
+  //
+  // Showing the hosting platform's logo under the name of the event would
+  // misrepresent both, the same call made for Gemini above. Arbitrum's own
+  // mark was not substituted either: it is already in the strip as a chain,
+  // and it is not this event's mark.
+  { name: 'Arbitrum Open House Singapore', url: 'https://arbitrum-singapore.hackquest.io',
+    reason: 'no event-specific mark resolves; the only asset is HackQuest\'s own platform logo' },
   { name: 'Gemini', url: 'https://deepmind.google/technologies/gemini/', reason: 'no Google-approved artwork available at a stable URL' },
   { name: 'Claude Code', url: 'https://claude.com/claude-code', reason: 'Anthropic requires written permission for logo use' },
   { name: 'Infura', url: 'https://www.infura.io', reason: 'no logo asset resolves on infura.io' },

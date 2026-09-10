@@ -14,6 +14,7 @@
 * [Smart Contracts](smart-contracts.md)
 * [Data Sources and Integrations](integrations.md)
 * [The Graph Integration](thegraph-integration.md)
+* [Hiring beyond BNB Chain](multichain-hiring.md)
 * [The Agent Studio (MultiAgents)](agent-studio.md)
 * [Payment Rails](payment-rails.md)
 * [Native Agents](native-agents.md)
@@ -63,3 +64,4 @@
 * [Demo Script](demo-script.md)
 * [Demo Footnotes](demo-footnotes.md)
 * [ETHGlobal Online 2026](ethglobal-online-2026.md)
+* [Arbitrum Open House Singapore 2026](arbitrum-open-house-2026.md)
