@@ -106,6 +106,49 @@ Constructor arguments are pre-encoded below, so you do not have to rebuild
 them. They already include the native sentinel in position 0 and encode
 `feeBps = 250` (`0xfa`).
 
+### Constructor arguments, both chains
+
+Recorded here for both chains, not only for the command that currently
+consumes one. The Sourcify route below does not need `--constructor-args`,
+but the value is still the record of what was deployed: it is what you need
+to verify through any Etherscan-compatible explorer later, and what you check
+a deployed contract against if you ever have to prove which tokens and fee it
+was constructed with.
+
+**Arbitrum** — `[NATIVE, USDC, USD₮0]`, fee wallet, 250:
+
+```
+0x000000000000000000000000000000000000000000000000000000000000006000000000000000000000000048ce74cdc366e8347f17f7187fbf2ab9240692e900000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000003000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000af88d065e77c8cc2239327c5edb3a432268e5831000000000000000000000000fd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9
+```
+
+**Robinhood Chain** — `[NATIVE, USDG]`, fee wallet, 250:
+
+```
+0x000000000000000000000000000000000000000000000000000000000000006000000000000000000000000048ce74cdc366e8347f17f7187fbf2ab9240692e900000000000000000000000000000000000000000000000000000000000000fa0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee0000000000000000000000005fc5360d0400a0fd4f2af552add042d716f1d168
+```
+
+The two differ in exactly one place worth knowing: the array length word,
+`…0003` for Arbitrum's three tokens against `…0002` for Robinhood's two. If
+you ever paste the wrong one, that is where it will be wrong.
+
+Neither is a value you have to trust. Regenerate either from the source of
+truth and diff:
+
+```bash
+cast abi-encode "c(address[],address,uint16)" \
+  "[0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168]" \
+  0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 250
+```
+
+And read one back the other way, which is the better check because it shows
+the decoded tuple rather than a hex blob:
+
+```bash
+cast abi-decode --input "c(address[],address,uint16)" <ENCODED>
+```
+
+Both values above were produced and round-tripped this way on 2026-09-10.
+
 ### Arbitrum, via Etherscan V2
 
 Arbiscan is served by the unified Etherscan V2 API. One Etherscan key covers
