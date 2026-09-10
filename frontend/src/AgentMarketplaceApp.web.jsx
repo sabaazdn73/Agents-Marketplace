@@ -967,9 +967,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           icon buttons at opposite ends of a near-empty 448px line. 20rem
           (320px) is the conventional sidebar width and is still wide enough
           for the longest label ("Advantage Report"), the wallet card and
-          the hero image. Main content is `max-w-6xl mx-auto`, so it stays
-          centred and simply gains room rather than reflowing. */}
-      <aside className="w-80 shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
+          the hero image.
+
+          Widened to 22rem (352px) on 2026-09-10. 320 was the low end of the
+          conventional range and the hero image was the thing paying for it:
+          inside p-5 it rendered at 264px. 352 is still inside the usual
+          16rem to 22rem band, adds 32px, and none of the nav labels or the
+          wallet card needed reflowing to take it. */}
+      <aside className="w-[22rem] shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
         {/* Sticky wrapper: this content stays visible near the top of the
             viewport as you scroll through the taller main content, instead
             of scrolling away and leaving blank space, while the aside's
@@ -1064,7 +1069,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               max-h-screen overflow-y-auto, so it scrolls rather than
               overflowing, and the new image being less tall than the old
               one only gives that wrapper more room. */}
-          <div className="px-5 mb-1">
+          {/* px-3 rather than px-5: the image is the point of this block, and
+              the surrounding rail does not need the same inset as a text
+              row. With the 352px aside that takes it from 264px to 328px,
+              about a quarter larger, with no change to the file. */}
+          <div className="px-3 mb-1">
             <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
 
@@ -1094,7 +1103,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 md:p-8 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
-        <div className="max-w-6xl mx-auto">
+        {/* Was max-w-6xl (1152px). Measured at a 1599px viewport that left
+            56px each side, but the cap is what binds on a larger screen: at
+            1920px it was leaving ~224px of empty gutter either side of a
+            page that is mostly card grids, which is what looked sparse.
+            1400px keeps a cap rather than going full width, because some
+            tabs here are text rather than cards and an uncapped line length
+            reads badly, but it hands the grid most of the room back. */}
+        <div className="max-w-[1400px] mx-auto">
           
                     {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail
