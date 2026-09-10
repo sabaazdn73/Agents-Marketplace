@@ -45,6 +45,13 @@ from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
 # agent survives one extra pass.
 INGEST_GRACE_SECONDS = 30 * 60
 
+# How long an `unknown` result stands before the agent is asked again. Six
+# hours is a compromise: long enough that a host which is genuinely down is
+# not re-probed on every pass, short enough that a blip does not survive a
+# day. Only `unknown` is re-queued; a real finding is final until something
+# else re-ingests the agent.
+UNKNOWN_RECHECK_SECONDS = 6 * 60 * 60
+
 
 # Chains the analysis pass may evaluate. Deliberately widened ONE AT A TIME,
 # each only after a test confirmed correct results for known agents on
@@ -155,9 +162,34 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     # could never produce). A chain gets added here only after it has both
     # a verified registry deployment and a working RPC -- never on the
     # assumption that a pattern holds.
-    docs = await col.find(
-        {"chain_id": {"$in": ANALYSIS_CHAIN_IDS}, "service_status": {"$exists": False}}
-    ).limit(batch_size).to_list(length=batch_size)
+    # Never checked, OR checked and the answer was "we could not find out".
+    #
+    # UNKNOWN IS NOT AN ANSWER, added 2026-09-10. The query used to be
+    # `service_status: {$exists: False}` alone, so the first write of any
+    # status settled an agent forever. That is right for responding,
+    # not_responding and no_endpoint, which are findings. It is wrong for
+    # unknown, which means the metadata could not be resolved: a transient
+    # timeout, a host that was down for a minute, a gateway hiccup. Writing
+    # that once and never asking again turns a momentary failure into a
+    # permanent verdict.
+    #
+    # Measured before changing it: of 300 Ethereum agents sitting at unknown,
+    # 137 (45.7%) resolved perfectly on a re-check. Roughly 14,000 agents on
+    # that chain alone were carrying a stale non-answer, and the same
+    # staleness was accumulating on every chain.
+    #
+    # Re-queued only after UNKNOWN_RECHECK_SECONDS, so a genuinely dead host
+    # is not hammered every pass. Agents with a real finding are still never
+    # re-queued here.
+    now = time.time()
+    docs = await col.find({
+        "chain_id": {"$in": ANALYSIS_CHAIN_IDS},
+        "$or": [
+            {"service_status": {"$exists": False}},
+            {"service_status": "unknown",
+             "service_checked_at": {"$lt": now - UNKNOWN_RECHECK_SECONDS}},
+        ],
+    }).limit(batch_size).to_list(length=batch_size)
     if not docs:
         return {"checked": 0, "done": True}
 
@@ -172,7 +204,23 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     held_too_new = 0
     for d in docs:
         h = health_results.get(d.get("id"))
-        if h and h.get("service_status") == "no_endpoint" and d.get("chain_id") in DELETE_CHAIN_IDS:
+        # An agent moving from `unknown` to `no_endpoint` is NOT deleted on
+        # that pass. Added 2026-09-10 alongside the unknown re-queue above.
+        #
+        # `unknown` means the metadata could not be resolved. When a re-check
+        # finally resolves it and finds no endpoint, that is a real finding,
+        # but it is the FIRST time we have ever successfully read this agent,
+        # and deleting on a first successful read is how a transient failure
+        # becomes a permanent loss. The re-queue newly exposed 16,432 BSC
+        # agents to this path in one change, which is exactly the shape of the
+        # incident that destroyed 41,379 records.
+        #
+        # So the status is written and the agent is kept. Deletion continues
+        # to apply to agents whose no_endpoint was found on a normal first
+        # check, which is the case the policy was written for.
+        was_unknown = d.get("service_status") == "unknown"
+        if (h and h.get("service_status") == "no_endpoint"
+                and d.get("chain_id") in DELETE_CHAIN_IDS and not was_unknown):
             # A doc written moments ago is not a candidate for deletion.
             # Ingest and analysis run independently, so without this an
             # agent could be saved by a backfill and removed by an analysis
@@ -226,7 +274,17 @@ async def get_unanalyzed_backlog() -> int:
     correctly outrunning BSC analysis capacity."""
     db = get_db()
     col = db[FULL_REGISTRY_COLLECTION]
-    return await col.count_documents({"chain_id": {"$in": ANALYSIS_CHAIN_IDS}, "service_status": {"$exists": False}})
+    # Counts the same work run_analysis_batch actually selects, including
+    # `unknown` agents due a re-check. Counting only never-checked agents
+    # would report zero backlog while thousands of stale non-answers waited.
+    return await col.count_documents({
+        "chain_id": {"$in": ANALYSIS_CHAIN_IDS},
+        "$or": [
+            {"service_status": {"$exists": False}},
+            {"service_status": "unknown",
+             "service_checked_at": {"$lt": time.time() - UNKNOWN_RECHECK_SECONDS}},
+        ],
+    })
 
 
 async def compute_full_registry_stats() -> dict:

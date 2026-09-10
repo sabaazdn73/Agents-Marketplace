@@ -169,6 +169,19 @@ async def _fetch_metadata(uri: str, client: httpx.AsyncClient) -> dict:
         resp = await client.get(uri, timeout=_RESOLVE_TIMEOUT)
         resp.raise_for_status()
         return resp.json()
+    # Some registrations put the metadata JSON straight into tokenURI with no
+    # scheme at all, which is not a URI and has nothing to fetch. Handled
+    # inline rather than treated as unresolvable.
+    #
+    # Added 2026-09-10 from a real sample: 24 of 300 Ethereum agents sitting
+    # at `unknown` had a tokenURI that was a bare JSON object. All 24 parse
+    # cleanly. Worth stating plainly what this is worth: none of the 24
+    # carried a services[] array, so they resolve to no_endpoint rather than
+    # to a reachable agent. That is still the right outcome, because
+    # "registered no endpoint" is a finding and `unknown` is an admission we
+    # never found out, and the two should not look the same.
+    elif uri.lstrip()[:1] in "{[":
+        return json.loads(uri)
     else:
         raise ValueError(f"unrecognized URI scheme: {uri[:30]}")
 
