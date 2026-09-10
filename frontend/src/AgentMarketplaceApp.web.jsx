@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, PlayCircle} from 'lucide-react';
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -86,7 +86,7 @@ import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
 import DataSourcesFooter from './DataSourcesFooter';
-import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
+import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
 import PartnerMarquee from './PartnerMarquee';
@@ -1061,31 +1061,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               })}
             </nav>
 
-            {/* Separate, non-tab link, a purely visual page, not part of the
-                Market/My Agents/Report/Learn/Build/Sell tab structure. */}
-            {onOpenEcosystem && (
-              <>
-                <div className="my-2.5 border-t border-white/5" />
-                <button
-                  onClick={onOpenEcosystem}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all duration-200"
-                >
-                  <Globe size={16} className="shrink-0 opacity-70" /> Ecosystem view
-                </button>
-                {/* The recorded walkthrough, sitting with Ecosystem view
-                    because both are ways of seeing the whole thing at once
-                    rather than tabs you work in. External, so it opens in a
-                    new tab and leaves the app where it was. */}
-                <a
-                  href={DEMO_VIDEO_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-all duration-200"
-                >
-                  <PlayCircle size={16} className="shrink-0 opacity-70" /> Demo Walkthrough
-                </a>
-              </>
-            )}
+            {/* Ecosystem view and Demo Walkthrough used to sit here, below a
+                divider, as two full-width labelled rows. They are now icons
+                in the SiteLinks row further down. Neither is a tab you work
+                in, and between them they took about 90px of sidebar height
+                to say so. That height is what lets the hero image sit
+                higher. */}
           </div>
 
           {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
@@ -1105,7 +1086,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               the surrounding rail does not need the same inset as a text
               row. With the 352px aside that takes it from 264px to 328px,
               about a quarter larger, with no change to the file. */}
-          <div className="px-3 mb-1">
+          {/* -mt-1 pulls the image up into the gap left by the two rows that
+              used to sit above it. The nav list ends flush now, so without
+              this there is a band of dead space between the last tab and the
+              picture that reads as a rendering mistake rather than spacing. */}
+          <div className="px-3 mb-1 -mt-1">
             <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
 
@@ -1122,7 +1107,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             {/* Docs, GitHub and LinkedIn. These were one line at the very
                 bottom of the page, under two footers, where they were easy
                 to miss. */}
-            <SiteLinks onOpenDocs={onOpenDocs} variant="dark" className="mt-3" />
+            <SiteLinks onOpenDocs={onOpenDocs} onOpenEcosystem={onOpenEcosystem} variant="dark" className="mt-3" />
 
             <div className="mt-3 flex items-center justify-end text-xs text-gray-500 px-2">
               <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">

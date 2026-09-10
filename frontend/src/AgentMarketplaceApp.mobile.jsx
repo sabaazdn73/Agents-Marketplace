@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, PlayCircle} from 'lucide-react';
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -59,7 +59,7 @@ import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
 import DataSourcesFooter from './DataSourcesFooter';
-import SiteLinks, { DEMO_VIDEO_URL } from './SiteLinks';
+import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
 import PartnerMarquee from './PartnerMarquee';
@@ -372,26 +372,18 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs }) {
           </div>
         )}
 
-        {/* The recorded walkthrough. On web this sits under Ecosystem view
-            in the sidebar; mobile has no sidebar, so it goes here in the
-            menu sheet, immediately above the project links. */}
-        <a
-          href={DEMO_VIDEO_URL}
-          target="_blank"
-          rel="noreferrer"
-          onClick={onClose}
-          className="mt-6 flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
-        >
-          <PlayCircle size={16} className="shrink-0 opacity-70" />
-          Demo Walkthrough
-        </a>
+        {/* The walkthrough used to be its own labelled row here. It is now
+            the YouTube icon in SiteLinks below, which both apps share, so
+            keeping this too would list the same video twice in one sheet.
+            Ecosystem is not added here: mobile already has it as a header
+            button, and SiteLinks only renders it when handed a callback. */}
 
-        {/* Docs, GitHub and LinkedIn. Previously a single line at the very
-            bottom of the page, under two footers. */}
+        {/* Docs, GitHub and LinkedIn, plus the walkthrough. Previously a
+            single line at the very bottom of the page, under two footers. */}
         <SiteLinks
           onOpenDocs={onOpenDocs ? () => { onOpenDocs(); onClose(); } : undefined}
           variant="light"
-          className="mt-3 pt-4 border-t border-gray-100 dark:border-gray-800"
+          className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800"
         />
       </div>
     </div>
