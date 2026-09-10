@@ -35,7 +35,7 @@
 import React, { useState } from 'react';
 import { formatUnits } from 'viem';
 import { Loader2, Wallet, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
-import { BUDGET_STATUS, NATIVE_SENTINEL, isBudgetEscrowConfigured } from './budgetEscrow';
+import { BUDGET_STATUS, NATIVE_SENTINEL, useBudgetEscrowAddress } from './budgetEscrow';
 import BudgetSpendView from './BudgetSpendView';
 
 function fmt(v, symbol = 'BNB') {
@@ -67,11 +67,13 @@ export default function MyBudgetsList({
   accent = '#6366F1', mutedBorder = 'border-gray-200 dark:border-gray-800',
 }) {
   const [openId, setOpenId] = useState(null);
+  const { configured } = useBudgetEscrowAddress();
 
-  // Not configured means the contract isn't deployed for this build. Render
-  // nothing rather than an error: a user who never used budget mode should
-  // not see a failure about a feature they never touched.
-  if (!isBudgetEscrowConfigured()) return null;
+  // Not deployed on the chain the wallet is currently on. Render nothing
+  // rather than an error: a user who never used budget mode should not see a
+  // failure about a feature they never touched, and the hire panel already
+  // explains the chain situation to anyone who goes looking for it.
+  if (!configured) return null;
 
   if (loading) {
     return (

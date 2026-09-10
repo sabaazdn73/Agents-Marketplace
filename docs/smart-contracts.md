@@ -1,6 +1,8 @@
 # Smart Contracts
 
-Every contract below is deployed and live on BSC mainnet (chain 56); this project is mainnet-only throughout, and there is no testnet deployment of anything user-facing.
+Every contract below is deployed and live on mainnet, and this project is mainnet-only throughout: there is no testnet deployment of anything user-facing, and no testnet value is reachable from a production path.
+
+Most of what follows is on BSC mainnet (chain 56), which is where this project started and where every hire path works. Since 2026-09-10 AgentBudgetEscrow is also live on Arbitrum (42161) and Robinhood Chain (4663) — see "Deployments per chain" below, and read "The same address is not the same contract" before using any address here.
 
 ## Deployed addresses
 
@@ -8,6 +10,61 @@ Every contract below is deployed and live on BSC mainnet (chain 56); this projec
 |---|---|---|
 | AgentAccessMarket | [`0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333`](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Tnega's own "Sell Your Agent" contract. Deployed and BscScan source-verified. |
 | AgentBudgetEscrow | [`0x4728f03693DDABbe50E79c7BfFCb930e522D585B`](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Tnega's own drawable-budget contract: a client funds a budget and an agent draws against it as it works. |
+
+
+## The same address is not the same contract
+
+`0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` is **two different contracts**,
+depending on the chain:
+
+| Chain | What is at that address |
+|---|---|
+| BNB Chain (56) | AgentAccessMarket |
+| Arbitrum (42161) | AgentBudgetEscrow |
+| Robinhood Chain (4663) | AgentBudgetEscrow |
+
+This is a coincidence of CREATE address derivation — the same deployer wallet
+at the same nonce produces the same address on every EVM chain — and not a
+guarantee of anything. It is recorded here because it is a trap rather than a
+convenience.
+
+Both contracts implement `owner()`, `feeBps()` and `MAX_FEE_BPS()`. Checked on
+chain on 2026-09-10: all three answer on all three chains, with the same owner
+and the same 250 / 1000. So a defensive "is our contract here?" probe passes
+while pointing at the wrong contract, and the mistake surfaces only when a
+write reverts — or, in the worst case, does not. An ERC-20 `approve()` sent to
+that address on Arbitrum would be a real allowance granted to the budget
+escrow rather than the market, with nothing to notice at the time.
+
+**The rule:** every address is resolved per chain, from
+`frontend/src/chainContracts.js` on the client and `BUDGET_HIRE_CHAIN_IDS` /
+`ESCROW_HIRE_CHAIN_IDS` in `backend/core/chain_views.py` on the server. No
+module holds a bare address constant and uses it on whatever chain the wallet
+is on. `frontend/scripts/chain_contracts_selfcheck.mjs` enforces this,
+including a check that no source file outside `chainContracts.js` hardcodes
+either address.
+
+## Deployments per chain
+
+| Contract | Chain | Address | Verified |
+|---|---|---|---|
+| AgentBudgetEscrow | BNB Chain (56) | `0x4728f03693DDABbe50E79c7BfFCb930e522D585B` | BscScan |
+| AgentBudgetEscrow | Arbitrum (42161) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | Arbiscan |
+| AgentBudgetEscrow | Robinhood Chain (4663) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | Sourcify, `exact_match` |
+| AgentAccessMarket | BNB Chain (56) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | BscScan |
+
+All three AgentBudgetEscrow deployments share one owner,
+`0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9`, and `feeBps = 250`.
+
+## Which hire path works where
+
+| Path | Contract | Chains | Whose |
+|---|---|---|---|
+| Escrow hiring | ERC-8183 AgenticCommerce | BNB Chain only | Altana's, not ours to deploy |
+| Budget hiring | AgentBudgetEscrow | BNB Chain, Arbitrum, Robinhood Chain | Ours |
+
+BNB testnet (97) is deliberately excluded even though ERC-8183 exists there:
+no testnet value may be reachable from a production path.
 | ERC-8004 Identity Registry | [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://bscscan.com/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | Every agent's on-chain identity (ERC-721). |
 | ERC-8183 AgenticCommerce | [`0xEa4DAa3100A767e86FDed867729ae7446476EBA6`](https://bscscan.com/address/0xEa4DAa3100A767e86FDed867729ae7446476EBA6) | The hire/escrow kernel: job state and funds. |
 | ERC-8183 EvaluatorRouter | [`0x51895229E12F9876011789B04f8698af06cCD6DA`](https://bscscan.com/address/0x51895229E12F9876011789B04f8698af06cCD6DA) | Binds a job to its settlement policy. |

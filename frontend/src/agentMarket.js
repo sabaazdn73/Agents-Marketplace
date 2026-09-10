@@ -11,15 +11,27 @@
 // live on this network yet" state.
 
 import { useEffect, useState, useCallback } from 'react';
-import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useChainId } from 'wagmi';
 import { ERC8183_ADDRESSES } from '@altananetwork/sdk';
+import { getAgentMarketAddress, chainName } from './chainContracts';
 
 export const REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'; // ERC-8004 AgentIdentity
 export const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'; // == contract NATIVE sentinel
-// BSC mainnet deployment (13 Aug 2026, tx 0xa94fca60…d522c26). Public,
-// permanent address, used as the default; VITE_AGENT_MARKET_ADDRESS can still
-// override (e.g. pointing at a fork for testing).
-export const MARKET_ADDRESS = import.meta.env?.VITE_AGENT_MARKET_ADDRESS || '0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333';
+// AgentAccessMarket is deployed on BNB Chain ONLY, so its chain is pinned
+// here rather than following whatever chain the wallet happens to be on.
+//
+// This is not a tidiness rule. The BSC market address is byte-identical to
+// the address AgentBudgetEscrow occupies on Arbitrum and Robinhood Chain (a
+// deployer-nonce coincidence, see chainContracts.js). Reading feeBps() from
+// it on the wrong chain would have quietly returned the ESCROW's 250 and
+// looked perfectly healthy. Worse, the ERC-20 approve() in useBuyAccess
+// would have granted the budget escrow an allowance over the user's tokens
+// -- a real approval, to the wrong contract, with no error to notice.
+//
+// So every hook below gates on being on MARKET_CHAIN_ID, and the address is
+// resolved for that chain explicitly.
+export const MARKET_CHAIN_ID = 56;
+export const MARKET_ADDRESS = getAgentMarketAddress(MARKET_CHAIN_ID);
 
 // $U read LIVE from the installed Altana SDK (not a hardcoded, possibly-stale
 // address); falls back to the known value only if the SDK read fails.
@@ -37,7 +49,24 @@ export const tokenByAddress = (a) => ACCEPTED_TOKENS.find((t) => t.address.toLow
 export const PAYMENT_TOKEN = _U;
 
 export const MODEL = { NONE: 0, ONE_TIME: 1, SUBSCRIPTION: 2 };
-export const isMarketConfigured = () => /^0x[0-9a-fA-F]{40}$/.test(MARKET_ADDRESS);
+/**
+ * Configured AND on the right chain. `chainId` is required in practice: every
+ * call site passes the wallet's current chain, so being on Arbitrum makes
+ * this false rather than silently addressing a different contract.
+ */
+export const isMarketConfigured = (chainId) =>
+  /^0x[0-9a-fA-F]{40}$/.test(MARKET_ADDRESS)
+  && (chainId === undefined || Number(chainId) === MARKET_CHAIN_ID);
+
+/** Throw before a write if the wallet is on the wrong chain. */
+function assertMarketChain(chainId) {
+  if (Number(chainId) !== MARKET_CHAIN_ID) {
+    throw new Error(
+      `Sell Your Agent runs on ${chainName(MARKET_CHAIN_ID)} only. `
+      + `Your wallet is on ${chainName(chainId)} — switch before continuing.`,
+    );
+  }
+}
 
 export const MARKET_ABI = [
   { type: 'function', name: 'list', stateMutability: 'nonpayable', inputs: [{ name: 'agentId', type: 'uint256' }, { name: 'token', type: 'address' }, { name: 'model', type: 'uint8' }, { name: 'price', type: 'uint256' }, { name: 'period', type: 'uint64' }], outputs: [] },
@@ -81,21 +110,23 @@ export function splitByFee(priceRaw, feeBps) {
 
 /** Live platform fee from feeBps(), never hardcoded. */
 export function useFeeBps() {
+  const chainId = useChainId();
   const publicClient = usePublicClient();
   const [feeBps, setFeeBps] = useState(null);
   useEffect(() => {
-    if (!isMarketConfigured() || !publicClient) { setFeeBps(null); return; }
+    if (!isMarketConfigured(chainId) || !publicClient) { setFeeBps(null); return; }
     let cancelled = false;
     publicClient.readContract({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: 'feeBps' })
       .then((v) => { if (!cancelled) setFeeBps(Number(v)); })
       .catch(() => { if (!cancelled) setFeeBps(null); });
     return () => { cancelled = true; };
-  }, [publicClient]);
+  }, [publicClient, chainId]);
   return { feeBps, feePct: feeBps == null ? null : feeBps / 100 };
 }
 
 /** On-chain ownership check against the ERC-8004 registry (same guard the contract enforces). */
 export function useAgentOwnership(agentIdStr) {
+  const chainId = useChainId();
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const [state, setState] = useState({ status: 'idle', owner: null, isOwner: false });
@@ -108,18 +139,19 @@ export function useAgentOwnership(agentIdStr) {
       .then((owner) => { if (!cancelled) setState({ status: 'done', owner, isOwner: !!address && owner.toLowerCase() === address.toLowerCase() }); })
       .catch(() => { if (!cancelled) setState({ status: 'notfound', owner: null, isOwner: false }); });
     return () => { cancelled = true; };
-  }, [agentIdStr, address, publicClient]);
+  }, [agentIdStr, address, publicClient, chainId]);
   return state;
 }
 
 /** Read every accepted token's offer for an agent, the buyer's token choices. */
 export function useOffers(agentIdStr) {
+  const chainId = useChainId();
   const publicClient = usePublicClient();
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(false);
   const refresh = useCallback(async () => {
     const id = (agentIdStr || '').trim();
-    if (!isMarketConfigured() || !id || !/^\d+$/.test(id) || !publicClient) { setOffers([]); return; }
+    if (!isMarketConfigured(chainId) || !id || !/^\d+$/.test(id) || !publicClient) { setOffers([]); return; }
     setLoading(true);
     try {
       const rows = await Promise.all(ACCEPTED_TOKENS.map(async (t) => {
@@ -129,19 +161,20 @@ export function useOffers(agentIdStr) {
       setOffers(rows.filter((r) => r.exists));
     } catch { setOffers([]); }
     finally { setLoading(false); }
-  }, [agentIdStr, publicClient]);
+  }, [agentIdStr, publicClient, chainId]);
   useEffect(() => { refresh(); }, [refresh]);
   return { offers, loading, refresh };
 }
 
 /** Whether the connected wallet currently has access to an agent (token-agnostic). */
 export function useHasAccess(agentIdStr) {
+  const chainId = useChainId();
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const [access, setAccess] = useState(null);
   const refresh = useCallback(async () => {
     const id = (agentIdStr || '').trim();
-    if (!isMarketConfigured() || !address || !id || !/^\d+$/.test(id) || !publicClient) { setAccess(null); return; }
+    if (!isMarketConfigured(chainId) || !address || !id || !/^\d+$/.test(id) || !publicClient) { setAccess(null); return; }
     try {
       const [ok, expiry] = await Promise.all([
         publicClient.readContract({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: 'hasAccess', args: [BigInt(id), address] }),
@@ -149,13 +182,14 @@ export function useHasAccess(agentIdStr) {
       ]);
       setAccess({ hasAccess: ok, expiry: Number(expiry) });
     } catch { setAccess(null); }
-  }, [agentIdStr, address, publicClient]);
+  }, [agentIdStr, address, publicClient, chainId]);
   useEffect(() => { refresh(); }, [refresh]);
   return { access, refresh };
 }
 
 /** Create/update an offer for an agent you own, in a chosen accepted token. */
 export function useListAgent() {
+  const chainId = useChainId();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [busy, setBusy] = useState(false);
@@ -163,22 +197,24 @@ export function useListAgent() {
   const listAgent = useCallback(async ({ agentId, token, model, priceRaw, periodSeconds }) => {
     setBusy(true); setError(null);
     try {
+      assertMarketChain(chainId);
       const hash = await writeContractAsync({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: 'list', args: [BigInt(agentId), token, model, priceRaw, BigInt(periodSeconds || 0)] });
       await publicClient.waitForTransactionReceipt({ hash });
       return hash;
     } catch (e) { setError(e.shortMessage || e.message || String(e)); throw e; }
     finally { setBusy(false); }
-  }, [writeContractAsync, publicClient]);
+  }, [writeContractAsync, publicClient, chainId]);
   return { listAgent, busy, error };
 }
 
 /** Reads the connected creator's withdrawable balance in every accepted token. */
 export function useCreatorEarnings() {
+  const chainId = useChainId();
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const [rows, setRows] = useState([]);
   const refresh = useCallback(async () => {
-    if (!isMarketConfigured() || !address || !publicClient) { setRows([]); return; }
+    if (!isMarketConfigured(chainId) || !address || !publicClient) { setRows([]); return; }
     try {
       const r = await Promise.all(ACCEPTED_TOKENS.map(async (t) => {
         const balance = await publicClient.readContract({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: 'creatorBalance', args: [t.address, address] });
@@ -186,7 +222,7 @@ export function useCreatorEarnings() {
       }));
       setRows(r);
     } catch { setRows([]); }
-  }, [address, publicClient]);
+  }, [address, publicClient, chainId]);
   useEffect(() => { refresh(); }, [refresh]);
   return { rows, refresh };
 }
@@ -202,6 +238,7 @@ export async function readAgentOffers(publicClient, agentId) {
 
 /** Creator write actions: withdraw earnings per token, pause/resume an offer. */
 export function useCreatorWrites() {
+  const chainId = useChainId();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [busy, setBusy] = useState(null); // key of the in-flight action
@@ -209,12 +246,13 @@ export function useCreatorWrites() {
   const _run = useCallback(async (key, fn, args) => {
     setBusy(key); setError(null);
     try {
+      assertMarketChain(chainId);
       const hash = await writeContractAsync({ address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args });
       await publicClient.waitForTransactionReceipt({ hash });
       return hash;
     } catch (e) { setError(e.shortMessage || e.message || String(e)); throw e; }
     finally { setBusy(null); }
-  }, [writeContractAsync, publicClient]);
+  }, [writeContractAsync, publicClient, chainId]);
   const withdraw = useCallback((token) => _run('wd:' + token, 'withdrawCreatorBalance', [token]), [_run]);
   const setOfferActive = useCallback((agentId, token, active) => _run(`of:${agentId}:${token}`, 'setOfferActive', [BigInt(agentId), token, active]), [_run]);
   return { withdraw, setOfferActive, busy, error };
@@ -231,6 +269,7 @@ export const BUY_STEPS = ['approving', 'buying'];
  * skippedSteps/stepHashes) so BuyAccessPanel can drive an honest
  * StepChecklist instead of a single "Approving…/Confirming…" label. */
 export function useBuyAccess() {
+  const chainId = useChainId();
   const { address } = useAccount();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
@@ -247,12 +286,15 @@ export function useBuyAccess() {
     await publicClient.waitForTransactionReceipt({ hash });
     setCompletedSteps((prev) => [...prev, stepKey]);
     return hash;
-  }, [writeContractAsync, publicClient]);
+  }, [writeContractAsync, publicClient, chainId]);
 
   const buy = useCallback(async ({ agentId, token, native, model, priceRaw }) => {
     setBusy(true); setError(null);
     setCompletedSteps([]); setSkippedSteps([]); setStepHashes({});
     try {
+      // Before any approve(): an ERC-20 approval sent on the wrong chain
+      // would be a real allowance granted to the wrong contract.
+      assertMarketChain(chainId);
       const fn = model === MODEL.SUBSCRIPTION ? 'subscribe' : 'buyOneTime';
       if (native) {
         // Nothing to approve for native BNB, it's paid via msg.value on
@@ -276,7 +318,7 @@ export function useBuyAccess() {
       return hash;
     } catch (e) { setError(e.shortMessage || e.message || String(e)); throw e; }
     finally { setBusy(false); }
-  }, [address, writeAndConfirm, publicClient]);
+  }, [address, writeAndConfirm, publicClient, chainId]);
 
   return { buy, busy, step, error, completedSteps, skippedSteps, stepHashes };
 }

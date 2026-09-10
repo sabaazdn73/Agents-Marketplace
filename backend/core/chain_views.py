@@ -25,9 +25,13 @@ is read:
    rather than trusting what is stored, so a chain that has not been
    analysed cannot show a status even if an old value survived the cleanup.
 
-2. Only BSC agents are hireable. ERC-8183 escrow is deployed on BSC only,
-   so every non-BSC view reports `hireable: False` and the UI is expected
-   to say so rather than offering an action that cannot complete.
+2. Hireability is per chain AND per path, since 2026-09-10 there are two.
+   ERC-8183 escrow hiring is BSC only -- that contract is Altana's and
+   exists on chains 56 and 97, and is not ours to deploy. Budget hiring
+   works wherever AgentBudgetEscrow is deployed, which is now BSC,
+   Arbitrum and Robinhood Chain. A view therefore reports BOTH, and the UI
+   is expected to name which one it means rather than showing a single
+   "hireable" flag that would be true for one path and false for the other.
 """
 
 from __future__ import annotations
@@ -36,6 +40,16 @@ from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
 from core.chain_capabilities import summarize_view_capabilities
 from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
+
+# Chains where each hire path actually works. Kept as data next to the views
+# that report it. BUDGET_HIRE_CHAIN_IDS must stay in step with
+# frontend/src/chainContracts.js -- the frontend is what resolves the address,
+# this is what the API promises, and they describe the same deployments.
+#
+# ESCROW_HIRE_CHAIN_IDS deliberately excludes BNB testnet (97): no testnet
+# value may be reachable from a production path.
+BUDGET_HIRE_CHAIN_IDS = (56, 42161, 4663)
+ESCROW_HIRE_CHAIN_IDS = (56,)
 
 # Chain id -> display name. Kept here so a view definition reads as names
 # rather than numbers, and so one place needs editing when a chain is added.
@@ -64,18 +78,21 @@ CHAIN_NAMES = {
 # 2026-09-10 and Multi-Chain moved to the end. A chain with its own tab is
 # removed from Multi-Chain rather than left in both, so the counts stay
 # additive and one agent cannot appear under two tabs.
+# No per-view "hireable" flag lives here on purpose. It was removed on
+# 2026-09-10 when a second hire path appeared: a single boolean cannot say
+# "budget hiring works, escrow hiring does not", and a static copy of a fact
+# derived from chain ids is a second source of truth waiting to drift.
+# _hire_paths() derives it from chain_ids instead.
 VIEWS = {
     "bnb": {
         "label": "BNB Chain",
         "chain_ids": [56],
-        "hireable": True,
         "coming_soon": False,
         "served_by": "/api/agents",
     },
     "ethereum": {
         "label": "Ethereum",
         "chain_ids": [1],
-        "hireable": False,
         "coming_soon": False,
         "served_by": "/api/chain-view/ethereum",
     },
@@ -87,7 +104,6 @@ VIEWS = {
         # what the app can actually do with them.
         "label": "Solana",
         "chain_ids": [101],
-        "hireable": False,
         "coming_soon": True,
         "served_by": "/api/chain-view/solana",
     },
@@ -98,7 +114,6 @@ VIEWS = {
         # fields rather than stripping them.
         "label": "Arbitrum",
         "chain_ids": [42161],
-        "hireable": False,
         "coming_soon": False,
         "served_by": "/api/chain-view/arbitrum",
     },
@@ -116,7 +131,6 @@ VIEWS = {
         # checked.
         "label": "Robinhood Chain",
         "chain_ids": [4663],
-        "hireable": False,
         "coming_soon": False,
         "served_by": "/api/chain-view/robinhood",
     },
@@ -129,7 +143,6 @@ VIEWS = {
         # covered chain would be inaccurate.
         "label": "Multi-Chain",
         "chain_ids": [8453, 42220, 143, 45056],
-        "hireable": False,
         "coming_soon": False,
         "served_by": "/api/chain-view/multichain",
     },
@@ -156,6 +169,42 @@ _PROJECTION = {
 # Health fields are only meaningful for a chain the chain-aware health check
 # has actually been widened to. Everything else keeps the thin display.
 _HEALTH_FIELDS = ("service_status", "service_endpoint", "service_checked_at")
+
+
+def _hire_paths(chain_ids: list[int]) -> dict:
+    """Which hire paths work for this view, named per chain.
+
+    Derived from the chain ids rather than read from the view's own static
+    flag, so a view cannot claim a path its chains do not support. Both paths
+    are always reported, including the one that does NOT work and why, because
+    the UI's job here is to say which is which rather than to show a single
+    yes/no that is true for one path and false for the other."""
+    budget = [c for c in chain_ids if c in BUDGET_HIRE_CHAIN_IDS]
+    escrow = [c for c in chain_ids if c in ESCROW_HIRE_CHAIN_IDS]
+    def names(cs):
+        return [{"chain_id": c, "name": CHAIN_NAMES.get(c, str(c))} for c in cs]
+    return {
+        "budget": {
+            "available": bool(budget),
+            "chains": names(budget),
+            "contract": "AgentBudgetEscrow",
+            "note": (
+                "A client funds a budget and the agent draws against it as it "
+                "works. Available wherever AgentBudgetEscrow is deployed."
+            ),
+        },
+        "escrow": {
+            "available": bool(escrow),
+            "chains": names(escrow),
+            "contract": "ERC-8183 AgenticCommerce",
+            "note": (
+                "Payment is locked and released on delivery. The ERC-8183 "
+                "contract is Altana's and is deployed on BNB Chain only, so "
+                "this path is not available on other chains."
+            ),
+        },
+        "any": bool(budget or escrow),
+    }
 
 
 def _capabilities_with_names(chain_ids: list[int]) -> dict:
@@ -212,7 +261,8 @@ def describe_views() -> list[dict]:
             "id": vid,
             "label": v["label"],
             "chains": [{"chain_id": c, "name": CHAIN_NAMES.get(c, str(c))} for c in v["chain_ids"]],
-            "hireable": v["hireable"],
+            "hireable": _hire_paths(v["chain_ids"])["any"],
+            "hire_paths": _hire_paths(v["chain_ids"]),
             "coming_soon": v["coming_soon"],
             "served_by": v["served_by"],
         })
@@ -266,7 +316,8 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24) -> dict:
     return {
         "view": view,
         "label": v["label"],
-        "hireable": v["hireable"],
+        "hireable": _hire_paths(v["chain_ids"])["any"],
+        "hire_paths": _hire_paths(v["chain_ids"]),
         "coming_soon": v["coming_soon"],
         "offset": offset,
         "limit": limit,

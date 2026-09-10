@@ -20,17 +20,39 @@
 // hire button that would revert.
 
 import { useState, useCallback, useEffect } from 'react';
-import { useAccount, useWriteContract, usePublicClient } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useChainId } from 'wagmi';
 import { decodeEventLog } from 'viem';
 
-/** BSC mainnet. Set VITE_BUDGET_ESCROW_ADDRESS once deployed. */
-export const BUDGET_ESCROW_ADDRESS = import.meta.env.VITE_BUDGET_ESCROW_ADDRESS || '';
+/**
+ * The address is resolved PER CHAIN from chainContracts.js, never held here
+ * as one constant.
+ *
+ * It used to be a single module-level BUDGET_ESCROW_ADDRESS read from one env
+ * var, which was correct only while the contract existed on exactly one
+ * chain. It is now on three, and on two of them it happens to sit at the same
+ * address that AgentAccessMarket occupies on BSC -- a coincidence of deployer
+ * nonce, not a guarantee. A single global address would therefore have been
+ * not just imprecise but actively wrong: it would have pointed at a real,
+ * responding, WRONG contract. See the warning at the top of chainContracts.js.
+ */
+import {
+  getBudgetEscrowAddress, isBudgetHiringAvailable, chainName, nativeSymbol,
+} from './chainContracts';
 
-/** Native BNB sentinel -- must match the contract's own NATIVE constant. */
+/**
+ * Native gas-token sentinel -- must match the contract's own NATIVE constant.
+ * The same sentinel on every chain; only what it MEANS changes (BNB on 56,
+ * ETH on 42161 and 4663), which is why callers should label it with
+ * nativeSymbol(chainId) rather than hardcoding "BNB".
+ */
 export const NATIVE_SENTINEL = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 
-export function isBudgetEscrowConfigured() {
-  return /^0x[a-fA-F0-9]{40}$/.test(BUDGET_ESCROW_ADDRESS);
+/** Is budget hiring available on the chain the wallet is currently on? */
+export function useBudgetEscrowAddress() {
+  const chainId = useChainId();
+  return { chainId, address: getBudgetEscrowAddress(chainId),
+           configured: isBudgetHiringAvailable(chainId),
+           chainLabel: chainName(chainId), nativeLabel: nativeSymbol(chainId) };
 }
 
 /** Minimal ABI: only what this app calls, same discipline as erc8183.js. */
@@ -112,13 +134,14 @@ export const BUDGET_STATUS = ['NONE', 'OPEN', 'CLOSED', 'RECLAIMED'];
  *  re-reads after a write rather than assuming the write's intent. */
 export function useBudgetRead(budgetId) {
   const publicClient = usePublicClient();
+  const { address: escrowAddress, configured } = useBudgetEscrowAddress();
   const [state, setState] = useState({ loading: false, budget: null, drawable: null, error: null });
 
   const refresh = useCallback(async () => {
-    if (!isBudgetEscrowConfigured() || budgetId == null || !publicClient) return;
+    if (!configured || budgetId == null || !publicClient) return;
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const common = { address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI };
+      const common = { address: escrowAddress, abi: BUDGET_ESCROW_ABI };
       const [budget, drawable] = await Promise.all([
         publicClient.readContract({ ...common, functionName: 'getBudget', args: [BigInt(budgetId)] }),
         publicClient.readContract({ ...common, functionName: 'drawableNow', args: [BigInt(budgetId)] }),
@@ -127,7 +150,7 @@ export function useBudgetRead(budgetId) {
     } catch (e) {
       setState({ loading: false, budget: null, drawable: null, error: e.shortMessage || e.message });
     }
-  }, [budgetId, publicClient]);
+  }, [budgetId, publicClient, escrowAddress, configured]);
 
   useEffect(() => { refresh(); }, [refresh]);
   return { ...state, refresh };
@@ -164,14 +187,15 @@ export function useBudgetRead(budgetId) {
  */
 export function useDrawFeed(budgetId, { lookbackBlocks = 4000, chunkSize = 200 } = {}) {
   const publicClient = usePublicClient();
+  const { address: escrowAddress, configured } = useBudgetEscrowAddress();
   const [draws, setDraws] = useState([]);
   const [scanned, setScanned] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!isBudgetEscrowConfigured() || budgetId == null || !publicClient) return undefined;
+    if (!configured || budgetId == null || !publicClient) return undefined;
     let cancelled = false;
-    const common = { address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI };
+    const common = { address: escrowAddress, abi: BUDGET_ESCROW_ABI };
     const drawnEvent = BUDGET_ESCROW_ABI.find((e) => e.type === 'event' && e.name === 'Drawn');
 
  // Small windows, because that is what these providers answer
@@ -211,7 +235,7 @@ export function useDrawFeed(budgetId, { lookbackBlocks = 4000, chunkSize = 200 }
     });
 
     return () => { cancelled = true; unwatch?.(); };
-  }, [budgetId, publicClient, lookbackBlocks, chunkSize]);
+  }, [budgetId, publicClient, lookbackBlocks, chunkSize, escrowAddress, configured]);
 
   // `spent` is the contract's own running total AFTER each draw, so it is
   // unique per draw and identifies one exactly. A reorg or an overlapping
@@ -232,17 +256,18 @@ function dedupe(list) {
  *  than reporting success from the transaction alone. */
 export function useBudgetActions() {
   const { address } = useAccount();
+  const { address: escrowAddress, configured, chainLabel } = useBudgetEscrowAddress();
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
   const [pending, setPending] = useState(null);
 
   const openBudget = useCallback(async ({ agent, token, amount, maxPerDraw, deadline, cooldown }) => {
-    if (!isBudgetEscrowConfigured()) throw new Error('Budget escrow is not deployed yet.');
+    if (!configured) throw new Error(`AgentBudgetEscrow is not deployed on ${chainLabel}.`);
     setPending('open');
     try {
       const isNative = token.toLowerCase() === NATIVE_SENTINEL.toLowerCase();
       const hash = await writeContractAsync({
-        address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI, functionName: 'openBudget',
+        address: escrowAddress, abi: BUDGET_ESCROW_ABI, functionName: 'openBudget',
         args: [agent, token, amount, maxPerDraw, BigInt(deadline), BigInt(cooldown)],
         value: isNative ? amount : 0n,
       });
@@ -257,7 +282,7 @@ export function useBudgetActions() {
       const opened = BUDGET_ESCROW_ABI.find((e) => e.type === 'event' && e.name === 'BudgetOpened');
       let budgetId = null;
       for (const log of receipt.logs || []) {
-        if ((log.address || '').toLowerCase() !== BUDGET_ESCROW_ADDRESS.toLowerCase()) continue;
+        if ((log.address || '').toLowerCase() !== escrowAddress.toLowerCase()) continue;
         try {
           const parsed = decodeEventLog({ abi: [opened], data: log.data, topics: log.topics });
           if (parsed.eventName === 'BudgetOpened') { budgetId = parsed.args.budgetId; break; }
@@ -265,20 +290,20 @@ export function useBudgetActions() {
       }
       return { hash, budgetId };
     } finally { setPending(null); }
-  }, [writeContractAsync, publicClient]);
+  }, [writeContractAsync, publicClient, escrowAddress, configured, chainLabel]);
 
   const reclaim = useCallback(async (budgetId) => {
-    if (!isBudgetEscrowConfigured()) throw new Error('Budget escrow is not deployed yet.');
+    if (!configured) throw new Error(`AgentBudgetEscrow is not deployed on ${chainLabel}.`);
     setPending('reclaim');
     try {
       const hash = await writeContractAsync({
-        address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI,
+        address: escrowAddress, abi: BUDGET_ESCROW_ABI,
         functionName: 'reclaim', args: [BigInt(budgetId)],
       });
       await publicClient.waitForTransactionReceipt({ hash });
       return hash;
     } finally { setPending(null); }
-  }, [writeContractAsync, publicClient]);
+  }, [writeContractAsync, publicClient, escrowAddress, configured, chainLabel]);
 
   return { openBudget, reclaim, pending, connected: !!address };
 }
@@ -301,13 +326,14 @@ export function useBudgetActions() {
  * than blocked, since the client can reclaim an unused budget at any
  * time. */
 export function useBudgetModeStatus(ownerAddress) {
+  const { configured, chainLabel } = useBudgetEscrowAddress();
   const [state, setState] = useState({ loading: true, available: false, declared: false, reason: '', agents: [] });
 
   useEffect(() => {
     let cancelled = false;
-    if (!isBudgetEscrowConfigured()) {
+    if (!configured) {
       setState({ loading: false, available: false, declared: false, agents: [],
-                 reason: "Budget mode isn't deployed in this environment yet." });
+                 reason: `AgentBudgetEscrow isn't deployed on ${chainLabel}, so budget mode is unavailable here.` });
       return undefined;
     }
     const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -318,7 +344,7 @@ export function useBudgetModeStatus(ownerAddress) {
       .catch(() => { if (!cancelled) setState({ loading: false, available: false, declared: false, agents: [],
                        reason: "Couldn't check whether this agent supports budgets." }); });
     return () => { cancelled = true; };
-  }, [ownerAddress]);
+  }, [ownerAddress, configured, chainLabel]);
 
   return state;
 }
@@ -353,17 +379,18 @@ export function useBudgetModeStatus(ownerAddress) {
  */
 export function useMyBudgets() {
   const { address, isConnected } = useAccount();
+  const { address: escrowAddress, configured } = useBudgetEscrowAddress();
   const publicClient = usePublicClient();
   const [state, setState] = useState({ loading: true, budgets: [], error: null });
 
   const load = useCallback(async () => {
-    if (!isBudgetEscrowConfigured() || !isConnected || !address || !publicClient) {
+    if (!configured || !isConnected || !address || !publicClient) {
       setState({ loading: false, budgets: [], error: null });
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const common = { address: BUDGET_ESCROW_ADDRESS, abi: BUDGET_ESCROW_ABI };
+      const common = { address: escrowAddress, abi: BUDGET_ESCROW_ABI };
       const count = await publicClient.readContract({ ...common, functionName: 'budgetCounter' });
       const total = Number(count);
       if (total === 0) { setState({ loading: false, budgets: [], error: null }); return; }
@@ -412,7 +439,7 @@ export function useMyBudgets() {
     } catch (e) {
       setState({ loading: false, budgets: [], error: e.shortMessage || e.message });
     }
-  }, [address, isConnected, publicClient]);
+  }, [address, isConnected, publicClient, escrowAddress, configured]);
 
   useEffect(() => { load(); }, [load]);
   return { ...state, refresh: load };

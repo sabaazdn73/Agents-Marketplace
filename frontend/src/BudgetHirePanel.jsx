@@ -18,7 +18,9 @@
 import React, { useState } from 'react';
 import { parseUnits } from 'viem';
 import { Loader2, Wallet, AlertTriangle, ExternalLink } from 'lucide-react';
-import { useBudgetActions, isBudgetEscrowConfigured, NATIVE_SENTINEL, BUDGET_ESCROW_ADDRESS } from './budgetEscrow';
+import { useBudgetActions, useBudgetEscrowAddress, NATIVE_SENTINEL } from './budgetEscrow';
+import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META } from './chainContracts';
+import ChainSwitchNotice from './ChainSwitchNotice';
 import BudgetSpendView from './BudgetSpendView';
 import { addNotification } from './notifications';
 
@@ -36,6 +38,9 @@ const COOLDOWNS = [
 
 export default function BudgetHirePanel({ agent }) {
   const { openBudget, pending, connected } = useBudgetActions();
+  // Address, availability and the native-token label all come from the chain
+  // the wallet is on. Nothing here assumes BNB or BSC any more.
+  const { chainId, address: escrowAddress, configured, nativeLabel } = useBudgetEscrowAddress();
   const [total, setTotal] = useState('0.01');
   const [maxPerDraw, setMaxPerDraw] = useState('0.002');
   const [hours, setHours] = useState(24);
@@ -45,15 +50,23 @@ export default function BudgetHirePanel({ agent }) {
 
   const agentAddress = agent?.ownerAddress || agent?.owner_address;
 
-  if (!isBudgetEscrowConfigured()) {
+  // Budget hiring is available wherever AgentBudgetEscrow is deployed, which
+  // is now three chains rather than one. Where it is not, say which chain the
+  // wallet is on and offer to move -- rather than the old blanket "not
+  // deployed yet", which is no longer true anywhere it is shown.
+  if (!configured) {
+    const opts = hiringOptionsFor(chainId);
     return (
-      <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 text-[12px] text-amber-700 dark:text-amber-400 flex items-start gap-2">
-        <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-        <span>
-          Budget mode isn't available yet, the escrow contract for it hasn't been deployed.
-          Locked escrow (ERC-8183) works normally in the meantime.
-        </span>
-      </div>
+      <ChainSwitchNotice
+        currentChainId={chainId}
+        targetChainIds={budgetHiringChainIds()}
+        actionLabel="Budget hiring"
+        reason={`${opts.budget.reason} ${
+          opts.escrow.available
+            ? 'Escrow hiring (ERC-8183) does work here.'
+            : ''
+        }`.trim()}
+      />
     );
   }
 
@@ -152,11 +165,11 @@ export default function BudgetHirePanel({ agent }) {
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50"
       >
         {pending === 'open' ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />}
-        {!connected ? 'Connect a wallet first' : pending === 'open' ? 'Funding budget…' : `Fund ${total || '0'} BNB budget`}
+        {!connected ? 'Connect a wallet first' : pending === 'open' ? 'Funding budget…' : `Fund ${total || '0'} ${nativeLabel} budget`}
       </button>
 
       <a
-        href={`https://bscscan.com/address/${BUDGET_ESCROW_ADDRESS}`}
+        href={`${CHAIN_META[chainId]?.explorer || ''}/address/${escrowAddress}`}
         target="_blank" rel="noopener noreferrer"
         className="text-[10px] text-gray-500 hover:text-indigo-500 inline-flex items-center gap-1"
       >
