@@ -17,6 +17,8 @@ import React, { useEffect, useRef } from 'react';
 import { Loader2, ArrowDownRight, ShieldAlert, Clock, Undo2 } from 'lucide-react';
 import { useBudgetRead, useDrawFeed, useBudgetActions, BUDGET_STATUS, NATIVE_SENTINEL, useBudgetEscrowAddress } from './budgetEscrow';
 import { addNotification } from './notifications';
+import { useChainId, useSwitchChain } from 'wagmi';
+import { switchToChain } from './ChainSwitchNotice';
 import { formatAmount, budgetTokenSymbol } from './budgetAmounts';
 
 // Every amount in this component goes through the shared formatter. The local
@@ -62,6 +64,8 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
   // to the wallet alone, switching chains after funding would relabel a
   // Robinhood budget as BNB while still showing its real amounts.
   const { chainId } = useBudgetEscrowAddress(forcedChainId);
+  const walletChainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
   const { budget, drawable, loading, error, refresh } = useBudgetRead(budgetId, forcedChainId);
   const { draws, accountedFor, scanned } = useDrawFeed(budgetId, undefined, forcedChainId);
   const { reclaim, pending } = useBudgetActions();
@@ -129,6 +133,14 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
 
   const doRevoke = async () => {
     const returned = remaining;
+    // Move to the budget's own chain first. Budget ids are per contract, so
+    // reclaiming id 1 while the wallet sits on another chain would target a
+    // DIFFERENT budget that happens to share the number. Now that one wallet
+    // can hold budgets on three chains, that is a real collision rather than
+    // a theoretical one.
+    if (forcedChainId && Number(forcedChainId) !== Number(walletChainId)) {
+      await switchToChain(switchChainAsync, forcedChainId);
+    }
     await reclaim(budgetId);
  await refresh(); // on-chain state, never optimistic
     addNotification(

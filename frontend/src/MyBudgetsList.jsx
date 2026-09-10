@@ -34,7 +34,8 @@
 
 import React, { useState } from 'react';
 import { Loader2, Wallet, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
-import { BUDGET_STATUS, NATIVE_SENTINEL, useBudgetEscrowAddress } from './budgetEscrow';
+import { BUDGET_STATUS, NATIVE_SENTINEL } from './budgetEscrow';
+import { chainName } from './chainContracts';
 import BudgetSpendView from './BudgetSpendView';
 
 // Every amount in this component goes through the shared formatter. The local
@@ -78,13 +79,10 @@ export default function MyBudgetsList({
   const [openId, setOpenId] = useState(null);
   // Budgets are read from the escrow on the wallet's current chain, so that
   // chain is the one every amount on this list is denominated in.
-  const { configured, chainId } = useBudgetEscrowAddress();
-
-  // Not deployed on the chain the wallet is currently on. Render nothing
-  // rather than an error: a user who never used budget mode should not see a
-  // failure about a feature they never touched, and the hire panel already
-  // explains the chain situation to anyone who goes looking for it.
-  if (!configured) return null;
+  // No wallet-chain gate here any more. This used to return null when the
+  // escrow was not deployed on whatever chain the wallet pointed at, which
+  // hid every budget on every other chain along with it. Discovery is now
+  // chain-independent, so this list is too.
 
   if (loading) {
     return (
@@ -120,7 +118,9 @@ export default function MyBudgetsList({
 
       {budgets.map((b) => {
         const id = b.id;
-        const symbol = budgetTokenSymbol(b.token, chainId, NATIVE_SENTINEL);
+        // The budget's OWN chain, not the wallet's. A row can now be on a
+        // different chain from the one the wallet is pointing at.
+        const symbol = budgetTokenSymbol(b.token, b.chainId, NATIVE_SENTINEL);
         const status = BUDGET_STATUS[b.status] || 'UNKNOWN';
         const reclaimed = status === 'RECLAIMED';
         const total = b.total;
@@ -144,6 +144,13 @@ export default function MyBudgetsList({
                   {isOpenRow
                     ? <ChevronDown size={14} className="text-gray-400 shrink-0" />
                     : <ChevronRight size={14} className="text-gray-400 shrink-0" />}
+                  {/* Which chain this budget is on. Load-bearing now that
+                      one wallet can hold budgets on three chains at once:
+                      without it two rows showing different tokens look like
+                      a bug rather than two chains. */}
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                    {chainName(b.chainId)}
+                  </span>
                   {/* The funding model, stated on the row itself. */}
                   <span
                     className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0"
@@ -197,7 +204,7 @@ export default function MyBudgetsList({
               <div className={`border-t ${mutedBorder} p-4`}>
                 {/* The whole spend view, including reclaim and the feed's
                     reconciliation against the contract's own `spent`. */}
-                <BudgetSpendView budgetId={id} onRevoked={refresh} chainId={chainId} />
+                <BudgetSpendView budgetId={id} onRevoked={refresh} chainId={b.chainId} />
               </div>
             )}
           </div>

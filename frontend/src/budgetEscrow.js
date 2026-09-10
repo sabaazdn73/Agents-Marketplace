@@ -20,7 +20,8 @@
 // hire button that would revert.
 
 import { useState, useCallback, useEffect } from 'react';
-import { useAccount, useWriteContract, usePublicClient, useChainId } from 'wagmi';
+import { useAccount, useWriteContract, usePublicClient, useChainId, useConfig } from 'wagmi';
+import { getPublicClient } from '@wagmi/core';
 import { decodeEventLog } from 'viem';
 
 /**
@@ -37,6 +38,7 @@ import { decodeEventLog } from 'viem';
  */
 import {
   getBudgetEscrowAddress, isBudgetHiringAvailable, chainName, nativeSymbol, CHAIN_META,
+  budgetHiringChainIds,
 } from './chainContracts';
 
 /**
@@ -433,19 +435,68 @@ export function useBudgetModeStatus(ownerAddress) {
  * already does it for ERC-8183 jobs. Noted rather than pre-built: an index
  * for a handful of budgets would be speculative infrastructure.
  */
+/** Every budget this wallet owns, ON EVERY CHAIN THE ESCROW IS DEPLOYED TO.
+ *
+ *  This used to read one chain: whichever the wallet happened to be
+ *  connected to. That was correct while the escrow existed on BNB Chain
+ *  alone and quietly wrong the moment it did not.
+ *
+ *  Reported live 2026-09-10: a budget opened on Arbitrum was mined, the
+ *  escrow was holding the funds, and My Agents showed no reclaim option,
+ *  because the wallet had moved back to BNB Chain and discovery only ever
+ *  looked there. The money was not lost, but the only control for getting it
+ *  back was invisible, which for the person holding it is the same thing.
+ *
+ *  A budget is a claim on funds. Where the wallet is pointing right now has
+ *  nothing to do with whether that claim exists, so discovery no longer asks.
+ */
 export function useMyBudgets() {
   const { address, isConnected } = useAccount();
-  const { address: escrowAddress, configured } = useBudgetEscrowAddress();
-  const publicClient = usePublicClient();
+  const config = useConfig();
   const [state, setState] = useState({ loading: true, budgets: [], error: null });
 
   const load = useCallback(async () => {
-    if (!configured || !isConnected || !address || !publicClient) {
+    if (!isConnected || !address) {
       setState({ loading: false, budgets: [], error: null });
       return;
     }
     setState((s) => ({ ...s, loading: true, error: null }));
-    try {
+    const chainIds = budgetHiringChainIds();
+    const all = [];
+    const failed = [];
+    for (const cid of chainIds) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const found = await readBudgetsOnChain(config, cid, address);
+        all.push(...found);
+      } catch (e) {
+        // One chain being unreachable must not hide the budgets on the
+        // others. Recorded and surfaced, never silently swallowed.
+        failed.push(`${chainName(cid)} (${e.shortMessage || e.message})`);
+      }
+    }
+    all.sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+    setState({
+      loading: false,
+      budgets: all,
+      error: failed.length ? `Could not read budgets on ${failed.join(', ')}.` : null,
+    });
+  }, [address, isConnected, config]);
+
+  useEffect(() => { load(); }, [load]);
+  return { ...state, refresh: load };
+}
+
+/** One chain's budgets for one owner. Split out so useMyBudgets can walk
+ *  every deployment without the hook rules getting in the way. */
+async function readBudgetsOnChain(config, chainId, address) {
+  const escrowAddress = getBudgetEscrowAddress(chainId);
+  if (!escrowAddress) return [];
+  const publicClient = getPublicClient(config, { chainId });
+  if (!publicClient) return [];
+  const mine = [];
+  {
+    {
       const common = { address: escrowAddress, abi: BUDGET_ESCROW_ABI };
       const count = await publicClient.readContract({ ...common, functionName: 'budgetCounter' });
       const total = Number(count);
@@ -481,22 +532,17 @@ export function useMyBudgets() {
           mine.push({
             id,
             ...b,
+            // Which chain this budget lives on. Carried on the budget rather
+            // than inferred from the wallet, so the row can label itself and
+            // reclaim can target the right contract.
+            chainId,
             // A failed drawableNow must not fabricate a number. null reads
             // as "unknown" downstream rather than as zero.
             drawable: drawableRes?.status === 'success' ? drawableRes.result : null,
           });
         });
       }
-
-      // Newest first: the budget someone just funded is the one they came
-      // here to look at.
-      mine.sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
-      setState({ loading: false, budgets: mine, error: null });
-    } catch (e) {
-      setState({ loading: false, budgets: [], error: e.shortMessage || e.message });
     }
-  }, [address, isConnected, publicClient, escrowAddress, configured]);
-
-  useEffect(() => { load(); }, [load]);
-  return { ...state, refresh: load };
+  }
+  return mine;
 }
