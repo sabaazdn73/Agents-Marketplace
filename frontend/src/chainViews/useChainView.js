@@ -45,7 +45,7 @@ export function useChainViewIndex() {
  * it by accident. */
 export function useChainView(viewId) {
   const [agents, setAgents] = useState([]);
-  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null });
+  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null, hire_paths: null });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -69,6 +69,12 @@ export function useChainView(viewId) {
  // reason for each one it cannot. From the backend so the UI
       // cannot claim a signal the data layer has no way to compute.
       capabilities: d.capabilities || null,
+      // Which hire paths work for this view, per path and per chain. Named
+      // explicitly like everything else here: this object is built field by
+      // field rather than spread from the response, so a new backend field
+      // is invisible to the UI until it is added on this line. That is what
+      // hid hire_paths on first wiring.
+      hire_paths: d.hire_paths || null,
     });
     setAgents((prev) => (append ? [...prev, ...(d.agents || [])] : (d.agents || [])));
     setHasMore(!!d.has_more);

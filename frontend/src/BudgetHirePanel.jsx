@@ -19,7 +19,7 @@ import React, { useState } from 'react';
 import { parseUnits } from 'viem';
 import { Loader2, Wallet, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useBudgetActions, useBudgetEscrowAddress, NATIVE_SENTINEL } from './budgetEscrow';
-import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META } from './chainContracts';
+import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META, chainName } from './chainContracts';
 import ChainSwitchNotice from './ChainSwitchNotice';
 import BudgetSpendView from './BudgetSpendView';
 import { addNotification } from './notifications';
@@ -36,7 +36,7 @@ const COOLDOWNS = [
   { label: '1 hour', value: 3600 },
 ];
 
-export default function BudgetHirePanel({ agent }) {
+export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   const { openBudget, pending, connected } = useBudgetActions();
   // Address, availability and the native-token label all come from the chain
   // the wallet is on. Nothing here assumes BNB or BSC any more.
@@ -54,6 +54,22 @@ export default function BudgetHirePanel({ agent }) {
   // is now three chains rather than one. Where it is not, say which chain the
   // wallet is on and offer to move -- rather than the old blanket "not
   // deployed yet", which is no longer true anywhere it is shown.
+  // Hiring an agent that lives on another chain would open the budget on
+  // whatever chain the wallet happens to be on, paying that chain's native
+  // token. The addresses are the same shape so nothing would revert, which is
+  // exactly why this is checked rather than left to fail: the budget would
+  // simply be on the wrong chain. Callers that know the agent's chain pass it.
+  if (requiredChainId && Number(requiredChainId) !== Number(chainId)) {
+    return (
+      <ChainSwitchNotice
+        currentChainId={chainId}
+        targetChainIds={[Number(requiredChainId)]}
+        actionLabel="Hiring this agent"
+        reason={`This agent is registered on ${chainName(requiredChainId)}, so its budget has to be opened there.`}
+      />
+    );
+  }
+
   if (!configured) {
     const opts = hiringOptionsFor(chainId);
     return (

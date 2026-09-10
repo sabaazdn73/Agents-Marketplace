@@ -92,12 +92,20 @@ export default function ServiceHealthBadge({ status, checkedAt, size = 'sm', cla
     );
   }
   if (status === 'no_endpoint') {
+    // Wording corrected 2026-09-10. This read "Can't check yet", which
+    // implies a check that has not run. The check HAS run; the agent
+    // registered no service endpoint at all, which is a fact about the
+    // agent rather than a gap in our coverage. The tooltip always said so.
+    //
+    // It became load-bearing when Robinhood Chain was analysed: 159 of its
+    // 190 agents carry this status and are kept, where BSC's equivalents
+    // are deleted, so on that view it is the most common badge on the page.
     return (
       <span
         title="No endpoint registered, can't confirm it's running"
         className={`inline-flex items-center gap-1 ${textCls} font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 ${className}`}
       >
-        <MinusCircle size={sizePx} /> Can't check yet
+        <MinusCircle size={sizePx} /> No endpoint listed
       </span>
     );
   }

@@ -50,6 +50,11 @@ from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 # constants -- mainnet 56 and testnet 97, nothing else.
 ERC8183_CHAIN_IDS = (56, 97)
 
+# Chains where AgentBudgetEscrow is deployed, which is the OTHER hire path and
+# the reason "hireable" is no longer a synonym for "is BSC". Must stay in step
+# with frontend/src/chainContracts.js and chain_views.BUDGET_HIRE_CHAIN_IDS.
+BUDGET_ESCROW_CHAIN_IDS = (56, 42161, 4663)
+
 # Chains this project can reach with its own RPC. Imported lazily inside the
 # function so a missing RPC key can never break a descriptive endpoint.
 
@@ -57,6 +62,20 @@ ERC8183_CHAIN_IDS = (56, 97)
 # a chain can be perfectly EVM and simply not have an explorer wired up
 # here yet.
 _EVM_EXPLORER_SUPPORTED = (1, 56, 8453, 42161, 42220, 143)
+
+# Chains where the contract check runs through Sourcify plus our own RPC
+# instead of an Etherscan-style explorer. Added 2026-09-10 for Robinhood
+# Chain, whose Blockscout instance sits behind a Cloudflare interstitial and
+# returns HTTP 403 to an API client, so it cannot be queried from here.
+#
+# The two halves of the signal are answerable without it. "Is this an account
+# or a contract" is eth_getCode over the chain's own RPC, which we hold. "Is
+# its source published" is a Sourcify lookup, which answers for chain 4663.
+# Verified on real addresses: our own escrow and the ERC-8004 registry both
+# return exact_match with non-zero code, and three real agent owner addresses
+# return zero code with a 404, correctly reading as externally owned accounts
+# rather than unverified contracts.
+_SOURCIFY_VERIFY_CHAINS = (4663,)
 
 # Whether a chain is EVM at all, which is a fact about the chain rather
 # than about what this project has configured. Expressed as the non-EVM
@@ -88,6 +107,12 @@ NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 42220, 143, 4663)
 _ZERION_CHAINS = {
     1: "ethereum", 56: "binance-smart-chain", 8453: "base",
     42161: "arbitrum", 42220: "celo", 143: "monad",
+    # 4663 added 2026-09-10. Zerion does index Robinhood Chain: it appears in
+    # GET /v1/chains as id "robinhood" with external_id 0x1237, which is 4663.
+    # Confirmed with real data rather than from the chain list alone -- three
+    # real stored Robinhood owner addresses were queried and returned live
+    # positions (2, 1 and 1), not empty 200s.
+    4663: "robinhood",
 }
 # The Agent0 subgraph is BSC-ONLY in practice, verified 2026-09-06 rather
 # than assumed from its schema. Its Agent entity DOES expose a `chainId`
@@ -104,7 +129,12 @@ _THEGRAPH_CHAINS = {56}
 # compliance 69 / momentum 11.98 with a domain_verification_failed
 # flag). It is flaky -- intermittent DATABASE_ERROR 500s -- which is a
 # reliability property, not a coverage one.
-_QUALITY_CHAINS = {1, 56, 8453, 42161, 42220, 143}
+_QUALITY_CHAINS = {1, 56, 8453, 42161, 42220, 143, 4663}
+# 4663 added 2026-09-10, and checked against 8004scan's habit of silently
+# ignoring a filter and answering for a different chain. Three real stored
+# agents per chain were requested: every response came back carrying the
+# chain_id and token_id that were asked for (4663/#60, #53, #50), with a
+# populated score block. Genuinely per chain, not a BSC answer reused.
 
 # Binance's token-risk endpoint answers for every chain, but the DEPTH
 # degrades sharply and a field count alone would have hidden that. Measured
@@ -112,11 +142,20 @@ _QUALITY_CHAINS = {1, 56, 8453, 42161, 42220, 143}
 # BSC 89/101, Ethereum 83, Base 79, Arbitrum 40 (no holders), Celo 18
 # (but tiny liquidity), Monad 5 (effectively nothing). Recorded as a
 # tier so the UI can say "partial" rather than implying parity.
-_BINANCE_TIERS = {56: "full", 1: "full", 8453: "full", 42161: "partial", 42220: "thin", 143: "none"}
+_BINANCE_TIERS = {56: "full", 1: "full", 8453: "full", 42161: "partial", 42220: "thin", 143: "none",
+                  # 4663 measured 2026-09-10 the same way the others were:
+                  # populated fields on a stablecoin for that chain. USDG on
+                  # Robinhood returned 12 populated fields, matching BSC's own
+                  # 12 for USDT, and ahead of Arbitrum's 6. Full, not thin.
+                  4663: "full"}
 
 _DEFILLAMA_CHAINS = {
     1: "Ethereum", 56: "Binance", 8453: "Base",
     42161: "Arbitrum", 42220: "Celo", 143: "Monad", 101: "Solana",
+    # 4663 added 2026-09-10. DefiLlama's chain name is "Robinhood Chain", not
+    # "Robinhood" -- the short form is absent and would have silently matched
+    # nothing. 158 protocols list it, including Morpho Blue and PancakeSwap.
+    4663: "Robinhood Chain",
 }
 
 # Why a signal is absent, phrased for a reader rather than a maintainer.
@@ -142,9 +181,14 @@ def get_chain_capabilities(chain_id: int) -> dict:
     absence. Pure and side-effect free -- it describes what could be
     produced, and never itself performs a lookup."""
     is_evm = _is_evm(chain_id)
-    has_explorer = chain_id in _EVM_EXPLORER_SUPPORTED
+    # Either route answers the same question, so either one makes the signal
+    # available. They are kept as separate lists because the METHOD differs
+    # and a reader needs to know which one a given chain uses.
+    has_explorer = (chain_id in _EVM_EXPLORER_SUPPORTED
+                    or chain_id in _SOURCIFY_VERIFY_CHAINS)
     analysed = chain_id in ANALYSIS_CHAIN_IDS
     has_escrow = chain_id in ERC8183_CHAIN_IDS
+    has_budget = chain_id in BUDGET_ESCROW_CHAIN_IDS
 
     signals = [
         _signal(True, "category",
@@ -157,8 +201,11 @@ def get_chain_capabilities(chain_id: int) -> dict:
                 "is implied about whether they're online -- they simply haven't been checked."
                 if is_evm else _NOT_EVM),
         _signal(has_explorer, "contract_verification",
-                "The owner address is checked on this chain's own explorer: whether it's a contract "
-                "at all, and if so whether its source is verified.",
+                ("The owner address is checked against Sourcify for published source, and against "
+                 "this chain's own RPC for whether it is a contract at all."
+                 if chain_id in _SOURCIFY_VERIFY_CHAINS else
+                 "The owner address is checked on this chain's own explorer: whether it's a contract "
+                 "at all, and if so whether its source is verified."),
                 _NO_EXPLORER if is_evm else _NOT_EVM),
         _signal(chain_id in _ZERION_CHAINS, "independent_corroboration",
                 "Independent wallet activity for this chain, read from Zerion.",
@@ -185,6 +232,13 @@ def get_chain_capabilities(chain_id: int) -> dict:
                 "Whether the agent can accept an ERC-8183 escrowed job.", _NO_ERC8183),
         _signal(has_escrow, "delivery_record",
                 "completed and disputed jobs, read from the escrow contract.", _NO_ERC8183),
+        _signal(has_budget, "budget_delivery_record",
+                "Budgets opened against this agent and the draws made against them, read from "
+                "AgentBudgetEscrow on this chain. Separate from the ERC-8183 record below, and "
+                "available on every chain the budget contract is deployed to. The contract is new "
+                "on the chains outside BNB, so most agents will have no budget history yet, which "
+                "is a fact about its age rather than about the agent.",
+                "AgentBudgetEscrow is not deployed on this chain, so there are no budgets to read."),
         _signal(has_escrow, "canary_results",
                 "Results of the test jobs this marketplace runs against agents itself.",
                 _NO_ERC8183 + " Canary tests are paid jobs, so they can't run here either."),
@@ -192,7 +246,10 @@ def get_chain_capabilities(chain_id: int) -> dict:
 
     return {
         "chain_id": chain_id,
-        "hireable": has_escrow,
+        # True if EITHER hire path works here. It used to be has_escrow alone,
+        # which was correct only while ERC-8183 was the only way to hire.
+        "hireable": has_escrow or has_budget,
+        "hire_paths": {"escrow": has_escrow, "budget": has_budget},
         "available": [s["signal"] for s in signals if s["available"]],
         "unavailable": [s["signal"] for s in signals if not s["available"]],
         "signals": signals,

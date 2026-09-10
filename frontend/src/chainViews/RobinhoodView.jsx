@@ -2,17 +2,24 @@
 //
 // Robinhood Chain, with the data that exists and nothing implied past it.
 //
-// The agents are real and stored. What is missing is the analysis: 4663 is
-// absent from ANALYSIS_CHAIN_IDS, from NATIVE_RPC_CHAINS and from the
-// explorer list, because this project has no registry address or RPC
-// configured for the chain yet. So the backend strips every health field
-// per agent, the chain lands in unverifiedChains, and the capabilities
-// block names each missing signal with its reason.
+// Analysed and hireable since 2026-09-10, so this view now says roughly what
+// the Arbitrum one does. The registry deployment and an RPC were verified on
+// the chain itself, all 190 stored agents were health-checked, and
+// AgentBudgetEscrow was deployed and Sourcify-verified here, so budgets can
+// be opened against these agents.
 //
-// This view therefore renders exactly the same components as the others and
-// says less, which is the intended outcome. It is deliberately NOT marked
-// coming soon: that flag would hide agents that genuinely exist, when the
-// gap is in the evaluation rather than in the data.
+// Nine of the thirteen evaluation signals are available. Zerion indexes this
+// chain as "robinhood", DefiLlama carries it as "Robinhood Chain", 8004scan
+// scores its agents, and Binance's token data is as deep here as on BSC.
+//
+// The contract check runs through Sourcify rather than an explorer API: the
+// Blockscout instance sits behind a Cloudflare interstitial and returns 403
+// to a client. The human-facing explorer pages work, so the owner link is a
+// real one; only the programmatic route had to change.
+//
+// ERC-8183 escrow hiring is not available and will not be: that contract is
+// Altana's and exists on BNB Chain only. The view states that rather than
+// implying it is pending.
 //
 // One thing the capabilities block gets right that an earlier version did
 // not: Robinhood Chain IS EVM. It was being told otherwise until
@@ -23,12 +30,12 @@ import React from 'react';
 import { useChainView } from './useChainView';
 import {
   ChainAgentCard, ChainViewStates, LoadMoreButton,
-  NotHireableNotice, UnverifiedStatusNote,
+  HireabilityNotice, UnverifiedStatusNote,
   ChainCapabilities,
 } from './ChainViewShared';
 
 export default function RobinhoodView({ mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { agents, label, statusNote, verifiedChains, unverifiedChains, capabilities, loading, loadingMore, hasMore, error, loadMore } =
+  const { agents, label, statusNote, hire_paths: hirePaths, verifiedChains, unverifiedChains, capabilities, loading, loadingMore, hasMore, error, loadMore } =
     useChainView('robinhood');
 
   const state = <ChainViewStates loading={loading} error={error} empty={!agents.length} label="Robinhood Chain" />;
@@ -36,11 +43,12 @@ export default function RobinhoodView({ mutedBorder = 'border-gray-200 dark:bord
 
   return (
     <div>
-      <NotHireableNotice label={label || 'Robinhood Chain'} />
+      <HireabilityNotice label={label} hirePaths={hirePaths} />
       <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
       <ChainCapabilities capabilities={capabilities} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder} />)}
+        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder}
+            budgetHireable={!!hirePaths?.budget?.chains?.some((c) => c.chain_id === a.chain_id)} />)}
       </div>
       <LoadMoreButton hasMore={hasMore} loadingMore={loadingMore} onClick={loadMore} />
     </div>

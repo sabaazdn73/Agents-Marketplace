@@ -13,12 +13,12 @@ import React from 'react';
 import { useChainView } from './useChainView';
 import {
   ChainAgentCard, ChainViewStates, LoadMoreButton,
-  NotHireableNotice, UnverifiedStatusNote,
+  HireabilityNotice, UnverifiedStatusNote,
   ChainCapabilities,
 } from './ChainViewShared';
 
 export default function EthereumView({ mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { agents, label, statusNote, verifiedChains, unverifiedChains, capabilities, loading, loadingMore, hasMore, error, loadMore } =
+  const { agents, label, statusNote, hire_paths: hirePaths, verifiedChains, unverifiedChains, capabilities, loading, loadingMore, hasMore, error, loadMore } =
     useChainView('ethereum');
 
   const state = <ChainViewStates loading={loading} error={error} empty={!agents.length} label="Ethereum" />;
@@ -26,11 +26,12 @@ export default function EthereumView({ mutedBorder = 'border-gray-200 dark:borde
 
   return (
     <div>
-      <NotHireableNotice label={label || 'Ethereum'} />
+      <HireabilityNotice label={label} hirePaths={hirePaths} />
       <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />
       <ChainCapabilities capabilities={capabilities} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder} />)}
+        {agents.map((a) => <ChainAgentCard key={a.id} agent={a} mutedBorder={mutedBorder}
+            budgetHireable={!!hirePaths?.budget?.chains?.some((c) => c.chain_id === a.chain_id)} />)}
       </div>
       <LoadMoreButton hasMore={hasMore} loadingMore={loadingMore} onClick={loadMore} />
     </div>

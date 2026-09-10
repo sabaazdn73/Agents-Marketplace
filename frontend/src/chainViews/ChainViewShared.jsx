@@ -18,6 +18,7 @@ import React from 'react';
 import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 import ServiceHealthBadge from '../ServiceHealthBadge';
 import ChainAgentEvaluation from '../ChainAgentEvaluation';
+import BudgetHirePanel from '../BudgetHirePanel';
 
 /** Block explorer per chain, so an agent is verifiable at source even
  * though this app cannot check its liveness. Only chains present
@@ -29,7 +30,11 @@ const EXPLORERS = {
   42161: 'https://arbiscan.io/address/',
   42220: 'https://celoscan.io/address/',
   143: null,          // Monad: no stable public explorer wired up here yet
-  4663: null,         // Robinhood Chain: same
+  // Robinhood Chain. The Blockscout API is behind a Cloudflare interstitial
+  // and returns 403 to a client, which is why the contract check uses
+  // Sourcify instead. The human-facing pages serve normally (200 to a
+  // browser), so a link here is a real link, not a broken one.
+  4663: 'https://robinhoodchain.blockscout.com/address/',
   45056: null,        // Billions Network: same
   101: null,          // Solana: different address format, not an EVM explorer
 };
@@ -43,18 +48,51 @@ export function ChainBadge({ chainName }) {
   );
 }
 
-/** The single most important thing these views say. Escrow is deployed on
- * BSC only, so there is no hire path for these agents today. Stated once,
- * prominently, per view rather than implied by the absence of a button. */
-export function NotHireableNotice({ label }) {
+/** What can and cannot be done with these agents, per chain and per path.
+ *
+ * This replaced a flat "not hired here" notice on 2026-09-10, which had
+ * become false. There are two hire paths now and they have different
+ * footprints: budget hiring works wherever AgentBudgetEscrow is deployed,
+ * which is BNB Chain, Arbitrum and Robinhood Chain, while ERC-8183 escrow
+ * hiring is BNB Chain only because that contract is Altana's rather than
+ * ours. One sentence cannot state both without being wrong about one of
+ * them, so both are stated and each names where it applies.
+ *
+ * Availability comes from the backend's hire_paths, so this cannot claim a
+ * path the API does not actually offer.
+ */
+export function HireabilityNotice({ label, hirePaths }) {
+  const budget = hirePaths?.budget;
+  const escrow = hirePaths?.escrow;
+  if (!budget && !escrow) return null;
+
+  const canHire = budget?.available || escrow?.available;
+  const tone = canHire
+    ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-800 dark:text-emerald-300'
+    : 'border-amber-500/25 bg-amber-500/5 text-amber-700 dark:text-amber-400';
+
   return (
-    <div className="p-3 rounded-xl border border-amber-500/25 bg-amber-500/5 text-[12px] text-amber-700 dark:text-amber-400 flex items-start gap-2 mb-4">
-      <Info size={14} className="shrink-0 mt-0.5" />
-      <span>
-        These {label} agents can be browsed but <strong>not hired here</strong>. Tnega's
-        escrow runs on BNB Smart Chain, so hiring is only available for BNB Chain agents.
-        Everything below is registry data, shown for discovery.
-      </span>
+    <div className={`p-3 rounded-xl border ${tone} text-[12px] flex items-start gap-2 mb-4`}>
+      {canHire ? <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+               : <Info size={14} className="shrink-0 mt-0.5" />}
+      <div className="min-w-0 space-y-1">
+        {budget && (
+          <p>
+            <span className="font-semibold">
+              {budget.available ? 'Budget hiring works here.' : 'Budget hiring is not available here.'}
+            </span>{' '}
+            {budget.note}
+          </p>
+        )}
+        {escrow && (
+          <p className={escrow.available ? '' : 'opacity-90'}>
+            <span className="font-semibold">
+              {escrow.available ? 'Escrow hiring works here.' : 'Escrow hiring is not available here.'}
+            </span>{' '}
+            {escrow.note}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -92,8 +130,13 @@ const SIGNAL_LABELS = {
   contract_verification: 'Contract verification',
   independent_corroboration: 'Independent corroboration',
   financial_record: 'Financial record',
+  quality_score: 'Independent quality score',
+  owner_balance: 'Owner wallet balance',
+  token_risk: 'Token liquidity and risk',
+  subgraph_provenance: 'Subgraph provenance',
   escrow_compatibility: 'Escrow compatibility',
-  delivery_record: 'Delivery record',
+  delivery_record: 'Delivery record, ERC-8183',
+  budget_delivery_record: 'Delivery record, budgets',
   canary_results: 'Canary test results',
 };
 
@@ -156,7 +199,7 @@ export function ChainCapabilities({ capabilities }) {
   );
 }
 
-export function ChainAgentCard({ agent, mutedBorder }) {
+export function ChainAgentCard({ agent, mutedBorder, budgetHireable = false }) {
   const explorer = EXPLORERS[agent.chain_id];
   return (
     <div className={`bg-white dark:bg-[#1E293B] rounded-2xl border ${mutedBorder} p-4 flex flex-col gap-2`}>
@@ -195,6 +238,21 @@ export function ChainAgentCard({ agent, mutedBorder }) {
           />
         </div>
       </details>
+
+      {/* A hireable agent gets a hire path on the card, the same as a BSC
+          agent does. Only rendered where AgentBudgetEscrow is actually
+          deployed for this agent's chain, and the panel itself refuses to
+          open a budget while the wallet is on a different chain. */}
+      {budgetHireable && (
+        <details className="mt-1">
+          <summary className="text-[11px] text-emerald-600 dark:text-emerald-400 cursor-pointer hover:underline select-none">
+            Hire with a budget
+          </summary>
+          <div className="mt-2">
+            <BudgetHirePanel agent={agent} requiredChainId={agent.chain_id} />
+          </div>
+        </details>
+      )}
 
       <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-500 mt-auto pt-2">
         {agent.token_id != null && <span className="font-mono">#{agent.token_id}</span>}

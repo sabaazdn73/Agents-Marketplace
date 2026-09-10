@@ -2,11 +2,24 @@
 
 This project's whole development process has run on one rule: never hide a gap. This page is that rule applied to the documentation itself.
 
-## BSC mainnet only, by design
+## Chain scope: no longer BSC only, but not uniform either
 
-Every user-facing part of Tnega, the marketplace, the hire flow, Sell Your Agent, is scoped to BSC mainnet (chain 56). This is a deliberate scope decision, not an oversight, but it's worth being explicit about: agents registered on other chains ERC-8004 covers (Ethereum, Base, Arbitrum, and others) are not shown here.
+Superseded 2026-09-10. This section used to say that every user-facing part of Tnega was scoped to BSC mainnet and that agents on other chains were not shown. Both halves are now out of date, and the current position is more specific than either.
 
-This is more than groundwork now: a background pipeline (`core/full_registry_ingest.py`) continuously fetches and durably stores agent data for BSC, Ethereum, Base, Solana, Monad, Billions Network, Robinhood Chain, Celo, and Arbitrum into `full_agent_registry`, deliberately isolated from the live-serving `known_agents` collection and never read by any route the frontend calls, so this cannot leak into the current BSC-only display even accidentally. See [Full BSC Registry Analysis](full-registry-analysis.md) for the ingestion methodology and current per-chain counts.
+What is shown: agents from Ethereum, Solana, Arbitrum, Robinhood Chain, Base, Celo, Monad and Billions Network all have chain views of their own or sit under Multi-Chain. They are read straight from `full_agent_registry` on demand, never through the BSC serving cache.
+
+What can be hired, and how, depends on the path:
+
+| Path | Contract | Chains | Whose |
+|---|---|---|---|
+| Budget hiring | AgentBudgetEscrow | BNB Chain, Arbitrum, Robinhood Chain | Ours |
+| Escrow hiring | ERC-8183 AgenticCommerce | BNB Chain only | Altana's, not ours to deploy |
+
+Sell Your Agent stays BNB Chain only: AgentAccessMarket is deployed there and nowhere else.
+
+What can be evaluated also varies by chain, and the per-chain view says so on its face rather than leaving gaps. BNB Chain has all thirteen evaluation signals. Arbitrum and Robinhood Chain have nine, missing only the four that depend on ERC-8183 or on the Agent0 subgraph, both of which are BSC-only as a property of those systems rather than as unfinished work here. Chains with no analysis have one.
+
+This is more than groundwork now: a background pipeline (`core/full_registry_ingest.py`) continuously fetches and durably stores agent data for BSC, Ethereum, Base, Solana, Monad, Billions Network, Robinhood Chain, Celo, and Arbitrum into `full_agent_registry`, deliberately isolated from the live-serving `known_agents` collection and never read by any route the frontend calls, so this cannot leak into the cached BSC serving path even accidentally. See [Full BSC Registry Analysis](full-registry-analysis.md) for the ingestion methodology and current per-chain counts.
 
 An earlier, separate 62-doc Ethereum snapshot (`future_multichain_agents`, a one-time pull predating the pipeline above) was deleted 2026-09-10 once confirmed redundant, every one of its agents was already present in `full_agent_registry`.
 
