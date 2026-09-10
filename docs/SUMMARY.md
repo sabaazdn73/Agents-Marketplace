@@ -29,6 +29,7 @@
 * [Fees and Revenue](fees-and-revenue.md)
 * [Competing Approaches](competing-approaches.md)
 * [Future: Tnega PayBox](future-tnega-paybox.md)
+* [Proposal: ERC-8004 Interaction Model](erc-8004-interaction-model.md)
 
 ## Compliance and Legal
 
