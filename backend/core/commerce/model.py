@@ -59,11 +59,46 @@ DEFAULT_GEMINI_MODEL = "gemini-3.7-flash"
 # time and the result is thrown away.
 DEFAULT_TIMEOUT_SECONDS = 90.0
 
-# A quota error is temporary. Failing the stage on the first one turns a
-# few seconds of waiting into a dead run, so one retry is made after a short
-# pause. If it fails again the caller is told it is rate limited, which is a
-# different thing from broken and is offered a retry rather than an error.
-RATE_LIMIT_BACKOFF_SECONDS = 6.0
+# Transient provider failures are retried; everything else fails fast.
+#
+# Both of these are the provider saying "try again", not "this is wrong":
+#   429 RESOURCE_EXHAUSTED  quota or rate limit
+#   503 UNAVAILABLE         "experiencing high demand ... usually temporary"
+#
+# Only 429 used to be retried. A 503 raised on the first failure and killed
+# the whole run at its first agent, which is what a user hit: the provider
+# said the spike was temporary and we did not wait even once. This file's own
+# notes had already recorded a 503 from an alias months earlier, so the case
+# was known and simply never added to the retry test.
+#
+# 500 INTERNAL and 504 DEADLINE_EXCEEDED are included on the same reasoning.
+# They are matched as whole status tokens rather than as substrings, because
+# a bare "500" search would also match a number inside an unrelated message.
+TRANSIENT_STATUS = ("RESOURCE_EXHAUSTED", "UNAVAILABLE", "INTERNAL", "DEADLINE_EXCEEDED")
+TRANSIENT_CODES = (429, 503, 500, 504)
+
+# Three attempts in total. A single retry was not enough for a demand spike,
+# which is measured in tens of seconds rather than one pause, and the delays
+# are kept short enough that a run still finishes inside a reasonable wait.
+RETRY_BACKOFF_SECONDS = (3.0, 9.0)
+RATE_LIMIT_BACKOFF_SECONDS = RETRY_BACKOFF_SECONDS[0]  # kept: referenced elsewhere
+
+
+def _transient_kind(text: str) -> str | None:
+    """'throttled', 'busy', or None. Read from the provider's own status
+    token and code so the message to the user can say which it was."""
+    upper = text.upper()
+    code = None
+    for c in TRANSIENT_CODES:
+        # "503 UNAVAILABLE" or "'code': 503"
+        if re.search(rf"\b{c}\b", text):
+            code = c
+            break
+    if "RESOURCE_EXHAUSTED" in upper or code == 429:
+        return "throttled"
+    if any(s in upper for s in ("UNAVAILABLE", "INTERNAL", "DEADLINE_EXCEEDED")) or code in (503, 500, 504):
+        return "busy"
+    return None
 
 
 
@@ -192,28 +227,45 @@ async def _reason_gemini(prompt: str, schema_hint: str, *, intent: str, timeout:
     async def _once():
         return await asyncio.wait_for(asyncio.to_thread(_call), timeout=timeout)
 
-    try:
-        resp = await _once()
-    except asyncio.TimeoutError:
-        raise ModelUnavailable(f"model call exceeded {timeout}s") from None
-    except Exception as e:
-        text = f"{type(e).__name__}: {str(e)[:200]}"
-        throttled = "429" in text or "RESOURCE_EXHAUSTED" in text
-        if not throttled:
-            raise ModelUnavailable(text) from None
-        await asyncio.sleep(RATE_LIMIT_BACKOFF_SECONDS)
+    resp = None
+    last_kind: str | None = None
+    waited = 0.0
+    attempts = len(RETRY_BACKOFF_SECONDS) + 1
+    for attempt in range(attempts):
         try:
             resp = await _once()
+            break
         except asyncio.TimeoutError:
             raise ModelUnavailable(f"model call exceeded {timeout}s") from None
-        except Exception as e2:
-            text2 = f"{type(e2).__name__}: {str(e2)[:160]}"
-            if "429" in text2 or "RESOURCE_EXHAUSTED" in text2:
-                raise RateLimited(
-                    f"{model_name()} is rate limited. Tried again after "
-                    f"{RATE_LIMIT_BACKOFF_SECONDS:.0f}s and it is still throttled."
-                ) from None
-            raise ModelUnavailable(text2) from None
+        except Exception as e:
+            text = f"{type(e).__name__}: {str(e)[:200]}"
+            kind = _transient_kind(text)
+            if kind is None:
+                # A real error: a bad key, an unknown model, a malformed
+                # request. Retrying cannot help and would only delay the
+                # report, so it is surfaced immediately.
+                raise ModelUnavailable(text) from None
+            last_kind = kind
+            if attempt == attempts - 1:
+                break
+            delay = RETRY_BACKOFF_SECONDS[attempt]
+            waited += delay
+            await asyncio.sleep(delay)
+
+    if resp is None:
+        # Say which of the two it was, in the provider's own terms, and say
+        # what was actually tried. "Try again later" is only fair advice if
+        # the user knows waiting has already been attempted on their behalf.
+        tried = f"Tried {attempts} times over {waited:.0f}s."
+        if last_kind == "throttled":
+            raise RateLimited(
+                f"{model_name()} is rate limited. {tried} This is a quota limit on the "
+                f"API key rather than a fault, and it clears on its own."
+            ) from None
+        raise ModelUnavailable(
+            f"{model_name()} is busy: the provider reported high demand. {tried} "
+            f"Nothing is wrong with the request, and it usually clears within a minute."
+        ) from None
 
     parsed = _extract_json(getattr(resp, "text", "") or "")
     if parsed is None:

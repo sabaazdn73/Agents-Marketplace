@@ -64,7 +64,7 @@ async def run(state: TaskState) -> StageResult:
     except model.ModelUnavailable as e:
         return StageResult(
             stage="intent", status="error", data={},
-            note=f"Model call failed: {e}. No intent was inferred.",
+            note=f"{e} No intent was inferred.",
             started_at=started, ended_at=time.time(),
         )
 

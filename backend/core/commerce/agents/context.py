@@ -101,7 +101,7 @@ async def run(state: TaskState) -> StageResult:
         return StageResult(
             stage="context", status="error",
             data={"product_urls": urls},
-            note=f"Model call failed: {e}. No context was inferred.",
+            note=f"{e} No context was inferred.",
             started_at=started, ended_at=time.time(),
         )
 

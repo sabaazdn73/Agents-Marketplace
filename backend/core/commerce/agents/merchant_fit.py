@@ -111,7 +111,7 @@ async def run(state: TaskState) -> StageResult:
         return StageResult(
             stage="merchant_fit", status="error",
             data={"domains": domains},
-            note=f"Model call failed: {e}. No link was excluded, since excluding needs a reason.",
+            note=f"{e} No link was excluded, since excluding needs a reason.",
             started_at=started, ended_at=time.time(),
         )
 

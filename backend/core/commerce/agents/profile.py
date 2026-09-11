@@ -73,7 +73,7 @@ async def run(state: TaskState) -> StageResult:
         # all rather than an empty-but-confident one.
         return StageResult(
             stage="profile", status="error", data={},
-            note=f"Model call failed: {e}. No profile was inferred.",
+            note=f"{e} No profile was inferred.",
             started_at=started, ended_at=time.time(),
         )
 
