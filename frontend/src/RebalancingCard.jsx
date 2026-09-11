@@ -16,6 +16,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Scale, Loader2, RefreshCw, ArrowRight } from 'lucide-react';
 import { useAccount, usePublicClient } from 'wagmi';
+import { bsc } from 'wagmi/chains';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { planRebalance, currentWeights, formatUnits, RebalanceError, BPS } from './rebalance';
 import { USDT_BSC } from './defiSkills';
@@ -38,7 +39,19 @@ const ASSETS = [
 
 export default function RebalancingCard({ accent, surface, mutedBorder, bare = false }) {
   const { address, isConnected } = useAccount();
-  const publicClient = usePublicClient();
+  // Pinned to BSC. Everything this card reads is BNB Chain: the USDT
+  // contract, and the DEX routers quoteBestAcrossDexes asks for a BNB price.
+  // A bare usePublicClient() follows the wallet, so on any other chain the
+  // USDT read hits an address with no contract and the whole card errors.
+  //
+  // getBalance is the reason this one matters beyond an error message. It
+  // returns the NATIVE balance of whatever chain the client is on, so an
+  // unpinned client on Arbitrum would have read an ETH balance and labelled
+  // it BNB. A wrong number is worse than a failed read, and it would have
+  // been rebalanced against.
+  //
+  // Read only, so pinning cannot misdirect a transaction.
+  const publicClient = usePublicClient({ chainId: bsc.id });
   const [bnbBps, setBnbBps] = useState(6000);
   const [state, setState] = useState({ loading: false, holdings: null, error: null });
 

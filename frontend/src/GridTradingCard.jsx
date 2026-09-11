@@ -50,7 +50,17 @@ function Field({ label, value, onChange, suffix, disabled }) {
 
 export default function GridTradingCard({ accent, surface, mutedBorder, bare = false }) {
   const { address, isConnected } = useAccount();
-  const publicClient = usePublicClient();
+  // Pinned to BSC, matching the writes below.
+  //
+  // The pool, the position manager and both tokens are PancakeSwap V3 on BNB
+  // Chain. sendCalls and writeContract already pass chainId: bsc.id, so the
+  // transactions were always going to BSC while a bare usePublicClient() read
+  // whatever chain the wallet was on. That split is the bad state: the pool
+  // read fails on the wrong chain, so the card shows a broken price while the
+  // buttons underneath would still have transacted correctly on BSC.
+  //
+  // Reading and writing now name the same chain in the same file.
+  const publicClient = usePublicClient({ chainId: bsc.id });
   const config = useConfig();
 
   const [pool, setPool] = useState({ loading: false, tick: null, error: null });

@@ -19,7 +19,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { HeartPulse, Loader2, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useAccount, usePublicClient } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { readPositions, riskBand } from './healthFactor';
+import { readPositions, riskBand, BSC_CHAIN_ID } from './healthFactor';
 import NativeCardShell from './NativeCardShell';
 import { MarkerAxis, ChartEmpty, ChartLegend } from './MiniChart';
 
@@ -40,7 +40,20 @@ function Line({ label, value, tone }) {
 
 export default function HealthFactorCard({ accent, surface, mutedBorder, bare = false }) {
   const { address, isConnected } = useAccount();
-  const publicClient = usePublicClient();
+  // Pinned to BSC, not left to follow the wallet.
+  //
+  // Venus's Comptroller and the Aave v3 Pool in healthFactor.js exist on BNB
+  // Chain and nowhere else. A bare usePublicClient() returns a client for
+  // whatever chain the wallet happens to be on, so once someone switched to
+  // Arbitrum or Robinhood -- which the marketplace gives them tabs for --
+  // both reads hit addresses with no contract at them and came back with
+  //   The contract function "getUserAccountData" returned no data ("0x")
+  // which reads as a broken agent rather than as the wrong network.
+  //
+  // Safe to pin because this card is read only. It signs nothing, so there
+  // is no transaction that could be sent to a chain the user did not pick,
+  // and no reason to make them switch networks to read a balance.
+  const publicClient = usePublicClient({ chainId: BSC_CHAIN_ID });
   const [state, setState] = useState({ loading: false, data: null, error: null });
 
   const load = useCallback(async () => {
@@ -63,6 +76,21 @@ export default function HealthFactorCard({ accent, surface, mutedBorder, bare = 
   const venus = data?.venus;
   const band = aave?.healthFactor ? riskBand(aave.healthFactor) : null;
   const anyPosition = aave?.hasPosition || venus?.hasPosition;
+  // "No positions" is a claim, and it may only be made when both reads
+  // actually returned. readPositions settles each protocol separately, so a
+  // failed read leaves hasPosition undefined, which is falsy, which used to
+  // put the reassuring line "This wallet has no lending positions on Venus
+  // or Aave, so there is nothing to liquidate" directly above two error
+  // messages saying nothing had been read at all.
+  //
+  // On a liquidation screen that is the dangerous direction to be wrong in:
+  // it tells someone whose position is close to the edge that they have
+  // nothing to worry about, at the moment the tool has in fact failed to
+  // look. Not knowing is now reported as not knowing.
+  const aaveOk = aave && !aave.error;
+  const venusOk = venus && !venus.error;
+  const bothRead = aaveOk && venusOk;
+  const neitherRead = aave?.error && venus?.error;
 
   return (
     <NativeCardShell
@@ -99,12 +127,33 @@ export default function HealthFactorCard({ accent, surface, mutedBorder, bare = 
 
       {isConnected && data && !loading && (
         <div className="space-y-3">
-          {!anyPosition && (
+          {bothRead && !anyPosition && (
             <div className="flex items-start gap-2 text-xs py-1">
               <ShieldCheck size={14} className="text-emerald-500 shrink-0 mt-0.5" />
               <span className="opacity-70">
                 This wallet has no lending positions on Venus or Aave, so there is nothing to
                 liquidate and no health factor to report.
+              </span>
+            </div>
+          )}
+
+          {neitherRead && (
+            <div className="flex items-start gap-2 text-xs py-1">
+              <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+              <span className="opacity-70">
+                Neither protocol could be read, so this says nothing about whether the wallet
+                has a position. The reason from each is below.
+              </span>
+            </div>
+          )}
+
+          {!neitherRead && (aave?.error || venus?.error) && (
+            <div className="flex items-start gap-2 text-xs py-1">
+              <AlertTriangle size={14} className="text-amber-500 shrink-0 mt-0.5" />
+              <span className="opacity-70">
+                {aave?.error ? 'Aave' : 'Venus'} could not be read, so only the
+                {aave?.error ? ' Venus ' : ' Aave '}
+                side below is a complete answer.
               </span>
             </div>
           )}
