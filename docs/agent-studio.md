@@ -13,6 +13,47 @@ because what a visitor watches is the handoff between agents.
 The older Pay.B402 tab was folded into this one. `/pay-b402` still resolves,
 to the studio, so existing links keep landing somewhere.
 
+For one run traced end to end, with the two bugs it surfaced and how each was
+localised, see [A Studio Run, End to End](studio-run-walkthrough.md).
+
+## Why several agents rather than one
+
+The same work could be a single prompt: read the request, search the
+directory, pick a service, check it, pay. Five reasons it is not.
+
+A failure has an address. `run["error"]` is set to `Stopped at {key}` and the
+agent that failed reports `blocked`, so a wrong result names its producer
+before any code is read. In one prompt a wrong answer is just a wrong answer,
+with no way to tell a bad budget reading from a bad service choice because
+one call produced both.
+
+Recovery is cheap and partial. Each stage writes into shared state before the
+next starts, so `retry()` re-runs one agent and `answer()` resumes at the
+asking agent, keeping everything earlier. That matters when API Fit has just
+queried 500 services. A single call has no partial recovery: any failure
+costs the whole run.
+
+Determinism goes exactly where it is needed. Reading a request into a need is
+language and belongs to a model; comparing a price to a budget is arithmetic
+and never does. QA consults no model at all, so it works with no API key,
+cannot be talked out of a finding by a persuasive description, and answers
+the same way twice. One call that both exercises judgement and decides
+whether to spend has no seam between the two.
+
+A finding can name a stage. `size_missing` is blamed on Search,
+`over_budget` on Styling, `budget_unknown` on Profile. That column exists
+only because the stages do.
+
+An agent can stop and ask. A stage returns a typed question carrying the
+field its answer fills, and the coordinator routes the reply and resumes that
+agent. With one call there is nowhere to pause: the model either asks inside
+its prose, where nothing can route the reply, or it guesses, and a guessed
+budget is a budget QA later checks a price against.
+
+What it costs, stated rather than implied: latency is the sum of the stages,
+each model-backed stage is its own call so quota is consumed per stage, and
+there are more moving parts including the coordinator itself.
+
 ## Two flows, because the two problems are not the same
 
 | Flow | Key | What it does | Ends at |
@@ -74,8 +115,16 @@ which agent was busy.
 POST /api/studio/runs            {"flow": "api", "request": "..."}  -> run_id
 GET  /api/studio/runs/{run_id}                                      -> poll
 POST /api/studio/runs/{run_id}/answers   {"answers": {...}}         -> resume
+POST /api/studio/runs/{run_id}/retry                                -> re-run the failed agent
 GET  /api/studio/flows                                              -> the roster
 ```
+
+`/answers` and `/retry` are not interchangeable. `/answers` resumes a run
+paused on a question; `/retry` re-runs an agent that failed. A stage killed
+by a provider outage asks no question, so it sets no `pending`, and sending
+it to `/answers` returns the run unchanged with a 200. That was a real bug,
+and the studio's retry button did nothing for as long as it lasted. See the
+[walkthrough](studio-run-walkthrough.md#try-that-agent-again-did-nothing).
 
 Every poll returns the same shape: the agents in this flow, the state of
 each, how long the working one has been at it, what handed off to what, and
@@ -216,9 +265,24 @@ underneath a deployment without warning.
 Two timing decisions come from measurement. The call timeout is 90 seconds,
 because an earlier 45-second guess sat on top of the observed range: the
 same prompt answered in 34.9s, then timed out at 45.0s, then answered in
-44.7s, which turns a slow model into an intermittent failure. And a quota
-error gets exactly one retry after a 6 second pause, then reports being rate
-limited, which is a different thing from broken.
+44.7s, which turns a slow model into an intermittent failure.
+
+And a transient provider error gets three attempts with 3 and 9 second
+backoffs before it gives up. Transience is classified on both the status
+token and the numeric code:
+
+| Token | Code | Reported as |
+|---|---|---|
+| `RESOURCE_EXHAUSTED` | 429 | rate limited, a quota limit on the key |
+| `UNAVAILABLE` | 503 | busy, the provider reported high demand |
+| `INTERNAL` | 500 | busy |
+| `DEADLINE_EXCEEDED` | 504 | busy |
+
+Anything else fails on the first attempt, so a genuinely bad request does not
+sit there retrying. The distinction between rate limited and busy is carried
+through to the studio, which offers a retry for both and names which one
+happened. It used to match only the rate-limit wording, which left a run
+killed by a 503 with no way forward at all.
 
 ## What the studio will not do
 

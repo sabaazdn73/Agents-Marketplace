@@ -154,6 +154,33 @@ function InlineContent({ parts, onNavigate }) {
         </code>
       );
     }
+    // A screenshot in a doc. Rendered as a figure with the alt text as its
+    // caption, because in these files the alt text is a real description of
+    // what the reader is looking at rather than a filename, and a caption is
+    // what makes a screenshot legible next to prose.
+    //
+    // Sources are absolute site paths under /doc-images/ rather than paths
+    // relative to docs/. The markdown is bundled at build time from a
+    // directory outside frontend/, so a relative src would resolve against
+    // the /docs route rather than against the file, and images are served
+    // from public/ instead.
+    if (p.t === 'image') {
+      return (
+        <figure key={i} className="my-6">
+          <img
+            src={p.href}
+            alt={p.v}
+            loading="lazy"
+            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm"
+          />
+          {p.v ? (
+            <figcaption className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+              {p.v}
+            </figcaption>
+          ) : null}
+        </figure>
+      );
+    }
     if (p.t === 'link') {
  // internal doc link (e.g. "architecture.md" or
       // "features.md#advantage-report"), resolved within /docs, not left
@@ -214,6 +241,24 @@ function DocContent({ filename, onNavigate }) {
           );
         }
         if (b.type === 'paragraph') {
+          // A paragraph that is nothing but images renders as figures rather
+          // than inside a <p>. A <figure> is not valid inside a <p>, and a
+          // browser silently closes the paragraph early when it meets one,
+          // which breaks the rest of the block. Screenshots in these files
+          // sit on their own line, so this is the shape they actually take.
+          //
+          // The prose column cap is dropped here too: paragraphs keep a
+          // comfortable measure, a screenshot wants the width.
+          const onlyImages = b.inline.length > 0 && b.inline.every(
+            (p) => p.t === 'image' || (p.t === 'text' && !p.v.trim())
+          );
+          if (onlyImages) {
+            return (
+              <div key={i} className="max-w-5xl">
+                <InlineContent parts={b.inline.filter((p) => p.t === 'image')} onNavigate={onNavigate} />
+              </div>
+            );
+          }
           return (
             // max-w-3xl on text only. The pane is now wide enough that an
             // unconstrained paragraph would run past a comfortable measure,

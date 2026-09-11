@@ -34,15 +34,24 @@ export function slugify(text) {
 function stripInlineMarkdown(s) {
   return s
     .replace(/`([^`]+)`/g, '$1')
+    // Images before links: an image IS a link pattern with a leading "!",
+    // so the link rule would otherwise leave a stray "!" behind in a
+    // heading or a nav label.
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/\*(.+?)\*/g, '$1');
 }
 
-// Splits inline text into { t: 'text'|'code'|'link'|'bold'|'italic', v, href? }
-// segments. Code spans are matched first so `**not bold**` inside a code
-// span isn't mistaken for bold markup.
-const INLINE_RE = /(`([^`]+)`)|(\[([^\]]+)\]\(([^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)/;
+// Splits inline text into
+// { t: 'text'|'code'|'image'|'link'|'bold'|'italic', v, href? } segments.
+//
+// Code spans are matched first so `**not bold**` inside a code span isn't
+// mistaken for bold markup. Images come before links for the same reason
+// they do in stripInlineMarkdown: `![alt](src)` contains `[alt](src)`, so
+// the link alternative would match the tail of it and render an image as a
+// link with a leftover "!" in front.
+const INLINE_RE = /(`([^`]+)`)|(!\[([^\]]*)\]\(([^)]+)\))|(\[([^\]]+)\]\(([^)]+)\))|(\*\*(.+?)\*\*)|(\*(.+?)\*)/;
 export function parseInline(s) {
   const parts = [];
   let rest = s;
@@ -54,9 +63,10 @@ export function parseInline(s) {
     }
     if (m.index > 0) parts.push({ t: 'text', v: rest.slice(0, m.index) });
     if (m[2] !== undefined) parts.push({ t: 'code', v: m[2] });
-    else if (m[4] !== undefined) parts.push({ t: 'link', v: m[4], href: m[5] });
-    else if (m[7] !== undefined) parts.push({ t: 'bold', v: m[7] });
-    else if (m[9] !== undefined) parts.push({ t: 'italic', v: m[9] });
+    else if (m[4] !== undefined) parts.push({ t: 'image', v: m[4], href: m[5] });
+    else if (m[7] !== undefined) parts.push({ t: 'link', v: m[7], href: m[8] });
+    else if (m[10] !== undefined) parts.push({ t: 'bold', v: m[10] });
+    else if (m[12] !== undefined) parts.push({ t: 'italic', v: m[12] });
     rest = rest.slice(m.index + m[0].length);
   }
   return parts;
