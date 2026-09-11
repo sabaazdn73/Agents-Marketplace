@@ -17,10 +17,12 @@
 // because Dune carries a complete Solana transaction table; see the EVM
 // section of the same work for what is and is not available on BNB Chain.
 //
-// Every figure here was measured, not estimated. Source and cost are stated
-// at the foot of the page, including the queries that failed and what the
-// whole thing cost in credits. The limitations section is not decoration:
-// it is the part that makes the rest usable by someone else.
+// Every figure here was measured, not estimated. The source and the queries
+// that produced it are stated at the foot of the page. Query costs are
+// deliberately not published: they are an operational detail of our own
+// account, not a property of the subject, and they invite a reader to weigh
+// the findings by what they cost to obtain. The limitations section is not
+// decoration: it is the part that makes the rest usable by someone else.
 
 import React from 'react';
 import {
@@ -355,25 +357,23 @@ export default function BehaviourStudy() {
         </div>
       </Card>
 
-      <Card icon={Coins} title="Source and cost" tag="223.5 credits" tagColor="#64748B">
+      <Card icon={Coins} title="Source and method" tag="5 queries" tagColor="#64748B">
         <Table
-          head={['Query', 'Purpose', 'Credits']}
+          head={['Query', 'What it established']}
           rows={[
-            ['schema', 'column discovery from information_schema', '0.05'],
-            ['discover', 'signer versus program, footprint', '8.50'],
-            ['activity', 'success rate, daily volume, fees', '3.85'],
-            ['timing', 'slot gaps, error breakdown', '1.77'],
-            ['dex', 'venues, pairs, sizing', '209.36'],
+            ['schema', 'column discovery from information_schema'],
+            ['discover', 'signer versus program, and the true extent of the history'],
+            ['activity', 'success rate, daily volume, fees'],
+            ['timing', 'slot gaps and the error breakdown'],
+            ['dex', 'venues, pairs and sizing'],
           ]}
-          foot={['5 executions', '', '223.53']}
         />
         <Note>
-          Dune, on the free tier. The schema was read from information_schema rather than assumed,
-          after the published documentation turned out not to list columns for the Solana trades
-          table. One query, the venue and pair scan, cost 209 credits on its own because the date
-          bound was dropped to confirm there was no history before 4 September, which forced a full
-          table scan. That answer was worth having but not at that price. Failed executions cost
-          nothing, which is why a division by zero in an early attempt is absent from this table.
+          Dune, reading the raw Solana transaction table and the curated trades table. The schema
+          was read from information_schema rather than assumed, after the published documentation
+          turned out not to list columns for the trades table. The venue and pair query was run with
+          no date bound, which is what establishes that there is no history before 4 September
+          rather than merely none inside a window.
         </Note>
       </Card>
 

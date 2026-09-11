@@ -45,7 +45,7 @@ export function useChainViewIndex() {
  * it by accident. */
 export function useChainView(viewId) {
   const [agents, setAgents] = useState([]);
-  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null, hire_paths: null, total: null });
+  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null, hire_paths: null, total: null, statusCounts: null });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -86,6 +86,10 @@ export function useChainView(viewId) {
       // Total agents in this view, so a hireable chain can show numbered
       // pages instead of an open-ended "load more".
       total: typeof d.total === 'number' ? d.total : null,
+      // How much of the view actually answers. Null on chains the
+      // analysis pass has never run against, where a breakdown would
+      // look informative while saying nothing.
+      statusCounts: d.status_counts || null,
     });
     setAgents((prev) => (append ? [...prev, ...(d.agents || [])] : (d.agents || [])));
     setHasMore(!!d.has_more);

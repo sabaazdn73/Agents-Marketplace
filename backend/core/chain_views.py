@@ -454,10 +454,28 @@ async def fetch_page(view: str, *, offset: int = 0, limit: int = 24,
     # and the count is a covered index lookup on chain_id.
     total = await col.count_documents(q)
 
+    # How much of this view is actually reachable, broken down by the status
+    # the analysis pass recorded. Sent so a view can say "812 of 30,779
+    # answer" instead of presenting a stored count as if it were a catalogue.
+    #
+    # Only for analysed chains: on a chain the pass has never run against,
+    # every agent would report the same absent status and the breakdown would
+    # say nothing while looking like it said something.
+    status_counts = None
+    if any(c in ANALYSIS_CHAIN_IDS for c in v["chain_ids"]):
+        status_counts = {
+            r["_id"] or "unchecked": r["n"]
+            for r in await col.aggregate([
+                {"$match": {"chain_id": {"$in": v["chain_ids"]}}},
+                {"$group": {"_id": "$service_status", "n": {"$sum": 1}}},
+            ]).to_list(length=20)
+        }
+
     return {
         "view": view,
         "label": v["label"],
         "total": total,
+        "status_counts": status_counts,
         "category": category or "All",
         "hireable": _hire_paths(v["chain_ids"])["any"],
         "hire_paths": _hire_paths(v["chain_ids"]),
