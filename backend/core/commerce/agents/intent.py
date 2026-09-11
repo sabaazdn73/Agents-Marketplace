@@ -17,6 +17,10 @@ from __future__ import annotations
 import time
 
 from .. import model
+from ..currency import (
+    GENERIC, SETTLEMENT, SETTLEMENT_SYMBOL, STATED,
+    display, normalize_budget_currency, reading_note,
+)
 from ..questions import NUMBER, question
 from ..state import Money, MoneyError, StageResult, TaskState
 
@@ -32,7 +36,10 @@ SCHEMA_HINT = """{
   "questions": [string]             // what must be asked before choosing
 }"""
 
-DEFAULT_CURRENCY = "U"
+# The settlement asset lives in currency.py now, because the profile stage
+# needs the same normalising and two copies of a money constant is one copy
+# too many.
+DEFAULT_CURRENCY = SETTLEMENT_SYMBOL
 DEFAULT_DECIMALS = 18
 
 
@@ -97,19 +104,50 @@ async def run(state: TaskState) -> StageResult:
             asks.append(question("capability", "What should the service actually do?",
                                  "context.capability", placeholder="turn text into speech"))
 
-    amount = out.get("budget_amount") or state.profile.get("budget_text")
-    if isinstance(amount, str) and amount.strip():
-        symbol = out.get("budget_currency")
-        symbol = symbol.strip().upper() if isinstance(symbol, str) and symbol.strip() else DEFAULT_CURRENCY
+    # An answered budget beats the model's re-reading of the request.
+    #
+    # This stage re-runs after a pause, and the model is given the ORIGINAL
+    # request again, so it extracts the same amount and the same currency it
+    # did the first time. Taking the model's answer first meant any question
+    # asked about the budget was asked again on resume, and again after that:
+    # the answer had nowhere to land. Every budget question below asks for a
+    # figure in the settlement asset, so an answer is in that asset by
+    # construction and needs no currency reading.
+    answered = state.profile.get("budget_text")
+    answered = answered.strip() if isinstance(answered, str) and answered.strip() else None
+
+    if answered:
+        amount, symbol, kind, raw_symbol = answered, DEFAULT_CURRENCY, SETTLEMENT, None
+    else:
+        raw_amount = out.get("budget_amount")
+        amount = raw_amount.strip() if isinstance(raw_amount, str) and raw_amount.strip() else None
+        raw_symbol = out.get("budget_currency")
+        symbol, kind = normalize_budget_currency(raw_symbol, DEFAULT_CURRENCY)
+
+    currency_note = ""
+    if not amount:
+        asks.append(question("budget", f"What is the most you want to pay per call, in {display(DEFAULT_CURRENCY)}?",
+                             "profile.budget_text", kind=NUMBER, placeholder="1"))
+    elif kind == STATED:
+        # A genuinely different currency. No rate is applied here, the same
+        # rule the match stage enforces, but it is asked about now, while
+        # there is still someone to ask, instead of dead-ending three stages
+        # later with a mismatch the person cannot act on.
+        asks.append(question(
+            "budget",
+            f"Your budget is in {display(symbol)} and these services price in "
+            f"{display(DEFAULT_CURRENCY)}. No exchange rate is applied on a spend path, "
+            f"so what is the most you want to pay per call, in {display(DEFAULT_CURRENCY)}?",
+            "profile.budget_text", kind=NUMBER, placeholder="1"))
+    else:
         try:
-            intent["budget"] = Money.from_decimal_string(amount.strip(), DEFAULT_DECIMALS, symbol)
+            intent["budget"] = Money.from_decimal_string(amount, DEFAULT_DECIMALS, symbol)
+            if kind == GENERIC:
+                currency_note = reading_note(raw_symbol, symbol, kind)
         except (MoneyError, ArithmeticError, ValueError):
             asks.append(question(
                 "budget", f"I could not read {amount!r} as an amount. What is the most you want to pay per call?",
                 "profile.budget_text", kind=NUMBER, placeholder="1"))
-    else:
-        asks.append(question("budget", "What is the most you want to pay per call, in $U?",
-                             "profile.budget_text", kind=NUMBER, placeholder="1"))
 
     state.profile.update({k: v for k, v in intent.items() if k == "budget"})
     state.context["intent"] = {k: v for k, v in intent.items() if k != "budget"}
@@ -125,6 +163,6 @@ async def run(state: TaskState) -> StageResult:
         note=(
             f"Need understood: {intent.get('capability')}." if intent.get("capability")
             else "The request does not yet say what the service should do."
-        ) + (f" Waiting on {len(asks)} answer(s)." if asks else ""),
+        ) + currency_note + (f" Waiting on {len(asks)} answer(s)." if asks else ""),
         started_at=started, ended_at=time.time(),
     )

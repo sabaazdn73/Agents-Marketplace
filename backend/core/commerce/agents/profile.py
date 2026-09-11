@@ -23,6 +23,7 @@ from __future__ import annotations
 import time
 
 from .. import model
+from ..currency import GENERIC, SETTLEMENT, normalize_budget_currency, reading_note
 from ..questions import NUMBER, question
 from ..state import Money, MoneyError, StageResult, TaskState
 
@@ -101,18 +102,32 @@ async def run(state: TaskState) -> StageResult:
         asks.append(question("size", "What size do you need?", "profile.size",
                              placeholder="M, 42, UK 9"))
 
-    amount = out.get("budget_amount") or state.profile.get("budget_text")
-    if isinstance(amount, str) and amount.strip():
-        symbol = (out.get("budget_currency") or DEFAULT_CURRENCY)
-        symbol = symbol.strip().upper() if isinstance(symbol, str) else DEFAULT_CURRENCY
+    # Same precedence as the intent stage: an answered budget beats the
+    # model's re-reading of the original request, which never changes and so
+    # would otherwise re-raise the same question on every resume.
+    answered = state.profile.get("budget_text")
+    answered = answered.strip() if isinstance(answered, str) and answered.strip() else None
+
+    if answered:
+        amount, symbol, kind, raw_symbol = answered, DEFAULT_CURRENCY, SETTLEMENT, None
+    else:
+        raw_amount = out.get("budget_amount")
+        amount = raw_amount.strip() if isinstance(raw_amount, str) and raw_amount.strip() else None
+        raw_symbol = out.get("budget_currency")
+        # "200 stablecoin" is a person declining to name a token, not a
+        # token called STABLECOIN. See currency.py for the three cases this
+        # separates and why only one of them is a real second currency.
+        symbol, kind = normalize_budget_currency(raw_symbol, DEFAULT_CURRENCY)
+
+    currency_note = ""
+    if amount:
         try:
             # Parsed exactly. A budget that cannot be represented at the
             # token's precision is refused rather than rounded -- rounding a
             # budget silently changes what someone agreed to spend.
-            profile["budget"] = Money.from_decimal_string(
-                amount.strip(), DEFAULT_DECIMALS, DEFAULT_CURRENCY
-                if symbol == DEFAULT_CURRENCY else symbol,
-            )
+            profile["budget"] = Money.from_decimal_string(amount, DEFAULT_DECIMALS, symbol)
+            if kind == GENERIC:
+                currency_note = reading_note(raw_symbol, symbol, kind)
         except (MoneyError, ArithmeticError, ValueError):
             asks.append(question(
                 "budget", f"I could not read {amount!r} as an amount. What is the most you want to spend?",
@@ -150,6 +165,6 @@ async def run(state: TaskState) -> StageResult:
         note=(
             "Profile complete." if not asks
             else f"Waiting on {len(asks)} answer(s)."
-        ),
+        ) + currency_note,
         started_at=started, ended_at=time.time(),
     )

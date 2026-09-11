@@ -22,10 +22,11 @@ from __future__ import annotations
 import time
 
 from .. import model
+from ..currency import SETTLEMENT_SYMBOL, display
 from ..state import Money, MoneyError, StageResult, TaskState
 
 U_DECIMALS = 18
-U_SYMBOL = "U"
+U_SYMBOL = SETTLEMENT_SYMBOL
 
 SCHEMA_HINT = """{
   "choice_index": number,     // index into the shortlist you were given
@@ -93,12 +94,21 @@ async def run(state: TaskState) -> StageResult:
     budget = budget if isinstance(budget, Money) else None
     if budget is not None and (budget.decimals != U_DECIMALS or budget.symbol != U_SYMBOL):
         # No conversion on a spend path. The same rule Styling follows.
+        #
+        # This should now be unreachable for the common cases. The intent
+        # stage resolves a generic word like "stablecoin" to the settlement
+        # asset and ASKS about a genuinely different token while there is
+        # still someone to ask, so a second currency reaching this far means
+        # a symbol nothing upstream recognised. The refusal stays as the
+        # backstop it was, but it says what to do about it -- the old message
+        # ended the run with a fact and no next step.
         return StageResult(
             stage="match", status="error",
             data={"budget": budget.to_dict()},
             note=(
-                f"The budget is in {budget.symbol} and these services price in {U_SYMBOL}. "
-                "No exchange rate is applied, so no comparison is made."
+                f"The budget is in {display(budget.symbol)} and these services price in "
+                f"{display(U_SYMBOL)}. No exchange rate is applied on a spend path, so no "
+                f"comparison is made. Restate the budget in {display(U_SYMBOL)} to continue."
             ),
             started_at=started, ended_at=time.time(),
         )
