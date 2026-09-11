@@ -67,15 +67,24 @@ DRAWN_TOPIC = "0x857eef7b9debffbe023f8d5f0d03d0e4f26b954deeef5d68ef6c5ebe33a5aae
 # keccak("BudgetOpened(uint256,address,address,address,uint256,uint256,uint64,uint64)")
 OPENED_TOPIC = "0x3aba8d716ec2c8a56e018967b6db59e71c926d3cbfcfa54050e0889536113e93"
 
+# Must stay in step with frontend/src/chainContracts.js. Note that the same
+# address is AgentAccessMarket on BSC, which is why this is keyed by chain and
+# why 56 has a different entry rather than reusing the other three.
 ESCROW_ADDRESS = {
     56: "0x4728f03693DDABbe50E79c7BfFCb930e522D585B",
+    1: "0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333",
     42161: "0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333",
     4663: "0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333",
 }
 
 # The block of BudgetOpened for budget #1 on each chain, read from chain
 # 2026-09-11. An exact floor, not an estimate: see the note above.
-FIRST_BUDGET_BLOCK = {56: 120311961, 42161: 503840279, 4663: 59515146}
+# Ethereum has no budget #1 yet, so its floor is the contract's own creation
+# block (25957217, tx 0x5e2d3149..., creator 0x48cE74cd...), read from
+# Etherscan rather than guessed. No log can predate the contract, so this is
+# an exact floor by construction, the same guarantee the other three get from
+# budget #1's block.
+FIRST_BUDGET_BLOCK = {56: 120311961, 1: 25957217, 42161: 503840279, 4663: 59515146}
 
 # eth_getLogs page size. BSC's endpoints cap the range at 5,000 blocks and
 # reject anything wider outright rather than truncating, so the page size is

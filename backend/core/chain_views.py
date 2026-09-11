@@ -29,7 +29,7 @@ is read:
    ERC-8183 escrow hiring is BSC only -- that contract is Altana's and
    exists on chains 56 and 97, and is not ours to deploy. Budget hiring
    works wherever AgentBudgetEscrow is deployed, which is now BSC,
-   Arbitrum and Robinhood Chain. A view therefore reports BOTH, and the UI
+   Ethereum, Arbitrum and Robinhood Chain. A view therefore reports BOTH, and the UI
    is expected to name which one it means rather than showing a single
    "hireable" flag that would be true for one path and false for the other.
 """
@@ -50,7 +50,7 @@ from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 #
 # ESCROW_HIRE_CHAIN_IDS deliberately excludes BNB testnet (97): no testnet
 # value may be reachable from a production path.
-BUDGET_HIRE_CHAIN_IDS = (56, 42161, 4663)
+BUDGET_HIRE_CHAIN_IDS = (56, 1, 42161, 4663)
 ESCROW_HIRE_CHAIN_IDS = (56,)
 
 # Chain id -> display name. Kept here so a view definition reads as names

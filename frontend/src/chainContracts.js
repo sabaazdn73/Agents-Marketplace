@@ -8,9 +8,11 @@
 // ─────────────────────────────────────────────────────────────────────────
 // READ THIS BEFORE ADDING AN ADDRESS
 //
-// 0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333 is TWO DIFFERENT CONTRACTS:
+// 0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333 is TWO DIFFERENT CONTRACTS,
+// across FOUR chains:
 //
 //   chain 56    (BNB)        -> AgentAccessMarket   ("Sell Your Agent")
+//   chain 1     (Ethereum)   -> AgentBudgetEscrow
 //   chain 42161 (Arbitrum)   -> AgentBudgetEscrow
 //   chain 4663  (Robinhood)  -> AgentBudgetEscrow
 //
@@ -18,7 +20,12 @@
 // coincidence of CREATE address derivation: the same deployer wallet at the
 // same nonce produces the same address on every EVM chain. AgentAccessMarket
 // happened to be that wallet's nonce-N deploy on BSC, and AgentBudgetEscrow
-// happened to be its nonce-N deploy on the two new chains.
+// happened to be its nonce-N deploy on the three other chains.
+//
+// The coincidence getting wider is the reason to be MORE careful, not less.
+// Three escrows now share an address with one market, so an address that
+// "looks right" is right three times out of four, which is exactly the ratio
+// that trains someone to stop checking.
 //
 // Why this is dangerous rather than merely untidy: both contracts implement
 // owner(), feeBps() and MAX_FEE_BPS(). Verified on chain 2026-09-10 — all
@@ -38,11 +45,20 @@
  * adding a line here is the whole enablement step.
  *
  * BSC        deployed 2026-08 (see docs/budget-escrow-golive.md)
+ * Ethereum   deployed 2026-09-11, Etherscan-verified
  * Arbitrum   deployed 2026-09-10, Arbiscan-verified
  * Robinhood  deployed 2026-09-10, Sourcify-verified (exact_match)
+ *
+ * Ethereum's entry was checked on chain before being added, not assumed from
+ * the address matching: 7,396 bytes of code (identical in length to Arbitrum
+ * and Robinhood, against BSC's 6,478), feeWallet the project wallet, feeBps
+ * 250, MAX_FEE_BPS 1000, and acceptedTokens true for mainnet USDC and USDT.
+ * BSC at the same address answers with a different feeWallet, which is the
+ * collision described above behaving exactly as warned.
  */
 const BUDGET_ESCROW_BY_CHAIN = {
   56: '0x4728f03693DDABbe50E79c7BfFCb930e522D585B',
+  1: '0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333',
   42161: '0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333',
   4663: '0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333',
 };

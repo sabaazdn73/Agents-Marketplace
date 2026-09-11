@@ -85,8 +85,20 @@ export default function EthereumView({ mutedBorder = 'border-gray-200 dark:borde
 
   // Parity switch. One condition, no per-chain branching inside the shared
   // components, and it needs no edit here when the escrow lands.
+  //
+  // The population note is rendered on BOTH branches on purpose. It is true
+  // whether or not the escrow is live, and it matters more once it is: a
+  // hireable theme puts a hire button on every card, which is exactly when a
+  // visitor is most likely to read 30,779 as the size of the catalogue. The
+  // note sits above HireableChainView rather than inside it so the shared
+  // component stays chain-agnostic.
   if (isBudgetHiringAvailable(ETHEREUM_CHAIN_ID)) {
-    return <HireableChainView view={view} label={view.label || 'Ethereum'} />;
+    return (
+      <div>
+        <EthereumPopulationNote statusCounts={view.statusCounts} total={view.total} />
+        <HireableChainView view={view} label={view.label || 'Ethereum'} />
+      </div>
+    );
   }
 
   const {

@@ -31,10 +31,6 @@ export const MAIN_TAB_PATHS = {
   '/native-agents': 'native',
   '/my-agents': 'my-agents',
   '/report': 'report',
-  // Behaviour Study, added 2026-09-11. Its own path for the same reason
-  // every other tab has one: it is linkable on its own and must survive
-  // a refresh.
-  '/behaviour-study': 'behaviour',
   '/learn': 'learn',
   '/build': 'build',
   '/sell': 'sell',

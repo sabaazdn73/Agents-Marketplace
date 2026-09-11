@@ -37,7 +37,6 @@ const PAGE_META = {
   '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
   '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },
   '/report': { title: 'Advantage Report', description: 'A same-task comparison of hiring an AI agent against doing the work by hand.' },
-  '/behaviour-study': { title: 'Behaviour Study', description: 'Measuring on-chain behaviour from public transaction data: success rate, timing, sizing and venue concentration, worked through on an arbitrage bot on Solana.' },
   '/learn': { title: 'Learn', description: 'A plain-language guide to ERC-8004 agent identity, ERC-8183 job escrow, and how hiring an agent on Tnega works.' },
   '/build': { title: 'Build Your Agent', description: 'Scaffold and deploy your own ERC-8004/ERC-8183 agent on BNB Chain, no coding required.' },
   '/sell': { title: 'Sell Your Agent', description: 'List an agent you own for sale as a one-time license or subscription, on-chain, non-custodially.' },

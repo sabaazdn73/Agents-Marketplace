@@ -89,7 +89,11 @@ _KNOWN_CONTRACTS = {
     "0xea4daa3100a767e86fded867729ae7446476eba6": "Tnega's own AgenticCommerce contract (ERC-8183 escrow)",
     "0x51895229e12f9876011789b04f8698af06ccd6da": "Tnega's own EvaluatorRouter contract (ERC-8183)",
     "0x9c01845705b3078aa2e8cff7520a6376fd766de5": "Tnega's own OptimisticPolicy contract (ERC-8183 default dispute policy)",
-    "0x9dba8ebb17fa4ac5c9da083632e9294845ad1333": "Tnega's own AgentAccessMarket contract (Sell Your Agent)",
+    # Chain-dependent, and this lookup has no chain. The same address is
+    # AgentAccessMarket on BSC and AgentBudgetEscrow on Ethereum, Arbitrum
+    # and Robinhood Chain, so naming one of them would be wrong three times
+    # out of four. Says both rather than picking.
+    "0x9dba8ebb17fa4ac5c9da083632e9294845ad1333": "Tnega's own contract: AgentAccessMarket (Sell Your Agent) on BNB Chain, AgentBudgetEscrow on Ethereum, Arbitrum and Robinhood Chain",
     "0x10ed43c718714eb63d5aa57b78b54704e256024e": "PancakeSwap V2 Router",
     "0xca143ce32fe78f1f7019d7d551a6402fc5350c73": "PancakeSwap V2 Factory",
     "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c": "Wrapped BNB (WBNB)",
