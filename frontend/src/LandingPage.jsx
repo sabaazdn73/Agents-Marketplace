@@ -29,10 +29,13 @@
 // audio that can actually be heard. The choice is remembered per viewer, so
 // someone who turned it on does not have to keep doing it.
 //
-// `animate` is still honoured and still comes from App.jsx as !isMobile.
-// With no autoplay the poster frame shows instead, which is the right
-// behaviour on a phone: a 3.5MB background video is not worth a mobile
-// connection, and the still carries the same scene.
+// It plays on a phone too. It deliberately did not: App.jsx passed
+// animate={!isMobile} to spare a mobile connection 3.5MB, which left the
+// poster standing in. That was the wrong trade once the poster was the only
+// thing a phone ever saw, and it is the whole video or nothing -- so it is
+// the whole video. `animate` survives as an explicit override and as the
+// hook for prefers-reduced-motion, where a looping clip is exactly what
+// somebody has asked not to be shown.
 //
 // Kept from the original design: the copy, the "Explore Tnega" link wired
 // to the marketplace tab rather than an href="#", and the plain "Skip to
@@ -44,10 +47,11 @@ import { Volume2, VolumeX } from 'lucide-react';
 import './agentHero.css';
 
 const HERO_VIDEO = '/agent-hero/multiagents.mp4';
-// The old stage background, reused as the poster so there is something on
-// screen before the first frame decodes, and as the whole picture when
-// autoplay is off.
-const HERO_POSTER = '/agent-hero/assets/bg.jpg';
+// A frame taken from the clip itself, so the still and the motion are the
+// same picture. This used to point at the old animation's stage backdrop,
+// which meant a phone -- where autoplay was switched off -- showed the
+// artwork of the animation that had just been removed, and never the video.
+const HERO_POSTER = '/agent-hero/poster.jpg';
 const SOUND_KEY = 'tnega_hero_sound';
 
 /** Reading localStorage throws outright in some contexts (Safari private
@@ -59,6 +63,10 @@ function storedSoundPref() {
 
 export default function LandingPage({ onEnterMarketplace, animate = true }) {
   const videoRef = useRef(null);
+  // Honoured as a real preference, not an inference from screen width.
+  const reduceMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const shouldPlay = animate && !reduceMotion;
   const [soundOn, setSoundOn] = useState(storedSoundPref);
 
   const toggleSound = useCallback(() => {
@@ -91,7 +99,7 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    if (animate) {
+    if (shouldPlay) {
       v.play()
         // Only restore a remembered sound preference once silent playback
         // is actually running. Setting muted=false before that turns the
@@ -104,7 +112,7 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
     // soundOn is deliberately not a dependency: toggleSound handles changes
     // directly, and re-running this on every toggle would restart playback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animate]);
+  }, [shouldPlay]);
 
   return (
     <div className="agent-hero">
@@ -121,7 +129,7 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
             muted
             loop
             playsInline
-            preload={animate ? 'auto' : 'metadata'}
+            preload={shouldPlay ? 'auto' : 'metadata'}
             aria-hidden="true"
           />
           <button

@@ -23,7 +23,11 @@
     width:min(100vw,1100px);
     max-height:72vh;
     aspect-ratio:16/9;
-    background:#060b1f url(/agent-hero/assets/bg.jpg) center/cover no-repeat;
+    /* Flat colour. This used to layer the old animation's stage backdrop
+       behind everything; the clip covers the box completely, so the only
+       thing that image could still do was show through for the instant
+       before the first frame decoded. */
+    background:#060b1f;
     isolation:isolate;
     overflow:hidden;
     border-radius:14px;
@@ -69,7 +73,7 @@
     opacity:1;transform:none;animation:copyIn 1s ease .25s both;
     /* The artwork behind this is bright and it MOVES: the podium glow, the
        halo and the amber network lines all sit here. Measured against
-       bg.jpg alone, white text scored 1.3:1 over the lower stage and only
+       the artwork alone, white text scored 1.3:1 over the lower stage and only
        3.9:1 against the brightest tenth at the very bottom, all short of
        the 4.5:1 needed, and the animated layers on top are brighter still.
        A gradient scrim fixes it at the source by giving the text its own
