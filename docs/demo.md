@@ -69,33 +69,100 @@ screen reads as danger.
 
 These cards are read only. They sign nothing and spend nothing.
 
-## MultiAgents
+## MultiAgents, step by step
 
-One request, several agents, each doing one job and handing to the next.
+One request, several agents, each doing one job and handing to the next. This
+is the API flow run end to end, in the order you would actually click it.
 
-![The API flow before a run: five agents, Intent, API Fit, Match, QA and Payment, each with its one job written underneath](images/studio-agent-row.png)
+### 1. Open MultiAgents and pick the flow
 
-The point of drawing it this way is that you can see which agent is working,
-and when something is wrong you can see which one produced it. The full
-reasoning is in
-[Why several agents rather than one](agent-studio.md#why-several-agents-rather-than-one).
+`MultiAgents` in the left sidebar, or go straight to
+[www.tnega.app/studio](https://www.tnega.app/studio).
 
-When a stage fails, the failure has an address:
+There are two flows and they are not the same problem. `Physical goods` builds
+a cart from product links you paste, because no public API lets a program
+search stock and prices across retailers. `API and services` can search,
+because it has a directory: the B402 Bazaar on BNB Chain.
+
+For this walkthrough, pick `API and services`.
+
+### 2. Read the row of agents before you start
+
+![The API and services flow: the flow toggle, the five agents with their jobs, the request box filled in, and the Start the agents button](images/studio-step-request.png)
+
+Five agents, left to right, each with its one job written underneath: Intent,
+API Fit, Match, QA, Payment. Worth a glance before running anything, because
+when something goes wrong this row is where you find out which agent produced
+it.
+
+The green banner is the flow telling you where the services come from and what
+they settle in, before you have committed to anything.
+
+### 3. Write what you need, in ordinary words
+
+The request used here:
+
+```
+I need a text to speech API for a podcast tool, about 200 calls a month,
+with a 0.1 stablecoin budget per call.
+```
+
+Three things are being stated at once: a capability, a volume, and a budget.
+None of them need to be written in any particular format. "0.1 stablecoin" is
+read as 0.1 $U, the asset these services price in, and the Intent agent says so
+in its own result rather than converting silently.
+
+You do not have to state a budget. If you leave it out, Intent asks for one
+rather than inventing one, because a budget invented here is a budget QA later
+checks a price against, which would make the check meaningless.
+
+### 4. Start the agents, and watch which one is working
+
+Press `Start the agents`. A run takes real time: Context alone has measured at
+74 seconds, so the row animates rather than showing a progress bar that guesses.
+
+Each agent reports as it finishes. On this request they produced:
+
+| Agent | Result |
+|---|---|
+| Intent | Need understood: text to speech. Read 'stablecoin' as $U, the asset these services price in. |
+| API Fit | Found 20 service(s) for 'text to speech' out of 500 on BNB Chain. |
+| Match | Chose `api.xona-agent.com/binance/audio/x-text-to-speech` at 0.01 U, from 14 affordable options |
+| QA | No blocking findings. |
+| Payment | Reports the rail that would settle |
+
+Read the Match line closely. 20 services were found, 14 were affordable, one
+was chosen from those 14. The six that were dropped were removed by integer
+arithmetic against your budget before any model saw the shortlist, so a model
+can pick a worse service here but cannot pick one you could not afford.
+
+### 5. Answer anything it asks
+
+An agent can stop and ask rather than guessing. If it does, the run pauses on
+that agent with a typed question, you answer, and it resumes from there.
+Stages before it do not run again, because their work is already done and
+repeating it could return something different the second time.
+
+If a stage fails instead, the failure has an address:
+
+
 
 ![A failed run: Intent is marked with a cross and carries the provider's own reason, while the four agents after it are untouched](images/studio-stage-failure.png)
 
 One agent is marked, it carries the reason it failed, and the four after it are
-visibly untouched rather than collateral damage. The offer is to re-run that
-agent, keeping everything the run already worked out, not to start again.
+visibly untouched rather than collateral damage. `Try that agent again` re-runs
+only that agent and keeps everything the run already worked out.
 
-For a complete run traced from the typed sentence to the signature, including
-the two bugs this view helped find, see
-[A Studio Run, End to End](studio-run-walkthrough.md).
+A provider being rate limited or busy is temporary and is offered a retry. A
+malformed request is not, and fails on the first attempt rather than sitting
+there retrying.
 
-## Paying for a service
+### 6. Open the payment panel
 
-The API flow ends at a real payment on BNB Chain over B402. Before anything
-can be signed, the rail is checked.
+`Show rail check and pay`, at the foot of the tab. It works whether or not a
+run completed, so you can inspect the rail on its own.
+
+The rail is checked before anything can be signed:
 
 ![The rail check on BNB Chain mainnet, seven checks passing, including a deliberately tampered payload being refused](images/b402-rail-check.png)
 
@@ -113,7 +180,17 @@ Ten kinds on `eip155:56`, across $U, USD1, USDT and USDC, with the contract
 address for each. If the facilitator stops supporting one, this table stops
 showing it, with no deploy needed.
 
-## Where a payment stops
+### 7. Set an amount and create a session
+
+![The Make a payment panel: an amount field showing 0.01, the $U unit, and a Create session button](images/studio-step-create-session.png)
+
+Creating a session moves no money. It asks the server to record what this
+payment would be, and hands back the requirements it stored.
+
+This is a deliberate split. Nothing here has touched your wallet yet, so you
+can create a session, read exactly what it would ask you to sign, and walk away.
+
+### 8. Read what you are being asked to sign, then decide
 
 ![The session requirements and the signature button, showing amount, asset, payTo and network held on the server](images/b402-session-requirements.png)
 
