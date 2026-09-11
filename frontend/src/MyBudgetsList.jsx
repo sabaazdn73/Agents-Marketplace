@@ -191,8 +191,14 @@ export default function MyBudgetsList({
                 </div>
                 <div>
                   <div className="text-[10px] text-gray-400 uppercase tracking-wide">Remaining</div>
+                  {/* A reclaimed budget has nothing left by definition:
+                      reclaim() sets spent = total before paying the client
+                      back, so `remaining` is exactly zero and the honest
+                      thing to print is zero. This rendered a bare comma,
+                      which read as a rendering fault sitting where an amount
+                      should be. */}
                   <div className="text-[13px] font-semibold tabular-nums">
-                    {reclaimed ? ',' : fmt(remaining, symbol)}
+                    {fmt(remaining, symbol)}
                   </div>
                 </div>
               </div>
