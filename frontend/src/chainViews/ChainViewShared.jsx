@@ -14,6 +14,7 @@
 // would mean either showing those controls empty or teaching it to hide
 // them per chain, and both make the thing harder to see.
 
+import { ChainCardBadge } from './chainMarks';
 import React from 'react';
 import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 import ServiceHealthBadge from '../ServiceHealthBadge';
@@ -37,13 +38,10 @@ export const EXPLORER_BASE = {
   101: null,          // Solana: different address format, not an EVM explorer
 };
 
-export function ChainBadge({ chainName }) {
-  if (!chainName) return null;
-  return (
-    <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-      {chainName}
-    </span>
-  );
+export function ChainBadge({ chainName, chainId }) {
+  if (!chainName && !chainId) return null;
+  // A mark rather than the name: see ChainCardBadge for why.
+  return <ChainCardBadge chainId={chainId} chainName={chainName} />;
 }
 
 /** What can and cannot be done with these agents, per chain and per path.
@@ -203,7 +201,7 @@ export function ChainAgentCard({ agent, mutedBorder }) {
     <div className={`bg-white dark:bg-[#1E293B] rounded-2xl border ${mutedBorder} p-4 flex flex-col gap-2`}>
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-bold leading-snug">{agent.name || 'Unnamed agent'}</h3>
-        <ChainBadge chainName={agent.chain_name} />
+        <ChainBadge chainName={agent.chain_name} chainId={agent.chain_id} />
       </div>
       {agent.category && (
         <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider">

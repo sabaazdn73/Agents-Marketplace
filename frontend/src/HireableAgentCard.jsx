@@ -23,6 +23,7 @@ import React from 'react';
 import AgentAvatar from './AgentAvatar';
 import ServiceHealthBadge from './ServiceHealthBadge';
 import InteractionLine from './InteractionLine';
+import { ChainCardBadge } from './chainViews/chainMarks';
 import BudgetRecord from './BudgetRecord';
 
 /** One cell of the three-stat block. `unavailableReason` turns the dash into
@@ -67,9 +68,7 @@ export default function HireableAgentCard({
               </h3>
             </div>
           </div>
-          <span className="shrink-0 text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-            {agent.network}
-          </span>
+          <ChainCardBadge chainId={agent.chainId} chainName={agent.network} />
         </div>
 
         {agent.serviceStatus && agent.serviceStatus !== 'unknown' && (

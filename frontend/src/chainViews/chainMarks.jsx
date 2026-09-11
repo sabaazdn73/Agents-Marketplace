@@ -140,3 +140,44 @@ export function ChainMark({ viewId, size = 14, className = '' }) {
 }
 
 export default ChainMark;
+
+/** Chain id -> the view id the logo table is keyed by, so a card that knows
+ *  only which chain an agent is on can still show that chain's mark. */
+export const CHAIN_ID_TO_VIEW = {
+  56: 'bnb', 1: 'ethereum', 101: 'solana',
+  42161: 'arbitrum', 4663: 'robinhood', 143: 'monad',
+};
+
+/** The chain marker on an agent card.
+ *
+ *  A logo, not the chain's name. "BNB Smart Chain" is three words in a badge
+ *  pinned to a card's top-right corner, and once the grid narrows it wraps to
+ *  three stacked lines of small text, which reads as debris rather than a
+ *  label. A mark is one glyph at any width.
+ *
+ *  The name is not lost: it stays as the title and the accessible name, so a
+ *  hover and a screen reader both still get it. Where a chain has no logo the
+ *  badge falls back to its name, because an unlabelled blank is worse than an
+ *  untidy word. */
+export function ChainCardBadge({ chainId, chainName, className = '' }) {
+  const viewId = CHAIN_ID_TO_VIEW[Number(chainId)];
+  const label = chainName || (viewId ? viewId : '');
+  if (!viewId) {
+    if (!label) return null;
+    return (
+      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 shrink-0 ${className}`}>
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      role="img"
+      className={`shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-100 dark:bg-gray-800 ${className}`}
+    >
+      <ChainMark viewId={viewId} size={14} />
+    </span>
+  );
+}

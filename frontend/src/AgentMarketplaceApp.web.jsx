@@ -107,6 +107,7 @@ import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
+import { ChainCardBadge } from './chainViews/chainMarks';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
@@ -1690,7 +1691,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                               <h3 className="text-lg font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={16} className="text-indigo-500" title="Registered on-chain, not a quality rating" />}</h3>
                             </div>
                           </div>
-                          <span className="text-[10px] font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
+                          <ChainCardBadge chainId={agent.chainId} chainName={CHAIN_LABELS[agent.chainId] || agent.network} />
                         </div>
 
                         <div className="mb-3 flex flex-wrap items-center gap-1.5">

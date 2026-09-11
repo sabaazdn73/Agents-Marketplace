@@ -64,6 +64,7 @@ import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
+import { ChainCardBadge } from './chainViews/chainMarks';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import SessionModesExplainer from './SessionModesExplainer';
@@ -1383,7 +1384,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                               <h3 className="text-lg font-bold flex items-center gap-1">{agent.name}{agent.isVerified && <BadgeCheck size={14} className="text-indigo-500" />}</h3>
                             </div>
                           </div>
-                          <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
+                          <ChainCardBadge chainId={agent.chainId} chainName={CHAIN_LABELS[agent.chainId] || agent.network} />
                         </div>
 
                         <div className="mb-3 flex flex-wrap items-center gap-1.5">
