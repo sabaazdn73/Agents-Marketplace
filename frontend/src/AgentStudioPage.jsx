@@ -151,10 +151,13 @@ export default function AgentStudioPage({ accent = '#6366F1' }) {
     if (!run) return;
     setSending(true); setError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/studio/runs/${run.run_id}/answers`, {
+      // /retry, not /answers. A stage killed by a model outage asks no
+      // question, so it leaves `pending` empty, and /answers reads that as a
+      // run with nothing to resume: it returned 200 with the run unchanged
+      // and this button did nothing in exactly the case it exists for.
+      const res = await fetch(`${API_BASE_URL}/api/studio/runs/${run.run_id}/retry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: {} }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.detail || 'Could not retry.');
@@ -341,12 +344,17 @@ export default function AgentStudioPage({ accent = '#6366F1' }) {
         </div>
       )}
 
-      {/* A quota error is temporary, so it offers a retry rather than ending. */}
-      {run?.finished && /rate limited|RESOURCE_EXHAUSTED|429/i.test(
+      {/* A transient provider error is temporary, so it offers a retry rather
+          than ending. This used to match only the rate-limit wording, which
+          left the other half of the taxonomy with no way forward: a 503 says
+          "is busy", never "rate limited", so a run killed by provider load
+          ended with a dead end. Both are retryable and both are offered. */}
+      {run?.finished && /rate limited|is busy|RESOURCE_EXHAUSTED|UNAVAILABLE|429|503/i.test(
         run.stages?.[run.stages.length - 1]?.note || '') && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
           <div className="text-[12px] text-amber-700 dark:text-amber-500">
-            The model is rate limited. That is temporary, not a failure of the run.
+            The model is {/is busy|UNAVAILABLE|503/i.test(run.stages?.[run.stages.length - 1]?.note || '')
+              ? 'busy' : 'rate limited'}. That is temporary, not a failure of the run.
           </div>
           <button
             onClick={retryStage}

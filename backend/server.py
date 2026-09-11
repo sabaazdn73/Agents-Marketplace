@@ -2202,6 +2202,21 @@ async def studio_answer(run_id: str, request: Request):
     return run
 
 
+@app.post("/api/studio/runs/{run_id}/retry")
+async def studio_retry(run_id: str):
+    """Run the agent that failed again, keeping the stages before it.
+
+    Separate from /answers, which resumes a run paused on a QUESTION. A
+    stage killed by a model outage asks nothing, so it left `pending` empty
+    and /answers treated it as a completed run: the studio's retry button
+    posted `{}`, got a 200 back, and nothing ran."""
+    from core.commerce import coordinator
+    run = coordinator.retry(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="No such run, or it has expired.")
+    return run
+
+
 @app.get("/api/studio/runs/{run_id}")
 async def studio_get_run(run_id: str):
     """Poll one run. Returns which agent is working, for how long, what

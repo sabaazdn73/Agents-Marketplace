@@ -135,6 +135,56 @@ def answer(run_id: str, answers: dict) -> dict | None:
     return public_view(run)
 
 
+def retry(run_id: str) -> dict | None:
+    """Run the agent that failed again, keeping everything before it.
+
+    Distinct from answer(), which resumes a run PAUSED ON A QUESTION. A stage
+    that died on a model outage asks no question, so it sets no `pending`,
+    and answer() took that to mean there was nothing to resume: it returned
+    the unchanged run with a 200 and the studio's "Try that agent again"
+    button did nothing at all, in exactly the case it exists for.
+
+    The failed agent is found by its BLOCKED state rather than by parsing
+    run["error"], because the state is what _drive() sets in its finally
+    block and is therefore true even when the failure never produced a
+    tidy message.
+
+    QA and Payment run after the step list rather than inside it, so a
+    failure in either resumes at len(steps): _run_steps then runs nothing
+    and falls straight through to them, which is the behaviour wanted.
+    """
+    run = _RUNS.get(run_id)
+    if not run:
+        return None
+    if run.get("pending"):
+        # Waiting on a person, not on a retry. Answering is the way forward
+        # and re-running the stage would throw away the question.
+        return public_view(run)
+
+    state = run.get("_state")
+    if state is None:
+        return public_view(run)
+
+    failed = next((k for k, v in run["agents"].items() if v.get("state") == BLOCKED), None)
+    if not failed:
+        return public_view(run)
+
+    steps = _physical_steps(state) if run["flow"] == FLOW_PHYSICAL else _api_steps(state)
+    resume_at = next((i for i, (key, _, _) in enumerate(steps) if key == failed), len(steps))
+
+    run["agents"][failed]["state"] = IDLE
+    run["agents"][failed]["note"] = ""
+    run["agents"][failed]["started_at"] = None
+    run["agents"][failed]["ended_at"] = None
+    # The failed stage's own result is dropped so the retry does not leave
+    # two entries for one agent in the reported list.
+    run["stages"] = [s for s in (run.get("stages") or []) if s.get("stage") != failed]
+    run["error"] = None
+    run["finished_at"] = None
+    asyncio.create_task(_drive(run, resume_at))
+    return public_view(run)
+
+
 def _new_run(flow: str, request: str) -> dict:
     spec = flow_spec(flow)
     asleep = spec["asleep"]
