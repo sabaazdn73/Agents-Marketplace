@@ -1,7 +1,8 @@
 // SiteLinks.jsx
 //
-// The project links row: Docs, GitHub, LinkedIn and X, then Ecosystem and
-// the demo video as icons.
+// The project links row: Docs, GitHub, LinkedIn and X, then a set of
+// icon-only entries: any routes the host app hands over, then Ecosystem and
+// the demo video.
 //
 // These used to be one "Full documentation" line at the bottom of the page,
 // below the partner and data-source footers, where almost nobody scrolled.
@@ -66,6 +67,11 @@ export function XMark({ size = 13, className = '' }) {
 export default function SiteLinks({
   onOpenDocs,
   onOpenEcosystem,
+  // Real in-app routes rendered as icons here rather than as tabs. Each is
+  // { key, label, Icon, onClick, active }. Passed in rather than imported,
+  // so this component stays a links row and does not need to know the app's
+  // route table. Mobile passes none and the group simply does not render.
+  routeLinks = [],
   variant = 'dark',
   className = '',
 }) {
@@ -78,6 +84,11 @@ export default function SiteLinks({
   // Icon-only entries get a hit area rather than sitting flush against the
   // text links, so they are tappable on a phone as well as clickable.
   const iconItem = `inline-flex items-center justify-center p-1 -m-1 rounded transition-colors ${base}`;
+  // A route can be the current page; an external link cannot. The active one
+  // gets the same full-strength colour the active tab used to have, so
+  // moving these out of the tab list did not cost the ability to see where
+  // you are.
+  const activeIcon = variant === 'dark' ? 'text-white' : 'text-gray-900 dark:text-white';
   // Not a list item and not focusable: it is punctuation between the links.
   const dot = (
     <span aria-hidden="true" className="opacity-30 select-none">&middot;</span>
@@ -133,6 +144,19 @@ export default function SiteLinks({
           punctuation does not: the named links end cleanly at X, and the
           icons read as their own group on the next line. */}
       <span className="inline-flex items-center gap-2 ml-1">
+        {routeLinks.map(({ key, label, Icon, onClick, active }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={onClick}
+            className={`${iconItem} ${active ? activeIcon : ''}`}
+            aria-label={label}
+            aria-current={active ? 'page' : undefined}
+            title={label}
+          >
+            <Icon size={14} className="shrink-0" />
+          </button>
+        ))}
         {onOpenEcosystem && (
           <button
             type="button"

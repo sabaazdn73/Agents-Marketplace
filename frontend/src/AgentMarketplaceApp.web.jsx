@@ -572,6 +572,19 @@ const NAV_ITEMS = [
   { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
+];
+
+// Real routes, but they live in the sidebar's links row rather than the tab
+// list. Both are things you read once rather than places you work: the
+// report is a one-off comparison, Learn is reference. As full-width labelled
+// tabs they sat at the bottom of the list taking ~84px between them, below
+// every tab someone actually returns to. As icons in a row that already
+// exists they cost nothing vertically, and the tab list above stays a list
+// of places you go back to.
+//
+// Still routes, so these navigate through the same setNav path as any tab
+// and still show an active state.
+const SIDEBAR_FOOTER_ITEMS = [
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
 ];
@@ -1086,11 +1099,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               the surrounding rail does not need the same inset as a text
               row. With the 352px aside that takes it from 264px to 328px,
               about a quarter larger, with no change to the file. */}
-          {/* -mt-1 pulls the image up into the gap left by the two rows that
-              used to sit above it. The nav list ends flush now, so without
-              this there is a band of dead space between the last tab and the
-              picture that reads as a rendering mistake rather than spacing. */}
-          <div className="px-3 mb-1 -mt-1">
+          {/* Pulled up into the gap left by the rows that used to sit above
+              it. Four have gone now -- Ecosystem, the walkthrough, the
+              report and Learn -- so the nav list ends well short of where it
+              did, and without this there is a band of dead space between the
+              last tab and the picture that reads as a rendering mistake
+              rather than spacing. */}
+          <div className="px-3 mb-1 -mt-3">
             <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
 
@@ -1107,7 +1122,24 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             {/* Docs, GitHub and LinkedIn. These were one line at the very
                 bottom of the page, under two footers, where they were easy
                 to miss. */}
-            <SiteLinks onOpenDocs={onOpenDocs} onOpenEcosystem={onOpenEcosystem} variant="dark" className="mt-3" />
+            <SiteLinks
+              onOpenDocs={onOpenDocs}
+              onOpenEcosystem={onOpenEcosystem}
+              routeLinks={SIDEBAR_FOOTER_ITEMS.map((item) => ({
+                key: item.id,
+                label: item.label,
+                Icon: item.icon,
+                active: nav === item.id,
+                onClick: () => {
+                  dismissAgentDetail();
+                  setNav(item.id);
+                  setHiring(false);
+                  onNavChange?.(item.id);
+                },
+              }))}
+              variant="dark"
+              className="mt-3"
+            />
 
             <div className="mt-3 flex items-center justify-end text-xs text-gray-500 px-2">
               <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
