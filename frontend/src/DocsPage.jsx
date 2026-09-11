@@ -27,6 +27,39 @@ import { updatePageMeta } from './seoMeta.js';
 
 const docModules = import.meta.glob('../../docs/*.md', { eager: true, query: '?raw', import: 'default' });
 
+// Screenshots live in docs/images/, beside the markdown that uses them, and
+// are referenced relatively: ![alt](images/foo.png).
+//
+// That path is the one that works in both places. Reading docs/ directly on
+// GitHub or in GitBook resolves it against the file, so the images appear
+// there with no rewriting. Here, Vite bundles each one and hands back a
+// hashed URL, which is resolved at render time by the map below.
+//
+// The earlier arrangement put the files in frontend/public/ and referenced
+// them as /doc-images/foo.png. That worked on the site and nowhere else: the
+// markdown is the source of truth for these docs and it was pointing at a
+// path that only existed inside one deployment of one app.
+const docImages = import.meta.glob('../../docs/images/*.{png,jpg,jpeg,gif,svg,webp}', {
+  eager: true, query: '?url', import: 'default',
+});
+
+// "images/foo.png" -> the bundled URL for that file.
+const DOC_IMAGES = Object.fromEntries(
+  Object.entries(docImages).map(([path, url]) => [`images/${path.split('/').pop()}`, url])
+);
+
+/** Resolve a markdown image src to something the browser can fetch.
+ *
+ *  An absolute or remote src is returned untouched, so a doc can still point
+ *  at a URL. A relative one that names no bundled file is also returned
+ *  untouched rather than silently dropped: a visibly broken image is a bug
+ *  report, and a missing one is a doc that quietly lost a figure. */
+function resolveDocImage(src) {
+  if (!src) return src;
+  if (/^(https?:)?\/\//i.test(src) || src.startsWith('/') || src.startsWith('data:')) return src;
+  return DOC_IMAGES[src.replace(/^\.\//, '')] || src;
+}
+
 // filename (e.g. "README.md") -> raw markdown content
 const DOCS = {};
 for (const [modPath, content] of Object.entries(docModules)) {
@@ -159,16 +192,15 @@ function InlineContent({ parts, onNavigate }) {
     // what the reader is looking at rather than a filename, and a caption is
     // what makes a screenshot legible next to prose.
     //
-    // Sources are absolute site paths under /doc-images/ rather than paths
-    // relative to docs/. The markdown is bundled at build time from a
-    // directory outside frontend/, so a relative src would resolve against
-    // the /docs route rather than against the file, and images are served
-    // from public/ instead.
+    // The src is relative to docs/ (e.g. "images/foo.png") so the same
+    // markdown renders on GitHub and GitBook. resolveDocImage maps it to the
+    // bundled asset URL, because a relative path here would otherwise resolve
+    // against the /docs route rather than against the file.
     if (p.t === 'image') {
       return (
         <figure key={i} className="my-6">
           <img
-            src={p.href}
+            src={resolveDocImage(p.href)}
             alt={p.v}
             loading="lazy"
             className="w-full rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm"

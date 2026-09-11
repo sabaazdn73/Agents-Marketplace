@@ -11,7 +11,7 @@ architecture and a walkthrough where nothing goes wrong does not make it.
 
 Read [The Agent Studio](agent-studio.md) first for what each agent is.
 
-![The API flow before a run: five agents, each with one job, and the handoff between them drawn left to right](/doc-images/studio-agent-row.png)
+![The API flow before a run: five agents, each with one job, and the handoff between them drawn left to right](images/studio-agent-row.png)
 
 ## The request
 
@@ -83,7 +83,7 @@ degrades the studio instead of breaking it.
 
 Run live against the facilitator on BNB Chain mainnet:
 
-![The rail check on BNB Chain mainnet, all seven checks passing, including a deliberately tampered payload being refused](/doc-images/b402-rail-check.png)
+![The rail check on BNB Chain mainnet, all seven checks passing, including a deliberately tampered payload being refused](images/b402-rail-check.png)
 
 | Check | Result |
 |---|---|
@@ -105,7 +105,7 @@ rail that is down.
 
 BNB Smart Chain (mainnet), `eip155:56`:
 
-![The ten payment kinds the facilitator accepts on chain 56, read live rather than hardcoded](/doc-images/b402-facilitator.png)
+![The ten payment kinds the facilitator accepts on chain 56, read live rather than hardcoded](images/b402-facilitator.png)
 
 | Asset | Scheme | Method |
 |---|---|---|
@@ -125,7 +125,7 @@ BNB Smart Chain (mainnet), `eip155:56`:
 Creating a payment session for 0.1 $U returned requirements held on the
 server:
 
-![The session requirements, and the signature button the run stops at. Amount, asset, payTo and network came from the server and are held there](/doc-images/b402-session-requirements.png)
+![The session requirements, and the signature button the run stops at. Amount, asset, payTo and network came from the server and are held there](images/b402-session-requirements.png)
 
 ```
 amount   100000000000000000 base units
@@ -269,7 +269,7 @@ an unchanged timestamp after two presses.
 
 The visualisation shows the same thing without reading any state:
 
-![A failed run: Intent is marked with a cross and carries the provider's own reason, while the four agents after it are untouched and the run offers to re-run only the one that failed](/doc-images/studio-stage-failure.png)
+![A failed run: Intent is marked with a cross and carries the provider's own reason, while the four agents after it are untouched and the run offers to re-run only the one that failed](images/studio-stage-failure.png)
 
 One agent is marked, it carries the reason it failed, and the four after it
 are visibly untouched rather than collateral damage. The offer is to re-run
