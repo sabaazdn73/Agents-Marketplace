@@ -1,221 +1,150 @@
 // LandingPage.jsx
 //
-// A port of public/agent-hero/index.html, the supplied design. This is the
-// whole Home page; nothing else is on it.
+// The Home page. Nothing else is on it.
 //
-// WHAT THE DESIGN DOES, from reading it rather than guessing: seven agents
-// start off-stage on a floor line, WALK in from alternating sides, then
-// RISE into their final positions and settle into a float. Each agent is
-// one flat PNG cut into a torso and two legs with clip-path, so the legs
-// swing from the hip, the torso bobs twice per stride and the body leans
-// into the direction of travel. Once everyone has landed, a halo appears
-// behind the group, network lines draw from each agent to the lead, dots
-// blink along them, and the copy fades up.
+// It used to be a sprite composition: seven flat PNG agents, each cut into
+// a torso and two legs with clip-path, walking in from alternating sides on
+// a floor line, rising into place, then settling into a float while network
+// lines drew between them. Roughly 150 lines of Web Animations calls,
+// per-agent timers and a hand-built SVG graph, all to describe a group of
+// agents gathering. Its seven PNGs, its standalone source page and 61 lines
+// of CSS went with it on 2026-09-11; git history has them if ever needed.
 //
-// PORTED FAITHFULLY, with three deliberate departures, all forced:
+// That is now one rendered clip, public/agent-hero/multiagents.mp4: the
+// same idea, the same claymation world as the sidebar art and the link
+// preview banner, done properly instead of approximated with sprites. The
+// animation machinery is gone with it, along with the per-agent timers that
+// had to be torn down on unmount so a tab switch mid-walk could not leave
+// callbacks firing at a removed DOM.
 //
-//  1. The stylesheet is scoped. The original is a standalone page, so its
-//     selectors are bare (.hero, .stage, .agent, .copy) and its :root sets
-//     variables globally. Dropped into the app those would apply outside
-//     this page, and its `html,body` rule would restyle the whole site.
-//     agentHero.css carries every rule prefixed with .agent-hero instead,
-//     including inside the reduced-motion block, whose bare selectors
-//     would otherwise have disabled animation app-wide.
-//  2. Asset paths become /agent-hero/assets/... since the component is not
-//     served from that directory.
-//  3. The "Explore Tnega" link is a button that switches to the
-//     marketplace tab, rather than an href="#".
+// The clip is 1280x720 h264, ten seconds, and it loops, because a hero that
+// plays once and stops reads as broken rather than finished.
 //
-// Everything else is the original: the same markup, the same geometry
-// values, the same walk/rise/settle timing, the same Web Animations calls.
+// It carries a real audio track (AAC stereo, mean -32dB, peak -15.5dB), and
+// it starts MUTED anyway. That is not a preference: Chrome, Safari and
+// Firefox all refuse to autoplay audible media until the user has interacted
+// with the page, and a rejected play() would leave the hero frozen on its
+// poster. So the video autoplays silent and a speaker control offers the
+// sound, which is the only arrangement that gets both a moving hero and
+// audio that can actually be heard. The choice is remembered per viewer, so
+// someone who turned it on does not have to keep doing it.
+//
+// `animate` is still honoured and still comes from App.jsx as !isMobile.
+// With no autoplay the poster frame shows instead, which is the right
+// behaviour on a phone: a 3.5MB background video is not worth a mobile
+// connection, and the still carries the same scene.
+//
+// Kept from the original design: the copy, the "Explore Tnega" link wired
+// to the marketplace tab rather than an href="#", and the plain "Skip to
+// marketplace" link underneath as a backstop that works even if the click
+// handler never runs.
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Volume2, VolumeX } from 'lucide-react';
 import './agentHero.css';
 
-const A = '/agent-hero/assets';
+const HERO_VIDEO = '/agent-hero/multiagents.mp4';
+// The old stage background, reused as the poster so there is something on
+// screen before the first frame decodes, and as the whole picture when
+// autoplay is off.
+const HERO_POSTER = '/agent-hero/assets/bg.jpg';
+const SOUND_KEY = 'tnega_hero_sound';
 
-// Geometry straight from the design. --x/--y are the final top-left as a
-// percentage of the stage, --w the width, --hip where the legs are cut.
-const AGENTS = [
-  { img: 'orange', side: 'left',  order: 4, x: '35.8%', y: '33.8%', w: '7.4%',  hip: '80%' },
-  { img: 'purple', side: 'right', order: 3, x: '56.2%', y: '34.4%', w: '9.2%',  hip: '78%' },
-  { img: 'teal',   side: 'left',  order: 2, x: '33.4%', y: '45.3%', w: '8.1%',  hip: '80%' },
-  { img: 'gold',   side: 'right', order: 1, x: '59.2%', y: '45.5%', w: '7.5%',  hip: '78%' },
-  { img: 'small',  side: 'right', order: 5, x: '53.8%', y: '52.5%', w: '6.8%',  hip: '75%' },
-  { img: 'top',    side: 'left',  order: 6, x: '45.9%', y: '28.4%', w: '8.2%',  hip: '78%' },
-  { img: 'center', side: 'right', order: 0, x: '44.7%', y: '40.7%', w: '10.6%', hip: '80%', lead: true },
-];
-
-const FLOOR = 63;   // floor line, % of stage height, where feet land
+/** Reading localStorage throws outright in some contexts (Safari private
+ *  mode, site data blocked), so a failed read must mean "muted", not a
+ *  crashed Home page. */
+function storedSoundPref() {
+  try { return localStorage.getItem(SOUND_KEY) === 'on'; } catch { return false; }
+}
 
 export default function LandingPage({ onEnterMarketplace, animate = true }) {
-  const heroRef = useRef(null);
-  const stageRef = useRef(null);
-  const linesRef = useRef(null);
-  const dotsRef = useRef(null);
+  const videoRef = useRef(null);
+  const [soundOn, setSoundOn] = useState(storedSoundPref);
 
-  const play = useCallback(() => {
-    const stage = stageRef.current;
-    const hero = heroRef.current;
-    if (!stage || !hero) return;
-    const agents = [...stage.querySelectorAll('.agent')];
-    // The walk-in is for the web build only. On mobile the page shows the
-    // same design already settled: seven agents animating with clip-path
-    // legs and Web Animations is a lot to ask of a phone, and the reduced
-    // -motion path below already renders the finished composition, so this
-    // reuses it rather than adding a second way to arrive at that state.
-    const reduce = !animate
-      || (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
-
-    const settle = () => { stage.classList.add('gathered'); hero.classList.add('gathered'); };
-
-    stage.classList.remove('gathered');
-    hero.classList.remove('gathered');
-    agents.forEach((a) => {
-      a.classList.remove('walking', 'floating');
-      a.getAnimations?.().forEach((an) => an.cancel());
+  const toggleSound = useCallback(() => {
+    const v = videoRef.current;
+    const next = !soundOn;
+    setSoundOn(next);
+    try { localStorage.setItem(SOUND_KEY, next ? 'on' : 'off'); } catch { /* not fatal */ }
+    if (!v) return;
+    v.muted = !next;
+    if (!next) return;
+    // Turning sound on normally counts as a user gesture, so this play() is
+    // permitted even where the earlier silent autoplay was refused. Where it
+    // is NOT -- a stricter policy, or a click the browser does not treat as
+    // trusted -- unmuting turns the clip into audible media and the browser
+    // pauses it. Caught in testing: the video stopped dead on unmute. Losing
+    // the motion is worse than losing the sound, so fall back to muted and
+    // keep it running rather than leaving a frozen hero.
+    v.play().catch(() => {
+      v.muted = true;
+      setSoundOn(false);
+      try { localStorage.setItem(SOUND_KEY, 'off'); } catch { /* not fatal */ }
+      v.play().catch(() => {});
     });
+  }, [soundOn]);
 
-    if (reduce) {
-      agents.forEach((a) => { a.style.transform = ''; });
-      settle();
-      return;
+  // Autoplay is set through the DOM rather than the autoPlay attribute:
+  // React will not re-run an attribute-driven autoplay when `animate`
+  // flips, and a play() call can reject (a browser policy, a tab opened in
+  // the background) which must not surface as an unhandled rejection.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (animate) {
+      v.play()
+        // Only restore a remembered sound preference once silent playback
+        // is actually running. Setting muted=false before that turns the
+        // clip into audible media and gets the autoplay refused entirely.
+        .then(() => { if (soundOn) v.muted = false; })
+        .catch(() => { /* blocked by policy; the poster stands in */ });
+    } else {
+      v.pause();
     }
-
-    const W = stage.clientWidth;
-    const H = stage.clientHeight;
-    let lastEnd = 0;
-
-    agents.forEach((a) => {
-      const cs = getComputedStyle(a);
-      const fx = (parseFloat(cs.getPropertyValue('--x')) / 100) * W;
-      const fy = (parseFloat(cs.getPropertyValue('--y')) / 100) * H;
-      const w = (parseFloat(cs.getPropertyValue('--w')) / 100) * W;
-      const h = a.offsetHeight || w * 1.3;
-      const side = a.dataset.side;
-      const order = +a.dataset.order;
-
-      const startX = side === 'left' ? -w * 1.6 : W + w * 0.6;
-      const floorY = (FLOOR / 100) * H - h * 1.15;
-      const stopX = fx + (side === 'left' ? -w * 0.5 : w * 0.5);
-
-      const dxs = startX - fx;
-      const dys = floorY - fy;
-      const dxe = stopX - fx;
-      const dye = floorY - fy;
-
-      const delay = 200 + order * 380 + Math.random() * 250;
-      const dist = Math.abs(dxs - dxe);
-      const walk = (dist / W) * 2600 + 400;
-      const rise = 1300;
-
-      a.style.setProperty('--dir', side === 'left' ? 1 : -1);
-      a.style.setProperty('--stride', `${(0.58 + Math.random() * 0.1).toFixed(2)}s`);
-      a.style.setProperty('--fd', `${3.2 + order * 0.25}s`);
-      a.style.setProperty('--fdl', `${order * 0.35}s`);
-      a.style.transform = `translate(${dxs}px,${dys}px) scale(1.15)`;
-
-      const anim = a.animate([
-        { transform: `translate(${dxs}px,${dys}px) scale(1.15)`, offset: 0 },
-        { transform: `translate(${dxs}px,${dys}px) scale(1.15)`, offset: 0.001, easing: 'linear' },
-        { transform: `translate(${dxe}px,${dye}px) scale(1.15)`, offset: walk / (walk + rise), easing: 'cubic-bezier(.5,0,.15,1)' },
-        { transform: 'translate(0,0) scale(1)', offset: 1 },
-      ], { duration: walk + rise, delay, easing: 'linear', fill: 'forwards' });
-
-      const t1 = setTimeout(() => a.classList.add('walking'), delay);
-      const t2 = setTimeout(() => a.classList.remove('walking'), delay + walk);
-      a._timers = [t1, t2];
-      anim.onfinish = () => { a.style.transform = ''; a.classList.add('floating'); };
-      lastEnd = Math.max(lastEnd, delay + walk + rise);
-    });
-
-    const tEnd = setTimeout(settle, lastEnd - 500);
-    stage._settleTimer = tEnd;
+    // soundOn is deliberately not a dependency: toggleSound handles changes
+    // directly, and re-running this on every toggle would restart playback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [animate]);
-
-  // Network lines and dots, built once from the same geometry the design
-  // uses: each agent's visual centre in source-pixel space, every non-lead
-  // agent joined to the lead.
-  useEffect(() => {
-    const L = linesRef.current;
-    const D = dotsRef.current;
-    if (!L || !D) return;
-    L.innerHTML = ''; D.innerHTML = '';
-    const centers = AGENTS.map(({ x, y, w }) => ({
-      x: (parseFloat(x) + parseFloat(w) / 2) * 12.54,
-      y: (parseFloat(y) + (parseFloat(w) * 1.2) / 2) * 12.54,
-    }));
-    const lead = AGENTS.findIndex((a) => a.lead);
-    let i = 0;
-    centers.forEach((c, idx) => {
-      if (idx === lead) return;
-      const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      ln.setAttribute('x1', c.x); ln.setAttribute('y1', c.y);
-      ln.setAttribute('x2', centers[lead].x); ln.setAttribute('y2', centers[lead].y);
-      ln.style.setProperty('--i', i++);
-      L.appendChild(ln);
-      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      dot.setAttribute('cx', c.x); dot.setAttribute('cy', c.y); dot.setAttribute('r', 4);
-      dot.style.setProperty('--i', idx);
-      D.appendChild(dot);
-    });
-  }, []);
-
-  // The original runs on window load. Here the component mounting is the
-  // equivalent moment. Timers are cleared on unmount so switching tabs
-  // mid-walk cannot leave callbacks running against a gone DOM.
-  useEffect(() => {
-    play();
-    const stage = stageRef.current;
-    return () => {
-      clearTimeout(stage?._settleTimer);
-      stage?.querySelectorAll('.agent').forEach((a) => {
-        (a._timers || []).forEach(clearTimeout);
-        a.getAnimations?.().forEach((an) => an.cancel());
-      });
-    };
-  }, [play]);
 
   return (
     <div className="agent-hero">
-      <section className="hero" ref={heroRef}>
-        <div className="stage" ref={stageRef}>
-          <div className="halo" />
-
-          <svg className="net" viewBox="0 0 1254 1254" aria-hidden="true">
-            <defs>
-              <linearGradient id="g" x1="0" x2="1">
-                <stop offset="0" stopColor="#ffd27a" stopOpacity=".9" />
-                <stop offset="1" stopColor="#ffa14a" stopOpacity=".6" />
-              </linearGradient>
-            </defs>
-            <g ref={linesRef} />
-            <g ref={dotsRef} />
-          </svg>
-
-          {AGENTS.map((a) => (
-            <div
-              key={a.img}
-              className={`agent${a.lead ? ' lead' : ''}`}
-              data-side={a.side}
-              data-order={a.order}
-              style={{ '--x': a.x, '--y': a.y, '--w': a.w, '--hip': a.hip }}
-            >
-              <span className="body">
-                <span className="shadow" />
-                <img className="part torso" src={`${A}/${a.img}.png`} alt="" />
-                <img className="part leg l" src={`${A}/${a.img}.png`} alt="" />
-                <img className="part leg r" src={`${A}/${a.img}.png`} alt="" />
-              </span>
-            </div>
-          ))}
+      <section className="hero">
+        <div className="stage">
+          <video
+            ref={videoRef}
+            className="motion"
+            src={HERO_VIDEO}
+            poster={HERO_POSTER}
+            // Muted at mount whatever the stored preference: autoplay is only
+            // permitted for silent media, so the sound is restored below
+            // once we know playback actually started.
+            muted
+            loop
+            playsInline
+            preload={animate ? 'auto' : 'metadata'}
+            aria-hidden="true"
+          />
+          <button
+            type="button"
+            className="sound"
+            onClick={toggleSound}
+            aria-pressed={soundOn}
+            aria-label={soundOn ? 'Mute the background video' : 'Play sound with the background video'}
+            title={soundOn ? 'Mute' : 'Sound'}
+          >
+            {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
         </div>
 
         <div className="copy">
-          <h1>Autonomous agents, one verifiable network</h1>
-          <p>Discover, connect and trust agents across chains.</p>
-          {/* The design's "Explore Tnega" link, wired to the tab it
-              describes rather than an href="#". */}
+          {/* "one verifiable network" is a claim about identity, not about a
+              single chain: ERC-8004's registry sits at the same address on
+              every chain here, so one agent identity resolves everywhere.
+              That was ambiguous while the site was BNB-only and the subtitle
+              said no more than "across chains", so both now name the chains
+              and separate what you can browse from what you can hire. */}
+          <h1>Autonomous agents, one verifiable network across chains</h1>
+          <p>Discover and verify agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain.</p>
           <a
             href="/market"
             onClick={(e) => { e.preventDefault(); onEnterMarketplace?.(); }}
@@ -224,12 +153,9 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
           </a>
         </div>
 
- {/* Two ways out, both links. The sidebar is gone while this
-            page shows, so "Explore Tnega" is the intended exit and this is
-            the backstop: a plain href that works even if the click handler
-            or the animation never runs. */}
+        {/* The sidebar is hidden while this page shows, so "Explore Tnega"
+            is the intended exit and this is the backstop. */}
         <a className="skip" href="/market">Skip to marketplace</a>
-        <button className="replay" type="button" onClick={play}>Replay</button>
       </section>
     </div>
   );
