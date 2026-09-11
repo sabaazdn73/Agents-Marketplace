@@ -36,6 +36,13 @@ import React, { useState } from 'react';
 import { Loader2, Wallet, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { BUDGET_STATUS, NATIVE_SENTINEL } from './budgetEscrow';
 import { chainName } from './chainContracts';
+// Both used below and neither was imported: formatAmount at lines 47 and
+// 53, budgetTokenSymbol at 123. Latent ReferenceErrors that could not fire
+// while readBudgetsOnChain returned an empty array on every chain because
+// of a shadowed variable, so this list never rendered a row. Fixing that
+// shadow made it render for the first time and these took the whole
+// My Agents tab down with a blank white screen.
+import { formatAmount, budgetTokenSymbol } from './budgetAmounts';
 import BudgetSpendView from './BudgetSpendView';
 
 // Every amount in this component goes through the shared formatter. The local

@@ -18,10 +18,16 @@
          rewrite) -- added, 512x512 source downsized into a real
          multi-size .ico (16/32/48/64/128/256), square throughout, well
          above Google's real 48x48px recommendation. -->
+    <!-- All generated from frontend/iconlogo.png on 2026-09-11, so the tab,
+         the Windows/macOS dock shortcut, the iOS home screen and the Android
+         launcher all show the same clay mark rather than the older flat one.
+         The SVG is gone from this list on purpose: it was a different
+         drawing, and a browser preferring it would have shown a different
+         icon from the one on the home screen. -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/svg+xml" href="/icon_v2.svg" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/icon_v2_preview.png" />
-    <link rel="apple-touch-icon" href="/icon_v2_preview.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/app-icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/app-icon-512.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 
     <!-- Web app manifest (2026-09-04). Without one, an Android "Add to home
          screen" fell back to the bare icon link: no app name, no theme
@@ -121,7 +127,7 @@
       "@id": "https://www.tnega.app/#org",
       "name": "Tnega",
       "url": "https://www.tnega.app/",
-      "logo": "https://www.tnega.app/icon_v2_preview.png",
+      "logo": "https://www.tnega.app/app-icon-512.png",
       "sameAs": [
         "https://x.com/SabaAzadegan",
         "https://github.com/sabaazdn73/Agents-Marketplace"

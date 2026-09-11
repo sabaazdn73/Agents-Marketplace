@@ -14,7 +14,9 @@ import { usePrivy } from '@privy-io/react-auth';
 // filtered SVG look pixelated on a high-DPI phone even though the source
 // is vector. At the 32px this renders at, those shadows are sub-pixel and
 // contribute nothing anyway. Same artwork, same gradients, same viewBox.
-import iconLogo from './assets/icon_v2_small.svg';
+// The clay app mark, the same file the home-screen and dock icons are
+// generated from, so the in-app logo and the installed icon match.
+import iconLogo from './assets/app-icon.png';
 import agentsHero from './assets/agents.png';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
@@ -55,19 +57,20 @@ function QrToMobile() {
   const url = import.meta.env?.VITE_MOBILE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
   return (
     <div className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3 lg:w-72 shrink-0">
-      {/* 88px, down from 104, with the nested padding cut too. This card set
+      {/* 104px with a 34px mark in the middle. Level H tolerates roughly 30%
+          occlusion and this is about 11%, so the code still scans. This card sets
           the height of the whole stats band through items-stretch, so 30px
           here is 30px off every card beside it. Still well above the ~60px a
           short URL needs to scan reliably at level H with a logo cut out. */}
       <div className="bg-white p-1.5 rounded-lg shrink-0">
         <QRCodeCanvas
           value={url}
-          size={88}
+          size={104}
           level="H"
           marginSize={3}
           bgColor="#ffffff"
           fgColor="#0B101B"
-          imageSettings={{ src: iconLogo, height: 20, width: 20, excavate: true }}
+              imageSettings={{ src: iconLogo, height: 34, width: 34, excavate: true }}
         />
       </div>
       <div className="min-w-0">
@@ -1065,7 +1068,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 target="_blank"
                 rel="noopener noreferrer"
                 title="F2F Hub, all three projects in this portfolio"
-                className="w-8 h-8 rounded-lg overflow-hidden shadow-lg shadow-indigo-500/20 block"
+                className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-indigo-500/20 block shrink-0"
               >
                 <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
               </a>
@@ -1221,8 +1224,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     no agents were visible without scrolling. Of that, 248px was
                     gap rather than content. */}
               <div className="flex flex-col lg:flex-row gap-3 mb-3 items-stretch">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
-                  <div className="bg-white dark:bg-[#1E293B] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3">
+                {/* One card with three columns, not three cards. Each stat is a
+                    number and a short label, roughly 120px of content, and as
+                    separate cards they were each given a third of the row: about
+                    270px, leaving half of every card empty. A single card with
+                    dividers removes two borders, two gaps and all of that dead
+                    space, and reads as one block of figures, which is what it is. */}
+                <div className="flex-1 bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-800">
+                  <div className="px-4 py-3 flex items-center justify-center gap-3">
                     <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0"><Activity size={18} /></div>
                     <div>
  {/* fix (2026-08-27): only ever render the real,
@@ -1252,7 +1261,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       a reader would expect from that word. 96.4% of this
                       number also comes from a single automated cluster
                       (Ensoul), so the tooltip says so. */}
-                  <div className="bg-white dark:bg-[#1E293B] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3">
+                  <div className="px-4 py-3 flex items-center justify-center gap-3">
                     <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0"><MessageSquare size={18} /></div>
                     <div>
                       {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.totalFeedbacks.toLocaleString()}</div> : <StatSkeleton />}
@@ -1268,7 +1277,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       </div>
                     </div>
                   </div>
-                  <div title="Has at least one on-chain-confirmed delivered job, not just registered on-chain (see 'How we verify agents' below)" className="bg-white dark:bg-[#1E293B] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3">
+                  <div title="Has at least one on-chain-confirmed delivered job, not just registered on-chain (see 'How we verify agents' below)" className="px-4 py-3 flex items-center justify-center gap-3">
                     <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0"><Users size={18} /></div>
                     <div>
                       {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.verified.toLocaleString()}</div> : <StatSkeleton />}

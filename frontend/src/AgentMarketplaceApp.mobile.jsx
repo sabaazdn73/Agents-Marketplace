@@ -15,7 +15,9 @@ import { usePrivy } from '@privy-io/react-auth';
 // filtered SVG look pixelated on a high-DPI phone even though the source
 // is vector. At the 32px this renders at, those shadows are sub-pixel and
 // contribute nothing anyway. Same artwork, same gradients, same viewBox.
-import iconLogo from './assets/icon_v2_small.svg';
+// The clay app mark, the same file the home-screen and dock icons are
+// generated from, so the in-app logo and the installed icon match.
+import iconLogo from './assets/app-icon.png';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
 import agentsHero from './assets/agents.png';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
@@ -425,7 +427,7 @@ function SplashScreen({ onUnlock }) {
 
       <div className="w-full flex flex-col items-center gap-2 pb-4 min-h-[48px] justify-end">
         <div className="flex items-center gap-2">
-          <img src={iconLogo} alt="" className="w-7 h-7" />
+          <img src={iconLogo} alt="" className="w-12 h-12" />
           <h1 className="text-xl font-bold tracking-tight">Tnega</h1>
         </div>
       </div>
@@ -904,7 +906,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             target="_blank"
             rel="noopener noreferrer"
             title="F2F Hub, all three projects in this portfolio"
-            className="w-8 h-8 rounded-lg overflow-hidden block"
+            className="w-16 h-16 rounded-2xl overflow-hidden block shrink-0"
           >
             <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
           </a>
