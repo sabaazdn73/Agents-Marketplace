@@ -4,7 +4,7 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard} from 'lucide-react';
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, FlaskConical} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -26,6 +26,7 @@ import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
+import BehaviourStudy from './BehaviourStudy';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
 import NotificationBell from './NotificationBell';
@@ -286,6 +287,7 @@ const NAV_ITEMS = [
   { id: 'build', label: 'Build', icon: Hammer },
   { id: 'sell', label: 'Sell', icon: Coins },
   { id: 'report', label: 'Report', icon: FileBarChart },
+  { id: 'behaviour', label: 'Behaviour', icon: FlaskConical },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
 ];
 
@@ -1448,6 +1450,16 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <p className="text-sm text-gray-500">Every agent you've hired through here, and where things stand right now.</p>
                 </div>
                 <MyJobsPanel accent="#4F46E5" mutedBorder="border-gray-100 dark:border-gray-800" />
+              </div>
+            )}
+
+            {nav === 'behaviour' && (
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">Behaviour Study</h2>
+                  <p className="text-sm text-gray-500">Measuring what a wallet actually does on chain, from public transaction data alone. Worked through on one arbitrage bot on Solana.</p>
+                </div>
+                <BehaviourStudy />
               </div>
             )}
 

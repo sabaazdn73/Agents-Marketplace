@@ -3,7 +3,7 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard} from 'lucide-react';
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, FlaskConical} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -99,6 +99,7 @@ import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
+import BehaviourStudy from './BehaviourStudy';
 import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
@@ -605,6 +606,7 @@ const NAV_ITEMS = [
 const SIDEBAR_FOOTER_ITEMS = [
   { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
+  { id: 'behaviour', label: 'Behaviour Study', icon: FlaskConical },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
 ];
 
@@ -1990,6 +1992,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
  {/* Report Tab, real, same-task comparisons (AdvantageReport.jsx),
               not a fabricated array. */}
+          {nav === 'behaviour' && (
+            <div className="max-w-4xl">
+              <h2 className="text-3xl font-bold tracking-tight mb-2">Behaviour Study</h2>
+              <p className="text-gray-500 mb-8">Measuring what a wallet actually does on chain, from public transaction data alone. Worked through on one arbitrage bot on Solana.</p>
+              <BehaviourStudy />
+            </div>
+          )}
+
           {nav === 'report' && (
             <div className="max-w-4xl">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Advantage Report</h2>
