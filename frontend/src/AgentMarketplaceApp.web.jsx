@@ -577,7 +577,6 @@ const NAV_ITEMS = [
   // My Agents ahead of Skills (2026-09-07, explicit tab-order request):
   // what you already hired outranks what you could run yourself.
   { id: 'my-agents', label: 'My Agents', icon: Briefcase },
-  { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
 ];
@@ -593,6 +592,7 @@ const NAV_ITEMS = [
 // Still routes, so these navigate through the same setNav path as any tab
 // and still show an active state.
 const SIDEBAR_FOOTER_ITEMS = [
+  { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'report', label: 'Advantage Report', icon: FileBarChart },
   { id: 'learn', label: 'Learn', icon: GraduationCap },
 ];
@@ -1136,12 +1136,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               row. With the 352px aside that takes it from 264px to 328px,
               about a quarter larger, with no change to the file. */}
           {/* Pulled up into the gap left by the rows that used to sit above
-              it. Four have gone now -- Ecosystem, the walkthrough, the
-              report and Learn -- so the nav list ends well short of where it
-              did, and without this there is a band of dead space between the
-              last tab and the picture that reads as a rendering mistake
-              rather than spacing. */}
-          <div className="px-3 mb-1 -mt-3">
+              it. Five have gone now -- Ecosystem, the walkthrough, the
+              report, Learn and Skills -- so the nav list ends well short of
+              where it did, and without this there is a band of dead space
+              between the last tab and the picture that reads as a rendering
+              mistake rather than spacing. */}
+          <div className="px-3 mb-1 -mt-5">
             <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
 
