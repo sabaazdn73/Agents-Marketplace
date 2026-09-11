@@ -24,8 +24,14 @@ const PAGE_META = {
   // Social scrapers read the raw HTML and never run this; search crawlers
   // run it and see this instead. If the two disagree, a shared link and a
   // search result describe the site differently.
-  '/': { description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain." },
-  '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents on BNB Smart Chain, with on-chain escrow protecting every payment.' },
+  '/': {
+    // Must match index.html's static og:title exactly. Social scrapers read
+    // the static tag, search crawlers run this and overwrite it; if the two
+    // differ, a shared link and a search result carry different headlines.
+    ogTitle: 'Tnega: Multichain Agent Marketplace',
+    description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain.",
+  },
+  '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents across BNB Chain, Arbitrum and Robinhood Chain, with payment held on-chain until the work is delivered.' },
   '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions, Venus lending, PancakeSwap trading, and more, you run yourself through your own wallet.' },
   '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
   '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },
@@ -141,7 +147,11 @@ export default function App() {
     if (path.startsWith('/docs')) return;
     const known = Object.prototype.hasOwnProperty.call(PAGE_META, path);
     const meta = known ? PAGE_META[path] : PAGE_META['/'];
-    updatePageMeta({ title: meta.title, description: meta.description, path: known ? path : '/' });
+    // Spread rather than naming each field. Listing them one by one silently
+    // drops anything added to PAGE_META later: ogTitle was added and went
+    // missing here, so the homepage kept publishing a bare "Tnega" headline
+    // while index.html's static tag said otherwise.
+    updatePageMeta({ ...meta, path: known ? path : '/' });
   }, [path]);
 
   // Home renders OUTSIDE the app shell: no sidebar, no partner footer,

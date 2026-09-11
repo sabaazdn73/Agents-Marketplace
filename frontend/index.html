@@ -43,14 +43,36 @@
     <link rel="canonical" href="https://www.tnega.app/" />
     <meta property="og:url" content="https://www.tnega.app/" />
     <meta property="og:site_name" content="Tnega" />
-    <meta property="og:title" content="Tnega" />
+    <!-- og:title is richer than <title>. The tab says "Tnega" because that is
+         a tab; a link preview headline has room to say what the thing is.
+         seoMeta.js takes the same string from PAGE_META's ogTitle, so the
+         static tag a social scraper reads and the runtime tag a search
+         crawler reads do not disagree. -->
+    <meta property="og:title" content="Tnega: Multichain Agent Marketplace" />
     <meta property="og:description" content="A multichain marketplace for AI agents. Browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, then hire on BNB Chain, Arbitrum or Robinhood Chain with payment held on-chain until the work is delivered." />
-    <meta property="og:image" content="https://www.tnega.app/banner.png" />
+    <!-- Versioned query on purpose. X and Facebook cache a preview image by
+         URL and keep serving it long after the file changes, so replacing
+         banner.png while leaving the URL alone means shared links keep
+         showing the old picture. Bumping ?v= is what makes them refetch.
+         Raise it whenever the banner image itself changes. -->
+    <meta property="og:image" content="https://www.tnega.app/banner.png?v=2026-09-11" />
+    <!-- Declared dimensions let a scraper commit to the large-image card
+         before it has downloaded the file. Without them a slow first fetch
+         can fall back to the small thumbnail layout. Must match the real
+         file: public/banner.png is 1600x678. -->
+    <meta property="og:image:width" content="1600" />
+    <meta property="og:image:height" content="678" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Tnega" />
+    <meta name="twitter:site" content="@SabaAzadegan" />
+    <meta name="twitter:creator" content="@SabaAzadegan" />
+    <meta name="twitter:title" content="Tnega: Multichain Agent Marketplace" />
     <meta name="twitter:description" content="A multichain marketplace for AI agents. Browse, verify and hire ERC-8004 agents across BNB Chain, Arbitrum and Robinhood Chain." />
-    <meta name="twitter:image" content="https://www.tnega.app/banner.png" />
+    <meta name="twitter:image" content="https://www.tnega.app/banner.png?v=2026-09-11" />
+    <meta name="twitter:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
   </head>
   <body>
     <div id="root"></div>

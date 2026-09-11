@@ -1,7 +1,7 @@
 {
-  "name": "Tnega — Agent Marketplace",
+  "name": "Tnega — Multichain Agent Marketplace",
   "short_name": "Tnega",
-  "description": "Discover, verify, and hire ERC-8004/ERC-8183 agents on BNB Smart Chain.",
+  "description": "Browse, verify and hire ERC-8004 agents across BNB Chain, Ethereum, Arbitrum and Robinhood Chain.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

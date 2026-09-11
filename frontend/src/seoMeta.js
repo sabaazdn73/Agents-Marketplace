@@ -29,16 +29,22 @@ function setMeta(selector, attr, value) {
  * should be a real, page-specific sentence, not the generic homepage
  * one. `path` is the route's own pathname, used to build the
  * canonical/og:url so each page declares itself, not the homepage. */
-export function updatePageMeta({ title, description, path = '/' }) {
+export function updatePageMeta({ title, ogTitle, description, path = '/' }) {
   const fullTitle = title ? `${title}, Tnega` : 'Tnega';
+  // The tab title and the link-preview headline are different jobs. A tab is
+  // read in a strip a few characters wide, so "Tnega" is right there; a
+  // preview headline has a full line and should say what the thing is.
+  // Falls back to the tab title, so every route that does not care is
+  // unaffected.
+  const socialTitle = ogTitle || fullTitle;
   document.title = fullTitle;
   const url = path === '/' ? BASE_URL : `${BASE_URL}${path}`;
 
   setMeta('meta[name="description"]', 'content', description);
   setMeta('link[rel="canonical"]', 'href', url);
   setMeta('meta[property="og:url"]', 'content', url);
-  setMeta('meta[property="og:title"]', 'content', fullTitle);
+  setMeta('meta[property="og:title"]', 'content', socialTitle);
   setMeta('meta[property="og:description"]', 'content', description);
-  setMeta('meta[name="twitter:title"]', 'content', fullTitle);
+  setMeta('meta[name="twitter:title"]', 'content', socialTitle);
   setMeta('meta[name="twitter:description"]', 'content', description);
 }
