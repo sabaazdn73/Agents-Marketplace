@@ -52,25 +52,30 @@
          static tag a social scraper reads and the runtime tag a search
          crawler reads do not disagree. -->
     <meta property="og:title" content="Tnega: Multichain Agent Marketplace" />
-    <!-- 141 characters. The previous one ran to 235 and was being truncated
-         on mobile previews, which cut it mid-clause. -->
-    <meta property="og:description" content="Verified AI agents across four chains. Hire on BNB Chain, Arbitrum or Robinhood Chain, with payment held on-chain until the work is delivered." />
-    <!-- A different file name, which is its own cache-bust: X and Facebook
-         key a cached preview on the image URL, so a new name forces a
-         refetch as surely as a version query did. banner.png is gone; it
-         was 1.6MB at the wrong aspect ratio.
+    <!-- 105 characters. It has been cut twice: 235 first, then 142, which
+         was still past the ~125 a mobile preview shows before truncating.
+         The three chains are named because those are the ones you can
+         actually hire on; the other is browse-only. -->
+    <meta property="og:description" content="Verified AI agents on four chains. Hire on BNB Chain, Arbitrum or Robinhood Chain, payment held on-chain." />
+    <!-- X and Facebook key a cached preview on the image URL, so the ?v=
+         forces a refetch when the file changes under the same name. Bump it
+         whenever the banner does.
 
-         JPEG, not PNG. This is photographic artwork: at 1200x630 the PNG
-         weighs 1,067KB and the JPEG 147KB for the same picture, and preview
-         scrapers give up on slow images. -->
-    <meta property="og:image" content="https://www.tnega.app/banner.jpg" />
+         JPEG, not PNG: this is photographic artwork, and at 1200x630 the
+         PNG weighs 1,067KB against the JPEG's 158KB. Scrapers give up on
+         slow images. -->
+    <meta property="og:image" content="https://www.tnega.app/banner.jpg?v=3" />
     <!-- Declared dimensions let a scraper commit to the large-image card
          before it has downloaded the file. Must match the real file:
-         public/banner.jpg is 1200x630, which is the 1.91:1 every platform
-         actually expects. The previous 1600x678 was 2.36:1 and was being
-         cropped or letterboxed by whoever rendered it. The crop keeps the
-         left edge intact so the Tnega sign stays whole; the 601px it gives
-         up all come off the right. -->
+         public/banner.jpg is 1200x630, the 1.91:1 every platform expects.
+
+         Reached by scaling the whole frame down and letterboxing it, NOT by
+         cropping. An earlier version cut 601px off the right to make the
+         ratio, which deleted the Arbitrum robot outright: content thrown
+         away to hit a number, when setting the ratio here is precisely what
+         stops a platform cropping it. The bars are exactly 60px top and
+         bottom, and they carry the headline and the call to action, so the
+         artwork keeps every pixel and nothing sits on top of it. -->
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/jpeg" />
@@ -82,7 +87,7 @@
     <meta name="twitter:creator" content="@SabaAzadegan" />
     <meta name="twitter:title" content="Tnega: Multichain Agent Marketplace" />
     <meta name="twitter:description" content="A multichain marketplace for AI agents. Browse, verify and hire ERC-8004 agents across BNB Chain, Arbitrum and Robinhood Chain." />
-    <meta name="twitter:image" content="https://www.tnega.app/banner.jpg" />
+    <meta name="twitter:image" content="https://www.tnega.app/banner.jpg?v=3" />
     <meta name="twitter:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
   </head>
   <body>
