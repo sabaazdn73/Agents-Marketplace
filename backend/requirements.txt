@@ -7,3 +7,11 @@ fastapi>=0.115
 uvicorn>=0.32
 motor>=3.6
 google-genai>=2.16.0
+
+# CockroachDB. psycopg[binary] bundles its own libpq, so TLS behaviour does
+# not depend on whatever libpq the base image happens to carry.
+psycopg[binary]>=3.2
+# Direct dependency now, not transitive: core/cockroach.py uses certifi.where()
+# as the CA bundle for sslmode=verify-full, because the deployed container has
+# no ~/.postgresql/root.crt and libpq will not fall back to the OS trust store.
+certifi>=2024.2.2
