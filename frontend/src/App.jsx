@@ -152,7 +152,19 @@ export default function App() {
     // drops anything added to PAGE_META later: ogTitle was added and went
     // missing here, so the homepage kept publishing a bare "Tnega" headline
     // while index.html's static tag said otherwise.
-    updatePageMeta({ ...meta, path: known ? path : '/' });
+    //
+    // The canonical is the page's OWN path, even when the route is not in
+    // PAGE_META. It used to fall back to "/" along with the copy, which meant
+    // every one of ~14,900 agent pages published
+    // <link rel="canonical" href="https://www.tnega.app/">: each one telling
+    // Google it was a duplicate of the homepage and should not be indexed in
+    // its own right. That is the entire long tail of this site -- the pages
+    // that would rank for an agent's name or a specific capability --
+    // volunteering to be dropped.
+    //
+    // The agent views overwrite title and description with the real agent
+    // once it has loaded; this is the floor, not the final answer.
+    updatePageMeta({ ...meta, path });
   }, [path]);
 
   // Home renders OUTSIDE the app shell: no sidebar, no partner footer,

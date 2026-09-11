@@ -89,6 +89,47 @@
     <meta name="twitter:description" content="A multichain marketplace for AI agents. Browse, verify and hire ERC-8004 agents across BNB Chain, Arbitrum and Robinhood Chain." />
     <meta name="twitter:image" content="https://www.tnega.app/banner.jpg?v=3" />
     <meta name="twitter:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
+    <!-- Structured data. There was none, so Google had only the raw text
+         of a JavaScript-rendered page to work from and nothing telling it
+         what this site IS. WebSite + SearchAction also makes a sitelinks
+         search box possible; Organization ties the name, logo and
+         accounts together so they are treated as one entity. -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://www.tnega.app/#website",
+      "url": "https://www.tnega.app/",
+      "name": "Tnega",
+      "description": "A multichain marketplace for AI agents. Browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain.",
+      "publisher": {
+        "@id": "https://www.tnega.app/#org"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://www.tnega.app/market?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://www.tnega.app/#org",
+      "name": "Tnega",
+      "url": "https://www.tnega.app/",
+      "logo": "https://www.tnega.app/icon_v2_preview.png",
+      "sameAs": [
+        "https://x.com/SabaAzadegan",
+        "https://github.com/sabaazdn73/Agents-Marketplace"
+      ]
+    }
+  ]
+}
+    </script>
   </head>
   <body>
     <div id="root"></div>

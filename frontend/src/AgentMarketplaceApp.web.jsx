@@ -27,6 +27,7 @@ import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
+import { updatePageMeta } from './seoMeta';
 import ChainViewTabs from './chainViews/ChainViewTabs';
 import HireModePicker, { HIRE_MODE } from './HireModePicker';
 import BudgetHirePanel from './BudgetHirePanel';
@@ -632,6 +633,34 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  // deep-link from the agent guidance panel's "Try it yourself",
   // switches to Build and pre-opens that specific skill's guided form.
   const [pendingSkillId, setPendingSkillId] = useState(null);
+  // An open agent is its own page as far as search is concerned, so it says
+  // so. Without this every agent inherited the homepage's title, description
+  // and canonical URL, which told Google that ~14,900 distinct pages were all
+  // duplicates of "/" -- the long tail of this site asking not to be indexed.
+  //
+  // Written from the agent itself rather than a route table, because the
+  // useful words are its own name and what it claims to do, and those are
+  // only known once it has loaded. Closing the overlay changes the path,
+  // which re-runs App.jsx's route effect and restores the list's meta.
+  useEffect(() => {
+    if (!detailAgent) return;
+    const name = detailAgent.name || `Agent #${detailAgent.tokenId ?? ''}`.trim();
+    // `network` is not a chain name: on a BSC agent it reads "mainnet", which
+    // produced titles like "Buyback Agent, an AI agent on mainnet". This view
+    // is the BNB Chain marketplace, so anything that is not already a proper
+    // name gets the real one.
+    const raw = (detailAgent.network || '').trim();
+    const chain = (!raw || /^(main|test)net$/i.test(raw)) ? 'BNB Chain' : raw;
+    const own = (detailAgent.strategy || '').replace(/\s+/g, ' ').trim();
+    updatePageMeta({
+      docTitle: `${name}, an AI agent on ${chain} | Tnega`,
+      description: own
+        ? (own.length > 155 ? `${own.slice(0, 152)}\u2026` : own)
+        : `${name} is an ERC-8004 agent on ${chain}. See its verification status, delivery record and hire it on-chain through Tnega.`,
+      path: agentPath(detailAgent),
+    });
+  }, [detailAgent]);
+
   const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('skills'); setPendingSkillId(skillId); onNavChange?.('skills'); };
   const [hiring, setHiring] = useState(false);
   const [buildDescription, setBuildDescription] = useState('');
