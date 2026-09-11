@@ -25,9 +25,10 @@ const PAGE_META = {
   // run it and see this instead. If the two disagree, a shared link and a
   // search result describe the site differently.
   '/': {
-    // Must match index.html's static og:title exactly. Social scrapers read
-    // the static tag, search crawlers run this and overwrite it; if the two
-    // differ, a shared link and a search result carry different headlines.
+    // Both must match index.html's static tags exactly. Social scrapers read
+    // the static tags, search crawlers run this and overwrite them; if the
+    // two differ, a shared link and a search result disagree.
+    docTitle: 'Tnega: Multichain AI Agent Marketplace, Hire On-Chain',
     ogTitle: 'Tnega: Multichain Agent Marketplace',
     description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain.",
   },

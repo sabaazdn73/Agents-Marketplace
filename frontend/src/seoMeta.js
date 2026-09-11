@@ -29,8 +29,11 @@ function setMeta(selector, attr, value) {
  * should be a real, page-specific sentence, not the generic homepage
  * one. `path` is the route's own pathname, used to build the
  * canonical/og:url so each page declares itself, not the homepage. */
-export function updatePageMeta({ title, ogTitle, description, path = '/' }) {
-  const fullTitle = title ? `${title}, Tnega` : 'Tnega';
+export function updatePageMeta({ title, ogTitle, docTitle, description, path = '/' }) {
+  // docTitle wins outright where a route supplies one. The homepage needs
+  // it: its `title` is absent by design, which produced a bare "Tnega" --
+  // five characters in a slot search results give about sixty.
+  const fullTitle = docTitle || (title ? `${title}, Tnega` : 'Tnega');
   // The tab title and the link-preview headline are different jobs. A tab is
   // read in a strip a few characters wide, so "Tnega" is right there; a
   // preview headline has a full line and should say what the thing is.

@@ -501,55 +501,60 @@ async function readBudgetsOnChain(config, chainId, address) {
   if (!escrowAddress) return [];
   const publicClient = getPublicClient(config, { chainId });
   if (!publicClient) return [];
+  // One `mine`, declared once. There used to be two: this one, and a second
+  // `const mine = []` inside a nested block below. Every budget was pushed
+  // into the inner one, which went out of scope before the return, so this
+  // function handed back an empty array on every chain, every time. That is
+  // why My Agents showed no budgets at all -- not a chain-scoping problem, a
+  // shadowed variable. The stray nested braces it hid in were left over from
+  // splitting this out of the hook, and are gone with it.
   const mine = [];
-  {
-    {
-      const common = { address: escrowAddress, abi: BUDGET_ESCROW_ABI };
-      const count = await publicClient.readContract({ ...common, functionName: 'budgetCounter' });
-      const total = Number(count);
-      if (total === 0) { setState({ loading: false, budgets: [], error: null }); return; }
+  const common = { address: escrowAddress, abi: BUDGET_ESCROW_ABI };
+  const count = await publicClient.readContract({ ...common, functionName: 'budgetCounter' });
+  const total = Number(count);
+  // `setState` used to be called here. It is not in scope in a standalone
+  // function, so a chain whose counter reads 0 would have thrown a
+  // ReferenceError and been reported as an unreadable chain.
+  if (total === 0) return mine;
 
-      const BATCH_SIZE = 50;
-      const mine = [];
-      for (let start = 1; start <= total; start += BATCH_SIZE) {
-        const end = Math.min(start + BATCH_SIZE - 1, total);
-        const ids = [];
-        for (let i = start; i <= end; i++) ids.push(BigInt(i));
+  const BATCH_SIZE = 50;
+  for (let start = 1; start <= total; start += BATCH_SIZE) {
+    const end = Math.min(start + BATCH_SIZE - 1, total);
+    const ids = [];
+    for (let i = start; i <= end; i++) ids.push(BigInt(i));
 
-        // getBudget AND drawableNow together: drawableNow is the contract's
-        // own view of what can be taken right now, and recomputing it here
-        // from status/deadline/cooldown would be a second implementation of
-        // logic that already exists on-chain -- the kind of duplicate that
-        // drifts and then disagrees with the contract.
-        const results = await publicClient.multicall({
-          contracts: ids.flatMap((id) => [
-            { ...common, functionName: 'getBudget', args: [id] },
-            { ...common, functionName: 'drawableNow', args: [id] },
-          ]),
-          allowFailure: true,
-        });
+    // getBudget AND drawableNow together: drawableNow is the contract's
+    // own view of what can be taken right now, and recomputing it here
+    // from status/deadline/cooldown would be a second implementation of
+    // logic that already exists on-chain -- the kind of duplicate that
+    // drifts and then disagrees with the contract.
+    const results = await publicClient.multicall({
+      contracts: ids.flatMap((id) => [
+        { ...common, functionName: 'getBudget', args: [id] },
+        { ...common, functionName: 'drawableNow', args: [id] },
+      ]),
+      allowFailure: true,
+    });
 
-        ids.forEach((id, idx) => {
-          const budgetRes = results[idx * 2];
-          const drawableRes = results[idx * 2 + 1];
-          if (budgetRes?.status !== 'success') return;
-          const b = budgetRes.result;
-          if (!b || Number(b.status) === 0) return; // NONE -- never opened
-          if (String(b.client).toLowerCase() !== String(address).toLowerCase()) return;
-          mine.push({
-            id,
-            ...b,
-            // Which chain this budget lives on. Carried on the budget rather
-            // than inferred from the wallet, so the row can label itself and
-            // reclaim can target the right contract.
-            chainId,
-            // A failed drawableNow must not fabricate a number. null reads
-            // as "unknown" downstream rather than as zero.
-            drawable: drawableRes?.status === 'success' ? drawableRes.result : null,
-          });
-        });
-      }
-    }
+    ids.forEach((id, idx) => {
+      const budgetRes = results[idx * 2];
+      const drawableRes = results[idx * 2 + 1];
+      if (budgetRes?.status !== 'success') return;
+      const b = budgetRes.result;
+      if (!b || Number(b.status) === 0) return; // NONE -- never opened
+      if (String(b.client).toLowerCase() !== String(address).toLowerCase()) return;
+      mine.push({
+        id,
+        ...b,
+        // Which chain this budget lives on. Carried on the budget rather
+        // than inferred from the wallet, so the row can label itself and
+        // reclaim can target the right contract.
+        chainId,
+        // A failed drawableNow must not fabricate a number. null reads
+        // as "unknown" downstream rather than as zero.
+        drawable: drawableRes?.status === 'success' ? drawableRes.result : null,
+      });
+    });
   }
   return mine;
 }
