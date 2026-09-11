@@ -54,6 +54,7 @@ anvil --fork-url https://ethereum-rpc.publicnode.com --port 8545 &
 forge create src/AgentBudgetEscrow.sol:AgentBudgetEscrow \
   --rpc-url http://127.0.0.1:8545 \
   --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+  --broadcast \
   --constructor-args \
     "[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0xdAC17F958D2ee523a2206206994597C13D831ec7]" \
     0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 \
@@ -64,7 +65,32 @@ The private key above is Anvil's first well-known test account. It is public,
 it holds nothing on any real network, and it must never appear in a command
 that names a mainnet RPC.
 
-Stop the fork when the deploy succeeds.
+Verify the constructor actually took, rather than trusting that it deployed:
+
+```bash
+A=<address forge printed>
+R=http://127.0.0.1:8545
+
+cast call $A 'feeWallet()(address)' --rpc-url $R      # your fee wallet
+cast call $A 'feeBps()(uint16)'     --rpc-url $R      # 250
+cast call $A 'MAX_FEE_BPS()(uint16)' --rpc-url $R     # 1000
+cast call $A 'acceptedTokens(address)(bool)' 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 --rpc-url $R
+cast call $A 'acceptedTokens(address)(bool)' 0xdAC17F958D2ee523a2206206994597C13D831ec7 --rpc-url $R
+```
+
+The token allowlist getter is `acceptedTokens`, not `allowedToken`. Both USDC
+and USDT must answer `true` and an unrelated address must answer `false`; if
+the allowlist is empty the deploy succeeded and the contract is useless.
+
+Run on a fork of block 25,957,151 this deploy used **1,790,611 gas**, against
+the 1,805,989 that `eth_estimateGas` predicted. Both tokens returned `true`,
+`feeBps` was 250 and `MAX_FEE_BPS` 1000.
+
+Note that `owner()` is the deploying wallet, not the fee wallet. On the fork
+that is Anvil's test account; on mainnet it will be whichever key you unlock
+with `--interactive`.
+
+Stop the fork when the checks pass.
 
 ## The real deploy
 
@@ -74,6 +100,7 @@ cd contracts
 forge create src/AgentBudgetEscrow.sol:AgentBudgetEscrow \
   --rpc-url https://ethereum-rpc.publicnode.com \
   --interactive \
+  --broadcast \
   --constructor-args \
     "[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0xdAC17F958D2ee523a2206206994597C13D831ec7]" \
     0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 \
@@ -81,6 +108,11 @@ forge create src/AgentBudgetEscrow.sol:AgentBudgetEscrow \
   --verify \
   --etherscan-api-key "$ETHERSCAN_API_KEY"
 ```
+
+`--broadcast` is required. Forge 1.7.1 only simulates without it: it prints the
+contract ABI, exits 0, and deploys nothing. Confirmed on the fork, where the
+first run without it produced no contract and no transaction hash. That failure
+is harmless but silent, so check the output names a "Deployed to" address.
 
 `--interactive` prompts for the key rather than taking it on the command line,
 so it never enters shell history. Do not substitute `--private-key` here.
