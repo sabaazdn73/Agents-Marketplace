@@ -53,16 +53,20 @@ import Pagination from './Pagination';
 function QrToMobile() {
   const url = import.meta.env?.VITE_MOBILE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
   return (
-    <div className="bg-white dark:bg-[#1E293B] p-4 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4 lg:w-72 shrink-0">
-      <div className="bg-white p-2 rounded-lg shrink-0">
+    <div className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3 lg:w-72 shrink-0">
+      {/* 88px, down from 104, with the nested padding cut too. This card set
+          the height of the whole stats band through items-stretch, so 30px
+          here is 30px off every card beside it. Still well above the ~60px a
+          short URL needs to scan reliably at level H with a logo cut out. */}
+      <div className="bg-white p-1.5 rounded-lg shrink-0">
         <QRCodeCanvas
           value={url}
-          size={104}
+          size={88}
           level="H"
           marginSize={3}
           bgColor="#ffffff"
           fgColor="#0B101B"
-          imageSettings={{ src: iconLogo, height: 24, width: 24, excavate: true }}
+          imageSettings={{ src: iconLogo, height: 20, width: 20, excavate: true }}
         />
       </div>
       <div className="min-w-0">
@@ -1183,15 +1187,19 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  stacked below here, information, but competing for attention
                   whether or not anyone needed it right now. Both now live behind small,
                   on-demand (i) icons instead, same meaning, no permanent space. */}
-              <div className="flex flex-col lg:flex-row gap-3 mb-4 items-stretch">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
-                  <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400"><Activity size={20} /></div>
+              {/* Tightened 2026-09-11. Measured on the live page, the header put
+                    789px above the first agent card on a 979px viewport, so almost
+                    no agents were visible without scrolling. Of that, 248px was
+                    gap rather than content. */}
+              <div className="flex flex-col lg:flex-row gap-3 mb-3 items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-1">
+                  <div className="bg-white dark:bg-[#1E293B] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0"><Activity size={18} /></div>
                     <div>
  {/* fix (2026-08-27): only ever render the real,
                           confirmed-fresh count, a skeleton until then,
                           never a stale cached number that later jumps. */}
-                      {confirmedFresh ? <div className="text-2xl font-bold">{stats.total.toLocaleString()}</div> : <StatSkeleton />}
+                      {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.total.toLocaleString()}</div> : <StatSkeleton />}
                       <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
                         Agents Listed
                         <InfoTooltip label="" size={12}>
@@ -1215,10 +1223,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       a reader would expect from that word. 96.4% of this
                       number also comes from a single automated cluster
                       (Ensoul), so the tooltip says so. */}
-                  <div className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><MessageSquare size={20} /></div>
+                  <div className="bg-white dark:bg-[#1E293B] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0"><MessageSquare size={18} /></div>
                     <div>
-                      {confirmedFresh ? <div className="text-2xl font-bold">{stats.totalFeedbacks.toLocaleString()}</div> : <StatSkeleton />}
+                      {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.totalFeedbacks.toLocaleString()}</div> : <StatSkeleton />}
                       <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
                         On-chain Feedback
                         <InfoTooltip label="" size={12}>
@@ -1231,10 +1239,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       </div>
                     </div>
                   </div>
-                  <div title="Has at least one on-chain-confirmed delivered job, not just registered on-chain (see 'How we verify agents' below)" className="bg-white dark:bg-[#1E293B] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400"><Users size={20} /></div>
+                  <div title="Has at least one on-chain-confirmed delivered job, not just registered on-chain (see 'How we verify agents' below)" className="bg-white dark:bg-[#1E293B] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0"><Users size={18} /></div>
                     <div>
-                      {confirmedFresh ? <div className="text-2xl font-bold">{stats.verified.toLocaleString()}</div> : <StatSkeleton />}
+                      {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.verified.toLocaleString()}</div> : <StatSkeleton />}
                       <div className="text-xs text-gray-500 font-medium">Verified Agents</div>
                     </div>
                   </div>
@@ -1249,19 +1257,19 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  This is a real, always-visible section instead (collapsed
                   by default to stay out of the way, but the toggle itself
                   is never hidden). See VerificationExplainerSection.jsx. */}
-              <VerificationExplainerSection className="mb-2" />
+              {/* Both explainers on one row. They were stacked bands of 50px
+                  and 24px for what is a toggle and a tooltip link, and
+                  neither needs a line to itself. */}
+              <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <VerificationExplainerSection className="flex-1 min-w-[260px]" />
 
-              {/* This was a full mb-8 block wrapping a single small tooltip
-                  link -- 32px of empty column under one line of text, and
-                  the largest single gap in this header. It belongs with the
-                  verification explainer directly above it, not floating in
-                  its own band. */}
-              <div className="mb-5">
+              <div className="shrink-0">
                 <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
                   <div className="space-y-2">
                     <p><strong>Online now</strong> means we reached this agent's endpoint just now and it answered. No checkmark only means we haven't confirmed recently, not that anything is broken. Either way it isn't a quality signal on its own. See "How we verify agents" above for what counts as proof.</p>
                   </div>
                 </InfoTooltip>
+              </div>
               </div>
 
  {/* tidiness pass (2026-08-28): sort/view (how the list is
@@ -1269,7 +1277,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   filter toggles (what's IN the list) get a second row of
                   their own, clearly labeled, instead of all 5 controls
                   running together in one cramped line. */}
-              <div className="mb-5 flex flex-col gap-3">
+              <div className="mb-3 flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3">
                   <div>
                     <h2 className="text-2xl font-bold tracking-tight mb-1.5 flex items-center gap-2">
@@ -1338,15 +1346,24 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 )}
               </div>
 
-              <div className="mb-3 relative">
-                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search by name, or paste an agent id / wallet / contract address…"
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+              {/* Search and the hire-by-id button on one line. The button used
+                  to own a full-width row of its own to carry eight words, and
+                  the two belong together anyway: both are "I already know what
+                  I am looking for". */}
+              <div className="mb-3 flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Search by name, or paste an agent id / wallet / contract address…"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <button type="button" onClick={() => setShowManualHire((v) => !v)} className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                  <Search size={12} />{showManualHire ? 'Hide this' : 'Hire by ID'}
+                </button>
               </div>
 
  {/* Real, disclosure for the two performance sorts, see
@@ -1368,10 +1385,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               {/* Hire-by-address escape hatch, for an agent not yet indexed
                   as a card (e.g. just registered). Builds a synthetic agent
                   object and reuses the hire flow; no backend involved. */}
-              <div className="mb-6">
-                <button type="button" onClick={() => setShowManualHire((v) => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
-                  <Search size={12} />{showManualHire ? 'Hide this' : "Know an agent's ID? Hire it directly"}
-                </button>
+              {/* The button that opens this now lives in the search row above;
+                  only the panel it reveals is left here, so nothing occupies
+                  vertical space while it is closed. */}
+              <div className={showManualHire ? 'mb-4' : ''}>
                 {showManualHire && (
                   <div className="mt-2 flex gap-2">
                     <input
@@ -1404,7 +1421,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               {/* Two lenses on the same classification. The DeFi view maps
                   the four hackathon labels onto the categories that belong
                   under them; it reclassifies nothing. */}
-              <div className="mb-3 flex items-center gap-1 text-[11px]">
+              {/* The toggles and the chips they switch between share one
+                  wrapping row. "Browse by" used to sit on a line by itself,
+                  25px of header to label two buttons. */}
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 text-[11px]">
                 <span className="opacity-40 mr-1">Browse by</span>
                 {[['categories', 'Categories'], ['defi', 'DeFi categories']].map(([id, label]) => (
                   <button key={id} onClick={() => setCategoryView(id)} className={`px-3 py-1 rounded-full font-semibold transition-all ${
@@ -1414,7 +1435,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               </div>
 
               {categoryView === 'defi' && (
-                <div className="mb-8 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button onClick={() => setActiveHackathon('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                     activeHackathon === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
                   }`}>All four</button>
@@ -1426,7 +1447,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 </div>
               )}
 
-              <div className={`mb-3 flex flex-wrap gap-2 ${categoryView === 'defi' ? 'hidden' : ''}`}>
+              <div className={`flex flex-wrap gap-2 ${categoryView === 'defi' ? 'hidden' : ''}`}>
                 <button onClick={() => setActiveGroup('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                   activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
                 }`}>All</button>
@@ -1445,6 +1466,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <button onClick={() => setActiveGroup('Unclassified')} title="Agents whose description didn't clearly match a known category" className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
                   activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
                 }`}>Unclassified ({confirmedFresh ? (groupCounts.Unclassified || 0) : '…'})</button>
+              </div>
               </div>
 
               {categoryView !== 'defi' && activeGroupCategories.length > 0 && (
