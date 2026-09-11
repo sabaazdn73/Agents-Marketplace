@@ -4,13 +4,27 @@
 // refresh. A window event keeps every mounted bell in sync.
 import { useState, useEffect } from 'react';
 
-// Bumped to v2 on 2026-09-10. The stored notifications from v1 include
-// budget lines written before the token symbol and number formatting were
-// fixed, e.g. "Budget #1: 7.00e-6 BNB returned" for a budget denominated in
-// ETH on Robinhood Chain. Those strings are frozen at write time, so fixing
-// the code does not correct what is already in a user's bell. Bumping the key
-// drops them rather than leaving wrong figures on screen indefinitely.
+// Bumped to v2 on 2026-09-10, to drop budget lines written before the token
+// symbol and number formatting were fixed -- e.g. "Budget #1: 7.00e-6 BNB
+// returned" for a budget denominated in ETH on Robinhood Chain. Those strings
+// are frozen at write time, so fixing the code cannot correct what is already
+// in somebody's bell.
+//
+// That bump emptied the notification centre. It did not drop two bad lines,
+// it orphaned the whole history: a real bell held eight notifications going
+// back three weeks, four of them unread, and every one of them became
+// unreachable the moment the key changed. Two entries with a wrong token
+// symbol are a smaller problem than a centre that shows nothing at all, and
+// somebody who has hired agents for a month reasonably reads "empty" as
+// "broken" rather than as "deliberately cleared".
+//
+// So v1 is migrated forward, once, on first read. The mislabelled entries
+// come with it: they are a record of something that really happened, the
+// amounts are right, and rewriting the history of what a user was told is
+// worse than a stale unit on two lines. New writes are correctly formatted.
 const N_KEY = 'aam_notifications_v2';
+const LEGACY_N_KEY = 'aam_notifications_v1';
+const MIGRATED_FLAG = 'aam_notifications_migrated_v1_to_v2';
 const J_KEY = 'aam_tracked_jobs_v1';   // { [jobId]: lastStatusName } for polling
 const MAX = 50;
 const EVT = 'aam-notif-changed';
@@ -25,7 +39,26 @@ function emit() {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVT));
 }
 
-export function listNotifications() { return read(N_KEY, []); }
+/** Moves a v1 bell into v2 exactly once, and only when v2 has nothing of its
+ *  own, so it can never overwrite newer entries or run twice. The flag is
+ *  what makes it idempotent: without it, clearing the bell on purpose would
+ *  resurrect the old list on the next read. */
+function migrateLegacyOnce() {
+  try {
+    if (localStorage.getItem(MIGRATED_FLAG)) return;
+    localStorage.setItem(MIGRATED_FLAG, '1');
+    const legacy = read(LEGACY_N_KEY, null);
+    if (!Array.isArray(legacy) || legacy.length === 0) return;
+    const current = read(N_KEY, null);
+    if (Array.isArray(current) && current.length > 0) return;
+    write(N_KEY, legacy.slice(0, MAX));
+  } catch { /* storage unavailable; nothing to migrate into */ }
+}
+
+export function listNotifications() {
+  migrateLegacyOnce();
+  return read(N_KEY, []);
+}
 export function unreadCount() { return listNotifications().filter((n) => !n.read).length; }
 
 export function addNotification(title, body) {
