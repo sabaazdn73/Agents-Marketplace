@@ -56,29 +56,31 @@ import Pagination from './Pagination';
 function QrToMobile() {
   const url = import.meta.env?.VITE_MOBILE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
   return (
-    <div className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3 lg:w-80 shrink-0">
-      {/* 128px with a 38px mark. The previous 104px code with a 34px mark did
-          not scan at all: verified by decoding the live canvas, which returned
-          nothing. Level H corrects about 30% of codewords, but that is a budget
-          spent across the whole symbol, and a solid block in the middle of a
-          small code eats contiguous data faster than the area ratio suggests.
-          Measured rather than reasoned: at 104px the code decodes with a 32px
-          mark and fails above it, so 34 was just over the line.
-          Every combination here was decoded from the rendered canvas before
-          being chosen, and this one leaves real headroom rather than sitting
-          on the boundary, because a phone camera at an angle in poor light
-          has a harder job than a decoder reading clean pixels.
-          The card widens to w-80 to hold the larger code without squeezing
-          the text beside it. */}
+    <div className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3 lg:w-72 shrink-0">
+      {/* 120px code, 24px mark, 4-module quiet zone.
+          This did not scan at all before, confirmed by decoding the live
+          canvas rather than assuming: it returned nothing.
+          What matters is the RATIO of mark to code, and it was measured with
+          the real payload. An earlier probe used the dev server's own URL and
+          was misleading: a different string produces a different module
+          pattern, so the same mark destroys a different amount of data.
+          Against the production URL: 28/128 and 34/148 decode, 32/128 and
+          40/148 do not. The limit sits near 22% of the code's width.
+          24/120 is 20%, inside that with room to spare, because a phone
+          camera at an angle in poor light has a harder job than a decoder
+          reading clean pixels.
+          marginSize is 4 rather than 3, which is the quiet zone the spec
+          asks for. The code is smaller than before so this card, which sets
+          the height of the whole stats band, gets shorter with it. */}
       <div className="bg-white p-1.5 rounded-lg shrink-0">
         <QRCodeCanvas
           value={url}
-          size={128}
+          size={120}
           level="H"
-          marginSize={3}
+          marginSize={4}
           bgColor="#ffffff"
           fgColor="#0B101B"
-              imageSettings={{ src: iconLogo, height: 38, width: 38, excavate: true }}
+              imageSettings={{ src: iconLogo, height: 24, width: 24, excavate: true }}
         />
       </div>
       <div className="min-w-0">
@@ -1076,7 +1078,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 target="_blank"
                 rel="noopener noreferrer"
                 title="F2F Hub, all three projects in this portfolio"
-                className="w-24 h-24 rounded-2xl overflow-hidden shadow-lg shadow-indigo-500/20 block shrink-0"
+                className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-indigo-500/20 block shrink-0"
               >
                 <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
               </a>
