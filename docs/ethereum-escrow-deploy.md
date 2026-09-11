@@ -61,6 +61,23 @@ forge create src/AgentBudgetEscrow.sol:AgentBudgetEscrow \
     250
 ```
 
+`--constructor-args` must be the LAST flag on the line. It is variadic, so it
+consumes every following word as a constructor argument, including other
+flags. With `--verify --etherscan-api-key "$KEY"` placed after it, forge
+counts six arguments and fails with:
+
+```
+Error: Constructor argument count mismatch: expected 3 but got 6
+```
+
+Those six are the array, the fee wallet, 250, `--verify`,
+`--etherscan-api-key` and the key itself. Reproduced and then fixed on the
+fork.
+
+The token array must also be quoted. Unquoted, zsh treats the brackets as a
+glob and fails before forge runs, with `no matches found: [0xA0b8...]`. A
+space after the comma is fine; `"[$USDC, $USDT]"` works.
+
 The private key above is Anvil's first well-known test account. It is public,
 it holds nothing on any real network, and it must never appear in a command
 that names a mainnet RPC.
@@ -101,13 +118,17 @@ forge create src/AgentBudgetEscrow.sol:AgentBudgetEscrow \
   --rpc-url https://ethereum-rpc.publicnode.com \
   --interactive \
   --broadcast \
+  --verify \
+  --etherscan-api-key "$ETHERSCAN_API_KEY" \
   --constructor-args \
     "[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0xdAC17F958D2ee523a2206206994597C13D831ec7]" \
     0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 \
-    250 \
-  --verify \
-  --etherscan-api-key "$ETHERSCAN_API_KEY"
+    250
 ```
+
+Note the ordering: every other flag comes first and `--constructor-args` is
+last. See the dry-run section for why, and for the exact error you get
+otherwise.
 
 `--broadcast` is required. Forge 1.7.1 only simulates without it: it prints the
 contract ABI, exits 0, and deploys nothing. Confirmed on the fork, where the
