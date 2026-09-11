@@ -50,6 +50,26 @@
 .agent-hero .sound:active{transform:scale(.94)}
 .agent-hero .sound:focus-visible{outline:3px solid #fff;outline-offset:3px}
 
+/* Phones get a full-bleed hero.
+   The 16/9 stage is right on a desktop, where it sits inside the page. On a
+   390px-wide phone that same ratio is only about 219px tall inside an 844px
+   viewport, so the video became a letterbox strip floating in the middle of
+   a mostly empty screen, with the copy pinned far below it.
+   Here it fills the viewport instead: full width, full height, no rounding,
+   and the clip covers rather than letterboxes, so the subject stays centred
+   and what a crop takes is skyline. dvh rather than vh so the mobile
+   browser's own chrome does not push the bottom of the video out of view. */
+@media (max-width: 720px){
+  .agent-hero .stage{
+    width:100vw;
+    height:100vh;
+    height:100dvh;
+    max-height:none;
+    aspect-ratio:auto;
+    border-radius:0;
+  }
+}
+
 .agent-hero .stage .motion{
     position:absolute;inset:0;
     width:100%;height:100%;

@@ -427,7 +427,7 @@ function SplashScreen({ onUnlock }) {
 
       <div className="w-full flex flex-col items-center gap-2 pb-4 min-h-[48px] justify-end">
         <div className="flex items-center gap-2">
-          <img src={iconLogo} alt="" className="w-12 h-12" />
+          <img src={iconLogo} alt="" className="w-16 h-16" />
           <h1 className="text-xl font-bold tracking-tight">Tnega</h1>
         </div>
       </div>
@@ -906,7 +906,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             target="_blank"
             rel="noopener noreferrer"
             title="F2F Hub, all three projects in this portfolio"
-            className="w-16 h-16 rounded-2xl overflow-hidden block shrink-0"
+            className="w-24 h-24 rounded-2xl overflow-hidden block shrink-0"
           >
             <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
           </a>
