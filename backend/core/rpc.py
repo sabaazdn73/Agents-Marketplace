@@ -231,7 +231,6 @@ _CHAIN_PRIMARY_RPC = {
     1: _infura("mainnet"),
     8453: "https://mainnet.base.org",
     42161: "https://arb1.arbitrum.io/rpc",
-    42220: "https://forno.celo.org",
     143: "https://rpc.monad.xyz",
     # Robinhood Chain, added 2026-09-10. An Arbitrum Orbit L2 with ETH as
     # its gas token, which is why it carries the same ERC-8004 registry
@@ -245,13 +244,12 @@ _CHAIN_PRIMARY_RPC = {
     # this was briefly committed as primary-only on the strength of a probe
     # that found no working alternative. That probe was wrong. The chain
     # publishes four RPCs and two of them answer correctly, so the entry is
-    # not the primary-alone case that Celo and Monad genuinely are.
     4663: "https://rpc.mainnet.chain.robinhood.com",
 }
 
 # Infura path per chain, used as the failover where Infura covers it. Base
-# and Arbitrum are covered; Celo and Monad are not, so those two run on
-# their primary alone -- stated here rather than silently having no backup.
+# and Arbitrum are covered; Monad is not, so it takes a public failover
+# from _CHAIN_PUBLIC_BACKUP below instead.
 # Robinhood Chain is not covered by Infura either, but it does have a
 # failover: a public endpoint, held in _CHAIN_PUBLIC_BACKUP below.
 _CHAIN_INFURA_PATH = {
@@ -273,6 +271,13 @@ _CHAIN_PUBLIC_BACKUP = {
     # bytes the primary reports, and it resolves tokenURI(60) to the same
     # value, at a block height within ~15 of the primary.
     4663: "https://robinhood-rpc.publicnode.com",
+    # Monad. Added 2026-09-11 with the chain's promotion to its own tab:
+    # it had been running on its primary alone. Verified against the
+    # primary rather than taken from a list -- it returns chainId 143 and
+    # the ERC-8004 registry at 0x8004A169.. with the same 130 bytes.
+    # Infura does not cover Monad, so this is a public endpoint. Ankr and
+    # Alchemy's demo endpoint were tried first and neither answered.
+    143: "https://monad.drpc.org",
 }
 
 

@@ -152,7 +152,7 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
               said no more than "across chains", so both now name the chains
               and separate what you can browse from what you can hire. */}
           <h1>Autonomous agents, one verifiable network across chains</h1>
-          <p>Discover and verify agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain.</p>
+          <p>Discover and verify agents on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.</p>
           <a
             href="/market"
             onClick={(e) => { e.preventDefault(); onEnterMarketplace?.(); }}

@@ -61,12 +61,23 @@ CHAIN_NAMES = {
     101: "Solana",
     8453: "Base",
     42161: "Arbitrum",
-    42220: "Celo",
     143: "Monad",
     137: "Polygon",
     4663: "Robinhood Chain",
-    45056: "Billions Network",
 }
+# Celo (42220) and Billions Network (45056) were removed here on 2026-09-11,
+# when their 35,647 documents were deleted from the store. Base (8453) stays
+# in this map and in the store, but appears in no view below: see the note on
+# the removed multichain view.
+
+# Chains held in the store that deliberately have NO view. This is a state
+# the code had not had before: every stored chain used to be reachable
+# through some tab. Nothing derives a user-facing number from "all stored
+# chains" -- every count comes from a view's own chain_ids (count_view,
+# category_facets and fetch_page all filter on them) or from the BSC serving
+# store -- so a chain absent from VIEWS is absent from every total a visitor
+# sees, automatically and without a second list to maintain.
+RETAINED_HIDDEN_CHAIN_IDS = (8453,)
 
 # The views, in the order the UI renders their tabs. Python preserves
 # insertion order and describe_views() iterates this dict, so this is the
@@ -136,19 +147,34 @@ VIEWS = {
         "coming_soon": False,
         "served_by": "/api/chain-view/robinhood",
     },
-    "multichain": {
-        # Everything else that has stored data and no tab of its own.
-        # Arbitrum and Robinhood Chain were removed on 2026-09-10 when they
-        # got their own views. Polygon (137) is deliberately absent: it is
-        # in CHAIN_NAMES because the Agent0 subgraph covers it, but this
-        # store currently holds zero Polygon agents, so listing it as a
-        # covered chain would be inaccurate.
-        "label": "Multi-Chain",
-        "chain_ids": [8453, 42220, 143, 45056],
+    "monad": {
+        # Promoted out of Multi-Chain on 2026-09-11 and given the same
+        # treatment every analysed chain gets, verified first rather than
+        # assumed: eth_chainId returned 143, the ERC-8004 registry at
+        # 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 holds the same 130 bytes
+        # it does on every other chain carrying it, tokenURI resolved for 10
+        # of 10 stored agents, and monad.drpc.org answers identically as a
+        # failover. So 143 joins ANALYSIS_CHAIN_IDS and its agents carry a
+        # real service_status rather than having their health fields
+        # stripped.
+        "label": "Monad",
+        "chain_ids": [143],
         "coming_soon": False,
-        "served_by": "/api/chain-view/multichain",
+        "served_by": "/api/chain-view/monad",
     },
 }
+# The multichain view was removed on 2026-09-11. It had held Base, Celo,
+# Monad and Billions Network; Celo and Billions were deleted, Monad was
+# promoted to its own tab, and Base is retained but hidden, which left the
+# view holding nothing.
+#
+# Base is NOT deleted. Its 60,644 agents are the largest non-BSC catalogue
+# here and 8004scan access is now limited, so re-ingesting it later would be
+# hard or impossible. It keeps being ingested (it is in the shared scan's
+# TARGET_CHAIN_IDS) and analysed (it is in ANALYSIS_CHAIN_IDS), so the
+# catalogue stays current and usable if it is ever surfaced again. It simply
+# has no tab, sits inside no other tab, and is counted in no user-facing
+# total.
 
 # Chain-agnostic fields only. Every one of these is either intrinsic to the
 # registration (name, description, ids, owner) or computed by something

@@ -61,7 +61,7 @@ BUDGET_ESCROW_CHAIN_IDS = (56, 42161, 4663)
 # Chains whose EXPLORER this project can query. Narrower than "is EVM":
 # a chain can be perfectly EVM and simply not have an explorer wired up
 # here yet.
-_EVM_EXPLORER_SUPPORTED = (1, 56, 8453, 42161, 42220, 143)
+_EVM_EXPLORER_SUPPORTED = (1, 56, 8453, 42161, 143)
 
 # Chains where the contract check runs through Sourcify plus our own RPC
 # instead of an Etherscan-style explorer. Added 2026-09-10 for Robinhood
@@ -96,7 +96,7 @@ def _is_evm(chain_id: int) -> bool:
     return chain_id not in NON_EVM_CHAIN_IDS
 # Chains we hold our own RPC for -- owner balances are trivially available
 # on every one of them, verified live per chain.
-NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 42220, 143, 4663)
+NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 143, 4663)
 # 4663 (Robinhood Chain) added 2026-09-10: this list only requires a
 # verified RPC, which it now has, and its gas token is ETH. It is
 # deliberately NOT added to _EVM_EXPLORER_SUPPORTED above -- that list
@@ -106,7 +106,7 @@ NATIVE_RPC_CHAINS = (1, 56, 8453, 42161, 42220, 143, 4663)
 # it, which is the truth, rather than being claimed and then failing.
 _ZERION_CHAINS = {
     1: "ethereum", 56: "binance-smart-chain", 8453: "base",
-    42161: "arbitrum", 42220: "celo", 143: "monad",
+    42161: "arbitrum", 143: "monad",
     # 4663 added 2026-09-10. Zerion does index Robinhood Chain: it appears in
     # GET /v1/chains as id "robinhood" with external_id 0x1237, which is 4663.
     # Confirmed with real data rather than from the chain list alone -- three
@@ -129,7 +129,7 @@ _THEGRAPH_CHAINS = {56}
 # compliance 69 / momentum 11.98 with a domain_verification_failed
 # flag). It is flaky -- intermittent DATABASE_ERROR 500s -- which is a
 # reliability property, not a coverage one.
-_QUALITY_CHAINS = {1, 56, 8453, 42161, 42220, 143, 4663}
+_QUALITY_CHAINS = {1, 56, 8453, 42161, 143, 4663}
 # 4663 added 2026-09-10, and checked against 8004scan's habit of silently
 # ignoring a filter and answering for a different chain. Three real stored
 # agents per chain were requested: every response came back carrying the
@@ -142,7 +142,7 @@ _QUALITY_CHAINS = {1, 56, 8453, 42161, 42220, 143, 4663}
 # BSC 89/101, Ethereum 83, Base 79, Arbitrum 40 (no holders), Celo 18
 # (but tiny liquidity), Monad 5 (effectively nothing). Recorded as a
 # tier so the UI can say "partial" rather than implying parity.
-_BINANCE_TIERS = {56: "full", 1: "full", 8453: "full", 42161: "partial", 42220: "thin", 143: "none",
+_BINANCE_TIERS = {56: "full", 1: "full", 8453: "full", 42161: "partial", 143: "none",
                   # 4663 measured 2026-09-10 the same way the others were:
                   # populated fields on a stablecoin for that chain. USDG on
                   # Robinhood returned 12 populated fields, matching BSC's own
@@ -151,7 +151,7 @@ _BINANCE_TIERS = {56: "full", 1: "full", 8453: "full", 42161: "partial", 42220: 
 
 _DEFILLAMA_CHAINS = {
     1: "Ethereum", 56: "Binance", 8453: "Base",
-    42161: "Arbitrum", 42220: "Celo", 143: "Monad", 101: "Solana",
+    42161: "Arbitrum", 143: "Monad", 101: "Solana",
     # 4663 added 2026-09-10. DefiLlama's chain name is "Robinhood Chain", not
     # "Robinhood" -- the short form is absent and would have silently matched
     # nothing. 158 protocols list it, including Morpho Blue and PancakeSwap.

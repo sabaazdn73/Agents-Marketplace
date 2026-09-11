@@ -227,11 +227,12 @@ SOLANA_PROGRESS_DOC_ID = "solana_mainnet"
 # proof-of-personhood/AI-agent-verification network, distinct from the
 # BNB/World-ID work investigated elsewhere in this project), Robinhood
 # Chain 32, Celo 9,759, Arbitrum 1,377.
+# Celo and Billions Network were removed on 2026-09-11 along with their
+# stored documents. Leaving them here would have kept re-ingesting the very
+# rows that were just deleted.
 ADDITIONAL_CHAINS = {
     "monad": 143,
-    "billions": 45056,
     "robinhood": 4663,
-    "celo": 42220,
     "arbitrum": 42161,
 }
 

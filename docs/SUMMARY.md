@@ -53,6 +53,7 @@
 * [GitHub Signal Investigation](github-signal-investigation.md)
 * [Venus Lending Investigation](venus-skill-revert-investigation.md)
 * [Deletion Audit, 2026-09-10](deletion-audit-2026-09-10.md)
+* [Narrowing to Six Chains, 2026-09-11](chain-removal-2026-09-11.md)
 
 ## Proposals and Future Work
 

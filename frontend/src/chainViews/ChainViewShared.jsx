@@ -28,14 +28,12 @@ export const EXPLORER_BASE = {
   1: 'https://etherscan.io/address/',
   8453: 'https://basescan.org/address/',
   42161: 'https://arbiscan.io/address/',
-  42220: 'https://celoscan.io/address/',
   143: null,          // Monad: no stable public explorer wired up here yet
   // Robinhood Chain. The Blockscout API is behind a Cloudflare interstitial
   // and returns 403 to a client, which is why the contract check uses
   // Sourcify instead. The human-facing pages serve normally (200 to a
   // browser), so a link here is a real link, not a broken one.
   4663: 'https://robinhoodchain.blockscout.com/address/',
-  45056: null,        // Billions Network: same
   101: null,          // Solana: different address format, not an EVM explorer
 };
 

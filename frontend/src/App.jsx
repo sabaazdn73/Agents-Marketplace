@@ -30,7 +30,7 @@ const PAGE_META = {
     // two differ, a shared link and a search result disagree.
     docTitle: 'Tnega: Multichain AI Agent Marketplace, Hire On-Chain',
     ogTitle: 'Tnega: Multichain Agent Marketplace',
-    description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain.",
+    description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.",
   },
   '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents across BNB Chain, Arbitrum and Robinhood Chain, with payment held on-chain until the work is delivered.' },
   '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions, Venus lending, PancakeSwap trading, and more, you run yourself through your own wallet.' },

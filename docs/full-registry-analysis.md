@@ -319,3 +319,8 @@ Both fixes are written (`if: always()` on every downstream step, plus the missin
 8004scan deep-offset degradation is ongoing. Live-checked offsets 700,000 / 806,000 / 808,000: all three timed out, while a shallow offset-0 call returned in 1.1s. This is what fills `full_registry_skipped_offsets` (361 offsets, ~36,100 agents' worth). That collection is retried automatically at the head of every ingest batch (`retry_skipped_offsets`), so the design is already correct, the blocker is upstream availability, not our handling of it.
 
 Storage has headroom again. 258.9MB visible of the 512MB Atlas quota, and a write probe succeeded. The quota problem from 2026-09-11's cleanup is not currently recurring.
+
+
+## Chains narrowed to six, 2026-09-11
+
+Celo (9,681 documents) and Billions Network (25,966) were deleted, freeing 38.5 MB and taking Mongo from 92.7% to 86.1% of the free-tier cap. Monad was promoted to its own tab and added to `ANALYSIS_CHAIN_IDS` after verifying its chain id, registry and tokenURI resolution. Base is retained in the store and still ingested and analysed, but appears in no view. Full account, including the sixteen places a chain is named, in [Narrowing to six chains](chain-removal-2026-09-11.md).

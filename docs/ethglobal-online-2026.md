@@ -12,7 +12,7 @@ Technical detail lives in the [docs](README.md) and is linked from each mileston
 
 Before ETHGlobal Online 2026
 
-The core system: a discovery layer over the ERC-8004 Identity Registry, backed by a resumable multi-chain ingestion pipeline covering BSC, Ethereum, Base, Solana, Monad, Billions Network, Robinhood Chain, Celo and Arbitrum.
+The core system: a discovery layer over the ERC-8004 Identity Registry, backed by a resumable multi-chain ingestion pipeline covering BSC, Ethereum, Base, Solana, Monad, Robinhood Chain and Arbitrum. Celo and Billions Network were part of this until 2026-09-11, when they were deleted; see [Narrowing to six chains](chain-removal-2026-09-11.md).
 
 On top of that, an evaluation system that does the part a directory listing does not. Agents are sorted into verification tiers built on on-chain evidence rather than self-description, classified by category, audited for escrow compatibility before a user is ever asked to fund anything, and checked for whether their registered endpoint responds. Corroborating signals come from 8004scan's Quality Center, DefiLlama, TermiX and BscScan, each labelled with its own source rather than blended into one opaque number.
 

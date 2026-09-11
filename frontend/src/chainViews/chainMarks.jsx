@@ -74,20 +74,15 @@ const LOGOS = {
   // third-party mirror.
   arbitrum: { src: 'https://arbitrum.io/favicon.ico', alt: 'Arbitrum' },
   robinhood: { src: 'https://robinhood.com/favicon.ico', alt: 'Robinhood Chain' },
+  // Added 2026-09-11 with Monad's own tab. The apex serves the icon
+  // directly (13KB ico); www.monad.xyz 308-redirects to it, so the apex is
+  // used to skip a hop on every render.
+  monad: { src: 'https://monad.xyz/favicon.ico', alt: 'Monad' },
 };
 
-// The Multi-Chain cluster, largest-first. Arbitrum was never in it and
-// Robinhood Chain is no longer part of that view at all, since both took
-// their own tabs on 2026-09-10. Celo's comes from the ecosystem
-// chain-icon registry rather than a Celo domain: celo.org's own head points
-// at a Framer CDN asset whose name churns, docs.celo.org serves its
-// Docusaurus mascot, and celo-org/brand ships only logotypes -- wordmarks,
-// which are exactly what must not be used at 13px.
-const MULTICHAIN_LOGOS = [
-  'https://www.base.org/favicon.ico',
-  'https://www.monad.xyz/favicon.ico',
-  'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/celo/info/logo.png',
-];
+// The Multi-Chain cluster was removed on 2026-09-11 with the view itself.
+// ClusterLogo below is kept as the generic "hotlink that disappears
+// rather than showing a broken image" helper.
 
 /** One image that quietly disappears if it fails, so a broken hotlink
  * shrinks the cluster rather than leaving a broken-image icon. */
@@ -108,26 +103,14 @@ function ClusterLogo({ src, size, index }) {
 
 // Fallback tint, used only when a logo fails to load.
 const FALLBACK_COLOR = {
-  bnb: '#F0B90B', ethereum: '#627EEA', solana: '#14F195', multichain: '#8B93A7',
-  arbitrum: '#12AAFF', robinhood: '#00C805',
+  bnb: '#F0B90B', ethereum: '#627EEA', solana: '#14F195',
+  arbitrum: '#12AAFF', robinhood: '#00C805', monad: '#836EF9',
+  // Used when a viewId has no colour of its own.
+  fallback: '#8B93A7',
 };
 
 export function ChainMark({ viewId, size = 14, className = '' }) {
   const [failed, setFailed] = useState(false);
-
-  if (viewId === 'multichain') {
-    // Full diameter, so each mark carries the same visual weight as a
-    // single-chain tab's logo; the overlap is what keeps the cluster
-    // compact enough for the strip.
-    const each = size;
-    return (
-      <span className={`flex items-center shrink-0 ${className}`} aria-hidden="true">
-        {MULTICHAIN_LOGOS.map((src, i) => (
-          <ClusterLogo key={src} src={src} size={each} index={i} />
-        ))}
-      </span>
-    );
-  }
 
   const logo = LOGOS[viewId];
 
@@ -135,7 +118,7 @@ export function ChainMark({ viewId, size = 14, className = '' }) {
     return (
       <Boxes
         size={size}
-        color={FALLBACK_COLOR[viewId] || FALLBACK_COLOR.multichain}
+        color={FALLBACK_COLOR[viewId] || FALLBACK_COLOR.fallback}
         className={className}
         aria-hidden="true"
       />

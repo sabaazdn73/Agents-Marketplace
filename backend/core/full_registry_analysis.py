@@ -65,9 +65,15 @@ UNKNOWN_RECHECK_SECONDS = 6 * 60 * 60
 #     fault, not Etherscan's, and switching to Infura fixed it. 5/5 known
 # stored Ethereum agents then resolved real, distinct tokenURIs.
 #   101 Solana  -- not an EVM chain; none of this applies, ever.
-#   42220 Celo, 143 Monad -- have verified RPCs and resolve tokenURIs, but
+#   42220 Celo (deleted 2026-09-11) had a verified RPC and resolved tokenURIs, but
 #     have not yet had a full analysis pass observed, so they wait their turn.
-ANALYSIS_CHAIN_IDS = [56, 42161, 8453, 1, 4663]
+# 143 (Monad) added 2026-09-11 when it was promoted to its own tab, after
+# the same three checks every chain before it had: eth_chainId 143, the
+# ERC-8004 registry present with the same 130 bytes, and tokenURI resolving
+# for 10 of 10 stored agents. 8453 (Base) stays here deliberately even
+# though it now has no view: a retained catalogue that stops being analysed
+# goes stale, and the point of keeping it is that it stays usable.
+ANALYSIS_CHAIN_IDS = [56, 42161, 8453, 1, 4663, 143]
 # 4663 (Robinhood Chain) added 2026-09-10, one chain at a time and only
 # after being verified against its own real data rather than assumed:
 # eth_chainId returned 4663, the ERC-8004 registry at 0x8004A169.. holds

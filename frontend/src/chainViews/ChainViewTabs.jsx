@@ -20,7 +20,7 @@ import EthereumView from './EthereumView';
 import SolanaView from './SolanaView';
 import ArbitrumView from './ArbitrumView';
 import RobinhoodView from './RobinhoodView';
-import MultiChainView from './MultiChainView';
+import MonadView from './MonadView';
 
 // Which tab owns a given chain id. Needed so that landing directly on an
 // agent's own URL opens that agent's chain rather than the default tab.
@@ -45,7 +45,7 @@ const VIEW_COMPONENTS = {
   solana: SolanaView,
   arbitrum: ArbitrumView,
   robinhood: RobinhoodView,
-  multichain: MultiChainView,
+  monad: MonadView,
 };
 
 // Shorter labels for narrow screens. Only where the full label is long
@@ -55,7 +55,6 @@ const VIEW_COMPONENTS = {
 // rendered from sm up, and the accessible name is always the full one.
 const SHORT_LABELS = {
   robinhood: 'Robinhood',
-  multichain: 'Multi',
 };
 
 // Counts are context, not the point of the tab, so they are rendered
