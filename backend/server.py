@@ -65,6 +65,7 @@ from core import job_index
 from core import rpc
 from core import universal_search
 from core import agent_evaluation, budget_agents, chain_views
+from core import agents_index
 from core import first_visit as first_visit_mod
 from core import b402
 from core import paybox
@@ -268,16 +269,47 @@ def _encode_agents(records: list) -> bytes:
     ).encode("utf-8")
 
 
-def _set_agents_cache(records: list, fetched_at=None) -> None:
-    """The one place the agent cache is written. Stores encoded bytes plus a
-    count, and deliberately does NOT retain the dicts -- keeping both would
-    mean 54.3MB + 16.8MB resident and defeat the point."""
-    _cache["body"] = _encode_agents(records or [])
+async def _tier_join() -> tuple[dict, dict]:
+    """The provider and canary maps used to rank verification tiers.
+
+    Fetched here, at cache-build time, because the filter has to be applied
+    before a page is cut. The client used to merge these two after receiving
+    the whole catalogue, which is only possible when it has the whole
+    catalogue. Both are single aggregations and this runs at most hourly.
+
+    Failure is not fatal: an empty map degrades the tier to what
+    service_status alone can say, which is the same answer the client reached
+    before either fetch resolved."""
+    perf, can = {}, {}
+    try:
+        perf = await job_index.get_all_provider_stats() or {}
+    except Exception as e:
+        print(f"[server] tier join: provider stats unavailable ({e})", flush=True)
+    try:
+        can = await canary.get_canary_status_bulk() or {}
+    except Exception as e:
+        print(f"[server] tier join: canary status unavailable ({e})", flush=True)
+    return perf, can
+
+
+def _set_agents_cache(records: list, fetched_at=None, perf=None, canary_map=None) -> None:
+    """The one place the agent cache is written.
+
+    Stores one pre-encoded blob per agent plus compact index arrays, and
+    deliberately does NOT retain the dicts: keeping both would mean 54.3MB on
+    top of the encoded bytes and defeat the point.
+
+    What changed here (2026-09-12): this used to store a single 15.7MB encoded
+    body, which is why /api/agents could not honour a limit or a chain filter.
+    core/agents_index.py holds the reasoning; the short version is that the
+    index costs about 6.5MB more resident and takes a request from 15.7MB to
+    29KB."""
+    _cache["index"] = agents_index.AgentsIndex(records or [], perf, canary_map)
     _cache["count"] = len(records or [])
     _cache["fetched_at"] = fetched_at if fetched_at is not None else time.time()
 
 
-_cache: dict = {"body": None, "count": 0, "fetched_at": 0}
+_cache: dict = {"index": None, "count": 0, "fetched_at": 0}
 _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
 # for agent diversity (aggregate.py: 20 pages × 100 = 20 real 8004scan
 # requests + 1 DefiLlama). Budget math against the free_api tier (30 req/min,
@@ -509,10 +541,17 @@ async def _background_refresh():
         result = await _refresh_via_subprocess()
         if result is not None:
             body, count = result
-            _cache["body"] = body
+            # from_encoded rather than json.loads on the whole body: the
+            # subprocess exists to keep 54MB of dicts out of this process, and
+            # parsing its output here would put them straight back. The body is
+            # dropped as soon as it has been cut into per-agent slices.
+            perf, can = await _tier_join()
+            _cache["index"] = agents_index.AgentsIndex.from_encoded(body, perf, can)
             _cache["count"] = count
             _cache["fetched_at"] = time.time()
-            print(f"[server] Refresh (subprocess): {count:,} agents, {len(body)/1e6:.1f}MB cached.")
+            print(f"[server] Refresh (subprocess): {count:,} agents, "
+                  f"{len(body)/1e6:.1f}MB indexed.", flush=True)
+            del body, result
         else:
             # Already logged why. Keep serving the previous body rather than
             # falling back to an in-process refresh: falling back would
@@ -539,7 +578,25 @@ async def bnb_price():
 
 
 @app.get("/api/agents")
-async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks = None):
+async def agents(
+    force_refresh: bool = False,
+    background_tasks: BackgroundTasks = None,
+    # Paging and filtering. All optional, and passing any of them opts into
+    # the paginated response. `limit` is capped server-side at 100; asking for
+    # more returns 100 rather than failing, since the cap is not negotiable
+    # and erroring over a number we would override anyway is worse.
+    limit: int | None = None,
+    offset: int | None = None,
+    chain_id: int | None = None,
+    category: str | None = None,
+    categories: str | None = None,   # comma separated, from the client's groups
+    search: str | None = None,
+    status: str | None = None,
+    verified: bool | None = None,
+    unclassified: bool | None = None,
+    sort: str | None = None,
+    sort_dir: str | None = None,
+):
     """Serves INSTANTLY from the persistent store/in-memory cache, never
     blocks the response on a live 8004scan fetch. A live refresh (when the
     cache is stale, force_refresh is set, or this is a cold instance with an
@@ -552,12 +609,14 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
     one-time wait."""
     now = time.time()
 
-    if _cache["body"] is None:
+    if _cache["index"] is None:
         # Cold in-memory cache (fresh instance boot), read the persistent
         # store directly. This is a fast, single Mongo query, not a live
         # 8004scan fetch, so it's fine to await inline.
         try:
-            _set_agents_cache(await agent_store.get_stored_agents(), fetched_at=now)
+            _perf, _can = await _tier_join()
+            _set_agents_cache(await agent_store.get_stored_agents(),
+                              fetched_at=now, perf=_perf, canary_map=_can)
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
 
@@ -598,28 +657,145 @@ async def agents(force_refresh: bool = False, background_tasks: BackgroundTasks 
         if background_tasks is not None:
             background_tasks.add_task(_background_refresh)
 
-    # Stream the pre-encoded array with a small envelope around it, rather
-    # than re-encoding 16,162 records per request. Three chunks, no large
-    # copy: the 16.8MB body is yielded as the exact bytes already in the
-    # cache. Content-Length is set explicitly (all three lengths are known)
-    # so this stays a normal, non-chunked response to clients.
     now = time.time()
-    body = _cache["body"] or b"[]"
-    prefix = b'{"agents":'
-    suffix = (
+    ix = _cache["index"]
+    envelope_tail = (
         f',"cached_at":{_cache["fetched_at"]},'
-        f'"cache_age_seconds":{int(now - _cache["fetched_at"])}}}'
-    ).encode("utf-8")
+        f'"cache_age_seconds":{int(now - _cache["fetched_at"])}'
+    )
 
+    # The paginated path. Any filter or paging parameter opts into it, which is
+    # what lets the old unparameterised call keep working while the front end
+    # is still being rolled out (see the legacy branch below).
+    wants_page = any(v is not None for v in (
+        limit, offset, chain_id, category, categories, search, status,
+        verified, unclassified, sort,
+    ))
+    if wants_page:
+        idx = ix.select(
+            category=category,
+            # The grid's group and hackathon filters resolve to a set of
+            # fine-grained categories. The client sends that set rather than a
+            # group name, so categoryGroups.js and hackathonCategories.js stay
+            # the single definition of which category belongs to which group.
+            # Duplicating those tables here would leave two copies to drift.
+            categories=[c for c in (categories or "").split(",") if c] or None,
+            chain_id=chain_id,
+            search=search,
+            status=status,
+            # Exactly VERIFIED, not "canary or better". The grid's own filter
+            # is `=== VERIFICATION_TIER.VERIFIED`, meaning a real delivered
+            # job; canary-verified is a weaker claim and must not be folded in.
+            min_tier=agents_index.TIER_VERIFIED if verified else None,
+            include_unclassified=(unclassified is not False),
+        )
+        idx = ix.sort(idx, sort, sort_dir)
+        total = len(idx)
+        lim = agents_index.clamp_limit(limit)
+        off = max(0, int(offset or 0))
+        blobs = ix.page_bytes(idx, off, lim)
+        nxt = off + len(blobs)
+        # Tier counts ride along with the page rather than needing their own
+        # request: the grid shows a tally for the *current filters*, which is
+        # exactly this selection, and it is a walk over ints we already hold.
+        tiers = json.dumps(ix.tier_counts(idx), separators=(",", ":"))
+        body = (
+            b'{"agents":' + agents_index.join_page(blobs)
+            + f',"total":{total},"limit":{lim},"offset":{off},'
+              f'"next_offset":{nxt if nxt < total else "null"},'
+              f'"tiers":{tiers}'.encode("utf-8")
+            + envelope_tail.encode("utf-8") + b"}"
+        )
+        return Response(content=body, media_type="application/json")
+
+    # Legacy whole-catalogue path, kept only until the three call sites that
+    # used it have shipped their paginated versions. Chunked rather than one
+    # write: the old code handed the transport a single 15.7MB buffer, and
+    # anything it could not flush at once was copied per connection.
     def _chunks():
-        yield prefix
-        yield body
-        yield suffix
+        yield b'{"agents":'
+        for part in agents_index.stream_all(ix.blobs):
+            yield part
+        yield (envelope_tail + "}").encode("utf-8")
 
+    # Content-Length stays explicit so this remains a normal, non-chunked
+    # response to clients. The array's length is known without building it:
+    # the blobs, plus the commas between them, plus the two brackets.
+    n = len(ix.blobs)
+    array_len = 2 + sum(len(b) for b in ix.blobs) + (n - 1 if n else 0)
+    total_len = len(b'{"agents":') + array_len + len((envelope_tail + "}").encode("utf-8"))
     return StreamingResponse(
         _chunks(), media_type="application/json",
-        headers={"Content-Length": str(len(prefix) + len(body) + len(suffix))},
+        headers={"Content-Length": str(total_len)},
     )
+
+
+@app.get("/api/agents/by-id")
+async def agent_by_id(agent_id: str):
+    """One agent by its id or token_id, for the ?agent= deep link.
+
+    The grid used to resolve a shared link by searching the full array it had
+    been sent. It no longer has one, and a link must still open the agent it
+    names even when that agent is not on the page currently displayed."""
+    if _cache["index"] is None:
+        try:
+            _perf, _can = await _tier_join()
+            _set_agents_cache(await agent_store.get_stored_agents(),
+                              perf=_perf, canary_map=_can)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
+    ix = _cache["index"]
+    i = ix.ids.get((agent_id or "").strip().lower())
+    if i is None:
+        raise HTTPException(status_code=404, detail="No agent with that id")
+    return Response(content=b'{"agent":' + ix.blobs[i] + b"}",
+                    media_type="application/json")
+
+
+@app.get("/api/agents/facets")
+async def agents_facets(
+    chain_id: int | None = None,
+    search: str | None = None,
+    unclassified: bool | None = None,
+    # The marketplace grid drops agents whose name is under three characters
+    # (its own hasRealContent) and the globe never did. Exposed rather than
+    # decided here so each caller keeps the number it was already showing:
+    # this change is about how much is transferred, not about moving a count
+    # on the page.
+    real_names_only: bool = True,
+):
+    """Counts only. About a kilobyte.
+
+    This exists because three call sites were downloading 15.7MB to compute
+    numbers. The globe page is the clearest case: it mapped every record down
+    to `{category}`, grouped them, and threw the rest away. The marketplace's
+    stat cards did the same thing with verification tiers. Both are counts
+    over the whole catalogue, which is a server job.
+
+    Deliberately not cached separately: it reads the same index the agent list
+    reads, so it is always consistent with what a page would return, and a
+    count over 15,000 in-memory ints is not worth a cache."""
+    if _cache["index"] is None:
+        try:
+            _perf, _can = await _tier_join()
+            _set_agents_cache(await agent_store.get_stored_agents(),
+                              perf=_perf, canary_map=_can)
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
+    ix = _cache["index"]
+    idx = ix.select(
+        chain_id=chain_id, search=search,
+        include_unclassified=(unclassified is not False),
+        require_real_name=real_names_only,
+    )
+    return {
+        "total": len(idx),
+        "categories": ix.facets(idx),
+        "tiers": ix.tier_counts(idx),
+        "total_feedbacks": ix.feedback_total(idx),
+        "cached_at": _cache["fetched_at"],
+        "cache_age_seconds": int(time.time() - _cache["fetched_at"]),
+    }
 
 
 @app.get("/api/search/resolve")
