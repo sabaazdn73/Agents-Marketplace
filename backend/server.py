@@ -282,13 +282,22 @@ async def _tier_join() -> tuple[dict, dict]:
     before either fetch resolved."""
     perf, can = {}, {}
     try:
-        perf = await job_index.get_all_provider_stats() or {}
+        # get_all_provider_stats returns {"by_owner": {...}, **completeness},
+        # not the owner map itself. Reading the wrapper as the map silently
+        # gives every agent an empty record, which presents as "0 verified"
+        # across the whole site rather than as an error.
+        perf = (await job_index.get_all_provider_stats() or {}).get("by_owner") or {}
     except Exception as e:
         print(f"[server] tier join: provider stats unavailable ({e})", flush=True)
     try:
+        # This one does return the owner map directly; the endpoint is what
+        # wraps it in by_owner.
         can = await canary.get_canary_status_bulk() or {}
     except Exception as e:
         print(f"[server] tier join: canary status unavailable ({e})", flush=True)
+    if not perf:
+        print("[server] tier join: no provider stats, tiers fall back to "
+              "service_status only", flush=True)
     return perf, can
 
 
