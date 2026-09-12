@@ -1,7 +1,7 @@
 // BehaviourStudy.jsx
 //
 // A proof of concept for measuring on-chain behaviour, applied to one
-// arbitrage bot on Solana.
+// arbitrage operation on Solana that runs from two wallets in sequence.
 //
 // WHY THIS SAYS BOT AND NEVER AGENT
 // The subject runs a fixed rule and submits transactions. It takes no
@@ -10,27 +10,27 @@
 // difference would discount every number on the page for it. Everywhere the
 // copy below says bot, that is deliberate and should stay.
 //
-// What the page is actually demonstrating is the method: that a wallet's
-// behaviour can be characterised from public transaction data alone, without
-// the operator's cooperation, and that the interesting findings are the ones
-// the operator would not publish. The Solana subject is the worked example
-// because Dune carries a complete Solana transaction table; see the EVM
-// section of the same work for what is and is not available on BNB Chain.
+// TWO ADDRESSES, AND WHICH CAME FIRST
+// This page originally covered MriyaNN8 alone and described it as an eight
+// day old bot. That was true of the address and misleading about the
+// operation. Analysing MRiYA4oN afterwards showed it had been trading since
+// at least March and stopped the day MriyaNN8 took over, so the eight days
+// were a migration rather than a beginning. Both are kept here, with the
+// handover shown, because the correction is the most useful thing the second
+// pass produced.
 //
-// Every figure here was measured, not estimated. The source and the queries
-// that produced it are stated at the foot of the page. Query costs are
-// deliberately not published: they are an operational detail of our own
-// account, not a property of the subject, and they invite a reader to weigh
-// the findings by what they cost to obtain. The limitations section is not
-// decoration: it is the part that makes the rest usable by someone else.
+// Deliberately no query costs, credit spend or tooling notes. They are
+// operational details of our own account, not properties of the subject, and
+// they invite a reader to weigh findings by what they cost to obtain.
 
 import React from 'react';
 import {
-  Activity, AlertTriangle, Clock, Coins, Layers, Scale, FlaskConical, Ban,
+  Activity, AlertTriangle, Clock, ArrowLeftRight, Layers, Scale, FlaskConical, Ban,
 } from 'lucide-react';
 
 const ACCENT = '#4F46E5';
-const ADDRESS = 'MriyaNN8TMp6qRWjfr723PK7xgQK7yCt7Kg2v2PQu7X';
+const OLD = 'MRiYA4oN3158fCV8evhuCofrDzbHyYvYnGZUDJvoCsa';
+const NEW = 'MriyaNN8TMp6qRWjfr723PK7xgQK7yCt7Kg2v2PQu7X';
 
 function Card({ icon: Icon, title, tag, tagColor = '#64748B', children }) {
   return (
@@ -50,7 +50,6 @@ function Card({ icon: Icon, title, tag, tagColor = '#64748B', children }) {
   );
 }
 
-/** A table that scrolls inside itself so the page never scrolls sideways. */
 function Table({ head, rows, foot }) {
   return (
     <div className="overflow-x-auto -mx-2 px-2">
@@ -83,7 +82,6 @@ function Table({ head, rows, foot }) {
   );
 }
 
-/** A labelled proportion bar. Widths are the real percentages. */
 function Bar({ label, pct, value, tone = ACCENT, scale = 1 }) {
   return (
     <div className="flex items-center gap-3 text-[11px]">
@@ -91,7 +89,7 @@ function Bar({ label, pct, value, tone = ACCENT, scale = 1 }) {
       <span className="flex-1 h-3.5 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden">
         <span className="block h-full rounded" style={{ width: `${Math.min(100, pct * scale)}%`, background: tone }} />
       </span>
-      <span className="w-20 shrink-0 font-mono text-gray-500">{value}</span>
+      <span className="w-24 shrink-0 font-mono text-gray-500">{value}</span>
     </div>
   );
 }
@@ -100,234 +98,277 @@ const Note = ({ children }) => (
   <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed mt-3">{children}</p>
 );
 
+/** The handover, drawn. Daily transaction counts for both wallets. */
+function Handover() {
+  const days = [
+    ['03 Sep', 18129, 0], ['04 Sep', 18990, 870], ['05 Sep', 12182, 0],
+    ['06 Sep', 31903, 0], ['07 Sep', 27213, 0], ['08 Sep', 29610, 0],
+    ['09 Sep', 28621, 415], ['10 Sep', 14814, 7577], ['11 Sep', 4, 27743],
+  ];
+  const max = 31903;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-3 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+        <span className="w-16 shrink-0" />
+        <span className="flex-1">MRiYA4oN, the first wallet</span>
+        <span className="flex-1">MriyaNN8, the second</span>
+      </div>
+      {days.map(([d, a, b]) => (
+        <div key={d} className="flex items-center gap-3 text-[11px]">
+          <span className="w-16 shrink-0 text-gray-500 text-right">{d}</span>
+          <span className="flex-1 flex items-center gap-2">
+            <span className="flex-1 h-3 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden">
+              <span className="block h-full rounded" style={{ width: `${100 * a / max}%`, background: '#64748B' }} />
+            </span>
+            <span className="w-14 font-mono text-gray-500 text-right">{a.toLocaleString()}</span>
+          </span>
+          <span className="flex-1 flex items-center gap-2">
+            <span className="flex-1 h-3 rounded bg-gray-100 dark:bg-gray-800 overflow-hidden">
+              <span className="block h-full rounded" style={{ width: `${100 * b / max}%`, background: ACCENT }} />
+            </span>
+            <span className="w-14 font-mono text-gray-500 text-right">{b.toLocaleString()}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function BehaviourStudy() {
   return (
     <div className="space-y-6">
 
       <div className="p-4 rounded-xl border border-indigo-100 dark:border-indigo-500/20 bg-indigo-50/60 dark:bg-indigo-500/5 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
-        A proof of concept for measuring on-chain behaviour, applied to an arbitrage bot on Solana.
-        The subject runs a fixed rule and submits transactions. It takes no instructions, does not
-        adapt and decides nothing, so it is a bot and not an agent. Everything below was measured
-        from public transaction data with no cooperation from the operator.
+        A proof of concept for measuring on-chain behaviour, applied to an arbitrage operation on
+        Solana. The subject runs a fixed rule and submits transactions. It takes no instructions,
+        does not adapt and decides nothing, so it is a bot and not an agent. Everything below was
+        measured from public transaction data with no cooperation from the operator, and it runs
+        from two wallets in sequence rather than one.
       </div>
 
-      <Card icon={FlaskConical} title="Subject and method" tag="Solana" tagColor="#14B8A6">
-        <div className="space-y-1.5">
+      <Card icon={ArrowLeftRight} title="Two wallets, one operation" tag="handover 10 to 11 Sept" tagColor="#8B5CF6">
+        <div className="space-y-1.5 mb-4">
           <div className="flex flex-wrap items-baseline gap-x-2 text-xs">
-            <span className="text-gray-500">Address</span>
-            <code className="font-mono text-[11px] break-all bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 px-1.5 py-0.5 rounded">{ADDRESS}</code>
+            <span className="text-gray-500 w-14 shrink-0">First</span>
+            <code className="font-mono text-[11px] break-all bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 px-1.5 py-0.5 rounded">{OLD}</code>
+          </div>
+          <div className="flex flex-wrap items-baseline gap-x-2 text-xs">
+            <span className="text-gray-500 w-14 shrink-0">Second</span>
+            <code className="font-mono text-[11px] break-all bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 px-1.5 py-0.5 rounded">{NEW}</code>
           </div>
         </div>
-        <div className="mt-4">
-          <Table
-            head={['What was established', 'Result']}
-            rows={[
-              ['Role on chain', 'signer, not a program'],
-              ['Total history', '8 days, first transaction 4 Sept 2026'],
-              ['Days with any activity', '4 of 8'],
-              ['Transactions in the live window', '35,344'],
-              ['Distinct venues traded', '20'],
-              ['Distinct pairs traded', '1,294'],
-            ]}
-          />
-        </div>
+        <Handover />
         <Note>
-          It appears as trader on 18,955 decoded swaps and as signer on 36,547 transactions in a
-          30 day query window, and as a program on none. A 30 day window was queried and returned
-          nothing before 4 September, so the eight day history is the whole history and not a
-          truncation.
+          The first wallet had been trading since at least 16 March and ran continuously until 10
+          September, then stopped at four transactions on the 11th. The second made its first
+          transaction on 4 September, spent two quiet days at 870 and 415, and took over on the
+          11th with 27,743. One operation moving address, not two bots.
+        </Note>
+        <div className="mt-4 p-3 rounded-lg border border-amber-200 dark:border-amber-500/25 bg-amber-50/60 dark:bg-amber-500/5 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+          This corrects the earlier reading of this page. Looking at the second wallet alone showed
+          an eight day history and suggested a new bot finding its feet. It was a migration of an
+          operation with at least six months behind it, and the two quiet days were a rehearsal
+          rather than a start.
+        </div>
+      </Card>
+
+      <Card icon={FlaskConical} title="Same operator, same code" tag="signature matches" tagColor="#14B8A6">
+        <Table
+          head={['Measure', 'First wallet', 'Second wallet']}
+          rows={[
+            ['Revert rate', '61.69%', '60.06%'],
+            ['Dominant error', 'InstructionError[2, Custom(0)]', 'same'],
+            ['Its share of all transactions', '55.23%', '53.92%'],
+            ['Instruction index that fails', '2, every time', '2, every time'],
+            ['Average compute units', '130k to 139k', '127k to 135k'],
+            ['Submissions in the same slot', '40.16%', '35.72%'],
+          ]}
+        />
+        <Note>
+          The same abort at the same instruction position, the same compute profile and the same
+          racing behaviour. Two wallets producing this signature independently would be a
+          coincidence; together with the handover it is the same software moving address.
         </Note>
       </Card>
 
-      <Card icon={Activity} title="Success rate, the number an explorer does not show" tag="60.1% revert" tagColor="#EF4444">
+      <Card icon={Activity} title="Success rate, the number an explorer does not show" tag="61.7% revert" tagColor="#EF4444">
+        <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">
+          First wallet, 13 August to 11 September
+        </div>
+        <div className="flex h-8 rounded overflow-hidden text-[11px] font-mono mb-4">
+          <div className="flex items-center px-3 text-white" style={{ width: '61.69%', background: '#EF4444' }}>61.69% reverted, 569,111</div>
+          <div className="flex items-center justify-end px-3 text-white" style={{ width: '38.31%', background: '#10B981' }}>353,362 landed</div>
+        </div>
         <Table
-          head={['Date', 'Txs', 'Landed', 'Reverted', 'Success', 'Avg compute units', 'Fees SOL', 'Fees on failures']}
+          head={['', 'Transactions', 'Landed', 'Reverted', 'Success', 'Fees SOL', 'Fees on failures']}
           rows={[
-            ['4 Sept', '870', '870', '0', '100.0%', '3,280', '0.0046', '0'],
-            ['5 to 8 Sept', 'no activity', '', '', '', '', '', ''],
-            ['9 Sept', '415', '415', '0', '100.0%', '2,370', '0.0021', '0'],
-            ['10 Sept', '7,577', '3,139', '4,438', '41.4%', '134,773', '16.69', '4.43'],
-            ['11 Sept (partial)', '27,743', '10,966', '16,777', '39.5%', '127,058', '64.74', '17.14'],
+            ['First wallet, 30 days', '922,473', '353,362', '569,111', '38.31%', '1,691.95', '489.93'],
+            ['Second wallet, 10 to 11 Sept', '35,344', '14,116', '21,228', '39.94%', '81.44', '21.56'],
           ]}
-          foot={['Total', '36,605', '15,390', '21,215', '42.0%', '', '81.44', '21.56']}
         />
-        <div className="mt-5 p-3 rounded-lg border border-amber-200 dark:border-amber-500/25 bg-amber-50/60 dark:bg-amber-500/5 text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
-          4 and 9 September are not the same behaviour as 10 and 11 September. Average compute units
-          are 2,370 to 3,280 on those days against 127,000 to 135,000 on the later pair, a factor of
-          40, and neither early day has a single failure. Every rate quoted on this page is therefore
-          taken over 10 and 11 September only. Including the quiet days would lift the success rate
-          to 42.0% and describe something that is not arbitrage.
-        </div>
-        <div className="mt-5 flex h-8 rounded overflow-hidden text-[11px] font-mono">
-          <div className="flex items-center px-3 text-white" style={{ width: '60.06%', background: '#EF4444' }}>60.1% reverted, 21,228</div>
-          <div className="flex items-center justify-end px-3 text-white" style={{ width: '39.94%', background: '#10B981' }}>14,116 landed</div>
-        </div>
+        <Note>
+          29% of all fees the first wallet paid went on transactions that reverted. That is 489.93
+          SOL bought nothing, and it is the cost of a strategy that would rather send and lose the
+          fee than miss.
+        </Note>
+
         <div className="mt-5">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">What the failures say</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">
+            What the failures say, first wallet
+          </div>
           <Table
-            head={['Program error', 'Txs', 'Share']}
+            head={['Program error', 'Transactions', 'Share']}
             rows={[
-              ['InstructionError[2, Custom(0)]', '19,057', '53.92%'],
-              ['landed', '14,116', '39.94%'],
-              ['InstructionError[2, Custom(3005)]', '870', '2.46%'],
-              ['InstructionError[2, Custom(17)]', '536', '1.52%'],
-              ['InstructionError[2, Custom(6036)]', '274', '0.78%'],
-              ['InstructionError[2, NotEnoughAccountKeys]', '131', '0.37%'],
-              ['InstructionError[2, ProgramFailedToComplete]', '113', '0.32%'],
-              ['further codes, each under 0.2%', '247', '0.70%'],
+              ['InstructionError[2, Custom(0)]', '509,502', '55.23%'],
+              ['landed', '353,362', '38.31%'],
+              ['InstructionError[2, Custom(3005)]', '20,496', '2.22%'],
+              ['InstructionError[2, Custom(6048)]', '13,611', '1.48%'],
+              ['InstructionError[2, Custom(6036)]', '7,617', '0.83%'],
+              ['InstructionError[2, ProgramFailedToComplete]', '6,948', '0.75%'],
+              ['InstructionError[2, Custom(6016)]', '2,398', '0.26%'],
+              ['InstructionError[2, Custom(2014)]', '2,391', '0.26%'],
+              ['42 further outcomes', '6,148', '0.66%'],
             ]}
           />
         </div>
         <Note>
-          Every failure sits at instruction index 2, the same position in every transaction, so the
-          bot builds one transaction shape and it aborts at the same step each time. A single code
-          accounts for 54% of all transactions signed and 90% of all failures. What that code means
-          is program defined and was not decoded, so it is not described here as a slippage guard.
-          What can be said without guessing is that the bot fires speculatively and one on chain
-          check rejects the great majority of those attempts, cheaply and uniformly.
+          Every failure sits at instruction index 2, the same position in every transaction, across
+          both wallets and 50 distinct outcomes. The bot builds one transaction shape and it aborts
+          at the same step each time. A single code accounts for 55% of everything signed and 90%
+          of all failures. What that code means is program defined and was not decoded, so it is
+          not described here as a slippage guard. What can be said without guessing is that the bot
+          fires speculatively and one on chain check rejects most attempts, cheaply and uniformly.
         </Note>
       </Card>
 
       <Card icon={Clock} title="Timing pattern" tag="clustered" tagColor="#8B5CF6">
         <div className="p-3 rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/30 text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed">
           Solana block_time is second granularity, so inter arrival percentiles derived from it are
-          interpolation rather than measurement. A first pass produced a median gap of 621ms that the
-          underlying data cannot support. Slot numbers are the honest clock at roughly 400ms each,
-          so every figure below is a slot delta.
+          interpolation rather than measurement. Slot numbers are the honest clock at roughly 400ms
+          each, so every figure below is a slot delta.
         </div>
         <div className="mt-4 space-y-1.5">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Gap to the previous transaction</div>
-          <Bar label="same slot" pct={35.72} value="35.72%" scale={2.8} />
-          <Bar label="1 slot, 0.4s" pct={10.79} value="10.79%" scale={2.8} />
-          <Bar label="2 slots, 0.8s" pct={5.65} value="5.65%" scale={2.8} />
-          <Bar label="3 slots, 1.2s" pct={4.57} value="4.57%" scale={2.8} />
-          <Bar label="4 slots, 1.6s" pct={3.72} value="3.72%" scale={2.8} />
-          <Bar label="5 slots, 2.0s" pct={3.16} value="3.16%" scale={2.8} />
-          <Bar label="6 slots, 2.4s" pct={2.64} value="2.64%" scale={2.8} />
-          <Bar label="8 slots, 3.2s" pct={2.04} value="2.04%" scale={2.8} />
-          <Bar label="over 40 slots" pct={4.52} value="4.52%" scale={2.8} tone="#94A3B8" />
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">
+            Gap to the previous transaction, first wallet, 922,472 intervals
+          </div>
+          <Bar label="same slot" pct={40.16} value="40.16%" scale={2.5} />
+          <Bar label="1 slot, 0.4s" pct={12.42} value="12.42%" scale={2.5} />
+          <Bar label="2 slots, 0.8s" pct={5.94} value="5.94%" scale={2.5} />
+          <Bar label="3 slots, 1.2s" pct={4.29} value="4.29%" scale={2.5} />
+          <Bar label="4 slots, 1.6s" pct={3.45} value="3.45%" scale={2.5} />
+          <Bar label="5 slots, 2.0s" pct={2.90} value="2.90%" scale={2.5} />
+          <Bar label="6 slots, 2.4s" pct={2.48} value="2.48%" scale={2.5} />
+          <Bar label="8 slots, 3.2s" pct={1.94} value="1.94%" scale={2.5} />
+          <Bar label="over 40 slots" pct={4.03} value="4.03%" scale={2.5} tone="#94A3B8" />
         </div>
         <Note>
           A fixed interval poller produces a spike. If it wakes every two seconds, gaps pile up at
-          five slots and almost nowhere else. There is no spike. The distribution decays
-          monotonically from zero, which is what an opportunity triggered arrival process looks like.
-        </Note>
-        <div className="mt-5">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Transactions in a single slot</div>
-          <Table
-            head={['Txs in one slot', 'Slots', 'Share of slots touched']}
-            rows={[
-              ['1', '15,149', '66.68%'],
-              ['2', '5,477', '24.11%'],
-              ['3', '1,129', '4.97%'],
-              ['4', '458', '2.02%'],
-              ['5', '190', '0.84%'],
-              ['6', '129', '0.57%'],
-              ['7 or more', '148 or more', '0.81%'],
-            ]}
-          />
-        </div>
-        <Note>
-          More than a third of transactions land in the same slot as the one before, and a third of
-          the slots it touches carry more than one of its transactions. Firing twelve or more
-          transactions into one 400ms slot is racing, not scheduling. Set against a 60% revert rate,
-          this is a bot that would rather send and lose the fee than miss.
+          five slots and almost nowhere else. There is no spike in either wallet. The distribution
+          decays monotonically from zero, which is what an opportunity triggered arrival process
+          looks like, and two in five transactions land in the same slot as the one before.
         </Note>
         <Note>
           The limit worth stating: this measures submission timing. A bot polling every slot and
-          submitting only on an opportunity would produce the same trace. What the data rules out is
-          a fixed submission cadence, not a fixed polling loop behind it.
+          submitting only on an opportunity would produce the same trace. What the data rules out
+          is a fixed submission cadence, not a fixed polling loop behind it.
         </Note>
       </Card>
 
-      <Card icon={Scale} title="Trade sizing" tag="208x spread" tagColor="#F59E0B">
+      <Card icon={Scale} title="Trade sizing" tag="160x spread" tagColor="#F59E0B">
         <div className="space-y-1.5">
           <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">
-            SOL leg size across 18,031 swaps, logarithmic
+            SOL leg size, first wallet, 614,332 swaps, logarithmic
           </div>
-          <Bar label="p5" pct={0.5} value="0.028 SOL" />
-          <Bar label="p25" pct={2.4} value="0.165 SOL" />
-          <Bar label="p50" pct={8.5} value="0.583 SOL" />
-          <Bar label="p75" pct={26.9} value="1.841 SOL" />
-          <Bar label="p90" pct={53.0} value="5.678 SOL" />
-          <Bar label="p95" pct={71.0} value="10.92 SOL" />
-          <Bar label="p99" pct={88.0} value="34.26 SOL" />
-          <Bar label="max" pct={100} value="393.2 SOL" tone="#94A3B8" />
+          <Bar label="p5" pct={0.6} value="0.040 SOL" />
+          <Bar label="p25" pct={2.6} value="0.197 SOL" />
+          <Bar label="p50" pct={8.7} value="0.647 SOL" />
+          <Bar label="p75" pct={25.3} value="1.960 SOL" />
+          <Bar label="p90" pct={44.0} value="5.335 SOL" />
+          <Bar label="p95" pct={56.0} value="9.589 SOL" />
+          <Bar label="p99" pct={72.0} value="31.65 SOL" />
+          <Bar label="max" pct={100} value="1,986.6 SOL" tone="#94A3B8" />
         </div>
         <Note>
           Bars are scaled logarithmically because a linear axis renders everything below p95 as a
-          flat line, and that is itself the finding. The spread from p25 to p99 is a factor of 208
-          and median to maximum is a factor of 675. A bot with a configured trade size does not do
-          that, so this one sizes to whatever the opportunity supports.
+          flat line, and that is itself the finding. The spread from p25 to p99 is a factor of 160
+          and median to maximum is a factor of 3,069. A bot with a configured trade size does not
+          do that, so this one sizes to whatever the opportunity supports. The second wallet shows
+          the same behaviour with a lower ceiling, a maximum of 393 SOL against 1,987 here.
         </Note>
         <div className="mt-5">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Swaps per transaction</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Legs per attempt</div>
           <Table
-            head={['Swaps in one transaction', 'Txs', 'Share']}
+            head={['Swaps in one transaction', 'First wallet', 'Share', 'Second wallet share']}
             rows={[
-              ['1', '2,575', '21.4%'],
-              ['2', '5,649', '46.9%'],
-              ['3', '3,255', '27.0%'],
-              ['4', '565', '4.7%'],
-              ['5', '12', '0.1%'],
+              ['1', '28,567', '8.4%', '21.4%'],
+              ['2', '242,741', '71.2%', '46.9%'],
+              ['3', '64,150', '18.8%', '27.0%'],
+              ['4', '5,195', '1.5%', '4.7%'],
+              ['5', '103', '0.0%', '0.1%'],
             ]}
           />
         </div>
         <Note>
-          Three quarters of landed attempts are two or three leg cycles, the expected shape for
-          cyclic arbitrage. The 21% single swap group is not an arbitrage cycle on its own and is
-          worth a second look by anyone building on this.
+          Nine in ten landed attempts on the first wallet are two or three leg cycles, the expected
+          shape for cyclic arbitrage. The single swap group is 8.4% here against 21.4% on the
+          second wallet, and a one leg trade is not an arbitrage cycle on its own.
         </Note>
       </Card>
 
       <Card icon={Layers} title="Venues and pairs" tag="concentrates, then sprays" tagColor="#0EA5E9">
+        <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">
+          First wallet, 727,794 swaps across 340,756 transactions, $179,657,735
+        </div>
         <Table
           head={['Venue', 'Swaps', 'Share', 'Volume USD']}
           rows={[
-            ['Meteora DLMM', '13,501', '52.0%', '3,811,591'],
-            ['Meteora CPAMM', '3,295', '12.7%', '413,162'],
-            ['PumpSwap', '2,618', '10.1%', '540,496'],
-            ['Raydium CPMM', '1,615', '6.2%', '84,734'],
-            ['Raydium CLMM', '1,154', '4.4%', '487,402'],
-            ['Tessera v1', '1,031', '4.0%', '429,301'],
-            ['BisonFi v1', '790', '3.0%', '82,152'],
-            ['PancakeSwap v3', '782', '3.0%', '105,551'],
-            ['Raydium AMM', '549', '2.1%', '337,009'],
-            ['11 further venues', '623', '2.4%', '128,129'],
+            ['Meteora DLMM', '314,957', '43.3%', '82,675,843'],
+            ['PumpSwap', '222,484', '30.6%', '47,600,396'],
+            ['Meteora CPAMM', '42,329', '5.8%', '1,609,098'],
+            ['Tessera v1', '31,515', '4.3%', '16,134,143'],
+            ['Raydium CLMM', '28,832', '4.0%', '9,329,823'],
+            ['Raydium CPMM', '24,732', '3.4%', '2,549,430'],
+            ['BisonFi v1', '19,408', '2.7%', '5,324,861'],
+            ['Raydium AMM', '15,792', '2.2%', '6,150,151'],
+            ['PancakeSwap v3', '9,530', '1.3%', '2,202,455'],
+            ['14 further venues', '18,215', '2.5%', '6,081,535'],
           ]}
-          foot={['20 venues', '25,958', '100%', '6,419,527']}
+          foot={['23 venues', '727,794', '100%', '179,657,735']}
         />
         <Note>
-          Meteora across its four programs is 65.6% of all swaps. The bot is a Meteora centric
-          arbitrageur that reaches out to nineteen other venues for the other side of a cycle.
+          Meteora across its programs is 50.2% here against 65.6% on the second wallet, and
+          PumpSwap is 30.6% against 10.1%. The venue mix genuinely differs between the two, which
+          is the one place the signature does not simply repeat.
         </Note>
         <div className="mt-5">
-          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">Top pairs of 1,294</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold mb-2">
+            Top pairs of 7,766 distinct
+          </div>
           <Table
-            head={['Pair', 'Swaps', 'Share', 'Cumulative', 'Volume USD']}
+            head={['Pair', 'Swaps', 'Share', 'Volume USD']}
             rows={[
-              ['WSOL-USDC', '3,398', '13.09%', '13.1%', '1,005,308'],
-              ['WSOL-MET', '1,016', '3.91%', '17.0%', '319,994'],
-              ['USDC-MET', '770', '2.97%', '20.0%', '176,874'],
-              ['WSOL-STONK', '762', '2.94%', '22.9%', '770,369'],
-              ['WSOL-fone', '579', '2.23%', '25.1%', '105,946'],
-              ['WSOL-JUP', '563', '2.17%', '27.3%', '76,653'],
-              ['WSOL-EMBER', '547', '2.11%', '29.4%', '275,380'],
-              ['MET-EMBER', '528', '2.03%', '31.4%', '235,308'],
+              ['WSOL-USDC', '74,340', '10.21%', '32,119,379'],
+              ['WSOL-fone', '25,764', '3.54%', '13,581,783'],
+              ['WSOL-CATE', '19,859', '2.73%', '11,696,962'],
+              ['WSOL-ANSEM', '15,794', '2.17%', '16,738,507'],
+              ['WSOL-Pistacio', '10,482', '1.44%', '4,060,265'],
+              ['WSOL-Jimothy', '8,744', '1.20%', '2,311,324'],
+              ['WSOL-TOAD', '7,688', '1.06%', '3,272,956'],
+              ['WSOL-USDT', '6,986', '0.96%', '4,117,344'],
             ]}
           />
         </div>
         <div className="mt-4 space-y-1.5">
-          <Bar label="top 1 pair" pct={13.1} value="13.1%" />
-          <Bar label="top 10" pct={34.8} value="34.8%" />
-          <Bar label="top 20" pct={44.8} value="44.8%" />
-          <Bar label="top 50" pct={60.0} value="60.0%" />
-          <Bar label="top 100" pct={72.5} value="72.5%" />
+          <Bar label="top 1 pair" pct={10.2} value="10.2%" />
+          <Bar label="top 5" pct={20.1} value="20.1%" />
+          <Bar label="top 10" pct={25.0} value="25.0%" />
+          <Bar label="top 20" pct={31.8} value="31.8%" />
+          <Bar label="top 60" pct={47.1} value="47.1%" />
         </div>
         <Note>
-          The Herfindahl index on swap counts is 0.025, an effective breadth of about 40 pairs, and
-          388 pairs, 30% of them, were touched exactly once. It concentrates hard on venues and
-          sprays across pairs. Those are two different answers and worth keeping apart.
+          7,766 distinct pairs against 1,294 on the second wallet, and the sixty most traded are
+          still under half of all swaps. It concentrates hard on venues and sprays across pairs.
+          Those are two different answers and worth keeping apart.
         </Note>
       </Card>
 
@@ -335,19 +376,19 @@ export default function BehaviourStudy() {
         <div className="space-y-4">
           {[
             ['Whether it is profitable. Nothing here says that.',
-             'The 6.4 million dollar figure is gross swap volume, which is turnover, not profit. Net PnL was not computed. Doing it properly means differencing token balances across each transaction cycle and netting off 81.4 SOL of fees and any Jito tips, which are a separate payment not visible in the fee column. A bot can push 6.4 million dollars of volume and lose money.'],
+             'The $179.7M figure is gross swap volume, which is turnover, not profit. Net PnL was not computed. Doing it properly means differencing token balances across each transaction cycle and netting off 1,692 SOL of fees and any Jito tips, which are a separate payment not visible in the fee column. A bot can push that volume and lose money.'],
             ['What Custom(0) means.',
              'It is a program defined code and the program IDL was not decoded. The common reading is a profitability or slippage guard, and that is consistent with the pattern, but it is inference rather than evidence. Decoding the program at instruction index 2 is the single highest value next step.'],
-            ['What 4 and 9 September actually were.',
-             'The compute profile says they are not arbitrage. It does not say what they are. Deployment, funding, a dry run and a different strategy all fit.'],
-            ['Anything before 12 August.',
-             'The decoded trades check was unbounded and found no trade before 4 September, so it has certainly never traded earlier. The raw transaction check only reached back 30 days, so non trading activity before 12 August is unexamined.'],
+            ['How far back the first wallet actually goes.',
+             'Its earliest observed trade is 16 March, which is the boundary of the queried window rather than a start date. The true first trade may be earlier. The transaction level figures on this page cover 13 August to 11 September and are not the whole history.'],
+            ['Whether there are other wallets.',
+             'Two were analysed because two were known. The same operator could be running others in parallel, and nothing here would show it. The signature described above is what you would search for.'],
             ['Which races it lost, and to whom.',
-             'Failures are visible. The competitor that beat it is not, without reconstructing each contested slot, and neither is the opportunity it never attempted. A 60% revert rate cannot be read as inefficiency without knowing what the winners rate looks like on the same pairs.'],
-            ['A 3,334 transaction accounting gap.',
-             '15,390 transactions landed but only 12,056 carry a swap the curated trades table decodes. The remainder are either non swap operations or swaps on venues the decoder does not cover, so every venue and pair figure describes the decoded subset and not the whole.'],
-            ['11 September is a partial day on a live chain.',
-             'The last transaction captured is 19:30 UTC. Totals also drifted between queries as new blocks landed, with the transaction count rising by 24 over roughly twenty minutes. Treat 11 September as a run rate, not a daily total.'],
+             'Failures are visible. The competitor that beat it is not, without reconstructing each contested slot, and neither is the opportunity it never attempted. A 61.69% revert rate cannot be read as inefficiency without knowing what the winners rate looks like on the same pairs.'],
+            ['The decoded subset is not the whole.',
+             'Venue and pair figures describe swaps that the curated trades table decodes. Transactions that landed without a decoded swap are absent from those sections, so treat the venue mix as a description of what could be read rather than of everything that happened.'],
+            ['11 September is a partial day for both wallets.',
+             'It is the day of the handover, so it shows one wallet stopping and the other starting rather than a normal day for either. Treat it as a transition, not a rate.'],
           ].map(([h, b], i) => (
             <div key={i} className="border-l-2 border-red-200 dark:border-red-500/30 pl-3">
               <div className="text-xs font-semibold text-gray-800 dark:text-gray-100">{h}</div>
@@ -357,35 +398,15 @@ export default function BehaviourStudy() {
         </div>
       </Card>
 
-      <Card icon={Coins} title="Source and method" tag="5 queries" tagColor="#64748B">
-        <Table
-          head={['Query', 'What it established']}
-          rows={[
-            ['schema', 'column discovery from information_schema'],
-            ['discover', 'signer versus program, and the true extent of the history'],
-            ['activity', 'success rate, daily volume, fees'],
-            ['timing', 'slot gaps and the error breakdown'],
-            ['dex', 'venues, pairs and sizing'],
-          ]}
-        />
-        <Note>
-          Dune, reading the raw Solana transaction table and the curated trades table. The schema
-          was read from information_schema rather than assumed, after the published documentation
-          turned out not to list columns for the trades table. The venue and pair query was run with
-          no date bound, which is what establishes that there is no history before 4 September
-          rather than merely none inside a window.
-        </Note>
-      </Card>
-
       <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/30">
         <div className="flex items-start gap-2.5">
           <AlertTriangle size={14} className="text-gray-400 shrink-0 mt-0.5" />
           <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
-            This method transfers to the EVM chains only in part. Dune carries a complete Solana
-            transaction table, which is what makes the success rate and timing sections possible.
-            For BNB Chain the equivalent scan is available but not free, the explorer free tier does
-            not cover it, and no JSON-RPC method lists an address transactions. For Ethereum and
-            Arbitrum the explorer free tier does return per transaction status, timestamp, value and
+            This method transfers to the EVM chains only in part. A complete Solana transaction
+            table is what makes the success rate and timing sections possible. For BNB Chain the
+            equivalent scan is available but not free, the explorer free tier does not cover it,
+            and no JSON-RPC method lists an address transactions. For Ethereum and Arbitrum the
+            explorer free tier does return per transaction status, timestamp, value and
             counterparty, which is enough for the same analysis at no cost.
           </p>
         </div>
