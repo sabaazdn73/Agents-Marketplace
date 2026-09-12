@@ -456,8 +456,36 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
             // at 224px ("Drawable Budgets: Integration Guide", "Data
             // Handling and Third-Party Terms"), and the extra 32px comes out
             // of space that was empty anyway.
-            <aside className="w-64 shrink-0">
-              <div className="sticky top-6">{sidebar}</div>
+            // self-stretch is what makes the sticky child below actually
+            // stick. The row is `items-start`, which sizes this aside to its
+            // own content, and a sticky element cannot travel inside a parent
+            // the same height as itself: it just scrolls away with the page.
+            // That is why the nav left the viewport entirely on a long
+            // document. Stretching the aside to the row height, which the
+            // article drives, gives the sticky child its travel room.
+            <aside className="w-64 shrink-0 self-stretch">
+              {/* The nav scrolls inside itself rather than running off the
+                  page. It is sticky, so once it pins at top-6 anything taller
+                  than the viewport is unreachable: with 48 entries across 13
+                  sections the last sections could not be clicked at all on a
+                  short window.
+
+                  max-h has to fit BOTH states, which is why it is 5rem rather
+                  than the 3rem the sticky offset alone would suggest. Before
+                  the page scrolls the nav sits about 68px down, below the back
+                  link, and only pins to top-6 once you scroll past that. Sizing
+                  it for the pinned state alone left the bottom hanging 20px off
+                  the viewport until the first scroll. At 5rem the bottom lands
+                  inside the viewport unpinned and keeps a clear margin pinned,
+                  at any window height.
+
+                  overscroll-contain stops a scroll that reaches the end of the
+                  nav from chaining into the page behind it, which is the part
+                  that reads as unfinished when it happens. pr-2 keeps the
+                  scrollbar off the text. */}
+              <div className="sticky top-6 max-h-[calc(100vh-5rem)] overflow-y-auto overscroll-contain pr-2 [scrollbar-width:thin]">
+                {sidebar}
+              </div>
             </aside>
           )}
 
