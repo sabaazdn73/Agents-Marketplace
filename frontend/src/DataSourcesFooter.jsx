@@ -18,7 +18,7 @@ export default function DataSourcesFooter({ onOpenDataSources, className = '' })
     <footer className={`border-t border-gray-200 dark:border-gray-800 mt-12 pt-6 pb-4 ${className}`}>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-gray-400">
         <span className="font-semibold uppercase tracking-wider text-gray-400">Data sources</span>
-        {DATA_SOURCES.map((s) => (
+        {DATA_SOURCES.filter((s) => s.inFooter).map((s) => (
           <a
             key={s.name}
             href={s.url}
@@ -32,7 +32,7 @@ export default function DataSourcesFooter({ onOpenDataSources, className = '' })
         ))}
         {onOpenDataSources && (
           <button onClick={onOpenDataSources} className="ml-auto text-indigo-500 hover:underline">
-            About these sources →
+            All resources →
           </button>
         )}
       </div>

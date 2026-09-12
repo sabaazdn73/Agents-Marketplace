@@ -83,6 +83,7 @@ const ESCROW_HIRE_CHAINS = [56];
 /** Display metadata, so the UI can name a chain without its own table. */
 export const CHAIN_META = {
   56: { name: 'BNB Chain', nativeSymbol: 'BNB', explorer: 'https://bscscan.com' },
+  1: { name: 'Ethereum', nativeSymbol: 'ETH', explorer: 'https://etherscan.io' },
   42161: { name: 'Arbitrum', nativeSymbol: 'ETH', explorer: 'https://arbiscan.io' },
   4663: { name: 'Robinhood Chain', nativeSymbol: 'ETH', explorer: 'https://robinhoodchain.blockscout.com' },
 };

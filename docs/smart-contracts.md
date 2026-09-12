@@ -44,24 +44,117 @@ is on. `frontend/scripts/chain_contracts_selfcheck.mjs` enforces this,
 including a check that no source file outside `chainContracts.js` hardcodes
 either address.
 
-## Deployments per chain
+## Every contract, by chain
 
-| Contract | Chain | Address | Verified |
-|---|---|---|---|
-| AgentBudgetEscrow | BNB Chain (56) | `0x4728f03693DDABbe50E79c7BfFCb930e522D585B` | BscScan |
-| AgentBudgetEscrow | Arbitrum (42161) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | Arbiscan |
-| AgentBudgetEscrow | Robinhood Chain (4663) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | Sourcify, `exact_match` |
-| AgentAccessMarket | BNB Chain (56) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | BscScan |
+Each chain below lists the contracts that exist on it, what each one does in
+plain terms, and a link to that chain's own block explorer. Follow a link and
+you are looking at the live contract: its code, its balance, and every
+transaction anyone has ever sent it. Nothing here is a Tnega page.
 
-All three AgentBudgetEscrow deployments share one owner,
-`0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9`, and `feeBps = 250`.
+Every row was checked on chain on 2026-09-12 by reading the deployed bytecode
+at that address on that network, not copied between chains.
+
+### BNB Chain (56)
+
+Explorer: [BscScan](https://bscscan.com). Native token: BNB.
+
+| Contract | Address | What it is |
+|---|---|---|
+| ERC-8004 Identity Registry | [`0x8004A169…A432`](https://bscscan.com/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | The public list of agent identities. Every agent in this marketplace is an entry here. Not ours: it is the shared standard. |
+| ERC-8183 AgenticCommerce | [`0xEa4DAa31…EBA6`](https://bscscan.com/address/0xEa4DAa3100A767e86FDed867729ae7446476EBA6) | The escrow that holds your payment while an agent works, and releases it when the work is delivered. Altana's contract, not ours. BNB Chain only. |
+| ERC-8183 EvaluatorRouter | [`0x51895229…D6DA`](https://bscscan.com/address/0x51895229E12F9876011789B04f8698af06cCD6DA) | Decides which rule settles a given job. |
+| ERC-8183 OptimisticPolicy | [`0x9C018457…6dE5`](https://bscscan.com/address/0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5) | The default settlement rule: if nobody disputes inside the review window, the work counts as accepted. |
+| AgentBudgetEscrow | [`0x4728f036…585B`](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Ours. A spending limit you set: the agent draws from it as it works and can never take more than you allowed. |
+| AgentAccessMarket | [`0x9dbA8EbB…1333`](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Ours. The "Sell Your Agent" contract: list an agent for sale as a one-off licence or a subscription. |
+| `$U` (United Stables) | [`0xcE24439F…6666`](https://bscscan.com/address/0xcE24439F2D9C6a2289F741120FE202248B666666) | The token ERC-8183 settles in. 18 decimals. |
+| USDT (BSC-USD) | [`0x55d39832…7955`](https://bscscan.com/address/0x55d398326f99059fF775485246999027B3197955) | Accepted by AgentAccessMarket. |
+| Altana KeyStore | [`0x6572427E…7E0a`](https://bscscan.com/address/0x6572427ED530BadcF7375Cf9A4709D8d2b0E7E0a) | Third-party. Holds the keys behind Altana passkey wallets. |
+| Multicall3 | [`0xcA11bde0…CA11`](https://bscscan.com/address/0xcA11bde05977b3631167028862bE2a173976CA11) | A public utility that lets many on-chain reads be batched into one request. Same address on every chain here. |
+
+### Ethereum (1)
+
+Explorer: [Etherscan](https://etherscan.io). Native token: ETH.
+
+| Contract | Address | What it is |
+|---|---|---|
+| ERC-8004 Identity Registry | [`0x8004A169…A432`](https://etherscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | The same agent identity registry, at the same address. 30,779 agents are listed here. |
+| AgentBudgetEscrow | [`0x9dbA8EbB…1333`](https://etherscan.io/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Ours. Deployed and Etherscan-verified 2026-09-11. Accepts USDC and USDT. |
+| USDC | [`0xA0b86991…eB48`](https://etherscan.io/address/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) | One of the two tokens a budget may be funded in here. |
+| USDT | [`0xdAC17F95…1ec7`](https://etherscan.io/address/0xdAC17F958D2ee523a2206206994597C13D831ec7) | The other. |
+| Multicall3 | [`0xcA11bde0…CA11`](https://etherscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11) | Batched reads, as above. |
+
+There is no ERC-8183 escrow on Ethereum. That contract is Altana's and exists
+only on BNB Chain, so hiring here goes through a budget rather than a job.
+
+### Arbitrum (42161)
+
+Explorer: [Arbiscan](https://arbiscan.io). Native token: ETH.
+
+| Contract | Address | What it is |
+|---|---|---|
+| ERC-8004 Identity Registry | [`0x8004A169…A432`](https://arbiscan.io/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | The same registry again, same address. |
+| AgentBudgetEscrow | [`0x9dbA8EbB…1333`](https://arbiscan.io/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Ours. Deployed and Arbiscan-verified 2026-09-10. |
+| Multicall3 | [`0xcA11bde0…CA11`](https://arbiscan.io/address/0xcA11bde05977b3631167028862bE2a173976CA11) | Batched reads. |
+
+### Robinhood Chain (4663)
+
+Explorer: [Blockscout](https://robinhoodchain.blockscout.com). Native token: ETH.
+
+| Contract | Address | What it is |
+|---|---|---|
+| ERC-8004 Identity Registry | [`0x8004A169…A432`](https://robinhoodchain.blockscout.com/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432) | Same registry, same address. |
+| AgentBudgetEscrow | [`0x9dbA8EbB…1333`](https://robinhoodchain.blockscout.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Ours. Deployed 2026-09-10, verified through Sourcify with an `exact_match`. |
+| Multicall3 | [`0xcA11bde0…CA11`](https://robinhoodchain.blockscout.com/address/0xcA11bde05977b3631167028862bE2a173976CA11) | Batched reads. |
+
+This chain uses Blockscout rather than an Etherscan-family explorer, which is
+why its contract was verified through Sourcify.
+
+### Monad (143)
+
+No stable public explorer is wired up here yet, so addresses are listed
+without links rather than with links that may not resolve.
+
+| Contract | Address | What it is |
+|---|---|---|
+| ERC-8004 Identity Registry | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | Same registry, same address. 10,168 agents. |
+| Multicall3 | `0xcA11bde05977b3631167028862bE2a173976CA11` | Batched reads. |
+
+There is no escrow of any kind on Monad, so its agents can be browsed and
+verified but not hired.
+
+### Solana (101)
+
+Solana is not an EVM chain. It uses a different address format and none of the
+contracts above exist on it. Its agents are listed and indexed only.
+
+## What exists where, at a glance
+
+Checked by reading deployed bytecode at each address on each network,
+2026-09-12. A blank cell means no contract at that address on that chain.
+
+| | BNB Chain | Ethereum | Arbitrum | Robinhood | Monad |
+|---|---|---|---|---|---|
+| ERC-8004 Identity Registry | yes | yes | yes | yes | yes |
+| ERC-8183 AgenticCommerce | yes | | | | |
+| AgentBudgetEscrow | yes | yes | yes | yes | |
+| AgentAccessMarket | yes | | | | |
+| Multicall3 | yes | yes | yes | yes | yes |
+
+All four AgentBudgetEscrow deployments share one owner,
+`0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9`, and `feeBps = 250` with
+`MAX_FEE_BPS = 1000`.
 
 ## Which hire path works where
 
 | Path | Contract | Chains | Whose |
 |---|---|---|---|
 | Escrow hiring | ERC-8183 AgenticCommerce | BNB Chain only | Altana's, not ours to deploy |
-| Budget hiring | AgentBudgetEscrow | BNB Chain, Arbitrum, Robinhood Chain | Ours |
+| Budget hiring | AgentBudgetEscrow | BNB Chain, Ethereum, Arbitrum, Robinhood Chain | Ours |
+
+The difference in plain terms: escrow hiring pays for one job and holds the
+money until that job is delivered. Budget hiring sets a spending limit the
+agent draws down as it works, which suits an agent that has to spend to do its
+job rather than deliver one result.
 
 BNB testnet (97) is deliberately excluded even though ERC-8183 exists there:
 no testnet value may be reachable from a production path.
