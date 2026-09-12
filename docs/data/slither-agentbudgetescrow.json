@@ -1,0 +1,73 @@
+{
+ "contract": "src/AgentBudgetEscrow.sol",
+ "tool": "slither 0.11.6",
+ "run": "2026-09-12",
+ "findings": [
+  {
+   "check": "arbitrary-send-eth",
+   "impact": "High",
+   "confidence": "Medium",
+   "description": "AgentBudgetEscrow._payout(address,address,uint256) (src/AgentBudgetEscrow.sol#358-365) sends eth to arbitrary user\n\tDangerous calls:\n\t- (ok,None) = address(to).call{value: amount}() (src/AgentBudgetEscrow.sol#360)"
+  },
+  {
+   "check": "incorrect-equality",
+   "impact": "Medium",
+   "confidence": "High",
+   "description": "AgentBudgetEscrow.getBudget(uint256) (src/AgentBudgetEscrow.sol#324-328) uses a dangerous strict equality:\n\t- b.status == Status.NONE (src/AgentBudgetEscrow.sol#326)"
+  },
+  {
+   "check": "incorrect-equality",
+   "impact": "Medium",
+   "confidence": "High",
+   "description": "AgentBudgetEscrow.openBudget(address,address,uint256,uint256,uint64,uint64) (src/AgentBudgetEscrow.sol#200-237) uses a dangerous strict equality:\n\t- received == 0 (src/AgentBudgetEscrow.sol#216)"
+  },
+  {
+   "check": "timestamp",
+   "impact": "Low",
+   "confidence": "Medium",
+   "description": "AgentBudgetEscrow.getBudget(uint256) (src/AgentBudgetEscrow.sol#324-328) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- b.status == Status.NONE (src/AgentBudgetEscrow.sol#326)"
+  },
+  {
+   "check": "timestamp",
+   "impact": "Low",
+   "confidence": "Medium",
+   "description": "AgentBudgetEscrow.drawableNow(uint256) (src/AgentBudgetEscrow.sol#332-340) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- b.status != Status.OPEN (src/AgentBudgetEscrow.sol#334)\n\t- block.timestamp > b.deadline (src/AgentBudgetEscrow.sol#335)\n\t- b.cooldown != 0 && block.timestamp < uint256(b.lastDrawAt) + b.cooldown (src/AgentBudgetEscrow.sol#336)\n\t- b.maxPerDraw != 0 && b.maxPerDraw < remaining (src/AgentBudgetEscrow.sol#338)"
+  },
+  {
+   "check": "timestamp",
+   "impact": "Low",
+   "confidence": "Medium",
+   "description": "AgentBudgetEscrow.openBudget(address,address,uint256,uint256,uint64,uint64) (src/AgentBudgetEscrow.sol#200-237) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- deadline <= block.timestamp (src/AgentBudgetEscrow.sol#212)\n\t- deadline > block.timestamp + MAX_DURATION (src/AgentBudgetEscrow.sol#213)"
+  },
+  {
+   "check": "timestamp",
+   "impact": "Low",
+   "confidence": "Medium",
+   "description": "AgentBudgetEscrow.reclaim(uint256) (src/AgentBudgetEscrow.sol#251-269) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- early = b.status == Status.OPEN && block.timestamp <= b.deadline (src/AgentBudgetEscrow.sol#260)"
+  },
+  {
+   "check": "timestamp",
+   "impact": "Low",
+   "confidence": "Medium",
+   "description": "AgentBudgetEscrow.draw(uint256,uint256,bytes32) (src/AgentBudgetEscrow.sol#284-309) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- block.timestamp > b.deadline (src/AgentBudgetEscrow.sol#289)\n\t- b.cooldown != 0 && block.timestamp < uint256(b.lastDrawAt) + b.cooldown (src/AgentBudgetEscrow.sol#293)"
+  },
+  {
+   "check": "timestamp",
+   "impact": "Low",
+   "confidence": "Medium",
+   "description": "AgentBudgetEscrow._payout(address,address,uint256) (src/AgentBudgetEscrow.sol#358-365) uses timestamp for comparisons\n\tDangerous comparisons:\n\t- token == NATIVE (src/AgentBudgetEscrow.sol#359)"
+  },
+  {
+   "check": "pragma",
+   "impact": "Informational",
+   "confidence": "High",
+   "description": "2 different versions of Solidity are used:\n\t- Version constraint ^0.8.20 is used by:\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/access/Ownable.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/access/Ownable2Step.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Address.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Context.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Errors.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/Pausable.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol#4)\n\t\t-^0.8.20 (lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol#4)\n\t- Version constraint 0.8.24 is used by:\n\t\t-0.8.24 (src/AgentBudgetEscrow.sol#2)"
+  },
+  {
+   "check": "low-level-calls",
+   "impact": "Informational",
+   "confidence": "High",
+   "description": "Low level call in AgentBudgetEscrow._payout(address,address,uint256) (src/AgentBudgetEscrow.sol#358-365):\n\t- (ok,None) = address(to).call{value: amount}() (src/AgentBudgetEscrow.sol#360)"
+  }
+ ]
+}
