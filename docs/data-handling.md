@@ -19,9 +19,11 @@ log that grows forever.
 A cookie would be cleaner, because it is per-browser and stores nothing
 about anyone. It does not work here: the frontend is on Vercel and the API
 is on Render, so a cookie set by the API is third-party from the browser's
-point of view. Safari blocks those and the API's CORS is
-`allow_origins=["*"]`, which browsers refuse to pair with credentialed
-requests.
+point of view, and Safari blocks those by default. The API's CORS is now an
+explicit origin allowlist rather than the `allow_origins=["*"]` this
+paragraph used to cite, so the wildcard objection no longer applies, but
+`allow_credentials` is deliberately off and a credentialed cross-origin
+request needs it on. The conclusion is unchanged: no cookie.
 
 One thing to fix: `FIRST_VISIT_SALT` is unset in the current environment, so
 the code falls back to a fixed string in source. With a known salt the hash
