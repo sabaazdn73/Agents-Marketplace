@@ -68,3 +68,48 @@ Current details:
 - No documented "look up by token id" endpoint exists, only `query`/`tag`/`minReputation`/`sort`/`page`/`pageSize` filters. Tnega's adapter (`backend/adapters/termix.py`) searches by the agent's name, then confirms the match by comparing `agentTokenId` to this project's own on-chain `token_id`, never trusting a name match alone.
 - Scale, confirmed live by sampling TermiX's own busiest agents (620+ completed jobs each): `passRate` is a 0-1 fraction, `reputationScore` is already 0-100.
 - 30-minute per-agent cache (same pattern as Zerion's): this is a live third-party API with no documented rate limit, but no reason to re-fetch the same agent's stats on every detail-page open.
+
+## CockroachDB
+
+Connected and verified, holding nothing yet. `core/cockroach.py` opens it, and
+nothing else reads or writes it.
+
+The part worth recording is the TLS decision. The connection string carries
+`sslmode=verify-full` and names no root certificate, which works on a laptop
+because libpq silently picks up `~/.postgresql/root.crt`. A deployed container
+has no such file, and libpq does not fall back to the system trust store when
+one is absent, so `verify-full` fails there outright.
+
+`sslmode=require` would have fixed it and was not taken: it encrypts and
+verifies nothing, so anything able to answer for that hostname gets the cluster
+password. The local certificate turned out to contain ISRG Root X1 and X2,
+which are Let's Encrypt's public roots and already in every standard CA bundle,
+so there was nothing worth shipping as a secret either. The fix keeps
+`verify-full` and points `sslrootcert` at certifi, which is a pinned dependency
+and cannot be missing from the container.
+
+`build_dsn` raises rather than repairing a DSN that asks for anything weaker,
+because a downgrade should be a deployment error someone sees.
+
+## Dune
+
+Used for published analysis, not by the live site. It is the source behind the
+[on-chain behaviour study](behaviour-analysis.md), which needs a complete
+transaction table that no free explorer API provides for the chains involved.
+
+Nothing in the serving path depends on it, and an outage would not affect the
+marketplace.
+
+## Smithery
+
+An MCP server registry, evaluated as a possible catalogue source and not
+integrated. The evaluation is recorded here because the result is useful either
+way: 14,042 servers, 76.6% reporting a deployment, `useCount` populated as a
+real usage signal, and declared tool lists with JSON schemas, all of which the
+ERC-8004 registry lacks.
+
+What stopped it being an obvious win is acquisition rather than quality. Plain
+listing is capped at an offset of 500, its pages overlap, and unrecognised
+filters fail silently by returning exactly 100 rather than erroring. It also
+has no payment primitive, so a Smithery server is something you call rather
+than something you hire, and it does not replace what this project does.

@@ -10,14 +10,15 @@ confirmed against the explorer that holds it, not copied from another page.
 |---|---|---|---|---|
 | AgentAccessMarket | BNB Chain (56) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | [BscScan](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Yes, source verified |
 | AgentBudgetEscrow | BNB Chain (56) | `0x4728f03693DDABbe50E79c7BfFCb930e522D585B` | [BscScan](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Yes, source verified |
+| AgentBudgetEscrow | Ethereum (1) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | [Etherscan](https://etherscan.io/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Yes, source verified |
 | AgentBudgetEscrow | Arbitrum One (42161) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | [Arbiscan](https://arbiscan.io/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Yes, source verified |
 | AgentBudgetEscrow | Robinhood Chain (4663) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | [Blockscout](https://robinhoodchain.blockscout.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Yes, via Sourcify, `exact_match` |
 
-All four compile with solc `0.8.24+commit.e11b9ed9`, optimizer on at 200
+All five compile with solc `0.8.24+commit.e11b9ed9`, optimizer on at 200
 runs. Every AgentBudgetEscrow deployment has runtime bytecode of 7,396 bytes,
-identical across the three chains.
+identical across the four chains.
 
-Shared properties of all three escrow deployments:
+Shared properties of all four escrow deployments:
 
 | | |
 |---|---|
@@ -31,12 +32,18 @@ Shared properties of all three escrow deployments:
 and is not the same contract in both places:
 
 - On BNB Chain it is AgentAccessMarket
-- On Arbitrum and Robinhood Chain it is AgentBudgetEscrow
+- On Ethereum, Arbitrum and Robinhood Chain it is AgentBudgetEscrow
 
 This is a coincidence of address derivation, not a design. The same deployer
 wallet at the same nonce produces the same address on every EVM chain. Both
 contracts implement `owner()`, `feeBps()` and `MAX_FEE_BPS()` and answer
 identically, so a probe cannot tell them apart.
+
+Three escrows now share that address with one market, so an address that looks
+right is right three times out of four. That is the ratio that trains someone
+to stop checking, which is why the rule below is absolute rather than a
+preference. What does distinguish them on chain is the deployed bytecode: 7,396
+bytes for the escrow against 6,478 for the market.
 
 Resolve addresses by chain id, never by reusing one that looks familiar. Full
 explanation in [Hiring beyond BNB Chain](multichain-hiring.md).
@@ -55,8 +62,8 @@ how hiring settles.
 | `$U` settlement token | BNB Chain (56) | `0xcE24439F2D9C6a2289F741120FE202248B666666` | [BscScan](https://bscscan.com/address/0xcE24439F2D9C6a2289F741120FE202248B666666) |
 
 The ERC-8004 registry carries the same address on every EVM chain here, and
-its 130 bytes of code were confirmed present on BNB Chain, Arbitrum and
-Robinhood Chain. AgenticCommerce and EvaluatorRouter are also 130-byte
+its 130 bytes of code were confirmed present on BNB Chain, Ethereum, Arbitrum,
+Robinhood Chain and Monad. AgenticCommerce and EvaluatorRouter are also 130-byte
 proxies; AgenticCommerce verifies on BscScan as an `ERC1967Proxy`.
 
 ERC-8183 exists on BNB Chain and its testnet only, which is why escrow hiring

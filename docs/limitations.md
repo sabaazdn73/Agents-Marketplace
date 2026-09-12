@@ -12,7 +12,7 @@ What can be hired, and how, depends on the path:
 
 | Path | Contract | Chains | Whose |
 |---|---|---|---|
-| Budget hiring | AgentBudgetEscrow | BNB Chain, Arbitrum, Robinhood Chain | Ours |
+| Budget hiring | AgentBudgetEscrow | BNB Chain, Ethereum, Arbitrum, Robinhood Chain | Ours |
 | Escrow hiring | ERC-8183 AgenticCommerce | BNB Chain only | Altana's, not ours to deploy |
 
 Sell Your Agent stays BNB Chain only: AgentAccessMarket is deployed there and nowhere else.
@@ -21,7 +21,7 @@ A chain's UI follows from that table. A chain whose agents can be hired uses the
 
 The marketplace theme is the whole BNB experience, not just the card: category tabs with counts over the whole view, numbered pages, and an agent's own page at its own URL, with a back link to the marketplace, a refresh that re-reads the agent without leaving the page, and a share link. What differs per chain is only what that chain can answer, and the agent page states each absence with its reason rather than leaving a gap.
 
-What can be evaluated also varies by chain, and the per-chain view says so on its face rather than leaving gaps. BNB Chain has all thirteen evaluation signals. Arbitrum and Robinhood Chain have nine, missing only the four that depend on ERC-8183 or on the Agent0 subgraph, both of which are BSC-only as a property of those systems rather than as unfinished work here. Chains with no analysis have one.
+What can be evaluated also varies by chain, and the per-chain view says so on its face rather than leaving gaps. BNB Chain has all thirteen evaluation signals. Arbitrum and Robinhood Chain have nine and Ethereum has eight, missing the four that depend on ERC-8183 or on the Agent0 subgraph, both of which are BSC-only as a property of those systems rather than as unfinished work here. Chains with no analysis have one.
 
 This is more than groundwork now: a background pipeline (`core/full_registry_ingest.py`) continuously fetches and durably stores agent data for BSC, Ethereum, Base, Solana, Monad, Robinhood Chain and Arbitrum into `full_agent_registry`, deliberately isolated from the live-serving `known_agents` collection and never read by any route the frontend calls, so this cannot leak into the cached BSC serving path even accidentally. See [Full BSC Registry Analysis](full-registry-analysis.md) for the ingestion methodology and current per-chain counts.
 
@@ -84,7 +84,7 @@ a large write, and a large write during the judging window is risk with no
 upside. Pick this up once judging closes.
 
 Confirmed 2026-09-10 while auditing whether a deletion bug had destroyed data
-(it had not — see [Deletion Audit](deletion-audit-2026-09-10.md)). BSC holds
+(it had not, see [Deletion Audit](deletion-audit-2026-09-10.md)). BSC holds
 154,695 agents across token ids 0–334,250, leaving 179,558 absent. Most of
 that absence is correct: those agents registered no service endpoint and were
 deliberately deleted, and sampling 200 of them found 199 with genuinely no
@@ -94,7 +94,7 @@ But roughly **9,100 of the absent agents do have a working service endpoint
 today**. They are concentrated in contiguous blocks that 8004scan never
 indexed: only 3% of ids in those blocks are known to the source, against 100%
 of a stored control. They never entered the pipeline, so nothing deleted
-them — this is a gap in the data source, not damage.
+them. This is a gap in the data source, not damage.
 
 The distortion is worse than the raw count suggests. These are agents *with*
 endpoints, so the missing population is disproportionately the working end of

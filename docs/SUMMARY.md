@@ -35,6 +35,7 @@
 * [Features](features.md)
 * [The Agent Studio (MultiAgents)](agent-studio.md)
 * [A Studio Run, End to End](studio-run-walkthrough.md)
+* [On-Chain Behaviour Analysis](behaviour-analysis.md)
 * [Native Agents](native-agents.md)
 * [Direct-Wallet Skill Execution](direct-wallet-skills.md)
 * [Payment Rails](payment-rails.md)

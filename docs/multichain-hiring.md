@@ -91,14 +91,20 @@ BNB Chain has 13.
 | AgentBudgetEscrow | 56 | `0x4728f03693DDABbe50E79c7BfFCb930e522D585B` | BscScan |
 | AgentBudgetEscrow | 42161 | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | Arbiscan |
 | AgentBudgetEscrow | 4663 | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | Sourcify, `exact_match` |
+| AgentBudgetEscrow | 1 | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | Etherscan |
 | AgentAccessMarket | 56 | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | BscScan |
-| ERC-8004 Identity Registry | all three | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | standard, not ours |
+| ERC-8004 Identity Registry | all of them | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | standard, not ours |
 
-All three escrow deployments share one owner,
+Ethereum is in that table but not in this document's subject. This page records
+the Arbitrum and Robinhood Chain work; Ethereum got the same contract on
+2026-09-11, after it, and the canonical list is
+[Deployed Contracts](deployments.md).
+
+All four escrow deployments share one owner,
 `0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9`, and `feeBps` returns 250 on each
 with `MAX_FEE_BPS` fixed at 1000. Compiled with solc `0.8.24+commit.e11b9ed9`,
 optimizer on at 200 runs, creation bytecode 8,380 bytes and runtime 7,396,
-identical across all three.
+identical across all four.
 
 Robinhood Chain uses Sourcify rather than an explorer API because its
 Blockscout instance answers a browser normally but returns HTTP 403 with a
@@ -112,7 +118,7 @@ sees verified source.
 `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` is two different contracts:
 
 - On BNB Chain it is AgentAccessMarket, the Sell Your Agent contract
-- On Arbitrum and Robinhood Chain it is AgentBudgetEscrow
+- On Ethereum, Arbitrum and Robinhood Chain it is AgentBudgetEscrow
 
 This is a coincidence of CREATE address derivation. The same deployer wallet
 at the same nonce produces the same address on every EVM chain, and this
@@ -122,7 +128,7 @@ nothing.
 
 It is dangerous rather than merely untidy because both contracts implement
 `owner()`, `feeBps()` and `MAX_FEE_BPS()`. Checked on chain: all three answer
-on all three chains, with the same owner and the same 250 and 1000. So a
+on all four chains, with the same owner and the same 250 and 1000. So a
 defensive "is our contract here?" probe passes while pointing at the wrong
 contract.
 

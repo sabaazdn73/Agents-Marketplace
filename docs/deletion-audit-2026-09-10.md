@@ -14,7 +14,7 @@ which we therefore never ingested and could not have deleted.
 
 When a `tokenURI` multicall chunk failed, its tokens dropped out of
 `uri_by_token`, and every agent in that chunk still went through `_check_one`
-with `uri=None`, which returns `no_endpoint` — the status the deletion policy
+with `uri=None`, which returns `no_endpoint`, the status the deletion policy
 acts on. Up to `_TOKENURI_CHUNK` (200) agents per failure.
 
 | Date | Event |
@@ -59,8 +59,8 @@ deleted 200-chunk should therefore look like ~69%, in runs near 200. The
 150–260 bucket sits at 3.2%, so there is no chunk-shaped damage in aggregate.
 
 Scanning every gap run of length ≥20 individually did surface 29 blocks with
-high endpoint rates, including three that looked damning — 269417–269568 at
-94.1%, 297145–297363 at 82.2%, 269758–269927 at 72.9% — contiguous,
+high endpoint rates, including three that looked damning, 269417 to 269568 at
+94.1%, 297145 to 297363 at 82.2%, 269758 to 269927 at 72.9%, contiguous,
 chunk-sized, and flanked on both sides by agents checked in a single batch.
 
 ## What those blocks actually were
@@ -84,7 +84,7 @@ could have deleted them. They are a **source coverage gap**, not damage.
 
 ## The direct measurement
 
-Sampling absent ids that 8004scan *does* know — agents we definitely ingested
+Sampling absent ids that 8004scan does know, agents we definitely ingested
 and then deleted:
 
 | Outcome | Count | Share |

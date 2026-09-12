@@ -2,7 +2,7 @@
 
 Every contract below is deployed and live on mainnet, and this project is mainnet-only throughout: there is no testnet deployment of anything user-facing, and no testnet value is reachable from a production path.
 
-Most of what follows is on BSC mainnet (chain 56), which is where this project started and where every hire path works. Since 2026-09-10 AgentBudgetEscrow is also live on Arbitrum (42161) and Robinhood Chain (4663) — see "Deployments per chain" below, and read "The same address is not the same contract" before using any address here.
+Most of what follows is on BSC mainnet (chain 56), which is where this project started and where every hire path works. AgentBudgetEscrow is also live on Ethereum (1) since 2026-09-11, and on Arbitrum (42161) and Robinhood Chain (4663) since 2026-09-10. See "Every contract, by chain" below, and read "The same address is not the same contract" before using any address here.
 
 ## Deployed addresses
 
@@ -23,16 +23,16 @@ depending on the chain:
 | Arbitrum (42161) | AgentBudgetEscrow |
 | Robinhood Chain (4663) | AgentBudgetEscrow |
 
-This is a coincidence of CREATE address derivation — the same deployer wallet
-at the same nonce produces the same address on every EVM chain — and not a
+This is a coincidence of CREATE address derivation, the same deployer wallet
+at the same nonce producing the same address on every EVM chain, and not a
 guarantee of anything. It is recorded here because it is a trap rather than a
 convenience.
 
 Both contracts implement `owner()`, `feeBps()` and `MAX_FEE_BPS()`. Checked on
-chain on 2026-09-10: all three answer on all three chains, with the same owner
+chain on 2026-09-12: all three answer on all four chains, with the same owner
 and the same 250 / 1000. So a defensive "is our contract here?" probe passes
 while pointing at the wrong contract, and the mistake surfaces only when a
-write reverts — or, in the worst case, does not. An ERC-20 `approve()` sent to
+write reverts, or in the worst case does not. An ERC-20 `approve()` sent to
 that address on Arbitrum would be a real allowance granted to the budget
 escrow rather than the market, with nothing to notice at the time.
 
