@@ -73,13 +73,57 @@ load_dotenv()
 
 app = FastAPI(title="Tnega API")
 
-# Wide open for local dev, tighten this (specific origins only) before
-# any deployment, per this project's security rules. The API serves
-# both GET (agents, performance/history) and POST (build, hire-adjacent
-# writes), so cross-origin POST + its OPTIONS preflight must be allowed.
+# The note that used to sit here said "tighten this before any deployment".
+# It shipped wide open instead and stayed that way, so it is done now.
+#
+# WHAT THIS DOES AND DOES NOT BUY, because it is easy to overrate:
+# CORS is enforced by browsers, not by us. It stops a page on another site
+# from reading our responses using a visitor's browser. It stops nothing at
+# all from curl, a script, or a server, which ignore these headers entirely.
+# So this does not protect /api/agents from being copied, and it is not the
+# control that keeps that endpoint from exhausting the container's memory.
+# That remains a server-side problem and is unsolved here.
+#
+# THE CALLERS THIS HAS TO KEEP WORKING, enumerated rather than assumed:
+#   www.tnega.app          the site. It is cross-origin to this API (Vercel
+#                          front end, Render back end), so it needs listing
+#                          or everything breaks.
+#   tnega.app              apex. It 308s to www, so a page never actually
+#                          loads there, but listing it costs nothing.
+#   localhost:5173/5174    vite dev, the ports in frontend/vite.config.js.
+# Checked and deliberately absent:
+#   the mobile app     same SPA, same origin, picked by viewport width. No
+#                      separate origin exists to allow.
+#   the docs           bundled into that same SPA at build time.
+#   f2f-uzh.vercel.app and explainer-agent.onrender.com appear in the built
+#                      bundle but only as href targets. Neither fetches this
+#                      API.
+#   GitHub Actions     calls /api/admin/full-registry-batch server side, so
+#                      no preflight and no origin header is involved.
+# Preview deploys get no wildcard: *.vercel.app is free to register, so
+# trusting it would be close to trusting everyone. Set CORS_ALLOWED_ORIGINS
+# on Render instead, comma separated, to add one without a code change.
+#
+# allow_credentials stays off (the default). Nothing here uses cookies, and
+# leaving it off means a leaked origin cannot ride a visitor's session.
+_DEFAULT_ORIGINS = [
+    "https://www.tnega.app",
+    "https://tnega.app",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5173",
+]
+_extra = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS = _DEFAULT_ORIGINS + [
+    o.strip() for o in _extra.split(",") if o.strip()
+]
+
+# The API serves both GET (agents, performance/history) and POST (build,
+# hire-adjacent writes), so cross-origin POST and its OPTIONS preflight
+# must both be allowed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
