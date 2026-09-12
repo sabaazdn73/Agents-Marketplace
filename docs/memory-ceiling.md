@@ -112,6 +112,72 @@ and stable, the rate is known, and a poller holding a live Render API
 credential in memory to re-derive a number already written down here is
 not a trade worth making.
 
+## /api/agents was serving the whole catalogue to every visitor (2026-09-12)
+
+The endpoint's only parameter was `force_refresh`. There was no chain
+filter and no limit, so a caller could not ask for less than all 15,000
+agents, and `AgentMarketplaceApp.web.jsx`, `AgentMarketplaceApp.mobile.jsx`
+and `EcosystemGlobePage.jsx` all fetched it on load. Every visitor pulled
+15.7MB. The globe's use of it was the starkest: it reduced all 15,000
+records to `{category}` and counted them.
+
+This is the same binding constraint the 2026-09-06 natural experiment
+above identified, except that it was normal traffic rather than an
+accident. Ten concurrent visitors was never an abuse scenario.
+
+### Before
+
+Render's own event log, the 40.5 hours to 2026-09-12 09:51 UTC:
+
+| | |
+|---|---|
+| `server_failed` events | 22 |
+| Of those `oomKilled` at 512Mi | 22, all of them |
+| Rate | **0.54/hour**, one every 1.8 hours |
+
+Higher than the 0.40/hour recorded on 2026-09-05, so the condition had
+been getting worse rather than holding steady.
+
+### What changed
+
+`core/agents_index.py` replaced the single pre-encoded 15.7MB body with
+one blob per agent plus compact index arrays. Filtering never decodes
+anything and a page is a join of 24 small blobs. Filtering, sorting and
+the tier-first ordering moved server-side, because a page cannot be cut
+correctly until the filters have been applied.
+
+Measured on the live payload:
+
+| | Before | After |
+|---|---|---|
+| Marketplace first load | 15,748,096 bytes | 64,215 bytes |
+| The agent list within that | 15,712,666 | 27,776 |
+| Resident cache | 14.98 MB | 21.53 MB |
+
+A 99.6% cut in transfer for 6.5MB more resident, which is 1.3% of the cap.
+The resident rise is the per-agent object overhead plus the lowercase
+search haystack, and it buys the ability to serve a page at all.
+
+The legacy unparameterised call still returns everything for now, but
+streams in chunks rather than handing the transport one 15.7MB write to
+buffer per connection.
+
+### After
+
+Deployed 2026-09-12 11:32 UTC. **Not yet measured.** At a 0.54/hour
+baseline a meaningful comparison needs roughly a 12 to 24 hour window; the
+40 minutes immediately after deploy contained zero OOMs, which at that rate
+is an expected count of 0.36 and therefore evidence of nothing. Re-measure
+with the same method, which is the one worth reusing because it needs no
+poller holding a live credential:
+
+```
+GET https://api.render.com/v1/services/srv-d9rl1tn10e5c738at05g/events?limit=100
+```
+
+and count `server_failed` events whose `details.reason.oomKilled` is set,
+over the span between the first and last of them.
+
 ## The answer
 
 More memory. The instance is undersized for a 30,000-document clustering read, and every alternative trades away catalogue coverage or accepts rewrite risk to avoid paying for it. Deferred only because this project has a standing rule against paid infrastructure changes without an explicit decision.
