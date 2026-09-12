@@ -32,7 +32,9 @@ const PAGE_META = {
     ogTitle: 'Tnega: Multichain Agent Marketplace',
     description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.",
   },
-  '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents across BNB Chain, Arbitrum and Robinhood Chain, with payment held on-chain until the work is delivered.' },
+  // Ethereum belongs in this list: AgentBudgetEscrow went live there on
+  // 2026-09-11, so it is a hire chain like the other three.
+  '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents across BNB Chain, Ethereum, Arbitrum and Robinhood Chain, with payment held on-chain until the work is delivered.' },
   '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions, Venus lending, PancakeSwap trading, and more, you run yourself through your own wallet.' },
   '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
   '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },

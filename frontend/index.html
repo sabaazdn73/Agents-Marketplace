@@ -58,11 +58,18 @@
          static tag a social scraper reads and the runtime tag a search
          crawler reads do not disagree. -->
     <meta property="og:title" content="Tnega: Multichain Agent Marketplace" />
-    <!-- 105 characters. It has been cut twice: 235 first, then 142, which
+    <!-- 114 characters. It has been cut twice: 235 first, then 142, which
          was still past the ~125 a mobile preview shows before truncating.
-         The three chains are named because those are the ones you can
-         actually hire on; the other is browse-only. -->
-    <meta property="og:description" content="Verified AI agents on five chains. Hire on BNB Chain, Arbitrum or Robinhood Chain, payment held on-chain." />
+         The named chains are the ones you can actually hire on; the rest are
+         browse-only.
+
+         Chain counts here are load-bearing and go stale silently, because
+         nothing fails when they are wrong. This read "five chains" and named
+         only three hire chains until 2026-09-12, having missed Ethereum
+         going live on 09-11. Six are listed and indexed (BNB Chain,
+         Ethereum, Solana, Arbitrum, Robinhood Chain, Monad); four can be
+         hired on. Update the count and the list together. -->
+    <meta property="og:description" content="Verified AI agents on six chains. Hire on BNB Chain, Ethereum, Arbitrum or Robinhood Chain, payment held on-chain." />
     <!-- X and Facebook key a cached preview on the image URL, so the ?v=
          forces a refetch when the file changes under the same name. Bump it
          whenever the banner does.
@@ -70,7 +77,7 @@
          JPEG, not PNG: this is photographic artwork, and at 1200x630 the
          PNG weighs 1,067KB against the JPEG's 158KB. Scrapers give up on
          slow images. -->
-    <meta property="og:image" content="https://www.tnega.app/banner.jpg?v=3" />
+    <meta property="og:image" content="https://www.tnega.app/banner.jpg?v=4" />
     <!-- Declared dimensions let a scraper commit to the large-image card
          before it has downloaded the file. Must match the real file:
          public/banner.jpg is 1200x630, the 1.91:1 every platform expects.
@@ -92,8 +99,8 @@
     <meta name="twitter:site" content="@SabaAzadegan" />
     <meta name="twitter:creator" content="@SabaAzadegan" />
     <meta name="twitter:title" content="Tnega: Multichain Agent Marketplace" />
-    <meta name="twitter:description" content="A multichain marketplace for AI agents. Browse, verify and hire ERC-8004 agents across BNB Chain, Arbitrum and Robinhood Chain." />
-    <meta name="twitter:image" content="https://www.tnega.app/banner.jpg?v=3" />
+    <meta name="twitter:description" content="A multichain marketplace for AI agents. Browse, verify and hire ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain." />
+    <meta name="twitter:image" content="https://www.tnega.app/banner.jpg?v=4" />
     <meta name="twitter:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
     <!-- Structured data. There was none, so Google had only the raw text
          of a JavaScript-rendered page to work from and nothing telling it
