@@ -10,8 +10,6 @@
 ## Demo
 
 * [Product Tour](demo.md)
-* [Demo Script](demo-script.md)
-* [Demo Footnotes](demo-footnotes.md)
 
 ## Contracts and Deployments
 
