@@ -19,6 +19,7 @@ three days with Arbitrum's technical team, mentors and ecosystem founders.
 | Submission | 13 September to 4 October 2026 |
 | Rewards | 12 October 2026 |
 | Listing | [arbitrum-singapore.hackquest.io](https://arbitrum-singapore.hackquest.io) |
+| Our submission | [Tnega on HackQuest](https://arbitrum-singapore.hackquest.io/projects/Tnega) |
 
 Prizes are 15,000 USDC across three places, plus up to 30,000 USDC in
 discretionary milestone grants. At least one of the three prizes is reserved

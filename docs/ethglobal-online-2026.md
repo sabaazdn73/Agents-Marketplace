@@ -44,6 +44,8 @@ Outcome: the registry ceiling is gone. 2,399 previously unreachable agents becam
 
 Alongside it, the app itself got a round of repair: a crash that made every agent's detail view unreachable by clicking a card, browser navigation that did not behave like an application, a backend falling over roughly twice a day under its own response sizes, and a mobile layout carrying eight bottom-bar tabs and three silently dead CSS utilities.
 
+Submission: [Tnega on the ETHGlobal showcase](https://ethglobal.com/showcase/tnega-17xvr).
+
 Detail: [The Graph Integration](thegraph-integration.md).
 
 ---
@@ -83,6 +85,8 @@ Outcome: 1,593 agents across two chains moved from discovery only to
 hireable, with the contract verified on Arbiscan and on Sourcify, and the four
 signals that remain unavailable on those chains stated on the page with the
 reason each one cannot exist there.
+
+Submission: [Tnega on HackQuest](https://arbitrum-singapore.hackquest.io/projects/Tnega).
 
 Detail: [Hiring beyond BNB Chain](multichain-hiring.md),
 [Arbitrum Open House Singapore 2026](arbitrum-open-house-2026.md).
