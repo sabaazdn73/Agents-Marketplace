@@ -80,7 +80,7 @@
 
 ## Project
 
-* [Hackathon Submission Context](hackathon.md)
+* [The Smart Money Era, Binance Hackathon 2026](hackathon.md)
 * [ETHGlobal Online 2026](ethglobal-online-2026.md)
 * [Arbitrum Open House Singapore 2026](arbitrum-open-house-2026.md)
 

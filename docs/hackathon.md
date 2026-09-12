@@ -1,4 +1,4 @@
-# Hackathon Submission Context
+# The Smart Money Era, Binance Hackathon 2026
 
 Built for BNB Chain's "Smart Money Era" hackathon. This page is for judges' reference: the tracks and partners this project engages with, and how.
 
