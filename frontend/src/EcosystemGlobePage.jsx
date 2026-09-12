@@ -46,7 +46,10 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 // page was silently never hitting that fast shared-cache path, always
 // falling through to its own live fetch. Renamed to match AgentMarketplaceApp
 // exactly (both now write/read the same key), and fixes that bug too.
-const CACHE_KEY = 'tnega-cache-v1'; // same cache AgentMarketplaceApp writes
+// Its own key now. This page used to read the full agent array the
+// Marketplace tab cached, which is no longer written: both pages fetch what
+// they actually need instead of sharing one 15.7MB copy of everything.
+const FACETS_CACHE_KEY = 'tnega-facets-v1';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const GLOBE_RADIUS = 2.6;
 
@@ -70,20 +73,31 @@ const PALETTE = [
 // tab, so a classification is never implied where none was made.
 // Zero-count buckets are dropped so a genuinely empty group never claims a
 // marker on the globe.
-function groupRawAgents(rawAgents) {
+/** Rolls the backend's fine-grained category counts up into the presentation
+ * groups the globe draws.
+ *
+ * This used to take the full agent array and count it here, which meant
+ * downloading 15.7MB to end up with about twenty numbers: every record was
+ * mapped to `{category}` and everything else thrown away. `/api/agents/facets`
+ * returns those counts directly, for roughly a kilobyte.
+ *
+ * The grouping itself stays on this side deliberately. CATEGORY_GROUPS is a
+ * presentation concern that the two apps share, and moving it server-side
+ * would put a display decision behind an API version. `real_names_only=false`
+ * on the fetch keeps the total identical to what this counted before. */
+function groupFacets(facets) {
   const counts = new Map();
   for (const g of CATEGORY_GROUPS) counts.set(g.id, 0);
   counts.set('Unclassified', 0);
-  for (const a of rawAgents) {
-    const g = groupForCategory(a.category);
-    const key = g || 'Unclassified';
-    counts.set(key, (counts.get(key) || 0) + 1);
+  for (const { category, count } of facets.categories || []) {
+    const key = groupForCategory(category) || 'Unclassified';
+    counts.set(key, (counts.get(key) || 0) + count);
   }
   const list = [...counts.entries()]
     .filter(([, count]) => count > 0)
     .map(([id, count]) => ({ category: id === 'Unclassified' ? 'Unclassified' : groupLabel(id), count }))
     .sort((a, b) => b.count - a.count);
-  return { list, total: rawAgents.length };
+  return { list, total: facets.total || 0 };
 }
 
 /** Reads the same cache the Marketplace tab writes for an instant first
@@ -105,11 +119,11 @@ function groupRawAgents(rawAgents) {
 function useCategoryCounts() {
   const [state, setState] = useState(() => {
     try {
-      const cached = localStorage.getItem(CACHE_KEY);
+      const cached = localStorage.getItem(FACETS_CACHE_KEY);
       if (cached) {
         const { data, savedAt } = JSON.parse(cached);
-        if (Date.now() - savedAt < CACHE_MAX_AGE_MS && Array.isArray(data) && data.length > 0) {
-          const { list, total } = groupRawAgents(data);
+        if (Date.now() - savedAt < CACHE_MAX_AGE_MS && data && Array.isArray(data.categories)) {
+          const { list, total } = groupFacets(data);
           return { loading: false, error: null, counts: list, total, confirmedFresh: false };
         }
       }
@@ -120,14 +134,13 @@ function useCategoryCounts() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch(`${API_BASE_URL}/api/agents`)
+    fetch(`${API_BASE_URL}/api/agents/facets?real_names_only=false`)
       .then((res) => { if (!res.ok) throw new Error(`Backend returned ${res.status}`); return res.json(); })
       .then((data) => {
         if (cancelled) return;
-        const raw = (data.agents || []).map((a) => ({ category: a.category }));
-        const { list, total } = groupRawAgents(raw);
+        const { list, total } = groupFacets(data);
         setState({ loading: false, error: null, counts: list, total, confirmedFresh: true });
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: data.agents || [], savedAt: Date.now() })); } catch (e) {}
+        try { localStorage.setItem(FACETS_CACHE_KEY, JSON.stringify({ data, savedAt: Date.now() })); } catch (e) {}
       })
       .catch((err) => {
         if (cancelled) return;

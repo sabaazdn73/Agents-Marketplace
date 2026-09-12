@@ -37,6 +37,10 @@ import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
+import {
+  useMarketplaceInfinite, useMarketplaceFacets, fetchAgentById,
+  groupCountsFromFacets, hackathonCountsFromFacets,
+} from './marketplaceQuery';
 import ChainViewTabs from './chainViews/ChainViewTabs';
 import HireModePicker, { HIRE_MODE } from './HireModePicker';
 import BudgetHirePanel from './BudgetHirePanel';
@@ -191,73 +195,8 @@ function mapAgent(a) {
 // the one fetch that decides whether the page has any content at all.
 const AGENT_FETCH_RETRY_MS = [1500, 4000, 11000];
 
-async function fetchAgentsWithRetry(url, isCancelled) {
-  let lastError;
-  for (let attempt = 0; attempt <= AGENT_FETCH_RETRY_MS.length; attempt++) {
-    if (isCancelled()) return null;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      lastError = err;
-      const wait = AGENT_FETCH_RETRY_MS[attempt];
-      if (wait == null) break;
-      await new Promise((r) => setTimeout(r, wait));
-    }
-  }
-  throw lastError;
-}
-
-function useMarketplaceAgents() {
-  const [agents, setAgents] = useState(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const { data, savedAt } = JSON.parse(cached);
-        if (Date.now() - savedAt < CACHE_MAX_AGE_MS) return data;
-      }
-    } catch (e) {}
-    return [];
-  });
-  const [loading, setLoading] = useState(agents.length === 0);
-  const [error, setError] = useState(null);
- // bug found and fixed (2026-08-27), matching web, see
- // AgentMarketplaceApp.web.jsx's useMarketplaceAgents for the full real
-  // investigation. Short version: `loading` is already false on the very
-  // first render whenever a warm cache exists (by design, so the agent
-  // list can show cached cards instantly), so the header stat count was
- // rendering the real-but-possibly-stale cached number on the very first
- // paint, then flashing to the real, fresh number once this effect's
-  // fetch resolved. `confirmedFresh` starts false on every render (cache
- // or not) and flips true only once a fetch settles.
-  const [confirmedFresh, setConfirmedFresh] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchAgentsWithRetry(`${API_BASE_URL}/api/agents`, () => cancelled)
-      .then((data) => {
-        if (cancelled || data == null) return;
-        const mapped = (data.agents || []).map(mapAgent);
-        setAgents(mapped);
-        setLoading(false);
-        setConfirmedFresh(true);
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: mapped, savedAt: Date.now() })); } catch (e) {}
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (agents.length === 0) setError(err.message);
-        setConfirmedFresh(true);
-        setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return { agents, setAgents, loading, error, confirmedFresh };
-}
-
-// Real, placeholder for a stat number that isn't confirmed-fresh yet
-// (see useMarketplaceAgents' confirmedFresh above), a pulsing bar, never a
+// (see useMarketplaceInfinite's confirmedFresh in marketplaceQuery.js), a
+// pulsing bar, never a
 // number that might be wrong. Parity with web's StatSkeleton.
 function StatSkeleton() {
   return <div className="h-5 w-10 mx-auto rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />;
@@ -680,7 +619,18 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [showManualHire, setShowManualHire] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
-  const { agents, setAgents, loading, error, confirmedFresh } = useMarketplaceAgents();
+  const facets = useMarketplaceFacets();
+  // One page at a time, appended by "Load more". Every filter is part of the
+  // request, so changing one asks the server for a new selection rather than
+  // re-filtering rows already downloaded.
+  const {
+    agents, setAgents, total: filteredTotal, tiers: filteredTiers,
+    loading, error, confirmedFresh, loadMore, hasMore,
+  } = useMarketplaceInfinite({
+    categoryView, activeGroup, activeCategory, activeHackathon,
+    searchQuery, showUnclassified: true, onlyResponding, onlyVerified,
+    sortKey: sortKey === 'default' ? null : sortKey, sortDir: 'desc',
+  }, mapAgent, 12);
  // bug fix, 2026-08-26: this used to sit up near `sortKey` (right
   // after the state declarations, before `agents` itself existed yet),
   // `agents` is a `const` from useMarketplaceAgents() below, and JS's
@@ -699,9 +649,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const deepLinkIdRef = useRef(readDeepLinkAgentId());
   const deepLinkHandledRef = useRef(false);
   useEffect(() => {
-    if (deepLinkHandledRef.current || !deepLinkIdRef.current || agents.length === 0) return;
-    const match = agents.find((a) => matchesDeepLink(a, deepLinkIdRef.current));
-    if (match) { deepLinkHandledRef.current = true; setNav('market'); setDetailAgent(match); }
+    if (deepLinkHandledRef.current || !deepLinkIdRef.current) return;
+    deepLinkHandledRef.current = true;
+    fetchAgentById(deepLinkIdRef.current)
+      .then((raw) => { if (raw) { setNav('market'); setDetailAgent(mapAgent(raw)); } })
+      .catch(() => {});
   }, [agents]);
 
   const { isConnected: wagmiConnected } = useAccount();
@@ -783,90 +735,45 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const filtered = useMemo(() => {
-    let list = agentsWithPerf.filter(a => a.name && a.name.trim().length > 2);
-    // Group first (categoryGroups.js), then the specific category within it.
-    if (categoryView === 'defi') {
-      if (activeHackathon !== 'All') {
-        list = list.filter((a) => hackathonForCategory(a.category) === activeHackathon);
-      } else {
-        list = list.filter((a) => hackathonForCategory(a.category) != null);
-      }
-    } else if (activeGroup === 'Unclassified') {
-      list = list.filter((a) => a.category === 'Unclassified' || groupForCategory(a.category) == null);
-    } else if (activeGroup !== 'All') {
-      list = list.filter((a) => groupForCategory(a.category) === activeGroup);
-    }
-    // Search AND category both apply together.
-    list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
-    if (searchQuery) list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
- // filter: only agents whose registered endpoint answered a real
-    // health-check (see core/agent_health.py), the requested "let a user
-    // filter to only see agents with a currently-responding endpoint".
-    if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
- // Real, opt-in narrowing to agents with a confirmed delivered
-    // job (see agentVerification.js), off by default.
-    if (onlyVerified) list = list.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED);
- // "Most hired" / "Highest success rate", tiered comparator; any
-    // other value ('default') keeps the backend's own already-sorted order.
-    const secondary = (sortKey === 'hireCount' || sortKey === 'winRate')
-      ? performanceComparator(sortKey)
-      : () => 0; // 'default': preserve the backend's own already-sorted order within each tier
- // verification tier ALWAYS sorts first, see the matching comment
-    // in AgentMarketplaceApp.web.jsx (kept in sync).
-    return [...list].sort(withVerificationTierFirst(secondary));
-  }, [agentsWithPerf, activeGroup, activeCategory, categoryView, activeHackathon, searchQuery, onlyResponding, onlyVerified, sortKey]);
-
- // pagination, mobile pattern: "Load more" instead of web's numbered
-  // pages, a narrow single-column layout makes small numbered tap targets
-  // awkward, and appending is the familiar mobile-app convention (vs. a
- // desktop-style page-jump control). Same underlying requirement as
-  // web though: don't render the entire filtered list at once. 12/page,
-  // smaller than web's 24 since these cards are full-width and taller
- // (one column, not three), so 12 already fills a real, substantial
-  // screen's worth before "Load more" is needed. Purely client-side, same
-  // reason as web: the full list is already in memory.
+  // Filtering, sorting and the tier-first ordering moved to the server
+  // (core/agents_index.py). A page cannot be cut correctly until the filters
+  // have been applied, so filtering a page the client already holds would give
+  // the wrong page rather than a slower one.
+  //
+  // "Load more" still appends, it just appends the next offset from the server
+  // instead of the next slice of a fully-downloaded array. 12 per page,
+  // smaller than web's 24 since these cards are full-width and taller.
   const MOBILE_PAGE_SIZE = 12;
-  const [visibleCount, setVisibleCount] = useState(MOBILE_PAGE_SIZE);
-  useEffect(() => { setVisibleCount(MOBILE_PAGE_SIZE); }, [activeGroup, activeCategory, categoryView, activeHackathon, searchQuery, onlyResponding, onlyVerified, sortKey]);
-  const visible = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const visible = agentsWithPerf;
 
  // per-group counts (categoryGroups.js), matches web.
-  const groupCounts = useMemo(() => {
-    const counts = { Unclassified: 0 };
-    for (const g of CATEGORY_GROUPS) counts[g.id] = 0;
-    for (const a of agents) {
-      const g = groupForCategory(a.category);
-      if (g) counts[g] += 1; else counts.Unclassified += 1;
-    }
-    return counts;
-  }, [agents]);
+  const groupCounts = useMemo(
+    () => groupCountsFromFacets(facets.categories), [facets.categories]);
 
   // Fine-grained category chips scoped to the active group, matches web.
-  const hackathonCounts = useMemo(() => {
-    const counts = {};
-    for (const a of agents) {
-      const h = hackathonForCategory(a.category);
-      if (h) counts[h] = (counts[h] || 0) + 1;
-    }
-    return counts;
-  }, [agents]);
+  const hackathonCounts = useMemo(
+    () => hackathonCountsFromFacets(facets.categories), [facets.categories]);
 
   const activeGroupCategories = useMemo(() => {
     if (activeGroup === 'All' || activeGroup === 'Unclassified') return [];
     const groupCats = CATEGORY_GROUPS.find((g) => g.id === activeGroup)?.categories || [];
-    const present = new Set(agents.map((a) => a.category));
+    // From the facet counts, not the loaded rows: reading it off what is on
+    // screen would hide a category's chip until its agents were loaded.
+    const present = new Set((facets.categories || []).map((c) => c.category));
     return ['All', ...groupCats.filter((c) => present.has(c))];
-  }, [agents, activeGroup]);
+  }, [facets.categories, activeGroup]);
   useEffect(() => { setActiveCategory('All'); }, [activeGroup]);
 
  // Real, marketplace-wide tier counts + per-card tier-break markers, see
   // the matching comment in AgentMarketplaceApp.web.jsx (kept in sync).
-  const tierCounts = useMemo(() => {
-    const counts = { [VERIFICATION_TIER.VERIFIED]: 0, [VERIFICATION_TIER.RESPONDING]: 0, [VERIFICATION_TIER.UNPROVEN]: 0 };
-    for (const a of filtered) counts[getVerificationTier(a)] += 1;
-    return counts;
-  }, [filtered]);
+  // Over the whole filtered selection, returned with the page. Counting the
+  // loaded rows instead would report the tally of what has been scrolled to.
+  const tierCounts = useMemo(() => ({
+    [VERIFICATION_TIER.VERIFIED]: filteredTiers?.verified ?? 0,
+    [VERIFICATION_TIER.CANARY_VERIFIED]: filteredTiers?.canary_verified ?? 0,
+    [VERIFICATION_TIER.RESPONDING]: filteredTiers?.responding ?? 0,
+    [VERIFICATION_TIER.UNPROVEN]: filteredTiers?.unproven ?? 0,
+  }), [filteredTiers]);
   const visibleTierBreaks = useMemo(() => {
     let lastTier = null;
     return visible.map((agent) => {
@@ -1325,9 +1232,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                {!loading && filtered.length > 0 && (
+                {!loading && filteredTotal > 0 && (
                   <div className="text-xs text-gray-400 mb-3">
-                    Showing {visible.length} of {filtered.length.toLocaleString()} agents
+                    Showing {visible.length} of {filteredTotal.toLocaleString()} agents
                   </div>
                 )}
 
@@ -1337,7 +1244,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {/* Filters alone can empty the list (see the web app's matching
                     comment) -- previously only a search query produced an empty
                     state, so filtering to nothing rendered a blank area. */}
-                {!loading && filtered.length === 0 && !searchQuery && (
+                {!loading && filteredTotal === 0 && !searchQuery && (
                   <div className="text-center py-14 px-5">
                     <p className="font-semibold mb-1">No agents match these filters</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -1352,7 +1259,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                {!loading && filtered.length === 0 && searchQuery && (
+                {!loading && filteredTotal === 0 && searchQuery && (
                   <div className="mb-5">
                     <UniversalSearchFallback
                       query={searchQuery}
@@ -1429,9 +1336,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                {!loading && visibleCount < filtered.length && (
+                {!loading && hasMore && (
                   <button
-                    onClick={() => setVisibleCount((v) => v + MOBILE_PAGE_SIZE)}
+                    onClick={loadMore}
                     className="w-full mt-5 py-3.5 rounded-2xl text-sm font-semibold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 active:scale-[0.98] transition-transform"
                   >
                     Load more agents

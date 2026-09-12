@@ -29,6 +29,10 @@ import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
+import {
+  useMarketplacePage, useMarketplaceFacets, fetchAgentById,
+  groupCountsFromFacets, hackathonCountsFromFacets,
+} from './marketplaceQuery';
 import { updatePageMeta } from './seoMeta';
 import ChainViewTabs from './chainViews/ChainViewTabs';
 import HireModePicker, { HIRE_MODE } from './HireModePicker';
@@ -177,91 +181,9 @@ function mapAgent(a) {
 // the one fetch that decides whether the page has any content at all.
 const AGENT_FETCH_RETRY_MS = [1500, 4000, 11000];
 
-async function fetchAgentsWithRetry(url, isCancelled) {
-  let lastError;
-  for (let attempt = 0; attempt <= AGENT_FETCH_RETRY_MS.length; attempt++) {
-    if (isCancelled()) return null;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      lastError = err;
-      const wait = AGENT_FETCH_RETRY_MS[attempt];
-      if (wait == null) break;
-      await new Promise((r) => setTimeout(r, wait));
-    }
-  }
-  throw lastError;
-}
-
-function useMarketplaceAgents() {
-  const [agents, setAgents] = useState(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const { data, savedAt } = JSON.parse(cached);
-        if (Date.now() - savedAt < CACHE_MAX_AGE_MS) return data;
-      }
-    } catch (e) {}
-    return [];
-  });
-  const [loading, setLoading] = useState(agents.length === 0);
-  const [error, setError] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
- // bug found and fixed (2026-08-27): the header stat cards (Agents
-  // Listed / Reviews / Verified Agents) render unconditionally from
-  // `agents`, with no gate of their own, so on a page load with a warm
-  // localStorage cache, the FIRST paint shows whatever count was cached
-  // (a number from an earlier fetch, not literally 0/null, but
-  // possibly stale, e.g. from before a backend fix changed the total),
- // then flashes to the real, fresh number once this hook's fetch resolves
-  // a moment later. `loading`/`refreshing` can't gate this cleanly on their
-  // own: `loading` is already false on the very first render whenever a
-  // cache exists (by design, so the agent GRID can show cached cards
-  // instantly), and `refreshing` doesn't flip true until this effect body
-  // runs, which is AFTER the first paint, so relying on either still lets
- // the stale number paint for at least one frame first.
-  // `confirmedFresh` fixes this at the root: it starts `false` on every
-  // single render, cache or no cache, and flips true exactly once, the
- // moment a fetch settles (success or failure), so the
- // stat cards can show a skeleton until the real, final count is known,
-  // instead of a wrong intermediate one.
-  const [confirmedFresh, setConfirmedFresh] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (agents.length > 0) setRefreshing(true);
-    fetchAgentsWithRetry(`${API_BASE_URL}/api/agents`, () => cancelled)
-      .then((data) => {
-        if (cancelled || data == null) return;
-        const mapped = (data.agents || []).map(mapAgent);
-        setAgents(mapped);
-        setLoading(false);
-        setRefreshing(false);
-        setError(null);
-        setConfirmedFresh(true);
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data: mapped, savedAt: Date.now() })); } catch (e) {}
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setRefreshing(false);
-        if (agents.length === 0) setError(err.message);
-        // Even on a failure, don't leave the stat cards skeleton-locked
-        // forever: if we have cached data to fall back on, it's the best
- // number available; if we don't, the error state below takes
-        // over the whole section instead of the stat cards anyway.
-        setConfirmedFresh(true);
-        setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return { agents, setAgents, loading, error, refreshing, confirmedFresh };
-}
-
 // Real, placeholder for a stat number that isn't confirmed-fresh yet
-// (see useMarketplaceAgents' confirmedFresh above), a pulsing bar, never a
+// (see useMarketplacePage's confirmedFresh in marketplaceQuery.js), a
+// pulsing bar, never a
 // number that might be wrong.
 function StatSkeleton() {
   return <div className="h-7 w-14 rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />;
@@ -744,17 +666,24 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   const budgetMode = useBudgetModeStatus(selectedAgent?.ownerAddress || selectedAgent?.owner_address);
   const [manualAddress, setManualAddress] = useState('');
   const [stopLoss, setStopLoss] = useState(5000);
-  const { agents, setAgents, loading, error, refreshing, confirmedFresh } = useMarketplaceAgents();
+  // Catalogue-wide counts for the stat cards and the category chips. One
+  // small request, unfiltered, because everything it feeds describes the whole
+  // marketplace rather than the current view.
+  const facets = useMarketplaceFacets();
 
-  // Deep link: ?agent=<tokenId|id> opens that agent's detail once agents load,
-  // so a creator's shared link lands a client straight on their agent.
+  // Deep link: ?agent=<tokenId|id> opens that agent's detail, so a creator's
+  // shared link lands a client straight on their agent. Resolved by its own
+  // lookup rather than by searching the loaded list: the grid now holds one
+  // page, and the linked agent is usually not on it.
   const deepLinkIdRef = useRef(readDeepLinkAgentId());
   const deepLinkHandledRef = useRef(false);
   useEffect(() => {
-    if (deepLinkHandledRef.current || !deepLinkIdRef.current || agents.length === 0) return;
-    const match = agents.find((a) => matchesDeepLink(a, deepLinkIdRef.current));
-    if (match) { deepLinkHandledRef.current = true; setNav('market'); setDetailAgent(match); }
-  }, [agents]);
+    if (deepLinkHandledRef.current || !deepLinkIdRef.current) return;
+    deepLinkHandledRef.current = true;
+    fetchAgentById(deepLinkIdRef.current)
+      .then((raw) => { if (raw) { setNav('market'); setDetailAgent(mapAgent(raw)); } })
+      .catch(() => {});
+  }, []);
 
   const [sortState, setSortState] = useState({ key: 'totalScore', dir: 'desc' });
   const [showUnclassified, setShowUnclassified] = useState(true);
@@ -774,6 +703,24 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // switching back shows exactly what it showed before.
   const [categoryView, setCategoryView] = useState('categories');
   const [activeHackathon, setActiveHackathon] = useState('All');
+
+  // Paging, now server-side. 24/page is unchanged: measured against this
+  // grid's card height at 3 columns, it comes out to 8 rows, a single page of
+  // content rather than the sprawling scroll a higher count produces.
+  //
+  // What changed is where the slice happens. This used to cut a page out of a
+  // fully-downloaded, fully-filtered array; the request below asks for exactly
+  // the page being shown. Every filter is part of the query, so a filter
+  // change is a new request rather than a re-filter of 15,000 local records.
+  const [page, setPage] = useState(1);
+  const {
+    agents, setAgents, total: filteredTotal, tiers: filteredTiers,
+    loading, error, refreshing, confirmedFresh,
+  } = useMarketplacePage({
+    categoryView, activeGroup, activeCategory, activeHackathon,
+    searchQuery, showUnclassified, onlyResponding, onlyVerified,
+    sortKey: sortState.key, sortDir: sortState.dir, page,
+  }, mapAgent);
 
  // Real, marketplace-wide on-chain track record (agent_performance.py via
   // the bulk endpoint), one fetch, merged onto every agent so "Most
@@ -900,85 +847,39 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const filtered = useMemo(() => {
-    const hasRealContent = (a) => a.name && a.name.trim().length > 2;
-    let list = agentsWithPerf.filter(hasRealContent);
-    if (!showUnclassified) list = list.filter((a) => a.category !== 'Unclassified');
-    // Group first (categoryGroups.js, presentation-only grouping of the
- // fine-grained categories), then the specific category within it.
-    if (categoryView === 'defi') {
-      // The four hackathon labels, resolved through the mapping rather than
-      // by reading a second field off the agent.
-      if (activeHackathon !== 'All') {
-        list = list.filter((a) => hackathonForCategory(a.category) === activeHackathon);
-      } else {
-        list = list.filter((a) => hackathonForCategory(a.category) != null);
-      }
-    } else if (activeGroup === 'Unclassified') {
-      list = list.filter((a) => a.category === 'Unclassified' || groupForCategory(a.category) == null);
-    } else if (activeGroup !== 'All') {
-      list = list.filter((a) => groupForCategory(a.category) === activeGroup);
-    }
-    // Search AND category both apply together.
-    list = list.filter((a) => activeCategory === 'All' || a.category === activeCategory);
-    if (searchQuery) {
-      list = list.filter((a) => `${a.name} ${a.strategy}`.toLowerCase().includes(searchQuery));
-    }
- // filter: only agents whose registered endpoint answered a real
-    // health-check (see core/agent_health.py), the requested "let a user
-    // filter to only see agents with a currently-responding endpoint".
-    if (onlyResponding) list = list.filter((a) => a.serviceStatus === 'responding');
- // Real, opt-in narrowing to agents with a confirmed delivered
-    // job (see agentVerification.js), off by default.
-    if (onlyVerified) list = list.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED);
-    // "Most hired" / "Highest success rate" use the tiered comparator
- // (agentRanking.js), history first, no-history agents after.
-    // Every other sort keeps the original simple numeric sort, unchanged.
-    const secondary = PERFORMANCE_SORT_KEYS.has(sortState.key)
-      ? performanceComparator(sortState.key)
-      : (a, b) => {
-          const av = a[sortState.key] ?? -Infinity;
-          const bv = b[sortState.key] ?? -Infinity;
-          const mult = sortState.dir === 'desc' ? -1 : 1;
-          return (av - bv) * mult;
-        };
- // verification tier ALWAYS sorts first (see agentVerification.js)
-    //, a confirmed delivery outranks any other sort criterion, so
-    // "Verified working" agents are never buried behind an unproven one on
-    // a different metric. Every sort option keeps its own ordering WITHIN
-    // each tier.
-    return [...list].sort(withVerificationTierFirst(secondary));
-  }, [agentsWithPerf, activeGroup, activeCategory, categoryView, activeHackathon, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
+  // The grid renders exactly what the server returned. Filtering, sorting and
+  // the tier-first ordering all moved to core/agents_index.py, because a page
+  // cannot be cut correctly until the filters have been applied: filtering a
+  // page the client already holds gives the wrong page, not a slower one.
+  //
+  // The one thing still done here is the performance merge, which decorates
+  // the 24 cards on screen with their on-chain track record. That fetch is
+  // 35KB for the whole marketplace, so it stays a single bulk request.
+  const paginated = agentsWithPerf;
 
- // pagination, client-side, over the already-fully-fetched `filtered`
-  // list (see useMarketplaceAgents: known_agents is fetched once, in full,
-  // and cached; there's nothing server-side left to paginate). 24/page:
- // measured against this grid's card height at 3 columns, 24 comes
-  // out to 8 rows, a single "page" of content, not the sprawling
-  // scroll a higher count would produce (the exact thing this redesign is
- // meant to fix). reference for the page-control shape itself:
-  // mercor.com's own live listing page.
+  // Paging state lives with the request (see useMarketplacePage above). The
+  // server returns the page and the size of the whole filtered set, so the
+  // page count is derived from that total rather than from a local array.
   const PAGE_SIZE = 24;
-  const [page, setPage] = useState(1);
-  // Any filter/sort/search change must land back on page 1, staying on
-  // e.g. page 5 after a filter shrinks the result count to 2 pages
-  // would silently show an empty page instead of the new top results.
+  // Any filter/sort/search change must land back on page 1: staying on e.g.
+  // page 5 after a filter shrinks the result to 2 pages would ask the server
+  // for an offset past the end and show an empty grid.
   useEffect(() => { setPage(1); }, [activeGroup, activeCategory, categoryView, activeHackathon, sortState, showUnclassified, onlyResponding, onlyVerified, searchQuery]);
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount); // clamp defensively (e.g. a background refresh shrinking the list)
-  const paginated = useMemo(
-    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [filtered, currentPage]
-  );
+  const pageCount = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
 
  // Real, marketplace-wide tier counts (not just this page), `filtered` is
  // always tier-sorted (withVerificationTierFirst), so this is an honest
  // tally of the real 3-tier split under the current filters.
-  const tierCounts = useMemo(() => {
-    const counts = { [VERIFICATION_TIER.VERIFIED]: 0, [VERIFICATION_TIER.RESPONDING]: 0, [VERIFICATION_TIER.UNPROVEN]: 0 };
-    for (const a of filtered) counts[getVerificationTier(a)] += 1;
-    return counts;
-  }, [filtered]);
+  // These come back with the page, computed over the whole filtered selection
+  // rather than the 24 rows on screen. Counting the page instead would report
+  // "3 verified" when the filter actually matches three hundred.
+  const tierCounts = useMemo(() => ({
+    [VERIFICATION_TIER.VERIFIED]: filteredTiers?.verified ?? 0,
+    [VERIFICATION_TIER.CANARY_VERIFIED]: filteredTiers?.canary_verified ?? 0,
+    [VERIFICATION_TIER.RESPONDING]: filteredTiers?.responding ?? 0,
+    [VERIFICATION_TIER.UNPROVEN]: filteredTiers?.unproven ?? 0,
+  }), [filteredTiers]);
   // Marks the first row/card of each new tier on THIS page, so a divider
  // only renders where the tier changes, `paginated` is a
   // contiguous slice of the already tier-sorted `filtered` list, so a tier
@@ -1005,42 +906,41 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  // use agentVerification.js's getVerificationTier (on-chain-confirmed
   // delivered job), over agentsWithPerf (the performance-merged list, the
   // raw jobsCompleted/jobsSubmitted signal isn't on `agents` yet).
+  //
+  // Now served by /api/agents/facets rather than reduced over a local array.
+  // The verification tier is still agentVerification.js's definition, computed
+  // from the same delivered-job evidence, just applied server-side where the
+  // whole catalogue is. `real_names_only=false` on that request keeps these
+  // three numbers identical to what this reduce produced.
   const stats = useMemo(() => ({
-    total: agentsWithPerf.length,
-    verified: agentsWithPerf.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED).length,
-    totalFeedbacks: agentsWithPerf.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
-  }), [agentsWithPerf]);
+    total: facets.total,
+    verified: facets.tiers?.verified ?? 0,
+    totalFeedbacks: facets.totalFeedbacks,
+  }), [facets]);
 
  // per-group counts (categoryGroups.js), so the group chips show an
  // tally rather than an unlabeled bucket, anything not mapped to a
   // group (including literal 'Unclassified') counts toward 'Unclassified'.
-  const groupCounts = useMemo(() => {
-    const counts = { Unclassified: 0 };
-    for (const g of CATEGORY_GROUPS) counts[g.id] = 0;
-    for (const a of agents) {
-      const g = groupForCategory(a.category);
-      if (g) counts[g] += 1; else counts.Unclassified += 1;
-    }
-    return counts;
-  }, [agents]);
+  // Rolled up from the facet counts. The grouping stays here on purpose:
+  // CATEGORY_GROUPS is a presentation concern the two apps share, and moving
+  // it server-side would put a display decision behind an API version.
+  const groupCounts = useMemo(
+    () => groupCountsFromFacets(facets.categories), [facets.categories]);
 
   // Fine-grained category chips, scoped to whichever group is active, only
  // categories that have at least one agent are shown.
-  const hackathonCounts = useMemo(() => {
-    const counts = {};
-    for (const a of agents) {
-      const h = hackathonForCategory(a.category);
-      if (h) counts[h] = (counts[h] || 0) + 1;
-    }
-    return counts;
-  }, [agents]);
+  const hackathonCounts = useMemo(
+    () => hackathonCountsFromFacets(facets.categories), [facets.categories]);
 
   const activeGroupCategories = useMemo(() => {
     if (activeGroup === 'All' || activeGroup === 'Unclassified') return [];
     const groupCats = CATEGORY_GROUPS.find((g) => g.id === activeGroup)?.categories || [];
-    const present = new Set(agents.map((a) => a.category));
+    // Which categories actually exist, from the facet counts rather than from
+    // whatever happens to be on the current page. Reading it off the page
+    // would hide a category's chip whenever its agents fell on page two.
+    const present = new Set((facets.categories || []).map((c) => c.category));
     return ['All', ...groupCats.filter((c) => present.has(c))];
-  }, [agents, activeGroup]);
+  }, [facets.categories, activeGroup]);
 
   // Picking a different group must clear any leftover fine-category pick
   // from the previous group, otherwise switching groups could silently
@@ -1529,9 +1429,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               )}
               {categoryView !== 'defi' && activeGroupCategories.length === 0 && <div className="mb-8" />}
 
-              {!loading && !error && filtered.length > 0 && (
+              {!loading && !error && filteredTotal > 0 && (
                 <div className="mb-4 text-xs text-gray-400">
-                  Showing {((currentPage - 1) * PAGE_SIZE + 1).toLocaleString()}&ndash;{Math.min(currentPage * PAGE_SIZE, filtered.length).toLocaleString()} of {filtered.length.toLocaleString()} agents
+                  Showing {((currentPage - 1) * PAGE_SIZE + 1).toLocaleString()}&ndash;{Math.min(currentPage * PAGE_SIZE, filteredTotal).toLocaleString()} of {filteredTotal.toLocaleString()} agents
                 </div>
               )}
 
@@ -1547,7 +1447,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   to reach without typing anything. Previously the only empty
                   state was gated on searchQuery, so those cases rendered a blank
                   area that read as a loading failure. */}
-              {!loading && !error && filtered.length === 0 && !searchQuery && (
+              {!loading && !error && filteredTotal === 0 && !searchQuery && (
                 <div className="text-center py-16 px-6">
                   <p className="font-semibold mb-1">No agents match these filters</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -1562,7 +1462,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 </div>
               )}
 
-              {!loading && !error && filtered.length === 0 && searchQuery && (
+              {!loading && !error && filteredTotal === 0 && searchQuery && (
                 <div className="mb-6">
                   <UniversalSearchFallback
                     query={searchQuery}
