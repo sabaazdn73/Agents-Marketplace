@@ -40,7 +40,7 @@ export const LINKEDIN_URL = 'https://www.linkedin.com/in/saba-azadegan-2974b622a
 export const X_URL = 'https://x.com/SabaAzadegan';
 // The recorded walkthrough of the site. Lives here rather than in either
 // app, so web and mobile cannot end up pointing at different videos.
-export const DEMO_VIDEO_URL = 'https://youtu.be/D3cHUVap-WY';
+export const DEMO_VIDEO_URL = 'https://youtu.be/EcpRX5FRles';
 
 /** The X wordmark.
  *
