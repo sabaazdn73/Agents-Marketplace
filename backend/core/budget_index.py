@@ -102,13 +102,22 @@ PROGRESS_COLLECTION = "budget_index_progress"
 MIN_BUDGETS_FOR_RATE = 5
 
 
-async def _rpc(client: httpx.AsyncClient, chain_id: int, method: str, params: list) -> Any:
-    """One JSON-RPC call, primary then failover. Raises if both fail."""
+def _chain_urls(chain_id: int) -> list[str]:
     urls = [u for u in (get_chain_rpc_url(chain_id), get_chain_fallback_rpc_url(chain_id)) if u]
     if not urls:
         raise RuntimeError(f"no RPC configured for chain {chain_id}")
+    return urls
+
+
+async def _rpc_from(client: httpx.AsyncClient, chain_id: int, method: str,
+                    params: list) -> tuple[Any, str]:
+    """One JSON-RPC call, primary then failover, returning which URL answered.
+
+    The answering URL is returned rather than discarded because an empty log
+    page is only meaningful once you know who produced it. See
+    `_provider_serves_logs`."""
     last: Exception | None = None
-    for url in urls:
+    for url in _chain_urls(chain_id):
         try:
             r = await client.post(
                 url, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params}, timeout=45.0
@@ -117,10 +126,74 @@ async def _rpc(client: httpx.AsyncClient, chain_id: int, method: str, params: li
             body = r.json()
             if "error" in body:
                 raise RuntimeError(body["error"])
-            return body["result"]
+            return body["result"], url
         except Exception as e:  # noqa: BLE001 -- try the failover, then report
             last = e
     raise RuntimeError(f"chain {chain_id} {method} failed on every RPC: {last}")
+
+
+async def _rpc(client: httpx.AsyncClient, chain_id: int, method: str, params: list) -> Any:
+    """One JSON-RPC call, primary then failover. Raises if both fail."""
+    result, _ = await _rpc_from(client, chain_id, method, params)
+    return result
+
+
+async def _provider_serves_logs(client: httpx.AsyncClient, chain_id: int, url: str,
+                                cache: dict[str, bool]) -> bool:
+    """Does this endpoint actually answer eth_getLogs for this contract?
+
+    WHY THIS EXISTS
+    ---------------
+    `_scan` treats an empty page as "no events in this range". That is only
+    true if the provider looked. A provider that cannot serve a range is
+    supposed to return an error, and the ones measured on 2026-09-14 do:
+    bsc-dataseed rate-limits with -32005, Infura returns 429 or an explicit
+    range error, publicnode returns 403. But a JSON-RPC 200 carrying
+    `result: []` is indistinguishable from a real empty range, and nothing
+    downstream could tell the difference. An under-counted draw reads as an
+    agent that took money and delivered nothing, which is wrong in the
+    direction that accuses somebody, so empty has to be earned rather than
+    assumed.
+
+    THE CONTROL
+    -----------
+    `FIRST_BUDGET_BLOCK[chain]` is a block that provably carries at least one
+    log from this address, and it holds for both cases the table covers:
+    on BSC, Arbitrum and Robinhood Chain it is budget #1's `BudgetOpened`,
+    and on Ethereum it is the contract's creation block, where the
+    constructor emits `OwnershipTransferred` and one `TokenAccepted` per
+    accepted token. So a single-block, unfiltered `eth_getLogs` there must
+    come back non-empty. A provider that returns `[]` for it is not answering,
+    whatever its status code says.
+
+    It is also the right block to probe rather than a convenient one: it is
+    the oldest range any scan will ask for, so it is where a non-archive or
+    depth-limited endpoint fails first.
+
+    Costs one request per provider per refresh, not one per page, and the
+    result is cached for the refresh.
+    """
+    if url in cache:
+        return cache[url]
+    block = FIRST_BUDGET_BLOCK.get(chain_id)
+    addr = ESCROW_ADDRESS[chain_id]
+    ok = False
+    try:
+        r = await client.post(url, json={
+            "jsonrpc": "2.0", "id": 1, "method": "eth_getLogs",
+            "params": [{"address": addr, "fromBlock": hex(block), "toBlock": hex(block)}],
+        }, timeout=45.0)
+        r.raise_for_status()
+        body = r.json()
+        ok = "error" not in body and bool(body.get("result"))
+    except Exception:  # noqa: BLE001 -- an unreachable control is a failed control
+        ok = False
+    cache[url] = ok
+    if not ok:
+        print(f"[budget_index] chain {chain_id}: {url.split('/')[2]} returned no logs at "
+              f"block {block}, where at least one is known to exist. Its empty pages "
+              f"are not trusted for this refresh.", flush=True)
+    return ok
 
 
 def _agent_from_drawn(log: dict) -> str:
@@ -138,20 +211,63 @@ def _budget_id(log: dict) -> int:
 
 
 async def _scan(client: httpx.AsyncClient, chain_id: int, topic: str,
-                from_block: int, to_block: int) -> list[dict]:
+                from_block: int, to_block: int,
+                serves_cache: dict[str, bool] | None = None) -> list[dict]:
     """Page through eth_getLogs. A page that fails on both RPCs raises rather
     than being skipped: a silently dropped page would under-count draws, and
     an under-counted draw reads as an agent that took money and delivered
-    nothing. Wrong in the direction that accuses somebody."""
+    nothing. Wrong in the direction that accuses somebody.
+
+    An EMPTY page is held to the same standard (2026-09-14). It used to be
+    accepted on its face, which made "this range holds no events" and "this
+    endpoint did not answer" the same outcome. Now an empty page is only
+    accepted from a provider that has demonstrated, against a block known to
+    carry a log, that it answers eth_getLogs for this contract at all. If the
+    provider that produced the empty has not proved that, the page is retried
+    on the other endpoint, and if no endpoint can prove it the scan raises
+    rather than reporting a clean run over data it never read.
+
+    Non-empty pages need no such check: logs that came back are evidence the
+    provider looked."""
     addr = ESCROW_ADDRESS[chain_id]
     step = LOG_PAGE_BLOCKS.get(chain_id, DEFAULT_PAGE_BLOCKS)
+    cache = serves_cache if serves_cache is not None else {}
     out: list[dict] = []
     cur = from_block
     while cur <= to_block:
         end = min(cur + step, to_block)
-        out += await _rpc(client, chain_id, "eth_getLogs", [{
-            "address": addr, "fromBlock": hex(cur), "toBlock": hex(end), "topics": [topic],
-        }])
+        params = [{"address": addr, "fromBlock": hex(cur), "toBlock": hex(end),
+                   "topics": [topic]}]
+        logs, url = await _rpc_from(client, chain_id, "eth_getLogs", params)
+
+        if not logs and not await _provider_serves_logs(client, chain_id, url, cache):
+            # The endpoint that answered cannot be shown to answer at all, so
+            # its empty means nothing. Try every other endpoint that can.
+            recovered = False
+            for alt in _chain_urls(chain_id):
+                if alt == url or not await _provider_serves_logs(client, chain_id, alt, cache):
+                    continue
+                r = await client.post(alt, json={
+                    "jsonrpc": "2.0", "id": 1, "method": "eth_getLogs", "params": params,
+                }, timeout=45.0)
+                r.raise_for_status()
+                body = r.json()
+                if "error" in body:
+                    raise RuntimeError(
+                        f"chain {chain_id} eth_getLogs {cur}-{end} failed on {alt}: {body['error']}"
+                    )
+                logs = body["result"]
+                recovered = True
+                break
+            if not recovered:
+                raise RuntimeError(
+                    f"chain {chain_id} eth_getLogs {cur}-{end} returned empty from "
+                    f"{url}, which failed the known-log control at block "
+                    f"{FIRST_BUDGET_BLOCK.get(chain_id)}, and no other endpoint could "
+                    f"be trusted to answer. Refusing to record an empty range as scanned."
+                )
+
+        out += logs
         cur = end + 1
     return out
 
@@ -173,8 +289,11 @@ async def refresh_chain(db, chain_id: int) -> dict:
         if start > head:
             return {"chain_id": chain_id, "scanned": 0, "head": head}
 
-        opened = await _scan(client, chain_id, OPENED_TOPIC, start, head)
-        drawn = await _scan(client, chain_id, DRAWN_TOPIC, start, head)
+        # One control cache for both scans, so each endpoint is probed at most
+        # once per refresh rather than once per topic.
+        serves: dict[str, bool] = {}
+        opened = await _scan(client, chain_id, OPENED_TOPIC, start, head, serves)
+        drawn = await _scan(client, chain_id, DRAWN_TOPIC, start, head, serves)
 
     col = db[COLLECTION]
     for log in opened:
