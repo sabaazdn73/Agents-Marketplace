@@ -18,7 +18,9 @@ latter.
 
 ## What the method measures
 
-Four things, each answerable from transaction data:
+Six things, each answerable from transaction data. The last two were added
+by the second pass below, in response to a question the first four could not
+answer:
 
 | Question | Measured by |
 |---|---|
@@ -26,6 +28,8 @@ Four things, each answerable from transaction data:
 | Activity pattern | Inter-arrival gaps, to separate polling from event-driven behaviour |
 | Sizing | The distribution of trade sizes, to separate a fixed size from sizing to opportunity |
 | Concentration | Which venues and pairs, and how spread out |
+| Position | Where in the block a transaction lands, against the block's own size |
+| Bidding | Fee paid above the base fee, split by whether the transaction landed |
 
 The point of the exercise is that the interesting findings are the ones the
 operator would not publish. An explorer shows the transactions that landed. The
@@ -70,14 +74,160 @@ an opportunity-triggered arrival process rather than a fixed cadence. Sizing
 spans a factor of 160 from p25 to p99, which is not what a configured trade
 size looks like.
 
+## Second pass: was it fast, or is it cheap to be wrong?
+
+Measured 2026-09-14. The first pass produced an apparent reaction speed that
+prompted a reasonable objection from a reader: a bot could not react that
+quickly reading chain state through ShredStream or gRPC, so it must be taking
+signals from somewhere else.
+
+That is checkable rather than arguable, because Dune carries the transaction's
+position in the block. A third possibility was tested alongside it: that the
+bot is not reacting at all, but submitting on a prediction and letting the
+transaction revert when the prediction is wrong. Cheap failures substituting
+for speed would produce the same trace.
+
+Window is 2026-09-05 to 2026-09-14 unless stated, covering wallet B's last
+active days and wallet A's takeover.
+
+### One schema trap, first
+
+Dune's `index` on `solana.transactions` is the position in the full block, but
+that table excludes vote transactions. Some slots return 575 rows with a
+maximum index of 1238. Reading `index` as a rank understates how early a
+transaction sat, so position is normalised against the real non-vote count per
+block below.
+
+A second off-by-one: Dune's `outer_instruction_index` is 1-based while the
+error's instruction index is 0-based. Taking the error's index 2 literally
+against Dune points at `ComputeBudget`, which cannot throw a custom error.
+
+### It does not land early
+
+| Wallet / outcome | n | first | top 5 | p25 | p50 | p90 |
+|---|---|---|---|---|---|---|
+| A landed | 41,980 | 0.08% | 1.30% | 215 | 554 | 1,140 |
+| A reverted | 68,436 | 0.05% | 0.25% | 258 | 584 | 1,210 |
+| B landed | 61,860 | 0.06% | 1.02% | 224 | 560 | 1,131 |
+| B reverted | 82,487 | 0.03% | 0.24% | 256 | 586 | 1,219 |
+
+Normalised against real block size, wallet A over one hour: a landed
+transaction sits at median rank 208 of a 452-transaction block, a reverted one
+at 223 of 486. That is 44% to 49% of the way through. It is first in block on
+roughly a quarter of one percent of transactions.
+
+So the premise is not supported. Whatever speed was inferred, the bot is not
+winning by being first.
+
+Landed transactions do sit slightly earlier than reverted ones, and the
+direction holds across both wallets and both measurement methods: about five
+times more likely to be in the block's top five. Position appears to matter
+when it gets it, and it rarely gets it.
+
+### It pays heavily for position
+
+This reframes the section above and is the finding worth carrying forward.
+Fees in lamports; the Solana base fee is 5,000 per signature.
+
+| Wallet / outcome | p50 | p99 | max | at base fee |
+|---|---|---|---|---|
+| A landed | 97,342 | 109,215,429 | 7,405,503,323 | 18.0% |
+| A reverted | 61,211 | 7,586,355 | 568,138,750 | 7.0% |
+| B landed | 70,270 | 80,113,352 | 23,359,996,928 | 19.4% |
+| B reverted | 52,471 | 8,213,173 | 796,880,000 | 8.8% |
+
+Three things worth separating. The tail is enormous: wallet B's largest single
+fee is 23.36 SOL, wallet A's is 7.41 SOL, which are auction bids rather than
+gas. Winners pay 10 to 14 times what losers pay at p99, against only about
+1.6x at the median. And it is bimodal: 18 to 19% of landed transactions pay
+the bare base fee against 7 to 9% of reverted ones, so a real share of its
+wins are uncontested and cost nothing to take.
+
+### Same-slot submissions, and why their correlation matters
+
+33.4% of the slots wallet A appears in hold two or more of its own
+transactions, and 57.3% of its transactions sit in such a slot. The hit rate
+falls as the count rises: 44.0% alone, 39.0% at two, 22.8% at five or more.
+
+Take the 16,637 slots holding exactly two. Landed rate across those is 0.390.
+
+| Wins in the slot | if independent | observed |
+|---|---|---|
+| 0 | 37.2% | 43.7% |
+| 1 | 47.6% | 34.7% |
+| 2 | 15.2% | 21.7% |
+
+Both tails are fatter than independence predicts and the middle is thinner.
+The two transactions tend to succeed together or fail together.
+
+That argues against the simplest spray model, where several copies chase one
+opportunity and at most one can win, because that would push outcomes apart
+rather than together. It fits a batch fired on one shared judgement: when the
+judgement holds several land, when it does not they all abort.
+
+### Every failure is its own program refusing
+
+All errors in both wallets sit at instruction index 2, which resolves to one
+program: `AN225ykGPAmckE9uMCCM7jQv3L3AYwiPZbHqgMUYEgCR`. On wallet B, 87.0% of
+82,487 reverts are `Custom(0)`, with `Custom(3005)` at 3.5% and `Custom(2014)`
+at 2.9% behind it.
+
+The instruction layout is identical whether the transaction lands or reverts:
+System, ComputeBudget, the arb program, then two further ComputeBudget
+instructions. It does not send a different shape of transaction when guessing.
+
+The structural point stands without decoding anything: the bot routes through
+a program it controls, and that program aborts atomically. A wrong attempt
+costs the fee and touches no balances. It does not need to be fast, because it
+is cheap to be wrong.
+
+Reading `Custom(0)` as a profitability or slippage guard is inference. It
+matches the Anchor convention for the first declared error, but the program's
+IDL was not available and this was not verified.
+
+### The venue test does not separate the two stories
+
+If it failed on different venues than it succeeded on, that would point at
+prediction. Inner program calls were compared across two ten-minute windows,
+normalised against the most common venue in each group.
+
+| Venue | W1 reverted | W1 landed | W2 reverted | W2 landed | Stable |
+|---|---|---|---|---|---|
+| Orca whirlpool | 0.28 | 0.66 | 0.14 | 0.33 | yes, wins |
+| Pump AMM | 0.45 | 0.31 | 0.59 | 0.69 | flips |
+| BiSo | 0.20 | 0.06 | 0.29 | 0.50 | flips |
+| cpamd | 0.22 | 0.63 | 0.09 | 0.15 | weakens |
+
+Only Orca holds direction, and two ten-minute windows is not enough to assert
+it. Reporting the first window alone would have produced a clean finding that
+the second contradicts, which is the reason the second was run.
+
+### Verdict
+
+Reaction and prediction cannot be separated on this evidence. Both produce
+mid-block position, a 60%-plus revert rate, one dominant error and an
+identical instruction layout. What can be said is narrower and still useful:
+the bot is not winning by landing first, it bids hard and variably for
+inclusion, and its architecture makes being wrong cost almost nothing.
+
 ## What the method cannot establish
 
 These are properties of the method, not of the subject, so they apply to any
 future use of it.
 
+Position is not latency. This one was learned the hard way in the second pass
+and is the easiest to get wrong, because block position looks like a timing
+measurement. It is where the leader put the transaction, not when it arrived.
+Solana's scheduler is multi-threaded and fee-influenced rather than strictly
+arrival-ordered, so a bot paying six figures of priority fee and still landing
+mid-block is not being ordered by how early it got there. Mid-block position
+does not prove late submission, and a high fee does not prove early
+submission. There is no arrival timestamp in this data at all.
+
 Profitability is not measurable this way. Swap volume is turnover. Net PnL needs
 balance differencing across each transaction cycle plus fees and any tips paid
-outside the fee field.
+outside the fee field. Fees paid are visible and proceeds are not, so a 23 SOL
+fee says nothing on its own about whether that transaction made money.
 
 Program-defined error codes are opaque without the program's IDL. A code
 accounting for 90% of failures was not decoded, and the obvious reading of it
@@ -142,3 +292,27 @@ One early signal from a 200-address sample on BNB Chain: revert counts sat
 between 0 and 15 per several hundred transactions, nothing resembling the 60%
 seen on Solana. The headline finding does not transfer, and the interesting EVM
 question is more likely concentration and timing than failure.
+
+## What the queries cost
+
+Recorded because the cost model is the real constraint on repeating any of
+this, and because getting it wrong once cost 209 credits on a single
+unbounded scan.
+
+The rule in one line: filtering by `signer` is cheap, and anything that must
+read every transaction in a block rather than one signer's is one to two
+orders of magnitude more expensive per unit of time.
+
+| Shape | Window | Credits |
+|---|---|---|
+| One wallet's transactions, narrow columns | 1 day | 0.32 |
+| Position, fee, error and slot distributions | 9 days | 3.6 to 4.7 each |
+| Block-size normalisation, reads every transaction in each block | 1 hour | 1.29 |
+| `solana.instruction_calls`, outer instructions only | 10 min | 0.35 |
+| `solana.instruction_calls`, inner instructions | 10 min | 5.1 to 8.6 |
+
+The second pass came to 41.1 credits across 14 queries. Two practical notes:
+`select *` on `solana.transactions` costs about 0.93 credits for five minutes
+because of the large array columns, so name the columns; and Dune caps how
+many private queries an account may hold, so repeated probing has to update
+one saved query rather than create a new one each time.
