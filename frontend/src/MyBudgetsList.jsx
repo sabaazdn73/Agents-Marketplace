@@ -23,10 +23,17 @@
 // EVERY NUMBER COMES FROM CONTRACT STATE
 // --------------------------------------
 // See useMyBudgets for why discovery enumerates budgetCounter instead of
-// filtering BudgetOpened logs: these RPCs return incomplete log sets without
-// erroring, which would make whole budgets disappear from this list. The
-// per-budget figures are getBudget's own fields for the same reason. This
-// list never derives a spend from logs.
+// filtering BudgetOpened logs. The short version: a log-based list can lose
+// a whole budget, and an endpoint that refuses loudly loses it just as
+// completely as one that returns short data. The per-budget figures are
+// getBudget's own fields for the same reason, and this list never derives a
+// spend from logs.
+//
+// One correction worth carrying: the "returns incomplete sets without
+// erroring" claim this comment used to state as fact is unconfirmed. It was
+// observed 2026-09-06 and did not reproduce on 2026-09-14. The measured and
+// still-true part is the rate limiting and the hard range caps. Full status
+// note in useDrawFeed in budgetEscrow.js.
 //
 // Expanding a row mounts BudgetSpendView verbatim -- the itemised feed, its
 // log-vs-`spent` reconciliation, and the reclaim button all come from there

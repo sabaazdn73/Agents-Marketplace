@@ -217,12 +217,15 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
       )}
 
       {/* The live stream. */}
-      {/* The itemised feed is best-effort; `spent` above is not. These RPCs
-          return incomplete log ranges without erroring (see useDrawFeed),
-          so rather than trust the feed we reconcile it against the
-          contract's own `spent` and say plainly when draws are missing.
-          The one thing this must never do is claim nothing was drawn while
-          the balance directly above says otherwise. */}
+      {/* The itemised feed is best-effort; `spent` above is not. Public RPCs
+          drop log ranges: by rate limiting and hard range caps, which are
+          measured, and possibly by returning short data without erroring,
+          which was observed 2026-09-06 and did not reproduce on 2026-09-14
+          (status note in useDrawFeed). Either way the feed can be missing
+          draws, so rather than trust it we reconcile against the contract's
+          own `spent` and say plainly when draws are missing. The one thing
+          this must never do is claim nothing was drawn while the balance
+          directly above says otherwise. */}
       <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
         Spending activity {draws.length > 0 && `(${draws.length})`}
       </div>

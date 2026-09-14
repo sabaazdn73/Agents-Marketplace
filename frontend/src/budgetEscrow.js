@@ -211,18 +211,51 @@ export function useBudgetRead(budgetId, forcedChainId = null) {
  *
  * WHY THIS IS NOT A PLAIN getLogs('earliest') ANY MORE
  * ----------------------------------------------------
- * It was, and that silently did not work. Measured against the live
- * contract on BSC while verifying the reference agent:
+ * It was, and it did not work. What was observed on 2026-09-06, against
+ * the live contract on BSC while verifying the reference agent:
  *   - the public dataseed RPC answers `limit exceeded` for a 5,000-block
  *     range;
- *   - Infura returns a BudgetOpened log when asked for a 5-block window,
- *     and returns NOTHING for the same event inside a 2,000-block window
- *     -- no error, just missing data;
- *   - even 200-block chunks recovered only 3 of the ~7 events that
- * provably exist, since contract state showed 2 budgets and a real
- *     draw whose 2.5% fee is sitting in the escrow.
- * A feed built on that would have shown "nothing drawn yet" directly
- * above a balance saying otherwise.
+ *   - Infura returned a BudgetOpened log for a 5-block window and nothing
+ *     for the same event inside a 2,000-block window, with no error;
+ *   - 200-block chunks recovered only 3 of the ~7 events that provably
+ *     existed, since contract state showed 2 budgets and a real draw whose
+ *     2.5% fee was sitting in the escrow.
+ *
+ * STATUS OF THAT SECOND AND THIRD POINT: UNCONFIRMED, NOT ESTABLISHED
+ * -------------------------------------------------------------------
+ * A deliberate re-test on 2026-09-14 did not reproduce them, and that has
+ * to be recorded here rather than left as folklore.
+ *
+ * Method: partition consistency, which is the property a correct endpoint
+ * must have, that logs(a..c) equals logs(a..b) plus logs(b+1..c); plus a
+ * ground-truth scan of 12 pages of 4,900 blocks from the contract's first
+ * budget block, where the number of BudgetOpened events is known from
+ * contract state.
+ *
+ * Result: every endpoint failed loudly or answered completely. bloXroute,
+ * which is what the app actually reads through, returned all 3 events over
+ * 12 of 12 pages. Infura was partition-consistent at 6,674 logs and
+ * returned explicit 429s or range errors rather than short data.
+ * bsc-dataseed rate-limited with -32005 on ranges as small as 2 blocks,
+ * which does corroborate the first point above. publicnode returned 403.
+ * No provider returned a short log set without an error.
+ *
+ * So the first point stands, and the silent-truncation part is an
+ * observation that has not been reproduced. It may have been a transient,
+ * a provider since fixed, or a misreading of a rate-limited failover at
+ * the time. It is not currently evidence of anything, and it should not be
+ * repeated as fact.
+ *
+ * THE DESIGN DOES NOT DEPEND ON IT
+ * --------------------------------
+ * Worth stating plainly, because the correction above might read as a
+ * reason to go back to logs. It is not. An endpoint that fails loudly
+ * still leaves a gap, rate limits are real and were measured on both
+ * dates, and a feed that showed "nothing drawn yet" directly above a
+ * balance saying otherwise would be wrong in the way that matters most.
+ * Reading the numbers from contract state and treating the feed as
+ * best-effort is correct whether or not any provider ever returned short
+ * data silently.
  *
  * So the numbers never come from logs. `spent` and `total` are read from
  * the contract in useBudgetRead and are authoritative. This hook supplies
@@ -420,15 +453,21 @@ export function useBudgetModeStatus(ownerAddress) {
  * WHY THIS ENUMERATES CONTRACT STATE AND NOT `BudgetOpened` LOGS
  * -------------------------------------------------------------
  * `BudgetOpened` indexes `client`, so a log filter looks like the obvious
- * way to find someone's budgets. It is not, and the reason is already
- * documented in useDrawFeed above from live measurement against this exact
- * contract: these RPCs silently return INCOMPLETE log sets -- 200-block
- * chunks recovered 3 of ~7 events that provably existed, with no error.
+ * way to find someone's budgets. It is not.
  *
- * A missing Drawn log understates a spend. A missing BudgetOpened log makes
- * an entire budget vanish from this list -- which is precisely the black box
- * this list exists to remove. Building discovery on logs would move the bug
- * rather than fix it.
+ * The original reason, from 2026-09-06, was that 200-block chunks recovered
+ * 3 of ~7 events that provably existed, with no error. A re-test on
+ * 2026-09-14 did not reproduce that, so read the full status note in
+ * useDrawFeed above before repeating it: the silent-truncation part is
+ * unconfirmed, while the rate limiting and the hard range caps are
+ * measured on both dates.
+ *
+ * The conclusion is unchanged either way. A missing Drawn log understates a
+ * spend. A missing BudgetOpened log makes an entire budget vanish from this
+ * list, which is precisely the black box this list exists to remove. An
+ * endpoint that refuses loudly loses the event just as completely as one
+ * that returns short, so log-based discovery would move the bug rather than
+ * fix it whichever failure mode is real.
  *
  * So: ids are sequential from 1, `budgetCounter` is public, and `getBudget`
  * is authoritative. Read the counter, read every id, keep the ones whose
