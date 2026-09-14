@@ -162,21 +162,99 @@ The legacy unparameterised call still returns everything for now, but
 streams in chunks rather than handing the transport one 15.7MB write to
 buffer per connection.
 
-### After
+### After: the rate went up, not down
 
-Deployed 2026-09-12 11:32 UTC. **Not yet measured.** At a 0.54/hour
-baseline a meaningful comparison needs roughly a 12 to 24 hour window; the
-40 minutes immediately after deploy contained zero OOMs, which at that rate
-is an expected count of 0.36 and therefore evidence of nothing. Re-measure
-with the same method, which is the one worth reusing because it needs no
-poller holding a live credential:
+Measured 2026-09-14 07:51 UTC, 44.3 hours after the deploy.
+
+| | Before | After |
+|---|---|---|
+| oomKilled events | 22 | 30 |
+| Window (first to last) | 40.5 h | 42.3 h |
+| Rate | 0.54/hour | **0.71/hour** |
+
+Expected count at the old baseline over the same exposure was 23.9. The
+observed count was 30. Every `server_failed` in the window was `oomKilled`;
+none had any other cause, so nothing was substituted for the old failure
+mode.
+
+The count is a floor rather than a ceiling. Nine deploys landed in that
+window and each one restarts the container at about 105MB, which suppresses
+OOMs rather than causing them.
+
+The payload reduction is real and still in place, verified live at the time
+of measurement: a page is 28,107 bytes, facets is 1,010, against the old
+15.7MB. That part did exactly what it was built to do. It did not help.
+
+#### Why, from the memory trace
+
+A 12-hour sample at 5-minute resolution shows a sawtooth, not a ratchet:
+
+```
+restart ~105MB  ->  cache fills, plateau ~240-250MB  ->  spike 380-485MB  ->  OOM
+```
+
+The cycle repeats roughly every two hours, which matches the event rate.
+
+The plateau is the problem. This document previously recorded a resting
+baseline of ~105 to 206MB. It is now ~240 to 250MB. The refresh spike did
+not get bigger; it now starts from a floor 40 to 50MB higher and therefore
+crosses 512Mi more often.
+
+Four things in the pagination change raised that floor, and they were not
+all foreseen:
+
+- The index is 21.53MB resident against the old body's 14.98MB. This was
+  measured before deploying and accepted as 1.3% of the cap. It is real but
+  it is the smallest of the four.
+- `_tier_join()` is new work on the refresh path: two MongoDB aggregations
+  whose results are held live while the index is built.
+- `AgentsIndex.from_encoded` holds the subprocess's 15.7MB body and the
+  15.7MB of per-agent slices at the same time, roughly 31MB transient on
+  exactly the path that was already spiking.
+- The one that matters most, and the one that was missed. The old cache was
+  a single 15.7MB `bytes`. CPython sends an allocation that large straight
+  to `malloc`/`mmap` and returns it to the OS when it is freed. The new
+  cache is 15,000 small `bytes` objects, which live in pymalloc arenas that
+  CPython does not reliably hand back. Replacing the cache on each refresh
+  therefore frees far less to the OS than it used to. This is the same
+  arena behaviour already documented above as the reason the subprocess
+  refresh exists, applied to a structure the subprocess does not cover.
+
+So the change traded a per-request cost for a resident cost, on a service
+whose binding constraint is resident memory. The per-request cost was
+never what killed it.
+
+#### What this implies
+
+Response size was a genuine constraint, and the 2026-09-06 natural
+experiment that established it was not wrong. It was not the binding one at
+this payload size, and the other half of the problem recorded above, the
+250 to 300MB spike when `get_stored_agents()` reads 30,000 documents for
+`_diversify()`, is untouched and still sets the ceiling.
+
+Options, in the order they are worth trying:
+
+1. Store the page blobs as one `bytes` buffer plus an offset table, rather
+   than 15,000 objects. Slicing stays O(1), the allocation goes back to one
+   large block that the OS gets back, and the arena problem disappears.
+2. Move `_tier_join()` off the refresh path, or cache its two maps with
+   their own TTL so a refresh does not rebuild them.
+3. Free the encoded body inside `from_encoded` as slices are taken, rather
+   than holding both.
+4. If the plateau still does not come down, revert the index and keep only
+   the facets and by-id endpoints, which are the part that removed whole
+   fetches rather than reshaping one.
+
+Re-measuring needs no poller holding a live credential:
 
 ```
 GET https://api.render.com/v1/services/srv-d9rl1tn10e5c738at05g/events?limit=100
+GET https://api.render.com/v1/metrics/memory?resource=srv-d9rl1tn10e5c738at05g&resolutionSeconds=300
 ```
 
-and count `server_failed` events whose `details.reason.oomKilled` is set,
-over the span between the first and last of them.
+Count `server_failed` whose `details.reason.oomKilled` is set, split at the
+deploy boundary, and read the plateau off the memory trace rather than the
+peak.
 
 ## The answer
 
