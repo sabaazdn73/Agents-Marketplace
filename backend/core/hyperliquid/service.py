@@ -60,6 +60,106 @@ def coverage() -> dict:
     }
 
 
+# An address whose newest OBSERVED ORDER is older than this is not described
+# with a current rate, however many polls it has.
+#
+# This is the lesson from 2026-09-15. historicalOrders can return a full 2,000
+# records that are months old: the highest-volume address on the venue, trading
+# billions a day, returned a fourteen-minute window from 147 days earlier. A
+# poll count therefore says nothing about whether the data behind it is
+# current, and polled_at says nothing either, because the poll succeeded. The
+# only field that answers the question is the age of the newest order seen.
+MAX_RECORD_AGE_SECONDS = 3600
+
+
+def address_detail(address: str) -> dict:
+    """Everything known about one address, with the reason attached when a
+    number is withheld.
+
+    Withholding is the point. An address can fail to produce a rate in three
+    distinct ways, and a caller that cannot tell them apart will render "0%"
+    for all three."""
+    addr = (address or "").strip().lower()
+    if not addr.startswith("0x") or len(addr) != 42:
+        return {"address": address, "error": "not an address"}
+
+    now = dt.datetime.now(dt.UTC)
+    with _conn() as c, c.cursor() as cur:
+        cur.execute("""
+            SELECT count(*), max(polled_at), max(window_end), max(month_volume),
+                   count(*) FILTER (WHERE gap_seconds > 0)
+            FROM hl_poll WHERE address = %s""", (addr,))
+        polls, last_polled, newest_record, month_volume, gapped = cur.fetchone()
+
+        cur.execute("SELECT count(*) FROM hl_targets WHERE address = %s", (addr,))
+        tracked = (cur.fetchone()[0] or 0) > 0
+
+        cur.execute(f"""
+            SELECT coalesce(sum(n) FILTER (WHERE tif = %s), 0),
+                   coalesce(sum(n) FILTER (WHERE tif = %s AND status = ANY(%s)), 0),
+                   coalesce(sum(n) FILTER (WHERE status = 'filled'), 0),
+                   coalesce(sum(n) FILTER (WHERE status = 'canceled'), 0),
+                   coalesce(sum(n), 0)
+            FROM hl_order_counts WHERE address = %s""",
+            (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ), addr))
+        alo_total, alo_rejected, filled, cancels, total = cur.fetchone()
+
+    age = (now - newest_record).total_seconds() if newest_record else None
+    enough_polls = (polls or 0) >= MIN_POLLS_FOR_RATE
+    is_current = age is not None and age <= MAX_RECORD_AGE_SECONDS
+
+    # Order matters: not tracked is reported before thin, and thin before
+    # stale, because that is the order in which a reader can act on them.
+    if not polls:
+        withheld = "not_tracked" if not tracked else "no_polls_yet"
+    elif not enough_polls:
+        withheld = "too_few_polls"
+    elif not is_current:
+        withheld = "stale_data"
+    elif not alo_total:
+        withheld = "no_post_only_orders"
+    else:
+        withheld = None
+
+    rate = (alo_rejected / alo_total) if (withheld is None and alo_total) else None
+    band = None
+    if rate is not None:
+        for name, lo, hi in BANDS:
+            if lo <= rate < hi:
+                band = name
+                break
+
+    return {
+        "address": addr,
+        "tracked": tracked,
+        "as_of": now.isoformat(),
+        "freshness": {
+            "polls": polls or 0,
+            "min_polls_for_rate": MIN_POLLS_FOR_RATE,
+            "last_polled_at": last_polled.isoformat() if last_polled else None,
+            "newest_record_at": newest_record.isoformat() if newest_record else None,
+            "newest_record_age_seconds": round(age, 1) if age is not None else None,
+            "max_record_age_seconds": MAX_RECORD_AGE_SECONDS,
+            "is_current": is_current,
+            "enough_polls": enough_polls,
+            "polls_with_gap": gapped or 0,
+        },
+        "post_only": {
+            "rejection_rate": rate,
+            "band": band,
+            "alo_total": int(alo_total or 0),
+            "alo_rejected": int(alo_rejected or 0),
+        },
+        "observed": {
+            "orders": int(total or 0),
+            "filled": int(filled or 0),
+            "canceled": int(cancels or 0),
+            "month_volume": month_volume,
+        },
+        "withheld_reason": withheld,
+    }
+
+
 def makers(limit: int = 50) -> list[dict]:
     """Per-address metrics, pooled over every poll stored for that address.
 

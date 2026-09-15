@@ -853,6 +853,38 @@ async def hyperliquid_overview(limit: int = 50):
             detail=f"Hyperliquid store unavailable: {type(e).__name__}")
 
 
+@app.get("/api/hyperliquid/address/{address}")
+async def hyperliquid_address(address: str, response: Response = None):
+    """One Hyperliquid address, for the Chrome extension.
+
+    Kept deliberately thin and descriptive. It returns what was observed and,
+    when it will not return a rate, the reason. The extension renders this and
+    computes nothing, so the rule for withholding a number lives in one place
+    rather than in every client that shows one.
+
+    CORS is open on this route on purpose: a content script on
+    app.hyperliquid.xyz sends an Origin the site's allowlist does not and
+    should not contain. The route is read-only, unauthenticated and returns
+    public venue statistics, so there is nothing here to protect with an
+    origin check.
+    """
+    from core.hyperliquid import service
+    try:
+        data = await asyncio.to_thread(service.address_detail, address)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"Hyperliquid store unavailable: {type(e).__name__}")
+    if data.get("error"):
+        raise HTTPException(status_code=400, detail=data["error"])
+    if response is not None:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        # The collector writes every 15 minutes; a shorter cache would spend
+        # requests on a number that cannot have changed.
+        response.headers["Cache-Control"] = "public, max-age=120"
+    return data
+
+
 @app.get("/api/agents/by-id")
 async def agent_by_id(agent_id: str):
     """One agent by its id or token_id, for the ?agent= deep link.

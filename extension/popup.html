@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Tnega for Hyperliquid</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <img src="icons/hypurr-128.png" alt="" />
+    <div>
+      <h1>Tnega for Hyperliquid</h1>
+      <p id="context">Checking this tab…</p>
+    </div>
+  </header>
+
+  <main id="out">
+    <p class="muted">Loading…</p>
+  </main>
+
+  <form id="lookup">
+    <input id="addr" type="text" spellcheck="false" autocomplete="off"
+           placeholder="Or paste an address: 0x…" />
+    <button type="submit">Look up</button>
+  </form>
+
+  <footer id="status">Backend not checked yet.</footer>
+
+  <script src="shared.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
