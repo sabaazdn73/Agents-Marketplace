@@ -88,6 +88,17 @@ CREATE TABLE IF NOT EXISTS hl_builder_fills (
     INDEX hl_bf_counterparty (counterparty)
 );
 
+CREATE TABLE IF NOT EXISTS hl_ws_buckets (
+    bucket_start TIMESTAMPTZ NOT NULL,
+    address      STRING NOT NULL,
+    coin         STRING NOT NULL,
+    status       STRING NOT NULL,
+    n            INT NOT NULL,
+    PRIMARY KEY (bucket_start, address, coin, status),
+    INDEX hl_ws_addr_time (address, bucket_start DESC),
+    INDEX hl_ws_status (status, bucket_start DESC)
+);
+
 CREATE TABLE IF NOT EXISTS hl_targets (
     address      STRING PRIMARY KEY,
     month_volume FLOAT,
@@ -240,3 +251,22 @@ def save_targets(conn, targets: list[dict]) -> None:
             "VALUES (%s,%s,%s,%s)",
             [(t["address"], t.get("month_volume"), i, now) for i, t in enumerate(targets)])
     conn.commit()
+
+
+def write_ws_buckets(conn, rows: list[dict]) -> int:
+    """Store closed WebSocket buckets.
+
+    UPSERT rather than INSERT because a reconnect can replay part of a bucket
+    that was already written, and a duplicate would inflate the count. The
+    primary key makes the bucket idempotent."""
+    if not rows:
+        return 0
+    payload = [(r["bucket_start"], r["address"], r["coin"], r["status"], r["n"])
+               for r in rows]
+    with conn.cursor() as cur:
+        for i in range(0, len(payload), 200):
+            cur.executemany(
+                "UPSERT INTO hl_ws_buckets (bucket_start, address, coin, status, n) "
+                "VALUES (%s,%s,%s,%s,%s)", payload[i:i + 200])
+    conn.commit()
+    return len(payload)
