@@ -58,7 +58,9 @@ async def main() -> int:
         print(f"[hl-ws]   {a}", flush=True)
 
     def write(rows):
-        store.write_ws_buckets(conn, rows)
+        # A connection per flush. See write_ws_buckets_fresh for why the
+        # long-lived one was the wrong choice here.
+        store.write_ws_buckets_fresh(rows)
 
     stats = await ws_collector.run(addrs, write,
                                    stop_after=float(os.environ.get("HL_WS_SECONDS", 0)) or None)

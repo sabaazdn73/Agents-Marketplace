@@ -253,6 +253,19 @@ def save_targets(conn, targets: list[dict]) -> None:
     conn.commit()
 
 
+def write_ws_buckets_fresh(rows: list[dict]) -> int:
+    """Write on a connection opened for this flush and closed after it.
+
+    The collector runs for hours between writes to any one bucket set, and a
+    connection held open across that is a connection the server has probably
+    already dropped. Opening per flush costs a handshake and removes a class
+    of silent stall."""
+    if not rows:
+        return 0
+    with connect() as conn:
+        return write_ws_buckets(conn, rows)
+
+
 def write_ws_buckets(conn, rows: list[dict]) -> int:
     """Store closed WebSocket buckets.
 

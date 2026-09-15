@@ -177,17 +177,34 @@ async def run(addresses: list[str], write, stop_after: float | None = None,
     log(f"[hl-ws] {len(addresses)} connections open, one per address", flush=True)
 
     async def flusher():
+        # The write is synchronous and goes to a database whose connection has
+        # been sitting idle while ten sockets stream. Two things follow.
+        # It runs in a thread, so a slow or hung write cannot stall the
+        # sockets, and it is bounded by a timeout, so it cannot hang forever.
+        # The first version did neither: the very first flush blocked on a
+        # stale connection and the task never came back. There was no error
+        # and no log line, so 10 addresses streamed for six minutes into
+        # memory and nothing reached the database. A flush that fails now says
+        # so and says how much was lost.
         while True:
             if stop_at and time.time() > stop_at:
                 return
             await asyncio.sleep(FLUSH_SECONDS)
             keys = agg.closed(time.time())
-            if keys:
-                rows = agg.drain(keys)
-                write(rows)
+            if not keys:
+                log(f"[hl-ws] nothing closed to flush "
+                    f"({stats['updates']:,} updates seen)", flush=True)
+                continue
+            rows = agg.drain(keys)
+            try:
+                await asyncio.wait_for(asyncio.to_thread(write, rows), timeout=45)
                 stats["rows_written"] += len(rows)
                 log(f"[hl-ws] flushed {len(rows)} bucket rows, "
                     f"{stats['updates']:,} updates so far", flush=True)
+            except Exception as e:  # noqa: BLE001
+                stats["write_failures"] = stats.get("write_failures", 0) + 1
+                log(f"[hl-ws] FLUSH FAILED ({type(e).__name__}: {str(e)[:90]}), "
+                    f"{len(rows)} bucket rows lost", flush=True)
 
     f = asyncio.create_task(flusher())
     await asyncio.gather(*watchers, f, return_exceptions=True)
