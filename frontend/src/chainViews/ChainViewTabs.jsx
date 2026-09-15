@@ -36,6 +36,19 @@ const CHAIN_TO_VIEW = {
   4663: 'robinhood',
 };
 
+// Drawn before the index arrives. Order matches core/chain_views.py's VIEWS,
+// which is what the backend returns; a mismatch would make the strip reorder
+// itself as it loads.
+const FALLBACK_TABS = [
+  { id: 'hyperliquid', label: 'Hyperliquid', count: null, coming_soon: false, kind: 'venue' },
+  { id: 'bnb', label: 'BNB Chain', count: null, coming_soon: false },
+  { id: 'ethereum', label: 'Ethereum', count: null, coming_soon: false },
+  { id: 'solana', label: 'Solana', count: null, coming_soon: true },
+  { id: 'arbitrum', label: 'Arbitrum', count: null, coming_soon: false },
+  { id: 'robinhood', label: 'Robinhood Chain', count: null, coming_soon: false },
+  { id: 'monad', label: 'Monad', count: null, coming_soon: false },
+];
+
 function viewFromLocation() {
   const m = window.location.pathname.match(/^\/chain-agent\/(\d+)\//);
   return m ? CHAIN_TO_VIEW[Number(m[1])] || null : null;
@@ -83,11 +96,22 @@ export default function ChainViewTabs({ mutedBorder, children }) {
   }, []);
   const { views, loading } = useChainViewIndex();
 
-  // Until the index loads, render BSC alone. The marketplace must never be
-  // gated on a call that only exists to draw extra tabs.
-  const tabs = loading || !views.length
-    ? [{ id: 'bnb', label: 'BNB Chain', count: null, coming_soon: false }]
-    : views;
+  // Until the index loads, render the known chains without their counts. The
+  // marketplace must never be gated on a call that only exists to draw extra
+  // tabs, which is why there is a fallback at all.
+  //
+  // It used to fall back to BNB Chain alone, and that was wrong in a way that
+  // cost a bug report. The backend is OOM-killed roughly every two hours
+  // (docs/memory-ceiling.md) and cold-starts afterwards, so this branch is
+  // reached often, not rarely. During it every other chain vanished from the
+  // strip and the page looked like a deploy that had lost six tabs. A reader
+  // cannot tell that state apart from a broken release.
+  //
+  // The ids and labels are static and already known to the client; only the
+  // counts and the hire flags come from the backend. So the fallback now
+  // draws the full strip and omits what it does not yet know, which degrades
+  // to a missing count rather than to a missing chain.
+  const tabs = loading || !views.length ? FALLBACK_TABS : views;
 
   const Active = VIEW_COMPONENTS[active];
 
