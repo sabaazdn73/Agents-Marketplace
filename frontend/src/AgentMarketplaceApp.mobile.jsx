@@ -19,7 +19,7 @@ import { usePrivy } from '@privy-io/react-auth';
 // generated from, so the in-app logo and the installed icon match.
 import iconLogo from './assets/app-icon.png';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
-import agentsHero from './assets/agents.png';
+import agentsHero from './assets/agents.jpg';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
 import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, DEADLINE_PRESETS, formatDeadline, validateDeadlineMinutes } from './hireDeadline';
 import StepChecklist from './StepChecklist';

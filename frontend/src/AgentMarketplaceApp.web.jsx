@@ -17,7 +17,7 @@ import { usePrivy } from '@privy-io/react-auth';
 // The clay app mark, the same file the home-screen and dock icons are
 // generated from, so the in-app logo and the installed icon match.
 import iconLogo from './assets/app-icon.png';
-import agentsHero from './assets/agents.png';
+import agentsHero from './assets/agents.jpg';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
@@ -1030,8 +1030,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           </div>
 
           {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
-          {/* agents.png is a portrait, 1024x1536 (2:3) since it was replaced
-              on 2026-09-10; it was 941x1672 before. Any fixed height here
+          {/* agents.jpg is square, 1024x1024 (1:1) since it was replaced on
+              2026-09-15; it was a 1024x1536 portrait before that, and
+              941x1672 before that. Any fixed height here
               crops it, because object-cover fills the box and throws away
               the overflow: an earlier min-h-[280px] in a 416px-wide column
               was showing a 1.49:1 slice of a portrait image, and a fixed
@@ -1040,8 +1041,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               ratio sets the height, so nothing is cut off and nothing is
               letterboxed either. The sticky wrapper above is already
               max-h-screen overflow-y-auto, so it scrolls rather than
-              overflowing, and the new image being less tall than the old
-              one only gives that wrapper more room. */}
+              overflowing, and each replacement being less tall than the one
+              before only gives that wrapper more room. */}
           {/* px-3 rather than px-5: the image is the point of this block, and
               the surrounding rail does not need the same inset as a text
               row. With the 352px aside that takes it from 264px to 328px,
