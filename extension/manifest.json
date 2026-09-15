@@ -3,42 +3,52 @@
   "name": "Tnega for Hyperliquid",
   "version": "0.1.0",
   "description": "Shows how a Hyperliquid address behaves: its post-only rejection rate, or the reason there is no rate to show.",
-
+  "homepage_url": "https://www.tnega.app/chain/hyperliquid",
   "icons": {
-    "16": "icons/hypurr-16.png",
-    "32": "icons/hypurr-32.png",
-    "48": "icons/hypurr-48.png",
-    "128": "icons/hypurr-128.png"
+    "16": "icons/tnega-16.png",
+    "32": "icons/tnega-32.png",
+    "48": "icons/tnega-48.png",
+    "128": "icons/tnega-128.png"
   },
-
-  "permissions": ["activeTab"],
-
-  "host_permissions": ["https://agents-marketplace-q3k4.onrender.com/*"],
-
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://agents-marketplace-q3k4.onrender.com/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://app.hyperliquid.xyz/*"],
-      "js": ["shared.js", "content.js"],
-      "css": ["panel.css"],
+      "matches": [
+        "https://app.hyperliquid.xyz/*"
+      ],
+      "js": [
+        "shared.js",
+        "content.js"
+      ],
+      "css": [
+        "panel.css"
+      ],
       "run_at": "document_idle"
     }
   ],
-
   "action": {
     "default_popup": "popup.html",
     "default_title": "Tnega for Hyperliquid",
     "default_icon": {
-      "16": "icons/hypurr-16.png",
-      "32": "icons/hypurr-32.png",
-      "48": "icons/hypurr-48.png",
-      "128": "icons/hypurr-128.png"
+      "16": "icons/tnega-16.png",
+      "32": "icons/tnega-32.png",
+      "48": "icons/tnega-48.png",
+      "128": "icons/tnega-128.png"
     }
   },
-
   "web_accessible_resources": [
     {
-      "resources": ["icons/hypurr-128.png"],
-      "matches": ["https://app.hyperliquid.xyz/*"]
+      "resources": [
+        "icons/hypurr-128.png"
+      ],
+      "matches": [
+        "https://app.hyperliquid.xyz/*"
+      ]
     }
   ]
 }

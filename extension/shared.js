@@ -81,6 +81,23 @@ const BANDS = {
   },
 };
 
+/** Escape a string that came from the network before it is put into HTML.
+ *
+ *  Both surfaces build their markup with template literals and innerHTML, and
+ *  most of what they interpolate is either a number we formatted or a constant
+ *  from this file. Two things are not: a band name the backend has not seen
+ *  before, which falls through the BANDS lookup and is printed as-is, and the
+ *  text of a fetch error. Neither is attacker-controlled today. Both would be
+ *  if the backend were ever swapped or spoofed, and escaping them costs one
+ *  function. */
+function esc(s) {
+  return String(s === null || s === undefined ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 function fmtPct(x) {
   return x === null || x === undefined ? "n/a" : `${(x * 100).toFixed(1)}%`;
 }

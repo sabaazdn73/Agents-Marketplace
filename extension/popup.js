@@ -42,7 +42,7 @@ function renderAddress(data) {
     return;
   }
 
-  const band = BANDS[p.band] || { label: p.band || "", colour: T.mint, body: "" };
+  const band = BANDS[p.band] || { label: esc(p.band || ""), colour: T.mint, body: "" };
   out.innerHTML = `
     <div class="rate-row">
       <div class="rate" style="color:${band.colour}">${fmtPct(p.rejection_rate)}</div>
@@ -64,7 +64,7 @@ async function show(address, source) {
     statusEl.className = "ok";
   } catch (e) {
     out.innerHTML = `<h2>Cannot reach the measurements</h2>
-      <p class="body">${String(e.message || e)}</p>
+      <p class="body">${esc(e.message || e)}</p>
       <p class="note">This is a connection problem, not a statement about the address.</p>`;
     statusEl.textContent = "Backend did not answer.";
     statusEl.className = "bad";

@@ -29,6 +29,33 @@ const PANEL_ID = "tnega-hl-panel";
 let currentAddress = null;
 let inflight = null;
 
+// The quiet way out of the panel. One address is the question a reader
+// arrived with; the tracked set and the coverage behind it are the context
+// that says how much this number is worth, and both live on the Hyperliquid
+// tab at tnega.app. Written as a line of text rather than a button: it should
+// read as available to someone who wants it, not as the next thing to do.
+//
+// /chain/hyperliquid is a real address for that tab, added alongside this in
+// ChainViewTabs.jsx. An unrecognised path on the site resolves to the
+// marketplace, so this degrades to the site's front door rather than to a
+// dead link.
+const FOOT = `
+    <div class="tnega-foot">
+      <a href="https://www.tnega.app/chain/hyperliquid" target="_blank" rel="noreferrer">
+        The rest of the tracked set, and the coverage behind it, on Tnega
+      </a>
+    </div>`;
+
+// WHOSE MARK GOES WHERE
+//
+// Hypurr is Hyperliquid's mascot, not ours, and the split follows from that.
+// It appears here, inside a panel that describes Hyperliquid order data on
+// Hyperliquid's own site, which is nominative use: it says what the panel is
+// about. It is not the extension's identity. The toolbar icon, the popup
+// header, the store listing and the packaged icons are all Tnega's mark,
+// because those are the places the software identifies itself rather than
+// its subject. Publishing another company's mascot as the face of this
+// product would be a trademark question rather than a design one.
 function panelHtml(state, data, address) {
   const shortAddr = `${address.slice(0, 6)}…${address.slice(-4)}`;
   const icon = chrome.runtime.getURL("icons/hypurr-128.png");
@@ -44,15 +71,15 @@ function panelHtml(state, data, address) {
     </div>`;
 
   if (state === "loading") {
-    return `${head}<div class="tnega-body"><div class="tnega-muted">Reading measurements…</div></div>`;
+    return `${head}<div class="tnega-body"><div class="tnega-muted">Reading measurements…</div></div>${FOOT}`;
   }
 
   if (state === "error") {
     return `${head}<div class="tnega-body">
       <div class="tnega-withheld-title">Cannot reach the measurements</div>
-      <div class="tnega-muted">${data}</div>
+      <div class="tnega-muted">${esc(data)}</div>
       <div class="tnega-note">This is a connection problem, not a statement about the address.</div>
-    </div>`;
+    </div>${FOOT}`;
   }
 
   const f = data.freshness;
@@ -74,10 +101,10 @@ function panelHtml(state, data, address) {
         <div><span>Post-only orders seen</span><b>${fmtInt(p.alo_total)}</b></div>
       </div>
       <div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>
-    </div>`;
+    </div>${FOOT}`;
   }
 
-  const band = BANDS[p.band] || { label: p.band || "", colour: T.mint, body: "" };
+  const band = BANDS[p.band] || { label: esc(p.band || ""), colour: T.mint, body: "" };
   return `${head}<div class="tnega-body">
     <div class="tnega-rate-row">
       <div class="tnega-rate" style="color:${band.colour}">${fmtPct(p.rejection_rate)}</div>
@@ -93,7 +120,7 @@ function panelHtml(state, data, address) {
       A rejected post-only order never rests on the book, so it provides no liquidity and
       leaves no trace in fills or volume.
     </div>
-  </div>`;
+  </div>${FOOT}`;
 }
 
 function ensurePanel() {
@@ -122,7 +149,7 @@ function ensurePanel() {
  *  container that also holds the title. Inserting before that node puts the
  *  panel exactly between the two.
  */
-function insertionPoint(address) {
+function insertionPoint(address, allowFallback) {
   const leaf = Array.from(document.querySelectorAll("div, span, p")).find(
     (n) => n.children.length === 0 &&
       (n.textContent || "").trim().toLowerCase() === address
@@ -150,39 +177,69 @@ function insertionPoint(address) {
     }
   }
 
+  // No anchor yet. Two different situations share this line: their card has
+  // not rendered, which is a matter of milliseconds, and their layout has
+  // changed, which is permanent. The caller tells them apart by waiting, and
+  // only passes allowFallback once it has waited long enough that "not yet"
+  // has stopped being a plausible explanation.
+  //
+  // Found by the store capture, 2026-09-15. On a cold load the fallback won
+  // every time: it produces a visible panel on the first try, place() counts
+  // visible as placed, and the retry loop it was meant to keep running stops.
+  // The panel then sat above Hyperliquid's own header for the life of the
+  // page, which is the worst position available and was being chosen by
+  // default rather than in extremis.
+  if (!allowFallback) return null;
+
   // Their layout changed. Degrade to a panel in a worse place rather than to
-  // no panel, and never guess at a position that might land inside a table.
+  // no panel.
+  //
+  // As the FIRST CHILD OF #root, not appended into whatever #root's first
+  // child happens to be. That earlier version put the panel inside an <img>:
+  // during their initial render the first child is an image, a void element
+  // accepts the node into the DOM without complaint, and it then renders at
+  // zero by zero forever. Nothing threw and the panel was "placed".
   const root = document.getElementById("root");
-  if (root && root.firstElementChild) {
-    return { parent: root.firstElementChild, before: null };
+  if (root) {
+    return { parent: root, before: root.firstElementChild };
   }
   return null;
 }
 
-function place(el, address) {
-  if (el.isConnected) return true;
-  const point = insertionPoint(address);
+function place(el, address, allowFallback) {
+  // Connected is not the same as visible, which is the lesson from the <img>
+  // case above. A panel with no height is in the document and on nobody's
+  // screen, so it does not count as placed and the caller keeps retrying until
+  // the real anchor appears.
+  if (el.isConnected && el.getBoundingClientRect().height > 0) return true;
+  if (el.isConnected) el.remove();
+
+  const point = insertionPoint(address, allowFallback);
   if (!point) return false;
   if (point.before) {
     point.parent.insertBefore(el, point.before);
   } else {
     point.parent.appendChild(el);
   }
-  return true;
+  return el.getBoundingClientRect().height > 0;
 }
 
 async function render(address) {
   const el = ensurePanel();
   el.innerHTML = panelHtml("loading", null, address);
 
-  // The heading is rendered after this script runs, so wait for it rather than
+  // The card is rendered after this script runs, so wait for it rather than
   // giving up. Ten seconds is generous; a slow route change is common here.
-  let placed = place(el, address);
-  if (!placed) {
+  //
+  // The fallback is withheld for that whole window. Offering it on the first
+  // attempt made it the usual outcome rather than the last resort, because it
+  // always succeeds and success ends the wait.
+  if (!place(el, address, false)) {
     const started = Date.now();
     await new Promise((resolve) => {
       const timer = setInterval(() => {
-        if (place(el, address) || Date.now() - started > 10000) {
+        const waitedLongEnough = Date.now() - started > 10000;
+        if (place(el, address, waitedLongEnough) || waitedLongEnough) {
           clearInterval(timer);
           resolve();
         }
@@ -190,14 +247,14 @@ async function render(address) {
     });
   }
 
-  const token = {};
-  inflight = token;
+  const attempt = {};
+  inflight = attempt;
   try {
     const data = await fetchAddress(address);
-    if (inflight !== token) return; // a newer address won the race
+    if (inflight !== attempt) return; // a newer address won the race
     el.innerHTML = panelHtml("ready", data, address);
   } catch (e) {
-    if (inflight !== token) return;
+    if (inflight !== attempt) return;
     el.innerHTML = panelHtml("error", String(e.message || e), address);
   }
 }
