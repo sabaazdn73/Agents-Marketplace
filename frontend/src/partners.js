@@ -60,6 +60,21 @@ export const PARTNERS = [
   { name: 'PancakeSwap', kind: PARTNER_KIND.EVENT, url: 'https://pancakeswap.finance', logo: 'https://pancakeswap.finance/favicon.ico' },
   { name: 'Altana', kind: PARTNER_KIND.EVENT, url: 'https://altana.network', logo: 'https://docs.altana.network/favicon.svg' },
   { name: 'AltLayer', kind: PARTNER_KIND.EVENT, url: 'https://www.altlayer.io', logo: 'https://www.altlayer.io/favicon.ico' },
+  // Colosseum, added 2026-09-15. Hackathons, an accelerator and a fund, in
+  // their own words on colosseum.com.
+  //
+  // The URL is .com, not .org. Both serve the same site, and .com is what
+  // their own <link rel="canonical"> names, so a link to .org would be a
+  // redirect hop for no reason.
+  //
+  // The mark is their favicon.svg rather than the .ico or the 96px PNG,
+  // and the difference is visible at the strip's 20px. The raster files are
+  // a hard-edged black square, opaque corner to corner; the SVG carries the
+  // same temple on the same black ground but clips it to a rounded tile, so
+  // it sits with the other marks instead of reading as a cut-out. All three
+  // were fetched and inspected: the SVG parses as XML with <svg> at the
+  // root, the .ico carries three real sizes, and the PNG decodes at 96x96.
+  { name: 'Colosseum', kind: PARTNER_KIND.EVENT, url: 'https://colosseum.com', logo: 'https://colosseum.com/favicon.svg' },
 
   // Services the running system reads from or settles through.
   { name: '8004scan', kind: PARTNER_KIND.SERVICE, url: 'https://8004scan.io', logo: 'https://8004scan.io/favicon.ico' },
@@ -71,6 +86,18 @@ export const PARTNERS = [
   { name: 'CoinGecko', kind: PARTNER_KIND.SERVICE, url: 'https://www.coingecko.com', logo: 'https://www.coingecko.com/favicon.ico' },
   { name: 'DexScreener', kind: PARTNER_KIND.SERVICE, url: 'https://dexscreener.com', logo: 'https://dexscreener.com/favicon.ico' },
   { name: 'GeckoTerminal', kind: PARTNER_KIND.SERVICE, url: 'https://www.geckoterminal.com', logo: 'https://www.geckoterminal.com/favicon.ico' },
+  // Hyperliquid, added 2026-09-15 with the tab of the same name. A service
+  // rather than a chain: the two collectors read its REST and WebSocket
+  // APIs, and nothing here is hired or settled on it, which is what the
+  // CHAIN group below means.
+  //
+  // Logo is the path the app's own <head> declares. Worth repeating the
+  // trap chainMarks.jsx records, because it is the reason this is not the
+  // obvious URL: app.hyperliquid.xyz/favicon.ico returns HTTP 200 and is
+  // HTML, the SPA catch-all, and hyperliquid.xyz/favicon.ico returns 403.
+  // favicon-32x32.png is a real 32x32 RGBA PNG of 898 bytes, mint glyph on
+  // transparency, so it holds on the strip's light and dark grounds alike.
+  { name: 'Hyperliquid', kind: PARTNER_KIND.SERVICE, url: 'https://hyperliquid.xyz', logo: 'https://app.hyperliquid.xyz/favicon-32x32.png' },
 
   // Chains whose agents can actually be hired. Added 2026-09-10, when
   // AgentBudgetEscrow went live on both. BNB Chain is above under events

@@ -15,6 +15,8 @@
 //   - BscScan:     explorer links throughout the app (altana.js, JobStatusPanel, etc.)
 //   - bloXroute:   the BSC mainnet RPC this project's backend reads through
 //                  (adapters/bsc_balance.py, /api/status)
+//   - Hyperliquid: core/hyperliquid/collector.py and ws_collector.py, the
+//                  order and rejection series behind the Hyperliquid tab
 //
 // Logos: each provider's own favicon, fetched directly from their own
 // domain (not a third-party favicon-proxy service), small, real, and
@@ -273,8 +275,26 @@ export const DATA_SOURCES = [
     name: 'CockroachDB',
     url: 'https://www.cockroachlabs.com',
     logo: 'https://www.cockroachlabs.com/favicon.ico',
-    description: 'A second database, connected and verified but not yet holding anything.',
-    status: 'inactive',
-    statusNote: 'Connection is configured with full certificate verification. Nothing reads or writes it yet.',
+    description: 'The database behind the Hyperliquid tab.',
+    // Was 'inactive', reading "connected and verified but not yet holding
+    // anything", which stopped being true when the Hyperliquid collectors
+    // started writing to it. backend/core/hyperliquid/store.py owns the
+    // schema: hl_poll, hl_order_counts, hl_builder_fills, hl_builder_days,
+    // hl_targets and hl_ws_buckets.
+    status: 'live',
+    statusNote: 'Holds the Hyperliquid order and rejection series. Connection uses full certificate verification.',
+  },
+  // Added 2026-09-15 with the Hyperliquid tab. Wired in, on the same test
+  // as every entry above: code that reads it, not a plausible-sounding
+  // dependency. backend/core/hyperliquid/collector.py polls the REST API
+  // and backend/core/hyperliquid/ws_collector.py holds the sockets open.
+  {
+    name: 'Hyperliquid',
+    inFooter: true,
+    url: 'https://hyperliquid.xyz',
+    logo: 'https://app.hyperliquid.xyz/favicon-32x32.png',
+    description: 'Order, fill and rejection data behind the Hyperliquid tab.',
+    status: 'live',
+    statusNote: 'Two collectors: historicalOrders over REST, and the orderUpdates WebSocket at seconds resolution. Typed rejection statuses are stored as returned rather than collapsed into one.',
   },
 ];
