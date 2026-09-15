@@ -1,0 +1,167 @@
+"""
+service.py
+
+Read side for the Hyperliquid tab. Queries Cockroach, returns plain dicts.
+
+THE HONESTY RULE THIS FILE ENFORCES
+-----------------------------------
+Every response carries the window it was computed over and the number of
+observations behind it. The tab is new, so on day one it holds hours rather
+than history, and a rate from two polls must not be presented the way a rate
+from two weeks would be.
+
+This reuses the threshold discipline already used for budget records, where a
+rate derived from fewer than five budgets is withheld rather than shown: a
+number computed from one or two data points is a number pretending to be
+evidence. Here the same idea applies to polls.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+
+from core.hyperliquid.collector import REJECTION_STATUSES, POST_ONLY_TIF
+
+# Below this many polls for an address, rates are returned as null with the
+# observation count still shown, so the UI can say "not enough yet" rather
+# than render a spurious precise figure.
+MIN_POLLS_FOR_RATE = 5
+
+_REJ = tuple(sorted(REJECTION_STATUSES))
+
+
+def _conn():
+    from core.hyperliquid import store
+    return store.connect()
+
+
+def coverage() -> dict:
+    """What the dataset actually contains. Shown at the top of the tab so the
+    thinness of a new dataset is the first thing a reader sees, not something
+    they have to infer."""
+    with _conn() as c, c.cursor() as cur:
+        cur.execute("SELECT count(*), count(DISTINCT address), min(polled_at), "
+                    "max(polled_at) FROM hl_poll")
+        polls, addrs, first, last = cur.fetchone()
+        cur.execute("SELECT coalesce(sum(n),0) FROM hl_order_counts")
+        orders = cur.fetchone()[0]
+        cur.execute("SELECT count(*) FROM hl_poll WHERE gap_seconds > 0")
+        gapped = cur.fetchone()[0]
+    hours = ((last - first).total_seconds() / 3600.0) if (first and last) else 0.0
+    return {
+        "polls": polls or 0,
+        "addresses": addrs or 0,
+        "orders_observed": int(orders or 0),
+        "first_poll": first.isoformat() if first else None,
+        "last_poll": last.isoformat() if last else None,
+        "hours_covered": round(hours, 2),
+        "polls_with_gap": gapped or 0,
+        "min_polls_for_rate": MIN_POLLS_FOR_RATE,
+    }
+
+
+def makers(limit: int = 50) -> list[dict]:
+    """Per-address metrics, pooled over every poll stored for that address.
+
+    Pooled rather than averaged across polls on purpose: averaging per-poll
+    rates would weight a quiet poll of 40 orders the same as a busy one of
+    2,000. Summing the counts first weights by activity, which is what the
+    question is actually about.
+    """
+    sql = f"""
+    WITH agg AS (
+        SELECT address,
+               sum(n) FILTER (WHERE tif = %s)                          AS alo_total,
+               sum(n) FILTER (WHERE tif = %s AND status = ANY(%s))     AS alo_rejected,
+               sum(n) FILTER (WHERE status = 'filled')                 AS filled,
+               sum(n) FILTER (WHERE status = 'canceled')               AS cancels,
+               sum(n) FILTER (WHERE status = ANY(%s))                  AS rejected_all,
+               sum(n)                                                  AS total
+        FROM hl_order_counts GROUP BY address
+    ), p AS (
+        SELECT address, count(*) AS polls, max(polled_at) AS last_seen,
+               max(month_volume) AS month_volume,
+               count(*) FILTER (WHERE gap_seconds > 0) AS gapped
+        FROM hl_poll GROUP BY address
+    )
+    SELECT p.address, p.polls, p.last_seen, p.month_volume, p.gapped,
+           agg.alo_total, agg.alo_rejected, agg.filled, agg.cancels,
+           agg.rejected_all, agg.total
+    FROM p JOIN agg ON agg.address = p.address
+    ORDER BY p.month_volume DESC NULLS LAST
+    LIMIT %s
+    """
+    out = []
+    with _conn() as c, c.cursor() as cur:
+        cur.execute(sql, (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ), list(_REJ), limit))
+        for (addr, polls, last_seen, vol, gapped, alo_total, alo_rej,
+             filled, cancels, rej_all, total) in cur.fetchall():
+            alo_total = int(alo_total or 0); alo_rej = int(alo_rej or 0)
+            filled = int(filled or 0); cancels = int(cancels or 0)
+            rej_all = int(rej_all or 0); total = int(total or 0)
+            enough = (polls or 0) >= MIN_POLLS_FOR_RATE
+            out.append({
+                "address": addr,
+                "polls": polls,
+                "last_seen": last_seen.isoformat() if last_seen else None,
+                "month_volume": vol,
+                "polls_with_gap": gapped,
+                "orders_observed": total,
+                "alo_total": alo_total,
+                "alo_rejected": alo_rej,
+                # Null until there are enough polls. The counts stay visible
+                # either way so a reader can see why a rate is withheld.
+                "post_only_rejection_rate": (alo_rej / alo_total)
+                    if (enough and alo_total) else None,
+                "cancel_to_fill": (cancels / filled) if (enough and filled) else None,
+                "cancel_to_fill_naive": ((cancels + rej_all) / filled)
+                    if (enough and filled) else None,
+                "effective_fill_rate": (filled / total) if (enough and total) else None,
+                "enough_data": enough,
+            })
+    return out
+
+
+def markets(limit: int = 40) -> list[dict]:
+    """Post-only rejection by market, pooled across all tracked makers.
+
+    This is the per-coin view: which books are moving fast enough that resting
+    quotes get refused."""
+    sql = f"""
+    SELECT coin,
+           sum(n) FILTER (WHERE tif = %s)                      AS alo_total,
+           sum(n) FILTER (WHERE tif = %s AND status = ANY(%s)) AS alo_rejected,
+           count(DISTINCT address)                             AS makers,
+           sum(n)                                              AS total
+    FROM hl_order_counts
+    GROUP BY coin
+    HAVING sum(n) FILTER (WHERE tif = %s) > 0
+    ORDER BY alo_total DESC
+    LIMIT %s
+    """
+    out = []
+    with _conn() as c, c.cursor() as cur:
+        cur.execute(sql, (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ), POST_ONLY_TIF, limit))
+        for coin, alo_total, alo_rej, n_makers, total in cur.fetchall():
+            alo_total = int(alo_total or 0); alo_rej = int(alo_rej or 0)
+            out.append({
+                "coin": coin,
+                "alo_total": alo_total,
+                "alo_rejected": alo_rej,
+                "post_only_rejection_rate": (alo_rej / alo_total) if alo_total else None,
+                "makers": n_makers,
+                "orders_observed": int(total or 0),
+            })
+    return out
+
+
+def status_breakdown() -> list[dict]:
+    """Every typed status with its share, which is the evidence for why
+    collapsing them would be wrong."""
+    with _conn() as c, c.cursor() as cur:
+        cur.execute("SELECT status, sum(n) s FROM hl_order_counts "
+                    "GROUP BY status ORDER BY s DESC")
+        rows = cur.fetchall()
+    total = sum(int(r[1] or 0) for r in rows) or 1
+    return [{"status": s, "n": int(n or 0), "share": int(n or 0) / total,
+             "is_rejection": s in REJECTION_STATUSES} for s, n in rows]

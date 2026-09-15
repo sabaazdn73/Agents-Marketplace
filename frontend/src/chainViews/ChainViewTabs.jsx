@@ -18,6 +18,7 @@ import { useChainViewIndex } from './useChainView';
 import { ChainMark } from './chainMarks';
 import EthereumView from './EthereumView';
 import SolanaView from './SolanaView';
+import HyperliquidView from './HyperliquidView';
 import ArbitrumView from './ArbitrumView';
 import RobinhoodView from './RobinhoodView';
 import MonadView from './MonadView';
@@ -42,6 +43,9 @@ function viewFromLocation() {
 
 const VIEW_COMPONENTS = {
   ethereum: EthereumView,
+  // First tab. Not a registry view: see HyperliquidView's own header for
+  // why it renders its own component instead of an agent grid.
+  hyperliquid: HyperliquidView,
   solana: SolanaView,
   arbitrum: ArbitrumView,
   robinhood: RobinhoodView,
@@ -135,7 +139,10 @@ export default function ChainViewTabs({ mutedBorder, children }) {
                   <span className="hidden sm:inline">{t.label}</span>
                 </>
               ) : t.label}
-              {t.count != null && (
+              {/* A venue view has no agent registry, so its count is structurally
+                  zero. Rendering 0 next to Hyperliquid would read as an empty
+                  chain rather than a different kind of tab. */}
+              {t.count != null && t.kind !== 'venue' && (
                 <span className="hidden md:inline text-[10px] font-medium opacity-60">
                   {compactCount(t.count)}
                 </span>

@@ -80,15 +80,23 @@ ADDRESS_COUNT = 50
 # moving book, while a minimum-notional rejection is a sizing bug. Collapsing
 # them would destroy the only interesting distinction in the data.
 #
-# Note that Hyperliquid has no generic "rejected" status. Filtering on
-# `status == "rejected"` returns zero rows on every address tested, which is
-# how this signal stays invisible: the obvious query silently finds nothing.
+# A plain "rejected" status does exist, but it is a minority of rejections and
+# relying on it is the trap. Measured over the collector's first 56 polls
+# across all 50 addresses: 10,889 rejections in total, of which only 1,392
+# carried the bare "rejected" label. Filtering on `status == "rejected"` alone
+# therefore catches about 13% of them and silently drops the rest, including
+# every post-only rejection, which is the signal this whole tab exists for.
+#
+# An earlier version of this comment claimed the bare status did not exist at
+# all. That was drawn from six addresses and was wrong; the collector's own
+# data corrected it.
 REJECTION_STATUSES = {
+    "rejected",                  # the generic case, about 13% of rejections
     "badAloPxRejected",          # post-only that would have crossed
     "iocCancelRejected",         # IOC that could not fill
     "minTradeNtlRejected",       # below minimum notional
+    "perpMarginRejected",        # insufficient margin
     "openInterestIncreaseRejected",
-    "perpMarginRejected",
     "insufficientSpotBalanceRejected",
     "oracleRejected",
     "tickRejected",

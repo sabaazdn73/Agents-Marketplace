@@ -739,6 +739,34 @@ async def agents(
     )
 
 
+@app.get("/api/hyperliquid/overview")
+async def hyperliquid_overview(limit: int = 50):
+    """The Hyperliquid tab's data: coverage, per-maker metrics, per-market
+    rejection, and the typed status breakdown.
+
+    Reads Cockroach, not Mongo. Separate store on purpose: this is an
+    append-only series that grows every 15 minutes, and Atlas is near quota.
+
+    Coverage is returned first and is not optional. The collector started on
+    2026-09-15, so early responses describe hours rather than history, and a
+    rate computed from a handful of polls is withheld rather than shown.
+    """
+    from core.hyperliquid import service
+    try:
+        return {
+            "coverage": service.coverage(),
+            "makers": service.makers(limit),
+            "markets": service.markets(40),
+            "statuses": service.status_breakdown(),
+        }
+    except Exception as e:
+        # A Cockroach outage must read as "we cannot tell you right now",
+        # never as an empty dataset that looks like zero rejections.
+        raise HTTPException(
+            status_code=503,
+            detail=f"Hyperliquid store unavailable: {type(e).__name__}")
+
+
 @app.get("/api/agents/by-id")
 async def agent_by_id(agent_id: str):
     """One agent by its id or token_id, for the ?agent= deep link.

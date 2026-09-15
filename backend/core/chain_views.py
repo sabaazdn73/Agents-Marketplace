@@ -97,6 +97,25 @@ RETAINED_HIDDEN_CHAIN_IDS = (8453,)
 # derived from chain ids is a second source of truth waiting to drift.
 # _hire_paths() derives it from chain_ids instead.
 VIEWS = {
+    # First tab, ahead of BNB Chain (2026-09-15, explicit ordering request).
+    #
+    # Hyperliquid is deliberately not shaped like the others. Every view below
+    # lists ERC-8004 agents from the registry and asks whether they deliver.
+    # Hyperliquid has no such registry: its "agents" are market-making bots,
+    # and the equivalent question is whether a bot that claims to make markets
+    # actually rests orders on the book or sprays post-only orders the engine
+    # refuses. So chain_ids is empty on purpose, the agent count does not
+    # apply, and the tab renders its own component rather than an agent grid.
+    #
+    # `kind` exists so the UI can tell the two apart without hardcoding a
+    # special case on the id.
+    "hyperliquid": {
+        "label": "Hyperliquid",
+        "chain_ids": [],
+        "coming_soon": False,
+        "kind": "venue",
+        "served_by": "/api/hyperliquid/overview",
+    },
     "bnb": {
         "label": "BNB Chain",
         "chain_ids": [56],
@@ -311,6 +330,10 @@ def describe_views() -> list[dict]:
             "hire_paths": _hire_paths(v["chain_ids"]),
             "coming_soon": v["coming_soon"],
             "served_by": v["served_by"],
+            # "registry" views list ERC-8004 agents and carry a meaningful
+            # agent count. A "venue" view does not, and the UI must not show
+            # it a count of zero as though the venue were empty.
+            "kind": v.get("kind", "registry"),
         })
     return out
 
