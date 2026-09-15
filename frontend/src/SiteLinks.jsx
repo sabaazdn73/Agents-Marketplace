@@ -42,7 +42,7 @@ export const X_URL = 'https://x.com/SabaAzadegan';
 // app, so web and mobile cannot end up pointing at different videos.
 export const DEMO_VIDEO_URL = 'https://youtu.be/EcpRX5FRles';
 
-/** The X wordmark. Not currently rendered, see the X link below.
+/** The X wordmark.
  *
  *  Hand-drawn rather than taken from an icon set: lucide ships an `X` glyph,
  *  but that is the close/dismiss cross, not the brand. Using it would put a
@@ -118,15 +118,11 @@ export default function SiteLinks({
         <span>LinkedIn</span>
       </a>
       {dot}
-      {/* Label only, no mark. At 12px the wordmark's thin diagonal strokes
-          flare at the ends and read as a star or an asterisk rather than as
-          the brand, and setting it immediately before the letter X made the
-          row end on what looked like a stray glyph followed by a letter.
-          The label carries the link on its own here, which is what the other
-          three do too: their icons repeat their names, they do not replace
-          them. XMark is kept above rather than deleted, so putting it back
-          is a one-line change if it is ever wanted at a larger size. */}
+      {/* Labelled like GitHub and LinkedIn rather than left as a bare glyph.
+          The mark alone is recognisable, but sitting between two labelled
+          links an unlabelled one reads as a decoration rather than a link. */}
       <a href={X_URL} target="_blank" rel="noreferrer" className={item}>
+        <XMark size={12} className="shrink-0" />
         <span>X</span>
       </a>
 

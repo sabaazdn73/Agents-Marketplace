@@ -961,12 +961,17 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           for the longest label ("Advantage Report"), the wallet card and
           the hero image.
 
-          Widened to 22rem (352px) on 2026-09-10. 320 was the low end of the
-          conventional range and the hero image was the thing paying for it:
-          inside p-5 it rendered at 264px. 352 is still inside the usual
-          16rem to 22rem band, adds 32px, and none of the nav labels or the
-          wallet card needed reflowing to take it. */}
-      <aside className="w-[22rem] shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
+          Widened to 22rem (352px) on 2026-09-10, then to 24rem (384px) on
+          2026-09-15. 320 was the low end of the conventional range and the
+          hero image was the thing paying for it: inside p-5 it rendered at
+          264px. The rail is the only lever the picture has. It is square
+          and h-auto, so the column sets its width and the ratio sets its
+          height, and the alternative way to gain height is an aspect-ratio
+          box, which crops: measured at 9/10 it takes 51px off each side and
+          cuts the Arbitrum robot's arm and the clay logo sign. So the width
+          went up instead. None of the nav labels or the wallet card needed
+          reflowing at either step. */}
+      <aside className="w-[24rem] shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
         {/* Sticky wrapper: this content stays visible near the top of the
             viewport as you scroll through the taller main content, instead
             of scrolling away and leaving blank space, while the aside's
@@ -1045,18 +1050,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               before only gives that wrapper more room. */}
           {/* px-1 rather than px-5: the image is the point of this block, and
               the surrounding rail does not need the same inset as a text
-              row. With the 352px aside that takes it from 264px to 344px,
-              about a third larger, with no change to the file.
-
-              Width is the only lever there is for height here. The picture
-              is square and h-auto, so its height is whatever the column
-              leaves it, and the aside is a fixed 352px rail: 4px of inset
-              each side is the last of that width, and anything past it
-              would run the rounded corners into the sidebar edge. Growing
-              it further would mean an aspect-ratio box, which crops rather
-              than scales. That was measured rather than assumed: a 9/10 box
-              takes 51px off each side, which cuts the Arbitrum robot's arm
-              on the right and the clay logo sign on the left. */}
+              row. Inside the 384px aside that is 376px square, against 264px
+              when this block still used the page inset, with no change to
+              the file itself. 4px a side is the last of the rail's width:
+              past that the rounded corners meet the sidebar edge. */}
           {/* Pulled up into the gap left by the rows that used to sit above
               it. Five have gone now -- Ecosystem, the walkthrough, the
               report, Learn and Skills -- so the nav list ends well short of
