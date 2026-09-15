@@ -84,11 +84,13 @@ Secrets in the bundle.
   finds any.
 
 Dependencies loaded from a CDN at runtime.
-  There are none. The extension has no dependencies at all: seven source files,
-  no framework, no bundler, no fonts or scripts from a third party. `build.py`
-  fails the build on a remote script tag, a remote CSS import, importScripts,
-  eval or new Function, and on any host in the source outside the three the
-  extension is supposed to name.
+  There are none. The extension has no dependencies at all. The package is
+  twelve files: a manifest, three JavaScript files, two stylesheets, one HTML
+  popup and five icons, all of them written or generated here. No framework,
+  no bundler, no fonts or scripts from a third party. `build.py` fails the
+  build on a remote script tag, a remote CSS import, importScripts, eval or
+  new Function, and on any host in the source outside the three the extension
+  is supposed to name.
 
 One more worth knowing about, since it is not on your list. The name contains
 "Hyperliquid". Descriptive use of another product's name is allowed, and "Tnega
