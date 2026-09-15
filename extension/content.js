@@ -105,28 +105,66 @@ function ensurePanel() {
   return el;
 }
 
-/** Where the panel goes: directly under the "Address 0x…" heading, above the
- *  transactions card, which is where a reader is already looking. Falls back
- *  to the top of the app root if the heading is not found, so a redesign on
- *  their side degrades to a panel in a slightly worse place rather than to no
- *  panel at all. */
-function insertionPoint() {
-  const heads = Array.from(document.querySelectorAll("h1, h2, h3"));
-  const h = heads.find((n) => /^\s*Address\s+0x/i.test(n.textContent || ""));
-  if (h && h.parentElement) return { parent: h.parentElement, after: h };
+/** Where the panel goes: between the "Address 0x…" title and the transactions
+ *  card, which is where a reader is already looking.
+ *
+ *  ANCHORED ON TEXT AND STRUCTURE, NOT ON CLASS NAMES
+ *  The page was read before this was written. There is exactly one heading
+ *  element on it and its text is "Event", so the large "Address 0x…" title is
+ *  not a heading at all and a h1/h2/h3 search finds nothing. Every class here
+ *  is a styled-components hash of the form `sc-idXgbr cbNIEr`, which changes
+ *  on their next deploy, so keying on one would work until it silently did
+ *  not.
+ *
+ *  What is stable is that the card carries the full address as the entire text
+ *  of one leaf element. From there, walking up while each parent has a single
+ *  child reaches the outermost node of that card, and its parent is the page
+ *  container that also holds the title. Inserting before that node puts the
+ *  panel exactly between the two.
+ */
+function insertionPoint(address) {
+  const leaf = Array.from(document.querySelectorAll("div, span, p")).find(
+    (n) => n.children.length === 0 &&
+      (n.textContent || "").trim().toLowerCase() === address
+  );
+  if (leaf) {
+    // Climb out of the card. Stopping at the first parent with more than one
+    // child is not enough: that parent is the card's own contents, whose three
+    // children are the address line, the table and the pager, and inserting
+    // there would put the panel inside their card above the address. The card
+    // has been left behind only once the parent's first child no longer
+    // contains the address, which is the point where the earlier sibling is
+    // the breadcrumb and title instead. Depth-capped so a layout this does not
+    // recognise cannot walk to <body>.
+    let node = leaf;
+    for (let i = 0; i < 12 && node.parentElement; i++) {
+      const parent = node.parentElement;
+      const firstText = (
+        (parent.firstElementChild && parent.firstElementChild.textContent) || ""
+      ).toLowerCase();
+      if (parent.children.length === 1 || firstText.includes(address)) {
+        node = parent;
+        continue;
+      }
+      return { parent: parent, before: node };
+    }
+  }
+
+  // Their layout changed. Degrade to a panel in a worse place rather than to
+  // no panel, and never guess at a position that might land inside a table.
   const root = document.getElementById("root");
   if (root && root.firstElementChild) {
-    return { parent: root.firstElementChild, after: null };
+    return { parent: root.firstElementChild, before: null };
   }
   return null;
 }
 
-function place(el) {
+function place(el, address) {
   if (el.isConnected) return true;
-  const point = insertionPoint();
+  const point = insertionPoint(address);
   if (!point) return false;
-  if (point.after && point.after.nextSibling) {
-    point.parent.insertBefore(el, point.after.nextSibling);
+  if (point.before) {
+    point.parent.insertBefore(el, point.before);
   } else {
     point.parent.appendChild(el);
   }
@@ -139,12 +177,12 @@ async function render(address) {
 
   // The heading is rendered after this script runs, so wait for it rather than
   // giving up. Ten seconds is generous; a slow route change is common here.
-  let placed = place(el);
+  let placed = place(el, address);
   if (!placed) {
     const started = Date.now();
     await new Promise((resolve) => {
       const timer = setInterval(() => {
-        if (place(el) || Date.now() - started > 10000) {
+        if (place(el, address) || Date.now() - started > 10000) {
           clearInterval(timer);
           resolve();
         }
