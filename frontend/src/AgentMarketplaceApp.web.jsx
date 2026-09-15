@@ -1043,17 +1043,27 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               max-h-screen overflow-y-auto, so it scrolls rather than
               overflowing, and each replacement being less tall than the one
               before only gives that wrapper more room. */}
-          {/* px-3 rather than px-5: the image is the point of this block, and
+          {/* px-1 rather than px-5: the image is the point of this block, and
               the surrounding rail does not need the same inset as a text
-              row. With the 352px aside that takes it from 264px to 328px,
-              about a quarter larger, with no change to the file. */}
+              row. With the 352px aside that takes it from 264px to 344px,
+              about a third larger, with no change to the file.
+
+              Width is the only lever there is for height here. The picture
+              is square and h-auto, so its height is whatever the column
+              leaves it, and the aside is a fixed 352px rail: 4px of inset
+              each side is the last of that width, and anything past it
+              would run the rounded corners into the sidebar edge. Growing
+              it further would mean an aspect-ratio box, which crops rather
+              than scales. That was measured rather than assumed: a 9/10 box
+              takes 51px off each side, which cuts the Arbitrum robot's arm
+              on the right and the clay logo sign on the left. */}
           {/* Pulled up into the gap left by the rows that used to sit above
               it. Five have gone now -- Ecosystem, the walkthrough, the
               report, Learn and Skills -- so the nav list ends well short of
               where it did, and without this there is a band of dead space
               between the last tab and the picture that reads as a rendering
               mistake rather than spacing. */}
-          <div className="px-3 mb-1 -mt-5">
+          <div className="px-1 mb-1 -mt-5">
             <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
           </div>
 
