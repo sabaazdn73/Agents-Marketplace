@@ -1,0 +1,66 @@
+# hl-collector.yml
+#
+# Polls Hyperliquid order history for the selected market-maker set every 15
+# minutes and stores typed status counts in Cockroach.
+#
+# WHY THIS IS SCHEDULED RATHER THAN RUN ON THE RENDER WORKER
+# ----------------------------------------------------------
+# The worker is normally the better home for a long-running loop, and the
+# full-registry workflow says so explicitly. Not here. Both Render services are
+# OOM-killed on a 512Mi cap (docs/memory-ceiling.md), and the leaderboard this
+# collector selects from is a 37MB JSON document. Parsing it inside the worker
+# would put a large transient on exactly the service that is already failing
+# for memory. A GitHub runner has its own memory and its own network, so the
+# collector cannot take the marketplace down with it.
+#
+# WHY 15 MINUTES
+# --------------
+# Hyperliquid's IP limit is 1,200 request-weight per minute, and a full
+# historicalOrders response costs 120 weight, so the ceiling is 10 polls per
+# minute. 50 addresses at 10 second spacing is 6 polls per minute, about 60% of
+# the ceiling, and finishes in roughly 9 minutes. That leaves about 6 minutes
+# of slack inside each window, which is needed because scheduled Actions runs
+# are frequently late.
+#
+# WHAT LATENESS COSTS, AND WHY IT IS TOLERABLE
+# --------------------------------------------
+# GitHub may delay or skip a short-interval cron under load. Each poll records
+# the window it actually covers and the gap since the previous poll, so a
+# missed run shows up as a measured gap rather than as a silent hole. The
+# metric being collected is a rate over a known window, not a total, so gaps
+# reduce coverage without corrupting what was collected.
+
+name: Hyperliquid collector
+
+on:
+  schedule:
+    # Every 15 minutes, offset off the hour so this does not pile onto the
+    # same instant as every other :00 cron on the platform.
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  # A late run must not overlap the next one. Skip rather than queue: two
+  # concurrent cycles would double the request rate against a shared IP limit.
+  group: hl-collector
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet "psycopg[binary]" certifi
+
+      - name: Run one collection cycle
+        working-directory: backend
+        env:
+          COCKROACH_DATABASE_URL: ${{ secrets.COCKROACH_DATABASE_URL }}
+        run: python scripts/hl_collect.py
