@@ -322,10 +322,14 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs }) {
 
         {/* Docs, GitHub and LinkedIn, plus the walkthrough. Previously a
             single line at the very bottom of the page, under two footers. */}
+        {/* The rule and its spacing moved into SiteLinks, which now draws
+            its own, so both surfaces get the same footer rather than the
+            sheet drawing one line and the sidebar none. Keeping it here as
+            well would stack two rules a few pixels apart. */}
         <SiteLinks
           onOpenDocs={onOpenDocs ? () => { onOpenDocs(); onClose(); } : undefined}
           variant="light"
-          className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-800"
+          className="mt-6"
         />
       </div>
     </div>

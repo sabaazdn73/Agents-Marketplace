@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, Sliders, CheckCircle2, XCircle,
-  LayoutGrid, Table2, GraduationCap, Store, ArrowUpDown, ChevronRight,
+  Sun, Moon, ShieldAlert, ShieldCheck, Sliders, CheckCircle2, XCircle,
+  LayoutGrid, Table2, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
@@ -524,10 +524,13 @@ const NAV_ITEMS = [
 //
 // Still routes, so these navigate through the same setNav path as any tab
 // and still show an active state.
+// No icon field any more: the footer's nav row is words, so these were
+// three glyphs nobody could name. FileBarChart and GraduationCap were
+// imported for this list alone and went with it.
 const SIDEBAR_FOOTER_ITEMS = [
-  { id: 'skills', label: 'Skills', icon: Zap },
-  { id: 'report', label: 'Advantage Report', icon: FileBarChart },
-  { id: 'learn', label: 'Learn', icon: GraduationCap },
+  { id: 'skills', label: 'Skills' },
+  { id: 'report', label: 'Advantage Report' },
+  { id: 'learn', label: 'Learn' },
 ];
 
 export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
@@ -1083,16 +1086,20 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           <div className="p-5">
             <HybridWalletConnect accent={accent} />
 
-            {/* Docs, GitHub and LinkedIn. These were one line at the very
-                bottom of the page, under two footers, where they were easy
-                to miss. */}
+            {/* The site footer. These were one line at the very bottom of
+                the page, under two footers, where they were easy to miss.
+
+                The theme toggle is handed in rather than rendered after,
+                which is where it used to be: its own row below the links,
+                aligned right against nothing. It belongs on the footer's
+                baseline with the social marks, and passing it in is what
+                lets SiteLinks put it there while the state stays here. */}
             <SiteLinks
               onOpenDocs={onOpenDocs}
               onOpenEcosystem={onOpenEcosystem}
               routeLinks={SIDEBAR_FOOTER_ITEMS.map((item) => ({
                 key: item.id,
                 label: item.label,
-                Icon: item.icon,
                 active: nav === item.id,
                 onClick: () => {
                   dismissAgentDetail();
@@ -1101,15 +1108,20 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   onNavChange?.(item.id);
                 },
               }))}
+              trailing={(
+                <button
+                  type="button"
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="inline-flex items-center justify-center p-1 -m-1 rounded text-gray-400 hover:text-white transition-colors"
+                  aria-label={darkMode ? 'Switch to light theme' : 'Switch to dark theme'}
+                  title={darkMode ? 'Light theme' : 'Dark theme'}
+                >
+                  {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+                </button>
+              )}
               variant="dark"
-              className="mt-3"
+              className="mt-4"
             />
-
-            <div className="mt-3 flex items-center justify-end text-xs text-gray-500 px-2">
-              <button onClick={() => setDarkMode(!darkMode)} className="hover:text-gray-300 transition-colors">
-                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-            </div>
           </div>
         </div>
       </aside>
