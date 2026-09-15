@@ -1037,23 +1037,32 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
           {/* agents.jpg is square, 1024x1024 (1:1) since it was replaced on
               2026-09-15; it was a 1024x1536 portrait before that, and
-              941x1672 before that. Any fixed height here
-              crops it, because object-cover fills the box and throws away
-              the overflow: an earlier min-h-[280px] in a 416px-wide column
-              was showing a 1.49:1 slice of a portrait image, and a fixed
-              h-44 cropped it harder still. h-auto is what actually shows
-              the whole picture -- the column sets the width and the aspect
-              ratio sets the height, so nothing is cut off and nothing is
-              letterboxed either. The sticky wrapper above is already
-              max-h-screen overflow-y-auto, so it scrolls rather than
-              overflowing, and each replacement being less tall than the one
-              before only gives that wrapper more room. */}
-          {/* px-1 rather than px-5: the image is the point of this block, and
-              the surrounding rail does not need the same inset as a text
-              row. Inside the 384px aside that is 376px square, against 264px
-              when this block still used the page inset, with no change to
-              the file itself. 4px a side is the last of the rail's width:
-              past that the rounded corners meet the sidebar edge. */}
+              941x1672 before that.
+
+              The box is 7/8, taller than the file, so object-cover trims the
+              picture's sides: at the rendered 375px width it stands 428px
+              instead of the 375px a square would, and 64px comes off each
+              edge of the 1024. That is deliberate and it is the only lever
+              left. The picture is square, so under h-auto the column sets
+              the width and the ratio sets the height, and the column had
+              already been widened twice (p-5 to px-1, then the rail from
+              22rem to 24rem) to buy 111px of height that way.
+
+              7/8 rather than anything taller because of where the artwork
+              sits in the frame, which was measured on the file rather than
+              guessed. The clay plaque's left edge is at x=35 and the blue
+              Arbitrum robot's right edge at x=960, so 64px a side trims the
+              plaque's border and the outer sweep of both arcs while leaving
+              the logo glyph and all seven robots whole. The next step up,
+              5/6, gains 22px and starts cutting the red robot's shoulder
+              and the caterpillar's tail. If this needs to be substantially
+              taller again, the answer is a portrait source file, not a
+              tighter box.
+
+              The sticky wrapper above is max-h-screen overflow-y-auto, so a
+              taller image scrolls rather than overflowing. Mobile keeps the
+              whole square: this is the sidebar block only, and the launch
+              splash in the mobile app still shows the file uncropped. */}
           {/* Pulled up into the gap left by the rows that used to sit above
               it. Five have gone now -- Ecosystem, the walkthrough, the
               report, Learn and Skills -- so the nav list ends well short of
@@ -1061,7 +1070,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               between the last tab and the picture that reads as a rendering
               mistake rather than spacing. */}
           <div className="px-1 mb-1 -mt-5">
-            <img src={agentsHero} alt="" className="w-full h-auto rounded-xl border border-white/10" />
+            <img src={agentsHero} alt="" className="w-full aspect-[7/8] object-cover rounded-xl border border-white/10" />
           </div>
 
           {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight
