@@ -109,6 +109,11 @@ export default function SiteLinks({
     onOpenDocs && { key: 'docs', label: 'Docs', onClick: onOpenDocs },
     ...routeLinks,
     onOpenEcosystem && { key: 'ecosystem', label: 'Ecosystem', onClick: onOpenEcosystem },
+    // Same tab, not a new one: it is a page of this site, and the Chrome Web
+    // Store listing links to it, so it has to be reachable from the site
+    // itself rather than only from the store. `internal` is what keeps it out
+    // of the target="_blank" branch below.
+    { key: 'privacy', label: 'Privacy', href: '/privacy', internal: true },
     { key: 'demo', label: 'Walkthrough', href: DEMO_VIDEO_URL },
   ].filter(Boolean);
 
@@ -127,8 +132,13 @@ export default function SiteLinks({
       >
         {items.map((item) => (
           item.href ? (
-            <a key={item.key} href={item.href} target="_blank" rel="noreferrer"
-               className={link}>
+            <a
+              key={item.key}
+              href={item.href}
+              target={item.internal ? undefined : '_blank'}
+              rel={item.internal ? undefined : 'noreferrer'}
+              className={link}
+            >
               {item.label}
             </a>
           ) : (

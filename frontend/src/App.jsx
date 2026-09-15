@@ -7,6 +7,7 @@ import AgentMarketplaceMobileApp from './AgentMarketplaceApp.mobile.jsx';
 import StatusPage from './StatusPage.jsx';
 import LandingPage from './LandingPage.jsx';
 import DataSourcesPage from './DataSourcesPage.jsx';
+import PrivacyPage from './PrivacyPage.jsx';
 import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
 import CanaryTestingPanel from './CanaryTestingPanel.jsx';
@@ -46,6 +47,14 @@ const PAGE_META = {
   '/data-sources': { title: 'Data Sources', description: 'Every external data provider Tnega uses, and what each one is used for.' },
   '/partners': { title: 'Hackathon Partners', description: 'The tracks and partners this project was built for, and how each integration works.' },
   '/ecosystem': { title: 'Ecosystem', description: 'A visual map of every agent category on Tnega, sized by its live agent count.' },
+  // The Chrome extension's hosted privacy policy. The Web Store listing links
+  // straight here, so it needs its own title and canonical rather than the
+  // homepage's.
+  '/privacy': { title: 'Privacy', description: 'What the Tnega for Hyperliquid Chrome extension reads, what it sends, and what it stores, which is nothing.' },
+  // The Hyperliquid tab's own address, linked from the extension's panel.
+  // ChainViewTabs.jsx reads the path and opens that tab; this route otherwise
+  // resolves to the marketplace like any path it does not recognise.
+  '/chain/hyperliquid': { title: 'Hyperliquid', description: 'Post-only rejection measured across the tracked Hyperliquid makers, and the coverage behind each number.' },
 };
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
@@ -187,6 +196,10 @@ export default function App() {
 
   if (path === '/data-sources') {
     return <DataSourcesPage onBack={() => navigate('/')} />;
+  }
+
+  if (path === '/privacy') {
+    return <PrivacyPage onBack={() => navigate('/')} />;
   }
 
   if (path === '/partners') {

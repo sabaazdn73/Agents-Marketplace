@@ -49,8 +49,25 @@ const FALLBACK_TABS = [
   { id: 'monad', label: 'Monad', count: null, coming_soon: false },
 ];
 
+// Two shapes of URL can decide which tab opens.
+//
+// /chain-agent/<chainId>/<id> is one agent's own page and names its chain by
+// number, which is the case the comment above CHAIN_TO_VIEW describes.
+//
+// /chain/<view> names a view directly. That is what an outside link needs: the
+// Chrome extension's panel sits on one Hyperliquid address and its footer
+// points here, so a reader can see that address next to the rest of the
+// tracked set. Without it the tab had no address at all and could only be
+// reached by clicking it.
+//
+// Unknown view ids are ignored rather than trusted, and App.jsx already
+// resolves any path it does not recognise to the marketplace, so a stale or
+// mistyped link lands on the marketplace instead of on nothing.
 function viewFromLocation() {
-  const m = window.location.pathname.match(/^\/chain-agent\/(\d+)\//);
+  const path = window.location.pathname;
+  const direct = path.match(/^\/chain\/([a-z-]+)\/?$/);
+  if (direct && FALLBACK_TABS.some((t) => t.id === direct[1])) return direct[1];
+  const m = path.match(/^\/chain-agent\/(\d+)\//);
   return m ? CHAIN_TO_VIEW[Number(m[1])] || null : null;
 }
 

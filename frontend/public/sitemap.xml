@@ -12,6 +12,8 @@
   <url><loc>https://www.tnega.app/ecosystem</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://www.tnega.app/data-sources</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.4</priority></url>
   <url><loc>https://www.tnega.app/partners</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://www.tnega.app/chain/hyperliquid</loc><lastmod>2026-09-15</lastmod><changefreq>daily</changefreq><priority>0.6</priority></url>
+  <url><loc>https://www.tnega.app/privacy</loc><lastmod>2026-09-15</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
   <url><loc>https://www.tnega.app/status</loc><lastmod>2026-09-12</lastmod><changefreq>weekly</changefreq><priority>0.4</priority></url>
   <url><loc>https://www.tnega.app/docs/academic-references</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>https://www.tnega.app/docs/agent-interaction-patterns</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
