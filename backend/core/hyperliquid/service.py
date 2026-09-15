@@ -165,3 +165,59 @@ def status_breakdown() -> list[dict]:
     total = sum(int(r[1] or 0) for r in rows) or 1
     return [{"status": s, "n": int(n or 0), "share": int(n or 0) / total,
              "is_rejection": s in REJECTION_STATUSES} for s, n in rows]
+
+
+def ws_coverage() -> dict:
+    """What the seconds-resolution collector holds.
+
+    Reported separately from the REST coverage and never added to it. The two
+    measure different things: the WebSocket feed omits `tif`, so its
+    denominator is not the ALO denominator the REST metrics use. Summing them
+    would produce a number that means nothing."""
+    with _conn() as c, c.cursor() as cur:
+        cur.execute("SELECT count(*), count(DISTINCT address), "
+                    "count(DISTINCT bucket_start), min(bucket_start), "
+                    "max(bucket_start), coalesce(sum(n),0) FROM hl_ws_buckets")
+        rows, addrs, buckets, first, last, updates = cur.fetchone()
+        cur.execute("SELECT coalesce(sum(n),0) FROM hl_ws_buckets "
+                    "WHERE status = 'badAloPxRejected'")
+        rejected = cur.fetchone()[0]
+    hours = ((last - first).total_seconds() / 3600.0) if (first and last) else 0.0
+    return {
+        "bucket_rows": rows or 0,
+        "addresses": addrs or 0,
+        "buckets": buckets or 0,
+        "updates": int(updates or 0),
+        "post_only_rejected": int(rejected or 0),
+        "hours_covered": round(hours, 2),
+        "bucket_seconds": 10,
+        "first_bucket": first.isoformat() if first else None,
+        "last_bucket": last.isoformat() if last else None,
+    }
+
+
+# Bands for the at-a-glance grouping. The boundaries are set where the
+# measured distribution actually separates: the tracked makers cluster below
+# about 5% or above about 50%, with comparatively few in between, so the
+# middle band is genuinely a middle rather than an arbitrary slice.
+BANDS = [
+    ("quoting", 0.0, 0.05),
+    ("mixed", 0.05, 0.50),
+    ("spraying", 0.50, 1.01),
+]
+
+
+def maker_bands(rows: list[dict]) -> dict:
+    """Group makers by what their rejection rate says they are doing."""
+    out = {k: [] for k, _, _ in BANDS}
+    out["unknown"] = []
+    for m in rows:
+        r = m.get("post_only_rejection_rate")
+        if r is None or not m.get("enough_data"):
+            out["unknown"].append(m)
+            continue
+        for name, lo, hi in BANDS:
+            if lo <= r < hi:
+                out[name].append(m)
+                break
+    return out

@@ -753,9 +753,15 @@ async def hyperliquid_overview(limit: int = 50):
     """
     from core.hyperliquid import service
     try:
+        makers = service.makers(limit)
+        bands = service.maker_bands(makers)
         return {
             "coverage": service.coverage(),
-            "makers": service.makers(limit),
+            # Reported alongside, never summed with, the REST coverage: the
+            # WebSocket feed omits tif so its denominator differs.
+            "ws_coverage": service.ws_coverage(),
+            "makers": makers,
+            "bands": {k: len(v) for k, v in bands.items()},
             "markets": service.markets(40),
             "statuses": service.status_breakdown(),
         }
