@@ -141,9 +141,9 @@ def _month_volume(row: dict) -> float:
 def select_addresses(rows: list[dict], count: int = ADDRESS_COUNT) -> list[dict]:
     """Top `count` addresses by 30-day volume.
 
-    Volume is the selection key rather than ALO share because ALO share costs a
-    poll to measure and volume does not. The band study above shows the two
-    coincide closely down to about rank 50, which is where this stops."""
+    Kept because it is the cheap ranking that orders the candidate list, but it
+    is NOT the selection any more. See select_active_addresses: volume alone
+    chose a set where 18 of 50 returned no current data at all."""
     ranked = sorted(rows, key=_month_volume, reverse=True)
     out = []
     for r in ranked:
@@ -154,6 +154,94 @@ def select_addresses(rows: list[dict], count: int = ADDRESS_COUNT) -> list[dict]
                     "account_value": float(r.get("accountValue") or 0.0)})
         if len(out) >= count:
             break
+    return out
+
+
+# An address qualifies only if historicalOrders returns something newer than
+# this. One hour is well past the 15-minute cadence, so a live maker cannot
+# fail it on timing alone.
+MAX_RECORD_AGE_SECONDS = 3600
+# And only if it actually posts post-only orders, because post-only rejection
+# is the measurement. Set at 20% rather than a majority so a mixed maker still
+# qualifies while a purely directional trader does not.
+MIN_ALO_SHARE = 0.20
+
+
+def probe_activity(address: str, now_ms: int | None = None) -> dict:
+    """One poll, reduced to the two facts that decide selection.
+
+    Costs a full historicalOrders call, which is why this runs in the target
+    refresh rather than anywhere near the 15-minute cycle."""
+    import time as _t
+    now_ms = now_ms or int(_t.time() * 1000)
+    orders = fetch_orders(address)
+    stamps = [r.get("statusTimestamp") for r in orders
+              if isinstance(r.get("statusTimestamp"), (int, float)) and r.get("statusTimestamp") > 0]
+    alo = sum(1 for r in orders if (r.get("order") or {}).get("tif") == POST_ONLY_TIF)
+    newest = max(stamps) if stamps else None
+    return {
+        "address": address,
+        "n_records": len(orders),
+        "record_age_seconds": ((now_ms - newest) / 1000.0) if newest else None,
+        "alo_share": (alo / len(orders)) if orders else 0.0,
+    }
+
+
+def is_active(probe: dict) -> bool:
+    age = probe.get("record_age_seconds")
+    return (age is not None and age <= MAX_RECORD_AGE_SECONDS
+            and (probe.get("alo_share") or 0.0) >= MIN_ALO_SHARE)
+
+
+def select_active_addresses(rows, count=ADDRESS_COUNT, max_probes=160,
+                            probe=probe_activity, sleep=None, log=print) -> list[dict]:
+    """Rank by volume, then keep only what the order endpoint proves is live.
+
+    WHY THIS IS NOT A LEADERBOARD FILTER
+    ------------------------------------
+    The obvious cheap rule is the leaderboard's own daily volume, and it does
+    not work. Measured 2026-09-15 on the top 40 by 30-day volume: 56 of the top
+    60 show non-zero DAY volume, yet only 24 of 40 return an order newer than
+    an hour from historicalOrders. The worst case is the number one address by
+    volume, trading 2.2 billion a day, whose 2,000 records are a fourteen-minute
+    span from 147 days earlier. The endpoint serves a frozen slice for some
+    accounts, and no field on the leaderboard predicts which.
+
+    So liveness has to be read from the endpoint the collector actually uses.
+    That costs one call per candidate, which is why selection is a separate job
+    on its own IP rather than part of the poll cycle.
+
+    Yield measured on that same sample: 24 of 40 fresh, and 17 of 40 both fresh
+    and posting post-only, so reaching 50 takes on the order of 120 probes.
+    """
+    import time as _t
+    sleep = sleep or (lambda s: _t.sleep(s))
+    ranked = select_addresses(rows, count=max_probes)
+    out, probed, skipped = [], 0, {"stale": 0, "no_alo": 0, "error": 0}
+    for cand in ranked:
+        if len(out) >= count:
+            break
+        probed += 1
+        try:
+            p = probe(cand["address"])
+        except Exception as e:  # noqa: BLE001 -- one bad candidate must not end the refresh
+            skipped["error"] += 1
+            log(f"[hl-select] {cand['address'][:10]} probe failed "
+                f"{type(e).__name__}: {str(e)[:70]}", flush=True)
+            sleep(POLL_SPACING_SECONDS)
+            continue
+        if is_active(p):
+            out.append({**cand, "alo_share": p["alo_share"],
+                        "record_age_seconds": p["record_age_seconds"]})
+        elif p.get("record_age_seconds") is None or p["record_age_seconds"] > MAX_RECORD_AGE_SECONDS:
+            skipped["stale"] += 1
+        else:
+            skipped["no_alo"] += 1
+        if len(out) < count and probed < len(ranked):
+            sleep(POLL_SPACING_SECONDS)
+    log(f"[hl-select] probed {probed}, kept {len(out)}, "
+        f"skipped stale={skipped['stale']} no_alo={skipped['no_alo']} "
+        f"error={skipped['error']}", flush=True)
     return out
 
 

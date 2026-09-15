@@ -184,6 +184,86 @@ async def _start_keepalive_pingers():
         asyncio.create_task(_keepalive_loop(name, url))
 
 
+# ── Hyperliquid collector ───────────────────────────────────────────────────
+#
+# Moved here from GitHub Actions on 2026-09-15. The workflow was correct and
+# was running, but a 15-minute cron is throttled hard: from 10:25 to 19:15 it
+# had about 35 scheduled slots and fired twice, roughly a 94% skip, with the
+# two runs four hours apart. The collector measures a rate over the window it
+# actually covered, so skipped runs do not corrupt anything, but a four-hour
+# sampling interval against a 2,000-record buffer that turns over in under a
+# minute for the fastest makers is not the instrument that was designed.
+#
+# An in-process loop keeps its own clock and does not ask anyone's scheduler
+# for permission.
+#
+# ON MEMORY, WHICH IS THE OBVIOUS OBJECTION
+# The workflow's own header argued against Render precisely because both
+# services are OOM-killed on a 512Mi cap. That argument was about the 37MB
+# leaderboard parse, and that parse is not here: target selection stayed on a
+# runner (scripts/hl_select_targets.py). What runs here is one poll at a time,
+# each reduced immediately to tens of counted rows, which is the small half of
+# the job. Off by default so it cannot surprise a deploy.
+_HL_COLLECT_INTERVAL_SECONDS = 15 * 60
+
+
+async def _hl_collect_loop():
+    from core.hyperliquid import collector as hl_collector, store as hl_store
+
+    def _cycle():
+        conn = hl_store.connect()
+        try:
+            hl_store.ensure_schema(conn)
+            targets = hl_store.load_targets(conn)
+            if not targets:
+                return "no target set stored; run the target refresh workflow"
+            ok = failed = 0
+            for i, t in enumerate(targets):
+                try:
+                    orders = hl_collector.fetch_orders(t["address"])
+                    hl_store.write_poll(conn, hl_collector.summarise(t["address"], orders),
+                                        t.get("month_volume"))
+                    ok += 1
+                except Exception as e:  # noqa: BLE001
+                    failed += 1
+                    print(f"[hl]   {t['address'][:10]} FAILED {type(e).__name__}: "
+                          f"{str(e)[:80]}", flush=True)
+                if i < len(targets) - 1:
+                    time.sleep(hl_collector.POLL_SPACING_SECONDS)
+            return f"{ok} ok, {failed} failed"
+        finally:
+            conn.close()
+
+    while True:
+        started = time.time()
+        try:
+            # In a thread: the cycle is synchronous, sleeps ~8 minutes between
+            # polls to respect the rate ceiling, and would otherwise block
+            # every request this process is meant to be serving.
+            result = await asyncio.to_thread(_cycle)
+            print(f"[hl] cycle done in {time.time()-started:.0f}s: {result}", flush=True)
+        except Exception as e:  # noqa: BLE001
+            print(f"[hl] cycle FAILED ({type(e).__name__}: {str(e)[:120]})", flush=True)
+        # Measured from the start of the cycle, so a cycle that takes 9 minutes
+        # still leaves the next one on the 15-minute grid rather than drifting.
+        await asyncio.sleep(max(60, _HL_COLLECT_INTERVAL_SECONDS - (time.time() - started)))
+
+
+@app.on_event("startup")
+async def _start_hl_collector():
+    if os.environ.get("HL_COLLECTOR_ENABLED", "").lower() not in ("1", "true", "yes"):
+        print("[hl] collector loop disabled (set HL_COLLECTOR_ENABLED=true to run it)",
+              flush=True)
+        return
+    if not os.environ.get("COCKROACH_DATABASE_URL"):
+        print("[hl] collector loop enabled but COCKROACH_DATABASE_URL is unset; "
+              "not starting", flush=True)
+        return
+    print(f"[hl] collector loop starting, every {_HL_COLLECT_INTERVAL_SECONDS // 60} minutes",
+          flush=True)
+    asyncio.create_task(_hl_collect_loop())
+
+
 @app.on_event("startup")
 async def _ensure_indexes():
     """fix (2026-08-27): known_agents had no index beyond the default

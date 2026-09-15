@@ -62,9 +62,19 @@ async def main() -> int:
         # long-lived one was the wrong choice here.
         store.write_ws_buckets_fresh(rows)
 
+    def write_coverage(rows):
+        store.write_ws_coverage_fresh(rows)
+
     stats = await ws_collector.run(addrs, write,
-                                   stop_after=float(os.environ.get("HL_WS_SECONDS", 0)) or None)
-    print(f"[hl-ws] {stats}", flush=True)
+                                   stop_after=float(os.environ.get("HL_WS_SECONDS", 0)) or None,
+                                   write_coverage=write_coverage)
+    # Per-address, because the totals are what hid a 6-of-10 degradation for
+    # at least 90 minutes.
+    print(f"[hl-ws] totals: updates={stats['updates']:,} messages={stats['messages']:,} "
+          f"reconnects={stats['reconnects']} coverage_rows={stats['coverage_rows']:,}", flush=True)
+    for a, s in stats["per_address"].items():
+        print(f"[hl-ws]   {a[:12]}.. subscribed={s['subscribed']} "
+              f"updates={s['updates']:,} reconnects={s['reconnects']}", flush=True)
     conn.close()
     return 0
 

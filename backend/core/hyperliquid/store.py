@@ -106,6 +106,42 @@ CREATE TABLE IF NOT EXISTS hl_targets (
     refreshed_at TIMESTAMPTZ NOT NULL
 );
 
+-- Selection provenance. Added 2026-09-15 when the target set was rebuilt on a
+-- live rule: these record WHY an address was kept, measured at selection time,
+-- so a later reader can tell a still-good choice from a stale one.
+ALTER TABLE hl_targets ADD COLUMN IF NOT EXISTS alo_share FLOAT;
+ALTER TABLE hl_targets ADD COLUMN IF NOT EXISTS record_age_seconds FLOAT;
+ALTER TABLE hl_targets ADD COLUMN IF NOT EXISTS probed_at TIMESTAMPTZ;
+
+-- WebSocket coverage, recorded per bucket per address REGARDLESS of traffic.
+--
+-- hl_ws_buckets only has rows where updates happened, so an address that
+-- delivers nothing has no rows at all, and "6 of 10 addresses" could only ever
+-- be reconstructed afterwards from missing keys. Worse, absence there is
+-- ambiguous: a subscribed-but-idle maker and a silently dead subscription look
+-- identical.
+--
+-- This is the WebSocket analogue of hl_poll.gap_seconds. A row is written for
+-- every address being watched on every flush, so zero updates is a recorded
+-- fact with a reason attached rather than an absence to be inferred.
+CREATE TABLE IF NOT EXISTS hl_ws_coverage (
+    bucket_start      TIMESTAMPTZ NOT NULL,
+    address           STRING NOT NULL,
+    -- Did we hold a subscription the server CONFIRMED during this bucket.
+    subscribed        BOOL NOT NULL,
+    -- When the server last acknowledged the subscription on the live socket.
+    confirmed_at      TIMESTAMPTZ,
+    -- Seconds since this socket last delivered anything. Large with
+    -- subscribed=true is the signature of a quiet maker; large and climbing
+    -- past the idle deadline is what now forces a reconnect.
+    idle_seconds      FLOAT,
+    updates           INT NOT NULL DEFAULT 0,
+    reconnects        INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (bucket_start, address),
+    INDEX hl_wsc_addr_time (address, bucket_start DESC),
+    INDEX hl_wsc_time (bucket_start DESC)
+);
+
 CREATE TABLE IF NOT EXISTS hl_builder_days (
     builder   STRING NOT NULL,
     day       DATE NOT NULL,
@@ -247,10 +283,43 @@ def save_targets(conn, targets: list[dict]) -> None:
     with conn.cursor() as cur:
         cur.execute("DELETE FROM hl_targets")
         cur.executemany(
-            "INSERT INTO hl_targets (address, month_volume, rank, refreshed_at) "
-            "VALUES (%s,%s,%s,%s)",
-            [(t["address"], t.get("month_volume"), i, now) for i, t in enumerate(targets)])
+            "INSERT INTO hl_targets (address, month_volume, rank, refreshed_at, "
+            "alo_share, record_age_seconds, probed_at) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            [(t["address"], t.get("month_volume"), i, now,
+              t.get("alo_share"), t.get("record_age_seconds"),
+              now if t.get("record_age_seconds") is not None else None)
+             for i, t in enumerate(targets)])
     conn.commit()
+
+
+def write_ws_coverage_fresh(rows: list[dict]) -> int:
+    """Coverage rows on their own connection, same reasoning as the buckets."""
+    if not rows:
+        return 0
+    with connect() as conn:
+        return write_ws_coverage(conn, rows)
+
+
+def write_ws_coverage(conn, rows: list[dict]) -> int:
+    """One row per watched address per bucket, written whether or not that
+    address delivered anything.
+
+    UPSERT for the same reason the buckets use it: a late flush may revisit a
+    bucket, and coverage for a bucket is a statement about the window rather
+    than a running total, so the last writer wins."""
+    if not rows:
+        return 0
+    payload = [(r["bucket_start"], r["address"], r["subscribed"],
+                r.get("confirmed_at"), r.get("idle_seconds"),
+                r.get("updates", 0), r.get("reconnects", 0)) for r in rows]
+    with conn.cursor() as cur:
+        for i in range(0, len(payload), 200):
+            cur.executemany(
+                "UPSERT INTO hl_ws_coverage (bucket_start, address, subscribed, "
+                "confirmed_at, idle_seconds, updates, reconnects) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s)", payload[i:i + 200])
+    conn.commit()
+    return len(payload)
 
 
 def write_ws_buckets_fresh(rows: list[dict]) -> int:

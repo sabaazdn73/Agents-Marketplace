@@ -1,54 +1,69 @@
 # hl-collector.yml
 #
-# Polls Hyperliquid order history for the selected market-maker set every 15
-# minutes and stores typed status counts in Cockroach.
+# Rebuilds the Hyperliquid collector's target set. It no longer polls.
 #
-# WHY THIS IS SCHEDULED RATHER THAN RUN ON THE RENDER WORKER
-# ----------------------------------------------------------
-# The worker is normally the better home for a long-running loop, and the
-# full-registry workflow says so explicitly. Not here. Both Render services are
-# OOM-killed on a 512Mi cap (docs/memory-ceiling.md), and the leaderboard this
-# collector selects from is a 37MB JSON document. Parsing it inside the worker
-# would put a large transient on exactly the service that is already failing
-# for memory. A GitHub runner has its own memory and its own network, so the
-# collector cannot take the marketplace down with it.
+# WHAT CHANGED AND WHY, 2026-09-15
+# --------------------------------
+# This workflow used to run the 15-minute poll cycle. It was correct and it
+# was running, but GitHub throttles a short-interval cron hard: between 10:25
+# and 19:15 it had about 35 scheduled slots and fired twice, roughly a 94%
+# skip, with the two runs four hours apart. The collector records the window
+# it actually covered so nothing was corrupted, but a four-hour sampling
+# interval against a 2,000-record buffer that turns over in under a minute for
+# the fastest makers is not the instrument that was designed.
 #
-# WHY 15 MINUTES
-# --------------
-# Hyperliquid's IP limit is 1,200 request-weight per minute, and a full
-# historicalOrders response costs 120 weight, so the ceiling is 10 polls per
-# minute. 50 addresses at 10 second spacing is 6 polls per minute, about 60% of
-# the ceiling, and finishes in roughly 9 minutes. That leaves about 6 minutes
-# of slack inside each window, which is needed because scheduled Actions runs
-# are frequently late.
+# The poll loop therefore moved into the Render web process, which keeps its
+# own clock (server.py, _hl_collect_loop, HL_COLLECTOR_ENABLED=true).
 #
-# WHAT LATENESS COSTS, AND WHY IT IS TOLERABLE
-# --------------------------------------------
-# GitHub may delay or skip a short-interval cron under load. Each poll records
-# the window it actually covers and the gap since the previous poll, so a
-# missed run shows up as a measured gap rather than as a silent hole. The
-# metric being collected is a rate over a known window, not a total, so gaps
-# reduce coverage without corrupting what was collected.
+# WHAT STAYED HERE, AND WHY IT IS THE RIGHT HALF
+# ----------------------------------------------
+# Target selection, for two reasons that both point away from Render.
+#
+# Memory: the leaderboard is a 37MB JSON document of ~45,000 rows and parsing
+# it costs several hundred megabytes. Both Render services are OOM-killed on a
+# 512Mi cap (docs/memory-ceiling.md). A runner has its own memory and nothing
+# else to take down.
+#
+# Rate budget: selection probes candidates against historicalOrders, the same
+# endpoint and the same 1,200 weight/minute PER-IP budget the poll loop
+# spends. On a runner that is a different IP, so the two cannot starve each
+# other.
+#
+# And cadence does not matter for this half. A target set a few hours stale is
+# fine, which is exactly what the poll loop could not tolerate.
+#
+# WHY THE SET NEEDED REBUILDING AT ALL
+# ------------------------------------
+# It was chosen on 30-day leaderboard volume, which turned out not to predict
+# whether the order endpoint returns anything current. Measured 2026-09-15: of
+# the 50 addresses being polled, 18 had returned no order in over 30 days, and
+# gap_seconds was negative on 66.8% of all stored rows as a result. The worst
+# case is the number one address by volume, trading 2.2 billion a day, whose
+# 2,000 records are a fourteen-minute span from 147 days earlier. Liveness now
+# comes from the endpoint the collector actually reads. See
+# core/hyperliquid/collector.py, select_active_addresses.
 
-name: Hyperliquid collector
+name: Hyperliquid target refresh
 
 on:
   schedule:
-    # Every 15 minutes, offset off the hour so this does not pile onto the
-    # same instant as every other :00 cron on the platform.
-    - cron: "7,22,37,52 * * * *"
+    # Daily. The set turns over slowly and a stale entry costs one wasted poll
+    # per cycle, not a gap, so there is nothing to gain from running it often
+    # and a per-IP rate budget to lose.
+    - cron: "40 3 * * *"
   workflow_dispatch:
 
 concurrency:
-  # A late run must not overlap the next one. Skip rather than queue: two
-  # concurrent cycles would double the request rate against a shared IP limit.
-  group: hl-collector
+  group: hl-target-refresh
   cancel-in-progress: false
 
 jobs:
-  collect:
+  refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    # Probing runs at the collector's 10-second spacing and the yield is about
+    # 40%, so filling 50 slots takes on the order of 120 probes, about 20
+    # minutes. 35 leaves room without inviting a runaway.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -59,8 +74,8 @@ jobs:
       - name: Install dependencies
         run: pip install --quiet "psycopg[binary]" certifi
 
-      - name: Run one collection cycle
+      - name: Rebuild the target set
         working-directory: backend
         env:
           COCKROACH_DATABASE_URL: ${{ secrets.COCKROACH_DATABASE_URL }}
-        run: python scripts/hl_collect.py
+        run: python scripts/hl_select_targets.py

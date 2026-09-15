@@ -182,9 +182,41 @@ def ws_coverage() -> dict:
         cur.execute("SELECT coalesce(sum(n),0) FROM hl_ws_buckets "
                     "WHERE status = 'badAloPxRejected'")
         rejected = cur.fetchone()[0]
+
+        # Subscribed is read from hl_ws_coverage, which has a row per watched
+        # address per bucket whether or not that address delivered. Delivering
+        # is read from the bucket table. The two being different is the thing
+        # that was invisible before: a collector watching ten and hearing six
+        # used to look identical to one watching six.
+        subscribed = delivering = watched = None
+        coverage_last = None
+        try:
+            # count() over an empty table returns 0, not NULL, so an empty
+            # coverage table would otherwise report "0 of 0 subscribed" and
+            # read as a measurement of a dead collector rather than as no
+            # measurement at all. The existence check is what separates them.
+            cur.execute("SELECT count(*) FROM hl_ws_coverage")
+            if (cur.fetchone()[0] or 0) > 0:
+                cur.execute("""
+                    SELECT count(DISTINCT address),
+                           count(DISTINCT address) FILTER (WHERE subscribed),
+                           count(DISTINCT address) FILTER (WHERE updates > 0),
+                           max(bucket_start)
+                    FROM hl_ws_coverage
+                    WHERE bucket_start > (SELECT max(bucket_start) FROM hl_ws_coverage)
+                                         - INTERVAL '10 minutes'
+                """)
+                watched, subscribed, delivering, coverage_last = cur.fetchone()
+        except Exception:
+            # The table is new. An older store simply cannot answer this, and
+            # saying so is better than reporting a zero that looks like a
+            # measurement.
+            pass
     hours = ((last - first).total_seconds() / 3600.0) if (first and last) else 0.0
     return {
         "bucket_rows": rows or 0,
+        # Kept under its old name for the existing callers, but it is the
+        # delivering count and always was.
         "addresses": addrs or 0,
         "buckets": buckets or 0,
         "updates": int(updates or 0),
@@ -193,6 +225,13 @@ def ws_coverage() -> dict:
         "bucket_seconds": 10,
         "first_bucket": first.isoformat() if first else None,
         "last_bucket": last.isoformat() if last else None,
+        # Coverage over the last 10 minutes of recorded buckets. None means the
+        # coverage table holds nothing yet, which is not the same as zero.
+        "watched_addresses": watched,
+        "subscribed_addresses": subscribed,
+        "delivering_addresses": delivering,
+        "coverage_last_bucket": coverage_last.isoformat() if coverage_last else None,
+        "coverage_available": watched is not None,
     }
 
 
