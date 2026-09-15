@@ -65,6 +65,20 @@ import React, { useState } from 'react';
 import { Boxes } from 'lucide-react';
 
 const LOGOS = {
+  // Added 2026-09-15 with Hyperliquid's own tab, checked the same way as the
+  // rest. Their brand kit publishes only ZIP archives, which cannot be
+  // hotlinked, so the mark comes from the app's own declared icon link.
+  //
+  // Worth recording because it is exactly the failure this file exists to
+  // catch: app.hyperliquid.xyz/favicon.ico returns HTTP 200 and is HTML, the
+  // SPA catch-all, and hyperliquid.xyz/favicon.ico returns 403. The paths the
+  // app's <head> actually declares do serve images, verified by decoding
+  // them: favicon-32x32.png is a 32x32 RGBA PNG of 898 bytes. No build hash
+  // and no cache-busting query, so the path does not churn.
+  //
+  // It is the mint glyph on transparency, sampled at #97FCE4 across 80% of
+  // its opaque pixels, so it holds on both the light and dark grounds.
+  hyperliquid: { src: 'https://app.hyperliquid.xyz/favicon-32x32.png', alt: 'Hyperliquid' },
   bnb: { src: 'https://www.bnbchain.org/favicon.ico', alt: 'BNB Chain' },
   ethereum: { src: 'https://ethereum.org/favicon.ico', alt: 'Ethereum' },
   solana: { src: 'https://solana.com/src/img/branding/solanaLogoMark.svg', alt: 'Solana' },
@@ -103,6 +117,7 @@ function ClusterLogo({ src, size, index }) {
 
 // Fallback tint, used only when a logo fails to load.
 const FALLBACK_COLOR = {
+  hyperliquid: '#97FCE4',
   bnb: '#F0B90B', ethereum: '#627EEA', solana: '#14F195',
   arbitrum: '#12AAFF', robinhood: '#00C805', monad: '#836EF9',
   // Used when a viewId has no colour of its own.
