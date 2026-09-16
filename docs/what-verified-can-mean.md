@@ -15,7 +15,7 @@ index rather than against a sample:
 |---|---|
 | Verified agents | 27 |
 | Distinct owner addresses behind them | 24 |
-| Distinct client wallets that paid for every delivery behind the tier | **17** |
+| Distinct client wallets that paid for every delivery behind the tier | 17 |
 | Total ever paid to the entire verified set | about 8 units |
 | Verified agents whose largest external payment is 0.0001 or less | 14 of 27 |
 | Owners whose deliveries all come from a single client | 18 of 24 |
@@ -63,8 +63,8 @@ define and the closest to what a reader thinks the badge rules out.
 
 ## Why nothing is being changed today
 
-Because the honest version of this is not a stricter filter, it is a smaller
-claim. Every threshold above would move the count and none of them would make
+Because the version of this that holds is not a stricter filter, it is a
+smaller claim. Every threshold above would move the count and none of them would make
 the remaining agents better evidenced; they would make the set smaller and the
 wording no more accurate. The useful change, when it comes, is likely to be
 about what the badge says rather than about who qualifies for it.
