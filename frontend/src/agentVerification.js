@@ -6,11 +6,22 @@
 // strongest evidence to weakest, never blended into one score:
 //
 // VERIFIED, at least one on-chain job for this agent's
-// owner, from a PAYING BUYER, has reached
-//                       SUBMITTED or COMPLETED (agent_performance.py, via
-//                       agentRanking.js's jobsCompleted/jobsSubmitted).
+// owner, from a PAYING BUYER WHO IS NOT THAT OWNER,
+//                       has reached SUBMITTED or COMPLETED
+//                       (core/job_index.py's delivered_external, via
+//                       agentRanking.js's jobsDeliveredExternal).
 // The strongest evidence: economic
 //                       activity, not just a test.
+//
+//                       The buyer clause is enforced from 2026-09-16. Before
+//                       that the count included jobs the agent's own owner
+//                       funded, so an operator paying itself earned the tier
+//                       that an operator who was hired earned. Two agents
+//                       held it on self-funded work alone, one of them on 184
+//                       such jobs, and the verified count moved from 29 to 27
+//                       when the check landed. Self-funded delivery is still
+//                       counted and shown as activity. It is no longer
+//                       evidence of demand.
 // CANARY_VERIFIED, no organic buyer job yet, but a real, small,
 //                       proactive test hire WE funded ourselves (see
 //                       backend/core/canary.py, docs/verification-
@@ -60,7 +71,12 @@ const TIER_RANK = {
 };
 
 export function getVerificationTier(agent) {
-  const delivered = (agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0);
+  // Delivery to somebody else. jobsCompleted + jobsSubmitted counts every
+  // delivery including the ones the agent's own owner funded, which is the
+  // right count for activity and the wrong one for this. See the VERIFIED
+  // entry above and docs/verification-methodology.md for when this changed
+  // and what it moved.
+  const delivered = agent.jobsDeliveredExternal ?? 0;
   if (delivered > 0) return VERIFICATION_TIER.VERIFIED;
   if ((agent.canaryDelivered ?? 0) > 0) return VERIFICATION_TIER.CANARY_VERIFIED;
   if (agent.serviceStatus === 'responding') return VERIFICATION_TIER.RESPONDING;

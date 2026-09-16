@@ -248,6 +248,7 @@ async def get_provider_stats(owner_address: str) -> dict:
     completeness = await _completeness()
 
     counts = {k: 0 for k in _TERMINAL_LIKE_KEYS}
+    self_counts = {k: 0 for k in _TERMINAL_LIKE_KEYS}
     total = 0
     last_submitted_at = 0
     async for doc in col.find({"provider": owner}):
@@ -255,6 +256,10 @@ async def get_provider_stats(owner_address: str) -> dict:
         status = doc.get("status")
         if status in counts:
             counts[status] += 1
+            # Who paid. A job whose client is its own provider is the agent
+            # hiring itself, which the verification tier does not count.
+            if (doc.get("client") or "").lower() == owner:
+                self_counts[status] += 1
         sub = doc.get("submittedAt")
         if sub and sub > last_submitted_at:
             last_submitted_at = sub
@@ -288,6 +293,9 @@ async def get_provider_stats(owner_address: str) -> dict:
         # external audit of the MCP surface concluded the tier was unfounded on
         # exactly this evidence, and the tier was right.
         "submitted": counts["SUBMITTED"],
+        "self_funded_delivered": self_counts["COMPLETED"] + self_counts["SUBMITTED"],
+        "delivered_external": (counts["COMPLETED"] + counts["SUBMITTED"]
+                               - self_counts["COMPLETED"] - self_counts["SUBMITTED"]),
         "open": counts["OPEN"], "funded": counts["FUNDED"],
         "active": active, "settled": settled,
         "completion_rate": (counts["COMPLETED"] / settled) if settled else None,
@@ -323,20 +331,40 @@ async def get_all_provider_stats() -> dict:
     col = db[JOB_INDEX_COLLECTION]
     completeness = await _completeness()
 
+    # Grouped by whether the buyer was someone other than the provider, as
+    # well as by status.
+    #
+    # WHY THE BUYER'S IDENTITY IS PART OF THE COUNT
+    # The verification tier's definition of record has always read "at least
+    # one on-chain job for this agent's owner, from a PAYING BUYER, reached
+    # SUBMITTED or COMPLETED" (frontend/src/agentVerification.js). The counts
+    # it was computed from never checked who the buyer was, so a provider
+    # funding its own jobs earned the same tier as one that was hired. Two
+    # agents held it on nothing else: one on a single self-funded job, one on
+    # 184 of them. Money moving from an address back to itself is not demand,
+    # and a buyer reading the tier was being told it was.
     pipeline = [
         {"$match": {"provider": {"$ne": ""}}},
         {"$group": {
-            "_id": {"provider": "$provider", "status": "$status"},
+            "_id": {
+                "provider": "$provider",
+                "status": "$status",
+                "self_funded": {"$eq": ["$client", "$provider"]},
+            },
             "count": {"$sum": 1},
         }},
     ]
     raw: dict[str, dict] = {}
+    self_funded: dict[str, dict] = {}
     async for doc in col.aggregate(pipeline):
         owner = doc["_id"]["provider"]
         status = doc["_id"]["status"]
         p = raw.setdefault(owner, {k: 0 for k in _TERMINAL_LIKE_KEYS})
+        sf = self_funded.setdefault(owner, {k: 0 for k in _TERMINAL_LIKE_KEYS})
         if status in p:
-            p[status] = doc["count"]
+            p[status] += doc["count"]
+            if doc["_id"].get("self_funded"):
+                sf[status] += doc["count"]
 
     # Funded jobs whose deadline has already passed, per provider. Counted in
     # a second pass rather than folded into the group above because it needs
@@ -373,12 +401,23 @@ async def get_all_provider_stats() -> dict:
     for owner, counts in raw.items():
         s = stuck.get(owner) or {"n": 0, "oldest": 0, "value": 0}
         delivered = counts["COMPLETED"] + counts["SUBMITTED"]
+        sf = self_funded.get(owner) or {k: 0 for k in _TERMINAL_LIKE_KEYS}
+        self_delivered = sf["COMPLETED"] + sf["SUBMITTED"]
+        # What the tier is computed from: delivery to somebody else.
+        delivered_external = delivered - self_delivered
         # Everything ever paid for. OPEN is excluded deliberately: it was
         # never funded, so it belongs on neither side of this ratio.
         ever_funded = delivered + counts["FUNDED"] + counts["REJECTED"] + counts["EXPIRED"]
         by_owner[owner] = {
             "hire_count": sum(counts.values()),
             "completed": counts["COMPLETED"], "submitted": counts["SUBMITTED"],
+            # Kept beside the totals rather than subtracted from them. The
+            # counts above are every job and stay that way, because "most
+            # hired" and the revenue figures are about activity and a
+            # self-funded job did happen. Only the verification tier asks
+            # whether anyone else wanted the work, and it reads these.
+            "self_funded_delivered": self_delivered,
+            "delivered_external": delivered_external,
             "rejected": counts["REJECTED"], "expired": counts["EXPIRED"],
             "active": counts["OPEN"] + counts["FUNDED"],
             "win_rate": _win_rate(counts),

@@ -108,7 +108,21 @@ def _tier(record: dict, perf: dict | None, canary: dict | None) -> int:
     their data."""
     owner = (record.get("owner_address") or "").lower()
     p = (perf or {}).get(owner) or {}
-    if (p.get("completed") or 0) + (p.get("submitted") or 0) > 0:
+    # Delivery to somebody else, which is what the definition has always said
+    # and what the count never checked.
+    #
+    # This read completed + submitted, so a provider that funded its own jobs
+    # earned the same tier as one that was hired. The definition of record
+    # (frontend/src/agentVerification.js) says "from a PAYING BUYER" and it
+    # meant it: money returning to the address it left is not demand. Two
+    # agents held the tier on self-funded work alone, one of them on 184 jobs,
+    # and the marketplace's verified count went from 29 to 27 when this line
+    # started checking. docs/verification-methodology.md records the change.
+    #
+    # `delivered_external` is computed in core/job_index.py. Its absence is
+    # treated as no evidence rather than as evidence of none: an older or
+    # partial payload cannot promote an agent by omission.
+    if (p.get("delivered_external") or 0) > 0:
         return TIER_VERIFIED
     c = (canary or {}).get(owner) or {}
     if (c.get("delivered") or 0) > 0:

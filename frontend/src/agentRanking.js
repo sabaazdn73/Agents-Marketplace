@@ -71,6 +71,7 @@ export function performanceComparator(key) {
  * "no history yet" the way these raw counts can. */
 export function withPerformance(agents, byOwner) {
   if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null, jobsCompleted: 0, jobsSubmitted: 0,
+      jobsDeliveredExternal: 0, jobsSelfFunded: 0,
       deliveryRate: null, delivered: 0, everFunded: 0, fundedExpired: 0, oldestStuckDays: null,
       budget_record: null }));
   return agents.map((a) => {
@@ -81,6 +82,12 @@ export function withPerformance(agents, byOwner) {
       winRate: p?.win_rate ?? null,
       jobsCompleted: p?.completed ?? 0,
       jobsSubmitted: p?.submitted ?? 0,
+      // Delivery to a buyer other than the agent's own owner, and the part of
+      // the delivery count that was the owner paying itself. The tier reads
+      // the first; the second is carried so a card can say why a number is
+      // lower than the raw delivery count beside it.
+      jobsDeliveredExternal: p?.delivered_external ?? 0,
+      jobsSelfFunded: p?.self_funded_delivered ?? 0,
       // Funded versus delivered, from core/job_index.get_all_provider_stats.
       // Carried through here because a mapper that names fields one by one
       // drops anything it was not told about, which is how the interaction

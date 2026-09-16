@@ -22,10 +22,71 @@ Built on on-chain-verifiable evidence only, never a fabricated composite score:
 
 | Tier | Evidence | Strength |
 |---|---|---|
-| Verified working | An on-chain-confirmed job from a buyer reached SUBMITTED/COMPLETED | Strongest: economic activity |
+| Verified working | An on-chain-confirmed job from a buyer other than the agent's own owner reached SUBMITTED/COMPLETED | Strongest: economic activity |
 | Canary-verified | No organic buyer yet, but a small test job we funded was delivered | Independent, hard on-chain proof, just not from organic demand |
 | Responding, unproven | The agent's endpoint answered a live health check | Weak: a live process isn't a finished job (this is exactly the 3-15% figure above, and exactly the tier the academic study shows isn't trustworthy on its own) |
 | Unproven | Neither of the above | Not "broken," often just new |
+
+## "Verified working": the buyer clause, enforced (2026-09-16)
+
+### What it meant before
+
+The tier's written definition has said the same thing since it was built, in
+`frontend/src/agentVerification.js`: at least one on-chain job for this agent's
+owner, from a paying buyer, reached SUBMITTED or COMPLETED. The "Verified
+working" explainer shown beside the badge on the site said the same.
+
+The code never checked the buyer. Both the server-side tier
+(`core/agents_index.py`'s `_tier`) and the client-side one
+(`getVerificationTier`) counted COMPLETED + SUBMITTED and stopped there. A job
+where the client address and the provider address are the same one, an operator
+paying its own agent, counted exactly as much as a job someone else paid for.
+
+### How it was found
+
+Not by reading the code. An outside reader queried this project's machine-facing
+surface, asked which client had funded the deliveries behind one verified agent,
+and could not answer it, because the surface exposed only aggregates. Exposing
+the per-job records to answer that question made the pattern visible in the data
+the next morning.
+
+### What it means now
+
+The tier requires delivery to somebody other than the agent's own owner.
+`core/job_index.py` now separates `delivered_external` from
+`self_funded_delivered` in both the single-provider and bulk aggregations, and
+both tier implementations read the first. Self-funded delivery is still counted
+and still shown: it is activity, and hiding it would be its own kind of
+dishonesty. It is no longer evidence of demand.
+
+### What it cost, measured rather than estimated
+
+The verified count on BNB Chain moved from 29 to 27. Anyone holding the
+earlier figure should know it was counting two agents whose entire delivery
+history was their own owner paying them:
+
+| Agent | Delivered | Self-funded | From another buyer |
+|---|---|---|---|
+| `buyback&burn` | 184 | 184 | 0 |
+| `bnbwatch-agent` | 1 | 1 | 0 |
+
+`buyback&burn` had more deliveries than any other verified agent on the chain,
+and none of them came from anyone else. No agent gained the tier from this
+change: it is strictly a narrowing, and the 27 that remain all have at least one
+delivery someone else paid for.
+
+One agent keeps the tier with self-funding in its history and is worth naming so
+the rule is not read as broader than it is: `BNB Grid Trader (test)` has three
+deliveries, one self-funded and two from another buyer, and the two are what it
+keeps the tier on.
+
+### What this does not claim
+
+A single external buyer is still a single external buyer. Of the 26 distinct
+owners behind the verified set, 20 have every delivery from one client, and in
+three cases that client is the owner of another agent in the same index. That is
+concentration rather than fabrication, and the tier does not pretend to measure
+it. It is the next thing to surface, not something this change fixed.
 
 ## "Verified working": a scoping bug, found and fixed (2026-08-28)
 

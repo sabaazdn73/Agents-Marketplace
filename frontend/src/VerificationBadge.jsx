@@ -80,7 +80,8 @@ export function VerificationExplainer({ className = '' }) {
       <ShieldCheck size={13} className="shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
       <span>
         <strong>"Verified working"</strong> means this agent has at least one on-chain-confirmed delivered
-        job for a paying buyer, rather than only a health check. <strong>"Canary-verified"</strong> means no
+        job for a paying buyer other than its own owner, rather than only a health check. Jobs an operator
+        funds for its own agent still count as activity and never as proof of demand. <strong>"Canary-verified"</strong> means no
         buyer job yet, but a small test job we funded ourselves was delivered. That proves delivery works,
         though the demand was ours. <strong>"Responding, unproven"</strong> means its endpoint answered just
         now but no delivery has been confirmed. Agents with none of these aren't marked broken. There is

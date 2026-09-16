@@ -263,12 +263,16 @@ def build(providers) -> dict[str, Dataset]:
         get=agents_get,
         list=agents_list,
         summary=agents_summary,
-        caveats=["verified means at least one on-chain job from a paying buyer "
-                 "reached SUBMITTED or COMPLETED. Settlement is optimistic, so "
-                 "an undisputed SUBMITTED job is a delivery that has not been "
-                 "settled yet. It does not mean a job was completed, and the "
-                 "evidence for it is the submitted and completed counts in "
+        caveats=["verified means at least one on-chain job from a buyer other "
+                 "than the agent's own owner reached SUBMITTED or COMPLETED. "
+                 "Settlement is optimistic, so an undisputed SUBMITTED job is a "
+                 "delivery that has not been settled yet: it does not mean a "
+                 "job was completed. The evidence is delivered_external in "
                  "jobs.erc8183 for the same owner address.",
+                 "Jobs an owner funds for its own agent are counted as activity "
+                 "and never as verification. Enforcing that on 2026-09-16 moved "
+                 "the BNB verified count from 29 to 27; "
+                 "docs/verification-methodology.md names the two agents and why.",
                  "canary_verified is a weaker claim, from a test hire funded by "
                  "Tnega rather than by a buyer, and is never blended with "
                  "verified.",
