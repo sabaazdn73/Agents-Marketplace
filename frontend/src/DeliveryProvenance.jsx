@@ -48,6 +48,13 @@ export function DeliveryFlags({ agent, className = '' }) {
     && (agent?.jobsDeliveredExternal ?? 0) === 0;
   const stuck = agent?.unansweredFromNewClientsKnown !== false
     && (agent?.unansweredFromNewClients ?? 0) > 0;
+  // Has this owner ever delivered anything. "Clients it has never delivered
+  // to" implies it delivers to some and not these, which is false for an owner
+  // that has delivered to nobody, and that is most of the owners this flag
+  // fires on: measured over the first 500 listed agents, 126 of 133 flagged
+  // cards belong to owners with no delivery at all.
+  const everDelivered = ((agent?.jobsDeliveredExternal ?? 0)
+    + (agent?.jobsSelfFunded ?? 0)) > 0;
   if (!selfOnly && !stuck) return null;
 
   return (
@@ -56,7 +63,7 @@ export function DeliveryFlags({ agent, className = '' }) {
         <span className="inline-flex items-start gap-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
           <AlertTriangle size={12} className="shrink-0 mt-0.5" />
           <span>
-            Every delivery was paid for by its own owner
+            Every delivery to this owner was paid for by the owner itself
             {(agent.jobsSelfFunded ?? 0) > 1 ? ` (${agent.jobsSelfFunded} jobs)` : ''}
           </span>
         </span>
@@ -65,10 +72,20 @@ export function DeliveryFlags({ agent, className = '' }) {
         <span className="inline-flex items-start gap-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
           <AlertTriangle size={12} className="shrink-0 mt-0.5" />
           <span>
-            {agent.unansweredFromNewClients} job
-            {agent.unansweredFromNewClients === 1 ? '' : 's'} funded by
-            {agent.unansweredFromNewClients === 1 ? ' a client' : ' clients'} it has
-            never delivered to, still unanswered
+            {everDelivered ? (
+              <>
+                {agent.unansweredFromNewClients} job
+                {agent.unansweredFromNewClients === 1 ? '' : 's'} funded by
+                {agent.unansweredFromNewClients === 1 ? ' a client' : ' clients'} this
+                owner has never delivered to, still unanswered
+              </>
+            ) : (
+              <>
+                {agent.unansweredFromNewClients} job
+                {agent.unansweredFromNewClients === 1 ? ' was' : 's were'} funded and
+                nothing has been delivered, here or anywhere, by this owner
+              </>
+            )}
           </span>
         </span>
       )}
@@ -85,13 +102,17 @@ export default function DeliveryProvenance({ agent, className = '' }) {
   const top = agent.topClientDelivered ?? 0;
   const concentrated = clients === 1 && delivered > 0;
 
+  // Everything below is keyed by the owner address, because that is how the
+  // job index keys a provider. An owner can list several agents, and this same
+  // block then appears on each of them saying the same thing, which is correct
+  // and reads as a per-agent fact unless it says otherwise. So it says so.
   const lines = [];
 
   if (delivered > 0) {
     lines.push(
       clients === 1
         ? `${delivered} ${delivered === 1 ? 'delivery' : 'deliveries'}, all to one client.`
-        : `${delivered} deliveries to ${clients} clients. The largest of them accounts for ${top}.`
+        : `${delivered} deliveries to ${clients} clients. The largest of them paid for ${top} of the ${delivered}.`
     );
   }
 
@@ -114,10 +135,15 @@ export default function DeliveryProvenance({ agent, className = '' }) {
       + 'delivered to was not computed: it has too many distinct clients to '
       + 'check cheaply. That is a gap in this line, not a finding about the agent.');
   } else if ((agent.unansweredFromNewClients ?? 0) > 0) {
-    lines.push(`${agent.unansweredFromNewClients} funded `
-      + `${agent.unansweredFromNewClients === 1 ? 'job is' : 'jobs are'} from a client `
-      + 'this agent has never delivered to, and nothing has come back yet. '
-      + 'A funded job is money already committed.');
+    lines.push(delivered > 0
+      ? `${agent.unansweredFromNewClients} funded `
+        + `${agent.unansweredFromNewClients === 1 ? 'job is' : 'jobs are'} from a client `
+        + 'this owner has never delivered to, and nothing has come back yet. '
+        + 'A funded job is money already committed.'
+      : `${agent.unansweredFromNewClients} `
+        + `${agent.unansweredFromNewClients === 1 ? 'job has' : 'jobs have'} been funded `
+        + 'and this owner has delivered nothing at all, to anyone. A funded job is '
+        + 'money already committed.');
   }
 
   if (!lines.length) return null;
@@ -128,6 +154,9 @@ export default function DeliveryProvenance({ agent, className = '' }) {
         <Users size={12} className="shrink-0" />
         Who paid for the delivery
       </div>
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1.5">
+        Counted for the owner address behind this agent, which may list more than one.
+      </p>
       <div className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300 space-y-1">
         {lines.map((line, i) => <p key={i}>{line}</p>)}
       </div>

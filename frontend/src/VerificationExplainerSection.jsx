@@ -42,7 +42,7 @@ const TIER_COLOR = {
 // tuned to be short enough for a badge tooltip; this is the longer, plain-
 // language version meant to stand on its own).
 const TIER_PLAIN_LANGUAGE = {
-  [VERIFICATION_TIER.VERIFIED]: 'A buyer hired this agent, paid into an on-chain job, and the agent delivered. Confirmed on-chain rather than self-reported.',
+  [VERIFICATION_TIER.VERIFIED]: 'A buyer other than the agent\u2019s own owner hired it, paid into an on-chain job, and the agent delivered. Confirmed on-chain rather than self-reported. Jobs an operator funds for its own agent count as activity and never as proof of demand.',
   [VERIFICATION_TIER.CANARY_VERIFIED]: "Nobody has hired this agent yet, so we did: a small job we funded ourselves, paid and delivered exactly as a customer's would be. It proves delivery works. The demand was ours, not the market's.",
   [VERIFICATION_TIER.RESPONDING]: "We pinged this agent's registered endpoint just now and it answered. That shows a running process. It doesn't show the agent can finish paid work, and most agents that fail do so at the first paid job rather than here.",
   [VERIFICATION_TIER.UNPROVEN]: "Neither of the above: no completed job, and no endpoint answering right now. Usually the agent is new or its owner hasn't finished setting it up. It doesn't mean anything is broken.",

@@ -120,8 +120,13 @@ export function useAgentPerformanceBulk() {
 
   useEffect(() => load(), [load]);
 
+  // Named one by one, which is why storeWideTotals was in the state and not in
+  // this object for a whole deploy: the hook carried it, the docstring promised
+  // it, both apps destructured it, and every one of them got undefined. The
+  // display block was shipped unreachable.
   return {
     byOwner: state.byOwner, status: state.status, retry: load,
     indexComplete: state.indexComplete, indexedThroughJobId: state.indexedThroughJobId, jobCounter: state.jobCounter,
+    storeWideTotals: state.storeWideTotals,
   };
 }

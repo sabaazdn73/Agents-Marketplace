@@ -97,7 +97,7 @@ export const VERIFICATION_LABEL = {
 };
 
 export const VERIFICATION_HINT = {
- [VERIFICATION_TIER.VERIFIED]: 'Has at least one real, on-chain-confirmed delivered job from a buyer, not just a health check.',
+ [VERIFICATION_TIER.VERIFIED]: 'Has at least one on-chain-confirmed delivered job from a buyer other than its own owner, not just a health check.',
  [VERIFICATION_TIER.CANARY_VERIFIED]: 'No organic buyer job yet, but a small, proactive test job we funded ourselves was delivered, real, independent proof, just not from demand yet.',
   [VERIFICATION_TIER.RESPONDING]: "Endpoint online just now, but no confirmed completed or submitted jobs yet, being online isn't proof it finishes paid work.",
  [VERIFICATION_TIER.UNPROVEN]: "No confirmed delivered job and no endpoint currently responding, nothing yet to judge this agent's function on.",
