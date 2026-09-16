@@ -21,16 +21,22 @@ Two addresses, because the two states are the point of the product:
   no rate        an address whose newest order is hours old, where the panel
                  refuses to compute a rate and says why
 
-Both were picked by reading the live API, not chosen for how they look. They
-are addresses in the collector's set and what they show changes with the
-market, so a later run can legitimately produce a different number. The
-script prints what each panel said, so the image can be checked against it.
+Both are chosen at run time by reading the API, not written into this file.
+The first version hardcoded two addresses and one of them went stale
+overnight: it stopped showing a rate, which made it a second picture of the
+withheld case and broke the run. Which addresses are current is exactly the
+thing this product measures and therefore exactly the thing that will not hold
+still, so the script asks rather than assumes. It prints what it picked and
+what each panel said, so an image can be checked against the text.
 """
 
+import concurrent.futures
+import json
 import pathlib
 import shutil
 import sys
 import tempfile
+import urllib.request
 
 from playwright.sync_api import sync_playwright
 
@@ -44,27 +50,65 @@ WIDTH, HEIGHT = 1280, 800
 # try if a capture comes back without a panel on it.
 HEADLESS = "--headed" not in sys.argv
 
-SHOTS = [
-    {
-        "name": "screenshot-1-rate.png",
-        # Currently in the spraying band: most of its post-only orders are
-        # refused before they rest, which is the behaviour the panel exists to
-        # make visible.
-        "address": "0xf58b673c1633ccef0ac58263cdc95ed80f817fc7",
-        "expect": ".tnega-rate",
-    },
-    {
-        "name": "screenshot-2-no-rate.png",
-        # Thirty polls stored and 92% of its post-only orders rejected, and the
-        # panel still shows no rate, because the newest order it has seen is
-        # hours old. This is the case the product is built around.
-        "address": "0x7839e2f2c375dd2935193f2736167514efff9916",
-        "expect": ".tnega-withheld-title",
-    },
-]
+API = "https://agents-marketplace-q3k4.onrender.com"
+
+# A current address can sit minutes away from its own staleness cutoff, and a
+# capture that starts before it crosses can finish after. Addresses with this
+# much margin are the ones that will still be showing a rate when the page has
+# finished loading.
+SAFE_MARGIN_SECONDS = 1800
+
+
+def fetch(path):
+    with urllib.request.urlopen(f"{API}{path}", timeout=90) as r:
+        return json.load(r)
+
+
+def pick_addresses():
+    """One address showing a rate, one being refused one, chosen from the set.
+
+    The rate goes to the highest rejection rate among addresses that are
+    comfortably current, because that is the panel doing the thing it exists
+    for. The withheld one goes to whichever stale address has seen the most
+    post-only orders, so the facts under the refusal are substantial and the
+    image says plainly that a large sample is not the same as a current one.
+    """
+    makers = [m["address"] for m in fetch("/api/hyperliquid/overview")["makers"]]
+    with concurrent.futures.ThreadPoolExecutor(8) as ex:
+        detail = dict(zip(makers, ex.map(
+            lambda a: fetch(f"/api/hyperliquid/address/{a}"), makers)))
+
+    current = [
+        (d["post_only"]["rejection_rate"], a) for a, d in detail.items()
+        if not d["withheld_reason"]
+        and d["freshness"]["newest_record_age_seconds"] < SAFE_MARGIN_SECONDS
+    ]
+    stale = [
+        (d["post_only"]["alo_total"], a) for a, d in detail.items()
+        if d["withheld_reason"] == "stale_data"
+    ]
+    if not current or not stale:
+        raise SystemExit(
+            f"cannot pick addresses: {len(current)} current, {len(stale)} stale")
+
+    return [
+        {
+            "name": "screenshot-1-rate.png",
+            "address": max(current)[1],
+            "expect": ".tnega-rate",
+        },
+        {
+            "name": "screenshot-2-no-rate.png",
+            "address": max(stale)[1],
+            "expect": ".tnega-withheld-title",
+        },
+    ]
 
 
 def main():
+    shots = pick_addresses()
+    for s in shots:
+        print(f"picked {s['address']} for {s['name']}")
     profile = pathlib.Path(tempfile.mkdtemp(prefix="tnega-capture-"))
     failures = []
     with sync_playwright() as p:
@@ -89,7 +133,7 @@ def main():
             device_scale_factor=1,
         )
         try:
-            for shot in SHOTS:
+            for shot in shots:
                 page = ctx.new_page()
                 page.set_viewport_size({"width": WIDTH, "height": HEIGHT})
                 page.goto(

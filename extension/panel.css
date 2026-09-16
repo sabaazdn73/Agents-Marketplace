@@ -43,9 +43,14 @@
   background: rgba(151, 252, 228, 0.04);
 }
 
+/* The ceiling is the text beside it. The title is 14px and the line under it
+ * is 12px, both at the panel's 1.5 line height, so that block stands 39px
+ * tall and anything larger than 40 makes the header grow to carry the mascot.
+ * 40 is therefore as big as it goes: noticeably larger than it was, and the
+ * header is the same height it has always been. */
 .tnega-panel .tnega-cat {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   object-fit: contain;
   flex: 0 0 auto;
   display: block;
