@@ -31,6 +31,16 @@ from typing import Any
 from mcp_server import envelope
 from mcp_server.registry import call
 
+def _echo(query: str) -> str:
+    """The identifier, whole.
+
+    It was cut at 40 characters, which is two short of an address, so the
+    surface echoed back a key that was not the key it had been given and that
+    would not resolve if anyone copied it.
+    """
+    return query if len(query) <= 72 else query[:69] + "..."
+
+
 _ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 _NUMERIC = re.compile(r"^\d+$")
@@ -66,6 +76,39 @@ def _clamp(n: Any, default: int, hi: int) -> int:
         return max(1, min(int(n), hi))
     except (TypeError, ValueError):
         return default
+
+
+def _coverage(cov: dict | None, **extra) -> dict:
+    """Coverage as every tool reports it, with partial always present.
+
+    partial was set by the catalogue and passed through untouched by the other
+    four tools, so the same dataset answered partial false from one tool and
+    left the field out entirely from another. A reader that has to tell false
+    from absent will get it wrong, and an audit of this surface did.
+    """
+    base = dict(cov or {})
+    base["partial"] = bool(base.get("partial"))
+    base.update(extra)
+    return base
+
+
+def _empty_result(tool: str, dataset: str, filters: dict, cov: dict) -> dict:
+    """Nothing matched, said as a reason rather than as zeros.
+
+    The server's own instructions promise that a measurement with nothing
+    behind it returns a withheld_reason. Asking agents.index for chain 1
+    returned matched 0 with every tier count at 0 and withheld_reason null,
+    which reads as a measured absence of agents rather than as a filter that
+    selected nothing.
+    """
+    shown = ", ".join(f"{k}={v!r}" for k, v in sorted(filters.items())) or "no filters"
+    return envelope.withheld(
+        measured=f"{tool} over {dataset}",
+        coverage=_coverage(cov, filters=filters, matched=0),
+        reason="no_matches",
+        explanation=f"Nothing in {dataset} matches {shown}. This is an empty "
+                    f"selection, not a measurement of zero. tnega_catalogue "
+                    f"lists what each dataset holds.")
 
 
 def _unknown_dataset(tool: str, dataset: str, datasets: dict, verb: str | None = None) -> dict:
@@ -169,7 +212,7 @@ async def resolve(datasets: dict, args: dict) -> dict:
 
     if not candidates:
         return envelope.withheld(
-            measured=f"what '{query[:40]}' could refer to",
+            measured=f"what '{_echo(query)}' could refer to",
             coverage={"searched": "stored data only", "partial": False},
             reason="unrecognised_identifier",
             explanation="Not an address, token id, agent id or chain view name. "
@@ -177,7 +220,7 @@ async def resolve(datasets: dict, args: dict) -> dict:
                         "search filter instead.")
 
     return envelope.build(
-        measured=f"what '{query[:40]}' could refer to",
+        measured=f"what '{_echo(query)}' could refer to",
         coverage={"searched": "stored data only, no live lookup",
                   "candidates": len(candidates), "partial": False},
         value=candidates[:RESOLVE_MAX],
@@ -201,7 +244,7 @@ async def get(datasets: dict, args: dict) -> dict:
                         f"Use tnega_resolve if you have a name rather than an id.")
 
     try:
-        cov = await call(d.coverage)
+        cov = _coverage(await call(d.coverage))
     except Exception as e:  # noqa: BLE001
         cov = {"partial": True, "unavailable": type(e).__name__}
     record = await call(d.get, key)
@@ -241,7 +284,7 @@ async def list_(datasets: dict, args: dict) -> dict:
         offset = int(decoded.get("o") or 0)
         filters = decoded.get("f") or {}
     else:
-        for k in ("chain_id", "category", "search", "verified", "sort"):
+        for k in ("key", "chain_id", "category", "search", "verified", "sort"):
             if args.get(k) not in (None, ""):
                 filters[k] = args[k]
 
@@ -252,13 +295,15 @@ async def list_(datasets: dict, args: dict) -> dict:
 
     limit = _clamp(args.get("limit"), LIST_DEFAULT, LIST_MAX)
     try:
-        cov = await call(d.coverage)
+        cov = _coverage(await call(d.coverage))
     except Exception as e:  # noqa: BLE001
         cov = {"partial": True, "unavailable": type(e).__name__}
 
     page = await call(d.list, limit=limit, offset=offset, **filters)
     rows = page.get("rows") or []
     total = page.get("total")
+    if not rows and not page.get("partial"):
+        return _empty_result("tnega_list", dataset, filters, cov)
     nxt = offset + len(rows)
     caveats = list(d.caveats) + [
         "Rows are a projection, not whole records. Read one in full with "
@@ -268,8 +313,7 @@ async def list_(datasets: dict, args: dict) -> dict:
 
     return envelope.build(
         measured=f"a page of {dataset}",
-        coverage={**cov, "matched": total, "returned": len(rows),
-                  "offset": offset},
+        coverage=_coverage(cov, matched=total, returned=len(rows), offset=offset),
         value=rows,
         next_cursor=(_cursor_encode(dataset, nxt, filters)
                      if total is not None and nxt < total else None),
@@ -285,12 +329,14 @@ async def summary(datasets: dict, args: dict) -> dict:
     filters = {k: args[k] for k in ("chain_id", "category", "search")
                if args.get(k) not in (None, "")}
     try:
-        cov = await call(d.coverage)
+        cov = _coverage(await call(d.coverage))
     except Exception as e:  # noqa: BLE001
         cov = {"partial": True, "unavailable": type(e).__name__}
     value = await call(d.summary, **filters)
+    if isinstance(value, dict) and value.get("matched") == 0:
+        return _empty_result("tnega_summary", dataset, filters, cov)
     return envelope.build(
-        measured=f"an aggregate over {dataset}", coverage=cov, value=value,
+        measured=f"an aggregate over {dataset}", coverage=_coverage(cov), value=value,
         caveats=list(d.caveats) + [
             "An aggregate over what is stored, which is what coverage "
             "describes, not over everything that exists."])
@@ -326,8 +372,8 @@ async def series(datasets: dict, args: dict) -> dict:
 
     return envelope.build(
         measured=f"a series from {dataset} for {key[:48]}",
-        coverage={**inner_cov, "points": len(points),
-                  "bucket_seconds": out.get("bucket_seconds")},
+        coverage=_coverage(inner_cov, points=len(points),
+                           bucket_seconds=out.get("bucket_seconds")),
         value=points,
         next_cursor=out.get("next_before"),
         caveats=list(d.caveats))
@@ -341,8 +387,8 @@ TOOLS = [
         "description":
             "Lists every measurement Tnega holds: dataset ids, what each one "
             "measures, the keys it accepts, which of get/list/summary/series it "
-            "supports, and its live coverage. Takes no arguments and returns "
-            "about 12 rows under 8KB. Call this first when you do not know a "
+            "supports, and its live coverage. Takes no arguments and returns one row "
+            "per dataset, under 8KB. Call this first when you do not know a "
             "dataset id; then use tnega_get or tnega_list.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         "handler": catalogue,
@@ -385,14 +431,15 @@ TOOLS = [
         "name": "tnega_list",
         "description":
             "A filtered page of compact rows from one dataset, about 200 bytes "
-            "each rather than whole records. Give dataset, optional filters, and "
-            "limit up to 50, default 25. Returns rows plus next_cursor, capped at "
-            "32KB. Read any row in full with tnega_get; for counts rather than "
-            "rows use tnega_summary.",
+            "each rather than whole records. Give dataset, optional filters or a "
+            "key to narrow to one entity, and limit up to 50, default 25. Returns "
+            "rows plus next_cursor, capped at 32KB. Read any row in full with "
+            "tnega_get; for counts rather than rows use tnega_summary.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "dataset": {"type": "string", "description": "A dataset id from tnega_catalogue."},
+                "key": {"type": "string", "description": "Narrow to the records belonging to one entity, using that dataset's key. jobs.erc8183 uses it for a provider address, to list that provider's jobs."},
                 "limit": {"type": "integer", "minimum": 1, "maximum": LIST_MAX},
                 "cursor": {"type": "string", "description": "next_cursor from a previous call. Carries the filters, so do not resend them."},
                 "chain_id": {"type": "integer"},

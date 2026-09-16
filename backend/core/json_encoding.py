@@ -22,7 +22,7 @@ FIDELITY, AND THE ONE PLACE IT IS DELIBERATELY LOST
 Decimal becomes float, which is what fastapi's jsonable_encoder did before this
 and therefore what every existing REST consumer already receives. A float
 cannot hold 28 significant digits, so the last of them are dropped. That is a
-real loss and it is the right one here: the alternative is a JSON string, which
+loss, and it is the right one here: the alternative is a JSON string, which
 every consumer has to know to convert, and which reads as a number until
 something tries to multiply it.
 

@@ -384,6 +384,63 @@ def check_tools() -> None:
     return datasets
 
 
+def check_audit_findings(datasets) -> None:
+    """The rules an external audit of the live surface found broken.
+
+    Each of these is a promise the surface makes about itself, checked here so
+    the next dataset cannot quietly break one again.
+    """
+    print("\nrules an audit found broken")
+    ix = synthetic_index()
+    ds = registry.build(Providers(agents_index=lambda: ix))
+
+    async def call(tool, args):
+        reply = await protocol.handle(
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+             "params": {"name": tool, "arguments": args}}, ds)
+        return json.loads(reply["result"]["content"][0]["text"])
+
+    # Coverage says partial, always, from every tool rather than only the
+    # catalogue.
+    for tool, args in (("tnega_catalogue", {}),
+                       ("tnega_get", {"dataset": "agents.index", "id": "id-3"}),
+                       ("tnega_list", {"dataset": "agents.index", "limit": 2}),
+                       ("tnega_summary", {"dataset": "agents.index"})):
+        out = run(call(tool, args))
+        check("partial" in out["coverage"], f"{tool} coverage states partial",
+              repr(out["coverage"].get("partial")))
+
+    # A filter that matches nothing is a reason, not a row of zeros.
+    empty = run(call("tnega_summary", {"dataset": "agents.index", "chain_id": 999}))
+    check(empty["withheld_reason"] == "no_matches",
+          "an empty selection is withheld, not zeroed", repr(empty["withheld_reason"]))
+    check(empty["value"] is None, "an empty selection carries no counts")
+    emptyl = run(call("tnega_list", {"dataset": "agents.index", "chain_id": 999}))
+    check(emptyl["withheld_reason"] == "no_matches", "the same for a page")
+
+    # The identifier comes back whole.
+    addr = "0x" + "ab" * 20
+    r = run(call("tnega_resolve", {"query": addr}))
+    check(addr in r["measured"], "resolve echoes the key it was given",
+          f"{len(addr)} chars in, {'whole' if addr in r['measured'] else 'cut'}")
+
+    # One category answer, not two.
+    row = run(call("tnega_list", {"dataset": "agents.index", "limit": 1}))["value"][0]
+    rec = run(call("tnega_get", {"dataset": "agents.index", "id": row["id"]}))["value"]
+    check(rec.get("category") == row.get("category"),
+          "the record and the row agree on category",
+          f"{rec.get('category')!r} vs {row.get('category')!r}")
+
+    # A tier that claims delivery can be checked against the record that proves
+    # it, which means the proving field has to be in that record.
+    from core import job_index
+    src = Path(job_index.__file__).read_text()
+    check('"submitted": counts["SUBMITTED"]' in src,
+          "the job record reports submitted, not only active")
+    check('"completion_rate_basis"' in src,
+          "completion_rate ships with its denominator")
+
+
 def check_live_datasets() -> None:
     """Every dataset that answers, checked for the shape the surface promises.
 
@@ -455,6 +512,7 @@ def main() -> int:
     check_ceilings()
     datasets = check_tools()
     check_gate(datasets)
+    check_audit_findings(datasets)
     check_live_datasets()
 
     print()

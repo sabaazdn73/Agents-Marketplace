@@ -409,6 +409,11 @@ class AgentsIndex:
         except ValueError:
             return None
         r["tier"] = TIER_NAMES[self.tier[i]]
+        # The same category the index filtered and counted on, rather than the
+        # raw stored value. A record said category null while the list said
+        # Unclassified for the same agent, because the index interns an absent
+        # category and the blob keeps it as null. Two answers to one question.
+        r["category"] = self.cat[i]
         return r
 
     def facets(self, idx: list[int]) -> list[dict]:

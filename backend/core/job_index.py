@@ -276,8 +276,31 @@ async def get_provider_stats(owner_address: str) -> dict:
     return {
         "owner_address": owner_address, "hired": True, "hire_count": total,
         "completed": counts["COMPLETED"], "rejected": counts["REJECTED"], "expired": counts["EXPIRED"],
+        # SUBMITTED reported on its own, not only folded into `active`.
+        #
+        # It was only inside `active`, which is OPEN + FUNDED + SUBMITTED, so a
+        # record could show completed 0 and active 1 for an agent that had
+        # delivered work and was waiting for settlement, and for an agent that
+        # had done nothing at all. Those are different facts. The verification
+        # tier rests on COMPLETED + SUBMITTED (agentVerification.js), so this
+        # was also the one number that could have explained why an agent is
+        # verified, missing from the record a reader checks it against. An
+        # external audit of the MCP surface concluded the tier was unfounded on
+        # exactly this evidence, and the tier was right.
+        "submitted": counts["SUBMITTED"],
+        "open": counts["OPEN"], "funded": counts["FUNDED"],
         "active": active, "settled": settled,
         "completion_rate": (counts["COMPLETED"] / settled) if settled else None,
+        # The denominator, beside the rate. completion_rate is COMPLETED over
+        # jobs that reached a verdict, so an agent with 5 completed and 4 still
+        # open reads 1.0. That is a defensible metric and an indefensible thing
+        # to print on its own.
+        "completion_rate_basis": (
+            f"{counts['COMPLETED']} of {settled} jobs that reached a verdict. "
+            f"{active} more are unfinished and are not in this denominator."
+            if settled else
+            f"No job has reached a verdict yet. {active} are unfinished."
+        ),
         "last_submitted_at": last_submitted_at or None,
         "recent_job_ids": recent_job_ids,
         **completeness,

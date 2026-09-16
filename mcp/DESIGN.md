@@ -417,3 +417,40 @@ indexed jobs comes back from the service as `hired: false` with zero counts and
 a note saying why. A person reads the note. A model reads `hire_count: 0` and
 has been told in numbers that this agent was hired zero times. It now carries
 `withheld_reason: no_jobs_indexed`, with the note beside it.
+
+---
+
+## 13. What an external audit found, and what it was right about
+
+An agent outside this project queried the live surface, made fourteen calls and
+reported twelve problems. Every one of them held. None were measurement
+errors in the data, and that distinction is the useful part: eleven were the
+surface describing itself wrongly, and one was the surface not exposing data it
+held.
+
+The two that went to the core claim, checked rather than accepted:
+
+A verified agent with completed 0. Checked across all 29 verified agents rather
+than the one reported: every one has completed + submitted greater than zero
+against the complete job index. The tier rests on the job record. What made it
+look otherwise is that verified means SUBMITTED or COMPLETED, by the site's own
+definition of record in agentVerification.js, and this surface said "a completed
+on-chain job" in its caveat, while the job record it pointed at reported
+completed and active and never reported submitted at all. The one number that
+would have settled it was the one number missing. It is now in the record.
+
+completion_rate 1 on an agent with 5 of 9 finished. The metric is COMPLETED over
+jobs that reached a verdict, which is defensible and not self-describing, and it
+was shipped as a bare 1.0 against this surface's own rule that a rate never
+travels without its denominator. It now carries completion_rate_basis: "5 of 5
+jobs that reached a verdict. 4 more are unfinished and are not in this
+denominator."
+
+The one that was not about wording: the job dataset exposed an aggregate and
+nothing else, so the auditor could not see who hired the agent, what was
+escrowed, or which jobs were the unfinished ones. All three are fields on
+documents the index already held. tnega_list on jobs.erc8183 with a provider key
+now returns them, and the first thing it shows about the agent in question is
+that all five completions came from a single client, which is the owner of
+another agent in the same verified set, while three later jobs from three
+unrelated clients sit funded and unanswered.

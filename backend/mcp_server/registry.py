@@ -263,9 +263,28 @@ def build(providers) -> dict[str, Dataset]:
         get=agents_get,
         list=agents_list,
         summary=agents_summary,
-        caveats=["A verification tier is a claim about delivered work. "
-                 "verified means a completed on-chain job; canary_verified is a "
-                 "weaker claim from a test hire and the two are not the same.",
+        caveats=["verified means at least one on-chain job from a paying buyer "
+                 "reached SUBMITTED or COMPLETED. Settlement is optimistic, so "
+                 "an undisputed SUBMITTED job is a delivery that has not been "
+                 "settled yet. It does not mean a job was completed, and the "
+                 "evidence for it is the submitted and completed counts in "
+                 "jobs.erc8183 for the same owner address.",
+                 "canary_verified is a weaker claim, from a test hire funded by "
+                 "Tnega rather than by a buyer, and is never blended with "
+                 "verified.",
+                 "is_verified in the record is 8004scan's own registry field. "
+                 "It is false for every agent in this index and is unrelated to "
+                 "tier. Where the two look like they disagree, tier is the one "
+                 "computed from job history.",
+                 "score is 8004scan's total_score, carried through unchanged. "
+                 "It barely discriminates: tens of thousands of agents share "
+                 "identical values, and the whole verified set sits between "
+                 "12.02 and 12.10. It is not a ranking of quality and should "
+                 "not be used as one.",
+                 "coverage.agents counts every stored record; coverage.selectable "
+                 "is what any query can return. The difference is records whose "
+                 "name is under three characters, which are excluded because a "
+                 "name that short cannot identify an agent to a reader.",
                  "BNB Chain only. Agents on Ethereum, Arbitrum, Robinhood Chain, "
                  "Solana and Monad are in chains.agents, which is a different "
                  "store with a different field set. coverage.chains lists what "
@@ -291,6 +310,11 @@ def build(providers) -> dict[str, Dataset]:
         series=hl.address_series,
         caveats=["A refused post-only order never rests, provides no liquidity "
                  "and leaves no trace in fills, so it is invisible in volume.",
+                 "coverage.polls_with_gap counts polls where orders happened "
+                 "between the end of the previous window and the start of this "
+                 "one, so the sample is not contiguous. It runs around 60% of "
+                 "polls. Rates are pooled counts over what was seen, which a "
+                 "gap makes an undercount of activity rather than a wrong rate.",
                  "The series comes from the WebSocket feed, which carries no "
                  "tif. Its denominator is all order updates, not post-only "
                  "orders, so its ratio is not the same quantity as the rate."],
@@ -333,16 +357,60 @@ def build(providers) -> dict[str, Dataset]:
             return {**stats, "withheld_reason": "no_jobs_indexed"}
         return stats
 
+    async def jobs_list(*, limit, offset, key=None, **_):
+        """One provider's jobs, one row each.
+
+        The aggregate was all this dataset exposed, and an audit of the surface
+        listed what it could not answer from it: who hired the agent, what it
+        was paid, and which jobs are the unfinished ones. All three are fields
+        on the job documents the index already holds. They were not missing
+        from the data, only from this.
+        """
+        from core import job_index
+        if not key:
+            return {"rows": [], "total": None, "partial": True,
+                    "note": "key is required here: a provider address, whose "
+                            "jobs this lists."}
+        out = await job_index.get_provider_revenue_jobs(str(key).lower())
+        jobs = sorted(out.get("jobs") or [], key=lambda j: j.get("_id", 0),
+                      reverse=True)
+        page = jobs[offset:offset + limit]
+        return {
+            "rows": [{
+                "job_id": j.get("_id"),
+                "status": j.get("status"),
+                "client": j.get("client"),
+                "budget": j.get("budget"),
+                "submitted_at": j.get("submittedAt"),
+                "expired_at": j.get("expiredAt"),
+            } for j in page],
+            "total": len(jobs),
+            "partial": not out.get("index_complete", False),
+        }
+
     datasets.append(Dataset(
         id="jobs.erc8183",
         title="ERC-8183 job index",
-        measures="on-chain jobs, their status, and what each provider was paid "
-                 "for work that was delivered",
+        measures="on-chain jobs for one provider: who hired them, what was "
+                 "escrowed, and what state each job is in",
         keys=["provider address"],
+        example_filters={"key": "0x20f1ca5d1e5a3ee94c29dbf95e6bf6cea6a8d64b"},
         coverage=jobs_coverage,
         get=jobs_get,
-        caveats=["Indexed from chain logs in batches, so the index can trail "
-                 "the chain. coverage says how far it has reached."],
+        list=jobs_list,
+        caveats=["Provider is the agent owner's address. The field is called "
+                 "owner_address in the aggregate and provider in the job "
+                 "documents, and they are the same address.",
+                 "budget is the amount escrowed for the job in the contract's "
+                 "own units, not a settled payment. A job that never completed "
+                 "still carries one.",
+                 "completed and submitted are different states. SUBMITTED means "
+                 "the work was delivered and settlement has not happened, which "
+                 "is what the verified tier rests on; it is counted in active "
+                 "as well, so active alone cannot tell delivery from silence.",
+                 "Indexed from chain logs in batches, so the index can trail "
+                 "the chain. index_complete describes the last run, whose time "
+                 "is in coverage.last_run_at, not this moment."],
     ))
 
     # ── budgets ───────────────────────────────────────────────────────────
