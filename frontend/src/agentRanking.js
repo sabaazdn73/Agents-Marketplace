@@ -72,6 +72,9 @@ export function performanceComparator(key) {
 export function withPerformance(agents, byOwner) {
   if (!byOwner) return agents.map((a) => ({ ...a, hireCount: 0, winRate: null, jobsCompleted: 0, jobsSubmitted: 0,
       jobsDeliveredExternal: 0, jobsSelfFunded: 0,
+      clientsDelivered: 0, topClientDelivered: 0, topClientIsSelf: false,
+      topClientIsAgentOwner: false, topClientAgentName: null,
+      unansweredFromNewClients: 0, unansweredFromNewClientsKnown: true,
       deliveryRate: null, delivered: 0, everFunded: 0, fundedExpired: 0, oldestStuckDays: null,
       budget_record: null }));
   return agents.map((a) => {
@@ -88,6 +91,18 @@ export function withPerformance(agents, byOwner) {
       // lower than the raw delivery count beside it.
       jobsDeliveredExternal: p?.delivered_external ?? 0,
       jobsSelfFunded: p?.self_funded_delivered ?? 0,
+      // Delivery provenance, from core/job_index.py's own aggregation: who
+      // paid for the work, not just how much of it there was. Named one by
+      // one here like everything else in this mapper, which is why the
+      // mapper's own comment warns that a field it is not told about is a
+      // field that disappears.
+      clientsDelivered: p?.clients_delivered ?? 0,
+      topClientDelivered: p?.top_client_delivered ?? 0,
+      topClientIsSelf: p?.top_client_is_self ?? false,
+      topClientIsAgentOwner: p?.top_client_is_agent_owner ?? false,
+      topClientAgentName: p?.top_client_agent_name ?? null,
+      unansweredFromNewClients: p?.unanswered_from_new_clients ?? 0,
+      unansweredFromNewClientsKnown: p?.unanswered_from_new_clients_known ?? true,
       // Funded versus delivered, from core/job_index.get_all_provider_stats.
       // Carried through here because a mapper that names fields one by one
       // drops anything it was not told about, which is how the interaction

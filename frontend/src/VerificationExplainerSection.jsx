@@ -19,7 +19,8 @@
 // for a buyer).
 
 import React, { useState } from 'react';
-import { ShieldCheck, ShieldHalf, Radio, ChevronDown, ExternalLink, TrendingUp } from 'lucide-react';
+import { ChevronDown, ExternalLink, Radio, ShieldCheck, ShieldHalf, TrendingUp, Users } from 'lucide-react';
+import { StoreWideDelivery } from './DeliveryProvenance';
 import { VERIFICATION_TIER, VERIFICATION_LABEL, VERIFICATION_HINT } from './agentVerification';
 
 const TIER_ICON = {
@@ -54,7 +55,13 @@ const TIER_ORDER = [
   VERIFICATION_TIER.UNPROVEN,
 ];
 
-export default function VerificationExplainerSection({ className = '', defaultOpen = false }) {
+export default function VerificationExplainerSection({
+  className = '', defaultOpen = false,
+  // What the whole job index holds, from useAgentPerformanceBulk. Optional:
+  // the section renders without it, because a section that breaks when one
+  // fetch is slow is worse than one that says less for a moment.
+  storeWideTotals = null,
+}) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -90,6 +97,23 @@ export default function VerificationExplainerSection({ className = '', defaultOp
           </div>
 
           <div className="pt-1 border-t border-gray-100 dark:border-gray-800" />
+
+          {/* What the count on this page is a count of. The marketplace lists
+              a diversified slice of a larger store, so the number of verified
+              agents here is smaller than the number of addresses in the index
+              that have delivered. Both are true and they answer different
+              questions; leaving the second one out let the first be read as
+              the whole picture. */}
+          {storeWideTotals && (
+            <div>
+              <p className="font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">
+                <Users size={13} className="text-indigo-500 shrink-0" /> What these counts are counted over
+              </p>
+              <StoreWideDelivery totals={storeWideTotals} />
+            </div>
+          )}
+
+          {storeWideTotals && <div className="pt-1 border-t border-gray-100 dark:border-gray-800" />}
 
           <div>
             <p className="font-medium text-gray-700 dark:text-gray-300 mb-1.5 flex items-center gap-1.5">

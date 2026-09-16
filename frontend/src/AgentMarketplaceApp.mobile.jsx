@@ -51,6 +51,7 @@ import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealH
 import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
+import DeliveryProvenance, { DeliveryFlags, StoreWideDelivery } from './DeliveryProvenance';
 import InfoTooltip from './InfoTooltip';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
@@ -464,6 +465,9 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
         <InteractionLine interaction={agent.interaction} className="mb-4"
           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
+
+        {/* Who paid for the deliveries behind the tier. */}
+        <DeliveryProvenance agent={agent} className="mb-4" />
         <DeliveryRecord agent={agent} className="mb-4" />
         {/* BNB Chain has both hire paths, so it gets both records. The
             ERC-8183 one above covers escrow jobs; this covers drawable
@@ -547,7 +551,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
  // history sorts first and no-history agents are listed after,
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
-  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, storeWideTotals: perfStoreWide, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
@@ -1077,7 +1081,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
  {/* Real, permanently-accessible explainer (2026-08-27),
                     parity with web. See VerificationExplainerSection.jsx. */}
-                <VerificationExplainerSection className="mb-4" />
+                <VerificationExplainerSection className="mb-4" storeWideTotals={perfStoreWide} />
 
                 <div className="mb-4">
                   <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
@@ -1304,6 +1308,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                           )}
                           <VerificationBadge agent={agent} />
                         </div>
+
+                        {/* Same two conditions as web, same component. See
+                            DeliveryProvenance.jsx for why concentration is not
+                            one of them. */}
+                        <DeliveryFlags agent={agent} className="mb-3" />
 
                         <div className="flex gap-4 mb-2">
                           <div title="How trustworthy this agent looks, based on past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || 'n/a'}</span></div>

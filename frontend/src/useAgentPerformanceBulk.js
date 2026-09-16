@@ -59,17 +59,22 @@ async function _fetchOnce() {
 // backfill has already finished as of this fix shipping (see
 // core/job_index.py) and will only ever say otherwise if a future
 // re-backfill is genuinely in progress.
-const DEFAULT_COMPLETENESS = { indexComplete: true, indexedThroughJobId: null, jobCounter: null };
+const DEFAULT_COMPLETENESS = { indexComplete: true, indexedThroughJobId: null, jobCounter: null, storeWideTotals: null };
 
 function _completenessFrom(data) {
   return {
     indexComplete: data?.index_complete ?? true,
     indexedThroughJobId: data?.indexed_through_job_id ?? null,
     jobCounter: data?.job_counter ?? null,
+    // What the whole job index holds, as against the slice the marketplace
+    // lists. Carried through because a verified count drawn from the served
+    // slice cannot be read without it. Null until the fetch resolves, so a
+    // caller can tell "not loaded" from "nothing there".
+    storeWideTotals: data?.store_wide_totals ?? null,
   };
 }
 
-/** Returns { byOwner, indexComplete, indexedThroughJobId, jobCounter, status, retry }.
+/** Returns { byOwner, indexComplete, indexedThroughJobId, jobCounter, storeWideTotals, status, retry }.
  * `status`: 'loading' | 'ready' | 'error', real, state, not just
  * inferred from whether `byOwner` is null (loading and error both start
  * that way, but callers that care about the difference, e.g. showing

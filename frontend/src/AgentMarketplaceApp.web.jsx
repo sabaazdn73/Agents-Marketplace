@@ -44,6 +44,7 @@ import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealH
 import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
+import DeliveryProvenance, { DeliveryFlags, StoreWideDelivery } from './DeliveryProvenance';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
 import InfoTooltip from './InfoTooltip';
@@ -371,6 +372,10 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             the list and this page cannot change what an agent means. */}
         <InteractionLine interaction={agent.interaction} className="mb-5"
           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
+
+        {/* Who paid for the deliveries behind the tier. Renders nothing for an
+            agent nobody has hired. */}
+        <DeliveryProvenance agent={agent} className="mb-5" />
 
         <DeliveryRecord agent={agent} className="mb-5" />
         {/* BNB Chain has both hire paths, so it gets both records. The
@@ -730,7 +735,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // hired" / "Highest success rate" can sort the whole list. See
  // agentRanking.js for the tiering (history first, no-history
   // agents after, never silently mixed in).
-  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
+  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, storeWideTotals: perfStoreWide, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
   const { byOwner: canaryByOwner } = useCanaryStatus();
   const agentsWithPerf = useMemo(
     () => withCanaryStatus(withPerformance(agents, perfByOwner), canaryByOwner),
@@ -1239,7 +1244,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   and 24px for what is a toggle and a tooltip link, and
                   neither needs a line to itself. */}
               <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <VerificationExplainerSection className="flex-1 min-w-[260px]" />
+              <VerificationExplainerSection className="flex-1 min-w-[260px]" storeWideTotals={perfStoreWide} />
 
               <div className="shrink-0">
                 <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>
@@ -1578,6 +1583,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                             <div className="flex flex-col gap-1 items-start">
                               <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} />
                               <VerificationBadge agent={agent} />
+                              <DeliveryFlags agent={agent} />
                             </div>
                           </td>
                           <td className="p-4 text-xs">
@@ -1629,6 +1635,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           )}
                           <VerificationBadge agent={agent} />
                         </div>
+
+                        {/* Two conditions only, and deliberately not
+                            concentration: that fires on 77% of verified cards
+                            and tells a browsing reader nothing. The full
+                            picture is on the panel. DeliveryProvenance.jsx. */}
+                        <DeliveryFlags agent={agent} className="mb-3" />
 
                         <div className="grid grid-cols-3 gap-2 p-3 mb-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
                           <div className="text-center" title="How trustworthy this agent looks, based on past feedback"><span className="block text-[10px] text-gray-500 uppercase mb-1">Score</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.totalScore != null ? agent.totalScore.toFixed(1) : 'n/a'}</span></div>

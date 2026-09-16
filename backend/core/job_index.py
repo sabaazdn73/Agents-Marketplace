@@ -319,6 +319,99 @@ async def get_provider_stats(owner_address: str) -> dict:
     }
 
 
+# Delivery provenance: who paid for the work an agent has delivered.
+#
+# WHY THIS IS NOT A PYTHON LOOP OVER JOBS
+# One provider in this index (0xc0d7d888..., a third-party platform's shared
+# wallet) has 32,546 distinct clients. Every other provider has at most four.
+# Pulling per-client rows into the process would mean 32,000 dicts to answer a
+# question about 74 providers, on a container with a 512MiB cap. The grouping
+# is therefore done twice inside the pipeline, and what comes back is one row
+# per provider.
+#
+# The client cap below is what keeps the second pass bounded as well: for the
+# outlier, "has this provider delivered to this client before" is not computed
+# rather than computed expensively, and the field says so instead of implying
+# an answer.
+MAX_CLIENTS_FOR_PROVENANCE = 200
+
+_DELIVERED_STATUSES = ["COMPLETED", "SUBMITTED"]
+
+
+async def _delivery_provenance(col) -> tuple[dict, dict]:
+    """Per provider: how many clients, the largest one, and stuck new clients.
+
+    Returns (by_provider, store_wide).
+    """
+    # One row per provider, reduced in the pipeline.
+    rows = await col.aggregate([
+        {"$match": {"provider": {"$ne": ""},
+                    "status": {"$in": _DELIVERED_STATUSES}}},
+        {"$group": {"_id": {"p": "$provider", "c": "$client"}, "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}},
+        {"$group": {"_id": "$_id.p",
+                    "clients": {"$sum": 1},
+                    "delivered": {"$sum": "$n"},
+                    "top_client": {"$first": "$_id.c"},
+                    "top_n": {"$first": "$n"}}},
+    ]).to_list(length=None)
+
+    prov: dict[str, dict] = {}
+    for r in rows:
+        owner = r["_id"]
+        top = (r.get("top_client") or "").lower()
+        prov[owner] = {
+            "clients_delivered": r["clients"],
+            "top_client": top or None,
+            "top_client_delivered": r["top_n"],
+            "top_client_is_self": bool(top) and top == owner,
+            "unanswered_from_new_clients": 0,
+            # Set below, and left as None where it was not computed rather
+            # than defaulted to a number that would read as measured.
+            "unanswered_from_new_clients_known": True,
+        }
+
+    # Funded and undelivered, by client. 313 jobs in the whole index, so this
+    # one is small enough to read directly.
+    funded = await col.aggregate([
+        {"$match": {"provider": {"$ne": ""}, "status": "FUNDED"}},
+        {"$group": {"_id": {"p": "$provider", "c": "$client"}, "n": {"$sum": 1}}},
+    ]).to_list(length=None)
+
+    wanted = {f["_id"]["p"] for f in funded}
+    skip = {o for o in wanted
+            if (prov.get(o) or {}).get("clients_delivered", 0) > MAX_CLIENTS_FOR_PROVENANCE}
+    pairs = await col.aggregate([
+        {"$match": {"provider": {"$in": sorted(wanted - skip)},
+                    "status": {"$in": _DELIVERED_STATUSES}}},
+        {"$group": {"_id": {"p": "$provider", "c": "$client"}}},
+    ]).to_list(length=None) if (wanted - skip) else []
+    delivered_to = {}
+    for d in pairs:
+        delivered_to.setdefault(d["_id"]["p"], set()).add((d["_id"]["c"] or "").lower())
+
+    for f in funded:
+        owner, client = f["_id"]["p"], (f["_id"]["c"] or "").lower()
+        rec = prov.setdefault(owner, {
+            "clients_delivered": 0, "top_client": None, "top_client_delivered": 0,
+            "top_client_is_self": False, "unanswered_from_new_clients": 0,
+            "unanswered_from_new_clients_known": True,
+        })
+        if owner in skip:
+            rec["unanswered_from_new_clients"] = None
+            rec["unanswered_from_new_clients_known"] = False
+            continue
+        if client not in (delivered_to.get(owner) or set()):
+            rec["unanswered_from_new_clients"] += f["n"]
+
+    store_wide = {
+        "providers_with_delivery": len(rows),
+        "delivered_jobs": sum(r["delivered"] for r in rows),
+        "funded_undelivered_jobs": sum(f["n"] for f in funded),
+    }
+    return prov, store_wide
+
+
 async def get_all_provider_stats() -> dict:
     """Bulk version of get_provider_stats, the data behind the
     marketplace's "Most hired"/"Highest success rate" sorts AND the
@@ -397,6 +490,22 @@ async def get_all_provider_stats() -> dict:
         except (TypeError, ValueError):
             pass
 
+    provenance, store_wide = await _delivery_provenance(col)
+
+    # Is the largest client itself an agent operator. One query over the top
+    # clients rather than a scan of every owner in the store: there are 74
+    # providers with delivery, so this is a lookup of at most that many
+    # addresses.
+    top_clients = sorted({v["top_client"] for v in provenance.values() if v["top_client"]})
+    operator_names: dict[str, str] = {}
+    if top_clients:
+        async for d in db["known_agents"].find(
+            {"owner_address": {"$in": top_clients}},
+            {"_id": 0, "owner_address": 1, "name": 1},
+        ):
+            addr = (d.get("owner_address") or "").lower()
+            operator_names.setdefault(addr, d.get("name") or "")
+
     by_owner: dict[str, dict] = {}
     for owner, counts in raw.items():
         s = stuck.get(owner) or {"n": 0, "oldest": 0, "value": 0}
@@ -435,6 +544,40 @@ async def get_all_provider_stats() -> dict:
             "delivery_rate": (delivered / ever_funded) if ever_funded else None,
             "oldest_stuck_days": round(s["oldest"] / 86400, 1) if s["oldest"] else None,
             "stuck_value_raw": str(s["value"]) if s["value"] else None,
+            # Who paid for the delivery, not just how much there was of it.
+            **(provenance.get(owner) or {
+                "clients_delivered": 0, "top_client": None,
+                "top_client_delivered": 0, "top_client_is_self": False,
+                "unanswered_from_new_clients": 0,
+                "unanswered_from_new_clients_known": True,
+            }),
+            "top_client_is_agent_owner": bool(
+                (provenance.get(owner) or {}).get("top_client")
+                and (provenance.get(owner) or {})["top_client"] in operator_names
+                and not (provenance.get(owner) or {}).get("top_client_is_self")
+            ),
+            # Only when the largest client is somebody else. An agent that
+            # paid itself has its own name here otherwise, beside a flag
+            # saying the client is not an operator, which is two answers to
+            # one question.
+            "top_client_agent_name": (
+                None if (provenance.get(owner) or {}).get("top_client_is_self")
+                else operator_names.get(
+                    (provenance.get(owner) or {}).get("top_client") or "") or None),
         }
 
-    return {"by_owner": by_owner, **completeness}
+    # What the whole index holds, so a count drawn from the served slice can be
+    # read against it. The marketplace lists a diversified slice of a larger
+    # store (agent_store.SERVE_LIMIT), and a reader told "27 verified" has no
+    # way to know that without this.
+    store_wide = {
+        **store_wide,
+        "providers_with_external_delivery": sum(
+            1 for v in by_owner.values() if (v.get("delivered_external") or 0) > 0),
+        "providers_self_funded_only": sum(
+            1 for v in by_owner.values()
+            if (v.get("self_funded_delivered") or 0) > 0
+            and not (v.get("delivered_external") or 0)),
+        "jobs_indexed": completeness.get("indexed_through_job_id"),
+    }
+    return {"by_owner": by_owner, "store_wide_totals": store_wide, **completeness}
