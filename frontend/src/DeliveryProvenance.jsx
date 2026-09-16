@@ -14,12 +14,23 @@
 // sitting funded and undelivered. A buyer funding the fourth job has none of
 // that in front of them.
 //
-// WHY THE GRID CARD SHOWS ONLY TWO OF THESE FACTS
-// Concentration fires on 77% of verified cards. A flag that appears on three
-// cards in four discriminates nothing and costs the grid a line. So the grid
-// carries only what is both rare and damning: delivery the owner paid for
-// itself, and jobs from other clients that were never answered. Everything
-// else is on the panel, where somebody is deciding rather than browsing.
+// WHY THE GRID CARRIES NONE OF IT
+// It carried two flags for a day. They were withdrawn on 2026-09-16 because
+// they cannot be made true on a card.
+//
+// Every figure here is keyed by the provider address. An ERC-8183 job document
+// holds provider, client, budget, status and submittedAt, and nothing that
+// names an agent, because the contract keys a job by address and not by token.
+// So one owner's unanswered job cannot be attributed to one of their agents.
+// One owner lists 737 agents and another 154; a single unanswered job put the
+// same accusing line on 891 cards, and 923 cards carried the flag in total off
+// the back of two jobs.
+//
+// Rewriting the pronouns made the sentence accurate and left the placement
+// wrong: a flag that fires on 6.2% of the grid from two jobs is not rare and
+// is not damning, which was the test it was admitted under. The facts live on
+// the panel instead, where the reader has chosen one agent and the block says
+// out loud that it counts by owner address.
 //
 // REGISTER
 // Facts in the same voice as the withheld reasons: what was counted, over
@@ -34,63 +45,6 @@ import { AlertTriangle, Users } from 'lucide-react';
 export function hasProvenance(agent) {
   return (agent?.clientsDelivered ?? 0) > 0 || (agent?.jobsSelfFunded ?? 0) > 0
     || (agent?.unansweredFromNewClients ?? 0) > 0;
-}
-
-/** The two conditions that earn a line on the grid card.
- *
- *  Self-funded delivery: the owner paid itself, so the delivery is activity
- *  and not demand. Unanswered new clients: somebody else's money is in escrow
- *  and nothing has come back. Both are rare across the set and both change
- *  what a buyer should do next, which is the test for being on a card at all.
- */
-export function DeliveryFlags({ agent, className = '' }) {
-  const selfOnly = (agent?.jobsSelfFunded ?? 0) > 0
-    && (agent?.jobsDeliveredExternal ?? 0) === 0;
-  const stuck = agent?.unansweredFromNewClientsKnown !== false
-    && (agent?.unansweredFromNewClients ?? 0) > 0;
-  // Has this owner ever delivered anything. "Clients it has never delivered
-  // to" implies it delivers to some and not these, which is false for an owner
-  // that has delivered to nobody, and that is most of the owners this flag
-  // fires on: measured over the first 500 listed agents, 126 of 133 flagged
-  // cards belong to owners with no delivery at all.
-  const everDelivered = ((agent?.jobsDeliveredExternal ?? 0)
-    + (agent?.jobsSelfFunded ?? 0)) > 0;
-  if (!selfOnly && !stuck) return null;
-
-  return (
-    <div className={`flex flex-col gap-1 ${className}`}>
-      {selfOnly && (
-        <span className="inline-flex items-start gap-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
-          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-          <span>
-            Every delivery to this owner was paid for by the owner itself
-            {(agent.jobsSelfFunded ?? 0) > 1 ? ` (${agent.jobsSelfFunded} jobs)` : ''}
-          </span>
-        </span>
-      )}
-      {stuck && (
-        <span className="inline-flex items-start gap-1.5 text-[11px] leading-snug text-amber-700 dark:text-amber-400">
-          <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-          <span>
-            {everDelivered ? (
-              <>
-                {agent.unansweredFromNewClients} job
-                {agent.unansweredFromNewClients === 1 ? '' : 's'} funded by
-                {agent.unansweredFromNewClients === 1 ? ' a client' : ' clients'} this
-                owner has never delivered to, still unanswered
-              </>
-            ) : (
-              <>
-                {agent.unansweredFromNewClients} job
-                {agent.unansweredFromNewClients === 1 ? ' was' : 's were'} funded and
-                nothing has been delivered, here or anywhere, by this owner
-              </>
-            )}
-          </span>
-        </span>
-      )}
-    </div>
-  );
 }
 
 /** The whole picture, for the panel where a buyer is deciding. */

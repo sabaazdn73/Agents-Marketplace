@@ -50,7 +50,20 @@ from core.full_registry_analysis import ANALYSIS_CHAIN_IDS
 #
 # ESCROW_HIRE_CHAIN_IDS deliberately excludes BNB testnet (97): no testnet
 # value may be reachable from a production path.
-BUDGET_HIRE_CHAIN_IDS = (56, 1, 42161, 4663)
+# Ethereum is deliberately absent, 2026-09-16.
+#
+# AgentBudgetEscrow is deployed there, and this list used to be "where is it
+# deployed". Read from the deployment itself: acceptedTokens(NATIVE) is false
+# on chain 1 and true on 56, 42161 and 4663, while the only budget flow this
+# project has sends native value. Every budget opened on Ethereum reverted
+# TokenNotAccepted(), and budgetCounter there is 0. The API was promising a
+# path that could not complete.
+#
+# The rule this list now follows is the frontend's: a chain is listed when a
+# contract is deployed AND it accepts the token the hire flow sends. When an
+# ERC-20 budget flow exists, Ethereum returns here and in
+# frontend/src/chainContracts.js's BUDGET_HIRE_TOKEN_BY_CHAIN together.
+BUDGET_HIRE_CHAIN_IDS = (56, 42161, 4663)
 ESCROW_HIRE_CHAIN_IDS = (56,)
 
 # Chain id -> display name. Kept here so a view definition reads as names

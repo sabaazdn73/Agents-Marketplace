@@ -44,7 +44,7 @@ import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealH
 import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
-import DeliveryProvenance, { DeliveryFlags, StoreWideDelivery } from './DeliveryProvenance';
+import DeliveryProvenance from './DeliveryProvenance';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
 import InfoTooltip from './InfoTooltip';
@@ -1583,7 +1583,6 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                             <div className="flex flex-col gap-1 items-start">
                               <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} />
                               <VerificationBadge agent={agent} />
-                              <DeliveryFlags agent={agent} />
                             </div>
                           </td>
                           <td className="p-4 text-xs">
@@ -1636,11 +1635,6 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           <VerificationBadge agent={agent} />
                         </div>
 
-                        {/* Two conditions only, and deliberately not
-                            concentration: that fires on 77% of verified cards
-                            and tells a browsing reader nothing. The full
-                            picture is on the panel. DeliveryProvenance.jsx. */}
-                        <DeliveryFlags agent={agent} className="mb-3" />
 
                         <div className="grid grid-cols-3 gap-2 p-3 mb-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
                           <div className="text-center" title="How trustworthy this agent looks, based on past feedback"><span className="block text-[10px] text-gray-500 uppercase mb-1">Score</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.totalScore != null ? agent.totalScore.toFixed(1) : 'n/a'}</span></div>

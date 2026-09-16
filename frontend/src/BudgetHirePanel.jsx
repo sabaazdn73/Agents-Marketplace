@@ -19,6 +19,7 @@ import React, { useState } from 'react';
 import { parseUnits } from 'viem';
 import { Loader2, Wallet, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useBudgetActions, useBudgetEscrowAddress, NATIVE_SENTINEL } from './budgetEscrow';
+import { getBudgetHireToken } from './chainContracts';
 import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META, chainName, nativeSymbol, getBudgetEscrowAddress } from './chainContracts';
 import ChainSwitchNotice, { switchToChain } from './ChainSwitchNotice';
 import { formatDecimalString } from './budgetAmounts';
@@ -129,7 +130,9 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
 
       const { budgetId: newId } = await openBudget({
         agent: agentAddress,
-        token: NATIVE_SENTINEL,
+        // The token this chain's contract accepts, not a constant. The
+        // constant was why every Ethereum budget reverted.
+        token: getBudgetHireToken(chainId) || NATIVE_SENTINEL,
         amount: totalWei,
         maxPerDraw: maxWei,
         deadline: Math.floor(Date.now() / 1000) + hours * 3600,

@@ -51,7 +51,7 @@ import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealH
 import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
-import DeliveryProvenance, { DeliveryFlags, StoreWideDelivery } from './DeliveryProvenance';
+import DeliveryProvenance from './DeliveryProvenance';
 import InfoTooltip from './InfoTooltip';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
@@ -1309,10 +1309,6 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                           <VerificationBadge agent={agent} />
                         </div>
 
-                        {/* Same two conditions as web, same component. See
-                            DeliveryProvenance.jsx for why concentration is not
-                            one of them. */}
-                        <DeliveryFlags agent={agent} className="mb-3" />
 
                         <div className="flex gap-4 mb-2">
                           <div title="How trustworthy this agent looks, based on past feedback"><span className="text-[10px] text-gray-500 uppercase block">Score</span><span className="font-bold text-sm">{agent.totalScore?.toFixed(1) || 'n/a'}</span></div>

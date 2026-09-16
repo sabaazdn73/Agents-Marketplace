@@ -35,7 +35,7 @@ check('BSC budget escrow is its own address, not the colliding one',
 check('Arbitrum budget escrow resolves', getBudgetEscrowAddress(42161).toLowerCase() === COLLIDING);
 check('Robinhood budget escrow resolves', getBudgetEscrowAddress(4663).toLowerCase() === COLLIDING);
 check('an undeployed chain resolves to empty, not a default',
-  getBudgetEscrowAddress(8453) === '' && getBudgetEscrowAddress(1) === '');
+  getBudgetEscrowAddress(8453) === '');
 check('no chain id at all resolves to empty', getBudgetEscrowAddress(undefined) === '');
 
 console.log('\nthe collision itself');
@@ -51,13 +51,17 @@ check('market and budget escrow differ on BSC, where both exist',
 console.log('\nhiring availability');
 check('budget hiring on all three deployed chains',
   [56, 42161, 4663].every(isBudgetHiringAvailable));
-check('budget hiring nowhere else', ![8453, 1, 42220, 143].some(isBudgetHiringAvailable));
+check('budget hiring nowhere else', ![8453, 42220, 143].some(isBudgetHiringAvailable));
+// Deployed on Ethereum and not hireable there: the contract does not accept
+// the token this app sends. The two halves of the flag, asserted apart.
+check('Ethereum is deployed but not hireable',
+  getBudgetEscrowAddress(1) !== '' && !isBudgetHiringAvailable(1));
 check('escrow hiring is BSC only', isEscrowHiringAvailable(56)
   && ![42161, 4663, 8453].some(isEscrowHiringAvailable));
 check('BNB testnet (97) is NOT reachable as an escrow chain',
   !isEscrowHiringAvailable(97) && !escrowHiringChainIds().includes(97),
   'no testnet value may be reachable from a production path');
-check('budgetHiringChainIds matches the map', budgetHiringChainIds().sort((a, b) => a - b).join() === '56,4663,42161');
+check('budgetHiringChainIds matches the flag', budgetHiringChainIds().sort((a, b) => a - b).join() === '56,4663,42161');
 
 console.log('\nreasons are specific, not blanket');
 const arb = hiringOptionsFor(42161);

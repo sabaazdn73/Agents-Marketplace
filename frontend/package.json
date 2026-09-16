@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "node scripts/chain_contracts_selfcheck.mjs && vite build",
+    "preview": "vite preview",
+    "check:chains": "node scripts/chain_contracts_selfcheck.mjs"
   },
   "dependencies": {
     "@altananetwork/sdk": "^0.7.0",

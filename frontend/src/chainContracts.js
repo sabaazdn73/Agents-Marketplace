@@ -115,9 +115,52 @@ export function getAgentMarketAddress(chainId) {
     || AGENT_MARKET_BY_CHAIN[chainId] || '';
 }
 
-/** Can a budget be opened on this chain? */
+// The token the hire flow actually sends, per chain.
+//
+// WHY THE ADDRESS ALONE IS NOT THE FLAG
+// It was. `isBudgetHiringAvailable` asked whether AgentBudgetEscrow is
+// deployed on a chain, the panel then opened every budget with the native
+// sentinel, and the contract's own allowlist was never consulted. Read from
+// the deployments on 2026-09-16:
+//
+//   chain 56     acceptedTokens(NATIVE) = true    budgetCounter = 3
+//   chain 42161  acceptedTokens(NATIVE) = true    budgetCounter = 1
+//   chain 1      acceptedTokens(NATIVE) = false   budgetCounter = 0
+//                acceptedTokens(USDC)   = true
+//
+// So every budget opened on Ethereum reverted TokenNotAccepted(), while the
+// chain view flipped itself to hireable and the agent page said "Hiring here
+// funds a budget in ETH on Ethereum". Nobody had ever opened one, which is
+// consistent with nobody being able to.
+//
+// Ethereum is absent below rather than pointed at USDC because the flow that
+// exists sends native value; an ERC-20 budget needs an approve step this app
+// does not have. When that flow is built, this entry appears and the chain
+// becomes hireable in the same edit. The rule is that the flag names the token
+// the UI will send and the chain must accept it, so the two cannot drift apart
+// again. scripts/chain_contracts_selfcheck.mjs checks every entry here against
+// acceptedTokens on the deployment itself.
+const NATIVE_HIRE_TOKEN = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+
+const BUDGET_HIRE_TOKEN_BY_CHAIN = {
+  56: NATIVE_HIRE_TOKEN,
+  42161: NATIVE_HIRE_TOKEN,
+  4663: NATIVE_HIRE_TOKEN,
+};
+
+/** The token a budget is opened with on this chain, or '' if the hire flow
+ *  has nothing this chain's contract accepts. */
+export function getBudgetHireToken(chainId) {
+  return BUDGET_HIRE_TOKEN_BY_CHAIN[Number(chainId)] || '';
+}
+
+/** Can a budget be opened on this chain?
+ *
+ *  Both halves: a deployment to call, and a token it accepts that this app can
+ *  actually send. */
 export function isBudgetHiringAvailable(chainId) {
-  return isAddress(getBudgetEscrowAddress(chainId));
+  return isAddress(getBudgetEscrowAddress(chainId))
+    && Boolean(getBudgetHireToken(chainId));
 }
 
 /** Can an ERC-8183 escrow hire be settled on this chain? */
@@ -125,9 +168,15 @@ export function isEscrowHiringAvailable(chainId) {
   return ESCROW_HIRE_CHAINS.includes(Number(chainId));
 }
 
-/** Chain ids where budget hiring works, for "switch to…" affordances. */
+/** Chain ids where budget hiring works, for "switch to…" affordances.
+ *
+ *  Derived from the same two conditions the flag uses, rather than from the
+ *  address map alone, so an affordance can never offer a chain the flag would
+ *  refuse. */
 export function budgetHiringChainIds() {
-  return Object.keys(BUDGET_ESCROW_BY_CHAIN).map(Number);
+  return Object.keys(BUDGET_ESCROW_BY_CHAIN)
+    .map(Number)
+    .filter(isBudgetHiringAvailable);
 }
 
 /** Chain ids where escrow hiring works. */
