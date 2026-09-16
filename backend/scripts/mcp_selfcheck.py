@@ -134,6 +134,36 @@ def check_encoder() -> None:
               f"{label} encodes as its string form rather than raising")
 
 
+# ── 2b. one encoder, both transports ─────────────────────────────────────────
+
+def check_one_encoder() -> None:
+    """The REST path and the MCP path encode the same value the same way.
+
+    They did not. Cockroach returns a rejection rate as a Decimal; the REST
+    encoder had a Decimal branch and the MCP envelope had its own shorter
+    default that did not, so the same field shipped as 0.955... over one
+    transport and "0.955..." over the other. A model doing arithmetic on the
+    string gets a TypeError, which is a worse failure than a wrong number
+    because it happens somewhere else.
+    """
+    print("\none encoder, both transports")
+    from mcp_server import envelope as env
+    cases = [
+        ("Decimal", decimal.Decimal("0.9554368932038834951456310680")),
+        ("datetime", dt.datetime(2026, 9, 16, 13, 31, 6, tzinfo=dt.UTC)),
+        ("UUID", uuid.UUID("12345678-1234-5678-1234-567812345678")),
+    ]
+    for label, val in cases:
+        rest = ai._encode_one({"v": val}).decode()
+        mcp = env.encode({"v": val})
+        check(rest == mcp, f"{label} encodes identically on both paths",
+              rest if rest == mcp else f"{rest} != {mcp}")
+
+    rate = json.loads(env.encode({"v": decimal.Decimal("0.42")}))["v"]
+    check(isinstance(rate, float), "a rate is a number, not a string",
+          f"{type(rate).__name__}")
+
+
 # ── 3. the transport-free claim ──────────────────────────────────────────────
 
 def check_transport_boundary() -> None:
@@ -393,6 +423,7 @@ def main() -> int:
     print("MCP surface self-check")
     check_descriptions()
     check_encoder()
+    check_one_encoder()
     check_transport_boundary()
     check_envelope()
     check_ceilings()

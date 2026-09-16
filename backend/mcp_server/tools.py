@@ -114,7 +114,12 @@ async def catalogue(datasets: dict, args: dict) -> dict:
         # partial and leaves the rest answerable, rather than turning "what do
         # you have" into an error.
         try:
-            row["coverage"] = await call(d.coverage)
+            cov = await call(d.coverage)
+            # partial is always present, never merely absent. A service that
+            # does not use the word is not partial, and a reader that has to
+            # tell "false" from "the key is missing" will eventually get it
+            # wrong. Production showed partial=None on two of five rows.
+            row["coverage"] = {**cov, "partial": bool(cov.get("partial"))}
         except Exception as e:  # noqa: BLE001
             partial = True
             row["coverage"] = {"partial": True,

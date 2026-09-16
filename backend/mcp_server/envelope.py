@@ -36,6 +36,8 @@ import datetime as dt
 import json
 from typing import Any
 
+from core.json_encoding import json_default
+
 # Per tool, in bytes of encoded JSON. The basis for each is in mcp/DESIGN.md
 # section 3; the short version is that they are derived from measured record
 # sizes rather than chosen.
@@ -50,12 +52,11 @@ CEILINGS = {
 DEFAULT_CEILING = 8_192
 
 
-def _default(o: Any) -> Any:
-    if isinstance(o, (dt.datetime, dt.date, dt.time)):
-        return o.isoformat()
-    if isinstance(o, (set, frozenset, tuple)):
-        return list(o)
-    return str(o)
+# One encoder rule for both transports, in core/json_encoding.py. This module
+# had its own shorter version, without a Decimal branch, and that is how a
+# Hyperliquid rejection rate went out over MCP as a string while the REST path
+# served the same field as a number.
+_default = json_default
 
 
 def encode(payload: dict) -> str:

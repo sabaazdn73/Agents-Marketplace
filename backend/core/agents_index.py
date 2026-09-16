@@ -43,11 +43,10 @@ resident against a 15.7MB saving on every single request.
 
 from __future__ import annotations
 
-import datetime as dt
-import decimal
 import json
-import uuid
 from typing import Any, Iterable
+
+from core.json_encoding import json_default
 
 # Page size. The caller may ask for less, never for more.
 MAX_PAGE_SIZE = 100
@@ -84,54 +83,17 @@ _SORTS = {
 DEFAULT_SORT = "totalScore"
 
 
-def _json_default(o: Any) -> Any:
-    """What json.dumps cannot encode on its own, encoded the way FastAPI does.
-
-    These records come from Mongo and carry datetime, Decimal and ObjectId
-    values that plain json.dumps rejects. This used to be handled by importing
-    fastapi.encoders.jsonable_encoder, which made the one import that stopped
-    this layer being transport free. It is a JSON helper rather than a response
-    type, so the claim was defensible, and it would have stopped being
-    defensible the moment anything else was reached for. The MCP adapter reads
-    this same layer, so the import moved out rather than being argued about.
-
-    Byte equivalence with the previous encoder is not assumed. It is checked
-    against jsonable_encoder itself, over records carrying each of these types,
-    by scripts/mcp_selfcheck.py."""
-    if isinstance(o, (dt.datetime, dt.date, dt.time)):
-        return o.isoformat()
-    if isinstance(o, dt.timedelta):
-        return o.total_seconds()
-    if isinstance(o, decimal.Decimal):
-        return float(o)
-    if isinstance(o, uuid.UUID):
-        return str(o)
-    if isinstance(o, (set, frozenset, tuple)):
-        return list(o)
-    if isinstance(o, bytes):
-        return o.decode("utf-8", "replace")
-    # Mongo's own types, and anything else with a string form.
-    #
-    # One deliberate divergence from the encoder this replaced, measured rather
-    # than assumed: jsonable_encoder RAISES ValueError on bson's ObjectId and
-    # Decimal128, because it tries dict() then vars() and both fail on a
-    # slotted type. A record carrying either used to take the endpoint down
-    # with a 500 rather than serve. Here they encode as their string form.
-    #
-    # Everything jsonable_encoder can encode is encoded byte for byte the same,
-    # which is what scripts/mcp_selfcheck.py checks against jsonable_encoder
-    # itself. The divergence is only where the old path had no answer.
-    return str(o)
-
-
 def _encode_one(record: dict) -> bytes:
     """One agent, encoded exactly as FastAPI would have encoded it.
 
     Separators match JSONResponse so the bytes on the wire are identical to
-    what this endpoint served before, rather than merely equivalent."""
+    what this endpoint served before, rather than merely equivalent. The
+    default lives in core/json_encoding.py because the MCP transport needs the
+    same one, and the two having their own was how a rate reached production as
+    a string over one transport and a number over the other."""
     return json.dumps(
         record, ensure_ascii=False, allow_nan=False,
-        separators=(",", ":"), default=_json_default,
+        separators=(",", ":"), default=json_default,
     ).encode("utf-8")
 
 
