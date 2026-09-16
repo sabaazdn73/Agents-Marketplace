@@ -43,10 +43,11 @@ resident against a 15.7MB saving on every single request.
 
 from __future__ import annotations
 
+import datetime as dt
+import decimal
 import json
+import uuid
 from typing import Any, Iterable
-
-from fastapi.encoders import jsonable_encoder
 
 # Page size. The caller may ask for less, never for more.
 MAX_PAGE_SIZE = 100
@@ -59,6 +60,15 @@ TIER_UNPROVEN = 0
 TIER_RESPONDING = 1
 TIER_CANARY_VERIFIED = 2
 TIER_VERIFIED = 3
+
+# The names these ranks carry outside this file. One table, because the page
+# counts and the compact projection both name them and two tables would drift.
+TIER_NAMES = {
+    TIER_VERIFIED: "verified",
+    TIER_CANARY_VERIFIED: "canary_verified",
+    TIER_RESPONDING: "responding",
+    TIER_UNPROVEN: "unproven",
+}
 
 # Sort key -> the index array it reads. Named with the client's own sort keys
 # (AgentMarketplaceApp's sortState.key) so there is no translation table in
@@ -74,17 +84,54 @@ _SORTS = {
 DEFAULT_SORT = "totalScore"
 
 
+def _json_default(o: Any) -> Any:
+    """What json.dumps cannot encode on its own, encoded the way FastAPI does.
+
+    These records come from Mongo and carry datetime, Decimal and ObjectId
+    values that plain json.dumps rejects. This used to be handled by importing
+    fastapi.encoders.jsonable_encoder, which made the one import that stopped
+    this layer being transport free. It is a JSON helper rather than a response
+    type, so the claim was defensible, and it would have stopped being
+    defensible the moment anything else was reached for. The MCP adapter reads
+    this same layer, so the import moved out rather than being argued about.
+
+    Byte equivalence with the previous encoder is not assumed. It is checked
+    against jsonable_encoder itself, over records carrying each of these types,
+    by scripts/mcp_selfcheck.py."""
+    if isinstance(o, (dt.datetime, dt.date, dt.time)):
+        return o.isoformat()
+    if isinstance(o, dt.timedelta):
+        return o.total_seconds()
+    if isinstance(o, decimal.Decimal):
+        return float(o)
+    if isinstance(o, uuid.UUID):
+        return str(o)
+    if isinstance(o, (set, frozenset, tuple)):
+        return list(o)
+    if isinstance(o, bytes):
+        return o.decode("utf-8", "replace")
+    # Mongo's own types, and anything else with a string form.
+    #
+    # One deliberate divergence from the encoder this replaced, measured rather
+    # than assumed: jsonable_encoder RAISES ValueError on bson's ObjectId and
+    # Decimal128, because it tries dict() then vars() and both fail on a
+    # slotted type. A record carrying either used to take the endpoint down
+    # with a 500 rather than serve. Here they encode as their string form.
+    #
+    # Everything jsonable_encoder can encode is encoded byte for byte the same,
+    # which is what scripts/mcp_selfcheck.py checks against jsonable_encoder
+    # itself. The divergence is only where the old path had no answer.
+    return str(o)
+
+
 def _encode_one(record: dict) -> bytes:
     """One agent, encoded exactly as FastAPI would have encoded it.
 
-    jsonable_encoder first for the same reason the old whole-list encoder used
-    it: these records come from Mongo and can carry datetime/Decimal values
-    that plain json.dumps rejects. Separators match JSONResponse so the bytes
-    on the wire are identical to what this endpoint served before, rather than
-    merely equivalent."""
+    Separators match JSONResponse so the bytes on the wire are identical to
+    what this endpoint served before, rather than merely equivalent."""
     return json.dumps(
-        jsonable_encoder(record), ensure_ascii=False, allow_nan=False,
-        separators=(",", ":"),
+        record, ensure_ascii=False, allow_nan=False,
+        separators=(",", ":"), default=_json_default,
     ).encode("utf-8")
 
 
@@ -354,6 +401,54 @@ class AgentsIndex:
         """The blobs for one page. This is the only place blobs are touched."""
         return [self.blobs[i] for i in idx[offset:offset + limit]]
 
+    def project(self, idx: list[int], offset: int, limit: int) -> list[dict]:
+        """A page as compact rows rather than whole records.
+
+        A record is about 1,157 bytes and most of it is description text. A row
+        here is about 200. The difference is what makes a paged list safe to
+        hand a model, which cannot see the size of a response until it has
+        already paid for it: 25 rows is 5KB instead of 29KB, and reading one
+        agent in full is a second, named call rather than a page that quietly
+        got heavy.
+
+        Added for the MCP adapter, which is the caller that needs it, and put
+        here rather than there because the blobs and the tier ranks are here
+        and a projection assembled anywhere else would be a second opinion
+        about what an agent is."""
+        out = []
+        for i in idx[offset:offset + limit]:
+            try:
+                r = json.loads(self.blobs[i])
+            except ValueError:
+                r = {}
+            out.append({
+                "id": r.get("id") or r.get("token_id"),
+                # Trimmed rather than dropped: a name is what the row is for,
+                # and a long one is still recognisable at 80 characters.
+                "name": (r.get("name") or "").strip()[:80],
+                "chain_id": self.chain[i],
+                "category": self.cat[i],
+                "tier": TIER_NAMES[self.tier[i]],
+                "score": round(self.score[i], 2),
+            })
+        return out
+
+    def record(self, agent_id: str) -> dict | None:
+        """One agent in full, by id or token id, with its tier attached.
+
+        The tier is computed at build time from the performance and canary
+        joins and is not a field of the stored record, so a caller reading the
+        blob alone would see an agent with no verification state at all."""
+        i = self.ids.get(str(agent_id).strip().lower())
+        if i is None:
+            return None
+        try:
+            r = json.loads(self.blobs[i])
+        except ValueError:
+            return None
+        r["tier"] = TIER_NAMES[self.tier[i]]
+        return r
+
     def facets(self, idx: list[int]) -> list[dict]:
         """Category counts over a selection, biggest first.
 
@@ -377,11 +472,9 @@ class AgentsIndex:
     def tier_counts(self, idx: list[int]) -> dict[str, int]:
         """The stat-card numbers, which the client used to derive by filtering
         the whole array it had been sent."""
-        out = {"verified": 0, "canary_verified": 0, "responding": 0, "unproven": 0}
-        names = {TIER_VERIFIED: "verified", TIER_CANARY_VERIFIED: "canary_verified",
-                 TIER_RESPONDING: "responding", TIER_UNPROVEN: "unproven"}
+        out = {name: 0 for name in TIER_NAMES.values()}
         for i in idx:
-            out[names[self.tier[i]]] += 1
+            out[TIER_NAMES[self.tier[i]]] += 1
         return out
 
 

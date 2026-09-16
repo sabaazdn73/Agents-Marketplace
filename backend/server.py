@@ -2849,3 +2849,29 @@ async def commerce_run(request: Request):
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Pipeline failed: {type(e).__name__}: {e}")
     return state.to_dict()
+
+
+# ── MCP ──────────────────────────────────────────────────────────────────────
+#
+# A second transport over the same service layer, mounted here rather than
+# given a service of its own. The expensive thing is the agents index at
+# 21.53MB resident; a second process would hold a second copy of it in a
+# second 512MiB container. mcp/DESIGN.md sections 8 and 9.
+#
+# The only thing this file gives the adapter is a reader for that index, which
+# lives in this module's cache because this module owns its refresh. The
+# adapter imports core/ and never imports this file, so the dependency runs one
+# way and the MCP surface cannot accumulate logic of its own.
+#
+# Additive: no existing route, response or behaviour changes. If the import
+# fails the rest of the API is unaffected, which is the same fail-open posture
+# the collector loop and the keep-alive already take.
+try:
+    from mcp_server.router import Providers, build_router
+
+    app.include_router(build_router(Providers(
+        agents_index=lambda: _cache["index"],
+    )))
+    print("[mcp] mounted at POST /mcp", flush=True)
+except Exception as _mcp_error:  # noqa: BLE001
+    print(f"[mcp] not mounted ({type(_mcp_error).__name__}: {_mcp_error})", flush=True)

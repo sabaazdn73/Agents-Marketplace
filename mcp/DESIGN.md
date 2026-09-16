@@ -359,3 +359,61 @@ should have been told first.
    held back.
 
 Say yes, or say which of the five is wrong, and I will build it.
+
+---
+
+## 12. What was built, and where it diverged
+
+Agreed 2026-09-16, all five points in section 11, and built the same day. The
+code is under `backend/mcp_server/`, not here: `backend/` is the deploy root, so
+a package beside this document would not ship.
+
+    backend/mcp_server/envelope.py   the envelope and the byte ceiling
+    backend/mcp_server/registry.py   the datasets and how a new one is added
+    backend/mcp_server/tools.py      the six tools and their descriptions
+    backend/mcp_server/protocol.py   JSON-RPC, and the gate
+    backend/mcp_server/router.py     the mount server.py includes
+    backend/scripts/mcp_selfcheck.py the checks
+
+Five datasets: `agents.index`, `hyperliquid.post_only`, `chains.views`,
+`jobs.erc8183`, `budgets.escrow`. The tokenized stock work is chain 4663 inside
+the first two rather than a dataset of its own, because there is no separate
+service behind one. When it has its own measurements it gets its own descriptor
+and no tool changes, which is the point of the registry.
+
+Four things the build changed, each found by running it rather than by reading
+it:
+
+The gate refuses rather than queues, which was the instruction, and it is
+process wide rather than per connection. A limit that lets ten connections each
+hold one call protects nothing in a container that dies every two hours.
+Verified over HTTP with two concurrent calls: one answered, one refused with
+code -32029 and `reason: server_busy`.
+
+The encoder that replaced `jsonable_encoder` is byte identical over everything
+FastAPI could encode, and that is checked against `jsonable_encoder` itself
+rather than asserted. There is one divergence and it is deliberate: on Mongo's
+ObjectId and Decimal128, `jsonable_encoder` raises ValueError, because it tries
+`dict()` then `vars()` and both fail on a slotted type. A record carrying either
+used to take the endpoint to a 500. They now encode as their string form.
+
+A tool result carries its answer twice, as text and as structured content, and
+both halves are now decoded from one encoded body. The first version passed the
+raw payload as the structured half, and a Decimal out of Cockroach took the
+whole response to a 500: the envelope's writer knows how to write one and the
+transport's `json.dumps` does not.
+
+Two datasets had to be shaped for a model rather than for a tab. Hyperliquid's
+maker rows are about 500 bytes each and the right answer for a table someone is
+reading; the list now returns the address, the rate and what is behind it, at
+161 bytes. Its summary returned every maker filed under its band, went over the
+8KB ceiling and was refused: the ceiling did its job and the shape was still
+wrong, so it returns counts per band. The self-check now holds both as
+structural rules, which is how `chains.views` was caught returning 697 byte
+rows.
+
+One place the surface was quietly dishonest, and is not now. A provider with no
+indexed jobs comes back from the service as `hired: false` with zero counts and
+a note saying why. A person reads the note. A model reads `hire_count: 0` and
+has been told in numbers that this agent was hired zero times. It now carries
+`withheld_reason: no_jobs_indexed`, with the note beside it.

@@ -360,3 +360,72 @@ def maker_bands(rows: list[dict]) -> dict:
                 out[name].append(m)
                 break
     return out
+
+
+# The series read, added for the MCP adapter's tnega_series. Bucket width is
+# the collector's own (10 seconds), so this returns what was recorded rather
+# than a re-bucketing of it.
+MAX_SERIES_POINTS = 200
+
+
+def address_series(address: str, limit: int = MAX_SERIES_POINTS,
+                   before: str | None = None) -> dict:
+    """Seconds-resolution updates for one address, newest first.
+
+    THE DENOMINATOR IS NOT THE REST DENOMINATOR
+    The WebSocket feed carries no `tif`, so the post-only denominator the REST
+    rate uses cannot be reconstructed from it. `rejected` here is exact,
+    because badAloPxRejected can only happen to a post-only order, but
+    `updates` is every order update of any kind. The ratio of the two is a
+    different quantity from the rate on the tab and the two must not be shown
+    as though they were the same. That is stated in the return rather than
+    left to the caller to remember.
+
+    Coverage is returned whether or not there are points, and says whether the
+    collector held a confirmed subscription for the window. An address with no
+    rows and a subscription is quiet; an address with no rows and no
+    subscription was not being watched, and those are different facts.
+    """
+    limit = max(1, min(int(limit or MAX_SERIES_POINTS), MAX_SERIES_POINTS))
+    args: list = [address.lower()]
+    cutoff = ""
+    if before:
+        cutoff = "AND bucket_start < %s"
+        args.append(before)
+
+    with _conn() as c, c.cursor() as cur:
+        cur.execute(f"""
+            SELECT bucket_start,
+                   coalesce(sum(n), 0) AS updates,
+                   coalesce(sum(n) FILTER (WHERE status = 'badAloPxRejected'), 0)
+            FROM hl_ws_buckets
+            WHERE address = %s {cutoff}
+            GROUP BY bucket_start
+            ORDER BY bucket_start DESC
+            LIMIT %s""", (*args, limit))
+        rows = cur.fetchall()
+
+        cur.execute("""
+            SELECT count(*), min(bucket_start), max(bucket_start),
+                   count(*) FILTER (WHERE subscribed)
+            FROM hl_ws_coverage WHERE address = %s""", (address.lower(),))
+        cov_rows, cov_first, cov_last, cov_subscribed = cur.fetchone()
+
+    points = [
+        {"t": b.isoformat(), "updates": int(u or 0), "rejected": int(r or 0)}
+        for b, u, r in rows
+    ]
+    return {
+        "address": address.lower(),
+        "bucket_seconds": 10,
+        "coverage": {
+            "buckets_returned": len(points),
+            "coverage_rows": int(cov_rows or 0),
+            "buckets_subscribed": int(cov_subscribed or 0),
+            "first_bucket": cov_first.isoformat() if cov_first else None,
+            "last_bucket": cov_last.isoformat() if cov_last else None,
+            "denominator": "all order updates, not post-only orders",
+        },
+        "points": points,
+        "next_before": points[-1]["t"] if len(points) == limit else None,
+    }
