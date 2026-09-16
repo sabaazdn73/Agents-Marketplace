@@ -82,6 +82,12 @@ keeps the tier on.
 
 ### What this does not claim
 
+A fuller measurement of the same question, taken the same day, is in
+[What the verified tier can mean, and what it cannot](what-verified-can-mean.md).
+It is a record rather than a defect report: 17 client wallets and about 8 units
+of value stand behind the whole verified set, and 14 of 27 agents hold the tier
+on a payment of 0.0001 or less.
+
 A single external buyer is still a single external buyer. Of the 26 distinct
 owners behind the verified set, 20 have every delivery from one client, and in
 three cases that client is the owner of another agent in the same index. That is

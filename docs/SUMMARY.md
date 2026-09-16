@@ -46,6 +46,7 @@
 ## Methodology
 
 * [Verification Methodology](verification-methodology.md)
+* [What Verified Can Mean](what-verified-can-mean.md)
 * [Full BSC Registry Analysis](full-registry-analysis.md)
 * [Category-Aware Evaluation](category-evaluation.md)
 * [Agent Metrics](agent-metrics.md)
