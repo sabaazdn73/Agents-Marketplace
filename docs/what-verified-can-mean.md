@@ -38,9 +38,9 @@ and the evidence is on chain.
 
 What the measurement shows is that the definition, correctly applied, is
 carrying less weight than the words "Verified working" suggest to a reader. A
-payment of 0.0001 units from a wallet that also paid nine other agents is a
-real on-chain job from a real external buyer, and it is not evidence that
-anyone wanted the work.
+payment of 0.0001 units from a wallet that also paid nine other agents is an
+on-chain job from an external buyer, and it is not evidence that anyone wanted
+the work.
 
 ## The three things that would each be a different fix
 
@@ -64,7 +64,7 @@ define and the closest to what a reader thinks the badge rules out.
 ## Why nothing is being changed today
 
 Because the version of this that holds is not a stricter filter, it is a
-smaller claim. Every threshold above would move the count and none of them would make
+smaller claim. Every threshold above would move the count and none would make
 the remaining agents better evidenced; they would make the set smaller and the
 wording no more accurate. The useful change, when it comes, is likely to be
 about what the badge says rather than about who qualifies for it.
