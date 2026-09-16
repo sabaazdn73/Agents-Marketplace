@@ -243,11 +243,23 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
         running += b["n"]
         cutoff = b["_id"]
 
+    if not cutoff and buckets:
+        # Nothing fits under the allowance, because the oldest hour alone is
+        # bigger than the overage. Stopping here is what the first version did,
+        # and it meant the collection settled permanently above the cap: after
+        # the first run it sat at 42,596 against a ceiling of 40,000 and could
+        # never move again. Take that one hour anyway when it is inside the
+        # per-run bound. Overshooting the ceiling downward by part of an hour
+        # is harmless; never reaching it is not.
+        oldest = buckets[0]
+        if oldest["n"] <= max_delete:
+            cutoff, running = oldest["_id"], oldest["n"]
+
     if not cutoff or not running:
         return {"total": total, "over": over, "deleted": 0,
                 "capped_at": max_docs,
-                "note": "no whole hour of stale agents fits under the per-run "
-                        "delete bound; nothing removed"}
+                "note": "the oldest hour alone exceeds the per-run delete "
+                        "bound; nothing removed this run"}
 
     # `<` against the next hour's boundary, so the chosen hour is included
     # whole and no document is deleted whose hour was only partly counted.

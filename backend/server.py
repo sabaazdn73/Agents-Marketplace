@@ -503,8 +503,12 @@ async def _refresh_into_store() -> list[dict]:
         if len(fresh_data) >= 5_000:
             try:
                 capped = await agent_store.enforce_store_cap()
-                if capped.get("deleted"):
-                    print(f"[server] known_agents cap: {capped}", flush=True)
+                # Logged on every run, including the runs that delete nothing.
+                # The first version printed only on a deletion, which made a
+                # cap that ran and found nothing to do indistinguishable from a
+                # cap that never ran at all: verifying it on production was
+                # impossible for exactly that reason.
+                print(f"[server] known_agents cap: {capped}", flush=True)
             except Exception as e:  # noqa: BLE001
                 print(f"[server] known_agents cap failed ({type(e).__name__}: {e}); "
                       f"the store is over its ceiling and still serving", flush=True)
