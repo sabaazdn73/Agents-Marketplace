@@ -14,9 +14,16 @@ through review again.
     listing.md                        every text field, ready to paste
     build.py                          rebuilds and re-checks the zip
     capture.py                        re-takes the screenshots from a live page
+    icons.py                          rebuilds every Tnega image from one master
 
 Rebuild the package with `python3 extension-store/build.py`. It refuses to write
 a zip if any check fails, so a passing run is the evidence, not a promise.
+
+The mark lives in one file, extension/icons/tnega-128.png. Change it there, run
+`python3 extension-store/icons.py`, then rebuild. That regenerates the three
+toolbar sizes, the store icon and the promo tile together, so the icon on the
+toolbar and the icon on the listing cannot come from different versions of the
+logo.
 
 ## Before you start
 
