@@ -151,6 +151,113 @@ async def upsert_agents(agents: list[dict]) -> dict:
     return {"seen": len(agents), "new": new_count, "total_known": total, "at": now_iso}
 
 
+# How many agents `known_agents` may hold. This is a ceiling on the WRITE, not
+# a periodic cleanup, because a periodic cleanup is what was tried and what
+# regressed.
+#
+# WHY THE STORE GROWS WITHOUT ONE
+# The refresh does not select the same agents twice. `get_agents_from_full_registry`
+# draws its pool with MongoDB's `$sample`, deliberately, so that the
+# diversification input is a representative cross-section rather than whatever
+# sits first in insertion order. Each refresh therefore names a different subset
+# of `full_agent_registry`, `upsert_agents` never deletes, and the union of many
+# random samples converges on the whole registry. Measured 2026-09-16: the
+# served window is 15,000 and 33,506 distinct agents had been stamped within
+# 24 hours, on the way to 102,997 stored against a registry of 261,479.
+#
+# That is also why the 2026-09-08 fix did not hold. It deleted down to 15,000
+# and changed nothing about the mechanism, so the store refilled. A cap applied
+# where the write happens cannot regress the same way: the next refresh enforces
+# it again.
+#
+# WHY 40,000
+# The serving read takes a pool from this collection and diversifies it down to
+# SERVE_LIMIT. A cap of roughly two and a half times the served window leaves
+# diversification a real choice while bounding the collection permanently. At
+# about 1.06KB per document this holds `known_agents` near 42MB rather than the
+# 108MB it had reached, against a 512MiB cluster quota that has refused writes
+# once already.
+KNOWN_AGENTS_MAX = 40_000
+
+# One run never deletes more than this. A cap that tries to remove 60,000
+# documents in a single call on a shared-tier cluster is its own outage.
+KNOWN_AGENTS_MAX_DELETE_PER_RUN = 25_000
+
+
+async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
+                            max_delete: int = KNOWN_AGENTS_MAX_DELETE_PER_RUN) -> dict:
+    """Hold `known_agents` near its ceiling, oldest `last_seen_at` first.
+
+    Near, not at. The cutoff is a whole hour of `last_seen_at`, and a run stops
+    rather than delete an hour that would take it past its own per-run bound,
+    so the collection settles at the cap plus at most one hour bucket. Measured
+    on the first run: 102,997 down to 42,596 against a cap of 40,000. That is a
+    bound, which is what this is for, and it is not an exact count, which is
+    what the name would otherwise imply.
+
+    Least-recently-selected is the right thing to drop: an agent the sampler
+    has not named in a long time is an agent the marketplace has not served in
+    a long time, and its enrichment is correspondingly stale. If the sampler
+    names it again it is re-created by the next upsert, and
+    `_merge_preserving_real_data` treats it as new rather than regressing a
+    live field to empty.
+
+    Returns what it did rather than logging it, so the caller decides whether
+    a deletion is worth saying out loud.
+    """
+    db = get_db()
+    coll = db.known_agents
+    total = await coll.count_documents({})
+    over = total - max_docs
+    if over <= 0:
+        return {"total": total, "over": 0, "deleted": 0, "capped_at": max_docs}
+
+    take = min(over, max_delete)
+
+    # Chosen by counting, not by sorting.
+    #
+    # The obvious implementation is find().sort("last_seen_at", 1).limit(n).
+    # It fails here: nothing indexes last_seen_at, so the sort is in memory,
+    # and an in-memory sort of this collection exceeds MongoDB's 32MB limit.
+    # allowDiskUse is the documented escape and is not available on a shared
+    # tier, so the escape is unavailable exactly where the limit binds.
+    #
+    # Instead: one pass that buckets last_seen_at by hour, then walk the hours
+    # oldest first until the bucket total reaches what has to go, and delete by
+    # that timestamp. One aggregation and one delete, no sort stage, and the
+    # cutoff is a real boundary in the data rather than an offset into an
+    # ordering that has ties.
+    buckets = await coll.aggregate([
+        {"$group": {"_id": {"$substrBytes": ["$last_seen_at", 0, 13]},
+                     "n": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+    ]).to_list(length=None)
+
+    running, cutoff = 0, None
+    for b in buckets:
+        # Stop before crossing the allowance: deleting a whole hour that takes
+        # the total past `take` would break the per-run bound this exists to
+        # respect. The next run takes the next hour.
+        if running + b["n"] > take:
+            break
+        running += b["n"]
+        cutoff = b["_id"]
+
+    if not cutoff or not running:
+        return {"total": total, "over": over, "deleted": 0,
+                "capped_at": max_docs,
+                "note": "no whole hour of stale agents fits under the per-run "
+                        "delete bound; nothing removed"}
+
+    # `<` against the next hour's boundary, so the chosen hour is included
+    # whole and no document is deleted whose hour was only partly counted.
+    res = await coll.delete_many({"last_seen_at": {"$lte": cutoff + "\uffff"}})
+    deleted = res.deleted_count
+    return {"total": total, "over": over, "deleted": deleted,
+            "remaining": total - deleted, "capped_at": max_docs,
+            "cutoff": cutoff}
+
+
 async def update_agent_health(results: dict[str, dict]) -> int:
     """Persist health-check results (see core/agent_health.py), one
     $set per agent, keyed by the same `_id` upsert_agents uses. A separate

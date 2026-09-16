@@ -489,6 +489,28 @@ async def _refresh_into_store() -> list[dict]:
     if fresh_data:
         result = await agent_store.upsert_agents(fresh_data)
         print(f"[server] Upserted refresh into known_agents: {result}")
+        # The write's own ceiling, applied here rather than by a cleanup that
+        # runs sometimes. The pool is drawn with $sample, so every refresh
+        # names a different subset and the union of them grows toward the whole
+        # registry; the store reached 102,997 against a served window of 15,000
+        # and an Atlas quota that has refused writes once. See
+        # agent_store.KNOWN_AGENTS_MAX for why a periodic cut did not hold.
+        #
+        # Guarded on the size of the batch that just landed: a degraded fetch
+        # must never be the thing that decides which agents are dropped. The
+        # same reasoning as the "do not upsert nothing" branch below, one step
+        # further on.
+        if len(fresh_data) >= 5_000:
+            try:
+                capped = await agent_store.enforce_store_cap()
+                if capped.get("deleted"):
+                    print(f"[server] known_agents cap: {capped}", flush=True)
+            except Exception as e:  # noqa: BLE001
+                print(f"[server] known_agents cap failed ({type(e).__name__}: {e}); "
+                      f"the store is over its ceiling and still serving", flush=True)
+        else:
+            print(f"[server] known_agents cap skipped: batch of {len(fresh_data)} "
+                  f"is too small to decide what to drop", flush=True)
     elif used_full_registry:
         # A successful-but-empty fetch is treated as suspect (transient network
         # hiccup / a failed page mid-pagination): we do NOT upsert nothing, and
