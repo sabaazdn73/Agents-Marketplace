@@ -163,6 +163,11 @@ def _hl_page(hl, limit: int, offset: int) -> dict:
             "post_only_rejection_rate": m.get("post_only_rejection_rate"),
             "post_only_orders": m.get("alo_total"),
             "polls": m.get("polls"),
+            # The reason travels with the absence. Without it a null rate in a
+            # row was indistinguishable from a rate of zero that failed to
+            # encode, and the row could not say why it was empty.
+            "withheld_reason": m.get("withheld_reason"),
+            "newest_record_age_seconds": m.get("newest_record_age_seconds"),
             "enough_data": m.get("enough_data"),
         } for m in page],
         "total": len(rows),
@@ -375,10 +380,12 @@ def build(providers) -> dict[str, Dataset]:
             return {"rows": [], "total": None, "partial": True,
                     "note": "key is required here: a provider address, whose "
                             "jobs this lists."}
-        out = await job_index.get_provider_revenue_jobs(str(key).lower())
-        jobs = sorted(out.get("jobs") or [], key=lambda j: j.get("_id", 0),
-                      reverse=True)
-        page = jobs[offset:offset + limit]
+        # The paged read, not the revenue read. Slicing in Python after
+        # materialising every job bounds the wire and not the heap, which is
+        # how a 17MB response and its MCP sibling shared one defect.
+        out = await job_index.get_provider_jobs_page(
+            str(key).lower(), offset=offset, limit=limit)
+        page = out.get("jobs") or []
         return {
             "rows": [{
                 "job_id": j.get("_id"),
@@ -388,8 +395,8 @@ def build(providers) -> dict[str, Dataset]:
                 "submitted_at": j.get("submittedAt"),
                 "expired_at": j.get("expiredAt"),
             } for j in page],
-            "total": len(jobs),
-            "partial": not out.get("index_complete", False),
+            "total": out.get("total"),
+            "partial": False,
         }
 
     datasets.append(Dataset(

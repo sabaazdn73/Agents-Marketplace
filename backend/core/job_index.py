@@ -174,7 +174,8 @@ async def run_index_batch(max_seconds: float = 20.0, recheck_seconds: float = 10
     }
 
 
-async def get_provider_revenue_jobs(owner_address: str) -> dict:
+async def get_provider_revenue_jobs(owner_address: str, *,
+                                    limit: int = 200) -> dict:
     """Real, complete (never windowed) job history for one agent as
     PROVIDER, read from this module's own persistent index rather than
     core/agent_performance.py's WINDOW-bounded cache. Returns both the real
@@ -187,13 +188,82 @@ async def get_provider_revenue_jobs(owner_address: str) -> dict:
     owner = (owner_address or "").lower()
     progress = await _get_progress()
 
-    jobs = await col.find({"provider": owner}).to_list(length=None)
+    # Bounded, projected, and sorted on the primary key.
+    #
+    # This was `find({"provider": owner}).to_list(length=None)` with no
+    # projection. For the largest provider in the index that is 56,167 whole
+    # documents, descriptions included, and the endpoint built from it returned
+    # 17,460,180 bytes to an unauthenticated caller: larger than the whole
+    # agents payload that docs/memory-ceiling.md exists to document, on the
+    # container that document says is OOM killed every hour. Both callers, the
+    # revenue route and the MCP jobs list, paid the full heap cost; the MCP one
+    # paged afterwards, which bounds the wire and not the memory.
+    #
+    # Sorted by `_id` rather than `submittedAt` on purpose: `_id` is the job id,
+    # it is monotonic with creation, and it is the only indexed field on this
+    # collection, so this streams in index order instead of an in-memory sort
+    # that would exceed MongoDB's 32MB limit on a tier where allowDiskUse is
+    # unavailable.
+    earning = await col.count_documents({"provider": owner,
+                                          "status": {"$in": list(EARNING_STATUSES)}})
+    total_jobs = await col.count_documents({"provider": owner})
+
+    # The money, summed in the database. `budget` is stored as a string, so it
+    # is converted per document rather than summed as text.
+    agg = await col.aggregate([
+        {"$match": {"provider": owner, "status": {"$in": list(EARNING_STATUSES)}}},
+        {"$group": {"_id": None, "total": {"$sum": {"$toDecimal": "$budget"}}}},
+    ]).to_list(length=1)
+    # $toDecimal gives back a bson Decimal128, which int() will not take.
+    # Through its string form rather than through float, because these are
+    # wei-scale integers and a float would quietly lose the low digits.
+    earned_raw = str(int(str(agg[0]["total"]))) if agg else "0"
+
+    jobs = await col.find(
+        {"provider": owner, "status": {"$in": list(EARNING_STATUSES)}},
+        {"_id": 1, "status": 1, "budget": 1, "submittedAt": 1, "description": 1},
+    ).sort("_id", -1).limit(limit).to_list(length=limit)
+    jobs.reverse()   # oldest first, which is the order a timeline is read in
+
     return {
         "jobs": jobs,
+        "total_jobs": total_jobs,
+        "earning_jobs": earning,
+        "earned_raw": earned_raw,
+        # True when the timeline below is a tail of a longer history. The
+        # totals beside it are over everything, not over the tail.
+        "truncated": earning > len(jobs),
         "index_complete": bool(progress.get("completed_at")),
         "indexed_through_job_id": progress.get("next_job_id", 1) - 1,
         "job_counter": progress.get("job_counter_at_last_run") or 0,
     }
+
+
+# How many timeline entries a revenue answer carries. The totals are computed
+# over the whole history regardless; this bounds only the itemisation.
+REVENUE_TIMELINE_LIMIT = 200
+
+EARNING_STATUSES = ("SUBMITTED", "COMPLETED")
+
+
+async def get_provider_jobs_page(owner_address: str, *, offset: int = 0,
+                                 limit: int = 25) -> dict:
+    """One page of a provider's jobs, newest first, for the MCP jobs list.
+
+    Separate from the revenue read because it wants every status and a
+    different field set. Same discipline: projected, bounded, sorted on the
+    indexed primary key.
+    """
+    db = get_db()
+    col = db[JOB_INDEX_COLLECTION]
+    owner = (owner_address or "").lower()
+    total = await col.count_documents({"provider": owner})
+    jobs = await col.find(
+        {"provider": owner},
+        {"_id": 1, "status": 1, "client": 1, "budget": 1,
+         "submittedAt": 1, "expiredAt": 1},
+    ).sort("_id", -1).skip(max(0, offset)).limit(limit).to_list(length=limit)
+    return {"jobs": jobs, "total": total}
 
 
 # fix (2026-08-28) for a real, confirmed gap found investigating the

@@ -180,11 +180,15 @@ def makers(limit: int = 50) -> list[dict]:
         FROM hl_order_counts GROUP BY address
     ), p AS (
         SELECT address, count(*) AS polls, max(polled_at) AS last_seen,
+               -- The age of the newest ORDER, not of the newest poll. A poll
+               -- that succeeded says nothing about whether what it returned is
+               -- current, which is the lesson recorded above this function.
+               max(window_end) AS newest_record,
                max(month_volume) AS month_volume,
                count(*) FILTER (WHERE gap_seconds > 0) AS gapped
         FROM hl_poll GROUP BY address
     )
-    SELECT p.address, p.polls, p.last_seen, p.month_volume, p.gapped,
+    SELECT p.address, p.polls, p.last_seen, p.newest_record, p.month_volume, p.gapped,
            agg.alo_total, agg.alo_rejected, agg.filled, agg.cancels,
            agg.rejected_all, agg.total
     FROM p JOIN agg ON agg.address = p.address
@@ -194,16 +198,46 @@ def makers(limit: int = 50) -> list[dict]:
     out = []
     with _conn() as c, c.cursor() as cur:
         cur.execute(sql, (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ), list(_REJ), limit))
-        for (addr, polls, last_seen, vol, gapped, alo_total, alo_rej,
+        now = dt.datetime.now(dt.UTC)
+        for (addr, polls, last_seen, newest_record, vol, gapped, alo_total, alo_rej,
              filled, cancels, rej_all, total) in cur.fetchall():
             alo_total = int(alo_total or 0); alo_rej = int(alo_rej or 0)
             filled = int(filled or 0); cancels = int(cancels or 0)
             rej_all = int(rej_all or 0); total = int(total or 0)
             enough = (polls or 0) >= MIN_POLLS_FOR_RATE
+
+            # The currency test address_detail() applies, applied here too.
+            #
+            # It was not. This function checked the poll count and nothing
+            # else, so it published rates for addresses whose newest observed
+            # order was months old: measured 2026-09-16, 16 of the 34 rates it
+            # returned were ones address_detail() was withholding as
+            # stale_data, one computed from a record 11,042 hours old. The row
+            # carried no age field either, so nothing downstream could tell.
+            # The extension, which reads address_detail, refused to show a
+            # number for the same address this told the tab to render.
+            age = (now - newest_record).total_seconds() if newest_record else None
+            is_current = age is not None and age <= MAX_RECORD_AGE_SECONDS
+            if not enough:
+                withheld = "too_few_polls"
+            elif not is_current:
+                withheld = "stale_data"
+            elif not alo_total:
+                withheld = "no_post_only_orders"
+            else:
+                withheld = None
+            show_rate = withheld is None
+
             out.append({
                 "address": addr,
                 "polls": polls,
                 "last_seen": last_seen.isoformat() if last_seen else None,
+                "newest_record_at": newest_record.isoformat() if newest_record else None,
+                "newest_record_age_seconds": round(age, 1) if age is not None else None,
+                "is_current": is_current,
+                # The same vocabulary address_detail uses, so a caller that
+                # knows one knows the other.
+                "withheld_reason": withheld,
                 "month_volume": vol,
                 "polls_with_gap": gapped,
                 "orders_observed": total,
@@ -212,11 +246,14 @@ def makers(limit: int = 50) -> list[dict]:
                 # Null until there are enough polls. The counts stay visible
                 # either way so a reader can see why a rate is withheld.
                 "post_only_rejection_rate": (alo_rej / alo_total)
-                    if (enough and alo_total) else None,
-                "cancel_to_fill": (cancels / filled) if (enough and filled) else None,
+                    if (show_rate and alo_total) else None,
+                "cancel_to_fill": (cancels / filled) if (show_rate and filled) else None,
                 "cancel_to_fill_naive": ((cancels + rej_all) / filled)
-                    if (enough and filled) else None,
-                "effective_fill_rate": (filled / total) if (enough and total) else None,
+                    if (show_rate and filled) else None,
+                "effective_fill_rate": (filled / total) if (show_rate and total) else None,
+                # enough_data keeps meaning "enough polls", so no existing
+                # reader of it changes meaning underneath. is_current and
+                # withheld_reason carry what it never said.
                 "enough_data": enough,
             })
     return out

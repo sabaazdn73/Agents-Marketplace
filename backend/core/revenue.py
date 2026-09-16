@@ -158,8 +158,14 @@ async def get_revenue_timeline(owner_address: str) -> dict:
         amount earned, running cumulative total, status.
       - `index_completeness`: status of the underlying job index
         itself, see module docstring."""
-    real_index = await job_index.get_provider_revenue_jobs(owner_address)
+    real_index = await job_index.get_provider_revenue_jobs(
+        owner_address, limit=job_index.REVENUE_TIMELINE_LIMIT)
+    # Earning jobs only, oldest first, and at most REVENUE_TIMELINE_LIMIT of
+    # them. The counts and the money beside them are over the whole history:
+    # the database sums it, this process never holds it.
     jobs = real_index["jobs"]
+    total_job_count = real_index.get("total_jobs", len(jobs))
+    earning_count = real_index.get("earning_jobs", len(jobs))
     token = await _resolve_payment_token()
     completeness = {
         "index_completeness": {
@@ -169,7 +175,7 @@ async def get_revenue_timeline(owner_address: str) -> dict:
         }
     }
 
-    if not jobs:
+    if not total_job_count:
         return {
             "has_earnings": False,
             "reason": ("We checked this agent's complete job history against the shared AgenticCommerce "
@@ -181,11 +187,11 @@ async def get_revenue_timeline(owner_address: str) -> dict:
             **completeness,
         }
 
-    earning_jobs = [j for j in jobs if j["status"] in _EARNING_STATUSES]
-    if not earning_jobs:
+    earning_jobs = jobs
+    if not earning_count:
         return {
             "has_earnings": False,
-            "reason": f"This agent has {len(jobs)} job(s) on record, but none have been delivered "
+            "reason": f"This agent has {total_job_count} job(s) on record, but none have been delivered "
                       "(SUBMITTED or COMPLETED) yet, no revenue to show.",
             **completeness,
         }
@@ -205,8 +211,15 @@ async def get_revenue_timeline(owner_address: str) -> dict:
     # submittedAt is somehow unset on an otherwise-delivered job.
     earning_jobs = sorted(earning_jobs, key=lambda j: (j["submittedAt"] or 0, j["_id"]))
 
+    # Running totals are derived backwards from the true total rather than
+    # accumulated from zero, because the timeline may be the tail of a longer
+    # history. Accumulating from the first visible entry would draw a chart
+    # that starts at zero for an agent that has earned for months.
+    total_raw = int(real_index.get("earned_raw") or 0)
+    visible_raw = sum(int(j["budget"]) for j in earning_jobs)
+    running_total = total_raw - visible_raw
+
     timeline = []
-    running_total = 0
     for j in earning_jobs:
         raw = int(j["budget"])
         running_total += raw
@@ -221,15 +234,21 @@ async def get_revenue_timeline(owner_address: str) -> dict:
             "description": j["description"],
         })
 
-    total_raw = running_total
     return {
         "has_earnings": True,
         "token_address": token["address"],
         "token_symbol": token["symbol"],
         "token_decimals": decimals,
-        "jobs_counted": len(earning_jobs),
+        "jobs_counted": earning_count,
         "total_earned_raw": str(total_raw),
         "total_earned": total_raw / (10 ** decimals),
         "timeline": timeline,
+        # The itemisation is capped; the totals above are not. Said in the
+        # response rather than left for a caller to infer from a length.
+        "timeline_truncated": bool(real_index.get("truncated")),
+        "timeline_note": (
+            f"The {len(timeline)} most recent of {earning_count} delivered jobs. "
+            f"Totals are over all {earning_count}."
+            if real_index.get("truncated") else None),
         **completeness,
     }
