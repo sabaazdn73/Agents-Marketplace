@@ -104,6 +104,8 @@ async def catalogue(datasets: dict, args: dict) -> dict:
             "supports": d.verbs(),
             "caveats": d.caveats,
         }
+        if d.example_filters:
+            row["example_filters"] = d.example_filters
         if d.deprecated:
             row["deprecated"] = d.deprecated
         # Coverage per dataset, live. A catalogue that says what exists without

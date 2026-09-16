@@ -59,6 +59,21 @@ from mcp_server.router import Providers        # noqa: E402
 
 FAILURES: list[str] = []
 
+# One event loop for the whole run.
+#
+# run() creates a loop and closes it. motor binds its client to the
+# first loop it is used on, so the second asyncio.run in a process raises
+# "Event loop is closed" for every Mongo-backed call. Before this, the live
+# dataset checks reported chains.agents and budgets.escrow as unreachable and
+# passed, which read as a local configuration gap and was this file never
+# exercising them at all.
+LOOP = asyncio.new_event_loop()
+asyncio.set_event_loop(LOOP)
+
+
+def run(coro):
+    return LOOP.run_until_complete(coro)
+
 
 def check(ok: bool, label: str, detail: str = "") -> None:
     print(f"  {'ok  ' if ok else 'FAIL'}  {label}{'  ' + detail if detail else ''}")
@@ -244,7 +259,7 @@ def check_gate(datasets) -> None:
     print("\none call at a time")
     protocol.GATE.release()
 
-    async def run():
+    async def while_one_is_running():
         protocol.GATE.acquire()          # stand in for a call already running
         try:
             return await protocol.handle(
@@ -254,7 +269,7 @@ def check_gate(datasets) -> None:
         finally:
             protocol.GATE.release()
 
-    reply = asyncio.run(run())
+    reply = run(while_one_is_running())
     err = reply.get("error") or {}
     check(err.get("code") == protocol.BUSY_CODE, "a second call is refused",
           str(err.get("code")))
@@ -264,7 +279,7 @@ def check_gate(datasets) -> None:
           "the refusal is machine readable")
 
     protocol.GATE.release()
-    ok = asyncio.run(protocol.handle(
+    ok = run(protocol.handle(
         {"jsonrpc": "2.0", "id": 10, "method": "ping"}, datasets))
     check("result" in ok, "the gate reopens after release")
 
@@ -296,73 +311,73 @@ def check_tools() -> None:
         return json.loads(reply["result"]["content"][0]["text"])
 
     # get
-    got = asyncio.run(call("tnega_get", {"dataset": "agents.index", "id": "id-7"}))
+    got = run(call("tnega_get", {"dataset": "agents.index", "id": "id-7"}))
     check(got["value"]["name"] == "Agent 7", "tnega_get returns the record")
     check(got["value"].get("tier") is not None, "tnega_get attaches the tier")
     check(isinstance(got["coverage"], dict), "tnega_get carries coverage")
 
-    missing = asyncio.run(call("tnega_get", {"dataset": "agents.index", "id": "nope"}))
+    missing = run(call("tnega_get", {"dataset": "agents.index", "id": "nope"}))
     check(missing["withheld_reason"] == "not_found",
           "a missing record is a reason, not an empty record")
     check(missing["value"] is None, "a missing record is not a zero")
 
-    wrong = asyncio.run(call("tnega_get", {"dataset": "does.not.exist", "id": "x"}))
+    wrong = run(call("tnega_get", {"dataset": "does.not.exist", "id": "x"}))
     check(wrong["withheld_reason"] == "unknown_dataset", "an unknown dataset is named")
     check("agents.index" in wrong["caveats"][0],
           "an unknown dataset returns the valid ids", "recovers in one call")
 
     # list
-    page = asyncio.run(call("tnega_list", {"dataset": "agents.index", "limit": 25}))
+    page = run(call("tnega_list", {"dataset": "agents.index", "limit": 25}))
     rows = page["value"]
     check(len(rows) == 25, "tnega_list honours limit", f"{len(rows)} rows")
     row_bytes = len(json.dumps(rows[0], separators=(",", ":")).encode())
     check(row_bytes < 260, "a row is a projection, not a record", f"{row_bytes} bytes")
     check(page["next_cursor"], "a page carries a cursor")
 
-    nxt = asyncio.run(call("tnega_list", {"dataset": "agents.index",
+    nxt = run(call("tnega_list", {"dataset": "agents.index",
                                           "cursor": page["next_cursor"]}))
     check(nxt["value"][0]["id"] != rows[0]["id"], "the cursor advances")
     check(nxt["coverage"]["offset"] == 25, "the cursor carries the position")
 
-    over = asyncio.run(call("tnega_list", {"dataset": "agents.index", "limit": 5000}))
+    over = run(call("tnega_list", {"dataset": "agents.index", "limit": 5000}))
     check(len(over["value"]) <= tools.LIST_MAX, "limit is clamped, not obeyed",
           f"{len(over['value'])} rows")
 
-    bad = asyncio.run(call("tnega_list", {"dataset": "agents.index",
+    bad = run(call("tnega_list", {"dataset": "agents.index",
                                           "cursor": "not-a-cursor"}))
     check(bad["withheld_reason"] == "bad_cursor", "a forged cursor is refused")
 
     # summary
-    s = asyncio.run(call("tnega_summary", {"dataset": "agents.index"}))
+    s = run(call("tnega_summary", {"dataset": "agents.index"}))
     check(s["value"]["matched"] == 120, "tnega_summary counts the selection")
     check(not isinstance(s["value"], list), "a summary is a rollup, not rows")
 
     # series, on a dataset that has none
-    ns = asyncio.run(call("tnega_series", {"dataset": "agents.index", "key": "x"}))
+    ns = run(call("tnega_series", {"dataset": "agents.index", "key": "x"}))
     check(ns["withheld_reason"] == "dataset_does_not_support_verb",
           "a dataset without a series says so")
     check("hyperliquid.post_only" in ns["caveats"][0],
           "and names the datasets that do")
 
     # resolve
-    r = asyncio.run(call("tnega_resolve", {"query": "0x" + "ab" * 20}))
+    r = run(call("tnega_resolve", {"query": "0x" + "ab" * 20}))
     check(any(c["dataset"] == "hyperliquid.post_only" for c in r["value"]),
           "an address resolves to the datasets that accept it")
-    junk = asyncio.run(call("tnega_resolve", {"query": "some free text"}))
+    junk = run(call("tnega_resolve", {"query": "some free text"}))
     check(junk["withheld_reason"] == "unrecognised_identifier",
           "free text is not guessed at")
 
     # protocol surface
-    init = asyncio.run(protocol.handle(
+    init = run(protocol.handle(
         {"jsonrpc": "2.0", "id": 1, "method": "initialize",
          "params": {"protocolVersion": "2025-06-18"}}, datasets))
     check(init["result"]["serverInfo"]["name"] == "tnega", "initialize answers")
-    listed = asyncio.run(protocol.handle(
+    listed = run(protocol.handle(
         {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, datasets))
     check(len(listed["result"]["tools"]) == 6, "six tools, no more")
     check(all("handler" not in t for t in listed["result"]["tools"]),
           "the handler does not go on the wire")
-    note = asyncio.run(protocol.handle(
+    note = run(protocol.handle(
         {"jsonrpc": "2.0", "method": "notifications/initialized"}, datasets))
     check(note is None, "a notification gets no reply")
 
@@ -391,9 +406,10 @@ def check_live_datasets() -> None:
         return json.loads(reply["result"]["content"][0]["text"])
 
     for ds_id, d in sorted(datasets.items()):
+        args = dict(d.example_filters or {})
         if d.list is not None:
             try:
-                out = asyncio.run(call("tnega_list", {"dataset": ds_id, "limit": 5}))
+                out = run(call("tnega_list", {"dataset": ds_id, "limit": 5, **args}))
             except Exception as e:  # noqa: BLE001
                 check(True, f"{ds_id} list unreachable here", f"skipped, {type(e).__name__}")
                 continue
@@ -409,7 +425,7 @@ def check_live_datasets() -> None:
 
         if d.summary is not None:
             try:
-                out = asyncio.run(call("tnega_summary", {"dataset": ds_id}))
+                out = run(call("tnega_summary", {"dataset": ds_id, **args}))
             except Exception as e:  # noqa: BLE001
                 check(True, f"{ds_id} summary unreachable here", f"skipped, {type(e).__name__}")
                 continue
@@ -417,6 +433,16 @@ def check_live_datasets() -> None:
                   f"{ds_id} summary fits its ceiling without trimming")
             check(not isinstance(out.get("value"), list),
                   f"{ds_id} summary is a rollup, not rows")
+
+            # The defect an external agent found: a breakdown that did not add
+            # up to the total printed beside it, because the top 15 categories
+            # were sent and the remainder was not mentioned. Any dataset that
+            # reports both has to reconcile.
+            val = out.get("value") or {}
+            if isinstance(val, dict) and "categories_sum" in val:
+                check(val["categories_sum"] == val.get("matched"),
+                      f"{ds_id} categories sum to the total",
+                      f"{val['categories_sum']} vs {val.get('matched')}")
 
 
 def main() -> int:

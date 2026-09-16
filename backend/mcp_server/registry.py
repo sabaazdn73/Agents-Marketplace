@@ -53,6 +53,12 @@ class Dataset:
     # Carried into every response from this dataset, whatever the tool. This is
     # where a denominator that differs from the obvious one gets said out loud.
     caveats: list[str] = field(default_factory=list)
+    # Filters this dataset needs before it can answer, as an example a caller
+    # can copy. chains.agents cannot page without a chain_id, and a model
+    # should learn that from the catalogue rather than from an empty result.
+    # It is also what the self-check calls each dataset with, so a dataset that
+    # needs a filter is exercised rather than skipped.
+    example_filters: dict | None = None
     # Set when a dataset is on its way out: a date and a replacement id. The
     # catalogue keeps showing it and every response carries it, because a
     # caller that stops working should have been told first.
@@ -71,6 +77,42 @@ async def call(fn: Callable[..., Any], *args, **kwargs):
     return out
 
 
+# How many category rows a summary carries before it starts summarising the
+# summary. Nineteen exist today, so this is headroom rather than a limit that
+# bites, and the remainder is never silently dropped.
+MAX_CATEGORY_ROWS = 40
+
+
+def _reconciled_categories(facets: list[dict], matched: int) -> dict:
+    """Category counts that add up to the total beside them.
+
+    They did not. The summary carried the top 15 and said nothing about the
+    rest, so an agent reading it found 14,855 against a stated 14,875 and had
+    to guess whether 20 agents were missing, miscounted, or uncategorised. Grid
+    Trading, with four agents, was simply not in the breakdown at all.
+
+    A number that does not reconcile with the number printed next to it is
+    worse than a number that is absent, because it reads as arithmetic rather
+    than as a cut. So: every category up to the cap, and if the cap bites, one
+    explicit row carrying the remainder and saying how many categories are
+    inside it. The sum always equals matched.
+    """
+    if len(facets) <= MAX_CATEGORY_ROWS:
+        return {"categories": facets,
+                "categories_total": len(facets),
+                "categories_sum": sum(c["count"] for c in facets)}
+    shown = facets[:MAX_CATEGORY_ROWS]
+    rest = facets[MAX_CATEGORY_ROWS:]
+    remainder = sum(c["count"] for c in rest)
+    return {
+        "categories": shown + [{"category": "(other categories)",
+                                "count": remainder,
+                                "categories_inside": len(rest)}],
+        "categories_total": len(facets),
+        "categories_sum": sum(c["count"] for c in shown) + remainder,
+    }
+
+
 def _chain_page(chain_views, limit: int, offset: int) -> dict:
     """Chain views as compact rows.
 
@@ -86,7 +128,15 @@ def _chain_page(chain_views, limit: int, offset: int) -> dict:
             "id": v.get("id"),
             "label": v.get("label"),
             "chains": len(v.get("chains") or []),
-            "hireable": v.get("hireable"),
+            # Named for what it is, rather than `hireable`, which an agent
+            # reading this surface took to mean that delivery had happened
+            # somewhere on the chain. It means a contract is deployed and
+            # nothing else. A list of the paths that exist cannot be read as a
+            # claim about outcomes the way a bare yes could.
+            "hire_paths_deployed": [
+                name for name in ("budget", "escrow")
+                if ((v.get("hire_paths") or {}).get(name) or {}).get("available")
+            ],
         } for v in page],
         "total": len(rows),
         "partial": False,
@@ -194,18 +244,20 @@ def build(providers) -> dict[str, Dataset]:
         if ix is None:
             return {"partial": True}
         idx = ix.select(chain_id=chain_id, category=category, search=search)
+        facets = ix.facets(idx)
         return {
             "matched": len(idx),
             "tiers": ix.tier_counts(idx),
-            "categories": ix.facets(idx)[:15],
+            **_reconciled_categories(facets, len(idx)),
             "feedback_entries": ix.feedback_total(idx),
         }
 
     datasets.append(Dataset(
         id="agents.index",
         title="Agent index",
-        measures="ERC-8004 agents across five chains, ranked by what they have "
-                 "delivered rather than by what they claim",
+        measures="the BNB Chain marketplace: ERC-8004 agents with live service "
+                 "status, ranked by what they have delivered rather than by "
+                 "what they claim",
         keys=["agent id", "token id"],
         coverage=agents_coverage,
         get=agents_get,
@@ -213,7 +265,11 @@ def build(providers) -> dict[str, Dataset]:
         summary=agents_summary,
         caveats=["A verification tier is a claim about delivered work. "
                  "verified means a completed on-chain job; canary_verified is a "
-                 "weaker claim from a test hire and the two are not the same."],
+                 "weaker claim from a test hire and the two are not the same.",
+                 "BNB Chain only. Agents on Ethereum, Arbitrum, Robinhood Chain, "
+                 "Solana and Monad are in chains.agents, which is a different "
+                 "store with a different field set. coverage.chains lists what "
+                 "is actually here rather than what the site covers."],
     ))
 
     # ── hyperliquid ───────────────────────────────────────────────────────
@@ -249,10 +305,15 @@ def build(providers) -> dict[str, Dataset]:
         keys=["view id"],
         coverage=lambda: {"views": len(chain_views.view_ids()),
                           "ids": chain_views.view_ids(), "partial": False},
-        get=chain_views.get_view,
+        get=lambda view: next((v for v in chain_views.describe_views()
+                               if v['id'] == view), None),
         list=lambda *, limit, offset, **_: _chain_page(chain_views, limit, offset),
-        caveats=["Hireable means an escrow contract is deployed and reachable "
-                 "on that chain, not that any agent on it has delivered."],
+        caveats=["hire_paths_deployed names the contracts that exist on that "
+                 "chain. It is a fact about deployment, not about delivery: no "
+                 "agent on the chain need ever have been hired, and none of it "
+                 "implies a job was completed.",
+                 "The ERC-8183 escrow path is deployed on BNB Chain only. A "
+                 "view with an empty list has neither contract."],
     ))
 
     # ── jobs ──────────────────────────────────────────────────────────────
@@ -311,6 +372,108 @@ def build(providers) -> dict[str, Dataset]:
                  "computed from a few budgets.",
                  "Spend is counted from Drawn events. The contract's own spent "
                  "field is overwritten by a reclaim and does not mean delivery."],
+    ))
+
+    # ── agents on the other chains ────────────────────────────────────────
+    #
+    # The gap an external agent found: the catalogue described agents.index as
+    # five chains, coverage.chains said [56], and the agents behind the other
+    # four were in no dataset at all. They are a different store with a
+    # different field set, which is why they are a second dataset rather than
+    # a filter on the first, and why the two say so in each other's caveats.
+    #
+    # Keyed by chain id rather than by view name so that no tool schema had to
+    # grow a `view` filter: chain_id is already a filter every list understands.
+    # A dataset should not be able to widen the vocabulary the tools speak.
+    chain_by_id = {c: vid for vid, v in chain_views.VIEWS.items()
+                   for c in v["chain_ids"] if vid != "bnb"}
+
+    async def chain_agents_coverage():
+        views = [v for v in chain_views.view_ids() if v != "bnb"]
+        counts = {}
+        for vid in views:
+            if (chain_views.VIEWS.get(vid) or {}).get("kind") == "venue":
+                continue
+            counts[vid] = await chain_views.count_view(vid)
+        return {"views": counts, "agents": sum(counts.values()),
+                "chain_ids": sorted(chain_by_id), "partial": False}
+
+    async def chain_agents_get(key: str):
+        # "<chain id>/<token id>", which is the shape of the site's own URL for
+        # one of these agents.
+        parts = str(key).split("/")
+        if len(parts) != 2 or not parts[0].isdigit():
+            return None
+        return await chain_views.fetch_agent(int(parts[0]), parts[1])
+
+    async def chain_agents_list(*, limit, offset, chain_id=None, category=None, **_):
+        if chain_id is None:
+            return {"rows": [], "total": None, "partial": True,
+                    "note": f"chain_id is required here. Valid: {sorted(chain_by_id)}."}
+        view = chain_by_id.get(int(chain_id))
+        if view is None:
+            return {"rows": [], "total": None, "partial": True,
+                    "note": f"chain {chain_id} is not one of these views. "
+                            f"Valid: {sorted(chain_by_id)}. BNB Chain is agents.index."}
+        page = await chain_views.fetch_page(view, offset=offset, limit=limit,
+                                            category=category)
+        # fetch_page names its list "agents". Read the key rather than
+        # guessing between two, so a rename breaks loudly instead of returning
+        # an empty page that looks like an empty chain.
+        rows = page.get("agents") or []
+        return {
+            "rows": [{
+                "id": a.get("id"),
+                "token_id": a.get("token_id"),
+                "name": (a.get("name") or "")[:80],
+                "chain_id": a.get("chain_id"),
+                "category": a.get("category"),
+                "score": a.get("total_score"),
+            } for a in rows],
+            "total": page.get("total"),
+            "partial": False,
+        }
+
+    async def chain_agents_summary(*, chain_id=None, **_):
+        if chain_id is None:
+            return {"note": f"chain_id is required here. Valid: {sorted(chain_by_id)}."}
+        view = chain_by_id.get(int(chain_id))
+        if view is None:
+            return {"note": f"chain {chain_id} is not one of these views."}
+        facets = await chain_views.category_facets(view)
+        total = await chain_views.count_view(view)
+        # One page is fetched for its status breakdown, which chain_views
+        # computes per view and only for chains the analysis pass has actually
+        # run against. A blanket "not checked" would be wrong for Ethereum,
+        # Arbitrum and Robinhood Chain, which have been.
+        head = await chain_views.fetch_page(view, offset=0, limit=1)
+        return {"view": view, "matched": total,
+                "service_status": head.get("status_counts"),
+                "health_checked_chains": head.get("verified_chains"),
+                **_reconciled_categories(facets, total)}
+
+    datasets.append(Dataset(
+        id="chains.agents",
+        title="Agents on the other chains",
+        measures="ERC-8004 agents on Ethereum, Arbitrum, Robinhood Chain, "
+                 "Solana and Monad, from the full registry rather than the "
+                 "BNB marketplace",
+        keys=["chain id/token id, as 42161/1234"],
+        example_filters={"chain_id": 1},
+        coverage=chain_agents_coverage,
+        get=chain_agents_get,
+        list=chain_agents_list,
+        summary=chain_agents_summary,
+        caveats=["A different store from agents.index, with a thinner record: "
+                 "no verification tier, because delivery has not been joined "
+                 "for these chains.",
+                 "Service status exists only for chains the analysis pass has "
+                 "run against. summary.health_checked_chains says which, and "
+                 "an absent status is unchecked rather than unhealthy.",
+                 "list and summary need chain_id. Without it this returns no "
+                 "rows and says which chain ids it knows.",
+                 "BNB Chain is deliberately not here. It is agents.index, "
+                 "which carries a fuller record for the same kind of agent."],
     ))
 
     out: dict[str, Dataset] = {}
