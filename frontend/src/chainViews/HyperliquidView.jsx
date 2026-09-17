@@ -524,9 +524,9 @@ function BrainReady({ brain, mutedBorder }) {
           <ScrollTable mutedBorder={mutedBorder} head={<>
             <Th align="left">Gap between the two windows</Th>
             <Th>Median across {b.addresses_measured}</Th>
-            <Th>Standard error there</Th>
+            <Th>SE at that gap</Th>
             <Th>Smallest pair count</Th>
-            <Th>Addresses clearing 3 SE</Th>
+            <Th>Clearing 3 SE</Th>
           </>}>
             {decay.map((d) => {
               const clears = Number.isFinite(d.standard_error)
