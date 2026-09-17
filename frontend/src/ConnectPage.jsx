@@ -422,14 +422,11 @@ export default function ConnectPage({ variant = 'web' }) {
     {
       key: 'extension',
       title: 'The Chrome extension',
-      // The pill says what is known. The listing was submitted; the Web Store
-      // assigns an item its id at publication and that id is the only part of
-      // the URL nobody can guess, so the link is the store's own search for
-      // the listing's exact name rather than the item page. Calling that
-      // "Published" would be reporting an assumption as a fact. When the item
-      // URL is known, extensionLink.js takes it and this pill changes in the
-      // same commit.
-      pill: <Pill tone="quiet">Submitted</Pill>,
+      // Published on 2026-09-17, and the pill changed in the same commit as the
+      // link, which is what the earlier note here said would happen. It read
+      // Submitted while the item id was unknown, because a store search
+      // answering 200 is not evidence that an item is in it.
+      pill: <Pill tone="live">Live</Pill>,
       markSrc: EXTENSION_MARK,
       markAlt: `${CHROME_EXTENSION_NAME} icon`,
       line: 'Puts one number on a Hyperliquid address page itself: how often that address’s '
@@ -464,17 +461,13 @@ export default function ConnectPage({ variant = 'web' }) {
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
             >
-              Find it on the Chrome Web Store <ExternalLink size={12} />
+              Install from the Chrome Web Store <ExternalLink size={12} />
             </a>
             <a href="/privacy" className="text-[12px] text-indigo-500 hover:underline">
               What it reads, and what it keeps
             </a>
           </div>
-          <p className="text-[12px] text-gray-500 dark:text-gray-400">
-            That link is the store&apos;s search for the listing&apos;s exact name, not the
-            listing&apos;s own page. The Web Store assigns an item its id at publication, and until
-            that id is known here, a direct install link would be a guess.
-          </p>
+
         </>
       ),
     },
@@ -537,8 +530,8 @@ export default function ConnectPage({ variant = 'web' }) {
       {compact && <h2 className="text-2xl font-bold mb-1">Connect</h2>}
 
       <p className={`${compact ? 'text-sm' : 'mb-2'} text-gray-600 dark:text-gray-300`}>
-        Three ways to reach what this site has measured without opening this site. Two work today
-        and one is with the Chrome Web Store, not published yet. Each card says which it is.
+        Three ways to reach what this site has measured without opening this site. All three work
+        today. Each card says what state it is in, and will say so if that changes.
       </p>
       <p className={`${compact ? 'text-[11px] text-gray-400' : 'text-xs text-gray-400 mb-6'}`}>
         Everything here is read only. Nothing on this page asks for a key, an account, or a wallet

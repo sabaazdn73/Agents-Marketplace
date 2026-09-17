@@ -2,26 +2,24 @@
 //
 // One constant, one place to correct it.
 //
-// The Chrome Web Store item URL is not known yet: the listing has been
-// submitted but the store assigns the item id at publication, and that id is
-// the only part of the URL nobody can guess. Until it is known this points at
-// the store's own search for the listing's exact name. A search page answers
-// 200 whether or not the item is there, which is why it is used: it will show
-// the listing once the store publishes it, it does not 404 before then, and it
-// does not have to be taken down when the id arrives. It is not evidence that
-// the item is published, and no copy on the site may read it as such.
+// The listing is published. Its item id is dimmedbfoejeemojaenbknpcmjgomipk,
+// assigned by the Chrome Web Store at publication, which is why this file
+// pointed at a store search until 2026-09-17: the id is the one part of the
+// URL nobody can guess, and a direct link built before it existed would have
+// been a guess.
 //
-// WHEN THE LISTING ID IS KNOWN, replace the value below with the exact item
-// URL, which has the shape
-//   https://chromewebstore.google.com/detail/tnega-for-hyperliquid/<item id>
-// and change nothing else. Every place on the site that offers the extension
-// reads this constant: the Connect tab, the Hyperliquid tab, and anywhere
-// added later. A second copy of this URL is the defect this module exists to
-// prevent.
+// Confirmed rather than assumed before it was written here. The store's own
+// search response carried detail/tnega-for-hyperliquid/dimmed…, and that URL
+// returns 200 with the title "Tnega for Hyperliquid - Chrome Web Store" and
+// this project's own description text.
+//
+// Every place on the site that offers the extension reads this constant: the
+// Connect tab, the Hyperliquid tab, and anywhere added later. A second copy of
+// this URL is the defect this module exists to prevent.
 
 /** Where a reader installs the extension from. See the note above. */
 export const CHROME_EXTENSION_URL =
-  'https://chromewebstore.google.com/search/Tnega%20for%20Hyperliquid';
+  'https://chromewebstore.google.com/detail/tnega-for-hyperliquid/dimmedbfoejeemojaenbknpcmjgomipk';
 
 /** The listing's name, used wherever the link is labelled, so the link text
  *  and the thing it searches for cannot drift apart. */

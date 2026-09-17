@@ -18,6 +18,13 @@ import { usePrivy } from '@privy-io/react-auth';
 // The clay app mark, the same file the home-screen and dock icons are
 // generated from, so the in-app logo and the installed icon match.
 import iconLogo from './assets/app-icon.png';
+// The mark, with the clay tile removed. The same file the Chrome extension
+// ships as its icon, so the panel on a Hyperliquid page and the header on this
+// site carry one mark rather than two versions of one. app-icon.png is the
+// tiled original and is still what the installed PWA and the QR code use,
+// where a solid tile is what the surface expects.
+import appMark from './assets/app-mark.png';
+
 import { useNavSync, useOverlayHistory } from './useViewHistory';
 import agentsHero from './assets/agents.jpg';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
@@ -387,7 +394,7 @@ function SplashScreen({ onUnlock }) {
 
       <div className="w-full flex flex-col items-center gap-2 pb-4 min-h-[48px] justify-end">
         <div className="flex items-center gap-2">
-          <img src={iconLogo} alt="" className="w-11 h-11" />
+          <img src={appMark} alt="" className="w-11 h-11" />
           <h1 className="text-xl font-bold tracking-tight">Tnega</h1>
         </div>
       </div>
@@ -837,9 +844,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             target="_blank"
             rel="noopener noreferrer"
             title="F2F Hub, all three projects in this portfolio"
-            className="w-16 h-16 rounded-2xl overflow-hidden block shrink-0"
+            className="w-16 h-16 block shrink-0"
           >
-            <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
+            <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
           </a>
           <h1 className="text-lg font-bold tracking-tight truncate">Tnega</h1>
         </div>

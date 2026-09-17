@@ -17,6 +17,13 @@ import { usePrivy } from '@privy-io/react-auth';
 // The clay app mark, the same file the home-screen and dock icons are
 // generated from, so the in-app logo and the installed icon match.
 import iconLogo from './assets/app-icon.png';
+// The mark, with the clay tile removed. The same file the Chrome extension
+// ships as its icon, so the panel on a Hyperliquid page and the header on this
+// site carry one mark rather than two versions of one. app-icon.png is the
+// tiled original and is still what the installed PWA and the QR code use,
+// where a solid tile is what the surface expects.
+import appMark from './assets/app-mark.png';
+
 import agentsHero from './assets/agents.jpg';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
@@ -1006,9 +1013,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 target="_blank"
                 rel="noopener noreferrer"
                 title="F2F Hub, all three projects in this portfolio"
-                className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg shadow-indigo-500/20 block shrink-0"
+                className="w-16 h-16 block shrink-0"
               >
-                <img src={iconLogo} alt="Tnega" className="w-full h-full object-contain" />
+                <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
               </a>
               <h1 className="text-lg font-bold tracking-tight flex-1">Tnega</h1>
               <button
