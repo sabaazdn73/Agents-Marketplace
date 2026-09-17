@@ -609,6 +609,21 @@ async def _refresh_via_subprocess() -> tuple[bytes, int] | None:
                   f"existing cache. Last stderr: {tail}")
             return None
 
+        # Everything the child said, not just its last line.
+        #
+        # The child runs _refresh_into_store, which is where the store cap,
+        # the upsert result and the health pass all report themselves. Its
+        # stdout is piped here so the parent can read the JSON contract off the
+        # end of it, and until now the rest was read and dropped: on the hourly
+        # path, which is the path that actually runs in production, every one
+        # of those lines went nowhere. That is why "did the cap run" could not
+        # be answered from the logs. Bounded, because a chatty child should not
+        # be able to flood the service log.
+        chatter = (stdout or b"").decode("utf-8", "replace").strip().splitlines()[:-1]
+        for line in chatter[-8:]:
+            if line.strip():
+                print(f"[refresh] {line.strip()[:200]}", flush=True)
+
         try:
             meta = json.loads((stdout or b"").decode().strip().splitlines()[-1])
             count = int(meta["count"])
