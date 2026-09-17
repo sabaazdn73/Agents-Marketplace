@@ -152,11 +152,72 @@ CREATE TABLE IF NOT EXISTS hl_builder_days (
 """
 
 
-def connect():
-    """A psycopg connection using the project's verify-full DSN builder."""
+# Keepalive settings, chosen so a silently dead peer fails the socket in about
+# a minute: 30s idle before the first probe, then 3 probes 10s apart.
+_KEEPALIVE_IDLE = 30
+_KEEPALIVE_INTERVAL = 10
+_KEEPALIVE_COUNT = 3
+
+# Server-side ceiling for the WebSocket collector's per-flush writes. Below
+# ws_collector.WRITE_TIMEOUT_SECONDS so a reachable-but-slow cluster fails with
+# the database's own message rather than with the collector's deadline. Not
+# applied to the shared connections: ensure_schema runs ALTER TABLE ADD COLUMN,
+# which is a schema-change job on Cockroach and has no business being cut off
+# at 30 seconds.
+_WS_WRITE_STATEMENT_TIMEOUT_MS = 30_000
+
+
+def connect(*, statement_timeout_ms: int | None = None):
+    """A psycopg connection using the project's verify-full DSN builder.
+
+    WHY THERE ARE FOUR TIMEOUTS HERE AND NOT ONE
+    --------------------------------------------
+    `connect_timeout` bounds the handshake and nothing after it. Once the
+    connection is up, every psycopg call blocks inside libpq on a socket read,
+    and a socket read has no deadline of its own. If the peer stops answering
+    without sending a FIN or an RST, which is what a vanished network looks
+    like, that read waits for as long as the process lives. That is the
+    condition the WebSocket collector hit, and the reason a flush could block
+    forever while the caller's timeout fired and moved on.
+
+    Each parameter covers a case the others do not:
+
+      connect_timeout   the handshake only.
+      keepalives*       the kernel probes a silent peer and fails the socket
+                        after idle + interval * count, about 60 seconds here.
+                        This is the one that covers the vanished network, and
+                        it is the reason a blocked write now returns.
+      tcp_user_timeout  bounds data already sent and not acknowledged. Linux
+                        only; libpq ignores it elsewhere, so it covers the
+                        Render services and not the laptop the WebSocket
+                        collector runs from.
+      statement_timeout server-side, so it only fires when the server is
+                        reachable and answering. It bounds a slow query and
+                        says nothing about a dead network.
+
+    What none of them bound is a call blocked inside libpq on something other
+    than a socket. A caller that must not be held up still needs to be able to
+    walk away from the thread; see ws_collector._write_detached.
+    """
     import psycopg
     from core.cockroach import build_dsn
-    return psycopg.connect(build_dsn(), connect_timeout=30)
+
+    options = None
+    if statement_timeout_ms:
+        options = f"-c statement_timeout={int(statement_timeout_ms)}"
+
+    kwargs = dict(
+        connect_timeout=30,
+        keepalives=1,
+        keepalives_idle=_KEEPALIVE_IDLE,
+        keepalives_interval=_KEEPALIVE_INTERVAL,
+        keepalives_count=_KEEPALIVE_COUNT,
+        # 60s, matching the keepalive budget. Ignored on macOS.
+        tcp_user_timeout=60_000,
+    )
+    if options:
+        kwargs["options"] = options
+    return psycopg.connect(build_dsn(), **kwargs)
 
 
 def ensure_schema(conn) -> None:
@@ -296,7 +357,7 @@ def write_ws_coverage_fresh(rows: list[dict]) -> int:
     """Coverage rows on their own connection, same reasoning as the buckets."""
     if not rows:
         return 0
-    with connect() as conn:
+    with connect(statement_timeout_ms=_WS_WRITE_STATEMENT_TIMEOUT_MS) as conn:
         return write_ws_coverage(conn, rows)
 
 
@@ -331,7 +392,7 @@ def write_ws_buckets_fresh(rows: list[dict]) -> int:
     of silent stall."""
     if not rows:
         return 0
-    with connect() as conn:
+    with connect(statement_timeout_ms=_WS_WRITE_STATEMENT_TIMEOUT_MS) as conn:
         return write_ws_buckets(conn, rows)
 
 

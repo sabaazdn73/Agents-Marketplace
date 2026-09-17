@@ -214,7 +214,29 @@ async def _reason_gemini(prompt: str, schema_hint: str, *, intent: str, timeout:
             "reason": "google-genai is not installed (see backend/requirements.txt).",
         }
 
-    client = genai.Client(api_key=_api_key())
+    # The SDK gets its own deadline, because the one below does not reach it.
+    #
+    # `wait_for` over `to_thread` bounds the await and not the thread. Checked
+    # in google-genai 2.22.0 rather than assumed: the httpx client is built
+    # with `timeout=None` unless `http_options.timeout` is set, and the
+    # per-request timeout defaults to None as well, so `generate_content` on a
+    # network that has gone away blocks with no deadline of its own. The
+    # `wait_for` would then fire, the coroutine would carry on, and the worker
+    # thread would stay blocked inside the loop's default executor for the life
+    # of the process. This runs in the Render web service under a 512MiB cap
+    # and retries up to three times, so each degraded call could strand three
+    # executor threads permanently. Same defect as the collector's flush; see
+    # core/hyperliquid/ws_collector._write_detached.
+    #
+    # Setting it here means the blocking call RETURNS, which is better than
+    # abandoning the thread: nothing is leaked and the exception carries the
+    # provider's own diagnosis. HttpOptions.timeout is in milliseconds. It sits
+    # just under the asyncio deadline so the SDK gives up first and `wait_for`
+    # stays a backstop for the case where the SDK's own timeout does not fire.
+    client = genai.Client(
+        api_key=_api_key(),
+        http_options=genai.types.HttpOptions(timeout=int(max(1.0, timeout - 5.0) * 1000)),
+    )
     full = (
         f"{prompt}\n\n"
         f"Respond with ONE JSON object and nothing else. Shape:\n{schema_hint}\n"

@@ -183,6 +183,23 @@ KNOWN_AGENTS_MAX = 40_000
 # documents in a single call on a shared-tier cluster is its own outage.
 KNOWN_AGENTS_MAX_DELETE_PER_RUN = 25_000
 
+# The last thing the cap did, so that "did it run" is a question somebody can
+# answer by fetching a URL.
+#
+# It was answered with a log line, and the log line could not be read: the
+# service emits about six lines a second, the platform's log API returns the
+# newest hundred with no time range, so a hundred lines is seventeen seconds of
+# history and anything older is unreachable. A fact that scrolls out of reach
+# in seventeen seconds is not observability. This is queryable for as long as
+# the process lives, which is the interval that matters for a job that runs
+# every refresh.
+_LAST_CAP_RESULT: dict | None = None
+
+
+def last_cap_result() -> dict | None:
+    """What the store cap did on its most recent run in this process."""
+    return _LAST_CAP_RESULT
+
 
 async def _owners_with_delivery(db) -> list[str]:
     """Owner addresses that have delivered an on-chain job to somebody.
@@ -229,10 +246,14 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
     """
     db = get_db()
     coll = db.known_agents
+    global _LAST_CAP_RESULT
+    ran_at = datetime.now(timezone.utc).isoformat()
     total = await coll.count_documents({})
     over = total - max_docs
     if over <= 0:
-        return {"total": total, "over": 0, "deleted": 0, "capped_at": max_docs}
+        _LAST_CAP_RESULT = {"ran_at": ran_at, "total": total, "over": 0,
+                            "deleted": 0, "capped_at": max_docs}
+        return dict(_LAST_CAP_RESULT)
 
     # Never evictable, however long since they were last selected.
     protected = await _owners_with_delivery(db)
@@ -285,18 +306,21 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
             cutoff, running = oldest["_id"], oldest["n"]
 
     if not cutoff or not running:
-        return {"total": total, "over": over, "deleted": 0,
-                "capped_at": max_docs,
-                "note": "the oldest hour alone exceeds the per-run delete "
-                        "bound; nothing removed this run"}
+        _LAST_CAP_RESULT = {"ran_at": ran_at, "total": total, "over": over,
+                            "deleted": 0, "capped_at": max_docs,
+                            "note": "the oldest hour alone exceeds the per-run "
+                                    "delete bound; nothing removed this run"}
+        return dict(_LAST_CAP_RESULT)
 
     # `<` against the next hour's boundary, so the chosen hour is included
     # whole and no document is deleted whose hour was only partly counted.
     res = await coll.delete_many({**keep, "last_seen_at": {"$lte": cutoff + "\uffff"}})
     deleted = res.deleted_count
-    return {"total": total, "over": over, "deleted": deleted,
-            "remaining": total - deleted, "capped_at": max_docs,
-            "cutoff": cutoff, "protected_owners": len(protected)}
+    _LAST_CAP_RESULT = {"ran_at": ran_at, "total": total, "over": over,
+                        "deleted": deleted, "remaining": total - deleted,
+                        "capped_at": max_docs, "cutoff": cutoff,
+                        "protected_owners": len(protected)}
+    return dict(_LAST_CAP_RESULT)
 
 
 async def update_agent_health(results: dict[str, dict]) -> int:

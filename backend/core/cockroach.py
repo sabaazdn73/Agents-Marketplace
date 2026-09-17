@@ -137,10 +137,22 @@ def build_dsn(url: str | None = None, *, ca_bundle: str | None = None) -> str:
 def connect(url: str | None = None, **kwargs):
     """Open one verified connection. psycopg is imported lazily so that
     importing this module costs nothing in processes that never touch the
-    database."""
+    database.
+
+    `connect_timeout` bounds the handshake only. The keepalives below are what
+    bound a query on an already-open connection whose peer has gone silent:
+    without them libpq blocks on a socket read with no deadline, which is how
+    one collector held a thread, and then the whole process, open for hours.
+    See core/hyperliquid/store.connect for the full reasoning and for the
+    cases these do not cover.
+    """
     import psycopg
 
     kwargs.setdefault("connect_timeout", 15)
+    kwargs.setdefault("keepalives", 1)
+    kwargs.setdefault("keepalives_idle", 30)
+    kwargs.setdefault("keepalives_interval", 10)
+    kwargs.setdefault("keepalives_count", 3)
     return psycopg.connect(build_dsn(url), **kwargs)
 
 

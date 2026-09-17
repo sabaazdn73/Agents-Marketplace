@@ -52,6 +52,7 @@ import collections
 import datetime as dt
 import json
 import random
+import threading
 import time
 
 WS_URL = "wss://api.hyperliquid.xyz/ws"
@@ -91,6 +92,20 @@ BUCKET_SECONDS = 10
 # How often accumulated buckets are written. Buckets are only flushed once
 # closed, so a partial bucket is never stored as though it were complete.
 FLUSH_SECONDS = 60
+
+# How long the collector waits for one flush before it stops waiting. Longer
+# than the server-side statement_timeout the write connection carries (see
+# store.connect), so a reachable-but-slow database fails with a message from
+# the database rather than with this.
+WRITE_TIMEOUT_SECONDS = 45
+
+
+class WriteAbandoned(Exception):
+    """A flush did not finish inside its deadline and is no longer awaited.
+
+    Distinct from a write that failed: the thread may still be running, and
+    the rows may or may not land later. Nothing downstream may assume either.
+    """
 
 
 def bucket_key(ms: int) -> int:
@@ -268,6 +283,102 @@ def _coverage_rows(addresses: list[str], drained: list[dict],
     return out
 
 
+async def _write_detached(fn, rows: list[dict], *, timeout: float, label: str,
+                          stats: dict, log) -> None:
+    """Run one blocking write on a thread this process will never join.
+
+    WHY NOT asyncio.to_thread
+    -------------------------
+    `await asyncio.wait_for(asyncio.to_thread(write, rows), timeout=45)` bounds
+    the await and not the thread. When the write blocks on a psycopg connection
+    whose network has gone away, the timeout fires, the coroutine carries on,
+    and the worker thread stays blocked. That thread belongs to the loop's
+    default ThreadPoolExecutor, which two separate shutdown steps then wait on:
+    `asyncio.run` waits 300 seconds and emits
+    "The executor did not finishing joining its threads within 300 seconds",
+    and interpreter exit joins the same threads with no deadline at all. That
+    second join is what kept this collector alive for 22h41m, 6h46m past its
+    own deadline, printing its totals and then not leaving.
+
+    Reproduced and measured before choosing the fix: a `to_thread` call over a
+    permanently blocked function does not exit; the same work on a daemon
+    thread exits in about a second. `scripts/hl_ws_shutdown_selfcheck.py` runs
+    both.
+
+    WHAT THIS GUARANTEES
+    --------------------
+    Process exit. The thread is a daemon thread started directly rather than
+    an executor worker, so neither shutdown step waits for it: CPython
+    abandons daemon threads at interpreter exit. A flush that will never
+    complete costs one leaked thread and cannot hold the process open.
+
+    Together with the connection-level timeouts in store.connect, a blocked
+    write is also expected to RETURN rather than leak, because libpq keepalives
+    fail the socket after roughly 60 seconds when the peer has gone silent.
+
+    WHAT IT DOES NOT GUARANTEE
+    --------------------------
+    That the thread stops, or that the rows did not land. Abandoning is not
+    cancelling. If the write is blocked somewhere libpq keepalives do not reach
+    (a lock, a filesystem, a stalled DNS resolver) the thread stays for the
+    life of the process and its memory with it. The bound here is on the
+    process exiting, not on the work.
+
+    Nor does it guarantee the flush was lost. A write abandoned at 45 seconds
+    may commit at 70. Every write on this path is an UPSERT keyed on the bucket
+    (store.write_ws_buckets, store.write_ws_coverage), so a late commit and a
+    retry converge rather than double-counting. That is why abandonment is
+    recorded separately from failure: `rows_written` counts only writes that
+    were seen to finish, and an abandoned flush is not added to it even if it
+    later succeeds. The stat undercounts on purpose.
+    """
+    loop = asyncio.get_running_loop()
+    done: asyncio.Future = loop.create_future()
+    # Attached now rather than on the timeout path, because the wait can also
+    # end in cancellation. Whatever the thread settles into is retrieved
+    # exactly once here, so an abandoned write that eventually raises cannot
+    # surface later as an unretrieved future exception with no context on it.
+    # Retrieving a result the awaiter also read is harmless.
+    done.add_done_callback(lambda f: None if f.cancelled() else f.exception())
+
+    def _settle(setter, value) -> None:
+        if not done.done():
+            setter(value)
+
+    def _runner() -> None:
+        try:
+            result = fn(rows)
+        except BaseException as exc:  # noqa: BLE001 -- reported to the awaiter
+            outcome = (done.set_exception, exc)
+        else:
+            outcome = (done.set_result, result)
+        try:
+            loop.call_soon_threadsafe(_settle, *outcome)
+        except RuntimeError:
+            # The loop is closed, so nothing is waiting on this any more. That
+            # is the abandoned case arriving late and it is not an error.
+            pass
+
+    threading.Thread(target=_runner, name=f"hl-ws-{label}", daemon=True).start()
+
+    try:
+        # shield so the timeout cancels only this wait. The future stays valid
+        # for the thread to settle into, which keeps the late result from
+        # raising InvalidStateError inside the thread.
+        await asyncio.wait_for(asyncio.shield(done), timeout)
+    except (asyncio.TimeoutError, TimeoutError):
+        # Counted per kind of write. One shared counter could not say whether
+        # an abandoned write was a bucket flush or a coverage write, so
+        # "failed=1 abandoned=1 coverage_failed=1" could describe either one
+        # incident or two.
+        key = "coverage_abandoned" if label == "coverage" else "writes_abandoned"
+        stats[key] = stats.get(key, 0) + 1
+        log(f"[hl-ws] {label} ABANDONED after {timeout:.0f}s, {len(rows)} rows "
+            f"unconfirmed; its thread is leaked and the process will still "
+            f"exit", flush=True)
+        raise WriteAbandoned(f"{label} exceeded {timeout:.0f}s") from None
+
+
 def _blank_address_stats() -> dict:
     return {"updates": 0, "messages": 0, "reconnects": 0,
             "subscribed": False, "confirmed_at": None, "last_update_at": None,
@@ -288,6 +399,17 @@ async def run(addresses: list[str], write, stop_after: float | None = None,
     # post-mortem of the bucket table.
     stats = {"updates": 0, "messages": 0, "reconnects": 0, "rows_written": 0,
              "coverage_rows": 0,
+             # Present from the start rather than created on first occurrence,
+             # so a run that reports zero abandoned writes is saying it
+             # measured zero rather than that it never looked.
+             "writes_abandoned": 0, "write_failures": 0, "coverage_failures": 0,
+             "coverage_abandoned": 0,
+             # Coverage buckets the backlog cap threw away. They are holes in
+             # hl_ws_coverage that look exactly like a collector that was not
+             # running, and the Brain section reads that table to decide a
+             # window is complete, so a dropped bucket has to be a counted
+             # fact rather than a silent one.
+             "coverage_buckets_dropped": 0,
              "per_address": {a: _blank_address_stats() for a in addresses}}
     stop_at = (time.time() + stop_after) if stop_after else None
 
@@ -298,13 +420,19 @@ async def run(addresses: list[str], write, stop_after: float | None = None,
     async def flusher():
         # The write is synchronous and goes to a database whose connection has
         # been sitting idle while ten sockets stream. Two things follow.
-        # It runs in a thread, so a slow or hung write cannot stall the
-        # sockets, and it is bounded by a timeout, so it cannot hang forever.
-        # The first version did neither: the very first flush blocked on a
-        # stale connection and the task never came back. There was no error
-        # and no log line, so 10 addresses streamed for six minutes into
-        # memory and nothing reached the database. A flush that fails now says
-        # so and says how much was lost.
+        # It runs off the event loop, so a slow or hung write cannot stall the
+        # sockets, and the wait for it is bounded, so a flush that cannot
+        # finish says so rather than disappearing. The first version did
+        # neither: the very first flush blocked on a stale connection and the
+        # task never came back. There was no error and no log line, so 10
+        # addresses streamed for six minutes into memory and nothing reached
+        # the database.
+        #
+        # The second version bounded the wait with wait_for over to_thread,
+        # which bounds the await and not the thread, and that is what later
+        # held the process open for 22h41m after its deadline. See
+        # _write_detached for what replaced it and what it does and does not
+        # guarantee.
         covered_through = None
         while True:
             if stop_at and time.time() > stop_at:
@@ -316,10 +444,20 @@ async def run(addresses: list[str], write, stop_after: float | None = None,
 
             if rows:
                 try:
-                    await asyncio.wait_for(asyncio.to_thread(write, rows), timeout=45)
+                    await _write_detached(write, rows,
+                                          timeout=WRITE_TIMEOUT_SECONDS,
+                                          label="flush", stats=stats, log=log)
                     stats["rows_written"] += len(rows)
                     log(f"[hl-ws] flushed {len(rows)} bucket rows, "
                         f"{stats['updates']:,} updates so far", flush=True)
+                except WriteAbandoned:
+                    # _write_detached has already said so, including that the
+                    # rows are unconfirmed rather than known lost. It counted
+                    # this under writes_abandoned; write_failures counts every
+                    # write that did not confirm, abandoned or refused, so the
+                    # abandoned ones are a subset of it and never a second
+                    # incident. The log line says which is which.
+                    stats["write_failures"] = stats.get("write_failures", 0) + 1
                 except Exception as e:  # noqa: BLE001
                     stats["write_failures"] = stats.get("write_failures", 0) + 1
                     log(f"[hl-ws] FLUSH FAILED ({type(e).__name__}: {str(e)[:90]}), "
@@ -339,8 +477,18 @@ async def run(addresses: list[str], write, stop_after: float | None = None,
                 covered_through = cutoff - BUCKET_SECONDS
             due = list(range(covered_through + BUCKET_SECONDS, cutoff, BUCKET_SECONDS))
             # After a stall the backlog could be enormous; coverage for a window
-            # nobody was watching is not worth writing.
-            due = due[-MAX_COVERAGE_BACKLOG_BUCKETS:]
+            # nobody was watching is not worth writing. What is dropped is
+            # counted and said out loud: covered_through jumps past those
+            # buckets, so without this line the gap they leave is
+            # indistinguishable from a collector that was never started.
+            if len(due) > MAX_COVERAGE_BACKLOG_BUCKETS:
+                dropped = len(due) - MAX_COVERAGE_BACKLOG_BUCKETS
+                stats["coverage_buckets_dropped"] += dropped
+                log(f"[hl-ws] coverage backlog {len(due)} buckets exceeds the "
+                    f"{MAX_COVERAGE_BACKLOG_BUCKETS} kept; {dropped} buckets "
+                    f"({dropped * BUCKET_SECONDS // 60} minutes) will have no "
+                    f"coverage row and will read as unwatched", flush=True)
+                due = due[-MAX_COVERAGE_BACKLOG_BUCKETS:]
             if due:
                 cov = _coverage_rows(addresses, rows, due, stats)
                 covered_through = due[-1]
@@ -350,9 +498,13 @@ async def run(addresses: list[str], write, stop_after: float | None = None,
                     f"{len(due)} buckets", flush=True)
                 if write_coverage:
                     try:
-                        await asyncio.wait_for(
-                            asyncio.to_thread(write_coverage, cov), timeout=45)
+                        await _write_detached(write_coverage, cov,
+                                              timeout=WRITE_TIMEOUT_SECONDS,
+                                              label="coverage", stats=stats,
+                                              log=log)
                         stats["coverage_rows"] += len(cov)
+                    except WriteAbandoned:
+                        stats["coverage_failures"] = stats.get("coverage_failures", 0) + 1
                     except Exception as e:  # noqa: BLE001
                         stats["coverage_failures"] = stats.get("coverage_failures", 0) + 1
                         log(f"[hl-ws] COVERAGE WRITE FAILED ({type(e).__name__}: "
@@ -361,9 +513,26 @@ async def run(addresses: list[str], write, stop_after: float | None = None,
     f = asyncio.create_task(flusher())
     await asyncio.gather(*watchers, f, return_exceptions=True)
 
+    # The last flush, and the one place that used to have no guard at all.
+    #
+    # `write(rows)` here was a bare synchronous call on the event loop thread,
+    # so a dead connection blocked it before the caller printed a single
+    # number: the totals, the per-address lines, every stat this run exists to
+    # produce, all behind a write that was never going to return. It goes
+    # through the same detached path as the periodic flushes, and if it cannot
+    # finish the run still reports what it collected and says the last rows are
+    # unconfirmed.
     keys = agg.closed(time.time() + BUCKET_SECONDS)
     if keys:
         rows = agg.drain(keys)
-        write(rows)
-        stats["rows_written"] += len(rows)
+        try:
+            await _write_detached(write, rows, timeout=WRITE_TIMEOUT_SECONDS,
+                                  label="final-flush", stats=stats, log=log)
+            stats["rows_written"] += len(rows)
+        except WriteAbandoned:
+            stats["write_failures"] = stats.get("write_failures", 0) + 1
+        except Exception as e:  # noqa: BLE001
+            stats["write_failures"] = stats.get("write_failures", 0) + 1
+            log(f"[hl-ws] FINAL FLUSH FAILED ({type(e).__name__}: "
+                f"{str(e)[:90]}), {len(rows)} bucket rows lost", flush=True)
     return stats

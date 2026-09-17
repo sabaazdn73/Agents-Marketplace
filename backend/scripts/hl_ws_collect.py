@@ -72,6 +72,19 @@ async def main() -> int:
     # at least 90 minutes.
     print(f"[hl-ws] totals: updates={stats['updates']:,} messages={stats['messages']:,} "
           f"reconnects={stats['reconnects']} coverage_rows={stats['coverage_rows']:,}", flush=True)
+    # Written rows and unwritten rows in the same breath. A run whose writes
+    # were abandoned still prints a large updates count, and that number on
+    # its own reads like a successful night.
+    # Abandoned writes are a subset of failed ones, not a second incident, and
+    # the line says so: one flush that timed out used to print "failed=1
+    # abandoned=1", which a reader sums to two.
+    print(f"[hl-ws] writes: rows_written={stats['rows_written']:,} "
+          f"failed={stats['write_failures']} "
+          f"({stats.get('writes_abandoned', 0)} of them abandoned mid-write) "
+          f"coverage_failed={stats['coverage_failures']} "
+          f"({stats.get('coverage_abandoned', 0)} of them abandoned) "
+          f"coverage_buckets_dropped={stats.get('coverage_buckets_dropped', 0)}",
+          flush=True)
     for a, s in stats["per_address"].items():
         print(f"[hl-ws]   {a[:12]}.. subscribed={s['subscribed']} "
               f"updates={s['updates']:,} reconnects={s['reconnects']}", flush=True)
