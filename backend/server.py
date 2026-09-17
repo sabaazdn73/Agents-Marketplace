@@ -952,6 +952,21 @@ async def hyperliquid_address(address: str, response: Response = None):
         # is slow. Both let the blocking call return, which is what a shared
         # executor needs.
         data = await asyncio.to_thread(service.address_detail, address)
+        # The other half of the sentence: where this address stands on
+        # HyperCore right now, read on chain 999 through HyperCoreReader.
+        #
+        # Served from this endpoint rather than a new one so the extension
+        # keeps its single host permission. Adding rpc.hyperliquid.xyz to the
+        # extension's manifest would mean a new justification and another
+        # review pass while 0.1.0 is still pending, for a call the backend can
+        # make once and cache.
+        #
+        # Its own failures never take the rate down with them: corestate
+        # returns a withheld reason rather than raising, and the panel draws
+        # the half it has.
+        if not data.get("error"):
+            from core.hyperliquid import corestate
+            data["core"] = await asyncio.to_thread(corestate.read_address, address)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
             status_code=503,
