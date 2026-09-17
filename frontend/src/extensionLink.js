@@ -5,9 +5,11 @@
 // The Chrome Web Store item URL is not known yet: the listing has been
 // submitted but the store assigns the item id at publication, and that id is
 // the only part of the URL nobody can guess. Until it is known this points at
-// the store's own search for the listing's exact name, which resolves to the
-// published item rather than to a 404 and does not have to be taken down when
-// the id arrives.
+// the store's own search for the listing's exact name. A search page answers
+// 200 whether or not the item is there, which is why it is used: it will show
+// the listing once the store publishes it, it does not 404 before then, and it
+// does not have to be taken down when the id arrives. It is not evidence that
+// the item is published, and no copy on the site may read it as such.
 //
 // WHEN THE LISTING ID IS KNOWN, replace the value below with the exact item
 // URL, which has the shape

@@ -1,62 +1,60 @@
 // ConnectPage.jsx
 //
 // The Connect tab: every way into this site's measurements that is not the
-// site itself.
+// site itself. Three cards, because there are three.
 //
 // SHARED ON PURPOSE
-// -----------------
 // One component, rendered by both AgentMarketplaceApp.web.jsx and
 // AgentMarketplaceApp.mobile.jsx, in the manner of SiteLinks.jsx and
 // ChainViewTabs.jsx. The two apps are deliberately separate components and
-// have drifted before; four sections of prose maintained twice would drift
-// again on the first correction. `variant` changes type sizes and nothing
-// else, because a phone has less width, not less to say.
+// have drifted before; three cards of prose maintained twice would drift again
+// on the first correction. `variant` changes type sizes and nothing else,
+// because a phone has less width, not less to say.
 //
-// WHAT EACH SECTION HAS TO CARRY
-// ------------------------------
-// Written for a reader who has used none of these. The MCP section states the
-// endpoint and the six tools rather than explaining the protocol's design;
-// mcp/DESIGN.md holds the reasoning and a visitor does not need it. The
-// Telegram section says the bot does not exist, in the same shape as the
-// extension's withheld reasons (extension/shared.js): what the situation is,
-// then what exists and what does not. "Coming soon" is a promise nobody has
-// made.
+// CARDS, NOT A LIST
+// This page is the front door for somebody arriving from outside, so it is
+// built from the shapes the rest of the site already uses: the card, the pill
+// and the expanding panel of the chain views and DeFiCategoryPanels.jsx,
+// rather than the stacked prose of a documentation page. A card's front says
+// enough to know whether it is the one you want; the detail sits behind it.
 //
-// The ask-the-agent section is written against an endpoint another agent is
-// building. It probes POST /api/ask once on mount and reads the answer:
-// a 404 means the route is not deployed and the section says the feature is
-// not available yet; anything else means the route is there. A failed fetch
-// is a third state and says so rather than being reported as absence, which
-// is the same rule the rest of this site follows about an unreachable source.
-// The ask UI itself is not here: it sits at the top of the listing, where a
-// visitor meets it first, in AskTnega.jsx. This section documents the
-// endpoint for somebody who wants to call it from their own code.
+// PANEL BEHAVIOUR
+// One open at a time, mounted on first open and never unmounted afterwards.
+// Collapsing hides with CSS. The rule and its reasoning are documented in
+// DeFiCategoryPanels.jsx: conditional rendering re-runs a panel's work on
+// every reopen and throws away anything a reader had part-done inside it. It
+// is reimplemented here rather than imported for the reason HyperliquidView
+// gives for its own copy: that component paints its background from an inline
+// `surface` colour, and this page carries its dark treatment in Tailwind
+// variants like the chain views do.
+//
+// NOT EVERY CARD OPENS
+// The Telegram card has nothing behind it, so it has no panel and no chevron.
+// A card that opens onto one sentence teaches a reader that opening cards on
+// this page is not worth the click.
+//
+// WHAT IS NOT HERE
+// An on-site agent was here until 2026-09-17. It ran a bounded tool-calling
+// loop over the same six tools this page documents, and it rested on a model
+// quota that runs out, so nearly every turn ended in its refusal path. A way
+// in that is unavailable most of the time is worse than one that is absent,
+// and MCP is the better arrangement anyway: the caller brings their own model,
+// so the cost of answering sits with whoever asked. It was removed rather than
+// left to degrade, and this note is here so the removal reads as a decision
+// rather than as something forgotten.
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  Plug, Terminal, Chrome, Send, MessageCircleQuestion,
-  ExternalLink, Copy, Check, Loader2,
+  Plug, Terminal, Send, ChevronDown, ExternalLink, Copy, Check,
 } from 'lucide-react';
 import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from './extensionLink';
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
-
-/** The same address, but absolute, for printing in a command a reader copies.
- *
- *  VITE_API_BASE_URL is deliberately allowed to be the empty string for a
- *  same-origin deploy (.env.example says so), and the fetches above are
- *  correct with it. A printed `curl -s /api/ask` is not a command: it is a
- *  path with a curl in front of it. So anything a reader is asked to paste
- *  falls back to this page's own origin. */
-const API_DISPLAY_URL =
-  import.meta.env?.VITE_API_BASE_URL
-  || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8000');
+import { MCP_CLIENTS, EXTENSION_MARK } from './connectMarks';
 
 // The deployed backend, which is also where the MCP server is mounted
 // (backend/mcp_server/router.py mounts it into the same process). Written out
-// rather than derived from API_BASE_URL: a local dev build would otherwise
-// print http://localhost:8000/mcp on a page whose whole job is to give a
-// reader an address they can paste.
+// rather than derived from VITE_API_BASE_URL: a local dev build would
+// otherwise print http://localhost:8000/mcp on a page whose whole job is to
+// give a reader an address they can paste.
 const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
 
 // The six tools, one line each, in the order a caller meets them. Taken from
@@ -102,44 +100,6 @@ const MCP_CURL_SNIPPET = `curl -s ${MCP_ENDPOINT} \\
   -H 'Content-Type: application/json' \\
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'`;
 
-/** Is the ask endpoint deployed?
- *
- *  GET /api/ask/readiness first. It is mounted by the same router as the POST
- *  route (backend/ask/router.py), it exists to answer exactly this question,
- *  and a GET costs the backend nothing.
- *
- *  A 404 there is confirmed against POST /api/ask before this page tells a
- *  reader the feature is absent, so a readiness route that is retired later
- *  cannot make a working endpoint look missing. An empty question is the
- *  cheap way to ask: the route's own validation refuses it before any work.
- *
- *  404 from both is absence. A validation error, a 405, a 500 all mean
- *  something is mounted at that path. A fetch that never lands is neither,
- *  and gets its own state rather than being reported as absence. */
-function useAskEndpoint() {
-  // 'checking' | 'live' | 'absent' | 'unreachable'
-  const [state, setState] = useState('checking');
-  useEffect(() => {
-    const ctl = new AbortController();
-    const giveUp = setTimeout(() => ctl.abort(), 8000);
-    fetch(`${API_BASE_URL}/api/ask/readiness`, { signal: ctl.signal })
-      .then((r) => {
-        if (r.status !== 404) return 'live';
-        return fetch(`${API_BASE_URL}/api/ask`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: '' }),
-          signal: ctl.signal,
-        }).then((p) => (p.status === 404 ? 'absent' : 'live'));
-      })
-      .then(setState)
-      .catch(() => setState('unreachable'))
-      .finally(() => clearTimeout(giveUp));
-    return () => { clearTimeout(giveUp); ctl.abort(); };
-  }, []);
-  return state;
-}
-
 /** A copyable block. The address and the config are things a reader has to
  *  move somewhere else, and retyping an endpoint by hand is how a wrong one
  *  ends up in a config file. */
@@ -171,8 +131,8 @@ function CodeBlock({ text, label }) {
   );
 }
 
-/** A status word beside a section's title, so the state of a way in is next
- *  to its name rather than three paragraphs down. */
+/** A status word beside a card's title, so the state of a way in is next to
+ *  its name rather than three paragraphs down. */
 function Pill({ tone = 'quiet', children }) {
   const tones = {
     live: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
@@ -186,60 +146,210 @@ function Pill({ tone = 'quiet', children }) {
   );
 }
 
-function Section({ icon: Icon, title, pill, children, compact }) {
+/** One client's mark, with its name beside it.
+ *
+ *  The image is the vendor's own asset from the vendor's own domain, which is
+ *  the footing every mark on this site sits on; connectMarks.js carries each
+ *  one's provenance and the terms it is shown under. If it fails to load the
+ *  name stays: a missing image must not take a client off the list, because
+ *  the list is the claim and the picture is decoration. */
+function ClientMark({ client, compact }) {
+  const [failed, setFailed] = useState(false);
+  const size = compact ? 15 : 17;
+  const box = { width: size, height: size };
+  // A vendor that publishes a pair gets both, swapped by the theme the way the
+  // vendor swaps them itself. Nothing is inverted or recoloured: a mark shown
+  // in a colour its owner did not publish is an altered mark.
+  const pair = Boolean(client.markDark);
   return (
-    <section className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 p-4 sm:p-5 shadow-sm">
-      <div className="flex items-center gap-2.5 flex-wrap mb-2">
-        <div className="p-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
-          <Icon size={compact ? 16 : 18} />
-        </div>
-        <h3 className={`${compact ? 'text-base' : 'text-lg'} font-bold text-gray-900 dark:text-gray-100`}>{title}</h3>
-        {pill}
-      </div>
-      <div className="space-y-3 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">
-        {children}
-      </div>
-    </section>
+    <span
+      className={`inline-flex items-center gap-1.5 ${client.mark ? 'pl-1.5' : 'pl-2'} pr-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.03]`}
+      title={client.support}
+    >
+      {client.mark && !failed && (
+        <>
+          <img
+            src={client.mark}
+            alt=""
+            width={size}
+            height={size}
+            loading="lazy"
+            onError={() => setFailed(true)}
+            className={`shrink-0 object-contain ${pair ? 'dark:hidden' : ''}`}
+            style={box}
+          />
+          {pair && (
+            <img
+              src={client.markDark}
+              alt=""
+              width={size}
+              height={size}
+              loading="lazy"
+              className="shrink-0 object-contain hidden dark:block"
+              style={box}
+            />
+          )}
+        </>
+      )}
+      <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap`}>
+        {client.name}
+      </span>
+    </span>
+  );
+}
+
+/** The cards. One open at a time, mounted once, hidden with CSS.
+ *
+ *  A card with no `render` is not a button and gets no chevron: there is
+ *  nothing behind it to open. */
+function Cards({ cards, compact }) {
+  // All collapsed on arrival, which is where this page differs from the chain
+  // views and from DeFiCategoryPanels: there the panel is the content and the
+  // titles are a way to switch between parts of it, so opening the first one
+  // is right. Here the three fronts are the content. Opening one by default
+  // would push the other two below the fold and hide the only question this
+  // page has to answer, which is which of the three a reader wants.
+  const [openKey, setOpenKey] = useState(null);
+  // Every key ever opened. Only grows, so nothing already mounted unmounts.
+  const [mounted, setMounted] = useState(() => new Set());
+  const toggle = useCallback((key) => {
+    setMounted((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+    setOpenKey((prev) => (prev === key ? null : key));
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      {cards.map((card) => {
+        const {
+          key, title, icon: Icon, markSrc, markAlt, invertOnDark,
+          line, pill, front, render,
+        } = card;
+        const isOpen = Boolean(render) && openKey === key;
+        const head = (
+          <>
+            <span className="flex items-start gap-3 min-w-0">
+              <span className="p-2 rounded-xl shrink-0 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                {markSrc
+                  ? (
+                    <img
+                      src={markSrc}
+                      alt={markAlt || ''}
+                      width={compact ? 16 : 18}
+                      height={compact ? 16 : 18}
+                      className={`object-contain ${invertOnDark ? 'dark:invert' : ''}`}
+                      style={{ width: compact ? 16 : 18, height: compact ? 16 : 18 }}
+                    />
+                  )
+                  : <Icon size={compact ? 16 : 18} />}
+              </span>
+              <span className="min-w-0">
+                <span className="flex items-center gap-2 flex-wrap">
+                  <span className={`font-bold text-gray-900 dark:text-gray-100 ${compact ? 'text-[14px]' : 'text-[15px]'}`}>
+                    {title}
+                  </span>
+                  {pill}
+                </span>
+                <span className={`block ${compact ? 'text-[11px]' : 'text-[12px]'} leading-relaxed text-gray-600 dark:text-gray-400 mt-0.5`}>
+                  {line}
+                </span>
+              </span>
+            </span>
+            {render && (
+              <ChevronDown
+                size={16}
+                className={`shrink-0 mt-1 opacity-50 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+              />
+            )}
+          </>
+        );
+
+        return (
+          <div
+            key={key}
+            className="bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden"
+          >
+            {render ? (
+              <button
+                type="button"
+                onClick={() => toggle(key)}
+                aria-expanded={isOpen}
+                aria-controls={`connect-panel-${key}`}
+                className="w-full flex items-start justify-between gap-3 px-4 py-3.5 text-left hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors"
+              >
+                {head}
+              </button>
+            ) : (
+              <div className="w-full flex items-start justify-between gap-3 px-4 py-3.5 text-left">
+                {head}
+              </div>
+            )}
+
+            {front && (
+              <div className={`px-4 ${render ? 'pb-3' : 'pb-4'}`}>{front(compact)}</div>
+            )}
+
+            {render && mounted.has(key) && (
+              <div
+                id={`connect-panel-${key}`}
+                hidden={!isOpen}
+                className="px-4 pb-4 pt-3 border-t border-gray-100 dark:border-gray-800/60 space-y-4 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300"
+              >
+                {render(compact)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Label({ children }) {
+  return (
+    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-1.5">
+      {children}
+    </div>
   );
 }
 
 export default function ConnectPage({ variant = 'web' }) {
   const compact = variant === 'mobile';
-  const ask = useAskEndpoint();
 
-  return (
-    <div className={compact ? 'space-y-4' : 'max-w-3xl'}>
-      {!compact && (
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Plug size={24} /></div>
-          <h2 className="text-3xl font-bold tracking-tight">Connect</h2>
-        </div>
-      )}
-      {compact && <h2 className="text-2xl font-bold mb-1">Connect</h2>}
-
-      <p className={`${compact ? 'text-sm' : 'text-gray-600 dark:text-gray-300 mb-2'} text-gray-600 dark:text-gray-300`}>
-        Four ways to reach what this site has measured without opening this site. Three of them work
-        today. One does not exist, and says so below.
-      </p>
-      <p className={`${compact ? 'text-[11px] text-gray-400' : 'text-xs text-gray-400 mb-8'}`}>
-        Everything here is read only. Nothing on this page asks for a key, an account, or a wallet
-        signature, and none of it can spend money or hire anyone: those stay in the browser, signed
-        by the person who owns the funds.
-      </p>
-
-      <div className="space-y-4">
-
-        {/* 1. The MCP server. */}
-        <Section icon={Terminal} title="The MCP server" pill={<Pill tone="live">Live</Pill>} compact={compact}>
-          <p>
-            MCP is the protocol an AI assistant uses to call somebody else&apos;s tools. Pointing one at
-            this server gives it the measurements behind this site, so it can answer from them
-            instead of guessing.
+  const cards = [
+    {
+      key: 'mcp',
+      title: 'The MCP server',
+      icon: Terminal,
+      pill: <Pill tone="live">Live</Pill>,
+      line: 'Point your own assistant at this site and it can read every measurement here, '
+        + 'with the coverage behind each one. No key, no account, no sign-up.',
+      // The marks sit on the front, because "can the tool I already use read
+      // this" is the question the card has to answer before it is opened.
+      front: (small) => (
+        <div className={small ? '' : 'pl-[52px]'}>
+          <div className="flex flex-wrap gap-1.5">
+            {MCP_CLIENTS.map((c) => <ClientMark key={c.name} client={c} compact={small} />)}
+          </div>
+          <p className={`${small ? 'text-[10px]' : 'text-[11px]'} text-gray-400 dark:text-gray-500 mt-1.5`}>
+            Each one checked against its own documentation for remote servers over HTTP, because
+            supporting MCP and reaching a server on the internet are not the same thing. A client
+            missing from this list was either not checked or could not be confirmed against a
+            server shaped like this one, and the two are not distinguished here. Some appear by
+            name without a mark: either their trademark terms do not permit showing it here, or no
+            asset of theirs could be verified.
           </p>
+        </div>
+      ),
+      render: () => (
+        <>
+          <p>
+            MCP is the protocol an assistant uses to call somebody else&apos;s tools. Pointing one at
+            this server gives it the measurements behind this site, so it answers from them instead
+            of guessing. The model stays yours: this server holds data and runs no model of its own.
+          </p>
+
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-1.5">
-              Endpoint
-            </div>
+            <Label>Endpoint</Label>
             <CodeBlock text={MCP_ENDPOINT} label="the endpoint" />
             <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
               It speaks JSON-RPC over POST, with no authentication and no sign-up. There is no
@@ -250,9 +360,7 @@ export default function ConnectPage({ variant = 'web' }) {
           </div>
 
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-1.5">
-              The six tools
-            </div>
+            <Label>The six tools</Label>
             <ul className="space-y-2">
               {MCP_TOOLS.map((t) => (
                 <li key={t.name} className="border-l-2 border-gray-200 dark:border-gray-700 pl-3">
@@ -269,40 +377,79 @@ export default function ConnectPage({ variant = 'web' }) {
           </div>
 
           <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-1.5">
-              Pointing an agent at it
-            </div>
+            <Label>Adding it to a client</Label>
+            {/* The shapes differ between clients by more than they look, and a
+                key in the wrong place fails quietly. So the copyable block is
+                labelled with the one client it is exactly right for, and every
+                other client's own shape is in the list under it rather than
+                left for the reader to assume. */}
             <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
-              Most MCP clients read a config file. Add one entry to it:
+              Most clients read a config file, and they do not agree on its shape. This is the
+              entry Claude Code takes:
             </p>
-            <CodeBlock text={MCP_CONFIG_SNIPPET} label="the config entry" />
-            <p className="mt-2 mb-2 text-[12px] text-gray-500 dark:text-gray-400">
-              Anything that can POST JSON can call it without a client at all. This asks the server
-              what tools it has:
+            <CodeBlock text={MCP_CONFIG_SNIPPET} label="the Claude Code config entry" />
+            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
+              The others differ, sometimes by one word. Each line below is that client&apos;s own
+              shape, from its own documentation, with the date it was read.
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {MCP_CLIENTS.map((c) => (
+                <li key={c.name} className="text-[12px] text-gray-600 dark:text-gray-400">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">{c.name}</span>
+                  {': '}{c.howTo}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <Label>Calling it without a client</Label>
+            <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
+              Anything that can POST JSON can call it. This asks the server what tools it has:
             </p>
             <CodeBlock text={MCP_CURL_SNIPPET} label="the request" />
           </div>
-        </Section>
+        </>
+      ),
+    },
 
-        {/* 2. The Chrome extension. */}
-        {/* The pill says what is known. The listing was submitted; the Web
-            Store assigns the item id at publication and that id is the only
-            part of the URL nobody can guess, so the link below is the store's
-            own search for the listing's exact name rather than the item page.
-            Calling that "Published" would be reporting an assumption as a
-            fact, which is the thing this site is about not doing. When the
-            item URL is known, extensionLink.js takes it and this pill becomes
-            Published in the same commit. */}
-        <Section icon={Chrome} title="The Chrome extension" pill={<Pill tone="quiet">Submitted</Pill>} compact={compact}>
+    {
+      key: 'extension',
+      title: 'The Chrome extension',
+      // The pill says what is known. The listing was submitted; the Web Store
+      // assigns an item its id at publication and that id is the only part of
+      // the URL nobody can guess, so the link is the store's own search for
+      // the listing's exact name rather than the item page. Calling that
+      // "Published" would be reporting an assumption as a fact. When the item
+      // URL is known, extensionLink.js takes it and this pill changes in the
+      // same commit.
+      pill: <Pill tone="quiet">Submitted</Pill>,
+      markSrc: EXTENSION_MARK,
+      markAlt: `${CHROME_EXTENSION_NAME} icon`,
+      line: 'Puts one number on a Hyperliquid address page itself: how often that address’s '
+        + 'post-only orders are turned away before they ever rest on the book.',
+      render: () => (
+        <>
           <p>
             {CHROME_EXTENSION_NAME} adds a panel to an address page on app.hyperliquid.xyz. The panel
-            shows how often that address&apos;s post-only orders are turned away before they ever rest
-            on the book, or the reason no rate can be stated for it.
+            shows the post-only rejection rate measured for that address and the number of polls
+            behind it, or the reason no rate can be stated: too few polls, no post-only orders seen,
+            or a measurement old enough that showing it as current would be showing an assumption.
+          </p>
+          <p>
+            It takes the address from the page&apos;s URL, which already contains it, and sends that
+            one address to this site&apos;s API. To decide where to put the panel it looks through
+            the page for the element whose text is that same address, so it does read text on the
+            page, and none of what it reads there is sent anywhere or kept: the address from the URL
+            is the only thing that leaves the browser. It does not read form fields, balances or
+            wallet state. It stores nothing, on your machine or off it: no cookie, no local storage,
+            no background worker. It runs on app.hyperliquid.xyz and nowhere else, which is the
+            single entry in its manifest and is what the browser enforces.
           </p>
           <p className="text-[12px] text-gray-500 dark:text-gray-400">
-            It reads the address out of the page&apos;s own URL and sends that one address to this
-            site&apos;s API. It does not read page text, balances, form fields or wallet state, and it
-            stores nothing, on your machine or off it.
+            The panel displays what the API returns and computes nothing itself, so the rule for
+            withholding a number lives in one place rather than in every client that shows one. The
+            same rule, the same reasons, the same wording as this site.
           </p>
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <a
@@ -319,92 +466,59 @@ export default function ConnectPage({ variant = 'web' }) {
           </div>
           <p className="text-[12px] text-gray-500 dark:text-gray-400">
             That link is the store&apos;s search for the listing&apos;s exact name, not the
-            listing&apos;s own page. The Web Store assigns an item its id at publication, and
-            until that id is known here, a direct install link would be a guess.
+            listing&apos;s own page. The Web Store assigns an item its id at publication, and until
+            that id is known here, a direct install link would be a guess.
           </p>
-        </Section>
+        </>
+      ),
+    },
 
-        {/* 3. The Telegram bot, which does not exist. */}
-        <Section icon={Send} title="The Telegram bot" pill={<Pill tone="none">Not built</Pill>} compact={compact}>
-          <p>
-            There is no Telegram bot. Nothing has been written for it, no handle is registered, and
-            no date is set, so there is nothing here to connect to.
-          </p>
-          <p className="text-[12px] text-gray-500 dark:text-gray-400">
-            It is listed because a reader looking for a way in should find out here that this one is
-            not among them, rather than searching Telegram for a bot that is not there. If it gets
-            built, its handle appears in this section.
-          </p>
-        </Section>
+    {
+      key: 'telegram',
+      title: 'The Telegram bot',
+      icon: Send,
+      pill: <Pill tone="none">Not built</Pill>,
+      // No panel: everything true about it fits on the card, and one that
+      // opens onto a sentence is worse than one that does not open. The line
+      // stays as short as the other two fronts and the rest sits under it in
+      // the secondary voice, written the way the withheld reasons are: what it
+      // would do, what exists today, and no date attached to either.
+      line: 'Planned: name one address or one agent in a chat and get back what this site has '
+        + 'measured for it, carrying the same coverage line every other surface here carries.',
+      front: (small) => (
+        <p className={`${small ? 'text-[11px]' : 'text-[12px]'} leading-relaxed text-gray-500 dark:text-gray-400 ${small ? '' : 'pl-[52px]'}`}>
+          Nothing is running yet. No handle is registered and no date is set, so there is nothing
+          here to connect to. It is listed so that a reader looking for a way in learns that here,
+          rather than searching Telegram for a bot that is not there.
+        </p>
+      ),
+    },
+  ];
 
-        {/* 4. Asking the agent on this site. The section adjusts to whether
-             POST /api/ask is deployed; see useAskEndpoint above. */}
-        <Section
-          icon={MessageCircleQuestion}
-          title="Asking the agent directly"
-          pill={
-            ask === 'checking' ? <Pill>Checking</Pill>
-              : ask === 'live' ? <Pill tone="live">Live</Pill>
-                : ask === 'absent' ? <Pill tone="none">Not available yet</Pill>
-                  : <Pill tone="none">Cannot tell</Pill>
-          }
-          compact={compact}
-        >
-          <p>
-            One question in plain language, answered from the same measurements the MCP server
-            serves, without choosing a tool or a dataset yourself. It is a POST to{' '}
-            <code className="font-mono text-[12px]">/api/ask</code> on this site&apos;s API with the
-            question as JSON.
-          </p>
+  return (
+    <div className={compact ? 'space-y-4' : 'max-w-3xl'}>
+      {!compact && (
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">
+            <Plug size={24} />
+          </div>
+          <h2 className="text-3xl font-bold tracking-tight">Connect</h2>
+        </div>
+      )}
+      {compact && <h2 className="text-2xl font-bold mb-1">Connect</h2>}
 
-          {ask === 'checking' && (
-            <p className="flex items-center gap-2 text-[12px] text-gray-500 dark:text-gray-400">
-              <Loader2 size={13} className="animate-spin" />
-              Checking whether the endpoint is answering.
-            </p>
-          )}
+      <p className={`${compact ? 'text-sm' : 'mb-2'} text-gray-600 dark:text-gray-300`}>
+        Three ways to reach what this site has measured without opening this site. One works today,
+        one is with the Chrome Web Store and not published yet, and one does not exist. Each card
+        says which it is.
+      </p>
+      <p className={`${compact ? 'text-[11px] text-gray-400' : 'text-xs text-gray-400 mb-6'}`}>
+        Everything here is read only. Nothing on this page asks for a key, an account, or a wallet
+        signature, and none of it can spend money or hire anyone: those stay in the browser, signed
+        by the person who owns the funds.
+      </p>
 
-          {ask === 'absent' && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-              <div className="text-[13px] font-semibold text-amber-700 dark:text-amber-400">
-                Not available yet
-              </div>
-              <div className="text-[12px] text-gray-600 dark:text-gray-400 mt-1">
-                The endpoint returns 404, which means it is not deployed. It is being built now.
-                This section checks on every visit and will describe how to use it, here, once it
-                answers.
-              </div>
-            </div>
-          )}
-
-          {ask === 'live' && (
-            <div className="space-y-2">
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-[12px] text-gray-600 dark:text-gray-400">
-                The endpoint is answering. Post a question to it and read the reply:
-              </div>
-              <CodeBlock
-                text={`curl -s ${API_DISPLAY_URL}/api/ask \\\n  -H 'Content-Type: application/json' \\\n  -d '{"question":"Which tracked Hyperliquid makers are spraying?"}'`}
-                label="the request"
-              />
-              <p className="text-[12px] text-gray-500 dark:text-gray-400">
-                The answer carries the coverage behind it, the same as every other reply from this
-                site, and states a reason rather than a number where there is nothing to state.
-                {' '}<code className="font-mono">GET /api/ask/readiness</code> says what it can
-                answer right now, and what it cannot.
-              </p>
-            </div>
-          )}
-
-          {ask === 'unreachable' && (
-            <p className="text-[12px] text-gray-500 dark:text-gray-400">
-              The API did not answer at all, so whether this endpoint exists is not known right now.
-              That is a different thing from it being absent, and it is not being reported as
-              absence. Reload once the API is reachable.
-            </p>
-          )}
-        </Section>
-
-      </div>
+      <Cards cards={cards} compact={compact} />
     </div>
   );
 }

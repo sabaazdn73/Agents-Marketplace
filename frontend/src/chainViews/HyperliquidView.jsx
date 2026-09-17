@@ -1200,9 +1200,11 @@ export default function HyperliquidView({ mutedBorder }) {
       />
 
       {/* The same measurement, where a reader is already looking at an
-          address. The extension is published, so this is the store link and
-          not an unpacked-install walkthrough: the URL lives in
-          ../extensionLink.js, which is the one place to correct it. */}
+          address. The listing is submitted rather than published, so this is
+          the store link that will reach it rather than an unpacked-install
+          walkthrough: the URL lives in ../extensionLink.js, which is the one
+          place to correct it, and the Connect tab is where its state is said
+          in words. */}
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-white/5 p-3 flex flex-wrap items-center justify-between gap-3">
         <div className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
           <span className="font-semibold text-gray-900 dark:text-gray-100">{CHROME_EXTENSION_NAME}</span>
