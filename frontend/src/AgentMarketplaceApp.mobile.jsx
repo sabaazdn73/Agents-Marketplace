@@ -31,9 +31,6 @@ import NativeAgentMarketplace from './NativeAgentMarketplace';
 // The Connect tab's whole body, shared verbatim with
 // AgentMarketplaceApp.web.jsx; `variant` changes type sizes only.
 import ConnectPage from './ConnectPage';
-// The on-site agent, shared with the web app so one component is
-// corrected once. See AskTnega.jsx.
-import AskTnega from './AskTnega';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
@@ -1056,10 +1053,6 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           />
         ) : (
           <div className="p-5">
-            {/* Above the chain tabs, matching the web app: the first thing on
-                the first page, and it does not vanish when the chain changes. */}
-            {nav === 'market' && <AskTnega variant="mobile" className="mb-4" />}
-
                         {nav === 'market' && (
               <ChainViewTabs mutedBorder="border-gray-100 dark:border-gray-800">
                 {/* BNB Chain view below is the original mobile marketplace,

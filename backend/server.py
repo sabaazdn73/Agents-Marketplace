@@ -2968,30 +2968,3 @@ try:
     print("[mcp] mounted at POST /mcp", flush=True)
 except Exception as _mcp_error:  # noqa: BLE001
     print(f"[mcp] not mounted ({type(_mcp_error).__name__}: {_mcp_error})", flush=True)
-
-
-# ── the on-site assistant ────────────────────────────────────────────────────
-#
-# POST /api/ask answers a visitor's question by running a bounded tool-calling
-# loop over the same six MCP handlers, in process. It reads the tools and this
-# file's index reader and nothing else, so it cannot answer anything the
-# machine-facing surface would not answer.
-#
-# It is the only route here that spends model tokens per call. What stops it
-# being a free model endpoint is written down in ask/bounds.py and reported by
-# GET /api/ask/readiness: a 500 character question cap, two turns at a time
-# refused rather than queued, five questions per address per fifteen minutes,
-# and sixty questions an hour across the service.
-#
-# Mounted with the same fail-open posture as the MCP block above: if it cannot
-# be imported, every other route is unaffected.
-try:
-    from ask.router import build_router as build_ask_router
-    from mcp_server.router import Providers as AskProviders
-
-    app.include_router(build_ask_router(AskProviders(
-        agents_index=lambda: _cache["index"],
-    )))
-    print("[ask] mounted at POST /api/ask", flush=True)
-except Exception as _ask_error:  # noqa: BLE001
-    print(f"[ask] not mounted ({type(_ask_error).__name__}: {_ask_error})", flush=True)

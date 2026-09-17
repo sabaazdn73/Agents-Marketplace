@@ -101,11 +101,9 @@ import SessionModesExplainer from './SessionModesExplainer';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
 // The Connect tab's whole body. One component shared with
-// AgentMarketplaceApp.mobile.jsx so four sections of prose are not maintained
-// in two places; see ConnectPage.jsx.
+// AgentMarketplaceApp.mobile.jsx so three cards of prose are not maintained in
+// two places; see ConnectPage.jsx.
 import ConnectPage from './ConnectPage';
-// The on-site agent, shared with the mobile app for the same reason.
-import AskTnega from './AskTnega';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
@@ -1165,15 +1163,6 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
               onTrySkill={handleTrySkill}
             />
-          )}
-
-          {/* The on-site agent, above the chain tabs rather than inside them,
-              so it is the first thing on the first page a visitor meets and
-              does not disappear when they switch chains. It draws nothing at
-              all while /api/ask/readiness is unanswered or says the route is
-              not deployed. */}
-          {nav === 'market' && !hiring && !detailAgent && (
-            <AskTnega variant="web" className="mb-3" />
           )}
 
           {nav === 'market' && !hiring && !detailAgent && (
