@@ -927,6 +927,26 @@ async def hyperliquid_overview(limit: int = 50):
             detail=f"Hyperliquid store unavailable: {type(e).__name__}")
 
 
+@app.get("/api/hyperliquid/core")
+async def hyperliquid_core():
+    """Live HyperCore state for the makers that currently carry a rejection
+    rate, read on chain 999 through HyperCoreReader.
+
+    Its own route rather than a key on /overview, because it is about five
+    seconds of eth_calls and the overview is already the slowest thing the tab
+    fetches. The tab asks for this separately and draws it when it arrives, so
+    a chain that is slow cannot delay the rate the page is actually about.
+    """
+    from core.hyperliquid import corestate, service
+    try:
+        rows = await asyncio.to_thread(service.makers, 50)
+        return await asyncio.to_thread(corestate.read_makers, rows)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"HyperCore read unavailable: {type(e).__name__}")
+
+
 @app.get("/api/hyperliquid/address/{address}")
 async def hyperliquid_address(address: str, response: Response = None):
     """One Hyperliquid address, for the Chrome extension.

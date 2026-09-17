@@ -247,3 +247,50 @@ def read_address(address: str) -> dict:
     }
     _cache[addr] = (now, out)
     return out
+
+
+# How many makers one batch reads. Each address is one eth_call taking about
+# 310 ms, so twelve is under four seconds and the whole set of seventeen is
+# over five. The response says how many were read and how many were eligible,
+# because a truncated list that does not say it is truncated is the shape this
+# project keeps finding in other people's data.
+BATCH_MAX = 12
+_BATCH_TTL_SECONDS = 60
+_batch_cache: dict = {"at": 0.0, "value": None}
+
+
+def read_makers(rows: list[dict]) -> dict:
+    """The HyperCore position for each maker that currently carries a rate.
+
+    Only rated makers. An address whose rejection rate is withheld has nothing
+    to put a position beside: the pairing is the point, and half of it missing
+    makes the other half look like a reading it is not.
+    """
+    now = time.time()
+    if _batch_cache["value"] and now - _batch_cache["at"] < _BATCH_TTL_SECONDS:
+        return _batch_cache["value"]
+
+    eligible = [m for m in rows if m.get("withheld_reason") is None]
+    read = eligible[:BATCH_MAX]
+    out = []
+    for m in read:
+        core = read_address(m["address"])
+        out.append({
+            "address": m["address"],
+            "post_only_rejection_rate": m.get("post_only_rejection_rate"),
+            "newest_record_age_seconds": m.get("newest_record_age_seconds"),
+            "core": core,
+        })
+    value = {
+        "served": bool(READER_ADDRESS),
+        "reader": READER_ADDRESS or None,
+        "chain_id": HYPEREVM_CHAIN_ID,
+        "markets_checked": [coin for _, coin in PERPS_CHECKED],
+        "makers_rated": len(eligible),
+        "makers_read": len(read),
+        "read_at": now,
+        "rows": out,
+        "withheld_reason": None if READER_ADDRESS else "reader_not_deployed",
+    }
+    _batch_cache.update({"at": now, "value": value})
+    return value

@@ -50,6 +50,12 @@ import {
 import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from './extensionLink';
 import { MCP_CLIENTS, EXTENSION_MARK } from './connectMarks';
 
+// The bot's handle, in one place. Registered with BotFather on
+// 2026-09-17 and answering on a webhook mounted into this project's own
+// API, so there is no second service behind it.
+const TELEGRAM_HANDLE = '@Tnega_bot';
+const TELEGRAM_URL = 'https://t.me/Tnega_bot';
+
 // The deployed backend, which is also where the MCP server is mounted
 // (backend/mcp_server/router.py mounts it into the same process). Written out
 // rather than derived from VITE_API_BASE_URL: a local dev build would
@@ -477,20 +483,43 @@ export default function ConnectPage({ variant = 'web' }) {
       key: 'telegram',
       title: 'The Telegram bot',
       icon: Send,
-      pill: <Pill tone="none">Not built</Pill>,
-      // No panel: everything true about it fits on the card, and one that
-      // opens onto a sentence is worse than one that does not open. The line
-      // stays as short as the other two fronts and the rest sits under it in
-      // the secondary voice, written the way the withheld reasons are: what it
-      // would do, what exists today, and no date attached to either.
-      line: 'Planned: name one address or one agent in a chat and get back what this site has '
-        + 'measured for it, carrying the same coverage line every other surface here carries.',
+      pill: <Pill tone="live">Live</Pill>,
+      line: 'Name one address or one agent in a chat and get back what this site has measured '
+        + 'for it, carrying the same coverage line every other surface here carries.',
       front: (small) => (
-        <p className={`${small ? 'text-[11px]' : 'text-[12px]'} leading-relaxed text-gray-500 dark:text-gray-400 ${small ? '' : 'pl-[52px]'}`}>
-          Nothing is running yet. No handle is registered and no date is set, so there is nothing
-          here to connect to. It is listed so that a reader looking for a way in learns that here,
-          rather than searching Telegram for a bot that is not there.
-        </p>
+        <div className={small ? '' : 'pl-[52px]'}>
+          <a
+            href={TELEGRAM_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
+          >
+            {TELEGRAM_HANDLE} <ExternalLink size={12} />
+          </a>
+        </div>
+      ),
+      render: () => (
+        <>
+          <p>
+            Send it <code className="font-mono text-[12px]">/help</code> for the commands, or paste a{' '}
+            <code className="font-mono text-[12px]">0x</code> address and it will offer the three
+            ways it can read one: the Hyperliquid post-only rejection rate, the ERC-8183 jobs
+            behind that provider, and the budgets funded to it.
+          </p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">
+            There is no model behind it. It runs the same fixed queries the MCP server exposes, so
+            it understands commands rather than sentences, and it says so rather than guessing. A
+            number that is not current is not shown: the reply carries the reason instead, in the
+            same words the extension and this site use. An address that left the collector&apos;s
+            set gets told that, and its stored counts are labelled as describing that earlier
+            period rather than now.
+          </p>
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">
+            It answers one question at a time and refuses a second rather than queueing it, which
+            is the same rule the MCP server holds. It reads; it cannot spend anything, sign
+            anything or hire anyone.
+          </p>
+        </>
       ),
     },
   ];
@@ -508,9 +537,8 @@ export default function ConnectPage({ variant = 'web' }) {
       {compact && <h2 className="text-2xl font-bold mb-1">Connect</h2>}
 
       <p className={`${compact ? 'text-sm' : 'mb-2'} text-gray-600 dark:text-gray-300`}>
-        Three ways to reach what this site has measured without opening this site. One works today,
-        one is with the Chrome Web Store and not published yet, and one does not exist. Each card
-        says which it is.
+        Three ways to reach what this site has measured without opening this site. Two work today
+        and one is with the Chrome Web Store, not published yet. Each card says which it is.
       </p>
       <p className={`${compact ? 'text-[11px] text-gray-400' : 'text-xs text-gray-400 mb-6'}`}>
         Everything here is read only. Nothing on this page asks for a key, an account, or a wallet

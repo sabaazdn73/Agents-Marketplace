@@ -56,6 +56,67 @@ const FOOT = `
 // because those are the places the software identifies itself rather than
 // its subject. Publishing another company's mascot as the face of this
 // product would be a trademark question rather than a design one.
+
+// The other half of the sentence: where this address stands on HyperCore right
+// now, read on chain 999 through the HyperCoreReader contract.
+//
+// Two clocks, never merged. The rejection rate above is measured over hours of
+// polling; this is one block, a second or so old. They are shown one under the
+// other, with their own timestamps, and no figure is ever computed across the
+// two.
+//
+// Drawn only when the backend actually served it. When the reader is not
+// configured the block is absent rather than present-and-empty: this panel is
+// about the rejection rate, and an addition that could not be read is not a
+// finding about the address.
+function coreHtml(core) {
+  if (!core || !core.served) return "";
+
+  const markets = (core.markets_checked || []).join(", ");
+  const positions = core.positions || [];
+
+  if (!core.account_found) {
+    return `<div class="tnega-core">
+      <div class="tnega-core-title">On HyperCore, read on chain</div>
+      <div class="tnega-muted">Nothing found for this address on ${esc(markets)}.
+        That is not the same as flat: an account that closed out and withdrew
+        everything reads exactly like one that never existed.</div>
+    </div>`;
+  }
+
+  const rows = positions.map((p) => {
+    const side = p.side === "short" ? "Short" : "Long";
+    const size = Math.abs(p.size).toLocaleString(undefined, { maximumFractionDigits: 4 });
+    const pnl = p.unrealised_usd;
+    const sign = pnl >= 0 ? "+" : "−";
+    const money = Math.abs(pnl).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    return `<div class="tnega-core-row">
+      <span>${esc(side)} ${esc(size)} ${esc(p.coin)}</span>
+      <b>${esc(sign + "$" + money)}</b>
+    </div>
+    <div class="tnega-core-sub">entry ${esc(fmtUsd(p.entry_price))} &middot; mark ${esc(fmtUsd(p.mark_price))}</div>`;
+  }).join("");
+
+  const flat = positions.length === 0
+    ? `<div class="tnega-muted">An account exists, with no position on ${esc(markets)}.</div>`
+    : "";
+
+  return `<div class="tnega-core">
+    <div class="tnega-core-title">On HyperCore, read on chain</div>
+    ${rows}${flat}
+    <div class="tnega-core-foot">HyperCore block ${esc(String(core.core_block || ""))},
+      read through a contract on HyperEVM. Checked on ${esc(markets)} only.
+      This is now; the rate above is measured over hours.</div>
+  </div>`;
+}
+
+function fmtUsd(v) {
+  if (v === null || v === undefined) return "n/a";
+  return "$" + Number(v).toLocaleString(undefined, {
+    maximumFractionDigits: v < 10 ? 4 : 2,
+  });
+}
+
 function panelHtml(state, data, address) {
   const shortAddr = `${address.slice(0, 6)}…${address.slice(-4)}`;
   const icon = chrome.runtime.getURL("icons/hypurr-128.png");
@@ -101,6 +162,7 @@ function panelHtml(state, data, address) {
         <div><span>Post-only orders seen</span><b>${fmtInt(p.alo_total)}</b></div>
       </div>
       <div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>
+      ${coreHtml(data.core)}
     </div>${FOOT}`;
   }
 
@@ -120,6 +182,7 @@ function panelHtml(state, data, address) {
       A rejected post-only order never rests on the book, so it provides no liquidity and
       leaves no trace in fills or volume.
     </div>
+    ${coreHtml(data.core)}
   </div>${FOOT}`;
 }
 

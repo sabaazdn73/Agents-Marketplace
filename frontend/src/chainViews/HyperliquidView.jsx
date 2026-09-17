@@ -374,6 +374,18 @@ function utcDate(iso) {
   return iso ? String(iso).slice(0, 10) : '';
 }
 
+
+function usd(v) {
+  if (!Number.isFinite(v)) return 'n/a';
+  return `$${v.toLocaleString(undefined, { maximumFractionDigits: v < 10 ? 4 : 2 })}`;
+}
+
+function signedUsd(v) {
+  if (!Number.isFinite(v)) return 'n/a';
+  const sign = v < 0 ? '−' : '+';
+  return `${sign}$${Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
 /** A rough age, for a status word rather than a measurement. Deliberately
  *  coarse: the point is "this stopped a while ago", not the exact minute. */
 function relAge(seconds) {
@@ -773,6 +785,130 @@ function BrainReady({ brain, mutedBorder }) {
   );
 }
 
+
+// ---------------------------------------------------------------------------
+// On chain now
+// ---------------------------------------------------------------------------
+//
+// The refusal rate this tab is built on is measured over hours of polling. This
+// is where the same addresses stand at one HyperCore block, read through a
+// contract this project deployed on HyperEVM. The pairing is the whole reason
+// the section exists: a refusal rate is a fact about an attempt to quote, and a
+// position is what that attempt was for, and nothing else shows them together.
+//
+// THE TWO CLOCKS ARE NEVER MERGED. Each row carries the age of the measurement
+// behind its rate and the block behind its position, and no figure is computed
+// across them. A ratio of one to the other would be a number about nothing.
+function CoreSection({ core, state, mutedBorder }) {
+  if (state === 'loading') {
+    return (
+      <p className="text-[12px] text-gray-500 dark:text-gray-500 py-2">
+        Reading HyperCore through the contract on HyperEVM…
+      </p>
+    );
+  }
+  if (state === 'failed' || !core) {
+    return (
+      <p className="text-[12px] leading-relaxed text-amber-700 dark:text-amber-400 py-2">
+        The on-chain read did not answer. That is a failed request to HyperEVM, not a
+        statement about any address: the rejection rates above are unaffected and were
+        measured from a different source.
+      </p>
+    );
+  }
+  if (!core.served) {
+    return (
+      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 py-2">
+        No reader contract is configured, so nothing was read from HyperCore. The
+        rejection rates above do not depend on it.
+      </p>
+    );
+  }
+
+  const rows = core.rows || [];
+  const markets = (core.markets_checked || []).join(', ');
+
+  return (
+    <div className="pt-3 space-y-4">
+      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+        Each maker that currently carries a rejection rate, with where it stands on
+        HyperCore right now. The rate is measured over hours of polling; the position is
+        one block old. They are shown in one row and never combined into one figure.
+      </p>
+
+      <ScrollTable mutedBorder={mutedBorder} head={<>
+        <Th align="left">Address</Th>
+        <Th>Refused, over hours</Th>
+        <Th>Position, this block</Th>
+        <Th>Entry</Th>
+        <Th>Mark</Th>
+        <Th>Unrealised</Th>
+      </>}>
+        {rows.map((r) => {
+          const c = r.core || {};
+          const positions = c.positions || [];
+          const p = positions[0] || null;
+          return (
+            <tr key={r.address} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0 align-top">
+              <td className="px-3 py-2 text-left whitespace-nowrap">
+                <a href={`https://app.hyperliquid.xyz/explorer/address/${r.address}`}
+                   target="_blank" rel="noreferrer"
+                   className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline">
+                  {short(r.address)}
+                </a>
+              </td>
+              <Td strong>{pct(r.post_only_rejection_rate)}</Td>
+              {p ? (
+                <>
+                  <Td strong className={p.side === 'short'
+                    ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>
+                    {p.side === 'short' ? 'Short' : 'Long'}{' '}
+                    {Math.abs(p.size).toLocaleString(undefined, { maximumFractionDigits: 4 })} {p.coin}
+                  </Td>
+                  <Td>{usd(p.entry_price)}</Td>
+                  <Td>{usd(p.mark_price)}</Td>
+                  <Td strong className={(p.unrealised_usd ?? 0) < 0
+                    ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>
+                    {signedUsd(p.unrealised_usd)}
+                  </Td>
+                </>
+              ) : (
+                <td colSpan={4} className="px-3 py-2 text-left text-[11px] leading-relaxed text-gray-500 dark:text-gray-500">
+                  {c.account_found
+                    ? `An account exists, with no position on ${markets}.`
+                    : `Nothing found on ${markets}. Not the same as flat: an account that `
+                      + 'closed out and withdrew everything reads exactly like one that never existed.'}
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </ScrollTable>
+
+      <div className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-500 space-y-1">
+        <p>
+          Read through <a
+            href={`https://hyperevmscan.io/address/${core.reader}`}
+            target="_blank" rel="noreferrer"
+            className="font-mono text-indigo-600 dark:text-indigo-400 hover:underline">
+            {short(core.reader)}
+          </a>, a contract on HyperEVM, chain {core.chain_id}, which reads HyperCore's own
+          precompiles. Its source is verified.
+        </p>
+        <p>
+          {core.makers_read} of {core.makers_rated} rated makers were read, on {markets} only.
+          A maker with no rejection rate is not listed here: half a pairing is not a reading.
+        </p>
+        <p>
+          Sizes and prices come back in the asset's own scale and are converted by
+          10<sup>(szDecimals − 6)</sup>. Unrealised is mark minus entry, times size, and is
+          not a realised result.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function BrainSection({ brain, mutedBorder }) {
   if (BRAIN_STATE === 'waiting') {
     return (
@@ -880,6 +1016,12 @@ export default function HyperliquidView({ mutedBorder }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  // The on-chain read is fetched separately and drawn when it arrives. It is
+  // about five seconds of eth_calls against HyperEVM, and the overview is
+  // already the slowest thing this tab asks for; putting them in one request
+  // would let a slow chain delay the rate the page is actually about.
+  const [core, setCore] = useState(null);
+  const [coreState, setCoreState] = useState('loading'); // loading | ready | failed
 
   useEffect(() => {
     let cancelled = false;
@@ -890,6 +1032,11 @@ export default function HyperliquidView({ mutedBorder }) {
       })
       .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
       .catch((e) => { if (!cancelled) { setError(e.message); setLoading(false); } });
+
+    fetch(`${API_BASE_URL}/api/hyperliquid/core`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => { if (!cancelled) { setCore(d); setCoreState('ready'); } })
+      .catch(() => { if (!cancelled) setCoreState('failed'); });
     return () => { cancelled = true; };
   }, []);
 
@@ -953,6 +1100,24 @@ export default function HyperliquidView({ mutedBorder }) {
     || (brainAge !== null && brainAge > BRAIN_WITHHELD_AFTER_SECONDS));
   const brainNull = brainServed && brain.withheld_reason === 'not_significant';
   const brainShown = brainServed && !brainStale && !brainNull;
+
+  // The badge says which of the four states the on-chain read is in, so a
+  // reader knows whether an empty section is a failure, an absence of a
+  // contract, or an answer.
+  let coreBadge = 'Reading';
+  let coreNote = 'Asking HyperEVM';
+  if (coreState === 'failed') {
+    coreBadge = 'Unavailable';
+    coreNote = 'HyperEVM did not answer';
+  } else if (coreState === 'ready' && core && !core.served) {
+    coreBadge = 'No reader';
+    coreNote = 'No contract configured';
+  } else if (coreState === 'ready' && core) {
+    const withPos = (core.rows || []).filter(
+      (r) => ((r.core || {}).positions || []).length).length;
+    coreBadge = 'Live';
+    coreNote = `${withPos} of ${core.makers_read} holding a position`;
+  }
 
   let brainBadge = 'Empty';
   let brainNote = 'Not built';
@@ -1232,6 +1397,15 @@ export default function HyperliquidView({ mutedBorder }) {
             badge: brainBadge,
             badgeTone: 'border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400',
             render: () => <BrainSection brain={brain} mutedBorder={mutedBorder} />,
+          },
+          {
+            key: 'core',
+            title: 'On chain now',
+            icon: Radio,
+            note: coreNote,
+            badge: coreBadge,
+            badgeTone: 'border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400',
+            render: () => <CoreSection core={core} state={coreState} mutedBorder={mutedBorder} />,
           },
         ]}
       />

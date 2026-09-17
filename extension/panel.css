@@ -193,3 +193,40 @@
   color: #97FCE4;
   text-decoration: underline;
 }
+
+/* The HyperCore block. Visually subordinate to the rate on purpose: the rate is
+   what this panel is for and what nobody else shows, and the position is the
+   thing it should be read against. Its own foot carries its own clock, because
+   the two numbers above and below this line are measured over different spans
+   and must never read as one figure. */
+.tnega-core {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.tnega-core-title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b93a7;
+  margin-bottom: 5px;
+}
+.tnega-core-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  color: #e6e9f0;
+}
+.tnega-core-sub {
+  font-size: 10px;
+  color: #8b93a7;
+  margin: 1px 0 6px;
+}
+.tnega-core-foot {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #6f778a;
+  margin-top: 4px;
+}
