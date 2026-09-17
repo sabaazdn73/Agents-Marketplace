@@ -333,6 +333,11 @@ async def update_agent_health(results: dict[str, dict]) -> int:
     not present in `results` (skipped because their existing check was
     still fresh, see agent_health.HEALTH_TTL_SECONDS) are left untouched,
     never regressed to unknown just because this pass didn't re-check them.
+
+    The same rule now holds for an agent that WAS re-checked and whose check
+    failed on our side: `unknown` never overwrites a stored verdict. See the
+    comment in the loop for what that cost when it did not hold.
+
     Returns the number of documents updated."""
     if not results:
         return 0
@@ -340,7 +345,49 @@ async def update_agent_health(results: dict[str, dict]) -> int:
     coll = db.known_agents
     updated = 0
     for aid, fields in results.items():
-        res = await coll.update_one({"_id": aid}, {"$set": fields})
+        if fields.get("service_status") == "unknown":
+            # A FAILED CHECK IS NOT A VERDICT.
+            #
+            # `unknown` means we never reached the agent's metadata, so we
+            # learned nothing about whether it answers. Writing it over a
+            # stored `responding` destroys evidence that was earned and
+            # replaces it with our own failure, and because the check runs on
+            # a rolling TTL it does that to the whole store in a day: on
+            # 2026-09-17 the public IPFS gateway began returning 429 and the
+            # responding count fell from 3,855 to 1,230 without a single
+            # agent changing. 368 of the resulting `unknown` records still
+            # carried service_http_status 200 from the check before.
+            #
+            # So the failure is recorded beside the verdict rather than on top
+            # of it. A stored verdict survives; the attempt is dated, counted
+            # and given its cause, which is what tells a later reader that a
+            # figure is not being refreshed.
+            attempt = {
+                "service_recheck_failed_at": fields.get("service_checked_at"),
+                "service_recheck_error": fields.get("service_check_error")
+                                          or "resolve_failed",
+            }
+            # Only write `unknown` itself where nothing better is stored. A
+            # missing field, null, or a previous `unknown` all qualify; a
+            # verdict of any kind, including `not_responding` and
+            # `no_endpoint`, does not, because those were learned about the
+            # agent rather than about us.
+            res = await coll.update_one(
+                {"_id": aid, "service_status": {"$in": [None, "unknown"]}},
+                {"$set": {**fields, **attempt},
+                 "$inc": {"service_recheck_failures": 1}})
+            if not res.matched_count:
+                res = await coll.update_one(
+                    {"_id": aid},
+                    {"$set": attempt, "$inc": {"service_recheck_failures": 1}})
+        else:
+            # A real verdict. It stands, and it clears the failure markers so
+            # a record cannot read as both current and failing.
+            res = await coll.update_one(
+                {"_id": aid},
+                {"$set": {**fields, "service_recheck_failures": 0},
+                 "$unset": {"service_recheck_failed_at": "",
+                            "service_recheck_error": ""}})
         if res.matched_count:
             updated += 1
     return updated

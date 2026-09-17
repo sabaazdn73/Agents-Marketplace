@@ -152,6 +152,52 @@ async def _multicall_tokenuris(
     return out
 
 
+# ── the CID cache ─────────────────────────────────────────────────────────
+#
+# An ipfs:// URI is content-addressed: the CID IS the hash of the bytes, so
+# what it resolves to cannot change. Fetching one twice is therefore always
+# waste, and it is the waste that took the whole health signal down on
+# 2026-09-17, when ipfs.io began answering 429 with a 951 second retry-after
+# and every re-check downgraded another batch of agents.
+#
+# Switching gateway would have moved the traffic to another host that rate
+# limits too. Not making the request is the fix.
+#
+# WHAT IS STORED, and why it is not the whole document: only the services[]
+# array, which is the single thing _resolve_services returns. A stored agent
+# card is a few hundred bytes against a cluster that has already had one write
+# outage from its quota, and nothing downstream reads any other field of it.
+#
+# WHAT IS NOT CACHED: http(s) and data: URIs. An http URI is not
+# content-addressed and its contents may legitimately change, so caching it
+# would freeze a stale endpoint in place. A failed resolution is not cached
+# either, because a 429 says nothing about the bytes behind the CID.
+_CID_CACHE_COLLECTION = "ipfs_metadata"
+
+
+async def _cid_cached(cid: str):
+    """The services[] stored for this CID, or None. Never raises: a cache that
+    is unreachable must cost a fetch, not a resolution."""
+    try:
+        from core.db import get_db
+        doc = await get_db()[_CID_CACHE_COLLECTION].find_one({"_id": cid})
+        return (doc or {}).get("services") if doc else None
+    except Exception:
+        return None
+
+
+async def _cid_store(cid: str, services) -> None:
+    """Record a successful resolution. Never raises, for the same reason."""
+    try:
+        from core.db import get_db
+        await get_db()[_CID_CACHE_COLLECTION].update_one(
+            {"_id": cid},
+            {"$set": {"services": services, "cached_at": time.time()}},
+            upsert=True)
+    except Exception:
+        pass
+
+
 async def _fetch_metadata(uri: str, client: httpx.AsyncClient) -> dict:
     """One attempt to fetch+parse the metadata JSON behind `uri`. Raises
     on any failure, retrying is the caller's job (see _resolve_services)."""
@@ -186,13 +232,37 @@ async def _fetch_metadata(uri: str, client: httpx.AsyncClient) -> dict:
         raise ValueError(f"unrecognized URI scheme: {uri[:30]}")
 
 
-async def _resolve_services(uri: str, client: httpx.AsyncClient) -> tuple[list[dict] | None, bool]:
+def _failure_reason(exc: Exception) -> str:
+    """A short, stable name for why a resolution failed.
+
+    Written into the record so a later reader can tell one cause from
+    another without the log. The distinction that matters most: a gateway
+    refusing us (`gateway_rate_limited`) is our quota, and a malformed URI
+    (`bad_metadata`) is the agent's registration. Reporting both as "unknown"
+    is what let a gateway outage read as thousands of agents going quiet.
+    """
+    import httpx as _httpx
+    if isinstance(exc, _httpx.HTTPStatusError):
+        code = exc.response.status_code
+        if code == 429:
+            return "gateway_rate_limited"
+        return f"gateway_http_{code}"
+    if isinstance(exc, (_httpx.TimeoutException,)):
+        return "resolve_timeout"
+    if isinstance(exc, (ValueError, TypeError)):
+        return "bad_metadata"
+    return f"resolve_failed_{type(exc).__name__}"
+
+
+async def _resolve_services(uri: str, client: httpx.AsyncClient) -> tuple[list[dict] | None, str | None]:
     """Resolve an agentURI to its services[] list.
 
-    Returns (services, resolution_failed). `services` is None when there is
+    Returns (services, failure_reason). `services` is None when there is
     genuinely no metadata (empty URI) OR when resolution itself failed
-    (network/parse error), the second return value distinguishes those two
-    cases so the caller can tell "no_endpoint" from "unknown".
+    (network/parse error); the second return value is None in the first case
+    and a short reason in the second, so the caller can tell "no_endpoint"
+    from a failure on our side, and so the failure can be recorded with its
+    cause rather than as a bare "unknown".
 
     Real, confirmed reliability finding (2026-08-21, full-scale production
     run): the first full bulk run (332 agents) showed a 38% "unknown" rate,
@@ -210,7 +280,15 @@ async def _resolve_services(uri: str, client: httpx.AsyncClient) -> tuple[list[d
     per-host rate-limit/overload window without materially slowing down the
     common (first-try-succeeds) case."""
     if not uri:
-        return None, False # genuinely no URI at all, no_endpoint, not a failure
+        return None, None # genuinely no URI at all, no_endpoint, not a failure
+
+    # Content-addressed and therefore immutable: if this CID has been
+    # resolved before, the answer cannot have changed and no request is made.
+    cid = uri[len("ipfs://"):] if uri.startswith("ipfs://") else None
+    if cid:
+        hit = await _cid_cached(cid)
+        if hit is not None:
+            return (hit or None), None
 
     last_exc: Exception | None = None
     for attempt, delay in enumerate((0.0, _RESOLVE_RETRY_DELAY)):
@@ -218,7 +296,10 @@ async def _resolve_services(uri: str, client: httpx.AsyncClient) -> tuple[list[d
             await asyncio.sleep(delay)
         try:
             data = await _fetch_metadata(uri, client)
-            return (data.get("services") or None), False
+            services = data.get("services") or None
+            if cid:
+                await _cid_store(cid, services or [])
+            return services, None
         except Exception as e:
             last_exc = e
             continue
@@ -226,7 +307,7 @@ async def _resolve_services(uri: str, client: httpx.AsyncClient) -> tuple[list[d
     # a backoff, invalid CID like the real "ipfs://bort-v31-canary" junk value
     # seen in testing, bad JSON, etc.), OUR pipeline's limitation, not
     # necessarily the agent's fault.
-    return None, True
+    return None, _failure_reason(last_exc) if last_exc else "resolve_failed"
 
 
 def _first_http_endpoint(services: list[dict] | None) -> str | None:
@@ -259,12 +340,19 @@ def _first_http_endpoint(services: list[dict] | None) -> str | None:
 async def _check_one(agent: dict, uri: str | None, client: httpx.AsyncClient, sem: asyncio.Semaphore) -> dict:
     now_iso_fields = {"service_checked_at": time.time()}
     async with sem:
-        services, resolution_failed = await _resolve_services(uri or "", client)
+        services, resolve_failure = await _resolve_services(uri or "", client)
         endpoint = _first_http_endpoint(services)
 
         if endpoint is None:
-            if resolution_failed:
-                return {**now_iso_fields, "service_status": "unknown", "service_endpoint": None}
+            if resolve_failure:
+                # Not a verdict about the agent. We never reached its
+                # metadata, so we learned nothing about whether it answers.
+                # agent_store.update_agent_health refuses to let this
+                # overwrite a verdict that was earned; the reason travels with
+                # it so the record says what went wrong on our side.
+                return {**now_iso_fields, "service_status": "unknown",
+                        "service_endpoint": None,
+                        "service_check_error": resolve_failure}
             return {**now_iso_fields, "service_status": "no_endpoint", "service_endpoint": None}
 
         # Real, confirmed reliability finding (2026-08-21): a short single
@@ -323,7 +411,13 @@ async def check_agents_health(agents: list[dict], limit: int | None = None) -> d
     to_check = [
         a for a in agents
         if a.get("id") and a.get("token_id") not in (None, "", "None")
-        and (now - (a.get("service_checked_at") or 0)) > HEALTH_TTL_SECONDS
+        # The later of the two: a check that succeeded, and an attempt that
+        # failed on our side. Without the second, an agent whose resolution
+        # keeps failing never records a fresh service_checked_at and is
+        # therefore re-probed on every pass, which is the fastest way to stay
+        # inside a gateway's rate limit forever.
+        and (now - max(a.get("service_checked_at") or 0,
+                       a.get("service_recheck_failed_at") or 0)) > HEALTH_TTL_SECONDS
     ]
     if not to_check:
         return {}
