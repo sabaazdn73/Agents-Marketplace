@@ -122,7 +122,7 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
         <div className={`p-8 rounded-2xl border ${mutedBorder} text-center`}>
           <Briefcase size={28} className="mx-auto mb-3 text-gray-300 dark:text-gray-700" />
           <p className="text-sm text-gray-500">You haven't hired anyone yet.</p>
-          <p className="text-xs text-gray-400 mt-1">Hire an agent from the Marketplace and it'll show up here.</p>
+          <p className="text-xs text-gray-400 mt-1">Hire an agent from Agents and Bots House and it'll show up here.</p>
         </div>
       ) : (
         jobs.map((job) => (

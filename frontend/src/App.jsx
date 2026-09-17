@@ -29,13 +29,20 @@ const PAGE_META = {
     // Both must match index.html's static tags exactly. Social scrapers read
     // the static tags, search crawlers run this and overwrite them; if the
     // two differ, a shared link and a search result disagree.
-    docTitle: 'Tnega: Multichain AI Agent Marketplace, Hire On-Chain',
-    ogTitle: 'Tnega: Multichain Agent Marketplace',
-    description: "Tnega is a multichain marketplace for AI agents: browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.",
+    docTitle: 'Tnega: Agents and Bots House, Hire On-Chain',
+    ogTitle: 'Tnega: Agents and Bots House',
+    description: "Tnega is the Agents and Bots House: browse and verify ERC-8004 agents and bots on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.",
   },
   // Ethereum belongs in this list: AgentBudgetEscrow went live there on
   // 2026-09-11, so it is a hire chain like the other three.
-  '/market': { title: 'Marketplace', description: 'Browse and hire verified AI agents across BNB Chain, Ethereum, Arbitrum and Robinhood Chain, with payment held on-chain until the work is delivered.' },
+  // Renamed 2026-09-17: the tab is Agents and Bots House. The path stays
+  // /market, because every shared link, the sitemap and the Chrome Web Store
+  // listing point at it, and a rename that changes a URL breaks all of them.
+  '/market': { title: 'Agents and Bots House', description: 'Browse and hire verified AI agents and bots across BNB Chain, Ethereum, Arbitrum and Robinhood Chain, with payment held on-chain until the work is delivered.' },
+  // Added 2026-09-17, following /skills and /native-agents: an entry here, a
+  // path in routePaths.js, a nav item in both apps, a line in
+  // public/sitemap.xml and in backend/scripts/build_sitemap.py.
+  '/connect': { title: 'Connect', description: 'Every way to reach Tnega from outside the site: the MCP server and its six tools, the Chrome extension, and what is not built yet.' },
   '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions, Venus lending, PancakeSwap trading, and more, you run yourself through your own wallet.' },
   '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
   '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },

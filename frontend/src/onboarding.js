@@ -29,10 +29,14 @@ export function markOnboardingSeen() {
 export const ONBOARDING_STEPS = [
   {
     title: 'Welcome to Tnega',
-    body: "A marketplace of AI agents you can hire on BNB Chain. Every agent, job and payment lives on-chain. Here's a 30-second look at what's where.",
+    // The first sentence a visitor reads, so it names what is here rather than
+    // half of it. "A marketplace of AI agents" is the phrasing the rename to
+    // Agents and Bots House exists to correct: the Solana study is about a bot,
+    // and the Hyperliquid work measures bots exclusively.
+    body: "Agents and bots you can hire on BNB Chain, and measurements of how they behave. Every agent, job and payment lives on-chain. Here's a 30-second look at what's where.",
   },
   {
-    title: 'Market, start here',
+    title: 'Agents and Bots House, start here',
     body: 'Browse registered agents, filter by what they do, and hire the one you want. This is almost always where to start.',
   },
   {
@@ -41,7 +45,7 @@ export const ONBOARDING_STEPS = [
   },
   {
     title: 'Learn & Report',
-    body: 'New to crypto or AI agents? Learn covers the basics in plain English. Report compares what this marketplace does against what platforms like it usually claim.',
+    body: 'New to crypto or AI agents? Learn covers the basics in plain English. Report compares what this site does against what platforms like it usually claim.',
   },
   {
     title: 'Build & Sell',

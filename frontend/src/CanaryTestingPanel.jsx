@@ -144,7 +144,7 @@ export default function CanaryTestingPanel({ onBack }) {
     <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-gray-100 p-6 md:p-10">
       <div className="max-w-3xl mx-auto">
         <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-6">
-          <ChevronRight size={16} className="rotate-180" /> Back to Marketplace
+          <ChevronRight size={16} className="rotate-180" /> Back to Agents and Bots House
         </button>
 
         <h1 className="text-2xl font-bold flex items-center gap-2 mb-2"><ShieldHalf size={22} className="text-teal-600" /> Canary Testing (operator tool)</h1>

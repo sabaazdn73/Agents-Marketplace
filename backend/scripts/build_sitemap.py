@@ -59,6 +59,9 @@ STATIC = [
     ("/market", "daily", "0.9"),
     ("/native-agents", "weekly", "0.8"),
     ("/skills", "weekly", "0.8"),
+    # Added 2026-09-17 with the Connect tab. Static prose, one page, and the
+    # address a reader is given for the MCP server, so it is worth indexing.
+    ("/connect", "monthly", "0.7"),
     ("/learn", "monthly", "0.7"),
     ("/docs", "weekly", "0.7"),
     ("/report", "monthly", "0.6"),

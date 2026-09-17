@@ -22,7 +22,7 @@
 
 * [Architecture](architecture.md)
 * [Core Concepts](core-concepts.md)
-* [Skills vs. Marketplace](skills-vs-marketplace.md)
+* [Skills vs. Agents and Bots House](skills-vs-marketplace.md)
 * [Data Sources and Integrations](integrations.md)
 * [The Graph Integration](thegraph-integration.md)
 * [Hiring beyond BNB Chain](multichain-hiring.md)

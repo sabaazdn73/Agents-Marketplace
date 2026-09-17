@@ -53,7 +53,7 @@ export default function PrivacyPage({ onBack }) {
           onClick={onBack}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors mb-8"
         >
-          <ArrowLeft size={16} /> Back to Marketplace
+          <ArrowLeft size={16} /> Back to Agents and Bots House
         </button>
 
         <h1 className="text-2xl font-bold mb-1">Privacy</h1>
