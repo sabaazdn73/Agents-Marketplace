@@ -2983,3 +2983,26 @@ try:
     print("[mcp] mounted at POST /mcp", flush=True)
 except Exception as _mcp_error:  # noqa: BLE001
     print(f"[mcp] not mounted ({type(_mcp_error).__name__}: {_mcp_error})", flush=True)
+
+
+# ── the Telegram surface ─────────────────────────────────────────────────────
+#
+# One route, POST /api/telegram/webhook, mounted into this app rather than run
+# as a second service. A webhook is inbound traffic, which is what this plan
+# needs: a polling loop is outbound only, would never keep the service awake,
+# and is the kind of service-initiated traffic that gets a free service
+# suspended.
+#
+# Additive and fail-open, like the MCP mount above: if it does not import, the
+# rest of the API is unaffected. It answers nothing unless both
+# TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET are set, and the secret is
+# checked before the body is read.
+try:
+    from telegram_bot.router import build_router as build_telegram_router
+
+    app.include_router(build_telegram_router(Providers(
+        agents_index=lambda: _cache["index"],
+    )))
+    print("[telegram] mounted at POST /api/telegram/webhook", flush=True)
+except Exception as _tg_error:  # noqa: BLE001
+    print(f"[telegram] not mounted ({type(_tg_error).__name__}: {_tg_error})", flush=True)
