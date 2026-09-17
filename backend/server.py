@@ -240,6 +240,17 @@ async def _hl_collect_loop():
             # In a thread: the cycle is synchronous, sleeps ~8 minutes between
             # polls to respect the rate ceiling, and would otherwise block
             # every request this process is meant to be serving.
+            #
+            # Deliberately no wait_for around this. A timeout here would bound
+            # the await and not the thread, which would leave a thread holding
+            # an open connection mid-cycle while the loop started another one:
+            # the appearance of a bound and two problems instead of one. What
+            # actually bounds it is inside the thread. Every blocking call the
+            # cycle makes has its own deadline, checked rather than assumed:
+            # hl_collector.fetch_orders goes through urllib with timeout=45,
+            # and hl_store.connect sets libpq keepalives so a query on a
+            # connection whose peer has gone silent fails in about a minute
+            # instead of waiting forever.
             result = await asyncio.to_thread(_cycle)
             print(f"[hl] cycle done in {time.time()-started:.0f}s: {result}", flush=True)
         except Exception as e:  # noqa: BLE001
@@ -873,7 +884,19 @@ async def hyperliquid_overview(limit: int = 50):
     rate computed from a handful of polls is withheld rather than shown.
     """
     from core.hyperliquid import service
-    try:
+
+    def _build():
+        """Every read for this response, on one worker thread.
+
+        All of it is blocking libpq work, and none of it belongs on the event
+        loop: six sequential reads measured at about eleven seconds warm and
+        eighteen cold, and while they ran, an unrelated /api/health waited
+        behind them. Same reasoning as hyperliquid_address above, which has
+        used to_thread since it was written. The bounds that make this safe to
+        hand to the executor are on the connection, in service._conn:
+        keepalives for a cluster that has gone silent, statement_timeout for
+        one that answers slowly.
+        """
         makers = service.makers(limit)
         bands = service.maker_bands(makers)
         return {
@@ -885,7 +908,17 @@ async def hyperliquid_overview(limit: int = 50):
             "bands": {k: len(v) for k, v in bands.items()},
             "markets": service.markets(40),
             "statuses": service.status_breakdown(),
+            # The persistence result, computed from the WebSocket buckets and
+            # cached in the process for half an hour. None when no six-hour
+            # stretch has a coverage row in every bucket, which is a statement
+            # about the collector rather than a flat coefficient, and the tab
+            # renders it as one. service.brain swallows its own failures so a
+            # Cockroach hiccup on this one read does not take the tab down.
+            "brain": service.brain(),
         }
+
+    try:
+        return await asyncio.to_thread(_build)
     except Exception as e:
         # A Cockroach outage must read as "we cannot tell you right now",
         # never as an empty dataset that looks like zero rejections.
@@ -911,6 +944,13 @@ async def hyperliquid_address(address: str, response: Response = None):
     """
     from core.hyperliquid import service
     try:
+        # No wait_for, for the same reason as the collector loop: it would
+        # bound this handler and not the thread, and a thread taken from the
+        # default executor by a blocking libpq read is never given back. The
+        # bounds live on the connection instead, in service._conn: keepalives
+        # for a cluster that has gone silent, statement_timeout for one that
+        # is slow. Both let the blocking call return, which is what a shared
+        # executor needs.
         data = await asyncio.to_thread(service.address_detail, address)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
@@ -1081,7 +1121,19 @@ async def health():
 # judges (or anyone) can verify these are real, not claimed.
 @app.get("/api/status")
 async def status():
-    return await status_checks.get_status()
+    out = await status_checks.get_status()
+    # What the known_agents cap last did, in this process.
+    #
+    # Here rather than in a log line because the log line is unreadable in
+    # practice: this service emits roughly six lines a second and the platform
+    # returns the newest hundred with no time range, so the readable history is
+    # about seventeen seconds. See core/agent_store._LAST_CAP_RESULT.
+    #
+    # None means it has not run since this process started, which is a
+    # different fact from "it ran and removed nothing", and the two must stay
+    # distinguishable.
+    out["store_cap"] = agent_store.last_cap_result()
+    return out
 
 
 # ── Real, scheduler-driven full-registry batch trigger (2026-08-28) ──
@@ -2916,3 +2968,30 @@ try:
     print("[mcp] mounted at POST /mcp", flush=True)
 except Exception as _mcp_error:  # noqa: BLE001
     print(f"[mcp] not mounted ({type(_mcp_error).__name__}: {_mcp_error})", flush=True)
+
+
+# ── the on-site assistant ────────────────────────────────────────────────────
+#
+# POST /api/ask answers a visitor's question by running a bounded tool-calling
+# loop over the same six MCP handlers, in process. It reads the tools and this
+# file's index reader and nothing else, so it cannot answer anything the
+# machine-facing surface would not answer.
+#
+# It is the only route here that spends model tokens per call. What stops it
+# being a free model endpoint is written down in ask/bounds.py and reported by
+# GET /api/ask/readiness: a 500 character question cap, two turns at a time
+# refused rather than queued, five questions per address per fifteen minutes,
+# and sixty questions an hour across the service.
+#
+# Mounted with the same fail-open posture as the MCP block above: if it cannot
+# be imported, every other route is unaffected.
+try:
+    from ask.router import build_router as build_ask_router
+    from mcp_server.router import Providers as AskProviders
+
+    app.include_router(build_ask_router(AskProviders(
+        agents_index=lambda: _cache["index"],
+    )))
+    print("[ask] mounted at POST /api/ask", flush=True)
+except Exception as _ask_error:  # noqa: BLE001
+    print(f"[ask] not mounted ({type(_ask_error).__name__}: {_ask_error})", flush=True)

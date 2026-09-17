@@ -23,8 +23,9 @@
 // and sits inside collapsed sections.
 //
 // The three sections are the agent's own parts. Memory is what it has
-// collected. Workspace is what it can reach. Brain does not exist yet and the
-// section says what it is waiting for rather than showing a placeholder.
+// collected. Workspace is what it can reach. Brain holds one measured result
+// about the shape of the live feed's refusals, bounded by
+// docs/hyperliquid-brain-spec.md, which decides what it may and may not say.
 //
 // PANEL BEHAVIOUR
 // ---------------
@@ -37,18 +38,20 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  AlertTriangle, Brain, ChevronDown, Database, Info, Radio, Wifi, WifiOff,
+  AlertTriangle, Brain, ChevronDown, Database, ExternalLink, Info, Radio, Wifi, WifiOff,
 } from 'lucide-react';
+import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from '../extensionLink';
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
 
-// The brain does not exist. This is the switch for what its section says, and
-// the three cases are written now so that a negative result has somewhere to
-// land. If the persistence test comes back with no signal at seconds
-// resolution, this becomes 'no-signal' permanently and the section says so.
-// It must never say "coming soon", and it must never carry a sample
-// recommendation.
-const BRAIN_STATE = 'waiting'; // 'waiting' | 'no-signal' | 'ready'
+// This is the switch for what the Brain section says. The three cases were
+// written before the test ran so that a negative result had somewhere to land,
+// and the negative case stays in the file now that the result came back
+// positive: if the coefficient ever falls under three standard errors from
+// zero for the whole set, the section reverts to 'no-signal' and that copy is
+// used unchanged. It must never say "coming soon", and it must never carry a
+// sample recommendation.
+const BRAIN_STATE = 'ready'; // 'waiting' | 'no-signal' | 'ready'
 
 function pct(v, digits = 1) {
   if (v === null || v === undefined) return null;
@@ -219,6 +222,650 @@ function SourceRow({ icon: Icon, name, what, status, tone }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// The Brain section
+// ---------------------------------------------------------------------------
+//
+// What it may claim is set by docs/hyperliquid-brain-spec.md, which was
+// written from the stored series. The short version, because a later editor
+// will read this file before that document: the section may describe the
+// behaviour of a measured series, and it may not describe the future of
+// anything the reader owns. No sentence here names the reader's order, the
+// reader's timing or the reader's position, none projects a rate forward, and
+// the coefficient never appears without the window it was measured in.
+//
+// Everything the section renders arrives in the overview response under
+// `brain`. Nothing is typed in. A measurement written into a component cannot
+// go stale, and this one is known to move: the same coefficient came out at
+// +0.36, +0.26 and +0.16 in three windows two days apart. If the endpoint
+// omits a field, the figure that needed it is not drawn.
+//
+// The shape the endpoint has to return, field for field from section 5 of the
+// specification:
+//
+//   brain: {
+//     window_start, window_end      ISO 8601 UTC
+//     window_hours                  number
+//     bucket_seconds                int
+//     min_updates_per_bucket        int
+//     addresses_measured            int
+//     addresses_watched             int
+//     addresses_not_watched         int, optional
+//     usable_buckets_min, usable_buckets_max   int
+//     pairs_min                     int
+//     standard_error                { min, max }, per address, 1/sqrt(pairs)
+//     lag_seconds                   int, the lag the headline figure shows
+//     median_r1                     number, median of the per-address values
+//     denominator                   string
+//     statistic                     string
+//     excluded                      string[]
+//     withheld_reason               string or null
+//     decay                         [{ lag_seconds, median_r1, pairs_min }]
+//     addresses                     [{ address, usable_buckets, pairs, r1,
+//                                      standard_error, mean_ratio,
+//                                      withheld_reason }]
+//     denominator_control           { median_r1, addresses_higher,
+//                                     addresses_total }, optional
+//     magnitude_range               { min, max, windows }, optional
+//     over_dispersion               { median, min, max, convention }, optional
+//   }
+
+// How old the measured window may be before the section changes what it says.
+//
+// THESE TWO NUMBERS ARE POLICY, NOT MEASUREMENT. Nothing in the data measures
+// how long the clustering result survives. The only evidence on that question
+// is that the coefficient moved from +0.16 to +0.36 across three windows
+// inside two days, which says it moves, not how fast it decays. A later reader
+// should not mistake either boundary for a finding.
+//
+// Age is taken from the end of the measured window, never from the last poll
+// or the last bucket written. A collector that is running now says nothing
+// about whether the window being quoted is current, which is the same lesson
+// recorded above MAX_RECORD_AGE_SECONDS in the backend service.
+const BRAIN_DATED_AFTER_SECONDS = 48 * 3600;
+const BRAIN_WITHHELD_AFTER_SECONDS = 14 * 24 * 3600;
+
+// A figure that arrives without these is not drawn. This is the rule the REST
+// side already holds, and there is no reason for this section to hold a
+// weaker one.
+const BRAIN_REQUIRED_FIELDS = [
+  'window_start', 'window_end', 'window_hours', 'bucket_seconds',
+  'min_updates_per_bucket', 'addresses_measured', 'addresses_watched',
+  'usable_buckets_min', 'usable_buckets_max', 'pairs_min', 'standard_error',
+  'lag_seconds', 'median_r1', 'denominator', 'statistic', 'excluded',
+  'withheld_reason',
+];
+
+// The denominator, carried in the label at every point of use rather than in a
+// tooltip. It is not the denominator the rest of this tab uses: the feed omits
+// the field that says whether an order was post-only, so this counts every
+// order update of any kind. The two are never differenced, summed or put in
+// one row, and the band names above (quoting, mixed, spraying) were fitted on
+// the post-only denominator and do not apply here.
+const WS_DENOMINATOR_LABEL = 'refused, as a share of all order updates';
+
+const BRAIN_REASON_COPY = {
+  not_watched:
+    'Not on the live feed. The clustering result covers the addresses that '
+    + 'were, and says nothing about this one in either direction.',
+  no_buckets_yet:
+    'On the feed, but no order updates have been recorded for it yet.',
+  too_few_buckets:
+    'Too few usable windows to form the pairs a coefficient is computed from, '
+    + 'so none was computed.',
+  no_complete_window:
+    'No stretch where every window carries a coverage row, so silence in it '
+    + 'cannot be told apart from a dropped subscription.',
+  stale_window:
+    'The window it was measured in is old enough that showing it as current '
+    + 'would be showing an assumption as a measurement.',
+  not_significant:
+    'Measured, and the value sits under three standard errors from zero, so '
+    + 'no value is shown for it.',
+};
+
+function missingBrainFields(b) {
+  if (!b || typeof b !== 'object') return BRAIN_REQUIRED_FIELDS;
+  return BRAIN_REQUIRED_FIELDS.filter((f) => {
+    if (!(f in b)) return true;
+    // withheld_reason is null in the ordinary case, so absence of a value is
+    // not absence of the field.
+    if (f === 'withheld_reason') return false;
+    if (f === 'standard_error') {
+      return !b[f] || !Number.isFinite(b[f].min) || !Number.isFinite(b[f].max);
+    }
+    if (f === 'excluded') return !Array.isArray(b[f]) || b[f].length === 0;
+    return b[f] === null || b[f] === undefined;
+  });
+}
+
+// Section 2.4 of the specification: a word in place of a bare coefficient,
+// because the magnitude moved between windows while the direction held. This
+// mapping is a presentation convention and not a finding.
+function strengthWord(r1, se) {
+  if (!Number.isFinite(r1) || !Number.isFinite(se) || se <= 0) return null;
+  // Under three standard errors from zero the section withholds the word
+  // rather than reaching for the weakest one.
+  if (r1 <= 0 || r1 < 3 * se) return null;
+  if (r1 < 0.20) return 'slight';
+  if (r1 <= 0.45) return 'moderate';
+  return 'strong';
+}
+
+function signed(v, digits = 3) {
+  if (!Number.isFinite(v)) return null;
+  return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(digits)}`;
+}
+
+function lagText(seconds) {
+  if (!Number.isFinite(seconds)) return '';
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  const m = seconds / 60;
+  const shown = Number.isInteger(m) ? m : m.toFixed(1);
+  return `${shown} minute${Number(shown) === 1 ? '' : 's'}`;
+}
+
+function utcStamp(iso) {
+  if (!iso) return '';
+  return `${String(iso).replace('T', ' ').replace(/(\.\d+)?Z?$/, '')}Z`;
+}
+
+function utcDate(iso) {
+  return iso ? String(iso).slice(0, 10) : '';
+}
+
+function brainAgeSeconds(windowEnd) {
+  const t = Date.parse(windowEnd);
+  return Number.isFinite(t) ? (Date.now() - t) / 1000 : null;
+}
+
+function FieldList({ rows }) {
+  return (
+    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex items-baseline justify-between gap-3 border-b border-gray-100 dark:border-gray-800/60 py-1">
+          <dt className="text-[11px] font-mono text-gray-500 dark:text-gray-500 shrink-0">{k}</dt>
+          <dd className="text-[11px] text-right text-gray-700 dark:text-gray-300 tabular-nums">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** The negative result, kept in the file and used unchanged if the coefficient
+ *  ever falls under three standard errors from zero for the whole set. */
+function BrainNoSignal() {
+  return (
+    <>
+      <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+        Tested, and there is nothing to recommend.
+      </p>
+      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+        What happened a moment ago does not predict what happens next, at any
+        resolution measured. This section stays empty because the data does not
+        support advice, not because the work is unfinished.
+      </p>
+    </>
+  );
+}
+
+function BrainReady({ brain, mutedBorder }) {
+  const b = brain;
+  const age = brainAgeSeconds(b.window_end);
+  const dated = age !== null && age > BRAIN_DATED_AFTER_SECONDS;
+  // The largest of the per-address standard errors, so the significance test
+  // behind the word is the one the thinnest address would have had to pass.
+  const word = strengthWord(b.median_r1, b.standard_error.max);
+  const decay = Array.isArray(b.decay) ? b.decay : [];
+  const rows = Array.isArray(b.addresses) ? b.addresses : [];
+  // Read off the rows rather than written into the sentence. The set the
+  // endpoint returns changes with the watch list, and a count typed in here
+  // would keep reading as a measurement after it stopped being one.
+  const withheldCount = rows.filter((r) => r.withheld_reason).length;
+  const ratios = rows.map((r) => r.mean_ratio).filter((x) => Number.isFinite(x));
+  const ratioSpread = ratios.length > 1
+    ? `${pct(Math.min(...ratios))} to ${pct(Math.max(...ratios))}`
+    : null;
+  // The longest gap whose median clears three standard errors at that gap.
+  // Null when none does, and the heading then claims nothing about distance.
+  const lastClear = [...decay].reverse().find(
+    (d) => Number.isFinite(d.standard_error)
+      && Math.abs(d.median_r1) >= 3 * d.standard_error) || null;
+  const ctl = b.denominator_control;
+  const disp = b.over_dispersion;
+  const mag = b.magnitude_range;
+
+  return (
+    <div className="pt-3 space-y-5">
+
+      {/* The window dates are in the first sentence a reader meets, not in a
+          tooltip, because the result is one window and nothing else. */}
+      {dated && (
+        <p className="text-[12px] leading-relaxed rounded-xl border border-amber-500/25 bg-amber-500/5 text-amber-700 dark:text-amber-400 p-3">
+          Measured over {b.window_hours} hours on {utcDate(b.window_start)} and not
+          re-measured since. What follows describes that window. Whether it still
+          describes the feed today has not been tested.
+        </p>
+      )}
+
+      <div>
+        <h4 className="text-[14px] font-bold text-gray-900 dark:text-gray-100">
+          {dated
+            ? 'Refusals arrived in stretches rather than at random.'
+            : 'Refusals arrive in stretches rather than at random.'}
+        </h4>
+        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1">
+          Measured over {b.window_hours} hours on {utcDate(b.window_start)}.{' '}
+          {b.addresses_measured} addresses, {b.usable_buckets_min.toLocaleString()} to{' '}
+          {b.usable_buckets_max.toLocaleString()} {b.bucket_seconds}-second windows each.
+        </p>
+        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5">
+          When one {b.bucket_seconds}-second window {dated ? 'was refusing' : 'is refusing'} more
+          than that address usually {dated ? 'did' : 'does'}, the next one{' '}
+          {dated ? 'tended' : 'tends'} to as well.
+        </p>
+      </div>
+
+      {/* The figure, with the window, the pair count and the standard error
+          beside it rather than in a tooltip. A number alone here would assert
+          a stability across windows that has not been measured, which is why
+          the word leads and the value follows it. */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+        <div className="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-500">
+          How much one {b.bucket_seconds}-second window repeats in the next, at a gap of {lagText(b.lag_seconds)}
+        </div>
+        <div className="flex items-baseline gap-2 flex-wrap mt-1">
+          <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            {word || 'not shown at this window'}
+          </span>
+          <span className="text-[12px] tabular-nums text-gray-600 dark:text-gray-400">
+            median of {b.addresses_measured} within-address values, {signed(b.median_r1)}
+          </span>
+        </div>
+        <div className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1.5">
+          {b.statistic}. Lag {b.lag_seconds} seconds. At least {b.pairs_min.toLocaleString()} contiguous
+          pairs per address, standard error {b.standard_error.min.toFixed(4)} to{' '}
+          {b.standard_error.max.toFixed(4)}, one per address and never pooled. Window{' '}
+          {utcStamp(b.window_start)} to {utcStamp(b.window_end)}. The quantity counted is{' '}
+          {WS_DENOMINATOR_LABEL}.
+        </div>
+        {word && (
+          <div className="text-[11px] text-gray-500 dark:text-gray-500 mt-1">
+            The word describes the correlation between one window and the next. It is not a
+            recommendation.
+          </div>
+        )}
+      </div>
+
+      {decay.length > 0 && (
+        <div>
+          {/* The heading names the longest gap whose median clears three
+              standard errors AT THAT GAP, not the longest row in the table.
+              A decay row has its own pair count and its own error: at 30
+              minutes the thinnest address has fewer pairs than at 10 seconds,
+              so the bar is higher there and the median can fail it. Reading
+              "still visible at 30 minutes" off the last row asserted at the
+              weakest point of the table exactly what the word "slight" is
+              withheld for at the strongest one. */}
+          <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+            The effect fades with distance: strongest at {lagText(decay[0].lag_seconds)}
+            {lastClear
+              ? `, still visible at ${lagText(lastClear.lag_seconds)}`
+              : ''}
+            .
+          </h4>
+          <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+            Each row is the median of the {b.addresses_measured} within-address values at that gap,
+            over the same window, with the standard error at that gap beside it. A row describes
+            pairs that were observed. It is not a length of time a value holds for. A row marked
+            under three standard errors is shown and not read as an effect: it is a measurement
+            that came back too small to tell from zero, which is not the same as a zero.
+          </p>
+          <ScrollTable mutedBorder={mutedBorder} head={<>
+            <Th align="left">Gap between the two windows</Th>
+            <Th>Median across {b.addresses_measured}</Th>
+            <Th>Standard error there</Th>
+            <Th>Smallest pair count</Th>
+            <Th>Addresses clearing 3 SE</Th>
+          </>}>
+            {decay.map((d) => {
+              const clears = Number.isFinite(d.standard_error)
+                && Math.abs(d.median_r1) >= 3 * d.standard_error;
+              return (
+                <tr key={d.lag_seconds} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
+                  <Td align="left" strong>{lagText(d.lag_seconds)}</Td>
+                  <Td strong={clears} className={clears ? '' : 'text-gray-400 dark:text-gray-600'}>
+                    {signed(d.median_r1)}
+                    {clears ? '' : ' (under 3 SE)'}
+                  </Td>
+                  <Td className="text-gray-400 dark:text-gray-600">
+                    {Number.isFinite(d.standard_error) ? d.standard_error.toFixed(4) : 'not recorded'}
+                  </Td>
+                  <Td className="text-gray-400 dark:text-gray-600">{(d.pairs_min ?? 0).toLocaleString()}</Td>
+                  <Td className="text-gray-400 dark:text-gray-600">
+                    {Number.isFinite(d.addresses_significant)
+                      ? `${d.addresses_significant} of ${d.addresses_total}`
+                      : 'not recorded'}
+                  </Td>
+                </tr>
+              );
+            })}
+          </ScrollTable>
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <div>
+          <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+            Address by address
+          </h4>
+          <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+            Every address that was on the feed for this window, including{' '}
+            {withheldCount > 0
+              ? `the ${withheldCount === 1 ? 'one' : withheldCount} no figure could be computed for`
+              : 'any no figure could be computed for'}
+            . The {b.addresses_measured} are not pooled into a single series
+            {ratioSpread
+              ? `: their refused shares run from ${ratioSpread}, and pooling`
+              : ': pooling'}
+            {' '}would mix the difference between addresses into a figure about each address&apos;s
+            own series.
+          </p>
+          <ScrollTable mutedBorder={mutedBorder} head={<>
+            <Th align="left">Address</Th>
+            <Th>Usable {b.bucket_seconds}s windows</Th>
+            <Th>Pairs</Th>
+            <Th>At {lagText(b.lag_seconds)}</Th>
+            <Th>Standard error</Th>
+            {/* The denominator rides in the column label rather than in a
+                tooltip, so it wraps rather than widening the table past the
+                right side of the panel and taking its own values with it. */}
+            <Th>
+              <span className="inline-block whitespace-normal w-32 leading-tight">
+                Refused, as a share of all order updates
+              </span>
+            </Th>
+          </>}>
+            {rows.map((r) => {
+              const reason = r.withheld_reason;
+              return (
+                <tr key={r.address} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0 align-top">
+                  <td className="px-3 py-2 text-left whitespace-nowrap">
+                    <a href={`https://app.hyperliquid.xyz/explorer/address/${r.address}`}
+                       target="_blank" rel="noreferrer"
+                       className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline">
+                      {short(r.address)}
+                    </a>
+                  </td>
+                  <Td>{Number.isFinite(r.usable_buckets) ? r.usable_buckets.toLocaleString() : 'not recorded'}</Td>
+                  <Td>{Number.isFinite(r.pairs) ? r.pairs.toLocaleString() : 'not recorded'}</Td>
+                  {reason ? (
+                    <td colSpan={3} className="px-3 py-2 text-left text-[11px] leading-relaxed text-gray-600 dark:text-gray-400">
+                      <span className="font-mono text-[10px] text-gray-500 dark:text-gray-500">{reason}</span>
+                      {': '}
+                      {BRAIN_REASON_COPY[reason] || 'No value is shown for this address.'}
+                    </td>
+                  ) : (
+                    <>
+                      <Td strong>{signed(r.r1)}</Td>
+                      <Td>{Number.isFinite(r.standard_error) ? r.standard_error.toFixed(4) : 'not recorded'}</Td>
+                      <Td className="font-mono">
+                        {Number.isFinite(r.mean_ratio) ? r.mean_ratio.toFixed(4) : 'not recorded'}
+                      </Td>
+                    </>
+                  )}
+                </tr>
+              );
+            })}
+          </ScrollTable>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {/* What the response carries about the control is a median and a
+            count. It carries no per-address value, so no sentence here may
+            describe one: the earlier wording said the remaining address was
+            level, which was true of the window it was written in and was not
+            in the payload. The count says how many the comparison holds at,
+            and the rest of the sentence says only that it is not all of
+            them. */}
+        {ctl && Number.isFinite(ctl.median_r1) && (
+          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+            This was tested on order volume as well, and volume clusters more than the refused
+            share does, so the clustering is not only an effect of how busy the address is. That
+            holds at {ctl.addresses_higher} of {ctl.addresses_total} addresses and at the median,
+            {' '}{signed(ctl.median_r1)} against {signed(b.median_r1)}.
+            {ctl.addresses_higher < ctl.addresses_total
+              ? ctl.addresses_total - ctl.addresses_higher === 1
+                ? ' At the remaining address volume is not the more persistent of the two, so the'
+                  + ' comparison is not unanimous and is not cited as though it were.'
+                : ` At the remaining ${ctl.addresses_total - ctl.addresses_higher} addresses volume`
+                  + ' is not the more persistent of the two, so the comparison is not unanimous and'
+                  + ' is not cited as though it were.'
+              : ''}
+          </p>
+        )}
+
+        {/* "Every address" is checked against the count the endpoint sends
+            rather than asserted. The multiple is computed per address and an
+            address can fail to produce one, so the population behind the word
+            travels with it, and the word itself is only used when the smallest
+            multiple is above the floor. */}
+        {disp && Number.isFinite(disp.median) && (
+          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+            The variation between windows is larger than counting noise alone would produce:{' '}
+            {disp.min > 1
+              ? `all ${disp.addresses ?? b.addresses_measured} addresses the multiple was computed`
+                + ' for exceed the binomial floor'
+              : `${disp.addresses ?? b.addresses_measured} addresses have a multiple against the`
+                + ' binomial floor, and not all of them exceed it'}
+            , by {disp.median.toFixed(1)} times at the median and
+            from {disp.min.toFixed(2)} to {disp.max.toFixed(1)} times across the set, with the floor
+            taken as {disp.convention}. The multiple moves with that convention, so it is reported
+            with it rather than on its own.
+            {Number.isFinite(disp.addresses) && Number.isFinite(disp.addresses_total)
+              && disp.addresses < disp.addresses_total
+              ? ` No multiple could be computed for ${disp.addresses_total - disp.addresses} of`
+                + ` the ${disp.addresses_total}, and those are not counted either way.`
+              : ''}
+          </p>
+        )}
+
+        {/* Two branches, because one window and several windows support
+            different sentences. The endpoint sends `magnitude_range` only
+            when it has measured more than one complete window, and with one
+            window there is no evidence here about how much the coefficient
+            moves, only the general reason not to treat it as fixed. */}
+        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+          {mag && Number.isFinite(mag.min) && Number.isFinite(mag.max)
+            ? `Direction only. The size of the effect differed between the ${mag.windows} windows `
+              + `measured, from ${signed(mag.min, 2)} to ${signed(mag.max, 2)}, so no number here `
+              + 'should be read as a constant.'
+            : 'Direction only. This is one window, and it has not been measured against another '
+              + 'one here, so nothing above should be read as a constant.'}
+        </p>
+
+        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+          This describes the {b.addresses_measured} addresses on the live feed over one window,{' '}
+          {utcDate(b.window_start)}. It does not describe the venue, and it does not describe any
+          single order.
+        </p>
+      </div>
+
+      {/* An address that was never on the feed is the ordinary case: the feed
+          reaches ten addresses and the tab tracks fifty. That absence must not
+          be drawn as a zero, a dash or an empty cell, any of which reads as a
+          low rate. */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
+        <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+          The addresses this says nothing about
+        </h4>
+        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1">
+          The exchange permits a bounded number of subscriptions from one connection point.{' '}
+          {b.addresses_watched} were used
+          {Number.isFinite(b.addresses_not_watched)
+            ? `, so the other ${b.addresses_not_watched} tracked addresses were never listened to`
+            : ', and the rest of the tracked addresses were never listened to'}
+          . That is a statement about the collector and not a fault of those addresses. The
+          clustering result covers the {b.addresses_measured} addresses that were on the feed, and
+          says nothing about the others in either direction.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+          What is left out of these figures
+        </h4>
+        <ul className="mt-1 space-y-1">
+          {b.excluded.map((e) => (
+            <li key={e} className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 flex gap-2">
+              <span aria-hidden="true" className="text-gray-400 dark:text-gray-600">·</span>
+              <span>{e}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-1.5">
+          Each line is something dropped before the figures were computed. None of it was counted
+          as a zero.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+          What travels with every number above
+        </h4>
+        <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed mb-1.5">
+          Rendered here in full. A figure missing any of these is not drawn at all. The pair count
+          and standard error below are the headline figure&apos;s, at a gap of{' '}
+          {lagText(b.lag_seconds)}; every row of the decay table carries its own, because a longer
+          gap has fewer pairs and a wider error than this one.
+        </p>
+        <FieldList rows={[
+          ['window_start', utcStamp(b.window_start)],
+          ['window_end', utcStamp(b.window_end)],
+          ['window_hours', b.window_hours],
+          ['bucket_seconds', b.bucket_seconds],
+          ['min_updates_per_bucket', b.min_updates_per_bucket],
+          ['addresses_measured', b.addresses_measured],
+          ['addresses_watched', b.addresses_watched],
+          ['usable_buckets_min', b.usable_buckets_min.toLocaleString()],
+          ['usable_buckets_max', b.usable_buckets_max.toLocaleString()],
+          ['pairs_min', b.pairs_min.toLocaleString()],
+          ['standard_error', `${b.standard_error.min.toFixed(4)} to ${b.standard_error.max.toFixed(4)}, per address`],
+          ['lag_seconds', b.lag_seconds],
+          ['denominator', b.denominator],
+          ['statistic', b.statistic],
+          ['excluded', `${b.excluded.length} listed above`],
+          ['withheld_reason', b.withheld_reason || 'none'],
+        ]} />
+      </div>
+    </div>
+  );
+}
+
+function BrainSection({ brain, mutedBorder }) {
+  if (BRAIN_STATE === 'waiting') {
+    return (
+      <div className="pt-3 pb-1">
+        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
+          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
+          <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+            There is nothing here yet, and that is deliberate.
+          </p>
+          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+            For this agent to suggest anything, one thing has to be true: what happened
+            a moment ago has to tell you something about what happens next. That is
+            being tested now on the live feed, over a full night of data.
+          </p>
+          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+            The first attempt, on the slower fifteen-minute data, found the opposite of
+            what a recommendation would need. A suggestion built on that would be worse
+            than no suggestion, so none is shown until the faster data settles it.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (BRAIN_STATE === 'no-signal') {
+    return (
+      <div className="pt-3 pb-1">
+        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
+          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
+          <BrainNoSignal />
+        </div>
+      </div>
+    );
+  }
+
+  const missing = missingBrainFields(brain);
+  if (missing.length) {
+    // Not a reading of no clustering. The fields that have to travel with a
+    // figure did not arrive, so no figure is drawn and the gap is named.
+    return (
+      <div className="pt-3 pb-1">
+        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
+          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
+          <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+            The clustering result is not being served right now.
+          </p>
+          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+            This is not a reading of no clustering. A figure here is shown only with the window it
+            was measured in, the pair count behind it and its standard error.{' '}
+            {brain
+              ? (
+                <>
+                  The response left out{' '}
+                  <span className="font-mono text-[11px]">{missing.join(', ')}</span>, so nothing is
+                  drawn in place of them.
+                </>
+              )
+              : 'The response carried no measured window at all, so there is nothing here to draw.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // A null result keeps its place in this design. If the coefficient falls
+  // under three standard errors from zero for the whole set, the negative copy
+  // is what the section shows, unchanged.
+  if (brain.withheld_reason === 'not_significant') {
+    return (
+      <div className="pt-3 pb-1">
+        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
+          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
+          <BrainNoSignal />
+        </div>
+      </div>
+    );
+  }
+
+  const age = brainAgeSeconds(brain.window_end);
+  const stale = brain.withheld_reason === 'stale_window'
+    || (age !== null && age > BRAIN_WITHHELD_AFTER_SECONDS);
+
+  if (stale) {
+    return (
+      <div className="pt-3 pb-1">
+        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
+          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
+          <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+            Nothing is shown here until the test is run again.
+          </p>
+          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+            The clustering result came from one window, {utcDate(brain.window_start)}, and has not
+            been re-measured since. It is old enough that presenting it as current would be
+            presenting an assumption as a measurement.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return <BrainReady brain={brain} mutedBorder={mutedBorder} />;
+}
+
 export default function HyperliquidView({ mutedBorder }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -268,6 +915,33 @@ export default function HyperliquidView({ mutedBorder }) {
   const statuses = data.statuses || [];
   const thin = (cov.hours_covered || 0) < 24;
   const wsLive = (ws.updates || 0) > 0;
+
+  // The Brain section's figures, exactly as the endpoint sent them. The
+  // component decides what may be drawn, never what the values are.
+  const brain = data.brain || null;
+  const brainMissing = missingBrainFields(brain);
+  const brainServed = BRAIN_STATE === 'ready' && brainMissing.length === 0;
+  const brainAge = brainServed ? brainAgeSeconds(brain.window_end) : null;
+  const brainStale = brainServed && (brain.withheld_reason === 'stale_window'
+    || (brainAge !== null && brainAge > BRAIN_WITHHELD_AFTER_SECONDS));
+  const brainNull = brainServed && brain.withheld_reason === 'not_significant';
+  const brainShown = brainServed && !brainStale && !brainNull;
+
+  let brainBadge = 'Empty';
+  let brainNote = 'Not built';
+  if (BRAIN_STATE === 'no-signal' || brainNull) {
+    brainBadge = 'Ruled out';
+    brainNote = 'Tested, and nothing to recommend';
+  } else if (BRAIN_STATE === 'ready' && !brainServed) {
+    brainBadge = 'Not served';
+    brainNote = 'No figures came back for this section';
+  } else if (brainStale) {
+    brainBadge = 'Withheld';
+    brainNote = `One window, ${utcDate(brain.window_start)}, not re-measured since`;
+  } else if (brainShown) {
+    brainBadge = 'Measured';
+    brainNote = `One window, ${utcDate(brain.window_start)}, ${brain.addresses_measured} addresses`;
+  }
 
   return (
     <div className="space-y-5">
@@ -517,48 +1191,33 @@ export default function HyperliquidView({ mutedBorder }) {
             key: 'brain',
             title: 'Brain',
             icon: Brain,
-            note: 'Not built',
-            badge: BRAIN_STATE === 'no-signal' ? 'Ruled out' : 'Empty',
+            note: brainNote,
+            badge: brainBadge,
             badgeTone: 'border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400',
-            render: () => (
-              <div className="pt-3 pb-1">
-                <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
-                  <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
-                  {BRAIN_STATE === 'waiting' && (
-                    <>
-                      <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
-                        There is nothing here yet, and that is deliberate.
-                      </p>
-                      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
-                        For this agent to suggest anything, one thing has to be true: what happened
-                        a moment ago has to tell you something about what happens next. That is
-                        being tested now on the live feed, over a full night of data.
-                      </p>
-                      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
-                        The first attempt, on the slower fifteen-minute data, found the opposite of
-                        what a recommendation would need. A suggestion built on that would be worse
-                        than no suggestion, so none is shown until the faster data settles it.
-                      </p>
-                    </>
-                  )}
-                  {BRAIN_STATE === 'no-signal' && (
-                    <>
-                      <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
-                        Tested, and there is nothing to recommend.
-                      </p>
-                      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
-                        What happened a moment ago does not predict what happens next, at any
-                        resolution measured. This section stays empty because the data does not
-                        support advice, not because the work is unfinished.
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            ),
+            render: () => <BrainSection brain={brain} mutedBorder={mutedBorder} />,
           },
         ]}
       />
+
+      {/* The same measurement, where a reader is already looking at an
+          address. The extension is published, so this is the store link and
+          not an unpacked-install walkthrough: the URL lives in
+          ../extensionLink.js, which is the one place to correct it. */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-white/5 p-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+          <span className="font-semibold text-gray-900 dark:text-gray-100">{CHROME_EXTENSION_NAME}</span>
+          {' '}puts this measurement on the address page itself, at app.hyperliquid.xyz. It reads the
+          address out of the URL and stores nothing.
+        </div>
+        <a
+          href={CHROME_EXTENSION_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+        >
+          Chrome Web Store <ExternalLink size={12} />
+        </a>
+      </div>
 
       <div className="flex items-start gap-2 text-[11px] leading-relaxed text-gray-500 dark:text-gray-500">
         <AlertTriangle size={13} className="mt-0.5 shrink-0" />

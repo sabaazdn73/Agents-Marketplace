@@ -19,6 +19,8 @@ evidence. Here the same idea applies to polls.
 from __future__ import annotations
 
 import datetime as dt
+import threading
+import time
 
 from core.hyperliquid.collector import REJECTION_STATUSES, POST_ONLY_TIF
 
@@ -30,9 +32,23 @@ MIN_POLLS_FOR_RATE = 5
 _REJ = tuple(sorted(REJECTION_STATUSES))
 
 
+# Every read on this module is a small aggregate behind an HTTP handler that
+# runs it with asyncio.to_thread, and to_thread hands the work to the event
+# loop's default executor, whose threads cannot be taken back once a blocking
+# call has them. So each read carries its own two bounds: the keepalives
+# store.connect sets, which fail the socket when the cluster stops answering,
+# and this statement_timeout, which fails the query when the cluster answers
+# but slowly. Without both, one unreachable database turns into executor
+# threads that are never returned, on a service with a 512MiB ceiling.
+#
+# 20 seconds is far above anything measured here and well under any client's
+# patience, so it is a ceiling on pathology rather than a tuning knob.
+_READ_STATEMENT_TIMEOUT_MS = 20_000
+
+
 def _conn():
     from core.hyperliquid import store
-    return store.connect()
+    return store.connect(statement_timeout_ms=_READ_STATEMENT_TIMEOUT_MS)
 
 
 def coverage() -> dict:
@@ -466,3 +482,67 @@ def address_series(address: str, limit: int = MAX_SERIES_POINTS,
         "points": points,
         "next_before": points[-1]["t"] if len(points) == limit else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# The persistence result, behind a cache
+# ---------------------------------------------------------------------------
+#
+# core.hyperliquid.brain reads six hours of ten-second buckets and computes a
+# coefficient per address at nine lags. It is the heaviest read in this file by
+# an order of magnitude, about four seconds against the cluster, and its answer
+# changes only when the collector completes another hour. So it is computed at
+# most once every half hour per process and handed out from memory in between.
+#
+# The cache holds the answer, including the answer "there is no window", which
+# is a measurement of the collector and not a failure. A failure caches for
+# five minutes instead, so an unreachable cluster is retried soon rather than
+# every request.
+_BRAIN_TTL_SECONDS = 1800
+_BRAIN_FAILURE_TTL_SECONDS = 300
+_BRAIN_LOCK_WAIT_SECONDS = 15
+
+_brain_cache: dict = {"at": 0.0, "ttl": 0.0, "value": None}
+_brain_lock = threading.Lock()
+
+
+def brain(force: bool = False) -> dict | None:
+    """The Brain section's block, or None.
+
+    None means no figure is served, and the section says so in those terms. It
+    never means zero persistence: a coefficient that was measured and came out
+    flat arrives as a block with `withheld_reason` set to `not_significant`,
+    which is a different sentence on the page and a different fact.
+
+    Exceptions are swallowed here on purpose. The Hyperliquid tab must still
+    render when this one read fails, and a section that says nothing is served
+    is honest about exactly that.
+    """
+    now = time.monotonic()
+    if not force:
+        cached = _brain_cache
+        if cached["at"] and now - cached["at"] < cached["ttl"]:
+            return cached["value"]
+
+    # One computation at a time per process. A caller that cannot get the lock
+    # inside the wait takes whatever is cached, stale or None, rather than
+    # queueing: these run on the event loop's default executor, whose threads
+    # are not returned while a blocking database read holds them.
+    if not _brain_lock.acquire(timeout=_BRAIN_LOCK_WAIT_SECONDS):
+        return _brain_cache["value"]
+    try:
+        now = time.monotonic()
+        if not force and _brain_cache["at"] and now - _brain_cache["at"] < _brain_cache["ttl"]:
+            return _brain_cache["value"]
+        from core.hyperliquid import brain as brain_module
+        try:
+            with _conn() as c, c.cursor() as cur:
+                value = brain_module.compute(cur)
+            ttl = _BRAIN_TTL_SECONDS
+        except Exception:
+            value = None
+            ttl = _BRAIN_FAILURE_TTL_SECONDS
+        _brain_cache.update({"at": time.monotonic(), "ttl": ttl, "value": value})
+        return value
+    finally:
+        _brain_lock.release()
