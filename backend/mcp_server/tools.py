@@ -302,6 +302,28 @@ async def list_(datasets: dict, args: dict) -> dict:
     page = await call(d.list, limit=limit, offset=offset, **filters)
     rows = page.get("rows") or []
     total = page.get("total")
+
+    # A HANDLER THAT REFUSES SAYS SO, rather than returning an empty page.
+    #
+    # jobs.erc8183 needs a provider address and cannot list without one. It
+    # said so, in a `note` this function dropped, and the refusal reached the
+    # caller as zero rows, matched null, partial false, withheld_reason null,
+    # and one caveat reading "a source was not readable" -- which was not what
+    # happened and named no source. The one surface that carries a buyer
+    # address and an escrowed amount therefore answered the most important
+    # question about any agent with silence.
+    #
+    # A refusal is a withheld_reason in this project's vocabulary, so it is
+    # returned as one.
+    if page.get("withheld_reason"):
+        return envelope.withheld(
+            measured=f"a page of {dataset}",
+            coverage=_coverage(cov, matched=total, returned=0, offset=offset),
+            reason=str(page["withheld_reason"]),
+            explanation=str(page.get("explanation")
+                            or "This dataset cannot be listed with the "
+                               "arguments given."))
+
     if not rows and not page.get("partial"):
         return _empty_result("tnega_list", dataset, filters, cov)
     nxt = offset + len(rows)
@@ -311,9 +333,14 @@ async def list_(datasets: dict, args: dict) -> dict:
     if page.get("partial"):
         caveats.append("This page is partial: a source was not readable.")
 
+    # The page's own partial, not the dataset's. They are different claims:
+    # the dataset may be wholly readable and this page still incomplete.
+    page_cov = dict(cov)
+    if page.get("partial"):
+        page_cov["partial"] = True
     return envelope.build(
         measured=f"a page of {dataset}",
-        coverage=_coverage(cov, matched=total, returned=len(rows), offset=offset),
+        coverage=_coverage(page_cov, matched=total, returned=len(rows), offset=offset),
         value=rows,
         next_cursor=(_cursor_encode(dataset, nxt, filters)
                      if total is not None and nxt < total else None),

@@ -377,9 +377,22 @@ def build(providers) -> dict[str, Dataset]:
         """
         from core import job_index
         if not key:
-            return {"rows": [], "total": None, "partial": True,
-                    "note": "key is required here: a provider address, whose "
-                            "jobs this lists."}
+            # A refusal, not a partial page. The distinction is the whole
+            # point: partial says some of the answer is missing, and this says
+            # the question cannot be answered as asked. tools.list turns this
+            # into a withheld_reason; it used to become an empty page.
+            return {
+                "rows": [], "total": None, "partial": False,
+                "withheld_reason": "key_required",
+                "explanation": "This dataset lists one provider's jobs, so it "
+                               "needs a provider address in `key`. Get one "
+                               "from tnega_list on agents.index, where it is "
+                               "the owner_address of any agent, or from "
+                               "tnega_resolve. The whole index cannot be "
+                               "listed: it holds 56,790 jobs across every "
+                               "provider and paging it would say nothing "
+                               "about any of them.",
+            }
         # The paged read, not the revenue read. Slicing in Python after
         # materialising every job bounds the wire and not the heap, which is
         # how a 17MB response and its MCP sibling shared one defect.
