@@ -41,7 +41,10 @@ This field is read by a reviewer, not by a user. Paste it as is.
 > no rate is being shown.
 >
 > The address is taken from the page URL, which already contains it on the
-> /explorer/address/0x... route, so no page content is read. The address is sent
+> /explorer/address/0x... route. Page text is read for one purpose, to find
+> where to insert the panel: the script looks for the element whose text is
+> that same address and walks up to the container. None of what it reads that
+> way is transmitted or stored. The address is sent
 > to one endpoint, https://agents-marketplace-q3k4.onrender.com/api/hyperliquid/address/,
 > which returns the stored measurements, and the panel renders that reply. The
 > extension computes nothing, stores nothing, has no background service worker,
@@ -78,8 +81,11 @@ under Privacy practices.
 
 > The panel is drawn on Hyperliquid address pages, which is the entire feature.
 > The content script reads the address from window.location and inserts one
-> element into the page. It does not read page content, form fields, balances,
-> keys, or wallet state, and it modifies nothing that was already on the page.
+> element into the page. To position that element it reads the text of elements
+> on the page, looking for the one whose text is the address it already has;
+> nothing it reads that way is transmitted or stored. It does not read form
+> fields, balances, keys, or wallet state, and it modifies nothing that was
+> already on the page.
 
 ### Remote code
 
@@ -106,7 +112,8 @@ the address in the URL of the page being viewed, which says which page that is.
 That is closer to web history than to any other category on the list, and nothing
 else on the list applies: no personally identifiable information, no financial or
 payment information, no authentication information, no personal communications,
-no location, no health data, no keystrokes or clicks, no page content. Ticking
+no location, no health data, no keystrokes or clicks, and no page content: the
+script reads element text to place the panel and transmits none of it. Ticking
 nothing would be the other reading, since the address is public venue data and is
 retained nowhere. Undisclosed collection is one of the fastest ways to get pulled
 from the store, and an over-disclosure is not, so the safer of the two readings is
@@ -165,8 +172,10 @@ Paste from here to the end of this section.
 > wait, to follow an address or to avoid one. It describes what was measured and
 > stops there.
 >
-> It does not read page content, balances, keys, or wallet state. The address
-> comes from the URL, which already contains it.
+> It reads the address from the URL, which already contains it, and reads text
+> on the page only to work out where the panel goes. Nothing it reads there
+> leaves your browser. It does not read form fields, balances, keys, or wallet
+> state.
 >
 > It stores nothing, on your machine or off it. No background process, no cookies,
 > no analytics, no third-party scripts, and no code loaded at runtime.

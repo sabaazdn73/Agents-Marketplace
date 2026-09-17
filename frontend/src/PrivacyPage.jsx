@@ -8,6 +8,8 @@
 // behind it:
 //
 //   reads the address from the URL      extension/shared.js, addressFromUrl
+//   reads element text to place the      extension/content.js, insertionPoint
+//     panel, and sends none of it
 //   sends it to one endpoint            extension/shared.js, fetchAddress
 //   no cookies on that request          credentials: "omit", same function
 //   stores nothing                      no chrome.storage, no localStorage,
@@ -72,10 +74,16 @@ export default function PrivacyPage({ onBack }) {
 
         <Section title="What it reads">
           <p>
-            The address in the page URL, and nothing else on the page. On a route like
-            /explorer/address/0x… the address is already in the URL, so no part of the page is
-            read or scraped. The extension does not read page text, form fields, balances,
-            wallet state, private keys, or anything a wallet extension would hold.
+            The address in the page URL. On a route like /explorer/address/0x… the address is
+            already there, so the extension never has to look for it in the page.
+          </p>
+          <p>
+            It does read text in the page, for one purpose: to decide where to put the panel it
+            looks through the page&apos;s elements for the one whose text is that same address, and
+            then walks up from it to find the container to insert before. Nothing it reads that way
+            is sent anywhere, stored, or used for anything except positioning. It does not read form
+            fields, balances, wallet state, private keys, or anything a wallet extension would hold,
+            and the only thing that leaves your browser is the address that was already in the URL.
           </p>
           <p>
             When you click the toolbar icon, the popup reads the current tab&apos;s URL to find
