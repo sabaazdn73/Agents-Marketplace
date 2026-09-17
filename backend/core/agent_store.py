@@ -184,6 +184,28 @@ KNOWN_AGENTS_MAX = 40_000
 KNOWN_AGENTS_MAX_DELETE_PER_RUN = 25_000
 
 
+async def _owners_with_delivery(db) -> list[str]:
+    """Owner addresses that have delivered an on-chain job to somebody.
+
+    The cap must not be able to evict these, which it could and did. Dropping
+    the least recently selected agent is the right rule for an agent nobody has
+    looked at; it is the wrong rule for the twenty-odd agents the site's
+    strongest claim rests on, and on 2026-09-17 the first capped run took the
+    verified count from 27 to 20 by exactly that route. Least-recently-selected
+    is not a proxy for least valuable.
+
+    Read from the job index rather than from a tier, because the tier is
+    computed downstream of this collection and would be circular.
+    """
+    from core.job_index import JOB_INDEX_COLLECTION
+    rows = await db[JOB_INDEX_COLLECTION].aggregate([
+        {"$match": {"provider": {"$ne": ""},
+                     "status": {"$in": ["COMPLETED", "SUBMITTED"]}}},
+        {"$group": {"_id": "$provider"}},
+    ]).to_list(length=None)
+    return [r["_id"] for r in rows if r["_id"]]
+
+
 async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
                             max_delete: int = KNOWN_AGENTS_MAX_DELETE_PER_RUN) -> dict:
     """Hold `known_agents` near its ceiling, oldest `last_seen_at` first.
@@ -212,6 +234,10 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
     if over <= 0:
         return {"total": total, "over": 0, "deleted": 0, "capped_at": max_docs}
 
+    # Never evictable, however long since they were last selected.
+    protected = await _owners_with_delivery(db)
+    keep = {"owner_address": {"$nin": protected}} if protected else {}
+
     take = min(over, max_delete)
 
     # Chosen by counting, not by sorting.
@@ -227,7 +253,10 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
     # that timestamp. One aggregation and one delete, no sort stage, and the
     # cutoff is a real boundary in the data rather than an offset into an
     # ordering that has ties.
+    # Bucketed over what is actually deletable, so the walk below counts what
+    # it can remove rather than what exists.
     buckets = await coll.aggregate([
+        {"$match": keep} if keep else {"$match": {}},
         {"$group": {"_id": {"$substrBytes": ["$last_seen_at", 0, 13]},
                      "n": {"$sum": 1}}},
         {"$sort": {"_id": 1}},
@@ -263,11 +292,11 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
 
     # `<` against the next hour's boundary, so the chosen hour is included
     # whole and no document is deleted whose hour was only partly counted.
-    res = await coll.delete_many({"last_seen_at": {"$lte": cutoff + "\uffff"}})
+    res = await coll.delete_many({**keep, "last_seen_at": {"$lte": cutoff + "\uffff"}})
     deleted = res.deleted_count
     return {"total": total, "over": over, "deleted": deleted,
             "remaining": total - deleted, "capped_at": max_docs,
-            "cutoff": cutoff}
+            "cutoff": cutoff, "protected_owners": len(protected)}
 
 
 async def update_agent_health(results: dict[str, dict]) -> int:

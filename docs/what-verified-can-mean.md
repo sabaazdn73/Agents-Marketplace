@@ -76,6 +76,41 @@ tier and the badge on both apps, and it has run zero tests against an untouched
 weekly cap. Until it runs, every proposal above is a guess about a market that
 has not been measured.
 
+## The count moved three times in one day without the rule changing
+
+Recorded 2026-09-17, because it demonstrates the point above better than the
+original measurement did.
+
+The verified count on BNB Chain read 27 in the morning, 20 in the afternoon and
+31 in the evening. The rule did not change once. What changed was which agents
+the marketplace was serving.
+
+A storage cap was added to known_agents, because the collection had grown to
+102,997 documents against a 512 MiB cluster quota with 46 MB of headroom. The
+cap drops the least recently selected agents. Least recently selected is a
+reasonable proxy for least looked at and it is not a proxy for least evidenced,
+so the first capped run evicted 36 of the 61 owner addresses that have
+delivered work to somebody other than themselves, and the count fell to 20.
+
+The cap now protects any owner with a delivered job, read from the job index
+rather than from the tier, because the tier is computed downstream of the
+collection and that check would be circular. Fourteen evicted agent records
+were restored from the full registry, which still held them. The other
+twenty-two owners have no agent record anywhere: they are providers in the job
+index that were never listed agents, which is the same gap this page already
+describes from the other direction.
+
+After the repair the count is 31, higher than it started, because the store is
+now smaller and a larger share of the agents that have delivered fall inside
+the served window. Of the 61 owners with external delivery, 29 are now served,
+against 24 before any of this.
+
+Every one of the 31 has external delivery behind it, checked one by one. None
+was promoted by the repair. The number is correct at each of the three values,
+which is the problem: a count that moves from 27 to 20 to 31 in nine hours,
+under an unchanged rule, is a measurement of the serving window and not of how
+many agents have proven they deliver. Read it that way or do not read it.
+
 ## What to re-measure
 
 The figures at the top, and the figure that matters most, which is the number
