@@ -223,6 +223,15 @@ def makers(limit: int = 50) -> list[dict]:
                sum(n) FILTER (WHERE status = ANY(%s))                  AS rejected_all,
                sum(n)                                                  AS total
         FROM hl_order_counts GROUP BY address
+    ), t AS (
+        -- The set still being polled. makers() reported stale_data for every
+        -- address whose records had aged, which on 2026-09-17 was 33 of the 50
+        -- rows and not one of them a tracked address that was merely behind:
+        -- all 33 had left the rotation. address_detail already said
+        -- left_rotation for exactly these; this had not been changed with it,
+        -- so the same address read one reason on the extension and another on
+        -- the tab.
+        SELECT address FROM hl_targets
     ), p AS (
         SELECT address, count(*) AS polls, max(polled_at) AS last_seen,
                -- The age of the newest ORDER, not of the newest poll. A poll
@@ -235,8 +244,10 @@ def makers(limit: int = 50) -> list[dict]:
     )
     SELECT p.address, p.polls, p.last_seen, p.newest_record, p.month_volume, p.gapped,
            agg.alo_total, agg.alo_rejected, agg.filled, agg.cancels,
-           agg.rejected_all, agg.total
+           agg.rejected_all, agg.total,
+           (t.address IS NOT NULL) AS tracked
     FROM p JOIN agg ON agg.address = p.address
+           LEFT JOIN t ON t.address = p.address
     ORDER BY p.month_volume DESC NULLS LAST
     LIMIT %s
     """
@@ -245,7 +256,7 @@ def makers(limit: int = 50) -> list[dict]:
         cur.execute(sql, (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ), list(_REJ), limit))
         now = dt.datetime.now(dt.UTC)
         for (addr, polls, last_seen, newest_record, vol, gapped, alo_total, alo_rej,
-             filled, cancels, rej_all, total) in cur.fetchall():
+             filled, cancels, rej_all, total, tracked) in cur.fetchall():
             alo_total = int(alo_total or 0); alo_rej = int(alo_rej or 0)
             filled = int(filled or 0); cancels = int(cancels or 0)
             rej_all = int(rej_all or 0); total = int(total or 0)
@@ -265,6 +276,8 @@ def makers(limit: int = 50) -> list[dict]:
             is_current = age is not None and age <= MAX_RECORD_AGE_SECONDS
             if not enough:
                 withheld = "too_few_polls"
+            elif not is_current and not tracked:
+                withheld = "left_rotation"
             elif not is_current:
                 withheld = "stale_data"
             elif not alo_total:
@@ -280,6 +293,7 @@ def makers(limit: int = 50) -> list[dict]:
                 "newest_record_at": newest_record.isoformat() if newest_record else None,
                 "newest_record_age_seconds": round(age, 1) if age is not None else None,
                 "is_current": is_current,
+                "tracked": bool(tracked),
                 # The same vocabulary address_detail uses, so a caller that
                 # knows one knows the other.
                 "withheld_reason": withheld,
