@@ -374,6 +374,16 @@ function utcDate(iso) {
   return iso ? String(iso).slice(0, 10) : '';
 }
 
+/** A rough age, for a status word rather than a measurement. Deliberately
+ *  coarse: the point is "this stopped a while ago", not the exact minute. */
+function relAge(seconds) {
+  if (!Number.isFinite(seconds)) return '';
+  if (seconds < 90) return `${Math.round(seconds)}s`;
+  if (seconds < 5400) return `${Math.round(seconds / 60)} min`;
+  if (seconds < 172800) return `${Math.round(seconds / 3600)}h`;
+  return `${Math.round(seconds / 86400)}d`;
+}
+
 function brainAgeSeconds(windowEnd) {
   const t = Date.parse(windowEnd);
   return Number.isFinite(t) ? (Date.now() - t) / 1000 : null;
@@ -914,7 +924,24 @@ export default function HyperliquidView({ mutedBorder }) {
   const markets = data.markets || [];
   const statuses = data.statuses || [];
   const thin = (cov.hours_covered || 0) < 24;
-  const wsLive = (ws.updates || 0) > 0;
+  // WHETHER THE SECOND FEED IS LIVE, and it must be able to say no.
+  //
+  // This was `(ws.updates || 0) > 0`, an all-time sum of every order update
+  // ever recorded, currently 70,048,426. It can never return to zero, so the
+  // badge read "Streaming" for three hours after the collector died on
+  // 2026-09-17 and would have read it forever. The instrument that exists to
+  // report an outage could not report one.
+  //
+  // Age of the newest coverage row instead. WS_LIVE_AFTER_SECONDS IS POLICY,
+  // NOT MEASUREMENT: the collector writes a coverage row every ten seconds
+  // for every watched address, so ten minutes is forty missed writes, chosen
+  // to be slow enough that a restart does not flicker and fast enough that a
+  // dead night is visible in the morning.
+  const WS_LIVE_AFTER_SECONDS = 600;
+  const wsLastBucketAge = ws.coverage_last_bucket
+    ? (Date.now() - Date.parse(ws.coverage_last_bucket)) / 1000
+    : null;
+  const wsLive = wsLastBucketAge !== null && wsLastBucketAge <= WS_LIVE_AFTER_SECONDS;
 
   // The Brain section's figures, exactly as the endpoint sent them. The
   // component decides what may be drawn, never what the values are.
@@ -1006,7 +1033,13 @@ export default function HyperliquidView({ mutedBorder }) {
             {thin ? 'How much to trust this yet: not much.' : 'Coverage'}
           </span>{' '}
           {cov.hours_covered ?? 0} hours of observation, {(cov.polls ?? 0).toLocaleString()} polls
-          across {cov.addresses ?? 0} makers.
+          across {cov.addresses_tracked ?? cov.addresses ?? 0} makers in the current set
+          {Number.isFinite(cov.addresses) && Number.isFinite(cov.addresses_tracked)
+            && cov.addresses > cov.addresses_tracked
+            ? `, and ${cov.addresses} that have been polled at some point. The set is chosen on
+               recent trading activity, so the other ${cov.addresses - cov.addresses_tracked} are
+               not being polled now and what is stored for them stopped ageing when they left it`
+            : ''}.
           {' '}Hyperliquid serves only the 2,000 most recent orders per address and cannot be asked
           for older ones, so this history begins when collection began and grows from there.
           {cov.polls_with_gap > 0 && (
@@ -1164,17 +1197,21 @@ export default function HyperliquidView({ mutedBorder }) {
                 />
                 <SourceRow
                   icon={wsLive ? Wifi : WifiOff} name="Order updates feed"
-                  status={wsLive ? 'Streaming' : 'Idle'}
+                  status={wsLive ? 'Streaming'
+                    : wsLastBucketAge === null ? 'Never recorded'
+                      : `Last wrote ${relAge(wsLastBucketAge)} ago`}
                   tone={wsLive
                     ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
                     : 'border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400'}
                   what={`A live stream of every order outcome, bucketed into ${ws.bucket_seconds ?? 10}
-                         second windows. It watches ${ws.addresses ?? 0} of the makers, which is the
-                         most the exchange allows from one connection point, and has recorded
-                         ${(ws.updates ?? 0).toLocaleString()} outcomes over
-                         ${ws.hours_covered ?? 0} hours. This feed leaves out the field that says
-                         whether an order was post-only, so its totals answer a narrower question
-                         than the ones above and are never added to them.`}
+                         second windows. It watches up to ${ws.watch_cap ?? 10} addresses at once,
+                         which is what the exchange allows from one connection point, and
+                         ${ws.addresses ?? 0} have produced rows across every run so far. It has
+                         recorded ${(ws.updates ?? 0).toLocaleString()} outcomes over
+                         ${ws.hours_covered ?? 0} hours of collection, spread across
+                         ${ws.hours_span ?? 0} hours of clock. This feed leaves out the field that
+                         says whether an order was post-only, so its totals answer a narrower
+                         question than the ones above and are never added to them.`}
                 />
                 <SourceRow
                   icon={Database} name="Reservoir historical archive" status="Not connected"

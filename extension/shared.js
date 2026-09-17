@@ -42,6 +42,14 @@ const WITHHELD = {
     title: "Too few observations",
     body: "There are not enough polls behind this address to state a rate that would mean anything.",
   },
+  left_rotation: {
+    title: "No longer being polled",
+    body:
+      "This address was measured until it left the collector's set, so what is stored for it " +
+      "describes that earlier period and will not refresh. The set is chosen on recent trading " +
+      "activity and is smaller than the number of addresses ever measured, so an address can " +
+      "leave it without anything being wrong with the address.",
+  },
   stale_data: {
     title: "Data is not current",
     body:

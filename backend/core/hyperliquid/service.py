@@ -63,10 +63,27 @@ def coverage() -> dict:
         orders = cur.fetchone()[0]
         cur.execute("SELECT count(*) FROM hl_poll WHERE gap_seconds > 0")
         gapped = cur.fetchone()[0]
+        # The set being polled NOW, which is not the set ever polled. Target
+        # selection moved to a liveness rule on 2026-09-15 and the two numbers
+        # separated: 66 addresses have records, 31 are in the rotation. A
+        # surface that shows only the first says the collector covers twice
+        # what it covers, and every address in the difference is frozen at the
+        # moment it was dropped.
+        cur.execute("SELECT count(*), max(refreshed_at) FROM hl_targets")
+        tracked_now, targets_refreshed = cur.fetchone()
+        cur.execute("SELECT count(DISTINCT address) FROM hl_poll "
+                    "WHERE polled_at > now() - INTERVAL '1 hour'")
+        polled_last_hour = cur.fetchone()[0]
     hours = ((last - first).total_seconds() / 3600.0) if (first and last) else 0.0
     return {
         "polls": polls or 0,
+        # Every address that has ever been polled. Kept under its old name for
+        # existing callers, and no longer the number a reader should be shown
+        # on its own: see addresses_tracked.
         "addresses": addrs or 0,
+        "addresses_tracked": tracked_now or 0,
+        "addresses_polled_last_hour": polled_last_hour or 0,
+        "targets_refreshed_at": targets_refreshed.isoformat() if targets_refreshed else None,
         "orders_observed": int(orders or 0),
         "first_poll": first.isoformat() if first else None,
         "last_poll": last.isoformat() if last else None,
@@ -126,10 +143,22 @@ def address_detail(address: str) -> dict:
 
     # Order matters: not tracked is reported before thin, and thin before
     # stale, because that is the order in which a reader can act on them.
+    #
+    # `left_rotation` sits between them and is the reason this list grew.
+    # Target selection moved to a liveness rule on 2026-09-15 and the polled
+    # set went from 66 addresses to 31. The 35 that were dropped still have
+    # records, and those records stopped ageing at the moment they left, so
+    # every one of them reported `stale_data`. That is the wrong fact: stale
+    # on a tracked address means the collector is behind and the number will
+    # refresh, and stale on a dropped address means nobody is polling it and
+    # the number never will. A reader deciding whether to wait or to stop
+    # looking needs to be told which.
     if not polls:
         withheld = "not_tracked" if not tracked else "no_polls_yet"
     elif not enough_polls:
         withheld = "too_few_polls"
+    elif not is_current and not tracked:
+        withheld = "left_rotation"
     elif not is_current:
         withheld = "stale_data"
     elif not alo_total:
@@ -320,6 +349,16 @@ def status_breakdown() -> list[dict]:
              "is_rejection": s in REJECTION_STATUSES} for s, n in rows]
 
 
+def _ws_watch_cap() -> int | None:
+    """The collector's own subscription ceiling, read from the collector
+    rather than restated here, so the two cannot drift."""
+    try:
+        from core.hyperliquid import ws_collector
+        return int(ws_collector.MAX_WS_USERS)
+    except Exception:
+        return None
+
+
 def ws_coverage() -> dict:
     """What the seconds-resolution collector holds.
 
@@ -365,7 +404,13 @@ def ws_coverage() -> dict:
             # saying so is better than reporting a zero that looks like a
             # measurement.
             pass
-    hours = ((last - first).total_seconds() / 3600.0) if (first and last) else 0.0
+    # Two different quantities, and the tab was showing the first while
+    # calling it the second. The span from the first bucket to the last counts
+    # every hour the collector was NOT running: 49.76 hours of wall clock
+    # against 11.9 hours of collection on 2026-09-17. What was actually
+    # collected is the bucket count times the bucket width.
+    span_hours = ((last - first).total_seconds() / 3600.0) if (first and last) else 0.0
+    collected_hours = (buckets or 0) * 10 / 3600.0
     return {
         "bucket_rows": rows or 0,
         # Kept under its old name for the existing callers, but it is the
@@ -374,7 +419,17 @@ def ws_coverage() -> dict:
         "buckets": buckets or 0,
         "updates": int(updates or 0),
         "post_only_rejected": int(rejected or 0),
-        "hours_covered": round(hours, 2),
+        # Kept under its old name, and now the honest one: the hours that
+        # carry buckets, not the distance between the first and the last.
+        "hours_covered": round(collected_hours, 2),
+        "hours_span": round(span_hours, 2),
+        # The exchange's own limit on subscriptions from one connection point,
+        # which is what the watch set is sized against. The tab used to print
+        # the number of addresses that have EVER produced a bucket row and
+        # call it this limit; that number is 13 because the watch set changed
+        # between runs, and stating it as the exchange's rule was simply
+        # wrong.
+        "watch_cap": _ws_watch_cap(),
         "bucket_seconds": 10,
         "first_bucket": first.isoformat() if first else None,
         "last_bucket": last.isoformat() if last else None,
