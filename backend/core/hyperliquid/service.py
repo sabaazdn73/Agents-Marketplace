@@ -722,3 +722,87 @@ def all_known_addresses() -> list[str]:
             "SELECT address FROM hl_poll "
             "UNION SELECT address FROM hl_targets")
         return [r[0].lower() for r in cur.fetchall() if r[0]]
+
+
+# Hours of history offered beside each rate. 48 covers two full days, which is
+# enough to see whether a rate is steady or moved, and short enough that 50
+# addresses of it stay a reasonable payload. The collector has 83 hours, so
+# this is a window into it rather than all of it.
+RATE_SERIES_HOURS = 48
+
+
+def maker_rate_series(addresses: list[str], hours: int = RATE_SERIES_HOURS) -> dict:
+    """Hourly post-only rejection rate per address, oldest first.
+
+    THE SAME DENOMINATOR AS THE RATE IT SITS BESIDE, WHICH IS THE WHOLE POINT
+    This reads hl_order_counts, filtered to tif='Alo', exactly as makers()
+    does. It is deliberately NOT address_series(), which reads hl_ws_buckets:
+    the WebSocket feed carries no tif, so its denominator is every order
+    update of any kind, and that function's own docstring says the two must
+    not be shown as though they were the same quantity. Putting that series
+    under this rate would have been that exact mistake, and it also covers
+    only the ten addresses the feed watches rather than all of them.
+
+    AN HOUR WITH NO POST-ONLY ORDERS IS A GAP, NOT A ZERO
+    `rate` is null for such an hour and the caller must break the line rather
+    than draw it to the floor. A maker that stopped quoting for an hour did
+    not achieve a 0% rejection rate, and a sparkline that dips to zero says it
+    did. This is the same rule the tab applies to a withheld figure, carried
+    into a shape where it is easy to lose.
+
+    CONSECUTIVE POINTS ARE NOT INDEPENDENT
+    historicalOrders returns a rolling 2,000-record window that ignores any
+    date range, so when an address is quiet consecutive polls return
+    overlapping records and an hour can share orders with the hour before it.
+    22.4% of all stored orders come from such polls. The shape of the line is
+    sound; a reader should not treat two adjacent points as two independent
+    samples.
+    """
+    if not addresses:
+        return {}
+    addrs = [a.lower() for a in addresses]
+    hours = max(1, min(int(hours or RATE_SERIES_HOURS), 24 * 14))
+    with _conn() as c, c.cursor() as cur:
+        cur.execute("""
+            SELECT address,
+                   date_trunc('hour', polled_at) AS h,
+                   coalesce(sum(n) FILTER (WHERE tif = %s), 0) AS alo,
+                   coalesce(sum(n) FILTER (WHERE tif = %s AND status = ANY(%s)), 0) AS rej
+            FROM hl_order_counts
+            WHERE address = ANY(%s)
+              AND polled_at >= now() - (%s || ' hours')::interval
+            GROUP BY address, h
+            ORDER BY address, h
+        """, (POST_ONLY_TIF, POST_ONLY_TIF, sorted(REJECTION_STATUSES),
+              addrs, str(hours)))
+        rows = cur.fetchall()
+
+    # A COMPACT SHAPE, BECAUSE THIS RIDES ALONG WITH THE TAB
+    # One object per hour per address carried its own ISO timestamp and two
+    # keys, and 50 addresses of that was 105 KB against a 46 KB payload. The
+    # grid is regular, so the timestamps are implied by a start and a step and
+    # only the rates are sent. Nulls survive the change, which is the property
+    # that matters: a gap must still arrive as a gap and not as a zero.
+    per: dict[str, dict] = {}
+    for address, h, alo, rej in rows:
+        alo, rej = int(alo or 0), int(rej or 0)
+        per.setdefault(address, {})[h] = (round(rej / alo, 5) if alo else None)
+
+    out: dict[str, dict] = {}
+    for address, by_hour in per.items():
+        hs = sorted(by_hour)
+        if not hs:
+            continue
+        # Every hour between the first and last, so a missing hour is a hole in
+        # the line rather than a point silently pulled earlier in time.
+        span = int((hs[-1] - hs[0]).total_seconds() // 3600) + 1
+        rates = []
+        for i in range(span):
+            key = hs[0] + dt.timedelta(hours=i)
+            rates.append(by_hour.get(key))
+        out[address] = {
+            "start": hs[0].isoformat(),
+            "step_seconds": 3600,
+            "rates": rates,
+        }
+    return out

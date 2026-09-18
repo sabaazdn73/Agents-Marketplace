@@ -899,6 +899,10 @@ async def hyperliquid_overview(limit: int = 50):
         """
         makers = service.makers(limit)
         bands = service.maker_bands(makers)
+        # The history behind each rate, on the same denominator as the rate.
+        # A figure without it is what the tab currently invites a reader to
+        # misread: 0.27% could have been 0.27% all week or 40% yesterday.
+        rate_series = service.maker_rate_series([m["address"] for m in makers])
         # Which of these rows are vaults. The table already carries a caveat
         # saying some rows may be pooled accounts rather than one trader, and a
         # caveat beside a table that knows which two they are is withholding
@@ -912,6 +916,7 @@ async def hyperliquid_overview(limit: int = 50):
                 m["account_role"] = "vault"
                 m["vault_name"] = r.get("vault_name")
         return {
+            "rate_series": rate_series,
             "coverage": service.coverage(),
             # Reported alongside, never summed with, the REST coverage: the
             # WebSocket feed omits tif so its denominator differs.

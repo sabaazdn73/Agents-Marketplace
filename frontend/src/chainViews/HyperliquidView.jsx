@@ -126,6 +126,77 @@ const DEFINITIONS = [
   },
 ];
 
+/** The history behind one rate, drawn beside it.
+ *
+ *  WHY IT IS HERE AND NOT ON A VIEW OF ITS OWN
+ *  A rate without its history is what this table previously invited a reader
+ *  to misread: 0.27% could have been 0.27% all week or 40% yesterday, and
+ *  nothing on the page distinguished them. The line belongs in the cell next
+ *  to the number, because that is where the misreading happens.
+ *
+ *  A NULL IS A BREAK, NOT A FLOOR
+ *  An hour in which the address posted no post-only orders comes back as null
+ *  and the path stops there rather than dropping to the baseline. A maker
+ *  that quit quoting for an hour did not achieve a 0% rejection rate, and a
+ *  line that dips to zero says exactly that. The gaps are visible as gaps.
+ *
+ *  SCALED PER ROW, AND THAT IS SAID OUT LOUD
+ *  Each line is scaled to its own maximum, so height compares a maker with
+ *  itself over time and NOT with the maker above it. A shared scale would
+ *  flatten every row against the one address at 95%. The tooltip carries the
+ *  range so the shape is readable rather than merely decorative.
+ */
+function RateSparkline({ series }) {
+  if (!series || !Array.isArray(series.rates) || series.rates.length < 2) return null;
+  const rates = series.rates;
+  const known = rates.filter((r) => r !== null && r !== undefined);
+  if (known.length < 2) return null;
+
+  const W = 84;
+  const H = 20;
+  const max = Math.max(...known);
+  const min = Math.min(...known);
+  const span = max - min || max || 1;
+  const x = (i) => (i / (rates.length - 1)) * W;
+  const y = (r) => H - 1 - ((r - min) / span) * (H - 2);
+
+  // One path per unbroken run, so a gap leaves a gap.
+  const runs = [];
+  let run = [];
+  rates.forEach((r, i) => {
+    if (r === null || r === undefined) { if (run.length > 1) runs.push(run); run = []; return; }
+    run.push(`${x(i).toFixed(1)},${y(r).toFixed(1)}`);
+  });
+  if (run.length > 1) runs.push(run);
+  if (!runs.length) return null;
+
+  const hours = rates.length;
+  const title = `${hours} hours, ${pct(min)} to ${pct(max)}. `
+    + `${rates.length - known.length} hour(s) with no post-only orders are drawn as gaps, not as zero. `
+    + 'Scaled to this address only.';
+
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="inline-block align-middle"
+         role="img" aria-label={title}><title>{title}</title>
+      {runs.map((pts, i) => (
+        <polyline key={i} points={pts.join(' ')} fill="none"
+                  stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round"
+                  strokeLinecap="round" opacity="0.75" />
+      ))}
+    </svg>
+  );
+}
+
+/** 30-day volume, the venue's figure, formatted short. */
+function vol(v) {
+  if (v === null || v === undefined) return 'n/a';
+  const n = Number(v);
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(0)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}k`;
+  return `$${n.toFixed(0)}`;
+}
+
 function Card({ children, mutedBorder, className = '' }) {
   return (
     <div className={`bg-white dark:bg-[#1E293B] rounded-2xl border ${mutedBorder || 'border-gray-200 dark:border-gray-800'} ${className}`}>
@@ -1363,8 +1434,9 @@ export default function HyperliquidView({ mutedBorder }) {
                     behaviour of an account.
                   </p>
                   <ScrollTable mutedBorder={mutedBorder} head={<>
-                    <Th align="left">Address</Th><Th>Post-only</Th><Th>Refused</Th>
-                    <Th>Rejection rate</Th><Th>Cancel / fill</Th><Th>Fill rate</Th><Th>Polls</Th>
+                    <Th align="left">Address</Th><Th>30d volume</Th><Th>Post-only</Th>
+                    <Th>Refused</Th><Th>Rejection rate</Th><Th>Last 48h</Th>
+                    <Th>Cancel / fill</Th><Th>Fill rate</Th><Th>Polls</Th>
                   </>}>
                     {makers.map((m) => (
                       <tr key={m.address} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
@@ -1388,11 +1460,36 @@ export default function HyperliquidView({ mutedBorder }) {
                             </span>
                           )}
                         </td>
+                        {/* The venue's own 30-day figure, which orders this
+                            table and was previously sent to the browser and
+                            never shown. It is the one leaderboard field that
+                            passes its own consistency check: month volume
+                            exceeds allTime volume for 0 of 46,171 rows, where
+                            month PnL exceeds allTime PnL for 51.3%. */}
+                        <Td className="text-gray-500 dark:text-gray-400"
+                            title="The venue's own 30-day volume, from its public leaderboard. This is what chose these addresses and what orders this table.">
+                          {vol(m.month_volume)}
+                        </Td>
                         <Td>{m.alo_total.toLocaleString()}</Td>
                         <Td>{m.alo_rejected.toLocaleString()}</Td>
                         <Td strong>
                           {m.enough_data ? (pct(m.post_only_rejection_rate) ?? 'n/a')
                             : <span className="font-normal text-gray-400 dark:text-gray-600">not enough yet</span>}
+                        </Td>
+                        {/* A WITHHELD RATE STAYS WITHHELD, INCLUDING AS A PICTURE
+                            The first version drew this whenever a series
+                            existed, so 0x856c, whose rate is withheld as
+                            stale_data, showed n/a in the cell beside a line of
+                            hourly rates. That is the withheld figure published
+                            at finer resolution, which is the same failure this
+                            tab exists to avoid, rotated ninety degrees. If the
+                            pooled rate is not trustworthy enough to print, the
+                            hours composing it are not trustworthy enough to
+                            draw. */}
+                        <Td className="text-indigo-500 dark:text-indigo-400">
+                          {m.enough_data && m.post_only_rejection_rate != null
+                            ? <RateSparkline series={(data.rate_series || {})[m.address]} />
+                            : null}
                         </Td>
                         <Td>{m.cancel_to_fill != null ? m.cancel_to_fill.toFixed(1) : 'n/a'}</Td>
                         <Td>{pct(m.effective_fill_rate) ?? 'n/a'}</Td>
