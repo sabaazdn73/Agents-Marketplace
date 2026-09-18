@@ -29,7 +29,14 @@ export const EXPLORER_BASE = {
   1: 'https://etherscan.io/address/',
   8453: 'https://basescan.org/address/',
   42161: 'https://arbiscan.io/address/',
-  143: null,          // Monad: no stable public explorer wired up here yet
+  // Monad. This was null with a note saying no stable public explorer was
+  // wired up yet, which stopped being true and nobody noticed: the owner
+  // address rendered as plain text on every Monad agent while every other EVM
+  // chain got a link. monadscan.com was characterised while adding it to the
+  // extension's host list, and it is an Etherscan-family explorer for this
+  // chain: an address page returns 408 KB of server-rendered HTML carrying
+  // ChainID 0x8f, which is 143.
+  143: 'https://monadscan.com/address/',
   // Robinhood Chain. The Blockscout API is behind a Cloudflare interstitial
   // and returns 403 to a client, which is why the contract check uses
   // Sourcify instead. The human-facing pages serve normally (200 to a

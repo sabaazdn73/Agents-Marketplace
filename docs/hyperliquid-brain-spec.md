@@ -545,7 +545,22 @@ as a clean bill.
 
 0x3bcae23e8c380dab4732e9a159c0456f12d866f3 was watched for all 2,160 buckets of
 W1 and had a confirmed subscription in 2,152 of them. It delivered 18,510
-updates, and 27,706 reconnects were recorded against it in the same six hours.
+updates, and reconnected 18 times in the same six hours.
+
+That figure read 27,706 here until 2026-09-18, and the correction is worth
+keeping rather than quietly making. `hl_ws_coverage.reconnects` is a RUNNING
+per-address total: ws_collector.py writes `st["reconnects"]` into every bucket
+row and never resets it, so the column holds the count so far and not the count
+in that bucket. Summing it over 2,160 rows counts the same reconnects two
+thousand times over. The number in the window is the difference between the
+first and last rows, 1 to 19, which is 18. The next worst address in W1
+reconnected twice.
+
+The corrected figure does not change the conclusion of this section, which is
+that the address is excluded for thinness. It changes what the section implied
+about the feed: 27,706 reconnects in six hours would have meant a socket
+failing roughly every four seconds, and nothing else in section 7 is consistent
+with that.
 Only 130 of its buckets reached 50 updates, giving 29 contiguous pairs, so no
 coefficient may be computed for it and none was.
 
