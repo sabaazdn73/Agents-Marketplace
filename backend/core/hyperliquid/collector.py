@@ -126,8 +126,36 @@ def _post(payload: dict, timeout: int = 45) -> Any:
 
 
 def fetch_leaderboard(timeout: int = 180) -> list[dict]:
-    """The full leaderboard. About 37MB and roughly 45,000 addresses, served
-    without authentication."""
+    """The full leaderboard. About 37MB and roughly 46,000 addresses, served
+    without authentication.
+
+    ONLY THE VOLUME FIELD IS USED, AND THAT IS NOT AN OVERSIGHT
+    Each row carries accountValue and four windows of pnl, roi and vlm. It is
+    the obvious place to answer "is this maker profitable" beside the
+    rejection rate, and it was tested for that on 2026-09-18 and rejected on
+    the data. Three separate findings, any one of which is disqualifying.
+
+    The PnL fields contradict themselves. For 23,666 of 46,171 rows, 51.3%,
+    the month PnL is LARGER than the allTime PnL, which cannot be true of a
+    cumulative figure. 17 of our own 60 tracked makers are in that state. The
+    volume fields have no such problem: month volume exceeds allTime volume
+    for exactly 0 rows, which is why volume is trusted here and PnL is not.
+
+    accountValue is a stale snapshot. Compared against the venue's own
+    clearinghouseState for eight tracked makers, it differed by 45% to 100%,
+    including one address the leaderboard puts at $23.5M that the venue
+    reports holding nothing at all.
+
+    And it would not answer the question anyway. Across the 30 rated makers
+    that appear on it, the correlation between post-only rejection rate and
+    month ROI is +0.013, and with month PnL +0.065. The two numbers are
+    unrelated, so the leaderboard cannot tell a reader whether a clean quoter
+    is making money. That non-relationship is itself worth knowing and is not
+    publishable from a source whose own arithmetic disagrees with itself.
+
+    If a trustworthy PnL series is ever wanted it has to be built from fills
+    and transfers, not read from here.
+    """
     req = urllib.request.Request(
         LEADERBOARD_URL, headers={"User-Agent": "tnega-hl-collector/1"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
