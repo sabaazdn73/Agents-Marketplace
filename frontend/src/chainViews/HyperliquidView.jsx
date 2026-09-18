@@ -93,6 +93,27 @@ const DEFINITIONS = [
         + 'A refused order never reaches the book, so it provides no liquidity.',
   },
   {
+    // Added 2026-09-18. A reader seeing 0.2% will reach for "this one is
+    // better", and the number does not say that. The rate is a measure of
+    // order behaviour, not of outcome, which is true by construction and
+    // needs no data to assert.
+    //
+    // What IS carefully worded is the second half. The venue's leaderboard
+    // carries PnL, and joined against these rates the correlation is +0.013.
+    // That is NOT stated as "there is no relationship", because that file's
+    // month PnL exceeds its allTime PnL on 51.3% of its rows, and a
+    // correlation computed against a measure that noisy is pulled toward
+    // zero whether or not a relationship exists. Finding nothing there is
+    // not evidence that there is nothing. See collector.fetch_leaderboard.
+    term: 'What the rate does not say',
+    text: 'Whether the maker is any good, or making money. A low rate means its '
+        + 'quotes reach the book, which is what quoting looks like, not a score. '
+        + 'The tracked set contains addresses that quote cleanly and lose, and '
+        + 'addresses that are refused constantly and gain. Nothing on this page '
+        + 'measures profit, and the venue\u2019s own leaderboard was checked and '
+        + 'found too inconsistent to answer it.',
+  },
+  {
     term: 'Cancel to fill',
     text: 'How many orders a maker withdrew for every one that traded. Refusals '
         + 'are left out of this number. Counting them in inflates the ratio, '

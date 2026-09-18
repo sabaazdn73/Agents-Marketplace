@@ -193,7 +193,9 @@ function hyperliquidHtml(h) {
     <p class="body">${band.body}</p>
     ${factsHtml(f, p)}
     <p class="note">${fmtInt(p.alo_rejected)} of ${fmtInt(p.alo_total)} post-only orders were
-    refused before resting.</p>`;
+    refused before resting.</p>
+    <p class="note">It does not say whether the address is any good or making money. A low
+    rate means its quotes reach the book, not that it profits.</p>`;
   // The sentence about what a refused order costs lives on the tab, not here,
   // so it is stated once per subject rather than once per render path.
 }

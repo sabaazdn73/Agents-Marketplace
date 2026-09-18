@@ -216,6 +216,12 @@ function panelHtml(state, data, address) {
       A rejected post-only order never rests on the book, so it provides no liquidity and
       leaves no trace in fills or volume.
     </div>
+    <div class="tnega-note">
+      This does not say whether the address is any good or making money. A low rate means
+      its quotes reach the book, which is what quoting looks like rather than a score. The
+      tracked set holds addresses that quote cleanly and lose, and addresses refused
+      constantly that gain.
+    </div>
     ${coreHtml(data.core)}
   </div>${FOOT}`;
 }
