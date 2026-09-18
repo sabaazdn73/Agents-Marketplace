@@ -31,7 +31,7 @@ const PAGE_META = {
     // two differ, a shared link and a search result disagree.
     docTitle: 'Tnega: Explore AI Agents and Bots, Hire On-Chain',
     ogTitle: 'Tnega: Explore AI Agents and Bots',
-    description: "Tnega is the Explore: browse and verify ERC-8004 agents and bots on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.",
+    description: "Tnega measures whether an on-chain agent works before anyone pays. Browse and verify ERC-8004 agents and bots on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.",
   },
   // Ethereum belongs in this list: AgentBudgetEscrow went live there on
   // 2026-09-11, so it is a hire chain like the other three.
@@ -42,7 +42,11 @@ const PAGE_META = {
   // Added 2026-09-17, following /skills and /native-agents: an entry here, a
   // path in routePaths.js, a nav item in both apps, a line in
   // public/sitemap.xml and in backend/scripts/build_sitemap.py.
-  '/connect': { title: 'Connect', description: 'Every way to reach Tnega from outside the site: the MCP server and its six tools, the Chrome extension, and what is not built yet.' },
+  '/how-it-works': { title: 'How It Works', description: 'What Tnega measures and why, then four ways to use it: this site, the Chrome extension, the MCP server for your own assistant, and the Telegram bot. Each with the steps to follow.' },
+  // The old path, kept because it is in shared links and in the Chrome Web
+  // Store listing. Same page, same words, so a search result for either URL
+  // describes what the reader lands on.
+  '/connect': { title: 'How It Works', description: 'What Tnega measures and why, then four ways to use it: this site, the Chrome extension, the MCP server for your own assistant, and the Telegram bot. Each with the steps to follow.' },
   '/skills': { title: 'Skills', description: 'Pre-built, audited on-chain actions, Venus lending, PancakeSwap trading, and more, you run yourself through your own wallet.' },
   '/native-agents': { title: 'Native Agents', description: "Tnega's own autonomous, multi-factor agents that compare protocols and show their reasoning before you act." },
   '/my-agents': { title: 'My Agents', description: 'Track every agent job you\'ve hired through Tnega and its live, on-chain status.' },

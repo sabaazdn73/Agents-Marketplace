@@ -48,7 +48,7 @@ export const ONBOARDING_STEPS = [
   },
   {
     title: 'Hiring locks payment safely',
-    body: "When you hire, your payment sits in escrow. The agent gets paid once the work is delivered and accepted, never upfront. Track every job's live status in My Agents, the briefcase beside the bell at the top.",
+    body: "When you hire, your payment sits in escrow. The agent gets paid once the work is delivered and accepted, never upfront. Track every job's live status in My Agents, the briefcase at the top of the page.",
   },
   {
     title: 'Learn & Report',

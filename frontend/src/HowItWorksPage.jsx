@@ -98,8 +98,13 @@ const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
 // So the supported route is the command, which is one line and the same on all
 // three systems. The file locations below are where the result lands, for a
 // reader who wants to see what changed, not somewhere to type into.
+// One line, no continuation character. It was written across two lines with a
+// trailing backslash, which is POSIX: cmd.exe wants a caret and PowerShell a
+// backtick, so on Windows the second line would have run as its own command
+// and the add would have been malformed. A command introduced as identical on
+// three systems has to actually be identical on three systems.
 const MCP_ADD_COMMAND =
-  'claude mcp add --transport http tnega \\\n  https://agents-marketplace-q3k4.onrender.com/mcp';
+  'claude mcp add --transport http tnega https://agents-marketplace-q3k4.onrender.com/mcp';
 
 const MCP_CONFIG_HOMES = [
   { os: 'macOS', path: '~/.claude.json' },
@@ -164,8 +169,14 @@ function CodeBlock({ text, label }) {
       .catch(() => {});
   };
   return (
-    <div className="relative">
-      <pre className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0F172A] p-3 pr-11 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 font-mono whitespace-pre">
+    <div className="relative rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0F172A] pr-10">
+      {/* The copy button lives in a gutter OUTSIDE the scroll box, not on top
+          of it. It was absolutely positioned over a `pre` whose `pr-*` padding
+          sits at the end of the scrollable content, so at rest the button
+          covered the middle of a long line: the endpoint rendered as
+          "…onrender." [button] "/m" on a phone. The gutter is on the wrapper,
+          so nothing can scroll under it at any width. */}
+      <pre className="overflow-x-auto p-3 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 font-mono whitespace-pre">
 {text}
       </pre>
       <button
@@ -410,7 +421,9 @@ export default function HowItWorksPage({ variant = 'web' }) {
             to 31 in nine hours on 2026-09-17, under a rule that did not change once. What changed
             was which agents the store was serving. Read it as a measurement of the serving window
             as much as of the agents.{' '}
-            <a href="/docs" className="text-indigo-500 hover:underline">What verified can mean</a>.
+            <a href="/docs/what-verified-can-mean" className="text-indigo-500 hover:underline">
+              What verified can mean
+            </a>.
           </p>
         </>
       ),
@@ -598,8 +611,10 @@ export default function HowItWorksPage({ variant = 'web' }) {
             <HowItWorksFlow compact={compact} steps={[
               {
                 title: 'Install it from the Chrome Web Store',
-                body: 'One extension, one permission for this site\u2019s API, and a content '
-                  + 'script that runs on app.hyperliquid.xyz and nowhere else.',
+                body: 'Two permissions and no more: activeTab, so the toolbar popup can read '
+                  + 'the address of the tab you clicked, and one host permission for this '
+                  + 'site\u2019s API. The content script runs on app.hyperliquid.xyz and nowhere '
+                  + 'else.',
               },
               {
                 title: 'Open an address page on Hyperliquid',

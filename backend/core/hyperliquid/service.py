@@ -327,10 +327,26 @@ def markets(limit: int = 40) -> list[dict]:
     RESTRICTED TO THE CURRENT ROTATION, and it was not until 2026-09-18.
     Pooling every address that has ever been polled put a year-old frozen slice
     into a figure a reader takes as a live market condition, and the difference
-    is not small: ETH published 5.40% where the current makers are at 1.79%,
-    BTC published 48.50% against 57.10%, and the maker column counted 49
-    addresses where 23 are being polled. The same correction landed in
-    makers() and address_detail() first; this is the last of the three.
+    is not small. Measured on 2026-09-18: ETH published 4.88% pooled and reads
+    1.40% over the rotation, BTC published 51.33% and reads 57.58%, and the
+    maker column fell from 42 to 21 on ETH and 49 to 23 on BTC.
+
+    Those figures move with the market and are given as the size of the
+    correction rather than as constants; re-measure before quoting them.
+
+    address_detail() applies the same restriction. makers() does something
+    different and deliberately so: it keeps every row and withholds the rate
+    with a reason, because a per-address table that silently drops addresses
+    is hiding its own population. Only the pooled figures are filtered, since
+    those are the ones a reader takes as a condition of the venue.
+
+    WHAT THE FILTER DOES NOT FIX. A per-market rate over 23 addresses is
+    dominated by whoever quotes most: on 2026-09-18 two addresses placed about
+    60% of the BTC post-only volume and refused over 94% of their own, so the
+    57% is largely theirs. The rotation is rebuilt nightly by
+    scripts/hl_select_targets.py as a full delete and reinsert, so a market
+    rate here can move tens of points overnight with nothing happening on the
+    venue. Read it as a property of the set being watched.
 
     An address that left the rotation keeps its stored records, and those
     records stop ageing at the moment it left, so including it means averaging
@@ -368,10 +384,15 @@ def status_breakdown() -> list[dict]:
     """Every typed status with its share, over the addresses being polled now.
 
     Restricted to the current rotation on 2026-09-18, for the reason given in
-    markets(), and here the difference was larger than anywhere else. Pooled
-    over every address ever polled it reported filled at 3.93%,
-    reduceOnlyCanceled at 1.062% and a plain rejected at 0.281%. Over the
-    addresses actually being polled those are 1.09%, 0.011% and 0.000%.
+    markets(). Pooled over every address ever polled it reported filled at
+    3.93%, reduceOnlyCanceled at 1.062% and a plain rejected at 0.281%. Over
+    the addresses actually being polled, measured the same day, those are
+    0.76%, 0.90% and nothing at all.
+
+    An earlier version of this note put the filtered figures at 1.09% and
+    0.011%. Both were wrong, the second by about eighty times; they were
+    carried over from an audit's estimate rather than measured after the
+    filter was applied. Re-measure before quoting any of them.
 
     The last of those mattered most: the tab uses this breakdown as the
     evidence for saying a plain rejected status exists but covers a minority of

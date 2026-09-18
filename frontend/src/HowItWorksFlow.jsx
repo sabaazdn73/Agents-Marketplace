@@ -32,8 +32,14 @@ function CopyLine({ text, label }) {
       .catch(() => {});
   };
   return (
-    <div className="relative mt-1.5">
-      <pre className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0F172A] px-2.5 py-2 pr-9 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 font-mono whitespace-pre">
+    <div className="relative mt-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0F172A] pr-8">
+      {/* The copy button lives in a gutter OUTSIDE the scroll box, not on top
+          of it. It was absolutely positioned over a `pre` whose `pr-*` padding
+          sits at the end of the scrollable content, so at rest the button
+          covered the middle of a long line: the endpoint rendered as
+          "…onrender." [button] "/m" on a phone. The gutter is on the wrapper,
+          so nothing can scroll under it at any width. */}
+      <pre className="overflow-x-auto px-2.5 py-2 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 font-mono whitespace-pre">
 {text}
       </pre>
       <button

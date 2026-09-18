@@ -37,8 +37,12 @@ export const MAIN_TAB_PATHS = {
   // because a visitor arriving with no idea what this is had nowhere to start.
   // /connect still resolves: it is in shared links and in the Chrome Web Store
   // listing, and a rename that breaks a URL breaks those for nothing.
-  '/how-it-works': 'connect',
+  // Order matters here and it is not cosmetic: NAV_TO_PATH below is built with
+  // Object.fromEntries over these pairs, so for two paths sharing one tab id
+  // the LAST one wins. /how-it-works must therefore come second, or the app
+  // keeps navigating to /connect and the new URL is one nothing ever links to.
   '/connect': 'connect',
+  '/how-it-works': 'connect',
   '/market': 'market',
   '/skills': 'skills',
   '/native-agents': 'native',

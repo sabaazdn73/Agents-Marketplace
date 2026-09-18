@@ -61,7 +61,11 @@ STATIC = [
     ("/skills", "weekly", "0.8"),
     # Added 2026-09-17 with the Connect tab. Static prose, one page, and the
     # address a reader is given for the MCP server, so it is worth indexing.
-    ("/connect", "monthly", "0.7"),
+    # The page a visitor with no context should land on, so it outranks the
+    # rest of the tabs. /connect still resolves to it and is deliberately not
+    # listed: two URLs for one page, each canonicalising itself, is what the
+    # sitemap exists to avoid.
+    ("/how-it-works", "monthly", "0.9"),
     ("/learn", "monthly", "0.7"),
     ("/docs", "weekly", "0.7"),
     ("/report", "monthly", "0.6"),

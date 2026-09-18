@@ -263,13 +263,19 @@ const NAV_ITEMS = [
 // destinations and everything else moves into the existing menu sheet, so
 // nothing becomes unreachable, it just stops competing for thumb space.
 //
-// Which three, and why these: Market is the app's whole reason to exist
+// Which three, and why these: Explore is the app's whole reason to exist
 // (browsing and hiring registered agents); Native Agents is Tnega's own
 // first-party execution surface, the thing that is not just a directory
-// listing; My Agents is where a user returns to see work they already paid
-// for. The rest are either occasional (Report, Learn), one-off setup
+// listing; How It Works is where somebody who has not seen this before
+// starts. The rest are either occasional (Report, Learn), one-off setup
 // (Build, Sell), or a secondary execution path (Skills).
-const PRIMARY_NAV_IDS = ['market', 'native', 'my-agents'];
+//
+// My Agents was the third until 2026-09-18, when it moved to the header
+// beside the bell. It was left in this list after that move, and because
+// this list filters NAV_ITEMS by id, naming a tab that no longer exists
+// silently produced a two-item bar rather than an error. A person's own
+// jobs are still one tap away, from the briefcase at the top.
+const PRIMARY_NAV_IDS = ['market', 'native', 'connect'];
 const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((i) => PRIMARY_NAV_IDS.includes(i.id));
 const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.id));
 
@@ -861,7 +867,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               person's own jobs belong next to the thing that tells them a job
               moved, not in the list of places to browse. */}
           <button
-            onClick={() => { setNav('my-agents'); onNavChange?.('my-agents'); }}
+            onClick={() => {
+              dismissAgentDetail();
+              setNav('my-agents');
+              setHiring(false);
+              onNavChange?.('my-agents');
+            }}
             aria-label="My Agents"
             title="My Agents, the jobs you have hired"
             className={`w-11 h-11 flex items-center justify-center rounded-full ${
