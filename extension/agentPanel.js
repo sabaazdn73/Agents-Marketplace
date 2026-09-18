@@ -87,6 +87,41 @@ function agentRow(a) {
   </div>`;
 }
 
+/** Who paid for the deliveries.
+ *
+ *  WHY THIS IS ON THE PANEL AND NOT JUST ON THE SITE
+ *  "Nine deliveries" and "nine deliveries, all to one client, and that client
+ *  is the owner's own address" are the same count and a different fact. This
+ *  is the block a person needs before funding, and the panel appears at
+ *  exactly the moment they are looking at the address rather than at our site.
+ *
+ *  The sentences come from provenanceLines in shared.js, which the popup also
+ *  renders, and they match frontend/src/DeliveryProvenance.jsx field for field,
+ *  so moving between an explorer, the popup and the site cannot change what an
+ *  agent means.
+ */
+function provenanceBlock(pv) {
+  if (!pv) return "";
+  if (pv.withheld_reason) {
+    const w = AGENT_WITHHELD[pv.withheld_reason] || {
+      title: "No delivery history", body: "",
+    };
+    return `<div class="tnega-agent-jobs">
+      <div class="tnega-agent-jobs-title">${esc(w.title)}</div>
+      <div class="tnega-muted">${esc(w.body)}</div>
+    </div>`;
+  }
+
+  const lines = provenanceLines(pv);
+  if (!lines.length) return "";
+
+  return `<div class="tnega-agent-jobs">
+    <div class="tnega-agent-jobs-title">Who paid for the delivery</div>
+    <div class="tnega-note">${esc(pv.note || "")}</div>
+    ${lines.map((l) => `<div class="tnega-prov-line">${esc(l)}</div>`).join("")}
+  </div>`;
+}
+
 function jobsBlock(jobs) {
   if (!jobs) return "";
   if (jobs.withheld_reason) {
@@ -197,6 +232,7 @@ function agentPanelHtml(state, data, subject, coverage) {
       ${more > 0 ? `<div class="tnega-muted">and ${fmtInt(more)} more on Tnega</div>` : ""}
       ${chainNote}
       ${jobsBlock(half.jobs)}
+      ${provenanceBlock(half.provenance)}
       <div class="tnega-note">${esc(
         (agents[0] && agents[0].verification_note) ||
         "Registering an agent is a transaction and proves nothing about whether it works.")}</div>

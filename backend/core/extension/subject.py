@@ -207,6 +207,116 @@ def service_address_detail(address: str) -> dict:
     return service.address_detail(address)
 
 
+# Above this many distinct clients, "has this provider delivered to this client
+# before" is not computed rather than computed expensively, and the field says
+# so instead of implying an answer. Mirrors MAX_CLIENTS_FOR_PROVENANCE in
+# core/job_index.py, which runs the same measurement in bulk.
+MAX_CLIENTS_FOR_PROVENANCE = 200
+_DELIVERED_STATUSES = ["COMPLETED", "SUBMITTED"]
+
+
+async def _provenance_block(address: str) -> dict:
+    """Who paid for the work this address delivered.
+
+    THE REASON THIS IS ON THE PANEL AT ALL
+    "Delivered nine jobs" and "delivered nine jobs, all to one client, and that
+    client is its own owner" are the same count and a different fact. Measured
+    across the verified set, 20 of 26 owners have every delivery from a single
+    client, in three cases that client owns another agent in the same index,
+    and six have jobs from other clients sitting funded and undelivered. A
+    person about to fund the next job has none of that from a job count.
+
+    KEYED BY THE PROVIDER ADDRESS, WHICH IS NOT THE SAME AS THE AGENT
+    An ERC-8183 job document holds provider, client, budget, status and
+    submittedAt, and nothing naming an agent, because the contract keys a job
+    by address. So one owner's unanswered job cannot be attributed to one of
+    their agents, and an owner listing several agents gets the same block on
+    each. That is correct and it reads as a per-agent fact unless it says
+    otherwise, so it says so, exactly as the site's block does.
+
+    This is the same measurement core/job_index.py runs over the whole index,
+    narrowed to one provider. It is not a second definition: the statuses that
+    count as delivered, the client cap, and the treatment of the uncomputed
+    case are read from the same constants and reproduced here for one address
+    because the bulk pass builds a table this path has no reason to load.
+    """
+    db = get_db()
+    addr = address.lower()
+
+    # Sorted by count AND then by client address. The second key is not
+    # decoration: two clients with one delivery each is a tie, and $first over
+    # a tie picks arbitrarily, so "the largest client is the owner itself"
+    # appeared and disappeared between two runs over the same data. Found by
+    # cross-checking this against the bulk pass in core/job_index.py, which
+    # disagreed on exactly one provider of 105, for exactly that reason. Both
+    # sides now order the same way.
+    delivered = await db.erc8183_job_index.aggregate([
+        {"$match": {"provider": addr, "status": {"$in": _DELIVERED_STATUSES}}},
+        {"$group": {"_id": "$client", "n": {"$sum": 1}}},
+        {"$sort": {"n": -1, "_id": 1}},
+    ]).to_list(length=None)
+
+    funded = await db.erc8183_job_index.aggregate([
+        {"$match": {"provider": addr, "status": "FUNDED"}},
+        {"$group": {"_id": "$client", "n": {"$sum": 1}}},
+    ]).to_list(length=None)
+
+    if not delivered and not funded:
+        return {"withheld_reason": "no_delivery_history"}
+
+    clients = len(delivered)
+    total_delivered = sum(r["n"] for r in delivered)
+    # Counted directly rather than inferred from whichever client sorted first.
+    # Whether an agent has been paid by anyone other than its own owner is the
+    # single most load-bearing fact in this block, and it must not rest on a
+    # tiebreak.
+    self_funded = sum(r["n"] for r in delivered
+                      if (r["_id"] or "").lower() == addr)
+    top = (delivered[0]["_id"] or "").lower() if delivered else None
+    top_n = delivered[0]["n"] if delivered else 0
+
+    delivered_to = {(r["_id"] or "").lower() for r in delivered}
+    if clients > MAX_CLIENTS_FOR_PROVENANCE:
+        unanswered = None
+        unanswered_known = False
+    else:
+        unanswered = sum(f["n"] for f in funded
+                         if (f["_id"] or "").lower() not in delivered_to)
+        unanswered_known = True
+
+    # Is the largest buyer the owner itself, or the owner of another agent in
+    # the registry? Both are buyers and neither is an unrelated one, and the
+    # difference between them is worth naming.
+    top_is_self = bool(top) and top == addr
+    top_is_agent_owner = False
+    top_agent_name = None
+    if top and not top_is_self:
+        other = await db[FULL_REGISTRY_COLLECTION].find_one(
+            {"owner_address": top}, {"name": 1})
+        if other:
+            top_is_agent_owner = True
+            top_agent_name = other.get("name")
+
+    return {
+        "clients_delivered": clients,
+        "jobs_delivered": total_delivered,
+        "jobs_self_funded": self_funded,
+        "jobs_delivered_external": total_delivered - self_funded,
+        "clients_external": sum(1 for r in delivered
+                                if (r["_id"] or "").lower() != addr),
+        "top_client_delivered": top_n,
+        "top_client_is_self": top_is_self,
+        "top_client_is_agent_owner": top_is_agent_owner,
+        "top_client_agent_name": top_agent_name,
+        "unanswered_from_new_clients": unanswered,
+        "unanswered_from_new_clients_known": unanswered_known,
+        "counted_by": "owner_address",
+        "note": (
+            "Counted for the owner address behind this agent, which may list "
+            "more than one. A job names a provider address, not an agent."),
+    }
+
+
 async def _agent_half(addr: str) -> dict:
     """The agent reading for one address: registered identities, and jobs."""
     db = get_db()
@@ -218,6 +328,7 @@ async def _agent_half(addr: str) -> dict:
     ).to_list(length=25)
 
     jobs = await _jobs_block(addr)
+    provenance = await _provenance_block(addr)
 
     if not docs:
         # A provider with jobs but no registered agent. Fifty of the 119
@@ -233,6 +344,7 @@ async def _agent_half(addr: str) -> dict:
                 "chains": [],
                 "multi_chain": False,
                 "jobs": jobs,
+                "provenance": provenance,
                 "note": (
                     "This address has been hired through the ERC-8183 escrow "
                     "but holds no registered agent identity, so there is "
@@ -252,6 +364,7 @@ async def _agent_half(addr: str) -> dict:
         "chains": chains,
         "multi_chain": len(chains) > 1,
         "jobs": jobs,
+        "provenance": provenance,
     }
 
 
@@ -346,6 +459,8 @@ async def by_agent(slug: str, token_id: str) -> dict:
             "jobs": (await _jobs_block(owner)) if owner else {
                 "withheld_reason": "no_jobs_indexed",
                 "index_chain_id": JOBS_CHAIN_ID},
+            "provenance": (await _provenance_block(owner)) if owner else {
+                "withheld_reason": "no_delivery_history"},
         },
         "hyperliquid": {"withheld_reason": "no_address_on_page"},
     }

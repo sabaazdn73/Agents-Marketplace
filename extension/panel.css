@@ -381,3 +381,13 @@
   #tnega-agent-panel .tnega-agent-service.quiet { color: #cbd5e1; }
   #tnega-agent-panel .tnega-agent-jobs-row { color: #cbd5e1; }
 }
+
+#tnega-agent-panel .tnega-prov-line {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #475569;
+  margin-top: 4px;
+}
+@media (prefers-color-scheme: dark) {
+  #tnega-agent-panel .tnega-prov-line { color: #cbd5e1; }
+}

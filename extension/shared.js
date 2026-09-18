@@ -312,6 +312,11 @@ const AGENT_WITHHELD = {
       "one escrow contract on BNB Chain, so an agent hired somewhere this " +
       "project does not read would look the same.",
   },
+  no_delivery_history: {
+    title: "No delivery history",
+    body: "No ERC-8183 job names this address as provider, delivered or " +
+      "funded, so there is nothing to say about who has paid it.",
+  },
   no_address_on_page: {
     title: "No address on this page",
     body: "An agent page names an agent, not a wallet, so there is no address " +
@@ -348,4 +353,75 @@ async function fetchAddress(address) {
     throw new Error(`backend returned ${r.status}`);
   }
   return r.json();
+}
+
+
+/** The delivery provenance sentences, in order.
+ *
+ *  WHY THIS IS HERE AND NOT IN A PANEL
+ *  Three surfaces say this now: the site's DeliveryProvenance.jsx, the panel on
+ *  an explorer, and the popup. The first is a different codebase and has to be
+ *  kept in step by review. The second and third are both in this package and
+ *  would otherwise be two copies of one analysis, which is how the same agent
+ *  ends up described two ways. They render the same array.
+ *
+ *  Returns an array of plain strings. No markup, no colour, no verdict: facts
+ *  in the same voice as the withheld reasons, saying what was counted, over
+ *  what, and what it does not mean.
+ *
+ *  @param {object} pv the `provenance` block from /api/extension/subject
+ *  @returns {string[]} zero or more sentences
+ */
+function provenanceLines(pv) {
+  if (!pv || pv.withheld_reason) return [];
+  const lines = [];
+  const delivered = pv.jobs_delivered || 0;
+  const clients = pv.clients_delivered || 0;
+  const self = pv.jobs_self_funded || 0;
+  const external = pv.jobs_delivered_external || 0;
+
+  if (delivered > 0) {
+    lines.push(clients === 1
+      ? `${fmtInt(delivered)} ${delivered === 1 ? "delivery" : "deliveries"}, all to one client.`
+      : `${fmtInt(delivered)} deliveries to ${fmtInt(clients)} clients. `
+        + `The largest of them paid for ${fmtInt(pv.top_client_delivered)} of the ${fmtInt(delivered)}.`);
+  }
+
+  // Counted, not inferred from whichever client sorted first. The tiebreak
+  // this used to rest on flipped between runs for a provider with two clients
+  // holding one delivery each.
+  if (self > 0 && external === 0) {
+    lines.push("Every one of those went to the owner's own address. Money "
+      + "returning to the address it left is activity, not demand, and does "
+      + "not count towards the verified tier.");
+  } else if (self > 0) {
+    lines.push(`${fmtInt(self)} of them went to the owner's own address and `
+      + `${fmtInt(external)} to somebody else.`);
+  } else if (pv.top_client_is_agent_owner) {
+    lines.push(pv.top_client_agent_name
+      ? `The largest client is the owner of another agent in this index, `
+        + `${pv.top_client_agent_name}. It is a buyer, and it is not an unrelated one.`
+      : "The largest client is the owner of another agent in this index. It is "
+        + "a buyer, and it is not an unrelated one.");
+  } else if (clients === 1 && delivered > 0) {
+    lines.push("A single buyer is a narrow base to judge from, not a fault on "
+      + "its own.");
+  }
+
+  if (pv.unanswered_from_new_clients_known === false) {
+    lines.push("Whether any funded job is from a client this owner has not "
+      + "delivered to was not computed: it has too many distinct clients to "
+      + "check cheaply. That is a gap in this line, not a finding.");
+  } else if ((pv.unanswered_from_new_clients || 0) > 0) {
+    const n = pv.unanswered_from_new_clients;
+    lines.push(delivered > 0
+      ? `${fmtInt(n)} funded ${n === 1 ? "job is" : "jobs are"} from a client this `
+        + "owner has never delivered to, and nothing has come back yet. A funded "
+        + "job is money already committed."
+      : `${fmtInt(n)} ${n === 1 ? "job has" : "jobs have"} been funded and this owner `
+        + "has delivered nothing at all, to anyone. A funded job is money already "
+        + "committed.");
+  }
+
+  return lines;
 }

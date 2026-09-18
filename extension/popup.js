@@ -42,6 +42,67 @@
 const out = document.getElementById("out");
 const ctx = document.getElementById("context");
 const statusEl = document.getElementById("status");
+const tabsEl = document.getElementById("tabs");
+
+// The two subjects, as tabs. One open at a time.
+//
+// WHY TABS AND NOT TWO STACKED SECTIONS
+// Both halves are always answered, because "we checked and found nothing" and
+// "we do not measure this" are different statements and a reader is entitled to
+// both. Drawn one under the other that is a popup you scroll, and the half you
+// came for is as likely to be the one below the fold. So both are computed and
+// one is shown.
+//
+// The tab you are NOT on still carries a one-line state under its label, so
+// choosing between them does not require opening both. That line is the whole
+// reason this is not just a pair of buttons.
+const TABS = {
+  hl: { label: "Tnega for Hyperliquid" },
+  agent: { label: "Tnega for On-chain Agents" },
+};
+let currentTab = "hl";
+let lastAnswer = null;
+
+/** One line saying what is behind a tab, for the tab itself. */
+function tabNote(half, kind) {
+  if (!half) return "nothing yet";
+  if (half.withheld_reason) {
+    const w = (kind === "hl" ? WITHHELD[half.withheld_reason] : null)
+      || AGENT_WITHHELD[half.withheld_reason];
+    return w ? w.title.toLowerCase() : "no reading";
+  }
+  if (kind === "hl") {
+    const p = half.post_only || {};
+    return `${fmtPct(p.rejection_rate)} refused`;
+  }
+  const n = half.agent_count || 0;
+  if (n === 0) return "hired, no identity";
+  return n === 1 ? "1 registered agent" : `${n} registered agents`;
+}
+
+function selectTab(name) {
+  currentTab = name;
+  for (const key of Object.keys(TABS)) {
+    const btn = document.getElementById(`tab-${key}`);
+    if (btn) btn.setAttribute("aria-selected", String(key === name));
+  }
+  if (lastAnswer) drawTab();
+}
+
+tabsEl.addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-tab]");
+  if (btn) selectTab(btn.dataset.tab);
+});
+// Left and right arrows move between tabs, which is what a tablist is expected
+// to do and costs four lines.
+tabsEl.addEventListener("keydown", (ev) => {
+  if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+  const keys = Object.keys(TABS);
+  const next = keys[(keys.indexOf(currentTab) + (ev.key === "ArrowRight" ? 1 : -1)
+    + keys.length) % keys.length];
+  selectTab(next);
+  document.getElementById(`tab-${next}`).focus();
+});
 
 function factsHtml(f, p) {
   return `<div class="facts">
@@ -123,42 +184,84 @@ function agentHtml(a) {
     jobs = `<p class="note"><b>On-chain jobs: ${fmtInt(j.total)}.</b> ${parts}</p>`;
   }
 
+  // Who paid for the deliveries. The same sentences the panel renders, from
+  // the same function, because this is the block a person reads before funding
+  // and two versions of it is how one agent ends up described two ways.
+  const pv = a.provenance || {};
+  let prov;
+  if (pv.withheld_reason) {
+    const w = AGENT_WITHHELD[pv.withheld_reason] || { title: "No delivery history", body: "" };
+    prov = `<p class="note"><b>${esc(w.title)}.</b> ${esc(w.body)}</p>`;
+  } else {
+    const lines = provenanceLines(pv);
+    prov = lines.length
+      ? `<div class="prov">
+           <div class="prov-title">Who paid for the delivery</div>
+           <p class="note">${esc(pv.note || "")}</p>
+           ${lines.map((l) => `<p class="prov-line">${esc(l)}</p>`).join("")}
+         </div>`
+      : "";
+  }
+
   const head = agents.length === 0
     ? `<h2>Hired on chain, no registered agent</h2>
        <p class="body">${esc(a.note || "")}</p>`
     : `<h2>${agents.length === 1 ? "One registered agent"
          : `${agents.length} registered agents`}</h2>`;
-  return `${head}${rows}${more}${jobs}`;
+  return `${head}${rows}${more}${jobs}${prov}`;
+}
+
+/** Draw whichever tab is selected, from the answer already in hand.
+ *
+ *  Both halves were fetched in one request, so switching tabs is free and
+ *  sends nothing. */
+function drawTab() {
+  const d = lastAnswer;
+  const agent = d.agent || {};
+  const hl = d.hyperliquid || {};
+  const known = (d.subjects || []).length > 0;
+
+  document.getElementById("tab-hl-note").textContent = tabNote(hl, "hl");
+  document.getElementById("tab-agent-note").textContent = tabNote(agent, "agent");
+  tabsEl.hidden = false;
+
+  const body = currentTab === "hl" ? hyperliquidHtml(hl) : agentHtml(agent);
+  out.innerHTML = `
+    <section class="half" role="tabpanel" id="panel-${currentTab}"
+             aria-labelledby="tab-${currentTab}">
+      <div class="half-label">${esc(TABS[currentTab].label)}</div>
+      ${body}
+    </section>
+    ${known ? "" : `<p class="note">Nothing is stored for this address under
+      either subject. That is what was checked, not a verdict on the
+      address.</p>`}`;
 }
 
 async function show(address, source) {
   ctx.textContent = source;
+  tabsEl.hidden = true;
   out.innerHTML = `<p class="muted">Reading measurements for ${esc(address.slice(0, 10))}…</p>`;
   try {
     const data = await fetchSubject(address);
-    const agent = data.agent || {};
-    const hl = data.hyperliquid || {};
-    const known = (data.subjects || []).length > 0;
+    lastAnswer = data;
 
-    // Both halves, always, each with its reason. An address that is neither an
-    // agent owner nor a tracked maker gets two reasons rather than an empty
-    // panel: "nothing found" and "we do not measure this" are different
-    // statements and the reader is entitled to know which one this is.
-    out.innerHTML = `
-      <section class="half">
-        <div class="half-label">As an agent</div>
-        ${agentHtml(agent)}
-      </section>
-      <section class="half">
-        <div class="half-label">On Hyperliquid</div>
-        ${hyperliquidHtml(hl)}
-      </section>
-      ${known ? "" : `<p class="note">Nothing is stored for this address under
-        either subject. That is what was checked, not a verdict on the
-        address.</p>`}`;
+    // Open the tab that has something in it. Both halves are always answered,
+    // so a fixed default would land a reader on "not tracked" while the answer
+    // they came for sat behind the other tab. Hyperliquid wins a tie because
+    // it is the reading with a figure in it.
+    const subjects = data.subjects || [];
+    if (subjects.includes("hyperliquid")) currentTab = "hl";
+    else if (subjects.includes("agent")) currentTab = "agent";
+    for (const key of Object.keys(TABS)) {
+      const btn = document.getElementById(`tab-${key}`);
+      if (btn) btn.setAttribute("aria-selected", String(key === currentTab));
+    }
+
+    drawTab();
     statusEl.textContent = "Backend answered. Measurements are live.";
     statusEl.className = "ok";
   } catch (e) {
+    tabsEl.hidden = true;
     out.innerHTML = `<h2>Cannot reach the measurements</h2>
       <p class="body">${esc(e.message || e)}</p>
       <p class="note">This is a connection problem, not a statement about the address.</p>`;

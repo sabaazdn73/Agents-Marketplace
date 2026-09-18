@@ -249,6 +249,14 @@ install.
 > checked. What on-chain jobs name it, and how many reached delivery. Where
 > something has not been checked, it says so rather than showing a zero.
 >
+> It also shows who paid for those deliveries, which a job count cannot: how
+> many distinct clients there were, whether the largest of them is the agent's
+> own owner address or the owner of another agent in the same index, and whether
+> any funded job is sitting unanswered from a client this owner has never
+> delivered to. Across the verified set, most owners have every delivery from a
+> single client. A person about to fund the next job has none of that from a
+> count.
+>
 > On app.hyperliquid.xyz, that is post-only order behaviour. The panel shows the
 > share of an address's post-only orders that Hyperliquid's matching engine
 > refused instead of resting on the book. A refused order never reaches the book,

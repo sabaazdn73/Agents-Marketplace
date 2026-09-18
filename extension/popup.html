@@ -14,6 +14,27 @@
     </div>
   </header>
 
+  <!-- Two tabs, because one address can carry two unrelated readings and
+       stacking both made the popup a scroll. Only the selected one is in the
+       document: `hidden` rather than a class, so a reader using a screen
+       reader is not read the half they did not choose.
+
+       The tab bar is hidden until an address has been looked up. Before that
+       there is nothing behind either tab and two empty tabs invite a click
+       that does nothing. -->
+  <nav id="tabs" role="tablist" hidden>
+    <button type="button" role="tab" id="tab-hl" aria-controls="panel-hl"
+            aria-selected="true" data-tab="hl">
+      Hyperliquid
+      <span class="tab-note" id="tab-hl-note"></span>
+    </button>
+    <button type="button" role="tab" id="tab-agent" aria-controls="panel-agent"
+            aria-selected="false" data-tab="agent">
+      On-chain agents
+      <span class="tab-note" id="tab-agent-note"></span>
+    </button>
+  </nav>
+
   <main id="out">
     <p class="muted">Loading…</p>
   </main>

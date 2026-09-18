@@ -418,7 +418,14 @@ async def _delivery_provenance(col) -> tuple[dict, dict]:
         {"$match": {"provider": {"$ne": ""},
                     "status": {"$in": _DELIVERED_STATUSES}}},
         {"$group": {"_id": {"p": "$provider", "c": "$client"}, "n": {"$sum": 1}}},
-        {"$sort": {"n": -1}},
+        # Ordered by count and then by client address. $first over a tie picks
+        # arbitrarily, and for a provider with two clients holding one delivery
+        # each that made `top_client_is_self` flip between runs, which decides
+        # whether the panel says "that client is the agent's own owner". Found
+        # on 2026-09-18 by cross-checking this against the per-address version
+        # in core/extension/subject.py: one provider of 105 disagreed, and the
+        # tie was the whole cause.
+        {"$sort": {"n": -1, "_id.c": 1}},
         {"$group": {"_id": "$_id.p",
                     "clients": {"$sum": 1},
                     "delivered": {"$sum": "$n"},

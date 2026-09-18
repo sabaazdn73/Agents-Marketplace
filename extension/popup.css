@@ -124,3 +124,73 @@ footer.bad { color: #F87171; }
 .agent-row:first-of-type { border-top: 0; }
 .agent-row b { font-weight: 600; }
 .agent-row .muted { font-size: 11px; color: #8b93a7; }
+
+/* The tab bar.
+ *
+ * Two subjects, two tabs, one open at a time. The note under each label is the
+ * one-line state of that half, so the tab you are NOT on still tells you
+ * whether it holds anything. Without it a reader has to click both to find out
+ * which one has the answer, which is the scroll this replaced. */
+#tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  margin-bottom: 12px;
+}
+#tabs button {
+  flex: 1 1 0;
+  min-width: 0;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 7px 8px 8px;
+  margin: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8b93a7;
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+#tabs button:hover { color: #e6e9f0; }
+#tabs button[aria-selected="true"] {
+  color: #97fce4;
+  border-bottom-color: #97fce4;
+}
+#tabs button:focus-visible {
+  outline: 2px solid #97fce4;
+  outline-offset: -2px;
+}
+.tab-note {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: #6f778a;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#tabs button[aria-selected="true"] .tab-note { color: #8b93a7; }
+
+/* The provenance block. Set apart from the job counts above it, because it is
+ * a different kind of statement: the counts say how much, this says from whom
+ * and whether that whom is arm's length. */
+.prov {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.prov-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e6e9f0;
+}
+.prov-line {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #b9c0cf;
+  margin: 4px 0 0;
+}
