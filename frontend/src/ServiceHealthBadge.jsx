@@ -72,6 +72,36 @@ export default function ServiceHealthBadge({ status, checkedAt, size = 'sm', cla
   const when = timeAgo(checkedAt);
 
   if (status === 'responding') {
+    // "Online now" has a maximum age, added 2026-09-18.
+    //
+    // It had none, and the page explainer says "we just reached this agent
+    // and it answered". The store behind the extension carried 123,921
+    // `responding` verdicts at a mean age of 18.7 days because a real verdict
+    // was written once and never re-queued, and even in the store this badge
+    // reads, 28.9% of responding values were over fourteen days old. Roughly
+    // 55 agents were showing "Online now" from a three-week-old check.
+    //
+    // A day, because the store this reads refreshes on a 20 minute TTL and
+    // its median served age is 0.3 days, so anything past a day is not the
+    // freshness the word "now" is claiming. Beyond that the badge stops
+    // asserting the present tense and states when it last answered instead.
+    // The claim weakens; it does not turn into a different claim, because
+    // nothing here has evidence the agent stopped.
+    //
+    // The age was previously in the `title` only, which never appears on a
+    // touch device, so on a phone there was no way to tell a fresh check
+    // from a stale one.
+    const stale = checkedAt && (Date.now() / 1000 - checkedAt) > 86400;
+    if (stale) {
+      return (
+        <span
+          title={`It answered when we last checked, ${when}. We have not reached it since. ${LIMITATION_NOTE}`}
+          className={`inline-flex items-center gap-1 ${textCls} font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 ${className}`}
+        >
+          <CheckCircle2 size={sizePx} /> Answered {when}
+        </span>
+      );
+    }
     return (
       <span
         title={`We checked${when ? ` ${when}` : ''} and it answered. ${LIMITATION_NOTE}`}

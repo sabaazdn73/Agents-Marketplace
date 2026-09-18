@@ -98,7 +98,22 @@ async def get_discovery_status() -> dict:
             "last_success_at": success_at,          # None = never recorded one
             "last_attempt_at": d.get("last_run_at"),
             "last_completed_at": d.get("completed_at"),
-            "agents_ingested": d.get("total_ingested"),
+            # What the SOURCE says exists, not how many rows we have written.
+            #
+            # This was `total_ingested`, which full_registry_ingest increments
+            # by len(agents) on every page and which survives a re-scan. The
+            # store had been re-walked once after a recovery reset, so on
+            # 2026-09-18 the status page reported 3,494,011 agents "stored"
+            # against 263,704 that exist, and Robinhood Chain was overstated
+            # 29x at 6,190 against 212. Same shape as the reconnect counter in
+            # the Hyperliquid spec: a running total rendered as a population.
+            #
+            # `total_server_reported` is on the same documents and is the
+            # honest denominator: it is what the upstream API says the
+            # population is. Both are carried now, so the page can say what
+            # exists and how much work has been done without conflating them.
+            "agents_reported_by_source": d.get("total_server_reported"),
+            "pages_ingested_running_total": d.get("total_ingested"),
             "last_error": (err[:200] if err else None),
         })
 

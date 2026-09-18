@@ -141,8 +141,13 @@ export default function StatusPage({ onBack }) {
                                 : <XCircle size={11} className="text-red-500 shrink-0 mt-[3px]" />}
                               <div className="min-w-0">
                                 <span className="font-mono">{s.source}</span>
-                                {s.agents_ingested != null && (
-                                  <span className="text-gray-400"> · {s.agents_ingested.toLocaleString()} stored</span>
+                                {/* What the source says exists, not a running
+                                    page counter. This read `agents_ingested`
+                                    and said "stored", which reported 3,494,011
+                                    against 263,704 actually held, because that
+                                    field accumulates across re-scans. */}
+                                {s.agents_reported_by_source != null && (
+                                  <span className="text-gray-400" title="How many agents the upstream registry reports for this source. Not how many rows we hold."> · {s.agents_reported_by_source.toLocaleString()} at source</span>
                                 )}
                                 {s.last_error && (
                                   <div className="text-gray-500 break-words">{s.last_error}</div>

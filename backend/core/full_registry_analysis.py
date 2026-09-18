@@ -52,6 +52,46 @@ INGEST_GRACE_SECONDS = 30 * 60
 # else re-ingests the agent.
 UNKNOWN_RECHECK_SECONDS = 6 * 60 * 60
 
+# How long a REAL verdict stays valid before it is re-checked.
+#
+# WHY A VERDICT HAS TO EXPIRE AT ALL
+# Until 2026-09-18 only a missing status and a stale `unknown` were ever
+# re-queued, so `responding`, `no_endpoint` and `not_responding` were written
+# once and never revisited. 123,921 agents carried `responding` at a mean age
+# of 18.7 days, 84.9% of them older than fourteen days, and
+# compute_full_registry_stats published responding/analysed = 47.3% as though
+# it described the registry now. A verdict that can never be falsified is not
+# a measurement.
+#
+# WHERE 21 DAYS COMES FROM, RATHER THAN BEING A ROUND NUMBER
+# Three constraints, all measured on 2026-09-18.
+#
+# 1. How fast the truth actually changes. 400 agents recorded `responding`
+#    more than fourteen days ago, median age 20.0 days, were re-probed live:
+#    400 of 400 still answered. Zero events in 400 trials puts the 95% upper
+#    bound on the change rate at 3/400 = 0.75% per 20 days by the rule of
+#    three, about 0.0375% a day. The published figure is 47.3%, so it stays
+#    within one percentage point while the changed fraction is under 2.1%,
+#    which that bound reaches at roughly 56 days. 21 days leaves a factor of
+#    2.7 of headroom for a sample that observed no decay at all.
+#
+# 2. What the pass can sustain. Cycling 262,214 records every 21 days is
+#    12,486 checks a day. Observed throughput over the preceding ten days
+#    included days of 16,871, 23,819 and 54,405, so this is inside measured
+#    capacity. The many days under 2,500 were days with nothing queued, not
+#    days at the ceiling.
+#
+# 3. Whether the mechanism is exercised at all. This is what settled it
+#    between 21 and 28. The oldest verdict in the store is 22.2 days old, so
+#    a 28 day expiry would have queued NOTHING for another six days and the
+#    new path would have sat untested. At 21 days it queues 22,921 records
+#    immediately. A safety mechanism that does not run until next week is
+#    indistinguishable from one that does not work.
+#
+# If a future sample DOES observe decay, this number comes down, and the
+# arithmetic is written out so it can be redone rather than guessed at again.
+VERDICT_EXPIRY_SECONDS = 21 * 24 * 60 * 60
+
 
 # Chains the analysis pass may evaluate. Deliberately widened ONE AT A TIME,
 # each only after a test confirmed correct results for known agents on
@@ -187,6 +227,9 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
     # Re-queued only after UNKNOWN_RECHECK_SECONDS, so a genuinely dead host
     # is not hammered every pass. Agents with a real finding are still never
     # re-queued here.
+    #
+    # A real verdict now expires too, after VERDICT_EXPIRY_SECONDS. See that
+    # constant for where the number comes from.
     now = time.time()
     docs = await col.find({
         "chain_id": {"$in": ANALYSIS_CHAIN_IDS},
@@ -194,8 +237,16 @@ async def run_analysis_batch(batch_size: int = 300) -> dict:
             {"service_status": {"$exists": False}},
             {"service_status": "unknown",
              "service_checked_at": {"$lt": now - UNKNOWN_RECHECK_SECONDS}},
+            {"service_status": {"$nin": [None, "unknown"]},
+             "service_checked_at": {"$lt": now - VERDICT_EXPIRY_SECONDS}},
         ],
-    }).limit(batch_size).to_list(length=batch_size)
+        # Oldest first. Without an order the three clauses interleave in
+        # natural order, and adding ~200,000 expired verdicts to a queue that
+        # previously held only unknowns would have let a six-hour unknown
+        # re-check wait behind a month-old one. Sorting by age makes the
+        # policy "whatever is most stale" rather than "whatever Mongo hands
+        # back", and needs the index below.
+    }).sort("service_checked_at", 1).limit(batch_size).to_list(length=batch_size)
     if not docs:
         return {"checked": 0, "done": True}
 
@@ -283,12 +334,15 @@ async def get_unanalyzed_backlog() -> int:
     # Counts the same work run_analysis_batch actually selects, including
     # `unknown` agents due a re-check. Counting only never-checked agents
     # would report zero backlog while thousands of stale non-answers waited.
+    now = time.time()
     return await col.count_documents({
         "chain_id": {"$in": ANALYSIS_CHAIN_IDS},
         "$or": [
             {"service_status": {"$exists": False}},
             {"service_status": "unknown",
-             "service_checked_at": {"$lt": time.time() - UNKNOWN_RECHECK_SECONDS}},
+             "service_checked_at": {"$lt": now - UNKNOWN_RECHECK_SECONDS}},
+            {"service_status": {"$nin": [None, "unknown"]},
+             "service_checked_at": {"$lt": now - VERDICT_EXPIRY_SECONDS}},
         ],
     })
 

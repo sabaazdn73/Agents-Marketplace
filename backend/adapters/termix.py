@@ -137,11 +137,55 @@ async def get_termix_stats(token_id, name: str | None) -> dict:
         except (TypeError, ValueError):
             return None
 
+    # LISTED IS NOT SCORED, AND CONFLATING THEM ACCUSES SOMEBODY
+    #
+    # TermiX returns its unscored defaults for an agent it has simply never
+    # evaluated: completedJobs 0, passRate "0", reputationScore 50. Sampling
+    # 800 records across 8 pages on 2026-09-18 found those exact three values
+    # on all 800, and a jobs-descending sort shows real data does exist (top
+    # agent: 620 jobs, passRate 1, reputation 100). Binary searching for where
+    # it runs out gives roughly 12,376 of 353,677 agents, 3.5%, with any
+    # completed job.
+    #
+    # Returning available: True for the other 96.5% made the panel print
+    # "0 completed jobs, 0% pass rate, 50 reputation" for an agent TermiX has
+    # no opinion about. A 0% pass rate is not an absence rendered neutrally,
+    # it is an accusation, and it is the only defect found in the 2026-09-18
+    # audit that makes a false claim about somebody else's agent rather than
+    # about our own data.
+    #
+    # This module's own docstring already carried the proof and nobody joined
+    # it up: our own explainer agent shows completedJobs 0 on TermiX while
+    # holding two on-chain-confirmed completions, jobs #56619 and #56620.
+    #
+    # So the unscored case is reported as unscored. `available` stays False,
+    # because the question the caller asks is "does TermiX have a reading for
+    # this agent", and the answer is no. The listing is still reported, since
+    # being listed and not yet scored is itself a fact worth showing.
+    completed = int(match.get("completedJobs") or 0)
+    pass_rate = _num(match.get("passRate"))
+    reputation = _num(match.get("reputationScore"))
+    unscored = (completed == 0 and (pass_rate or 0) == 0
+                and (reputation is None or reputation == 50))
+    if unscored:
+        result = {
+            "available": False,
+            "listed": True,
+            "reason": "listed on TermiX's registry but not scored by it: no "
+                      "completed jobs, and the pass rate and reputation are "
+                      "the values TermiX returns for an agent it has not "
+                      "evaluated. A rate is not shown rather than a zero that "
+                      "would read as a failing score.",
+        }
+        _cache[cache_key] = (time.time(), result)
+        return result
+
     result = {
         "available": True,
-        "completed_jobs": int(match.get("completedJobs") or 0),
-        "pass_rate": _num(match.get("passRate")),
-        "reputation_score": _num(match.get("reputationScore")),
+        "listed": True,
+        "completed_jobs": completed,
+        "pass_rate": pass_rate,
+        "reputation_score": reputation,
         "stake": match.get("stake"),
     }
     _cache[cache_key] = (time.time(), result)
