@@ -1020,6 +1020,34 @@ async def hyperliquid_address(address: str, response: Response = None):
     return data
 
 
+@app.get("/api/monitors/reconciliation")
+async def monitors_reconciliation():
+    """Does each published figure still match the source it came from.
+
+    Three defects found on 2026-09-18 were figures that had quietly stopped
+    matching their source with nothing erroring. This is the pass that would
+    have caught them, and it is served rather than only runnable so that a
+    drift is visible without anyone remembering to look.
+
+    Never returns "clear" when a check could not run: an unmeasured figure and
+    a matching one are different answers.
+    """
+    from core.monitors import reconcile
+    return await reconcile.run_all()
+
+
+@app.get("/api/monitors/ingest")
+async def monitors_ingest():
+    """Does each external API still return what the adapter reading it believes.
+
+    One step earlier than the reconciliation pass: a source that renames a
+    field breaks ingestion while every figure downstream stays perfectly
+    self-consistent and wrong.
+    """
+    from core.monitors import ingest_check
+    return await asyncio.to_thread(ingest_check.run_all)
+
+
 @app.get("/api/extension/filter")
 async def extension_filter(response: Response = None):
     """The membership list the extension checks before it asks us anything.

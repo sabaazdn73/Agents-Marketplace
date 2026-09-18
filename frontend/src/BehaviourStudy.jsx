@@ -376,7 +376,7 @@ export default function BehaviourStudy() {
         <div className="space-y-4">
           {[
             ['Whether it is profitable. Nothing here says that.',
-             'The $179.7M figure is gross swap volume, which is turnover, not profit. Net PnL was not computed. Doing it properly means differencing token balances across each transaction cycle and netting off 1,692 SOL of fees and any Jito tips, which are a separate payment not visible in the fee column. A bot can push that volume and lose money.'],
+             'This page said $179.7M of volume until 2026-09-18. That was the sum of every swap LEG, and an arbitrage cycle moves the same capital through two legs, so the same dollars were counted twice. Re-measured on both wallets: 2.14 and 2.19 legs per transaction, and gross leg volume is 1.97x the largest leg per transaction on both. About $91M of capital was cycled, not $179.7M. Even that is turnover and not profit: net PnL was never computed, which needs token balances differenced across each cycle and 1,692 SOL of fees plus any Jito tips netted off. A bot can cycle that much and lose money.'],
             ['What Custom(0) means.',
              'It is a program defined code and the program IDL was not decoded. The common reading is a profitability or slippage guard, and that is consistent with the pattern, but it is inference rather than evidence. Decoding the program at instruction index 2 is the single highest value next step.'],
             ['How far back the first wallet actually goes.',

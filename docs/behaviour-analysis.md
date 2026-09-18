@@ -66,8 +66,41 @@ Two wallets running the same software in sequence, with the handover on 10 to
 | Submissions in the same slot | 40.16% | 35.72% |
 
 The first wallet, over 30 days: 922,473 transactions, 727,794 swaps,
-$179.7M of volume across 23 venues and 7,766 pairs. It paid 1,691.95 SOL in
-fees, of which 489.93, or 29%, went on transactions that reverted.
+**about $91M of capital cycled** across 23 venues and 7,766 pairs. It paid
+1,691.95 SOL in fees, of which 489.93, or 29%, went on transactions that
+reverted.
+
+### The volume figure was wrong, and by roughly half
+
+This said **$179.7M** until 2026-09-18. That number is the sum of `amount_usd`
+over every row in `dex_solana.trades`, and a row there is one LEG of a swap,
+not one movement of capital. An arbitrage cycle moves the same dollars through
+two or more legs, so summing legs counts the same dollars two or more times.
+
+Re-measured on Dune against both wallets, over the 30 days to 2026-09-18:
+
+| | MRiYA4oN | MriyaNN8 |
+|---|---|---|
+| swap legs | 555,029 | 213,479 |
+| transactions containing a swap | 259,360 | 97,274 |
+| legs per transaction | 2.14 | 2.19 |
+| gross volume summed over legs | $149.4M | $48.1M |
+| largest leg per transaction, summed | $75.9M | $24.5M |
+| ratio | **1.97x** | **1.97x** |
+
+Both wallets inflate by the same 1.97x, which is what a two-leg cycle should
+do and is the strongest evidence that this is the mechanism rather than a
+coincidence of one window. Applying it to the published figure gives about
+$91M of capital actually cycled, against $179.7M of leg turnover.
+
+The ratio is measured; the $91M is that ratio applied to a figure from an
+earlier window, because the bot's activity has since declined and the original
+window cannot be re-run exactly. Treat $91M as one significant figure.
+
+None of the study's conclusions rest on this number. The revert rate, the
+timing, the block position and the fee bidding are all counted per transaction
+and are unaffected. What changes is the impression of scale, and the honest
+version of it is half of what was published.
 
 Timing decays monotonically from zero with no spike at any interval, which is
 an opportunity-triggered arrival process rather than a fixed cadence. Sizing
