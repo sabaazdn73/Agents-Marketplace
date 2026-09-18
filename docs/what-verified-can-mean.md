@@ -111,6 +111,64 @@ which is the problem: a count that moves from 27 to 20 to 31 in nine hours,
 under an unchanged rule, is a measurement of the serving window and not of how
 many agents have proven they deliver. Read it that way or do not read it.
 
+## The same shape, on a chain with one budget, and it is ours
+
+Added 2026-09-18, from reading chain 4663 through Blockscout's gateway.
+
+Robinhood Chain holds exactly one budget opened through this project's
+AgentBudgetEscrow. Its client, the address that funded it, is
+`0x48cE74cd…`. The same address is the `creator_address_hash` of the escrow
+contract itself: whoever deployed the contract funded the only budget on it.
+
+That is our own address and our own deployment, so it is not a finding about
+somebody else and it is not evidence of anything being concealed. The budget is
+0.000007 ETH, about two cents, opened and reclaimed the same day the chain was
+added. It is a go-live test and it looks exactly like one.
+
+It is recorded here because it is the same shape as the pattern this page is
+about. On BNB Chain the observation is that 18 of 24 verified owners have every
+delivery from a single client, and that money returning to the address it left
+is activity rather than demand. On Robinhood Chain the single budget was funded
+by the address that deployed the contract it sits in. Both are one party on
+both sides of a transaction that, counted naively, reads as usage.
+
+The difference is only that we know who this one is. A reader looking at chain
+4663's numbers has no way to tell our test from a real hire, and the honest
+response is to say which it is rather than to rely on the amount being small
+enough that nobody asks. The extension's panel already says the budget was
+never drawn against; this page says who opened it.
+
+If a second budget is ever opened on that chain by an address that is not ours,
+this section needs rewriting rather than deleting: the interesting figure then
+becomes how many of the budgets there are self-funded, which is the same
+question `DeliveryProvenance` asks about jobs.
+
+## Which registry says verified
+
+Also 2026-09-18, and worth keeping separate from the tier itself because it is
+a different sense of the word.
+
+"Verified" on an agent means the tier above. "Verified" on a contract means its
+source is published in a registry. The second one is not a property of the
+contract, it is a property of the contract in a particular registry, and the
+registries disagree.
+
+The escrow at `0x9dbA8EbB…1333` on chain 4663 is an exact match on Sourcify,
+creation and runtime both, verified three minutes after it was deployed. The
+same contract is `is_verified: false` on that chain's own Blockscout explorer.
+Both are accurate. It was verified on one and not the other.
+
+This mattered because the contract badge said "on BscScan" in fixed text, on
+every chain. On Robinhood Chain that named a registry with no opinion on the
+contract, and sent a reader to an explorer that would have shown them the
+opposite of what the badge said. The badge now prints the registry that
+answered, and on the Sourcify chains it carries the caveat that the chain's own
+explorer indexes verification separately.
+
+The general rule, which is the reason this is in this file: a claim that rests
+on somebody else's registry has to name the registry, or the first reader who
+checks somewhere else is entitled to conclude we made it up.
+
 ## What to re-measure
 
 The figures at the top, and the figure that matters most, which is the number
@@ -119,5 +177,6 @@ funding a fleet moves it materially. If it rises without the verified count
 rising, the tier is getting stronger. If the verified count rises and the
 wallet count does not, it is getting weaker, and this page should say so.
 
-Recorded 2026-09-16. The buyer clause and the 29 to 27 correction it caused are
-in [Verification Methodology](verification-methodology.md).
+Recorded 2026-09-16, with the Robinhood Chain and registry sections added
+2026-09-18. The buyer clause and the 29 to 27 correction it caused are in
+[Verification Methodology](verification-methodology.md).

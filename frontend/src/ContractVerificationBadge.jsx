@@ -33,23 +33,38 @@ export default function ContractVerificationBadge({ agentId }) {
 
  if (!data || !data.is_contract) return null; // real, honest "nothing to flag", plain wallet or unknown
 
+  // WHICH REGISTRY, NAMED ON THE BADGE
+  //
+  // "Verified" is not a property of a contract, it is a property of a contract
+  // in a registry, and the registries disagree. Our own escrow on Robinhood
+  // Chain is an exact match on Sourcify, verified three minutes after it was
+  // deployed, and unverified on that chain's own Blockscout explorer. Both are
+  // true of the same bytecode.
+  //
+  // This badge used to say "on BscScan" in fixed text, which named the wrong
+  // registry on every chain except 56 and sent a reader on Robinhood Chain to
+  // an explorer that says the opposite. The backend now returns which registry
+  // answered and this prints it.
+  const where = data.source || 'the chain explorer';
+  const caveat = data.source_caveat ? ` ${data.source_caveat}` : '';
+
   if (data.verified) {
     return (
       <span
-        title={`This agent's owner is a verified smart contract${data.contract_name ? ` (${data.contract_name})` : ''}, its code is publicly auditable on BscScan.`}
+        title={`This agent's owner is a smart contract whose source is published on ${where}${data.contract_name ? ` (${data.contract_name})` : ''}, so its code can be read.${caveat}`}
         className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
       >
-        <ShieldCheck size={11} /> Verified contract owner
+        <ShieldCheck size={11} /> Source published on {where}
       </span>
     );
   }
   if (data.verified === false) {
     return (
       <span
-        title="This agent's owner is a smart contract whose source code is NOT verified on BscScan. Its behavior can't be independently audited."
+        title={`This agent's owner is a smart contract whose source is NOT published on ${where}, so its behaviour cannot be independently audited.${caveat}`}
         className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
       >
-        <ShieldAlert size={11} /> Unverified contract owner
+        <ShieldAlert size={11} /> Source not on {where}
       </span>
     );
   }

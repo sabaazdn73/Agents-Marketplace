@@ -52,6 +52,34 @@ _BSC_CHAIN_ID = 56
 _SOURCIFY_CHAINS = (4663,)
 _SOURCIFY_BASE = "https://sourcify.dev/server"
 
+# WHICH REGISTRY ANSWERED, NAMED IN THE ANSWER
+#
+# "Verified" is not a property of a contract. It is a property of a contract
+# IN A REGISTRY, and the registries disagree. Our own escrow on Robinhood
+# Chain is exact_match on Sourcify, verified three minutes after deployment,
+# and `is_verified: false` on that chain's own Blockscout explorer. Both are
+# true. A badge that says "verified" without saying where sends a reader to an
+# explorer that tells them something else.
+#
+# So every branch below returns `source` and `source_url`, and the badge prints
+# them. The badge used to say "on BscScan" in fixed text, which was wrong on
+# every chain except 56.
+#
+# Checked 2026-09-18: Etherscan's V2 API answers for all five of these chain
+# ids, so naming the chain's own explorer is naming the registry that actually
+# holds the answer rather than a guess at one.
+_EXPLORER_NAMES = {
+    1: ("Etherscan", "https://etherscan.io/address/"),
+    56: ("BscScan", "https://bscscan.com/address/"),
+    8453: ("Basescan", "https://basescan.org/address/"),
+    42161: ("Arbiscan", "https://arbiscan.io/address/"),
+    143: ("MonadScan", "https://monadscan.com/address/"),
+}
+
+
+def _explorer(chain_id: int) -> tuple[str, str]:
+    return _EXPLORER_NAMES.get(chain_id, ("Etherscan", "https://etherscan.io/address/"))
+
 _TTL_SECONDS = 24 * 60 * 60  # a contract's own verification status is a structural
 # property that essentially never changes minute to minute — a full day's cache is
 # honest and real, not stale-looking, same reasoning protocol_compat._cache uses
@@ -147,14 +175,26 @@ async def check_owner_contract_verification(address: str, chain_id: int = _BSC_C
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 resp = await client.get(f"{_SOURCIFY_BASE}/v2/contract/{chain_id}/{addr}")
+            # Sourcify is the registry on these chains, and it is NOT the
+            # registry the chain's own explorer uses. `source_caveat` says so,
+            # because a reader who checks the explorer after reading this badge
+            # can legitimately see the opposite answer.
+            sourcify_meta = {
+                "source": "Sourcify",
+                "source_url": f"https://repo.sourcify.dev/{chain_id}/{addr}/",
+                "source_caveat": (
+                    "Verification is recorded per registry. This chain's own "
+                    "explorer indexes verification separately and may show a "
+                    "different answer for the same contract."),
+            }
             if resp.status_code == 404:
-                result = {"is_contract": True, "verified": False}
+                result = {"is_contract": True, "verified": False, **sourcify_meta}
             elif resp.status_code == 200:
                 body = resp.json()
                 match = body.get("match") or body.get("runtimeMatch")
                 result = {"is_contract": True, "verified": bool(match),
                           "contract_name": None, "compiler_version": None, "is_proxy": None,
-                          "source": "Sourcify"}
+                          **sourcify_meta}
             else:
                 result = {"is_contract": True, "verified": None,
                           "reason": f"Sourcify returned HTTP {resp.status_code}"}
@@ -180,25 +220,34 @@ async def check_owner_contract_verification(address: str, chain_id: int = _BSC_C
             resp.raise_for_status()
             body = resp.json()
     except Exception as e:
-        result = {"is_contract": True, "verified": None, "reason": f"couldn't reach BscScan: {e}"}
+        result = {"is_contract": True, "verified": None,
+                  "reason": f"couldn't reach {_explorer(chain_id)[0]}: {e}"}
         _cache[key] = (time.time(), result)
         return result
 
     entries = body.get("result")
     if not isinstance(entries, list) or not entries:
-        result = {"is_contract": True, "verified": None, "reason": "BscScan returned an unexpected response shape"}
+        result = {"is_contract": True, "verified": None,
+                  "reason": f"{_explorer(chain_id)[0]} returned an unexpected response shape"}
         _cache[key] = (time.time(), result)
         return result
 
     entry = entries[0]
     source = entry.get("SourceCode") or ""
     verified = bool(source)
+    explorer_name, explorer_url = _explorer(chain_id)
     result = {
         "is_contract": True,
         "verified": verified,
         "contract_name": entry.get("ContractName") or None if verified else None,
         "compiler_version": entry.get("CompilerVersion") or None if verified else None,
         "is_proxy": (entry.get("Proxy") == "1") if verified else None,
+        # Named, for the same reason the Sourcify branch names itself. The
+        # answer comes from Etherscan's V2 API, which is the registry this
+        # chain's own explorer displays, so naming the explorer names where a
+        # reader can check it.
+        "source": explorer_name,
+        "source_url": f"{explorer_url}{addr}",
     }
     _cache[key] = (time.time(), result)
     return result
