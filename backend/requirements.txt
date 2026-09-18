@@ -11,6 +11,13 @@ google-genai>=2.16.0
 # CockroachDB. psycopg[binary] bundles its own libpq, so TLS behaviour does
 # not depend on whatever libpq the base image happens to carry.
 psycopg[binary]>=3.2
+
+# The Hyperliquid orderUpdates feed. Imported inside ws_collector.run rather
+# than at module scope, which is why this was missing here for as long as it
+# was: every local environment had it as a transitive dependency and nothing
+# that ran on Render imported it. The WebSocket collector is a Render worker
+# as of 2026-09-18, so it is declared.
+websockets>=13
 # Direct dependency now, not transitive: core/cockroach.py uses certifi.where()
 # as the CA bundle for sslmode=verify-full, because the deployed container has
 # no ~/.postgresql/root.crt and libpq will not fall back to the OS trust store.

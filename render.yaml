@@ -64,3 +64,55 @@ services:
       # set"). main.py serves GET {this}/job/{id}/response itself.
       - key: ERC8183_AGENT_URL
         sync: false
+
+  # ── Hyperliquid WebSocket collector ──────────────────────────────────────
+  #
+  # A BACKGROUND WORKER, NOT A THREAD INSIDE THE API, AND THE REASON IS THE
+  # WINDOW
+  #
+  # What this collector is for is a six-hour stretch in which every ten-second
+  # bucket carries a coverage row for the SAME set of addresses. The brain
+  # endpoint selects its window that way on purpose (see
+  # docs/hyperliquid-brain-spec.md section 10.1): it checks that the distinct
+  # addresses across the whole window equal the per-bucket count, which is what
+  # catches a swap. So the deliverable is not uptime, it is six uninterrupted
+  # hours with an unchanged watch set.
+  #
+  # The API web service is redeployed on every push and recycles under its own
+  # documented memory ratchet. A collector living inside it restarts whenever
+  # the API restarts, and each restart re-runs pick_addresses against
+  # hl_order_counts, which can return a different ten. That does not merely
+  # pause the window, it invalidates it. Putting the two together would
+  # guarantee the exact failure this service exists to end.
+  #
+  # Two smaller reasons point the same way. The API runs on 0.5 CPU and 512 MB
+  # and already ratchets; ten WebSockets plus bucket buffers is not what that
+  # instance needs. And a Render web service must bind $PORT and answer a
+  # health check, neither of which this process does, so inside a web service
+  # it would be an unsupervised background task rather than a process Render
+  # can see fail.
+  #
+  # Cost: one 0.5c-512mb worker, the same plan as escrow-compat-audit-worker.
+  #
+  # SCOPE, stated because the number looks small: it watches ten addresses.
+  # That is Hyperliquid's own limit of ten unique users per IP for user
+  # subscriptions, not a budget choice, and ws_collector.run raises rather than
+  # silently truncating if it is handed more.
+  - type: worker
+    name: hl-ws-collector
+    runtime: python
+    rootDir: backend
+    plan: starter
+    region: frankfurt
+    autoDeploy: false        # a deploy restarts the process and ends the window
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/hl_ws_collect.py
+    envVars:
+      # The only one it needs. store.connect() builds its DSN from this and
+      # nothing else; core/cockroach.py supplies the CA bundle from certifi.
+      - key: COCKROACH_DATABASE_URL
+        sync: false
+      # Left unset so the collector runs until it is stopped. Setting it to a
+      # number of seconds is how the script is run for a bounded test.
+      - key: HL_WS_SECONDS
+        sync: false
