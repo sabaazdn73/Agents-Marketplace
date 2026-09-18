@@ -439,3 +439,18 @@
   color: #e6e9f0;
   margin-top: 2px;
 }
+
+/* The history behind the rate, directly under it. The rate and its shape are
+ * one reading and belong together; a reader who sees 0.3% without knowing it
+ * was 40% yesterday has been told half of something. */
+.tnega-spark {
+  margin-top: 8px;
+  color: #97fce4;
+}
+.tnega-spark-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6f778a;
+  margin-bottom: 2px;
+}

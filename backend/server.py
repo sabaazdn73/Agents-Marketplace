@@ -1032,6 +1032,15 @@ async def hyperliquid_address(address: str, response: Response = None):
             if data.get("withheld_reason") == "no_post_only_orders":
                 data["holdings"] = await asyncio.to_thread(
                     venuerole.holdings, address)
+            # The history behind the rate, on the same surface people actually
+            # use. Only when a rate is being shown: a withheld figure stays
+            # withheld as a line too, which is the rule the tab had to be
+            # corrected for after it drew a stale_data row's hourly rates
+            # beside an n/a.
+            if not data.get("withheld_reason"):
+                series = await asyncio.to_thread(
+                    service.maker_rate_series, [address])
+                data["rate_series"] = series.get(address.lower())
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
             status_code=503,

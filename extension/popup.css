@@ -277,3 +277,13 @@ footer.bad { color: #F87171; }
   letter-spacing: 0.06em;
   margin-right: 4px;
 }
+
+/* The rate's history, under the figure it belongs to. */
+.spark { margin: 8px 0 4px; color: #97fce4; }
+.spark-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6f778a;
+  margin-bottom: 2px;
+}

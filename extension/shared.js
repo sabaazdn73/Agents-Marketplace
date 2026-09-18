@@ -588,3 +588,58 @@ function fmtUsdShort(v) {
   if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}k`;
   return `$${n.toFixed(0)}`;
 }
+
+
+/** The history behind a rate, as an inline SVG path.
+ *
+ *  WHY THE PANEL NEEDS THIS AND NOT ONLY THE TAB
+ *  The panel is the surface people actually use: it appears on the address
+ *  page they were already looking at. A rate with no history there is the
+ *  same misreading the tab was corrected for, on the surface where it
+ *  happens more often.
+ *
+ *  THE THREE RULES IT INHERITS FROM THE TAB
+ *  A null hour is a break in the line, never a drop to the baseline: an hour
+ *  with no post-only orders is an hour with no rate, not a perfect one. The
+ *  line is scaled to this address alone, so its height says how this address
+ *  moved and nothing about any other. And the caller must not draw it at all
+ *  when the rate itself is withheld, because a line of hourly rates beside a
+ *  withheld figure is that figure republished at finer resolution.
+ *
+ *  Returns "" when there is nothing honest to draw.
+ */
+function rateSparklineSvg(series, opts) {
+  if (!series || !Array.isArray(series.rates)) return "";
+  const rates = series.rates;
+  const known = rates.filter((r) => r !== null && r !== undefined);
+  if (known.length < 2 || rates.length < 2) return "";
+
+  const W = (opts && opts.width) || 150;
+  const H = (opts && opts.height) || 26;
+  const max = Math.max(...known);
+  const min = Math.min(...known);
+  const span = max - min || max || 1;
+  const x = (i) => (i / (rates.length - 1)) * W;
+  const y = (r) => H - 1 - ((r - min) / span) * (H - 2);
+
+  const runs = [];
+  let run = [];
+  rates.forEach((r, i) => {
+    if (r === null || r === undefined) { if (run.length > 1) runs.push(run); run = []; return; }
+    run.push(`${x(i).toFixed(1)},${y(r).toFixed(1)}`);
+  });
+  if (run.length > 1) runs.push(run);
+  if (!runs.length) return "";
+
+  const gaps = rates.length - known.length;
+  const title = `${rates.length} hours, ${fmtPct(min)} to ${fmtPct(max)}.`
+    + (gaps ? ` ${gaps} hour${gaps === 1 ? "" : "s"} with no post-only orders, drawn as gaps rather than as zero.` : "")
+    + " Scaled to this address only.";
+
+  const paths = runs.map(
+    (pts) => `<polyline points="${pts.join(" ")}" fill="none" stroke="currentColor" `
+      + `stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round" opacity="0.8" />`
+  ).join("");
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" `
+    + `aria-label="${esc(title)}"><title>${esc(title)}</title>${paths}</svg>`;
+}

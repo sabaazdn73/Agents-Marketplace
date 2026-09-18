@@ -49,7 +49,9 @@ request time and cached six hours.
 | effective fill rate | A | |
 | polls | A | |
 | Vault label | **C** | live `userRole`, and `vaultDetails` for the name |
-| row ORDER | **B** | month volume, never displayed, tracked-first then volume |
+| 30d volume | **B** | the venue's own figure, and what orders this table |
+| Last 48h line | A | hourly rate from `hl_order_counts`, same filter as the rate |
+| row ORDER | **B** | month volume, tracked-first then volume |
 
 ### Market table
 
@@ -87,23 +89,27 @@ markets checked is ours: a five-market constant in `corestate.PERPS_CHECKED`.
 
 ### The extension's per-address panel
 
-The rate and its counts are A. The account kind, whether it is a vault and
-how many builders it has approved, is C. The holdings block is C. The
-HyperCore block is D.
+The rate, its counts and the 48-hour line under it are A. The account kind,
+whether it is a vault and how many builders it has approved, is C. The
+holdings block is C. The HyperCore block is D.
 
 ## What is presented as ours and is the venue's
 
-**The selection, and it is not disclosed.** Which 31 addresses get measured at
-all is decided by the venue's month volume ranking in the leaderboard file.
-The maker table introduces itself as "The 50 highest-volume addresses", which
-reads as a description this project made. It is the venue's number, and since
-the ordering fix it is not even an accurate description of the table: the
-rows are ordered tracked-first and then by volume, so they differ from the
-true top 50 by 12 addresses and reach down to volume rank 65.
+**The selection. Found and corrected 2026-09-18.** Which 31 addresses get
+measured at all is decided by the venue's month volume ranking in the
+leaderboard file. The maker table used to introduce itself as "The 50
+highest-volume addresses", which reads as a description this project made. It
+was the venue's number, and after the ordering fix it was not even an accurate
+description of the table: rows are ordered tracked-first and then by volume,
+so they differ from the true top 50 by 12 addresses and reach down to volume
+rank 65.
 
 The measurements on those addresses are entirely ours. What is the venue's is
-the choice of whom to measure, which is upstream of everything and is the one
-piece of provenance the tab never mentions.
+the choice of whom to measure, which is upstream of everything and was the one
+piece of provenance the tab never mentioned. The copy now says the set is
+chosen by the venue's own 30-day ranking rather than by us, and the volume
+that does the choosing is a column, so a reader can see the criterion rather
+than being told about it.
 
 **Nothing else.** The status vocabulary is the venue's and is labelled as the
 venue's. The bands are ours and read as ours. The HyperCore block says it is
@@ -115,16 +121,31 @@ Nothing found. The reverse error does not appear on this tab.
 
 ## What a reader would expect and does not get
 
-**A time series for one maker.** `service.address_series` exists, is exposed
-through the MCP surface, and is rendered on no page. A reader looking at a
-0.27% rate cannot tell whether it has been 0.27% all week or was 40%
-yesterday, which is the first thing anyone would ask. This is the largest gap
-on the list and the only one where the data is already computed.
+**A time series for one maker. BUILT 2026-09-18.** It was the largest gap on
+this list and is now a column in the maker table and a line under the rate in
+the extension panel and the popup: 48 hours of hourly post-only rejection
+rate, beside the figure it explains.
 
-**Volume.** The leaderboard's month volume orders the table and is never
-shown. Of the leaderboard's fields it is the one that passes its own
-consistency check, so there is no data reason not to show it. The reason is
-that nobody added the column.
+It is NOT `service.address_series`, which is what this section originally
+pointed at. That function reads `hl_ws_buckets`, and the WebSocket feed
+carries no `tif`, so its denominator is every order update of any kind rather
+than post-only orders. Its own docstring says the two must not be shown as
+though they were the same quantity, and it covers only the ten addresses the
+feed watches. `service.maker_rate_series` was written instead, reading
+`hl_order_counts` filtered the same way `makers()` filters it, so the line and
+the number are one measurement at two resolutions.
+
+Three rules it carries: an hour with no post-only orders is a null and a break
+in the line, never a drop to zero; each line is scaled to its own address, so
+height compares a maker with itself and not with the row above; and where the
+rate is withheld the line is withheld too, because hourly rates beside a
+withheld figure are that figure republished at finer resolution.
+
+**Volume. SHOWN 2026-09-18.** The leaderboard's 30-day volume now has a column,
+labelled as the venue's figure rather than ours, with a note that it is what
+chose these addresses and what orders the table. It is the one leaderboard
+field that passes its own consistency check: month volume exceeds allTime
+volume for 0 of 46,171 rows, where month PnL does so for 51.3%.
 
 **Profitability.** Not shown, and it should not be. The leaderboard's PnL
 contradicts itself on 51.3% of rows and its accountValue is 45% to 100% away

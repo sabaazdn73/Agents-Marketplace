@@ -207,6 +207,10 @@ function panelHtml(state, data, address) {
       <div class="tnega-band" style="border-color:${band.colour};color:${band.colour}">${band.label}</div>
     </div>
     <div class="tnega-band-body">${band.body}</div>
+    ${data.rate_series ? `<div class="tnega-spark">
+      <div class="tnega-spark-label">Last ${data.rate_series.rates.length} hours</div>
+      ${rateSparklineSvg(data.rate_series)}
+    </div>` : ""}
     <div class="tnega-facts">
       <div><span>Post-only rejected</span><b>${fmtInt(p.alo_rejected)} of ${fmtInt(p.alo_total)}</b></div>
       <div><span>Polls stored</span><b>${fmtInt(f.polls)}</b></div>

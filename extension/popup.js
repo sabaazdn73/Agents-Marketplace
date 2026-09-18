@@ -191,6 +191,10 @@ function hyperliquidHtml(h) {
       <div class="band" style="border-color:${band.colour};color:${band.colour}">${band.label}</div>
     </div>
     <p class="body">${band.body}</p>
+    ${h.rate_series ? `<div class="spark">
+      <div class="spark-label">Last ${h.rate_series.rates.length} hours</div>
+      ${rateSparklineSvg(h.rate_series, { width: 300, height: 28 })}
+    </div>` : ""}
     ${factsHtml(f, p)}
     <p class="note">${fmtInt(p.alo_rejected)} of ${fmtInt(p.alo_total)} post-only orders were
     refused before resting.</p>
