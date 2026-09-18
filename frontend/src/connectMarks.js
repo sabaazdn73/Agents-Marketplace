@@ -1,7 +1,8 @@
 // connectMarks.js
 //
 // The clients that can point at this project's MCP server, and the marks shown
-// beside their names on the Connect tab. Data only; ConnectPage.jsx renders it.
+// beside their names on the How It Works page. Data only; HowItWorksPage.jsx
+// renders it.
 //
 // THE STANDARD, which is the one dataSources.js already holds every logo to
 // ---------------------------------------------------------------------------

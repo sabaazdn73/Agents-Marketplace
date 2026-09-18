@@ -203,7 +203,7 @@ export default function AdvantageReport() {
 
           <div className="mt-3 p-3 rounded-lg bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
             <span className="font-semibold text-gray-700 dark:text-gray-300">Agent identity, so you can check this yourself:</span> agent_id <span className="font-mono">270213</span>, owner <span className="font-mono">0x08Cef8B3ec5D33529dFe6700ccbFfc97158Cb5dd</span>.{' '}
-            <a href="https://www.tnega.app/market?agent=270213" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1">View/hire this agent in Agents and Bots House <ExternalLink size={10} /></a>
+            <a href="https://www.tnega.app/market?agent=270213" target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-1">View/hire this agent in Explore <ExternalLink size={10} /></a>
           </div>
         </Side>
         <Side label="Without an agent (done by hand, timed)">

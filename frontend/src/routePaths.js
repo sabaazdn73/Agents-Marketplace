@@ -28,11 +28,16 @@ export const MAIN_TAB_PATHS = {
   // A destination, not the entry point: '/' still resolves to the
   // main agent listing, and this is reachable from the nav or its own URL.
   '/home': 'landing',
-  // The tab is now called Agents and Bots House. The path is not: /market is
+  // The tab is now called Explore. The path is not: /market is
   // in shared links, in the sitemap, and in the Chrome Web Store listing, and
   // renaming a path breaks every one of them for nothing. The id stays
   // 'market' for the same reason, since every `nav === 'market'` check in
   // both apps reads it.
+  // Renamed to How It Works on 2026-09-18 and moved directly after Home,
+  // because a visitor arriving with no idea what this is had nowhere to start.
+  // /connect still resolves: it is in shared links and in the Chrome Web Store
+  // listing, and a rename that breaks a URL breaks those for nothing.
+  '/how-it-works': 'connect',
   '/connect': 'connect',
   '/market': 'market',
   '/skills': 'skills',

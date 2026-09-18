@@ -1,22 +1,36 @@
-// ConnectPage.jsx
+// HowItWorksPage.jsx
 //
-// The Connect tab: every way into this site's measurements that is not the
-// site itself. Three cards, because there are three.
+// The page a visitor lands on when they do not yet know what this is. It says
+// the problem and the answer in full view, then four ways to use it, each with
+// the sequence to follow.
+//
+// WHY THE TOP DOES NOT COLLAPSE
+// It was a page of cards with the explanation inside them, which meant the one
+// thing a stranger needs was behind a click they had no reason to make. The
+// problem and the answer are now always visible, above everything that opens.
+//
+// WHAT THE TOP MAY CLAIM
+// Only what has been measured, with the denominator attached. Every figure in
+// the opening block was verified against the live store on the day it was
+// written and carries the caveat that belongs to it, because the tier this
+// project publishes is evidence of one thing and not of several others, and a
+// page that oversells it undoes the reason the tier is worth having. The long
+// form is in docs/what-verified-can-mean.md and the page links there rather
+// than restating it.
 //
 // SHARED ON PURPOSE
 // One component, rendered by both AgentMarketplaceApp.web.jsx and
 // AgentMarketplaceApp.mobile.jsx, in the manner of SiteLinks.jsx and
 // ChainViewTabs.jsx. The two apps are deliberately separate components and
-// have drifted before; three cards of prose maintained twice would drift again
+// have drifted before; four flows of prose maintained twice would drift again
 // on the first correction. `variant` changes type sizes and nothing else,
 // because a phone has less width, not less to say.
 //
-// CARDS, NOT A LIST
-// This page is the front door for somebody arriving from outside, so it is
-// built from the shapes the rest of the site already uses: the card, the pill
-// and the expanding panel of the chain views and DeFiCategoryPanels.jsx,
-// rather than the stacked prose of a documentation page. A card's front says
-// enough to know whether it is the one you want; the detail sits behind it.
+// FLOWS, NOT PICTURES
+// Each card opens onto a numbered sequence drawn by HowItWorksFlow.jsx, which
+// is an ordered list with a CSS connector rather than an image: it reflows at
+// 390px, the commands inside it can be copied, and it reaches a screen reader
+// in the right order.
 //
 // PANEL BEHAVIOUR
 // One open at a time, mounted on first open and never unmounted afterwards.
@@ -27,11 +41,6 @@
 // gives for its own copy: that component paints its background from an inline
 // `surface` colour, and this page carries its dark treatment in Tailwind
 // variants like the chain views do.
-//
-// NOT EVERY CARD OPENS
-// The Telegram card has nothing behind it, so it has no panel and no chevron.
-// A card that opens onto one sentence teaches a reader that opening cards on
-// this page is not worth the click.
 //
 // WHAT IS NOT HERE
 // An on-site agent was here until 2026-09-17. It ran a bounded tool-calling
@@ -45,14 +54,27 @@
 
 import React, { useCallback, useState } from 'react';
 import {
-  Plug, Terminal, Send, ChevronDown, ExternalLink, Copy, Check,
+  Compass, Terminal, Send, ChevronDown, ExternalLink, Copy, Check, Search,
 } from 'lucide-react';
+import HowItWorksFlow from './HowItWorksFlow';
 import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from './extensionLink';
 import { MCP_CLIENTS, EXTENSION_MARK } from './connectMarks';
 
 // The bot's handle, in one place. Registered with BotFather on
 // 2026-09-17 and answering on a webhook mounted into this project's own
 // API, so there is no second service behind it.
+// Read from the live store on 2026-09-18 and written here rather than fetched,
+// because the opening paragraph must say the same thing when the API is slow
+// or down, and a headline that renders as a blank while a request is in flight
+// is worse than one that is a day old. The share is computed from the two so
+// they cannot drift apart. When these are refreshed, refresh them together.
+const AGENTS_LISTED = 14907;
+const AGENTS_VERIFIED = 32;          // listings
+const VERIFIED_OWNERS = 29;          // the wallets behind those listings
+const VERIFIED_SHARE = '0.2%';
+const VERIFIED_CLIENTS = 18;         // distinct buyers funding all of it
+const VERIFIED_ONE_CLIENT = 24;      // owners whose deliveries all came from one buyer
+
 const TELEGRAM_HANDLE = '@Tnega_bot';
 const TELEGRAM_URL = 'https://t.me/Tnega_bot';
 
@@ -62,6 +84,33 @@ const TELEGRAM_URL = 'https://t.me/Tnega_bot';
 // otherwise print http://localhost:8000/mcp on a page whose whole job is to
 // give a reader an address they can paste.
 const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
+
+// Where each operating system keeps the config a client reads, and the one
+// command that opens it. Claude Code is the shape shown, because it is the one
+// the copyable block below is exactly right for; the other clients differ by a
+// key name and their own shapes are listed under it.
+//
+// The paths are the vendors' own documented locations. The commands only open
+// or create the file: nothing here edits a config on somebody's machine, and a
+// page that told a reader to pipe text into a file they cannot see first would
+// deserve the config it produced.
+const MCP_PLATFORMS = [
+  {
+    os: 'macOS',
+    path: '~/.claude/mcp.json',
+    command: "mkdir -p ~/.claude && open -e ~/.claude/mcp.json",
+  },
+  {
+    os: 'Windows',
+    path: '%USERPROFILE%\\.claude\\mcp.json',
+    command: 'notepad "%USERPROFILE%\\.claude\\mcp.json"',
+  },
+  {
+    os: 'Linux',
+    path: '~/.claude/mcp.json',
+    command: 'mkdir -p ~/.claude && ${EDITOR:-nano} ~/.claude/mcp.json',
+  },
+];
 
 // The six tools, one line each, in the order a caller meets them. Taken from
 // the manifest in backend/mcp_server/tools.py, shortened to what a reader
@@ -318,10 +367,59 @@ function Label({ children }) {
   );
 }
 
-export default function ConnectPage({ variant = 'web' }) {
+export default function HowItWorksPage({ variant = 'web' }) {
   const compact = variant === 'mobile';
 
   const cards = [
+    {
+      key: 'site',
+      title: 'On this site',
+      icon: Search,
+      pill: <Pill tone="live">Live</Pill>,
+      line: 'Find an agent, read what has been measured about it, and hire it with the '
+        + 'payment held until the work arrives.',
+      render: (small) => (
+        <>
+          <p>
+            Explore lists the agents this project has read from the on-chain registries, with what
+            was measured about each one. The tiers are the point: they say what was checked, not
+            how good something is.
+          </p>
+          <HowItWorksFlow compact={small} steps={[
+            {
+              title: 'Open Explore and filter',
+              body: 'Filter by what an agent does, or by tier. "Only verified working" leaves the '
+                + 'ones with an on-chain job from a buyer who is not their own owner.',
+            },
+            {
+              title: 'Open one and read the evidence',
+              body: 'The panel says who paid for the deliveries behind it, how many distinct '
+                + 'clients there were, and whether any funded job is sitting unanswered. It '
+                + 'counts by owner address, which it states, because one owner can list several '
+                + 'agents.',
+            },
+            {
+              title: 'Check what the tier does not say',
+              body: 'Verified means at least one delivery to somebody other than the owner. It '
+                + 'does not mean the work was good, that several buyers wanted it, or that the '
+                + 'buyer was unrelated. The limits are written down rather than implied.',
+            },
+            {
+              title: 'Hire, with the money held',
+              body: 'Payment sits in escrow and is released when the work is delivered and '
+                + 'accepted. Track it under the briefcase at the top of the page.',
+            },
+          ]} />
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">
+            The one number worth knowing before you start: the verified count moved from 27 to 20
+            to 31 in nine hours on 2026-09-17, under a rule that did not change once. What changed
+            was which agents the store was serving. Read it as a measurement of the serving window
+            as much as of the agents.{' '}
+            <a href="/docs" className="text-indigo-500 hover:underline">What verified can mean</a>.
+          </p>
+        </>
+      ),
+    },
     {
       key: 'mcp',
       title: 'The MCP server',
@@ -398,6 +496,27 @@ export default function ConnectPage({ variant = 'web' }) {
               The others differ, sometimes by one word. Each line below is that client&apos;s own
               shape, from its own documentation, with the date it was read.
             </p>
+
+            <div className="mt-3">
+              <Label>Where that file lives, and how to open it</Label>
+              <div className="space-y-2.5">
+                {MCP_PLATFORMS.map((pf) => (
+                  <div key={pf.os}>
+                    <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100">
+                      {pf.os}
+                      <code className="ml-2 font-mono text-[11px] font-normal text-gray-500 dark:text-gray-400">
+                        {pf.path}
+                      </code>
+                    </div>
+                    <CodeBlock text={pf.command} label={`the ${pf.os} command`} />
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
+                Those commands open the file and nothing else. Paste the entry above into it, save,
+                and restart the client so it reads the config again.
+              </p>
+            </div>
             <ul className="mt-3 space-y-1.5">
               {MCP_CLIENTS.map((c) => (
                 <li key={c.name} className="text-[12px] text-gray-600 dark:text-gray-400">
@@ -414,6 +533,36 @@ export default function ConnectPage({ variant = 'web' }) {
               Anything that can POST JSON can call it. This asks the server what tools it has:
             </p>
             <CodeBlock text={MCP_CURL_SNIPPET} label="the request" />
+          </div>
+
+          <div>
+            <Label>The sequence</Label>
+            <HowItWorksFlow compact={compact} steps={[
+              {
+                title: 'Open the config for your system',
+                body: 'The three commands above open or create it. Nothing edits it for you.',
+              },
+              {
+                title: 'Paste the entry and save',
+                body: 'One server, one URL, no key. Your client\u2019s own shape is in the list '
+                  + 'above if it is not Claude Code.',
+              },
+              {
+                title: 'Restart the client',
+                body: 'Most read the config once at start. Until it restarts, the server is '
+                  + 'configured and not connected.',
+              },
+              {
+                title: 'Ask it for the catalogue first',
+                body: 'tnega_catalogue lists every dataset, what each measures, and how current '
+                  + 'it is. It is the call that tells the assistant what it may ask next.',
+              },
+              {
+                title: 'Read the coverage, not just the number',
+                body: 'Every reply carries what it was measured over, and returns a stated reason '
+                  + 'rather than a figure when there is nothing worth stating.',
+              },
+            ]} />
           </div>
         </>
       ),
@@ -454,6 +603,42 @@ export default function ConnectPage({ variant = 'web' }) {
             withholding a number lives in one place rather than in every client that shows one. The
             same rule, the same reasons, the same wording as this site.
           </p>
+
+          <div>
+            <Label>Where it appears, and what it shows</Label>
+            <HowItWorksFlow compact={compact} steps={[
+              {
+                title: 'Install it from the Chrome Web Store',
+                body: 'One extension, one permission for this site\u2019s API, and a content '
+                  + 'script that runs on app.hyperliquid.xyz and nowhere else.',
+              },
+              {
+                title: 'Open an address page on Hyperliquid',
+                body: 'Any /explorer/address/0x… or /address/0x… page. The address is taken from '
+                  + 'the URL, so nothing is typed and nothing is looked up.',
+              },
+              {
+                title: 'Read the panel it inserts',
+                body: 'The post-only rejection rate measured for that address, the band it falls '
+                  + 'in, how many polls are behind it, and how old the newest order seen is.',
+              },
+              {
+                title: 'Or read the reason there is no rate',
+                body: 'Not tracked, too few polls, no longer polled, data not current, or no '
+                  + 'post-only orders. It shows the reason instead of a number, never a zero.',
+              },
+              {
+                title: 'And what the address holds right now',
+                body: 'Underneath, its position on HyperCore read on chain through a contract on '
+                  + 'HyperEVM: side, size, entry and mark. Measured over hours above, one block '
+                  + 'old below, and never combined.',
+              },
+            ]} />
+            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
+              That is what it does today, on one venue. It is the pattern worth extending rather
+              than a promise that it has been.
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <a
               href={CHROME_EXTENSION_URL}
@@ -512,6 +697,36 @@ export default function ConnectPage({ variant = 'web' }) {
             is the same rule the MCP server holds. It reads; it cannot spend anything, sign
             anything or hire anyone.
           </p>
+
+          <div>
+            <Label>The sequence</Label>
+            <HowItWorksFlow compact={compact} steps={[
+              {
+                title: `Open ${TELEGRAM_HANDLE}`,
+                body: 'In Telegram, on any device. There is nothing to install and no account to '
+                  + 'make beyond the one you have.',
+                command: `https://t.me/${TELEGRAM_HANDLE.replace('@', '')}`,
+                commandLabel: 'the link',
+              },
+              {
+                title: 'Send /help',
+                body: 'It lists the commands it knows. It understands those and not sentences, '
+                  + 'so this is the whole vocabulary.',
+              },
+              {
+                title: 'Ask about one address',
+                body: 'Paste a 0x address on its own and it offers the three ways it can read '
+                  + 'one, or send the command directly.',
+                command: '/address 0xbeccae9ffcb69e9d42a1d4e744abf8056149562d',
+                commandLabel: 'the command',
+              },
+              {
+                title: 'Read the coverage line under the answer',
+                body: 'How many polls, how old the newest order is, and whether the address is '
+                  + 'still being polled. When there is no rate, that line is the answer.',
+              },
+            ]} />
+          </div>
         </>
       ),
     },
@@ -520,20 +735,53 @@ export default function ConnectPage({ variant = 'web' }) {
   return (
     <div className={compact ? 'space-y-4' : 'max-w-3xl'}>
       {!compact && (
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">
-            <Plug size={24} />
+            <Compass size={24} />
           </div>
-          <h2 className="text-3xl font-bold tracking-tight">Connect</h2>
+          <h2 className="text-3xl font-bold tracking-tight">How it works</h2>
         </div>
       )}
-      {compact && <h2 className="text-2xl font-bold mb-1">Connect</h2>}
+      {compact && <h2 className="text-2xl font-bold mb-2">How it works</h2>}
 
-      <p className={`${compact ? 'text-sm' : 'mb-2'} text-gray-600 dark:text-gray-300`}>
-        Three ways to reach what this site has measured without opening this site. All three work
-        today. Each card says what state it is in, and will say so if that changes.
+      {/* THE TOP DOES NOT COLLAPSE. A visitor who does not yet know what this
+          is should not have to open anything to find out. Every figure here
+          was read from the live store on the day it was written, and the
+          sentence that limits it travels with it. */}
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] p-4 sm:p-5 mb-4">
+        <h3 className={`font-bold text-gray-900 dark:text-gray-100 ${compact ? 'text-[15px]' : 'text-[17px]'} mb-2`}>
+          Anyone can register an agent on chain. Almost nobody checks whether one works.
+        </h3>
+        <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300`}>
+          Registering is a transaction. It costs a few cents and proves nothing about whether the
+          agent answers, delivers, or has ever been paid by anyone. This site lists{' '}
+          {AGENTS_LISTED.toLocaleString()} agents. {AGENTS_VERIFIED} of them, held between{' '}
+          {VERIFIED_OWNERS} wallets, have an on-chain job from a buyer who is not their own owner.
+          That is {VERIFIED_SHARE} of the list.
+        </p>
+        <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300 mt-2`}>
+          Tnega measures that before anyone pays. It reads the chains, polls the venues, and
+          publishes what it found with the number of observations behind it. Where there is not
+          enough to state a figure, it states the reason instead of a zero.
+        </p>
+        <p className={`${compact ? 'text-[11px]' : 'text-[12px]'} leading-relaxed text-gray-500 dark:text-gray-400 mt-3`}>
+          What that {AGENTS_VERIFIED} does not mean: that the work was any good, that several
+          buyers wanted it, or that the buyer was unrelated to the seller. It means one delivery
+          reached somebody other than the owner. Behind the whole set are{' '}
+          {VERIFIED_CLIENTS} distinct buyer wallets, and {VERIFIED_ONE_CLIENT} of the{' '}
+          {VERIFIED_OWNERS} owners were paid by exactly one of them. The count is also a
+          measurement of what is being shown: it moved from 27 to 20 to 31 in nine hours on
+          2026-09-17 under a rule that did not change once, because what changed was which agents
+          were being served. Those limits are written down rather than implied.
+        </p>
+      </div>
+
+      <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300 mb-2`}>
+        Four ways to use it. The Chrome extension is the one that reaches the measurements without
+        coming here at all: it puts this project&apos;s reading of an address onto the page you are
+        already looking at.
       </p>
-      <p className={`${compact ? 'text-[11px] text-gray-400' : 'text-xs text-gray-400 mb-6'}`}>
+      <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-gray-400 mb-4`}>
         Everything here is read only. Nothing on this page asks for a key, an account, or a wallet
         signature, and none of it can spend money or hire anyone: those stay in the browser, signed
         by the person who owns the funds.

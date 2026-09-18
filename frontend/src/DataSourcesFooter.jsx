@@ -1,38 +1,63 @@
 // DataSourcesFooter.jsx
 //
-// Small, standard "Powered by" attribution strip, provider names +
-// logos (each fetched directly from the provider's own domain), each
-// linking out to their site. Shared by web + mobile. A logo that fails
-// to load just disappears (onError) rather than showing a broken-image icon.
-import React, { useState } from 'react';
+// The Sources block: everything this project reads from or settles through,
+// as plain text, under one heading.
+//
+// WHY THE LOGOS ARE GONE FROM HERE
+// The foot of the site was carrying two rows of marks: this strip with a logo
+// beside every provider name, and the partner marquee below it with another
+// twenty-one. Twenty-odd logos compete with each other and with the few that
+// are supposed to stand out, which are the chains this project deploys to and
+// the events it was built for. Those keep their marks in the marquee. Every
+// other credit is here, in text, one line, still a link, still reachable.
+//
+// Nothing was dropped. A provider that was credited with a logo is credited
+// with its name, which is what the attribution actually owes them, and the
+// full page behind "All sources" carries the detail for each one.
+//
+// Shared by web and mobile, like the strip it replaces.
+import React from 'react';
 import { DATA_SOURCES } from './dataSources';
-
-function SourceLogo({ src, name }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return null;
-  return <img src={src} alt="" width={14} height={14} onError={() => setFailed(true)} className="rounded-sm" />;
-}
+import { PARTNERS, PARTNER_KIND } from './partners';
 
 export default function DataSourcesFooter({ onOpenDataSources, className = '' }) {
+  // The data providers, plus the services and tools from the partner list.
+  // Chains and events are deliberately absent: they are the marks the marquee
+  // keeps, and repeating them here would undo the point of thinning this out.
+  const seen = new Set();
+  const entries = [];
+  for (const s of DATA_SOURCES.filter((x) => x.inFooter)) {
+    if (seen.has(s.name)) continue;
+    seen.add(s.name);
+    entries.push({ name: s.name, url: s.url });
+  }
+  for (const p of PARTNERS) {
+    if (p.kind !== PARTNER_KIND.SERVICE && p.kind !== PARTNER_KIND.TOOL) continue;
+    if (seen.has(p.name)) continue;
+    seen.add(p.name);
+    entries.push({ name: p.name, url: p.url });
+  }
+
   return (
     <footer className={`border-t border-gray-200 dark:border-gray-800 mt-12 pt-6 pb-4 ${className}`}>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-gray-400">
-        <span className="font-semibold uppercase tracking-wider text-gray-400">Data sources</span>
-        {DATA_SOURCES.filter((s) => s.inFooter).map((s) => (
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+        Sources
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-gray-400">
+        {entries.map((s) => (
           <a
             key={s.name}
             href={s.url}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+            className="hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
           >
-            <SourceLogo src={s.logo} name={s.name} />
             {s.name}
           </a>
         ))}
         {onOpenDataSources && (
           <button onClick={onOpenDataSources} className="ml-auto text-indigo-500 hover:underline">
-            All resources →
+            All sources →
           </button>
         )}
       </div>

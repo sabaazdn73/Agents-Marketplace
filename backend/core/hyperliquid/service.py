@@ -319,10 +319,22 @@ def makers(limit: int = 50) -> list[dict]:
 
 
 def markets(limit: int = 40) -> list[dict]:
-    """Post-only rejection by market, pooled across all tracked makers.
+    """Post-only rejection by market, over the addresses being polled now.
 
     This is the per-coin view: which books are moving fast enough that resting
-    quotes get refused."""
+    quotes get refused.
+
+    RESTRICTED TO THE CURRENT ROTATION, and it was not until 2026-09-18.
+    Pooling every address that has ever been polled put a year-old frozen slice
+    into a figure a reader takes as a live market condition, and the difference
+    is not small: ETH published 5.40% where the current makers are at 1.79%,
+    BTC published 48.50% against 57.10%, and the maker column counted 49
+    addresses where 23 are being polled. The same correction landed in
+    makers() and address_detail() first; this is the last of the three.
+
+    An address that left the rotation keeps its stored records, and those
+    records stop ageing at the moment it left, so including it means averaging
+    now against a moment that will never move again."""
     sql = f"""
     SELECT coin,
            sum(n) FILTER (WHERE tif = %s)                      AS alo_total,
@@ -330,6 +342,7 @@ def markets(limit: int = 40) -> list[dict]:
            count(DISTINCT address)                             AS makers,
            sum(n)                                              AS total
     FROM hl_order_counts
+    WHERE address IN (SELECT address FROM hl_targets)
     GROUP BY coin
     HAVING sum(n) FILTER (WHERE tif = %s) > 0
     ORDER BY alo_total DESC
@@ -352,10 +365,22 @@ def markets(limit: int = 40) -> list[dict]:
 
 
 def status_breakdown() -> list[dict]:
-    """Every typed status with its share, which is the evidence for why
-    collapsing them would be wrong."""
+    """Every typed status with its share, over the addresses being polled now.
+
+    Restricted to the current rotation on 2026-09-18, for the reason given in
+    markets(), and here the difference was larger than anywhere else. Pooled
+    over every address ever polled it reported filled at 3.93%,
+    reduceOnlyCanceled at 1.062% and a plain rejected at 0.281%. Over the
+    addresses actually being polled those are 1.09%, 0.011% and 0.000%.
+
+    The last of those mattered most: the tab uses this breakdown as the
+    evidence for saying a plain rejected status exists but covers a minority of
+    refusals, and every record carrying that status came from addresses nobody
+    polls. The claim was being evidenced entirely by data that stopped moving.
+    """
     with _conn() as c, c.cursor() as cur:
         cur.execute("SELECT status, sum(n) s FROM hl_order_counts "
+                    "WHERE address IN (SELECT address FROM hl_targets) "
                     "GROUP BY status ORDER BY s DESC")
         rows = cur.fetchall()
     total = sum(int(r[1] or 0) for r in rows) or 1

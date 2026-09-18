@@ -1301,8 +1301,9 @@ export default function HyperliquidView({ mutedBorder }) {
                   <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
                     Hyperliquid reports outcomes as distinct typed statuses. A plain
                     <code className="mx-1 rounded bg-gray-100 dark:bg-gray-800 px-1 text-[11px]">rejected</code>
-                    status exists but covers a minority of refusals, so asking only for it misses
-                    every post-only rejection.
+                    status exists on the venue and does not appear in the table below at all: none
+                    of the addresses being polled now has produced one. Asking only for it would
+                    find nothing here, and would miss every post-only rejection.
                   </p>
                   <ScrollTable mutedBorder={mutedBorder} head={<>
                     <Th align="left">Status</Th><Th>Count</Th><Th>Share</Th><Th align="right"> </Th>

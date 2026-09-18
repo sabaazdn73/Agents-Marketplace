@@ -103,7 +103,7 @@ export default function ChainAgentDetail({ chainId, tokenId, onBack }) {
         <p className="font-semibold mb-1">Couldn&apos;t load this agent</p>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">{state.error}</p>
         <button onClick={onBack} className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
-          Back to Agents and Bots House
+          Back to Explore
         </button>
       </div>
     );
@@ -124,7 +124,7 @@ export default function ChainAgentDetail({ chainId, tokenId, onBack }) {
           onClick={onBack}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
-          <ChevronRight size={16} className="rotate-180" /> Back to Agents and Bots House
+          <ChevronRight size={16} className="rotate-180" /> Back to Explore
         </button>
         <div className="flex items-center gap-4">
           <button

@@ -27,7 +27,15 @@
 // image box.
 
 import React, { useState } from 'react';
-import { PARTNERS } from './partners';
+import { PARTNERS, PARTNER_KIND } from './partners';
+
+// The strip carries the primary marks only: the chains this project deploys
+// to, and the events it was built for. Every other credit moved to the Sources
+// line above it as text on 2026-09-18, because twenty-one logos in one strip
+// compete with each other and with these, and a mark that competes with twenty
+// others is not a mark anybody reads.
+const PRIMARY = new Set([PARTNER_KIND.EVENT, PARTNER_KIND.CHAIN]);
+const PRIMARY_PARTNERS = PARTNERS.filter((p) => PRIMARY.has(p.kind));
 
 function PartnerLogo({ p }) {
   const [broken, setBroken] = useState(false);
@@ -53,7 +61,7 @@ function PartnerLogo({ p }) {
   );
 }
 
-export default function PartnerMarquee({ items = PARTNERS }) {
+export default function PartnerMarquee({ items = PRIMARY_PARTNERS }) {
   if (!items.length) return null;
 
   return (

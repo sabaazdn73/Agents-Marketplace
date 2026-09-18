@@ -3,7 +3,8 @@ import {
   Sun, Moon, ShieldAlert, ShieldCheck, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
-  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug} from 'lucide-react';
+  Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
+} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -107,10 +108,10 @@ import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, D
 import SessionModesExplainer from './SessionModesExplainer';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
-// The Connect tab's whole body. One component shared with
+// The How It Works page's whole body. One component shared with
 // AgentMarketplaceApp.mobile.jsx so three cards of prose are not maintained in
-// two places; see ConnectPage.jsx.
-import ConnectPage from './ConnectPage';
+// two places; see HowItWorksPage.jsx.
+import HowItWorksPage from './HowItWorksPage';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
@@ -314,7 +315,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
     <div className="max-w-3xl mx-auto mt-4">
       <div className="flex items-center justify-between mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
-          <ChevronRight size={16} className="rotate-180" /> Back to Agents and Bots House
+          <ChevronRight size={16} className="rotate-180" /> Back to Explore
         </button>
         {/* Shareable per-agent link, send a client straight to this agent. */}
         <button onClick={onShare} className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
@@ -500,17 +501,18 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
 
 const NAV_ITEMS = [
   { id: 'landing', label: 'Home', icon: Sparkles },
-  // Connect sits above the listing (2026-09-17). It is how somebody reaches
-  // these measurements from outside the site: the MCP server, the Chrome
-  // extension, and what has not been built. Above rather than below because
-  // it is the answer to "can I use this from my own agent", which is a
-  // question asked before browsing, not after. See ConnectPage.jsx.
-  { id: 'connect', label: 'Connect', icon: Plug },
+  // How It Works sits directly after Home (2026-09-18). It was called Connect
+  // and listed the ways in; it now opens with what this project measures and
+  // why, then the four ways to use it, each with the sequence to follow. A
+  // visitor who has never seen the site had nowhere to start before this. The
+  // tab id stays 'connect' because every `nav === 'connect'` check reads it,
+  // and /connect still resolves alongside /how-it-works.
+  { id: 'connect', label: 'How It Works', icon: Compass },
   // Renamed 2026-09-17. Bots were already in scope, the Solana behaviour
   // study is about one, and "Marketplace" named half of what is here. The id
   // and the path stay 'market' and /market: every shared link points at that
   // URL and every `nav === 'market'` check in this file reads that id.
-  { id: 'market', label: 'Agents and Bots House', icon: Store },
+  { id: 'market', label: 'Explore', icon: Store },
  // Real, deliberate placement (2026-08-29, product/UX audit), see
   // docs/skills-vs-marketplace.md for the full reasoning. A Skill (Venus
   // Lending, PancakeSwap, etc.) isn't a registered ERC-8004 agent being
@@ -535,7 +537,6 @@ const NAV_ITEMS = [
   { id: 'studio', label: 'MultiAgents', icon: MultiAgentIcon },
   // My Agents ahead of Skills (2026-09-07, explicit tab-order request):
   // what you already hired outranks what you could run yourself.
-  { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'build', label: 'Build Your Agent', icon: Hammer },
   { id: 'sell', label: 'Sell Your Agent', icon: Coins },
 ];
@@ -1018,6 +1019,23 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
               </a>
               <h1 className="text-lg font-bold tracking-tight flex-1">Tnega</h1>
+              {/* A person's own things sit together: their jobs, their
+                  notifications, and the explanation of the place. My Agents
+                  used to be a row in the nav below, among the eight places to
+                  browse, which put "what I hired" in the same list as "what
+                  there is to hire". It is here now, next to the bell that
+                  tells them when one of those jobs moves. */}
+              <button
+                onClick={() => { dismissAgentDetail(); setNav('my-agents'); setHiring(false); onNavChange?.('my-agents'); }}
+                title="My Agents, the jobs you have hired"
+                aria-label="My Agents"
+                className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center transition-colors ${
+                  nav === 'my-agents'
+                    ? 'text-white bg-white/15'
+                    : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+              >
+                <Briefcase size={16} />
+              </button>
               <button
                 onClick={() => setShowOnboarding(true)}
                 title="How this works"
@@ -1285,7 +1303,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3">
                   <div>
                     <h2 className="text-2xl font-bold tracking-tight mb-1.5 flex items-center gap-2">
-                      Agents and Bots House
+                      Explore
                       {refreshing && <Loader2 size={16} className="animate-spin text-gray-400" />}
                     </h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Browse AI agents, check them out, and hire one with a spending limit you control.</p>
@@ -1721,7 +1739,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           {hiring && selectedAgent && (
             <div className="max-w-2xl mx-auto mt-10">
               <button onClick={() => setHiring(false)} disabled={hireStep && hireStep !== 'done' && !hireError} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-8 transition-colors disabled:opacity-40">
-                <ChevronRight size={16} className="rotate-180" /> Back to Agents and Bots House
+                <ChevronRight size={16} className="rotate-180" /> Back to Explore
               </button>
 
               {/* Funding model. Escrow is the default and stays selected
@@ -1962,7 +1980,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
           {/* Connect Tab. Shared component, identical on web and mobile;
               `variant` changes type sizes and nothing else. */}
-          {nav === 'connect' && <ConnectPage variant="web" />}
+          {nav === 'connect' && <HowItWorksPage variant="web" />}
 
           {/* Learn Tab */}
           {nav === 'learn' && (
@@ -2022,7 +2040,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <h2 className="text-3xl font-bold tracking-tight">Skills</h2>
               </div>
               <p className="text-gray-600 dark:text-gray-300 mb-2">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
-              <p className="text-xs text-gray-400 mb-10">Different from hiring an agent from Agents and Bots House: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
+              <p className="text-xs text-gray-400 mb-10">Different from hiring an agent from Explore: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
 
               <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
             </div>

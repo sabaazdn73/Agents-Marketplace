@@ -90,6 +90,13 @@ ADDRESS_COUNT = 50
 # An earlier version of this comment claimed the bare status did not exist at
 # all. That was drawn from six addresses and was wrong; the collector's own
 # data corrected it.
+#
+# Re-measured 2026-09-18, over the addresses in the current rotation rather
+# than every address ever polled: the bare status produces ZERO records among
+# them. It is kept in this set regardless. Its absence today is a fact about
+# which thirty-one addresses are being watched, not about the venue, and
+# dropping a status from the set because the current sample lacks it is how a
+# collector stops being able to see something it once saw.
 REJECTION_STATUSES = {
     "rejected",                  # the generic case, about 13% of rejections
     "badAloPxRejected",          # post-only that would have crossed

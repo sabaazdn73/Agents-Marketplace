@@ -4,7 +4,8 @@ import {
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu,
-  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, Plug} from 'lucide-react';
+  ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
+} from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useDisconnect } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
@@ -35,9 +36,9 @@ import MyJobsPanel from './MyJobsPanel';
 import AdvantageReport from './AdvantageReport';
 import AltanaSkillsPanel from './AltanaSkillsPanel';
 import NativeAgentMarketplace from './NativeAgentMarketplace';
-// The Connect tab's whole body, shared verbatim with
+// The How It Works page's whole body, shared verbatim with
 // AgentMarketplaceApp.web.jsx; `variant` changes type sizes only.
-import ConnectPage from './ConnectPage';
+import HowItWorksPage from './HowItWorksPage';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob } from './notifications';
 import { recordFunded } from './jobTiming';
@@ -217,7 +218,13 @@ const NAV_ITEMS = [
   { id: 'landing', label: 'Home', icon: Sparkles },
   // Connect above the listing (2026-09-17), mirroring web's identical
   // NAV_ITEMS change; see that file's comment for why it sits above.
-  { id: 'connect', label: 'Connect', icon: Plug },
+    // How It Works sits directly after Home (2026-09-18). It was called Connect
+  // and listed the ways in; it now opens with what this project measures and
+  // why, then the four ways to use it, each with the sequence to follow. A
+  // visitor who has never seen the site had nowhere to start before this. The
+  // tab id stays 'connect' because every `nav === 'connect'` check reads it,
+  // and /connect still resolves alongside /how-it-works.
+  { id: 'connect', label: 'How It Works', icon: Compass },
   // Renamed 2026-09-17, mirroring web. The id and the path stay 'market' and
   // /market so shared links and every `nav === 'market'` check keep working.
   //
@@ -227,7 +234,7 @@ const NAV_ITEMS = [
   // where there is width, shows the full name like everywhere else. The
   // short form drops the venue word and keeps the subject, so the bar and
   // the page do not name two different things.
-  { id: 'market', label: 'Agents and Bots House', barLabel: 'Agents and Bots', icon: Store },
+  { id: 'market', label: 'Explore', barLabel: 'Explore', icon: Store },
  // Real, deliberate placement (2026-08-29, product/UX audit), mirrors
   // web's identical NAV_ITEMS change; see that file's own comment for the
   // full reasoning. A Skill isn't a registered ERC-8004 agent being hired
@@ -243,7 +250,6 @@ const NAV_ITEMS = [
   { id: 'studio', label: 'MultiAgents', icon: MultiAgentIcon },
   // My Agents ahead of Skills (2026-09-07, explicit tab-order request):
   // what you already hired outranks what you could run yourself.
-  { id: 'my-agents', label: 'My Agents', icon: Briefcase },
   { id: 'skills', label: 'Skills', icon: Zap },
   { id: 'build', label: 'Build', icon: Hammer },
   { id: 'sell', label: 'Sell', icon: Coins },
@@ -851,6 +857,20 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           <h1 className="text-lg font-bold tracking-tight truncate">Tnega</h1>
         </div>
         <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
+          {/* Beside the bell, for the reason given in the web shell: a
+              person's own jobs belong next to the thing that tells them a job
+              moved, not in the list of places to browse. */}
+          <button
+            onClick={() => { setNav('my-agents'); onNavChange?.('my-agents'); }}
+            aria-label="My Agents"
+            title="My Agents, the jobs you have hired"
+            className={`w-11 h-11 flex items-center justify-center rounded-full ${
+              nav === 'my-agents'
+                ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'
+                : 'bg-gray-100 dark:bg-white/10'}`}
+          >
+            <Briefcase size={16} />
+          </button>
           <NotificationBell />
           {onOpenEcosystem && (
             <button onClick={onOpenEcosystem} aria-label="Ecosystem view" title="Ecosystem view" className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
@@ -1066,7 +1086,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     unchanged; ChainViewTabs renders it as-is on the BNB tab. */}
                 <>
                 <div className="mb-4">
-                  <h2 className="text-2xl font-bold mb-1">Agents and Bots House</h2>
+                  <h2 className="text-2xl font-bold mb-1">Explore</h2>
                   <p className="text-sm text-gray-500">Browse AI agents and hire one with a spending limit you control.</p>
                 </div>
 
@@ -1403,7 +1423,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'studio' && <AgentStudioPage accent="#4F46E5" />}
 
             {/* Connect Tab, the same shared component web renders. */}
-            {nav === 'connect' && <ConnectPage variant="mobile" />}
+            {nav === 'connect' && <HowItWorksPage variant="mobile" />}
 
             {nav === 'learn' && (
               <div className="space-y-6">
@@ -1441,7 +1461,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold mb-1">Skills</h2>
                 <p className="text-sm text-gray-600 dark:text-gray-300">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
-                <p className="text-[11px] text-gray-400">Different from hiring an agent from Agents and Bots House: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
+                <p className="text-[11px] text-gray-400">Different from hiring an agent from Explore: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
 
                 <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                   <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
@@ -1497,7 +1517,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Good to know</span></div>
- <p className="text-xs text-gray-500 dark:text-gray-400">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in Agents and Bots House spends money on mainnet.</p>
+ <p className="text-xs text-gray-500 dark:text-gray-400">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in Explore spends money on mainnet.</p>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">

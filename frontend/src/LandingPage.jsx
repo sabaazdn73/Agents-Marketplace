@@ -163,7 +163,7 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
 
         {/* The sidebar is hidden while this page shows, so "Explore Tnega"
             is the intended exit and this is the backstop. */}
-        <a className="skip" href="/market">Skip to Agents and Bots House</a>
+        <a className="skip" href="/market">Skip to Explore</a>
       </section>
     </div>
   );

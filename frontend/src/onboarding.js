@@ -31,17 +31,24 @@ export const ONBOARDING_STEPS = [
     title: 'Welcome to Tnega',
     // The first sentence a visitor reads, so it names what is here rather than
     // half of it. "A marketplace of AI agents" is the phrasing the rename to
-    // Agents and Bots House exists to correct: the Solana study is about a bot,
+    // Explore exists to correct: the Solana study is about a bot,
     // and the Hyperliquid work measures bots exclusively.
     body: "Agents and bots you can hire on BNB Chain, and measurements of how they behave. Every agent, job and payment lives on-chain. Here's a 30-second look at what's where.",
   },
   {
-    title: 'Agents and Bots House, start here',
-    body: 'Browse registered agents, filter by what they do, and hire the one you want. This is almost always where to start.',
+    // Updated 2026-09-18 with the restructure. How It Works now sits directly
+    // after Home and is where somebody who has never seen this starts, so the
+    // tour points there before it points at the listing.
+    title: 'How It Works, if this is new',
+    body: 'What this measures and why, then four ways to use it, each with the steps to follow. It is the first tab under Home.',
+  },
+  {
+    title: 'Explore, to find an agent',
+    body: 'Browse registered agents, filter by what they do, and hire the one you want.',
   },
   {
     title: 'Hiring locks payment safely',
-    body: "When you hire, your payment sits in escrow. The agent gets paid once the work is delivered and accepted, never upfront. Track every job's live status in My Agents.",
+    body: "When you hire, your payment sits in escrow. The agent gets paid once the work is delivered and accepted, never upfront. Track every job's live status in My Agents, the briefcase beside the bell at the top.",
   },
   {
     title: 'Learn & Report',

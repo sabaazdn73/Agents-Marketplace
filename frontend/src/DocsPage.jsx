@@ -441,7 +441,7 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
-            <ArrowLeft size={16} /> Back to Agents and Bots House
+            <ArrowLeft size={16} /> Back to Explore
           </button>
           {isMobile && (
             <button onClick={() => setDrawerOpen(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">

@@ -266,7 +266,7 @@ export default function EcosystemGlobePage({ onBack }) {
           onClick={onBack}
           className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
         >
-          <ArrowLeft size={16} /> Back to Agents and Bots House
+          <ArrowLeft size={16} /> Back to Explore
         </button>
         <div className="text-right">
           <div className="text-sm font-semibold">The agent ecosystem, at a glance</div>
