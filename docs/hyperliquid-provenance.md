@@ -95,6 +95,24 @@ The rate, its counts and the 48-hour line under it are A. The account kind,
 whether it is a vault and how many builders it has approved, is C. The
 holdings block is C. The HyperCore block is D.
 
+## Who the page is written for
+
+Added 2026-09-18, because it decides how several of these figures are ordered
+rather than merely how they are worded. The readers are protocols routing
+their users' perp orders through Hyperliquid. For them a refused post-only is
+a user whose order neither rested nor filled. For a market maker the identical
+event is the mechanism working, saving them a taker fee. The tab now states
+both readings at the top rather than leaving a reader to supply one.
+
+This is also why the market table leads with the median maker and keeps the
+pooled figure in a labelled column rather than the reverse. Venue-wide the
+pooled rate is 11.8% and the median maker in the median market sees 0.15%; on
+BTC the two are 55.7% and 0.47%, because 2 of 23 makers place most of the
+orders and are refused most of the time. A protocol's flow behaves like the
+median, so leading with the pooled figure would be wrong for them by two
+orders of magnitude. The pooled column stays because a book where two
+addresses dominate is worth seeing.
+
 ## What is presented as ours and is the venue's
 
 **The selection. Found and corrected 2026-09-18.** Which 31 addresses get
@@ -189,9 +207,17 @@ absent. It needs order book snapshots, which this project does not collect:
 the `l2Book` endpoint is a point-in-time read and the historical archive that
 would answer it is Reservoir, which is requester-pays and not connected.
 
-**Which markets one maker makes.** The per-coin table exists and the per-maker
-table exists, and they do not cross. `hl_order_counts` is keyed by address and
-coin, so the join is available and simply has no surface.
+**Which markets one maker makes. BUILT 2026-09-18.** The per-coin table and
+the per-maker table did not cross, so neither answered the question someone
+routing order flow asks: the rate where the order is going, which is one
+address in one market. `service.maker_markets` pivots the grouping `markets()`
+already performs and the maker table expands a row into it. Every figure in it
+is A. Twelve markets per address, covering 99% of the median address's
+post-only flow, with the rate withheld below 200 orders in a market.
+
+It changed what the tab can show. One address reads 27.35% overall and 100.00%
+in `xyz:SP500` across 153,727 post-only orders, a market where nothing rests at
+all, which no figure published before it made visible.
 
 **How continuously they quote.** Uptime, in other words. `hl_poll` records
 when we looked, not when they were present, so this is not answerable from
