@@ -1328,8 +1328,10 @@ export default function HyperliquidView({ mutedBorder }) {
                 <div>
                   <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">By maker</h4>
                   <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                    The 50 highest-volume addresses. Below roughly this rank the median address
-                    posts no resting orders at all, so there is nothing of this kind to measure.
+                    Chosen by the venue's own 30-day volume ranking, not by us, and ordered here
+                    with the addresses currently being polled first. Below roughly this rank the
+                    median address posts no resting orders at all, so there is nothing of this kind
+                    to measure. Everything measured about them below is ours.
                   </p>
                   {/* The caveat these rows need, added 2026-09-18.
 
