@@ -1222,43 +1222,86 @@ export default function HyperliquidView({ mutedBorder }) {
             title: 'Memory',
             icon: Database,
             note: 'What it has collected so far',
-            badge: `${(cov.orders_observed ?? 0).toLocaleString()} orders`,
+            badge: `${(cov.orders_observed ?? 0).toLocaleString()} orders, all time`,
             badgeTone: 'border-[#97FCE4]/40 bg-[#97FCE4]/10 text-[#0B7A66] dark:text-[#97FCE4]',
             render: () => (
               <div className="space-y-4 pt-2">
+                {/* THESE ARE TOTALS SINCE COLLECTION BEGAN, and they say so.
+                    They are not filtered to the addresses being polled now,
+                    because a historical total is a legitimate thing to publish
+                    and filtering one changes what it counts. What was wrong
+                    was publishing them unlabelled beside figures that describe
+                    now: "Makers 66" sat thirty lines under "31 makers in the
+                    current set" and above a market table whose largest maker
+                    count is 23, so one screen carried three different answers
+                    to the same word. Each tile now carries its own period. */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    ['Orders seen', (cov.orders_observed ?? 0).toLocaleString()],
-                    ['Polls', (cov.polls ?? 0).toLocaleString()],
-                    ['Makers', cov.addresses ?? 0],
-                    ['Polls with a gap', cov.polls_with_gap ?? 0],
-                  ].map(([k, v]) => (
+                    ['Orders recorded', (cov.orders_observed ?? 0).toLocaleString(), 'all time'],
+                    ['Polls', (cov.polls ?? 0).toLocaleString(), 'all time'],
+                    ['Addresses ever polled', cov.addresses ?? 0,
+                      `${cov.addresses_tracked ?? 0} in the set now`],
+                    ['Polls with a gap', cov.polls_with_gap ?? 0, 'all time'],
+                  ].map(([k, v, period]) => (
                     <div key={k} className="rounded-xl border border-gray-200 dark:border-gray-800 p-2.5">
                       <div className="text-[15px] font-bold tabular-nums text-gray-900 dark:text-gray-100">{v}</div>
                       <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-500 mt-0.5">{k}</div>
+                      <div className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">{period}</div>
                     </div>
                   ))}
                 </div>
 
                 <div>
                   <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">By market</h4>
+                  {/* The distribution, not one number. A pooled rate on a book
+                      where two addresses place most of the quotes is a
+                      statement about those two: BTC pools to 57% while the
+                      median of its makers is under half a percent and fifteen
+                      of twenty-three sit under one percent. The pooled figure
+                      is still here, named for what it is, in its own column at
+                      the end. */}
                   <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Pooled across every tracked maker. A high rate means the book is moving faster
-                    than makers can quote it.
+                    The typical maker on each book, and the spread around it. The median is across
+                    the addresses currently being polled, one value each and never pooled. The last
+                    column pools every post-only order on the book instead, which is a different
+                    question and answers it differently wherever a few addresses place most of the
+                    quotes.
                   </p>
                   <ScrollTable mutedBorder={mutedBorder} head={<>
-                    <Th align="left">Market</Th><Th>Post-only</Th><Th>Refused</Th><Th>Rate</Th><Th>Makers</Th>
+                    <Th align="left">Market</Th>
+                    <Th>Median maker</Th>
+                    <Th>Spread</Th>
+                    <Th>Under 1%</Th>
+                    <Th>Over 50%</Th>
+                    <Th>Makers</Th>
+                    <Th>All orders pooled</Th>
                   </>}>
                     {markets.map((m) => (
                       <tr key={m.coin} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
                         <Td align="left" strong>{m.coin}</Td>
-                        <Td>{m.alo_total.toLocaleString()}</Td>
-                        <Td>{m.alo_rejected.toLocaleString()}</Td>
-                        <Td strong>{pct(m.post_only_rejection_rate) ?? 'n/a'}</Td>
+                        <Td strong>{pct(m.median_rejection_rate) ?? 'n/a'}</Td>
+                        <Td className="text-gray-500 dark:text-gray-500">
+                          {m.rate_min != null && m.rate_max != null
+                            ? `${pct(m.rate_min, 2)} to ${pct(m.rate_max, 1)}`
+                            : 'n/a'}
+                        </Td>
+                        <Td>{m.makers_under_one_percent ?? 0} of {m.makers}</Td>
+                        <Td className={m.makers_over_half ? 'text-amber-600 dark:text-amber-400' : ''}>
+                          {m.makers_over_half ?? 0}
+                        </Td>
                         <Td>{m.makers}</Td>
+                        <Td className="text-gray-500 dark:text-gray-500">
+                          {pct(m.pooled_rejection_rate) ?? 'n/a'}
+                        </Td>
                       </tr>
                     ))}
                   </ScrollTable>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-1.5">
+                    Where those two columns disagree sharply, a few addresses are placing most of
+                    the quotes. On BTC the pooled figure moves by tens of points if either of two
+                    addresses leaves the polled set, which happens when the set is rebuilt, so it
+                    describes those addresses rather than the book.
+                  </p>
                 </div>
 
                 <div>

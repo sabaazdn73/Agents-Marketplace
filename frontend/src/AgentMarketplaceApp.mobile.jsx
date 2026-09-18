@@ -280,7 +280,9 @@ const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((i) => PRIMARY_NAV_IDS.includes(i.id)
 const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.id));
 
 // Mobile-optimized Wallet Modal / Sheet
-function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs }) {
+function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
+                            onOpenEcosystem, onShowOnboarding,
+                            darkMode, onToggleTheme }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { ready, authenticated, user, logout } = usePrivy();
@@ -293,6 +295,34 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs }) {
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full bg-white dark:bg-[#0F172A] rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
         <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6" />
+        {/* The three controls that left the header on 2026-09-18. They are
+            here rather than gone: a control moved out of sight has to land
+            somewhere a person can find it, and this sheet is where the other
+            secondary things already are. */}
+        <div className="grid grid-cols-3 gap-2 mb-6">
+          {[
+            onOpenEcosystem && { key: 'eco', icon: Globe, label: 'Ecosystem',
+              onClick: () => { onOpenEcosystem(); onClose(); } },
+            onShowOnboarding && { key: 'help', icon: HelpCircle, label: 'How this works',
+              onClick: () => { onShowOnboarding(); onClose(); } },
+            onToggleTheme && { key: 'theme', icon: darkMode ? Sun : Moon,
+              label: darkMode ? 'Light mode' : 'Dark mode',
+              onClick: () => onToggleTheme() },
+          ].filter(Boolean).map((b) => {
+            const Icon = b.icon;
+            return (
+              <button
+                key={b.key}
+                onClick={b.onClick}
+                className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#1E293B] text-gray-600 dark:text-gray-300"
+              >
+                <Icon size={18} />
+                <span className="text-[11px] font-medium">{b.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Secondary destinations, moved out of the bottom bar (2026-09-04).
             Reachable in one tap from the menu the header already had. */}
         {onNavigate && (
@@ -856,7 +886,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             target="_blank"
             rel="noopener noreferrer"
             title="F2F Hub, all three projects in this portfolio"
-            className="w-16 h-16 block shrink-0"
+            className="w-9 h-9 block shrink-0"
           >
             <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
           </a>
@@ -883,17 +913,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             <Briefcase size={16} />
           </button>
           <NotificationBell />
-          {onOpenEcosystem && (
-            <button onClick={onOpenEcosystem} aria-label="Ecosystem view" title="Ecosystem view" className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
-              <Globe size={16} />
-            </button>
-          )}
-          <button onClick={() => setShowOnboarding(true)} aria-label="How this works" title="How this works" className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
-            <HelpCircle size={16} />
-          </button>
-          <button onClick={() => setDarkMode(!darkMode)} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="w-11 h-11 flex items-center justify-center rounded-full bg-gray-100 dark:bg-white/10">
-            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+          {/* Three buttons here, not six. A 390px header carrying a logo, a
+              title and six 44px targets rendered the title as "T..", and the
+              three that left are the ones nobody presses mid-task: the
+              ecosystem view, the tour and the theme. They are in the sheet
+              behind this menu button, one tap away, grouped rather than
+              competing with the jobs and notifications a person checks. */}
           <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
             <Menu size={18} />
           </button>
@@ -1655,7 +1680,18 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
       </nav>
 
       {/* Modals */}
-      {walletSheetOpen && <MobileWalletSheet onClose={() => setWalletSheetOpen(false)} nav={nav} onOpenDocs={onOpenDocs} onNavigate={(id) => { dismissAgentDetail(); setNav(id); setHiring(false); onNavChange?.(id); }} />}
+      {walletSheetOpen && (
+        <MobileWalletSheet
+          onClose={() => setWalletSheetOpen(false)}
+          nav={nav}
+          onOpenDocs={onOpenDocs}
+          onOpenEcosystem={onOpenEcosystem}
+          onShowOnboarding={() => setShowOnboarding(true)}
+          darkMode={darkMode}
+          onToggleTheme={() => setDarkMode(!darkMode)}
+          onNavigate={(id) => { dismissAgentDetail(); setNav(id); setHiring(false); onNavChange?.(id); }}
+        />
+      )}
       
       {/* Hide Scrollbar style for horizontal list */}
       <style dangerouslySetInnerHTML={{__html: `

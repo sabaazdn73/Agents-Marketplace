@@ -286,7 +286,7 @@ function DocContent({ filename, onNavigate }) {
           );
           if (onlyImages) {
             return (
-              <div key={i} className="max-w-5xl">
+              <div key={i} className="max-w-5xl mx-auto">
                 <InlineContent parts={b.inline.filter((p) => p.t === 'image')} onNavigate={onNavigate} />
               </div>
             );
@@ -297,7 +297,7 @@ function DocContent({ filename, onNavigate }) {
             // so prose keeps a reading column while tables, code blocks and
             // diagrams below are free to use the full width. That asymmetry
             // is the whole point of widening this page.
-            <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4 max-w-3xl">
+            <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4 max-w-3xl mx-auto">
               <InlineContent parts={b.inline} onNavigate={onNavigate} />
             </p>
           );

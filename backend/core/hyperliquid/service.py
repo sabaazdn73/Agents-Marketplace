@@ -19,6 +19,7 @@ evidence. Here the same idea applies to polls.
 from __future__ import annotations
 
 import datetime as dt
+import statistics
 import threading
 import time
 
@@ -248,7 +249,16 @@ def makers(limit: int = 50) -> list[dict]:
            (t.address IS NOT NULL) AS tracked
     FROM p JOIN agg ON agg.address = p.address
            LEFT JOIN t ON t.address = p.address
-    ORDER BY p.month_volume DESC NULLS LAST
+    -- THE ROTATION FIRST, then volume within each group.
+    --
+    -- Ordering by volume alone ranked all 66 addresses together and cut at 50,
+    -- which dropped twelve of the thirty-one addresses actually being polled:
+    -- they sat at ranks 51 to 65 behind larger addresses that left the
+    -- rotation. The table is the evidence a reader checks the filtered market
+    -- and status figures against, and it was missing twelve of the addresses
+    -- those figures are computed from while showing thirty-one that contribute
+    -- to neither.
+    ORDER BY (t.address IS NOT NULL) DESC, p.month_volume DESC NULLS LAST
     LIMIT %s
     """
     out = []
@@ -352,32 +362,62 @@ def markets(limit: int = 40) -> list[dict]:
     records stop ageing at the moment it left, so including it means averaging
     now against a moment that will never move again."""
     sql = f"""
-    SELECT coin,
+    SELECT coin, address,
            sum(n) FILTER (WHERE tif = %s)                      AS alo_total,
            sum(n) FILTER (WHERE tif = %s AND status = ANY(%s)) AS alo_rejected,
-           count(DISTINCT address)                             AS makers,
            sum(n)                                              AS total
     FROM hl_order_counts
     WHERE address IN (SELECT address FROM hl_targets)
-    GROUP BY coin
+    GROUP BY coin, address
     HAVING sum(n) FILTER (WHERE tif = %s) > 0
-    ORDER BY alo_total DESC
-    LIMIT %s
     """
-    out = []
+    per_coin: dict[str, list[tuple[int, int, int]]] = {}
     with _conn() as c, c.cursor() as cur:
-        cur.execute(sql, (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ), POST_ONLY_TIF, limit))
-        for coin, alo_total, alo_rej, n_makers, total in cur.fetchall():
-            alo_total = int(alo_total or 0); alo_rej = int(alo_rej or 0)
-            out.append({
-                "coin": coin,
-                "alo_total": alo_total,
-                "alo_rejected": alo_rej,
-                "post_only_rejection_rate": (alo_rej / alo_total) if alo_total else None,
-                "makers": n_makers,
-                "orders_observed": int(total or 0),
-            })
-    return out
+        cur.execute(sql, (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ), POST_ONLY_TIF))
+        for coin, _addr, alo_total, alo_rej, total in cur.fetchall():
+            per_coin.setdefault(coin, []).append(
+                (int(alo_total or 0), int(alo_rej or 0), int(total or 0)))
+
+    out = []
+    for coin, rows in per_coin.items():
+        alo_total = sum(a for a, _, _ in rows)
+        alo_rej = sum(r for _, r, _ in rows)
+        total = sum(t for _, _, t in rows)
+        rates = sorted(r / a for a, r, _ in rows if a)
+        out.append({
+            "coin": coin,
+            "alo_total": alo_total,
+            "alo_rejected": alo_rej,
+            # THE DISTRIBUTION, not one number.
+            #
+            # The pooled rate is the share of all post-only orders on this coin
+            # that were refused, and on a book where two addresses place most
+            # of the quotes it is a statement about those two. Measured
+            # 2026-09-18: BTC pools to 57.61% while the median of its 23
+            # makers is 0.42%, fifteen of them are under 1%, and two are over
+            # 50%. Dropping the largest address takes the pooled figure to
+            # about 38%, and dropping the second takes it to about 1%, with
+            # nothing happening on the venue.
+            #
+            # So the median and the spread lead, the pooled figure is kept and
+            # named for what it is, and neither is presented as the market's
+            # rate. This is the same choice made when the True Liquidity Index
+            # was dropped: a number that describes two participants out of
+            # twenty-three is not describing the venue.
+            "median_rejection_rate": (statistics.median(rates) if rates else None),
+            "rate_min": (rates[0] if rates else None),
+            "rate_max": (rates[-1] if rates else None),
+            "makers_over_half": sum(1 for x in rates if x > 0.5),
+            "makers_under_one_percent": sum(1 for x in rates if x < 0.01),
+            "pooled_rejection_rate": (alo_rej / alo_total) if alo_total else None,
+            # Kept under its old name so nothing downstream breaks, and equal
+            # to the pooled figure it always was.
+            "post_only_rejection_rate": (alo_rej / alo_total) if alo_total else None,
+            "makers": len(rows),
+            "orders_observed": total,
+        })
+    out.sort(key=lambda r: r["alo_total"], reverse=True)
+    return out[:limit]
 
 
 def status_breakdown() -> list[dict]:
