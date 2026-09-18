@@ -987,6 +987,13 @@ async def hyperliquid_address(address: str, response: Response = None):
         if not data.get("error"):
             from core.hyperliquid import corestate
             data["core"] = await asyncio.to_thread(corestate.read_address, address)
+            # What kind of account this is. A 92% rejection rate means one
+            # thing for a trader and another for a vault holding other
+            # people's deposits, and the rate cannot say which it is.
+            # Cached six hours in-process, so this costs the venue nothing
+            # per view.
+            from core.hyperliquid import venuerole
+            data["account"] = await asyncio.to_thread(venuerole.describe, address)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
             status_code=503,

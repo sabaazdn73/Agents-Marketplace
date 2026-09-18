@@ -117,6 +117,20 @@ function fmtUsd(v) {
   });
 }
 
+/** What kind of account this is. Drawn above the rate on every reading,
+ *  including a withheld one, because it is what says whether the number
+ *  describes a person, a pooled strategy, or an account nobody can attribute.
+ *  See accountBlock in shared.js for why it appears even when the answer is
+ *  "not established". */
+function accountHtml(account) {
+  const a = accountBlock(account);
+  if (!a) return "";
+  return `<div class="tnega-acct tnega-acct-${esc(a.kind)}">
+    <div class="tnega-acct-title">${esc(a.title)}</div>
+    <div class="tnega-acct-body">${esc(a.body)}</div>
+  </div>`;
+}
+
 function panelHtml(state, data, address) {
   const shortAddr = `${address.slice(0, 6)}…${address.slice(-4)}`;
   const icon = chrome.runtime.getURL("icons/hypurr-128.png");
@@ -154,6 +168,7 @@ function panelHtml(state, data, address) {
       body: "No rate is being shown for this address.",
     };
     return `${head}<div class="tnega-body">
+      ${accountHtml(data.account)}
       <div class="tnega-withheld-title">${w.title}</div>
       <div class="tnega-withheld-body">${w.body}</div>
       <div class="tnega-facts">
@@ -168,6 +183,7 @@ function panelHtml(state, data, address) {
 
   const band = BANDS[p.band] || { label: esc(p.band || ""), colour: T.mint, body: "" };
   return `${head}<div class="tnega-body">
+    ${accountHtml(data.account)}
     <div class="tnega-rate-row">
       <div class="tnega-rate" style="color:${band.colour}">${fmtPct(p.rejection_rate)}</div>
       <div class="tnega-band" style="border-color:${band.colour};color:${band.colour}">${band.label}</div>

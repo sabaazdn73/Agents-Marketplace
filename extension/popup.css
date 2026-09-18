@@ -210,3 +210,21 @@ footer.bad { color: #F87171; }
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
+
+/* What kind of account this is. Above the rate, because it changes how the
+ * rate should be read rather than adding to it. The vault case gets a warmer
+ * border than the others: it is the one where the number describes somebody
+ * other than the address holder. */
+.acct {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  color: #e6e9f0;
+}
+.acct b { font-weight: 600; }
+.acct .note { margin: 3px 0 0; color: #8b93a7; }
+.acct-vault { border-color: rgba(251, 191, 36, 0.40); }
+.acct-routed { border-color: rgba(151, 252, 228, 0.30); }

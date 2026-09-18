@@ -501,3 +501,32 @@ function noIdentityTitle(half) {
   return "No registered agent";
 }
 
+
+
+/** What kind of Hyperliquid account this is, as a title and a body.
+ *
+ *  WHY THIS IS ON EVERY HYPERLIQUID READING AND NOT ONLY THE INTERESTING ONES
+ *  A 92% rejection rate means one thing for a trader and another for a vault
+ *  holding other people's deposits, or for a platform holding many customers
+ *  in one account. The venue can tell us the first two: userRole reports
+ *  "vault", and approvedBuilders reports that an address submits through a
+ *  front-end, which is what a person using an app looks like.
+ *
+ *  It cannot tell us the third. A custodial omnibus account returns role
+ *  "user" with no approved builders, exactly as a solo trader does, and 50 of
+ *  the 66 addresses ever polled sit in that state. So the block appears on
+ *  every reading, and on that majority it says the thing is not established.
+ *  A caveat that appeared only when we happened to know something would cover
+ *  the wrong case.
+ *
+ *  The words are decided in backend/core/hyperliquid/venuerole.py and rendered
+ *  verbatim here, the same rule the withheld reasons follow.
+ */
+function accountBlock(a) {
+  if (!a || !a.account_kind) return null;
+  return {
+    kind: a.account_kind.kind,
+    title: a.account_kind.title,
+    body: a.account_kind.body,
+  };
+}

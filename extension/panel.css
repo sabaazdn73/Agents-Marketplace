@@ -391,3 +391,28 @@
 @media (prefers-color-scheme: dark) {
   #tnega-agent-panel .tnega-prov-line { color: #cbd5e1; }
 }
+
+/* The account-kind block on the Hyperliquid panel. Above the rate, because it
+ * says how the rate should be read. This panel sits on a dark page, so it has
+ * one treatment rather than two. */
+.tnega-acct {
+  margin: 0 0 12px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.03);
+}
+.tnega-acct-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e6e9f0;
+  line-height: 1.35;
+}
+.tnega-acct-body {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #8b93a7;
+  margin-top: 2px;
+}
+.tnega-acct-vault { border-color: rgba(251, 191, 36, 0.40); }
+.tnega-acct-routed { border-color: rgba(151, 252, 228, 0.30); }

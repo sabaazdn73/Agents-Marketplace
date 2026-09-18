@@ -1310,6 +1310,33 @@ export default function HyperliquidView({ mutedBorder }) {
                     The 50 highest-volume addresses. Below roughly this rank the median address
                     posts no resting orders at all, so there is nothing of this kind to measure.
                   </p>
+                  {/* The caveat these rows need, added 2026-09-18.
+
+                      Some platforms route perps through this venue, so a row
+                      here can be an account holding many customers rather than
+                      one trader, and a 92% rejection rate means something
+                      different for each. Checked against the venue's own API
+                      across all 66 addresses ever polled: userRole reports two
+                      of them as vaults, and approvedBuilders reports 16 as
+                      submitting through a front-end, which is what a person
+                      using an app looks like. The remaining 48 return an
+                      ordinary account with no approved builder, which is what
+                      a single trader looks like AND what a custodial account
+                      holding many customers looks like. Nothing public
+                      separates those two.
+
+                      There is no per-fill builder attribution to fall back on:
+                      userFills carries no builder field at all, read across
+                      7,851 fills from 40 addresses. So this is a caveat rather
+                      than a column. */}
+                  <p className="text-[11px] text-gray-500 dark:text-gray-500 leading-relaxed mt-1">
+                    A row is an address, not a person. Two of the addresses ever polled are vaults
+                    trading other people&apos;s deposits, and sixteen submit through a front-end
+                    that charges a builder fee. The rest return an ordinary account, which is what
+                    a single trader looks like and also what a platform holding many customers in
+                    one account looks like. The venue publishes nothing that separates those two,
+                    so read a rate as the behaviour of an account.
+                  </p>
                   <ScrollTable mutedBorder={mutedBorder} head={<>
                     <Th align="left">Address</Th><Th>Post-only</Th><Th>Refused</Th>
                     <Th>Rejection rate</Th><Th>Cancel / fill</Th><Th>Fill rate</Th><Th>Polls</Th>

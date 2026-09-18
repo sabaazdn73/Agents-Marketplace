@@ -196,7 +196,10 @@ async def _hyperliquid_block(address: str) -> dict:
         return {"withheld_reason": "not_tracked"}
     import asyncio
     try:
-        return await asyncio.to_thread(service_address_detail, address)
+        d = await asyncio.to_thread(service_address_detail, address)
+        from core.hyperliquid import venuerole
+        d["account"] = await asyncio.to_thread(venuerole.describe, address)
+        return d
     except Exception:  # noqa: BLE001
         # The venue store is unreachable. That is not a statement about the
         # address, and it must not be rendered as one.

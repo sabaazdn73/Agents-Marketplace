@@ -48,6 +48,27 @@ costs nothing today: no Solana explorer is in the extension's match list.
 If a Solana surface is ever added, it needs its own key space with its own
 normalisation, not a row in this one.
 
+THE SOLANA ROUTES, WRITTEN DOWN SO NOBODY HAS TO ASK AGAIN
+All three carry the address in the URL, which is all a floating panel needs:
+
+    solscan.io/account/<base58>
+    explorer.solana.com/address/<base58>
+    solana.fm/address/<base58>
+
+The first was the one gap: solscan answers 403 to every automated fetch,
+including its sitemap, and its own docs publish no solscan.io URLs, so the
+shape could not be read from anywhere. It was confirmed from the address bar
+of a browser on 2026-09-18 and is recorded here rather than left to be
+rediscovered.
+
+explorer.solana.com carries its cluster in a query parameter whose default,
+mainnet-beta, is stripped from the URL. A path-only match there would show
+mainnet data on a devnet page, so it needs a guard on that parameter.
+
+None of this is blocked on the explorers. It is blocked on having something to
+show: the whole bot dataset is two addresses hardcoded in a React component
+with no collector behind them. Solana stays out until that is a dataset.
+
 FALSE POSITIVES AND FALSE NEGATIVES ARE NOT SYMMETRIC HERE
 A false positive costs one request that comes back with nothing known, and the
 extension draws no panel. At p=0.001 that is one page in a thousand that is not
