@@ -133,6 +133,63 @@ const DEFINITIONS = [
   },
 ];
 
+/** One maker's rate in each market it quotes.
+ *
+ *  WHY THE CROSS EXISTS
+ *  The per-address table says what a maker does overall and the per-coin table
+ *  says what a book does across makers. Someone routing order flow is asking
+ *  neither: they want the rate where the order is going, which is one address
+ *  in one market. `hl_order_counts` has been keyed by address and coin since
+ *  the first poll, so this was always available and simply had no surface.
+ *
+ *  A FLOOR OF ITS OWN
+ *  An address polled 400 times can still have placed a handful of post-only
+ *  orders in some alt. The backend withholds the rate below 200 orders in a
+ *  market rather than dividing, because 1 of 3 rendered as 33% sits in the
+ *  same column as a figure computed from two million.
+ */
+function MarketBreakdown({ cross }) {
+  if (!cross || !(cross.markets || []).length) {
+    return (
+      <p className="text-[11px] text-gray-500 dark:text-gray-500">
+        No per-market counts stored for this address.
+      </p>
+    );
+  }
+  const share = cross.alo_total_all_markets
+    ? cross.alo_total_shown / cross.alo_total_all_markets
+    : 0;
+  return (
+    <div>
+      <p className="text-[11px] text-gray-500 dark:text-gray-500 mb-1.5">
+        Its {cross.markets_shown} busiest markets of {cross.markets_total}, carrying{' '}
+        {pct(share, 0)} of the post-only orders we have seen from this address. A rate is
+        withheld where the market carries fewer than 200 of them.
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {cross.markets.map((mk) => (
+          <div
+            key={mk.coin}
+            className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 min-w-[104px]"
+          >
+            <div className="font-mono text-[10px] text-gray-600 dark:text-gray-400 truncate">
+              {mk.coin}
+            </div>
+            <div className="text-[13px] font-bold tabular-nums text-gray-900 dark:text-gray-100 leading-tight">
+              {mk.enough_data
+                ? (pct(mk.post_only_rejection_rate) ?? 'n/a')
+                : <span className="text-[11px] font-normal text-gray-400 dark:text-gray-600">too few</span>}
+            </div>
+            <div className="text-[10px] text-gray-400 dark:text-gray-600 tabular-nums">
+              {mk.alo_rejected.toLocaleString()} / {mk.alo_total.toLocaleString()}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** The history behind one rate, drawn beside it.
  *
  *  WHY IT IS HERE AND NOT ON A VIEW OF ITS OWN
@@ -1119,6 +1176,10 @@ export default function HyperliquidView({ mutedBorder }) {
   // about five seconds of eth_calls against HyperEVM, and the overview is
   // already the slowest thing this tab asks for; putting them in one request
   // would let a slow chain delay the rate the page is actually about.
+  // Which maker's per-market breakdown is open. One at a time: the point of
+  // the cross is to answer a question about one address, and 50 open rows is
+  // the per-coin table again with worse ordering.
+  const [openMaker, setOpenMaker] = useState(null);
   const [core, setCore] = useState(null);
   const [coreState, setCoreState] = useState('loading'); // loading | ready | failed
 
@@ -1256,11 +1317,27 @@ export default function HyperliquidView({ mutedBorder }) {
                 Hyperliquid
               </span>
             </div>
-            <p className="text-[13px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5">
-              It watches the 50 busiest traders on Hyperliquid and checks whether the orders
-              they send actually make it onto the order book. Some of them place orders the
-              exchange turns away almost every time, which looks like activity but adds
-              nothing for anyone trying to trade.
+            {/* THE FIRST SENTENCE IS THE AUDIENCE, added 2026-09-18.
+                This page used to open by describing what makers do, which
+                made it a page about makers. The people it is for route their
+                users' perp orders here, and for them a refused post-only is
+                not a maker's strategy choice, it is a user whose order
+                neither rested nor filled. The same number carries opposite
+                meaning depending on which side of it you are, and leaving a
+                reader to work that out was leaving the most important thing
+                on the page implicit. */}
+            <p className="text-[13px] leading-relaxed text-gray-700 dark:text-gray-300 mt-1.5">
+              If you route orders here, a refused post-only is a user left with nothing.
+              The order did not rest and it did not fill. This page measures how often
+              that happens on Hyperliquid, per market and per address, from orders we
+              polled ourselves.
+            </p>
+            <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1.5">
+              For a market maker the same refusal is the mechanism working as intended,
+              protecting them from crossing the spread and paying a taker fee. So a high
+              rate on a maker&apos;s row is a statement about how aggressively that address
+              quotes, not about whether the venue is working. Read the rates with the side
+              you are on in mind.
             </p>
             <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1.5">
               It reports what it has seen. It does not give advice, and it does not know
@@ -1446,12 +1523,26 @@ export default function HyperliquidView({ mutedBorder }) {
                     <Th>Cancel / fill</Th><Th>Fill rate</Th><Th>Polls</Th>
                   </>}>
                     {makers.map((m) => (
-                      <tr key={m.address} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
+                      <React.Fragment key={m.address}>
+                      <tr className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
                         <td className="px-3 py-2 text-left whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setOpenMaker((prev) => (prev === m.address ? null : m.address))}
+                            aria-expanded={openMaker === m.address}
+                            title="Show this address's rate in each market it quotes"
+                            className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                          >
+                            {short(m.address)}
+                            <span className="ml-1 text-[9px] text-gray-400 dark:text-gray-600">
+                              {openMaker === m.address ? '\u25be' : '\u25b8'}
+                            </span>
+                          </button>
                           <a href={`https://app.hyperliquid.xyz/explorer/address/${m.address}`}
                              target="_blank" rel="noreferrer"
-                             className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline">
-                            {short(m.address)}
+                             title="Open on the venue's explorer"
+                             className="ml-1.5 text-[10px] text-gray-400 dark:text-gray-600 hover:underline">
+                            explorer
                           </a>
                           {/* The venue reports these as vaults. The caveat
                               below the table says some rows may be pooled
@@ -1502,6 +1593,24 @@ export default function HyperliquidView({ mutedBorder }) {
                         <Td>{pct(m.effective_fill_rate) ?? 'n/a'}</Td>
                         <Td className="text-gray-400 dark:text-gray-600">{m.polls}</Td>
                       </tr>
+                      {openMaker === m.address && (
+                        <tr className="border-b border-gray-50 dark:border-gray-800/60">
+                          <td colSpan={9} className="px-3 py-2.5 bg-gray-50/60 dark:bg-gray-900/40">
+                            {/* The table scrolls horizontally and this row is
+                                as wide as the table, so on a phone the tiles
+                                would lay out against the table's width and
+                                most of them would sit off screen to the right
+                                of where the reader is looking. Sticking the
+                                panel to the left edge of the scroll container
+                                and capping it at the viewport keeps it where
+                                the address they clicked is. */}
+                            <div className="sticky left-0 w-[calc(100vw-5rem)] sm:w-auto sm:max-w-none">
+                              <MarketBreakdown cross={(data.maker_markets || {})[m.address]} />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     ))}
                   </ScrollTable>
                 </div>

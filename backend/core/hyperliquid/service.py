@@ -806,3 +806,89 @@ def maker_rate_series(addresses: list[str], hours: int = RATE_SERIES_HOURS) -> d
             "rates": rates,
         }
     return out
+
+
+# A per-market row needs its own floor. MIN_POLLS_FOR_RATE governs whether an
+# ADDRESS has been observed enough times; it says nothing about whether a
+# particular coin within that address carries enough orders to divide. An
+# address polled 400 times can still have placed 3 post-only orders in some
+# alt, and 1 of 3 refused is not 33%.
+MIN_ORDERS_FOR_MARKET_RATE = 200
+
+# How many markets to return per address. The tail is long and mostly tiny:
+# the point of the cross is which books an address actually works, not a
+# complete inventory, and the count of what was left out is returned so the
+# surface can say so rather than imply the list is everything.
+#
+# Twelve rather than eight, chosen by measurement: at eight the median address
+# shows 90% of its own post-only flow, at twelve 99%, and the payload grows
+# from 245 rows to 339. Past twelve the median is already 100% and only the
+# widest addresses gain, one of which quotes 257 markets and is not going to
+# be summarised by any cap.
+MARKETS_PER_MAKER = 12
+
+
+def maker_markets(addresses: list[str],
+                  top: int = MARKETS_PER_MAKER) -> dict[str, dict]:
+    """Which markets each address quotes, and its refusal rate in each.
+
+    WHY THIS EXISTS
+    The tab carries a per-address table and a per-coin table and they do not
+    cross, so the one question a protocol routing order flow actually asks
+    cannot be answered from either: not "what is this maker's rate" and not
+    "what is this book's rate", but "what is the rate where I am sending the
+    order". `hl_order_counts` is keyed by address and coin, so the join has
+    been available since the first poll and simply had no surface.
+
+    WHY IT IS ONE QUERY RATHER THAN ONE PER ROW
+    Fifty addresses is fifty round trips to a cluster this response already
+    waits eleven seconds on. The grouping is the same one markets() performs,
+    pivoted the other way, so it costs one scan either way.
+
+    THE RATE IS WITHHELD, NOT ZEROED, BELOW THE FLOOR
+    Same rule the rest of this module follows. A coin with 12 post-only orders
+    returns its counts and a null rate, because 1 of 12 rendered as 8.3%
+    invites a comparison against a figure computed from two million.
+    """
+    addresses = [a.lower() for a in addresses if a]
+    if not addresses:
+        return {}
+    sql = f"""
+    SELECT address, coin,
+           sum(n) FILTER (WHERE tif = %s)                      AS alo_total,
+           sum(n) FILTER (WHERE tif = %s AND status = ANY(%s)) AS alo_rejected
+    FROM hl_order_counts
+    WHERE address = ANY(%s)
+    GROUP BY address, coin
+    HAVING sum(n) FILTER (WHERE tif = %s) > 0
+    """
+    per_address: dict[str, list[dict]] = {}
+    with _conn() as c, c.cursor() as cur:
+        cur.execute(sql, (POST_ONLY_TIF, POST_ONLY_TIF, list(_REJ),
+                          addresses, POST_ONLY_TIF))
+        for addr, coin, alo_total, alo_rej in cur.fetchall():
+            alo_total = int(alo_total or 0)
+            alo_rej = int(alo_rej or 0)
+            enough = alo_total >= MIN_ORDERS_FOR_MARKET_RATE
+            per_address.setdefault(addr, []).append({
+                "coin": coin,
+                "alo_total": alo_total,
+                "alo_rejected": alo_rej,
+                "post_only_rejection_rate": (alo_rej / alo_total) if enough else None,
+                "enough_data": enough,
+            })
+
+    out: dict[str, dict] = {}
+    for addr, rows in per_address.items():
+        rows.sort(key=lambda r: r["alo_total"], reverse=True)
+        shown = rows[:top]
+        out[addr] = {
+            "markets": shown,
+            "markets_total": len(rows),
+            "markets_shown": len(shown),
+            # Everything, including the rows not returned, so a reader can see
+            # what share of the address's post-only flow the list represents.
+            "alo_total_all_markets": sum(r["alo_total"] for r in rows),
+            "alo_total_shown": sum(r["alo_total"] for r in shown),
+        }
+    return out

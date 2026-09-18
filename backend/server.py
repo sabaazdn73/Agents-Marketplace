@@ -915,8 +915,15 @@ async def hyperliquid_overview(limit: int = 50):
             if r.get("role") == "vault":
                 m["account_role"] = "vault"
                 m["vault_name"] = r.get("vault_name")
+        # Which markets each of those addresses actually quotes, and its rate
+        # in each. The per-address table and the per-coin table never crossed,
+        # so neither could answer the question someone routing order flow asks:
+        # not this maker's rate and not this book's rate, but the rate where
+        # the order is going.
+        maker_markets = service.maker_markets([m["address"] for m in makers])
         return {
             "rate_series": rate_series,
+            "maker_markets": maker_markets,
             "coverage": service.coverage(),
             # Reported alongside, never summed with, the REST coverage: the
             # WebSocket feed omits tif so its denominator differs.
