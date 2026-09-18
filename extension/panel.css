@@ -416,3 +416,26 @@
 }
 .tnega-acct-vault { border-color: rgba(251, 191, 36, 0.40); }
 .tnega-acct-routed { border-color: rgba(151, 252, 228, 0.30); }
+
+/* What the account holds. Drawn only where a rate is withheld, so it sits
+ * under the reason rather than competing with a figure. Deliberately styled
+ * as quiet facts and not as a verdict: the whole point of the block is that
+ * it stops short of saying what kind of account this is. */
+.tnega-holdings {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.tnega-holdings-title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b93a7;
+  margin-bottom: 5px;
+}
+.tnega-holdings-line {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e6e9f0;
+  margin-top: 2px;
+}

@@ -131,6 +131,23 @@ function accountHtml(account) {
   </div>`;
 }
 
+/** What the account holds, drawn only when there is no rate.
+ *
+ *  It answers the question a withheld rate leaves open, which is why this
+ *  address is silent, without answering the question the data cannot: what
+ *  the address is for. See holdingsLines in shared.js for the measurement
+ *  that ruled the second one out.
+ */
+function holdingsHtml(h) {
+  const lines = holdingsLines(h);
+  if (!lines.length) return "";
+  return `<div class="tnega-holdings">
+    <div class="tnega-holdings-title">What this account holds</div>
+    ${lines.map((l) => `<div class="tnega-holdings-line">${esc(l)}</div>`).join("")}
+    <div class="tnega-note">${esc(h.note || "")}</div>
+  </div>`;
+}
+
 function panelHtml(state, data, address) {
   const shortAddr = `${address.slice(0, 6)}…${address.slice(-4)}`;
   const icon = chrome.runtime.getURL("icons/hypurr-128.png");
@@ -177,6 +194,7 @@ function panelHtml(state, data, address) {
         <div><span>Post-only orders seen</span><b>${fmtInt(p.alo_total)}</b></div>
       </div>
       <div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>
+      ${holdingsHtml(data.holdings)}
       ${coreHtml(data.core)}
     </div>${FOOT}`;
   }

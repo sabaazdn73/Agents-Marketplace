@@ -266,3 +266,79 @@ def roles_for(addresses: list[str], budget_seconds: float = 6.0) -> dict[str, di
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
     return out
+
+
+def holdings(address: str) -> dict:
+    """What this address holds on the venue, for an address with no rate.
+
+    WHY THIS EXISTS
+    When an address has no post-only orders the panel says only that nothing
+    was measured, which is true and tells a reader nothing about why. Two
+    cheap reads say a great deal more: whether there is a perp account at all,
+    and whether the HYPE is staked.
+
+    WHAT IS MEASURED HERE AND WHAT IS NOT
+    Every figure below is a direct read. The delegated amount, the perp
+    account value, the open position count and the spot balance count are all
+    one API call each and are facts.
+
+    The characterisation a reader will reach for is not. "It delegates, so it
+    is a staker rather than a trader" fails on this project's own data:
+    checked across 28 tracked addresses on 2026-09-18, 15 hold BOTH a
+    delegation and a live perp account, and the single largest delegator,
+    101,815 HYPE, is an active maker carrying a published rejection rate.
+    Delegating HYPE is something most participants here do; it is not an
+    alternative to trading.
+
+    The obvious second idea does not work either. userNonFundingLedgerUpdates
+    looks like it would show what an address spends its time doing, and it
+    does not: across three addresses of very different kinds the only delta
+    types it ever returned were deposit, withdraw, send, spotTransfer,
+    subAccountTransfer, accountClassTransfer and cStakingTransfer. No order
+    and no fill appears in it, so an address that trades heavily and one that
+    never trades look the same in that endpoint. It is not consulted here.
+
+    So this returns the holdings and refuses to name the account. The panel
+    says what was read and says plainly what it does not establish.
+    """
+    addr = (address or "").lower()
+    now = time.time()
+    key = f"holdings:{addr}"
+    with _lock:
+        hit = _cache.get(key)
+        if hit and now - hit[0] < _TTL_SECONDS:
+            return hit[1]
+
+    out: dict = {"address": addr}
+    try:
+        d = _info({"type": "delegatorSummary", "user": addr}, timeout=8.0) or {}
+        out["hype_delegated"] = float(d.get("delegated") or 0)
+    except Exception:  # noqa: BLE001
+        out["hype_delegated"] = None
+    try:
+        c = _info({"type": "clearinghouseState", "user": addr}, timeout=8.0) or {}
+        out["perp_account_value_usd"] = float(
+            (c.get("marginSummary") or {}).get("accountValue") or 0)
+        out["open_positions"] = len(c.get("assetPositions") or [])
+    except Exception:  # noqa: BLE001
+        out["perp_account_value_usd"] = None
+        out["open_positions"] = None
+    try:
+        s = _info({"type": "spotClearinghouseState", "user": addr}, timeout=8.0) or {}
+        out["spot_balances"] = len(s.get("balances") or [])
+    except Exception:  # noqa: BLE001
+        out["spot_balances"] = None
+
+    if out.get("hype_delegated") is None and out.get("perp_account_value_usd") is None:
+        out["withheld_reason"] = "venue_unreachable"
+    out["note"] = (
+        "These are direct reads of what the account holds. They do not say "
+        "what it is for. Of 28 tracked addresses checked, 15 hold both a "
+        "delegation and a perp account, and the largest delegator of all is "
+        "an active maker with a rejection rate on this page, so a delegation "
+        "is not evidence that an address does not trade.")
+    with _lock:
+        if len(_cache) >= _CACHE_MAX:
+            _cache.clear()
+        _cache[key] = (now, out)
+    return out

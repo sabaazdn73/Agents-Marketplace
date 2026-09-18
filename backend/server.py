@@ -1006,6 +1006,13 @@ async def hyperliquid_address(address: str, response: Response = None):
             # per view.
             from core.hyperliquid import venuerole
             data["account"] = await asyncio.to_thread(venuerole.describe, address)
+            # What the account holds, but only when there is no rate to show.
+            # An address with a rate does not need its silence explained, and
+            # three extra venue calls on every panel view would be spent to
+            # say nothing. Cached six hours in-process like the role read.
+            if data.get("withheld_reason"):
+                data["holdings"] = await asyncio.to_thread(
+                    venuerole.holdings, address)
     except Exception as e:  # noqa: BLE001
         raise HTTPException(
             status_code=503,

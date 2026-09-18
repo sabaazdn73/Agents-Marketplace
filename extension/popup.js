@@ -158,12 +158,19 @@ function hyperliquidHtml(h) {
       body: "No rate is being shown, and this surface has no wording for the " +
         "reason given.",
     };
+    const hold = holdingsLines(h && h.holdings);
+    const holdHtml = hold.length
+      ? `<div class="prov"><div class="prov-title">What this account holds</div>
+           ${hold.map((l) => `<p class="prov-line">${esc(l)}</p>`).join("")}
+           <p class="note">${esc((h.holdings && h.holdings.note) || "")}</p></div>`
+      : "";
     const acctW = accountBlock(h && h.account);
     return `<h2>${esc(w.title)}</h2>
       <p class="body">${esc(w.body)}</p>
       ${acctW ? `<div class="acct acct-${esc(acctW.kind)}"><b>${esc(acctW.title)}</b>
         <p class="note">${esc(acctW.body)}</p></div>` : ""}
-      <p class="note">No rate is shown rather than a rate you cannot rely on.</p>`;
+      <p class="note">No rate is shown rather than a rate you cannot rely on.</p>
+      ${holdHtml}`;
     // "No rate you cannot rely on" is the venue's own discipline and stays on
     // the venue's renderer. The agent half has no rate and never says this.
   }

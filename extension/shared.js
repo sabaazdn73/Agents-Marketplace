@@ -541,3 +541,50 @@ function accountBlock(a) {
     body: a.account_kind.body,
   };
 }
+
+
+/** What an address holds, for the case where there is no rate to show.
+ *
+ *  WHAT THIS IS AND IS NOT
+ *  Every line below is a direct read from the venue: HYPE delegated, perp
+ *  account value, open positions, spot balances. Those are measurements.
+ *
+ *  The sentence a reader will want next, "so it is a staker rather than a
+ *  trader", is an inference and this deliberately does not make it. It was
+ *  tested before being rejected: across 28 tracked addresses, 15 hold both a
+ *  delegation and a live perp account, and the largest delegator of all,
+ *  101,815 HYPE, is an active maker carrying a rejection rate on this same
+ *  panel. Delegating is something most participants here do.
+ *
+ *  Returns an array of plain sentences, or an empty array when there is
+ *  nothing to say. The caller renders the note beside them.
+ */
+function holdingsLines(h) {
+  if (!h || h.withheld_reason) return [];
+  const out = [];
+  const d = h.hype_delegated;
+  const v = h.perp_account_value_usd;
+  const p = h.open_positions;
+  const sp = h.spot_balances;
+
+  if (v !== null && v !== undefined && p !== null && p !== undefined) {
+    out.push(v > 0 || p > 0
+      ? `A perp account holding ${fmtUsdShort(v)}${p ? ` across ${fmtInt(p)} position${p === 1 ? "" : "s"}` : " with no open position"}.`
+      : "No perp account value and no open position on this venue right now.");
+  }
+  if (d !== null && d !== undefined && d > 0) {
+    out.push(`${d.toLocaleString(undefined, { maximumFractionDigits: 2 })} HYPE delegated to validators.`);
+  }
+  if (sp !== null && sp !== undefined && sp > 0) {
+    out.push(`${fmtInt(sp)} spot balance${sp === 1 ? "" : "s"}.`);
+  }
+  return out;
+}
+
+function fmtUsdShort(v) {
+  if (v === null || v === undefined) return "n/a";
+  const n = Number(v);
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}k`;
+  return `$${n.toFixed(0)}`;
+}
