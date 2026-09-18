@@ -98,20 +98,27 @@ const DEFINITIONS = [
     // order behaviour, not of outcome, which is true by construction and
     // needs no data to assert.
     //
-    // What IS carefully worded is the second half. The venue's leaderboard
-    // carries PnL, and joined against these rates the correlation is +0.013.
-    // That is NOT stated as "there is no relationship", because that file's
-    // month PnL exceeds its allTime PnL on 51.3% of its rows, and a
-    // correlation computed against a measure that noisy is pulled toward
-    // zero whether or not a relationship exists. Finding nothing there is
-    // not evidence that there is nothing. See collector.fetch_leaderboard.
+    // The second half now names a number. The venue's leaderboard carries
+    // PnL, and joined against these rates the correlation is +0.013 by
+    // Pearson and +0.118 by rank. An earlier version of this comment refused
+    // to state that as a finding, on the grounds that the file's month PnL
+    // exceeded its allTime PnL on 51.3% of rows and a correlation against a
+    // measure that noisy is pulled toward zero regardless. That objection was
+    // withdrawn on 2026-09-18: PnL is signed, and 87.9% of those rows simply
+    // have a negative allTime figure. Checked against the venue's own
+    // portfolio endpoint the file agrees to a median 0.17% of account value.
+    // What limits the claim now is n, which is 30, not the source.
+    // See collector.fetch_leaderboard.
     term: 'What the rate does not say',
     text: 'Whether the maker is any good, or making money. A low rate means its '
         + 'quotes reach the book, which is what quoting looks like, not a score. '
         + 'The tracked set contains addresses that quote cleanly and lose, and '
-        + 'addresses that are refused constantly and gain. Nothing on this page '
-        + 'measures profit, and the venue\u2019s own leaderboard was checked and '
-        + 'found too inconsistent to answer it.',
+        + 'addresses that are refused constantly and gain. That is not an '
+        + 'impression: across the 30 makers here that also appear on the '
+        + 'venue\u2019s leaderboard, the correlation between this rate and their '
+        + '30-day return is +0.013, which is no relationship at all. Nothing on '
+        + 'this page measures profit, and a low rate should not be read as a '
+        + 'proxy for it.',
   },
   {
     term: 'Cancel to fill',
@@ -1462,10 +1469,10 @@ export default function HyperliquidView({ mutedBorder }) {
                         </td>
                         {/* The venue's own 30-day figure, which orders this
                             table and was previously sent to the browser and
-                            never shown. It is the one leaderboard field that
-                            passes its own consistency check: month volume
-                            exceeds allTime volume for 0 of 46,171 rows, where
-                            month PnL exceeds allTime PnL for 51.3%. */}
+                            never shown. Volume is cumulative and unsigned, so
+                            month never exceeds allTime, and it does not on any
+                            of the 46,171 rows. The same test applied to PnL
+                            proves nothing, because PnL is signed. */}
                         <Td className="text-gray-500 dark:text-gray-400"
                             title="The venue's own 30-day volume, from its public leaderboard. This is what chose these addresses and what orders this table.">
                           {vol(m.month_volume)}

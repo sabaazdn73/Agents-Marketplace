@@ -129,32 +129,47 @@ def fetch_leaderboard(timeout: int = 180) -> list[dict]:
     """The full leaderboard. About 37MB and roughly 46,000 addresses, served
     without authentication.
 
-    ONLY THE VOLUME FIELD IS USED, AND THAT IS NOT AN OVERSIGHT
-    Each row carries accountValue and four windows of pnl, roi and vlm. It is
-    the obvious place to answer "is this maker profitable" beside the
-    rejection rate, and it was tested for that on 2026-09-18 and rejected on
-    the data. Three separate findings, any one of which is disqualifying.
+    ONLY THE VOLUME FIELD IS USED, AND THE REASON IS NARROWER THAN IT WAS
+    Each row carries accountValue and four windows of pnl, roi and vlm.
 
-    The PnL fields contradict themselves. For 23,666 of 46,171 rows, 51.3%,
-    the month PnL is LARGER than the allTime PnL, which cannot be true of a
-    cumulative figure. 17 of our own 60 tracked makers are in that state. The
-    volume fields have no such problem: month volume exceeds allTime volume
-    for exactly 0 rows, which is why volume is trusted here and PnL is not.
+    A previous version of this docstring said the PnL fields contradicted
+    themselves, on the grounds that month PnL exceeded allTime PnL for 51.3%
+    of rows. That test was wrong and the claim it produced was wrong. PnL is
+    signed. An account down $2M since it opened and up $200k this month has a
+    month figure above its allTime figure and nothing is amiss. Of the 23,666
+    rows that test flagged, 20,791 have a negative allTime PnL, and the rest
+    are accounted for by a month that simply outran a smaller lifetime total.
+    The test detected the sign of a number, not an inconsistency.
 
-    accountValue is a stale snapshot. Compared against the venue's own
-    clearinghouseState for eight tracked makers, it differed by 45% to 100%,
-    including one address the leaderboard puts at $23.5M that the venue
-    reports holding nothing at all.
+    What the fields mean was then checked against the venue rather than
+    inferred from their names, on 2026-09-18. The portfolio endpoint returns
+    the same four windows per address. Its allTime history spans 13 days for a
+    new account and 1,101 for an old one, so allTime is since inception.
+    Comparing the file against that endpoint for 60 randomly sampled addresses
+    over $50k, the two disagree by a median of 0.17% of account value on
+    allTime and 0.41% on month, which is the lag of a snapshot rather than a
+    defect. accountValue holds up the same way: on 40 randomly sampled
+    addresses the live total sits within 10% for 60% of them, the misses run in
+    both directions, and the median ratio is 1.00.
 
-    And it would not answer the question anyway. Across the 30 rated makers
+    The earlier "45% to 100% away" figure for accountValue came from six
+    addresses chosen by volume rank, which are the largest and most active
+    accounts on the venue and the ones whose balances move furthest between a
+    snapshot and a read. It was a biased sample generalised to the file.
+
+    So the file is sound, and the reason only volume is read here is now a
+    scope decision rather than a data one. Two things are worth knowing before
+    that changes. accountValue is perps, spot, staking and vault equity
+    together, not the perps figure clearinghouseState returns, so the two are
+    not interchangeable. And the file is a periodic snapshot: Last-Modified
+    was 29 minutes old when this was measured, so it is not a live read.
+
+    On the question it was fetched to answer, the answer stands and is now
+    supported rather than undermined by the source. Across the 30 rated makers
     that appear on it, the correlation between post-only rejection rate and
-    month ROI is +0.013, and with month PnL +0.065. The two numbers are
-    unrelated, so the leaderboard cannot tell a reader whether a clean quoter
-    is making money. That non-relationship is itself worth knowing and is not
-    publishable from a source whose own arithmetic disagrees with itself.
-
-    If a trustworthy PnL series is ever wanted it has to be built from fills
-    and transfers, not read from here.
+    month ROI is +0.013 by Pearson and +0.118 by rank. The two are unrelated,
+    which means a clean quoter is not thereby a profitable one. That was worth
+    saying when the source was thought to be broken and is worth more now.
     """
     req = urllib.request.Request(
         LEADERBOARD_URL, headers={"User-Agent": "tnega-hl-collector/1"})

@@ -15,8 +15,10 @@ the daily selection job. Nothing here is fetched at request time.
 **B. The venue's leaderboard file.**
 `https://stats-data.hyperliquid.xyz/Mainnet/leaderboard`, about 37MB and
 46,171 rows, parsed once a day on a GitHub runner. Only one field is read:
-month volume. See `collector.fetch_leaderboard` for why the PnL and
-accountValue fields are not.
+month volume. It carries accountValue and four windows of pnl, roi and vlm as
+well, and `collector.fetch_leaderboard` records what those were checked
+against. It is a periodic snapshot rather than a live read, around half an
+hour behind when it was measured.
 
 **C. The venue's live API.** `https://api.hyperliquid.xyz/info`, called at
 request time and cached six hours.
@@ -143,13 +145,44 @@ withheld figure are that figure republished at finer resolution.
 
 **Volume. SHOWN 2026-09-18.** The leaderboard's 30-day volume now has a column,
 labelled as the venue's figure rather than ours, with a note that it is what
-chose these addresses and what orders the table. It is the one leaderboard
-field that passes its own consistency check: month volume exceeds allTime
-volume for 0 of 46,171 rows, where month PnL does so for 51.3%.
+chose these addresses and what orders the table. It is the leveraged figure,
+which is what a venue means by volume, not capital at risk.
 
-**Profitability.** Not shown, and it should not be. The leaderboard's PnL
-contradicts itself on 51.3% of rows and its accountValue is 45% to 100% away
-from the live venue. Recorded in `collector.fetch_leaderboard`.
+**Profitability. Still not shown, but not for the reason first given.**
+This section said on 2026-09-18 that the leaderboard's PnL contradicted itself
+on 51.3% of rows and its accountValue was 45% to 100% away from the live
+venue. Both claims were wrong and are withdrawn the same day.
+
+The first came from testing whether month PnL exceeded allTime PnL. PnL is
+signed, so that comparison carries no information: 87.9% of the flagged rows
+have a negative allTime figure, where a profitable month legitimately exceeds
+a losing lifetime. The second came from six addresses picked by volume rank,
+the largest and most active accounts on the venue, generalised to the file.
+
+What the fields mean was then read from the venue rather than from their
+names. The `portfolio` endpoint returns the same four windows; its allTime
+history spans 13 days for a new account and 1,101 for an old one, so allTime
+is since inception. Against that endpoint, on 60 randomly sampled addresses
+over $50k, the file disagrees by a median 0.17% of account value on allTime
+and 0.41% on month. On 40 randomly sampled addresses the live total sits
+within 10% of accountValue for 60%, the misses run both ways, and the median
+ratio is 1.00. One definitional difference matters: accountValue is perps,
+spot, staking and vault equity together, not the perps figure
+`clearinghouseState` returns.
+
+So the file is sound and the reason for not showing PnL is now a narrower
+one. A per-maker profit column would be the venue's number for a window that
+is not the window we measure, sitting beside rates we computed, in a table a
+reader already has to be told is chosen by the venue rather than by us. It
+would also be the one figure on the tab that invites a reader to rank people
+rather than read a measurement. That is a judgement about the page, not a
+finding about the source, and it should be described as one.
+
+What the data does support is the caveat, and it is now stated with its
+number rather than hedged: across the 30 rated makers that appear on the
+leaderboard, the correlation between post-only rejection rate and 30-day
+return is +0.013 by Pearson and +0.118 by rank. The limit on that claim is
+n=30, not the quality of the file.
 
 **Spread, or how wide they quote.** The central market-making measure, and
 absent. It needs order book snapshots, which this project does not collect:
