@@ -23,6 +23,15 @@
 // change in the same commit. A policy that claims less than the code does is
 // as wrong as one that claims more.
 //
+// THE 0.2.0 REPLACEMENT EXISTS AND IS NOT LIVE YET
+// PrivacyPage.next.jsx describes the multi-site build: eight content script
+// hosts, a background worker, chrome.storage, and a scheduled download that it
+// names as telemetry. It replaces this file by `git mv` in the commit that
+// packages 0.2.0, and not before, because until that build is published this
+// file is the one that is true. Neither file may be edited alone: a change to
+// what the extension does goes into whichever of the two describes the build
+// it lands in.
+//
 // Rendered as a standalone route, like /status and /data-sources, so it is
 // reachable without the app shell and can be linked from the Web Store
 // listing. Web and mobile share it: App.jsx returns this component for

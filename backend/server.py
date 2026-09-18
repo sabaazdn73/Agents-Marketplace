@@ -1001,6 +1001,81 @@ async def hyperliquid_address(address: str, response: Response = None):
     return data
 
 
+@app.get("/api/extension/filter")
+async def extension_filter(response: Response = None):
+    """The membership list the extension checks before it asks us anything.
+
+    Served as one file, the same file for every caller, carrying no identifier
+    and answering no question about who asked. That is the whole point: the
+    decision about whether a page is worth a lookup happens on the reader's
+    machine, so we never see the addresses that are not.
+
+    This request still reaches us from a reader's IP on a schedule, which is
+    telemetry whatever else it is. It is named as telemetry in the privacy
+    policy rather than argued around, and nothing here logs it.
+
+    CORS is open for the same reason /api/hyperliquid/address is: the caller is
+    a content script whose Origin is a site's own, and the body is public.
+    """
+    from core.extension import membership
+    try:
+        blob = await membership.current()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"Filter unavailable: {type(e).__name__}")
+    if response is not None:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["ETag"] = f'"{blob["version"]}"'
+        # An hour, against a daily rebuild. Short enough that a rebuild reaches
+        # clients the same day, long enough that a browser restart does not
+        # re-download 425 KB.
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    return blob
+
+
+@app.get("/api/extension/filter/meta")
+async def extension_filter_meta(response: Response = None):
+    """Everything about the filter except the filter, so a client can decide
+    whether to spend the download."""
+    from core.extension import membership
+    try:
+        blob = await membership.current()
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"Filter unavailable: {type(e).__name__}")
+    if response is not None:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    return {k: v for k, v in blob.items() if k != "bits"}
+
+
+@app.get("/api/extension/subject/{identifier}")
+async def extension_subject(identifier: str, response: Response = None):
+    """What this project has measured about one address or one agent.
+
+    Reached only when the extension's local filter says this identifier is
+    covered, so the usual case for a page we know nothing about is that this
+    endpoint is never called at all.
+
+    Every reason a figure is absent is decided in core/extension/subject.py and
+    returned as a `withheld_reason` the client renders verbatim. A zero is
+    never returned in place of an absence.
+    """
+    from core.extension import subject
+    try:
+        data = await subject.resolve(identifier)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"Subject lookup unavailable: {type(e).__name__}")
+    if response is not None:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Cache-Control"] = "public, max-age=300"
+    return data
+
+
 @app.get("/api/agents/by-id")
 async def agent_by_id(agent_id: str):
     """One agent by its id or token_id, for the ?agent= deep link.

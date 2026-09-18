@@ -701,3 +701,24 @@ def brain(force: bool = False) -> dict | None:
         return value
     finally:
         _brain_lock.release()
+
+
+def all_known_addresses() -> list[str]:
+    """Every address this venue's store has ever held, for the extension's
+    membership filter.
+
+    The union of the polled set and the current target set, not either alone.
+    An address that left the rotation still has stored observations and still
+    gets a panel, carrying `left_rotation` as its reason, so leaving it out of
+    the filter would make the extension silent about exactly the addresses
+    whose history is the interesting part.
+
+    Lowercased here rather than at the call site: every other key space in
+    core/extension/membership.py is lowercased, and one that was not would fail
+    only for the addresses a page happened to render in checksummed form.
+    """
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT address FROM hl_poll "
+            "UNION SELECT address FROM hl_targets")
+        return [r[0].lower() for r in cur.fetchall() if r[0]]

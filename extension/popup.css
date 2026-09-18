@@ -92,3 +92,35 @@ footer {
 }
 footer.ok { color: var(--mint); }
 footer.bad { color: #F87171; }
+
+/* The two halves of an answer.
+ *
+ * Both are always drawn, each with its own reason when there is nothing behind
+ * it, so a reader can tell "we checked and found nothing" from "we do not
+ * measure this". The label is what keeps them from reading as one finding. */
+.half {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.half:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+.half-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6f778a;
+  margin-bottom: 4px;
+}
+.agent-row {
+  padding: 5px 0;
+  font-size: 12px;
+  color: #e6e9f0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.agent-row:first-of-type { border-top: 0; }
+.agent-row b { font-weight: 600; }
+.agent-row .muted { font-size: 11px; color: #8b93a7; }

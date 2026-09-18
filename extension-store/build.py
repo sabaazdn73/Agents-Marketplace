@@ -3,7 +3,7 @@
 
     python3 extension-store/build.py
 
-Writes extension-store/tnega-for-hyperliquid-<version>.zip.
+Writes extension-store/tnega-<version>.zip.
 
 WHY THIS IS A SCRIPT AND NOT A ZIP COMMAND
 ------------------------------------------
@@ -42,6 +42,14 @@ OUT_DIR = ROOT / "extension-store"
 FILES = [
     "manifest.json",
     "shared.js",
+    "filter.js",
+    # The background worker, new in 0.2.0. It is what holds the membership list
+    # so that a page about an address this project has never measured produces
+    # no request at all.
+    "sw.js",
+    "agentPanel.js",
+    "explorer.js",
+    "scan8004.js",
     "content.js",
     "popup.js",
     "popup.html",
@@ -60,8 +68,19 @@ FILES = [
 # remotely hosted code or a second backend nobody reviewed.
 ALLOWED_HOSTS = {
     "agents-marketplace-q3k4.onrender.com",  # the measurements endpoint
-    "app.hyperliquid.xyz",                   # where the panel is injected
     "www.tnega.app",                         # the panel's footer and header links
+    # The sites the panel is injected into. Every one of these is also a
+    # content_scripts match, and the check below is what stops a host appearing
+    # in the source without appearing in the manifest, which is how an
+    # undeclared injection would get past review.
+    "app.hyperliquid.xyz",
+    "etherscan.io",
+    "bscscan.com",
+    "basescan.org",
+    "arbiscan.io",
+    "monadscan.com",
+    "hyperevmscan.io",
+    "8004scan.io",
 }
 
 SECRET_PATTERNS = [
@@ -76,7 +95,12 @@ SECRET_PATTERNS = [
 # checks for it.
 REMOTE_CODE_PATTERNS = [
     (r"<script[^>]+src\s*=\s*['\"]https?://", "remote <script> tag"),
-    (r"\bimportScripts\s*\(", "importScripts"),
+    # importScripts of a REMOTE url. A service worker loading a file from its
+    # own package is the documented MV3 way to share code between the worker
+    # and the content scripts, and sw.js does exactly that with filter.js. The
+    # pattern used to match any importScripts at all, which would have failed
+    # this build for the correct construction.
+    (r"\bimportScripts\s*\(\s*['\"]https?://", "importScripts of a remote url"),
     (r"\beval\s*\(", "eval"),
     (r"new\s+Function\s*\(", "new Function"),
     (r"@import\s+url\(\s*['\"]?https?://", "remote CSS @import"),
@@ -153,7 +177,7 @@ def main():
         return 1
 
     OUT_DIR.mkdir(exist_ok=True)
-    zip_path = OUT_DIR / f"tnega-for-hyperliquid-{version}.zip"
+    zip_path = OUT_DIR / f"tnega-{version}.zip"
     if zip_path.exists():
         zip_path.unlink()
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:

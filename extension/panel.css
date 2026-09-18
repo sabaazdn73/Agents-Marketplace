@@ -230,3 +230,154 @@
   color: #6f778a;
   margin-top: 4px;
 }
+
+/* ---------------------------------------------------------------------------
+ * The agent panel, and the one difference the explorers force.
+ *
+ * The Hyperliquid panel sits on a page that is already dark, so it has one
+ * treatment. These sites are light by default and dark by user choice, and a
+ * dark card dropped into a light page reads as an advertisement. So the panel
+ * paints a light ground here and swaps under prefers-color-scheme, which is
+ * what every one of these explorers keys its own theme off.
+ *
+ * .tnega-panel itself still carries `all: initial`, so nothing below inherits
+ * from the host page. Everything is stated.
+ * ------------------------------------------------------------------------- */
+
+#tnega-agent-panel.tnega-panel {
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  color: #0f172a;
+  margin: 12px 0 16px 0;
+}
+
+#tnega-agent-panel .tnega-title { color: #0f172a; }
+#tnega-agent-panel .tnega-sub,
+#tnega-agent-panel .tnega-muted,
+#tnega-agent-panel .tnega-note { color: #64748b; }
+#tnega-agent-panel .tnega-head { border-bottom-color: rgba(15, 23, 42, 0.10); }
+#tnega-agent-panel .tnega-foot { border-top-color: rgba(15, 23, 42, 0.10); }
+
+/* Fixed, for the one site with nothing to anchor to. Bounded in height so a
+ * long list cannot run off the screen, and scrollable inside rather than
+ * growing: a card taller than the viewport has no way to be dismissed. */
+#tnega-agent-panel.tnega-floating {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2147483000;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+
+/* At phone width the fixed card spans the screen instead of hugging a corner,
+ * where 340px would leave a 20px gutter on one side and none on the other. */
+@media (max-width: 420px) {
+  #tnega-agent-panel.tnega-floating {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    top: 12px;
+  }
+}
+
+#tnega-agent-panel .tnega-agent {
+  padding: 8px 0;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+#tnega-agent-panel .tnega-agent:first-of-type { border-top: 0; }
+
+#tnega-agent-panel .tnega-agent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.35;
+}
+#tnega-agent-panel .tnega-agent-meta {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+/* The headline for this subject. Colour carries the same three-way reading the
+ * bands carry on the other panel, and the word beside it says the same thing,
+ * so the colour is never the only carrier. */
+#tnega-agent-panel .tnega-agent-service {
+  margin-top: 5px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 12px;
+}
+#tnega-agent-panel .tnega-agent-service b { font-weight: 600; }
+#tnega-agent-panel .tnega-agent-service.ok {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.30);
+  color: #047857;
+}
+#tnega-agent-panel .tnega-agent-service.bad {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.30);
+  color: #b91c1c;
+}
+#tnega-agent-panel .tnega-agent-service.quiet {
+  background: rgba(100, 116, 139, 0.07);
+  border-color: rgba(100, 116, 139, 0.22);
+  color: #475569;
+}
+#tnega-agent-panel .tnega-agent-service .tnega-muted {
+  color: inherit;
+  opacity: 0.75;
+  font-size: 11px;
+  margin-top: 1px;
+}
+
+#tnega-agent-panel .tnega-agent-jobs {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+#tnega-agent-panel .tnega-agent-jobs-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f172a;
+}
+#tnega-agent-panel .tnega-agent-jobs-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: #475569;
+}
+
+#tnega-agent-panel .tnega-coverage {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-bottom: 3px;
+}
+
+@media (prefers-color-scheme: dark) {
+  #tnega-agent-panel.tnega-panel {
+    background: #111827;
+    border-color: rgba(255, 255, 255, 0.10);
+    color: #e5e7eb;
+  }
+  #tnega-agent-panel .tnega-title,
+  #tnega-agent-panel .tnega-agent-name,
+  #tnega-agent-panel .tnega-agent-jobs-title { color: #e5e7eb; }
+  #tnega-agent-panel .tnega-sub,
+  #tnega-agent-panel .tnega-muted,
+  #tnega-agent-panel .tnega-note { color: #9ca3af; }
+  #tnega-agent-panel .tnega-head { border-bottom-color: rgba(255, 255, 255, 0.10); }
+  #tnega-agent-panel .tnega-foot,
+  #tnega-agent-panel .tnega-agent,
+  #tnega-agent-panel .tnega-agent-jobs { border-top-color: rgba(255, 255, 255, 0.08); }
+  #tnega-agent-panel .tnega-agent-service.ok { color: #6ee7b7; }
+  #tnega-agent-panel .tnega-agent-service.bad { color: #fca5a5; }
+  #tnega-agent-panel .tnega-agent-service.quiet { color: #cbd5e1; }
+  #tnega-agent-panel .tnega-agent-jobs-row { color: #cbd5e1; }
+}
