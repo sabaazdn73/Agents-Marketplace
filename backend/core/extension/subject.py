@@ -34,6 +34,7 @@ import time
 from core.db import get_db
 from core.extension.membership import CHAIN_SLUGS, SLUG_BY_CHAIN
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
+from core import budget_index
 
 ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 AGENT_RE = re.compile(r"^a:([a-z0-9-]+):(\d+)$")
@@ -317,6 +318,58 @@ async def _provenance_block(address: str) -> dict:
     }
 
 
+# Where AgentBudgetEscrow is deployed AND accepts the token the hire flow
+# sends. Mirrors core/chain_views.BUDGET_HIRE_CHAIN_IDS. Ethereum is absent on
+# purpose: the contract is there, acceptedTokens(NATIVE) is false, and every
+# budget opened on it reverted.
+BUDGET_CHAIN_IDS = (56, 42161, 4663)
+
+
+async def _budgets_block(address: str) -> dict:
+    """Budgets funded to this address, and how many were drawn against.
+
+    DRAWS, NEVER `spent`
+    The escrow's `spent` field is not a delivery figure. `reclaim` sets
+    `b.spent = b.total` before paying the client back, so a budget the client
+    took back in full reads as one the agent drew in full. `lastDrawAt` is no
+    better: `openBudget` seeds it with the creation timestamp so that a
+    cooldown is honoured before the first draw, so a non-zero value does not
+    mean a draw happened.
+
+    Both traps are live, together, on the single budget that exists on chain
+    4663: read directly on 2026-09-18 it reports spent equal to total and a
+    lastDrawAt six hours before its deadline, and it was in fact opened, never
+    drawn, and reclaimed. core/budget_index.py counts Drawn events instead and
+    records draws 0 for it, which is the correct account. This function reads
+    that index and never the contract's own fields.
+    """
+    db = get_db()
+    rows = await db[budget_index.COLLECTION].find(
+        {"agent": address.lower()},
+        {"chain_id": 1, "budget_id": 1, "draws": 1, "opened_block": 1},
+    ).to_list(length=100)
+
+    if not rows:
+        return {
+            "withheld_reason": "no_budgets_opened",
+            "index_chain_ids": list(BUDGET_CHAIN_IDS),
+        }
+
+    drawn = sum(1 for r in rows if (r.get("draws") or 0) > 0)
+    return {
+        "budgets": len(rows),
+        "budgets_drawn_from": drawn,
+        "budgets_never_drawn": len(rows) - drawn,
+        "chains": sorted({r.get("chain_id") for r in rows if r.get("chain_id")}),
+        "index_chain_ids": list(BUDGET_CHAIN_IDS),
+        "note": (
+            "Counted from Drawn events, not from the escrow's own spent field, "
+            "which a client reclaiming their money overwrites to the full "
+            "amount. A budget that was opened and never drawn is money "
+            "committed and not collected."),
+    }
+
+
 async def _agent_half(addr: str) -> dict:
     """The agent reading for one address: registered identities, and jobs."""
     db = get_db()
@@ -329,6 +382,7 @@ async def _agent_half(addr: str) -> dict:
 
     jobs = await _jobs_block(addr)
     provenance = await _provenance_block(addr)
+    budgets = await _budgets_block(addr)
 
     if not docs:
         # A provider with jobs but no registered agent. Fifty of the 119
@@ -337,7 +391,30 @@ async def _agent_half(addr: str) -> dict:
         # not_covered here would have made every surface silent about the one
         # set of addresses with on-chain delivery behind them, which is the
         # strongest evidence this project holds.
-        if "withheld_reason" not in jobs:
+        # A budget or a job, with no registered identity behind it. Both are
+        # coverage: somebody committed money to this address through one of
+        # this project's own contracts, which is a stronger fact than a
+        # registry entry, and an earlier version discarded it because the
+        # branch keyed only on the registry. Same defect as the one that lost
+        # the 50 job providers who never minted an identity.
+        has_jobs = "withheld_reason" not in jobs
+        has_budgets = "withheld_reason" not in budgets
+        if has_jobs or has_budgets:
+            if has_jobs and has_budgets:
+                note = ("This address has been hired through the ERC-8183 "
+                        "escrow and has had a budget funded to it, but holds "
+                        "no registered agent identity, so there is nothing to "
+                        "say about a published service endpoint.")
+            elif has_jobs:
+                note = ("This address has been hired through the ERC-8183 "
+                        "escrow but holds no registered agent identity, so "
+                        "there is nothing to say about a published service "
+                        "endpoint.")
+            else:
+                note = ("A budget has been funded to this address through this "
+                        "project's escrow, but it holds no registered agent "
+                        "identity, so there is nothing to say about a "
+                        "published service endpoint.")
             return {
                 "agents": [],
                 "agent_count": 0,
@@ -345,10 +422,8 @@ async def _agent_half(addr: str) -> dict:
                 "multi_chain": False,
                 "jobs": jobs,
                 "provenance": provenance,
-                "note": (
-                    "This address has been hired through the ERC-8183 escrow "
-                    "but holds no registered agent identity, so there is "
-                    "nothing to say about a published service endpoint."),
+                "budgets": budgets,
+                "note": note,
             }
         return {"withheld_reason": "not_covered"}
 
@@ -365,6 +440,7 @@ async def _agent_half(addr: str) -> dict:
         "multi_chain": len(chains) > 1,
         "jobs": jobs,
         "provenance": provenance,
+        "budgets": budgets,
     }
 
 
@@ -461,6 +537,8 @@ async def by_agent(slug: str, token_id: str) -> dict:
                 "index_chain_id": JOBS_CHAIN_ID},
             "provenance": (await _provenance_block(owner)) if owner else {
                 "withheld_reason": "no_delivery_history"},
+            "budgets": (await _budgets_block(owner)) if owner else {
+                "withheld_reason": "no_budgets_opened"},
         },
         "hyperliquid": {"withheld_reason": "no_address_on_page"},
     }

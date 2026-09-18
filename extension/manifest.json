@@ -42,7 +42,8 @@
         "https://basescan.org/address/*",
         "https://arbiscan.io/address/*",
         "https://monadscan.com/address/*",
-        "https://hyperevmscan.io/address/*"
+        "https://hyperevmscan.io/address/*",
+        "https://robinhoodchain.blockscout.com/*"
       ],
       "js": [
         "shared.js",

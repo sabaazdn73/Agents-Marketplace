@@ -55,6 +55,7 @@ const SITES = [
   ['arbiscan.io', 'address pages'],
   ['monadscan.com', 'address pages'],
   ['hyperevmscan.io', 'address pages'],
+  ['robinhoodchain.blockscout.com', 'address pages'],
   ['8004scan.io', 'agent and owner pages'],
 ];
 
@@ -90,7 +91,8 @@ export default function PrivacyPage({ onBack }) {
             Tnega adds one panel to a page you are already looking at, when that page is about
             something this project has measured. There are two subjects. On a block explorer or on
             8004scan, the panel is about a registered ERC-8004 agent: whether its service answers,
-            what on-chain jobs name it, and who paid for the work it delivered. On app.hyperliquid.xyz, the panel is about post-only
+            what on-chain jobs name it, who paid for the work it delivered, and whether a
+            budget funded to it through this project's own escrow was ever drawn against. On app.hyperliquid.xyz, the panel is about post-only
             order behaviour: how often that address&apos;s post-only orders are refused before they
             rest on the book, or the reason no rate can be stated.
           </p>
@@ -104,7 +106,7 @@ export default function PrivacyPage({ onBack }) {
 
         <Section title="Where it runs">
           <p>
-            On these sites and no others. This is the content script match list from the manifest,
+            On these nine sites and no others. This is the content script match list from the manifest,
             which is what Chrome enforces: anywhere else the extension is not loaded and no code of
             ours runs.
           </p>

@@ -239,12 +239,28 @@ function agentHtml(a) {
       : "";
   }
 
+  const bg = a.budgets || {};
+  let budgets;
+  if (bg.withheld_reason) {
+    const w = AGENT_WITHHELD[bg.withheld_reason] || { title: "No budgets", body: "" };
+    budgets = `<p class="note"><b>${esc(w.title)}.</b> ${esc(w.body)}</p>`;
+  } else {
+    const lines = budgetLines(bg);
+    budgets = lines.length
+      ? `<div class="prov">
+           <div class="prov-title">Budgets funded to it</div>
+           ${lines.map((l) => `<p class="prov-line">${esc(l)}</p>`).join("")}
+           <p class="note">${esc(bg.note || "")}</p>
+         </div>`
+      : "";
+  }
+
   const head = agents.length === 0
-    ? `<h2>Hired on chain, no registered agent</h2>
+    ? `<h2>${esc(noIdentityTitle(a))}</h2>
        <p class="body">${esc(a.note || "")}</p>`
     : `<h2>${agents.length === 1 ? "One registered agent"
          : `${agents.length} registered agents`}</h2>`;
-  return `${head}${rows}${more}${jobs}${prov}`;
+  return `${head}${rows}${more}${jobs}${prov}${budgets}`;
 }
 
 /** What answered, named rather than called "the backend".

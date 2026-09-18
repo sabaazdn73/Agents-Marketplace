@@ -80,6 +80,11 @@ ALLOWED_HOSTS = {
     "arbiscan.io",
     "monadscan.com",
     "hyperevmscan.io",
+    # Blockscout, not Etherscan, so the panel floats there. Added after the
+    # first exclusion was re-examined: it rested on that explorer having no
+    # server-rendered anchor, which stops mattering once the panel does not
+    # need one.
+    "robinhoodchain.blockscout.com",
     "8004scan.io",
 }
 

@@ -51,7 +51,7 @@ async function scanSync() {
   if (existing) existing.remove();
   if (!subject) return;
 
-  const membership = await askMembership([subject.key, subject.altKey].filter(Boolean));
+  const membership = await askMembership([subject.key, ...(subject.altKeys || [])]);
 
   const el = document.createElement("section");
   el.id = TNEGA_AGENT_PANEL_ID;

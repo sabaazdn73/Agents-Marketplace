@@ -40,7 +40,7 @@ async function explorerSync() {
   if (existing) existing.remove();
   if (!subject) return;
 
-  const membership = await askMembership([subject.key, subject.altKey].filter(Boolean));
+  const membership = await askMembership([subject.key, ...(subject.altKeys || [])]);
 
   // The list has not arrived, or the worker did not answer. Draw nothing. The
   // alternative is to ask the server anyway, which is exactly the behaviour
@@ -57,13 +57,14 @@ async function explorerSync() {
   const coverage = `List built ${fmtDate(membership.built_at)}.`;
   el.innerHTML = agentPanelHtml("loading", null, subject, coverage);
 
-  if (!placeAgentPanel(el, "explorer")) {
+  if (!placeAgentPanel(el, subject.place || "explorer")) {
     // Their page has not rendered the card yet, or their layout is one this
     // does not recognise. Wait, then give up rather than inventing a place.
     const started = Date.now();
     await new Promise((resolve) => {
       const timer = setInterval(() => {
-        if (placeAgentPanel(el, "explorer") || Date.now() - started > 8000) {
+        if (placeAgentPanel(el, subject.place || "explorer")
+            || Date.now() - started > 8000) {
           clearInterval(timer);
           resolve();
         }

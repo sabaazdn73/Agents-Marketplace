@@ -157,13 +157,26 @@ function addressFromUrl(href) {
 // on, and an owner can hold agents on several: 2,245 of them do. Without this
 // the panel would present a Base agent on a BscScan page as though the page
 // were about it.
+// `place` is how the panel gets onto the page, not a detail of styling.
+//   "inflow"   insert before the overview card, which these six share because
+//              they are one Etherscan codebase with ASP.NET control ids.
+//   "floating" a fixed card, for a page with nothing stable to anchor to.
+//
+// Robinhood Chain was excluded at first because its explorer is a Blockscout
+// single-page app with no server-rendered anchor. That reason does not survive
+// its own argument: a floating card needs no anchor, which is exactly why
+// 8004scan is covered. What is left is a real chain where this project's own
+// AgentBudgetEscrow is deployed and has been used, which is a different thing
+// from a chain we only index, and the permission warning already names six
+// hosts so a seventh costs nothing that has not already been spent.
 const EXPLORERS = {
-  "etherscan.io": 1,
-  "bscscan.com": 56,
-  "basescan.org": 8453,
-  "arbiscan.io": 42161,
-  "monadscan.com": 143,
-  "hyperevmscan.io": 999,
+  "etherscan.io": { chainId: 1, place: "inflow" },
+  "bscscan.com": { chainId: 56, place: "inflow" },
+  "basescan.org": { chainId: 8453, place: "inflow" },
+  "arbiscan.io": { chainId: 42161, place: "inflow" },
+  "monadscan.com": { chainId: 143, place: "inflow" },
+  "hyperevmscan.io": { chainId: 999, place: "inflow" },
+  "robinhoodchain.blockscout.com": { chainId: 4663, place: "floating" },
 };
 
 /** What this page is about, on any site the extension runs on.
@@ -202,11 +215,13 @@ function subjectFromUrl(href) {
     return {
       kind: "explorer",
       key: `o:${address}`,
-      // A provider with jobs but no registered agent is covered under a
-      // different key space, so both are tested and either is a hit.
-      altKey: `j:${address}`,
+      // An address can be covered without owning a registered agent: as an
+      // ERC-8183 provider, or as the agent a budget was funded to. All three
+      // key spaces are tested and any hit draws the panel.
+      altKeys: [`j:${address}`, `b:${address}`],
       address,
-      chainId: EXPLORERS[host],
+      chainId: EXPLORERS[host].chainId,
+      place: EXPLORERS[host].place,
     };
   }
 
@@ -227,8 +242,9 @@ function subjectFromUrl(href) {
       return {
         kind: "explorer",
         key: `o:${address}`,
-        altKey: `j:${address}`,
+        altKeys: [`j:${address}`, `b:${address}`],
         address,
+        place: "floating",
       };
     }
     return null;
@@ -316,6 +332,12 @@ const AGENT_WITHHELD = {
     title: "No delivery history",
     body: "No ERC-8183 job names this address as provider, delivered or " +
       "funded, so there is nothing to say about who has paid it.",
+  },
+  no_budgets_opened: {
+    title: "No budget opened for this address",
+    body: "No budget has been funded to it through this project's escrow. " +
+      "That contract is on BNB Chain, Arbitrum and Robinhood Chain, so a " +
+      "budget opened anywhere else would look the same.",
   },
   no_address_on_page: {
     title: "No address on this page",
@@ -425,3 +447,57 @@ function provenanceLines(pv) {
 
   return lines;
 }
+
+
+/** Budgets funded to this address, as sentences.
+ *
+ *  COUNTED FROM DRAWN EVENTS, NEVER FROM `spent`
+ *  The escrow sets spent = total when a client reclaims, so a budget taken
+ *  back in full reads as one drawn in full. The server reads the event index
+ *  instead; this only renders what it sends. The distinction is the whole
+ *  point of the block: a budget opened and never drawn is money a buyer
+ *  committed and the agent did not collect, which is a different fact from no
+ *  budget at all.
+ */
+function budgetLines(b) {
+  if (!b || b.withheld_reason) return [];
+  const n = b.budgets || 0;
+  const drawn = b.budgets_drawn_from || 0;
+  const never = b.budgets_never_drawn || 0;
+  const lines = [];
+  lines.push(n === 1
+    ? "One budget has been funded to this address."
+    : `${fmtInt(n)} budgets have been funded to this address.`);
+  if (drawn === 0) {
+    lines.push(n === 1
+      ? "It was never drawn against. The money was committed and not collected."
+      : "None of them were drawn against. The money was committed and not collected.");
+  } else if (never > 0) {
+    lines.push(`${fmtInt(drawn)} ${drawn === 1 ? "was" : "were"} drawn against and `
+      + `${fmtInt(never)} ${never === 1 ? "was" : "were"} not.`);
+  } else {
+    lines.push(n === 1 ? "It was drawn against."
+      : "All of them were drawn against.");
+  }
+  return lines;
+}
+
+
+/** What to call an address that is covered but holds no registered agent.
+ *
+ *  Three different facts can put an address here and they are not the same
+ *  event: a job hired it, a budget was funded to it, or both. Naming the wrong
+ *  one is the kind of small inaccuracy this panel exists to avoid.
+ *
+ *  In shared.js because the panel and the popup both need it, and a second copy
+ *  is how the two end up disagreeing.
+ */
+function noIdentityTitle(half) {
+  const hasJobs = half.jobs && !half.jobs.withheld_reason;
+  const hasBudget = half.budgets && !half.budgets.withheld_reason;
+  if (hasJobs && hasBudget) return "Hired and funded, no registered agent";
+  if (hasJobs) return "Hired on chain, no registered agent";
+  if (hasBudget) return "Funded a budget, no registered agent";
+  return "No registered agent";
+}
+

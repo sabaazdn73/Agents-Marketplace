@@ -152,7 +152,7 @@ under Privacy practices.
 
 ### Content script hosts
 
-One justification covering all eight. Each is an exact hostname; no wildcard
+One justification covering all nine. Each is an exact hostname; no wildcard
 subdomain patterns are requested. That is deliberate: testnet siblings of
 several of these sites exist, such as sepolia.etherscan.io and
 testnet.monadscan.com, and a wildcard would match them and show mainnet
@@ -165,6 +165,7 @@ measurements on a testnet page.
 > https://arbiscan.io/*
 > https://monadscan.com/*
 > https://hyperevmscan.io/*
+> https://robinhoodchain.blockscout.com/*
 > https://8004scan.io/*
 >
 > These are the pages where an on-chain address or a registered ERC-8004 agent is
@@ -173,7 +174,7 @@ measurements on a testnet page.
 > inserts one element into the page. It does not read form fields, balances,
 > keys, or wallet state, and it modifies nothing that was already on the page.
 >
-> On seven of the eight it reads no page text at all: the identifier is in the
+> On eight of the nine it reads no page text at all: the identifier is in the
 > URL and there is a stable element to insert beside. On app.hyperliquid.xyz it
 > does read element text, for one purpose, to find where the panel goes: that
 > site renders its content after the script runs and its class names are
@@ -257,6 +258,12 @@ install.
 > single client. A person about to fund the next job has none of that from a
 > count.
 >
+> Where a budget has been funded to an address through this project's own
+> escrow, it shows whether that budget was ever drawn against. This is counted
+> from the contract's Drawn events rather than from its own spent field, because
+> a client reclaiming their money sets spent to the full amount, so a budget
+> taken back reads as one collected.
+>
 > On app.hyperliquid.xyz, that is post-only order behaviour. The panel shows the
 > share of an address's post-only orders that Hyperliquid's matching engine
 > refused instead of resting on the book. A refused order never reaches the book,
@@ -310,7 +317,7 @@ install.
 > exactly what it does and does not carry. There is no advertising, no tracking
 > pixel, no third-party script, and no code loaded at runtime.
 >
-> It runs on eight sites and no others, listed in the privacy policy and shown by
+> It runs on nine sites and no others, listed in the privacy policy and shown by
 > Chrome when you install it.
 >
 > It reads. It cannot spend anything, sign anything, or hire anyone.

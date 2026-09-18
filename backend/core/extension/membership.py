@@ -30,6 +30,7 @@ which subject to draw before it asks:
 
     o:<lowercase 0x address>    owns at least one registered agent
     j:<lowercase 0x address>    named as provider on an ERC-8183 job
+    b:<lowercase 0x address>    a budget was funded to it through our escrow
     h:<lowercase 0x address>    in the Hyperliquid collector's set, ever
 
 and agent pages, which 8004scan keys by chain and number rather than by address:
@@ -70,6 +71,7 @@ import time
 
 from core.db import get_db
 from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
+from core import budget_index
 
 # One in a thousand. Measured over the real key set at a million trials:
 # 0.00097, against a theoretical 0.001. An earlier pass measured this over
@@ -192,6 +194,17 @@ async def collect_keys() -> dict:
         if isinstance(p, str) and p.startswith("0x")
     }
 
+    # Addresses a budget was funded to through this project's own escrow.
+    # A separate key space because an address can have a budget and no
+    # registry entry and no job: somebody committed money to it directly.
+    # Left out of the filter, the extension would never ask about it and the
+    # panel would be silent about the strongest fact this project holds.
+    budgets = {
+        f"b:{a.lower()}"
+        for a in await db[budget_index.COLLECTION].distinct("agent")
+        if isinstance(a, str) and a.startswith("0x")
+    }
+
     hyperliquid: set[str] = set()
     try:
         from core.hyperliquid import service
@@ -209,6 +222,7 @@ async def collect_keys() -> dict:
         "owners": owners,
         "agents": agents,
         "providers": providers,
+        "budgets": budgets,
         "hyperliquid": hyperliquid,
     }
 

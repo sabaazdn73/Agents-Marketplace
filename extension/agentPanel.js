@@ -122,6 +122,26 @@ function provenanceBlock(pv) {
   </div>`;
 }
 
+function budgetsBlock(b) {
+  if (!b) return "";
+  if (b.withheld_reason) {
+    const w = AGENT_WITHHELD[b.withheld_reason] || {
+      title: "No budgets", body: "",
+    };
+    return `<div class="tnega-agent-jobs">
+      <div class="tnega-agent-jobs-title">${esc(w.title)}</div>
+      <div class="tnega-muted">${esc(w.body)}</div>
+    </div>`;
+  }
+  const lines = budgetLines(b);
+  if (!lines.length) return "";
+  return `<div class="tnega-agent-jobs">
+    <div class="tnega-agent-jobs-title">Budgets funded to it</div>
+    ${lines.map((l) => `<div class="tnega-prov-line">${esc(l)}</div>`).join("")}
+    <div class="tnega-note">${esc(b.note || "")}</div>
+  </div>`;
+}
+
 function jobsBlock(jobs) {
   if (!jobs) return "";
   if (jobs.withheld_reason) {
@@ -202,7 +222,7 @@ function agentPanelHtml(state, data, subject, coverage) {
     title = "Registered agent";
     sub = `${agents[0] ? agents[0].chain_name : ""}${SEP}measured by Tnega`;
   } else if (agents.length === 0) {
-    title = "Hired on chain, no registered agent";
+    title = noIdentityTitle(half);
     sub = `${shortAddr(subject.address)}${SEP}measured by Tnega`;
   } else {
     title = agents.length === 1
@@ -233,6 +253,7 @@ function agentPanelHtml(state, data, subject, coverage) {
       ${chainNote}
       ${jobsBlock(half.jobs)}
       ${provenanceBlock(half.provenance)}
+      ${budgetsBlock(half.budgets)}
       <div class="tnega-note">${esc(
         (agents[0] && agents[0].verification_note) ||
         "Registering an agent is a transaction and proves nothing about whether it works.")}</div>
@@ -270,7 +291,7 @@ function shortAddr(a) {
 function placeAgentPanel(el, mode) {
   if (el.isConnected) return true;
 
-  if (mode === "explorer") {
+  if (mode === "explorer" || mode === "inflow") {
     const summary = document.getElementById("ContentPlaceHolder1_divSummary");
     if (summary && summary.parentElement) {
       summary.parentElement.insertBefore(el, summary);
