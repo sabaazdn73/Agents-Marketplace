@@ -194,3 +194,19 @@ footer.bad { color: #F87171; }
   color: #b9c0cf;
   margin: 4px 0 0;
 }
+
+/* The standfirst under a tab label: one line saying what this subject is,
+ * before any number. Each tab has its own. */
+.lead {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #8b93a7;
+  margin: 0 0 10px;
+}
+/* The closing note, set apart from the facts above it because it says what the
+ * reading means rather than adding to it. */
+.note.close {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}

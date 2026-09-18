@@ -56,9 +56,41 @@ const tabsEl = document.getElementById("tabs");
 // The tab you are NOT on still carries a one-line state under its label, so
 // choosing between them does not require opening both. That line is the whole
 // reason this is not just a pair of buttons.
+// Each tab is written for its own subject.
+//
+// THE TWO ARE NOT THE SAME KIND OF THING AND MUST NOT SOUND ALIKE
+// One is a trader's orders on a venue: the reader is watching a market maker
+// and the question is whether its quotes reach the book. The other is an agent
+// somebody is deciding whether to pay: the reader is a buyer and the question
+// is whether it answers and who has actually paid it before. They share an
+// address and nothing else.
+//
+// An earlier version gave both the same standfirst, the same closing note and
+// the same sentence about "either subject". Rendering both tabs and diffing the
+// text found nine lines identical across them, which is nine lines written for
+// neither. The `lead` and `close` below are what each tab says in its own
+// vocabulary; the shared chrome above and below them is chrome, not copy.
 const TABS = {
-  hl: { label: "Tnega for Hyperliquid" },
-  agent: { label: "Tnega for On-chain Agents" },
+  hl: {
+    label: "Tnega for Hyperliquid",
+    lead: "Post-only orders, and whether the book took them.",
+    close: "A refused post-only order never rests, so it adds no liquidity and "
+      + "leaves no trace in fills or volume. That is the gap this fills.",
+    // When there is nothing: say what the collector is, in venue terms.
+    emptyClose: "The collector polls a set of addresses chosen by recent "
+      + "trading activity. Being outside that set is a fact about what has been "
+      + "measured, not about how the address trades.",
+  },
+  agent: {
+    label: "Tnega for On-chain Agents",
+    lead: "Whether it answers, and who has actually paid it.",
+    close: "Registering an agent is a transaction. It costs a few cents and "
+      + "proves nothing about whether the agent answers, delivers, or has ever "
+      + "been paid by anyone other than its own owner.",
+    emptyClose: "This looks for registered agent identities and for the "
+      + "on-chain jobs that paid them. An address with neither may still be a "
+      + "wallet that does other things entirely.",
+  },
 };
 let currentTab = "hl";
 let lastAnswer = null;
@@ -129,6 +161,8 @@ function hyperliquidHtml(h) {
     return `<h2>${esc(w.title)}</h2>
       <p class="body">${esc(w.body)}</p>
       <p class="note">No rate is shown rather than a rate you cannot rely on.</p>`;
+    // "No rate you cannot rely on" is the venue's own discipline and stays on
+    // the venue's renderer. The agent half has no rate and never says this.
   }
   const f = h.freshness || {};
   const p = h.post_only || {};
@@ -142,6 +176,8 @@ function hyperliquidHtml(h) {
     ${factsHtml(f, p)}
     <p class="note">${fmtInt(p.alo_rejected)} of ${fmtInt(p.alo_total)} post-only orders were
     refused before resting.</p>`;
+  // The sentence about what a refused order costs lives on the tab, not here,
+  // so it is stated once per subject rather than once per render path.
 }
 
 /** The agent half, in the popup's narrower shape. */
@@ -211,6 +247,20 @@ function agentHtml(a) {
   return `${head}${rows}${more}${jobs}${prov}`;
 }
 
+/** What answered, named rather than called "the backend".
+ *
+ *  This footer exists so that a connection failure is distinguishable from an
+ *  address with nothing to report. Saying "measurements are live" for a reply
+ *  in which both halves were withheld undercuts that: it reads as though
+ *  something was measured. */
+function statusLine(d) {
+  const subjects = d.subjects || [];
+  if (subjects.length === 2) return "Answered: registry and venue store.";
+  if (subjects.includes("agent")) return "Answered: the agent registry.";
+  if (subjects.includes("hyperliquid")) return "Answered: the Hyperliquid store.";
+  return "Answered. Neither store holds anything for this address.";
+}
+
 /** Draw whichever tab is selected, from the answer already in hand.
  *
  *  Both halves were fetched in one request, so switching tabs is free and
@@ -219,22 +269,28 @@ function drawTab() {
   const d = lastAnswer;
   const agent = d.agent || {};
   const hl = d.hyperliquid || {};
-  const known = (d.subjects || []).length > 0;
 
   document.getElementById("tab-hl-note").textContent = tabNote(hl, "hl");
   document.getElementById("tab-agent-note").textContent = tabNote(agent, "agent");
   tabsEl.hidden = false;
 
+  const t = TABS[currentTab];
   const body = currentTab === "hl" ? hyperliquidHtml(hl) : agentHtml(agent);
+  // A tab that has a reading closes with what the reading means. A tab that has
+  // none closes with what was looked for. The old generic line said neither and
+  // appeared under both.
+  const empty = currentTab === "hl"
+    ? Boolean(hl.withheld_reason)
+    : Boolean(agent.withheld_reason);
+
   out.innerHTML = `
     <section class="half" role="tabpanel" id="panel-${currentTab}"
              aria-labelledby="tab-${currentTab}">
-      <div class="half-label">${esc(TABS[currentTab].label)}</div>
+      <div class="half-label">${esc(t.label)}</div>
+      <p class="lead">${esc(t.lead)}</p>
       ${body}
-    </section>
-    ${known ? "" : `<p class="note">Nothing is stored for this address under
-      either subject. That is what was checked, not a verdict on the
-      address.</p>`}`;
+      <p class="note close">${esc(empty ? t.emptyClose : t.close)}</p>
+    </section>`;
 }
 
 async function show(address, source) {
@@ -258,7 +314,7 @@ async function show(address, source) {
     }
 
     drawTab();
-    statusEl.textContent = "Backend answered. Measurements are live.";
+    statusEl.textContent = statusLine(data);
     statusEl.className = "ok";
   } catch (e) {
     tabsEl.hidden = true;
@@ -314,10 +370,13 @@ document.getElementById("lookup").addEventListener("submit", (ev) => {
   } else {
     ctx.textContent = "Not on a page Tnega reads";
     out.innerHTML = `<h2>Look up any address</h2>
-      <p class="body">Paste an address below and this returns whatever is known about it:
-      the agents it holds and whether they answer, the Hyperliquid rejection rate, or the
-      reason there is nothing to show. Panels appear on Hyperliquid address pages, on the
-      block explorers this project covers, and on 8004scan.</p>`;
+      <p class="body"><b>On Hyperliquid</b>, what share of its post-only orders the
+      matching engine refused before they rested on the book.</p>
+      <p class="body"><b>As an on-chain agent</b>, whether the service it published
+      answers, and who has actually paid for what it delivered.</p>
+      <p class="note">Either can come back with a reason instead of a figure, and the
+      reason is the answer in that case. Panels appear on Hyperliquid address pages, on
+      the block explorers this project covers, and on 8004scan.</p>`;
   }
   statusEl.textContent = "Backend not checked yet. Look up an address to test it.";
 })();
