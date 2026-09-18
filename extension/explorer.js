@@ -57,14 +57,17 @@ async function explorerSync() {
   const coverage = `List built ${fmtDate(membership.built_at)}.`;
   el.innerHTML = agentPanelHtml("loading", null, subject, coverage);
 
-  if (!placeAgentPanel(el, subject.place || "explorer")) {
-    // Their page has not rendered the card yet, or their layout is one this
-    // does not recognise. Wait, then give up rather than inventing a place.
+  // The fallback is withheld for the whole wait, not offered on the first
+  // attempt. A fallback that always succeeds ends the retry loop immediately
+  // and becomes the usual outcome rather than the last resort, which is how
+  // the panel came to sit above Blockscout's own header.
+  const mode = subject.place || "explorer";
+  if (!placeAgentPanel(el, mode, false)) {
     const started = Date.now();
     await new Promise((resolve) => {
       const timer = setInterval(() => {
-        if (placeAgentPanel(el, subject.place || "explorer")
-            || Date.now() - started > 8000) {
+        const waitedLongEnough = Date.now() - started > 8000;
+        if (placeAgentPanel(el, mode, waitedLongEnough) || waitedLongEnough) {
           clearInterval(timer);
           resolve();
         }

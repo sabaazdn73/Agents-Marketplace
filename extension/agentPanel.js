@@ -288,7 +288,7 @@ function shortAddr(a) {
  *  tree, because an ancestor carrying transform, filter or will-change turns
  *  position:fixed into position:absolute against that ancestor.
  */
-function placeAgentPanel(el, mode) {
+function placeAgentPanel(el, mode, allowFallback) {
   if (el.isConnected) return true;
 
   if (mode === "explorer" || mode === "inflow") {
@@ -298,11 +298,50 @@ function placeAgentPanel(el, mode) {
       return true;
     }
     const main = document.querySelector("main#content") || document.querySelector("main");
-    if (main) {
-      main.insertBefore(el, main.firstElementChild);
-      return true;
+    if (!main) return false;
+
+    // AFTER THE PAGE'S OWN HEADING, NOT ABOVE IT.
+    //
+    // Inserting as the first child of <main> puts the panel above the host's
+    // own title, which is the worst position available and is the exact
+    // mistake the Hyperliquid fallback had to be corrected for: it sat above
+    // their header for the life of the page and was being chosen by default
+    // rather than in extremis.
+    //
+    // So anchor on the page's own <h1> and insert after whichever top-level
+    // child of <main> contains it. On Blockscout that is a two-child main:
+    // [0] the address header, [1] the tabs and content, so the panel lands
+    // between them, which is structurally where it sits on the Etherscan
+    // family too. Both <main> and <h1> are semantic tags rather than
+    // generated class names, so neither moves on that app's next deploy.
+    const h1 = main.querySelector("h1");
+    if (h1) {
+      let node = h1;
+      while (node.parentElement && node.parentElement !== main) node = node.parentElement;
+      if (node.parentElement === main && node.nextElementSibling) {
+        main.insertBefore(el, node.nextElementSibling);
+        return true;
+      }
+      if (node.parentElement === main) {
+        main.appendChild(el);
+        return true;
+      }
     }
-    return false;
+    // No heading yet. On a single-page app that usually means the view has
+    // not finished rendering, not that it has no heading, so REFUSE and let
+    // the caller retry. Returning true here is how the panel ended up above
+    // Blockscout's own address header: the first attempt landed at the top of
+    // an unrendered main, place() counted that as placed, and the retry loop
+    // that would have found the heading never ran again. The Hyperliquid
+    // panel had to be corrected for the identical mistake and says so in its
+    // own comment; this is the second time it has been made.
+    if (!allowFallback) return false;
+
+    // The wait is over and there is still no heading. First child is a worse
+    // position than after a title and a better one than no panel, and it is
+    // reached only in extremis rather than by default.
+    main.insertBefore(el, main.firstElementChild);
+    return true;
   }
 
   el.classList.add("tnega-floating");

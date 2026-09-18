@@ -176,7 +176,18 @@ const EXPLORERS = {
   "arbiscan.io": { chainId: 42161, place: "inflow" },
   "monadscan.com": { chainId: 143, place: "inflow" },
   "hyperevmscan.io": { chainId: 999, place: "inflow" },
-  "robinhoodchain.blockscout.com": { chainId: 4663, place: "floating" },
+  // Inline, not floating. The first version floated here because that
+  // explorer's HTML could not be fetched to find an anchor, and "I could not
+  // verify a DOM" was allowed to become "there is no DOM to anchor to". Those
+  // are different claims. Loaded in a real browser the page renders a
+  // <main> element 1092px wide, which is a semantic tag rather than a
+  // generated class and is the same fallback the Etherscan family already
+  // uses when its overview card is missing.
+  //
+  // The visible symptom of getting this wrong was that the panel was 340px
+  // and stacked vertically while every other host rendered it across the
+  // content column.
+  "robinhoodchain.blockscout.com": { chainId: 4663, place: "inflow" },
 };
 
 /** What this page is about, on any site the extension runs on.
