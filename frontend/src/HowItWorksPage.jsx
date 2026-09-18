@@ -582,6 +582,23 @@ export default function HowItWorksPage({ variant = 'web' }) {
       markAlt: `${CHROME_EXTENSION_NAME} icon`,
       line: 'Puts one number on a Hyperliquid address page itself: how often that address’s '
         + 'post-only orders are turned away before they ever rest on the book.',
+      // The install link sits on the front, beside the bot's handle pattern.
+      // It was inside the panel, so reaching the one thing this card exists to
+      // hand over cost an expand, while the Telegram card gave its address up
+      // without one. The two cards offer the same kind of thing, an address to
+      // go to, and they now offer it the same way.
+      front: (small) => (
+        <div className={small ? '' : 'pl-[52px]'}>
+          <a
+            href={CHROME_EXTENSION_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
+          >
+            Install from the Chrome Web Store <ExternalLink size={12} />
+          </a>
+        </div>
+      ),
       render: () => (
         <>
           <p>
@@ -643,15 +660,10 @@ export default function HowItWorksPage({ variant = 'web' }) {
               than a promise that it has been.
             </p>
           </div>
+          {/* No second install button here. The card front carries it now, and
+              two copies of one link on one card is the reader wondering whether
+              they are the same link. */}
           <div className="flex flex-wrap items-center gap-3 pt-1">
-            <a
-              href={CHROME_EXTENSION_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
-            >
-              Install from the Chrome Web Store <ExternalLink size={12} />
-            </a>
             <a href="/privacy" className="text-[12px] text-indigo-500 hover:underline">
               What it reads, and what it keeps
             </a>
