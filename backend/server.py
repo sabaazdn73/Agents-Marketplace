@@ -1006,11 +1006,25 @@ async def hyperliquid_address(address: str, response: Response = None):
             # per view.
             from core.hyperliquid import venuerole
             data["account"] = await asyncio.to_thread(venuerole.describe, address)
-            # What the account holds, but only when there is no rate to show.
-            # An address with a rate does not need its silence explained, and
-            # three extra venue calls on every panel view would be spent to
-            # say nothing. Cached six hours in-process like the role read.
-            if data.get("withheld_reason"):
+            # What the account holds, and ONLY for no_post_only_orders.
+            #
+            # Narrowed from "any withheld reason" on 2026-09-18. Under
+            # left_rotation or stale_data the silence already has its own
+            # explanation, and a second one beside it competes rather than
+            # helps. no_post_only_orders is the one case where the address is
+            # tracked, current, has enough polls, and is still silent, so
+            # "why" has no other answer on the panel.
+            #
+            # That reason is not reachable for any of the 66 addresses today:
+            # the zero-post-only addresses are all out of rotation, so they
+            # hit left_rotation first (checked, 35 left_rotation, 30 rated, 1
+            # stale_data). The block is therefore dormant until an address in
+            # the current set posts no resting orders, which is the case it
+            # was written for.
+            #
+            # Three venue calls, cached six hours, and now spent on one reason
+            # rather than three.
+            if data.get("withheld_reason") == "no_post_only_orders":
                 data["holdings"] = await asyncio.to_thread(
                     venuerole.holdings, address)
     except Exception as e:  # noqa: BLE001
