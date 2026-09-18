@@ -13,6 +13,10 @@
   --marquee-duration: 45s;
   --marquee-gap: 2.5rem;
   width: 100%;
+  /* The gap above the strip used to come from the Sources footer that sat
+     between it and the content. That footer is gone, so the strip owns its
+     own separation rather than sitting flush under the last row of cards. */
+  margin-top: 3rem;
   border-top: 1px solid rgb(0 0 0 / 0.08);
   background: rgb(255 255 255 / 0.4);
   padding: 0.75rem 0;

@@ -1,8 +1,7 @@
 // dataSources.js
 //
-// external data providers this project depends on, shared by the
-// footer strip (DataSourcesFooter.jsx) and the full attribution page
-// (DataSourcesPage.jsx), web + mobile. Every entry below is a real,
+// external data providers this project depends on, read by the full
+// attribution page (DataSourcesPage.jsx), web + mobile. Every entry below is a
 // checked-in-code integration (checked 2026-08-25, not assumed):
 //   - 8004scan:    backend/adapters/bsc.py, agent identity/reputation data
 //   - The Graph:   backend/adapters/thegraph.py, Agent0 ERC-8004 subgraph,
@@ -22,10 +21,13 @@
 // domain (not a third-party favicon-proxy service), small, real, and
 // exactly what "small logo if easily available" asked for.
 //
-// `inFooter` marks the providers of DATA, which is what the footer strip is
-// attributing. Hosting, databases and analysis tooling are real dependencies
-// and belong on the Resources page, but putting Vercel in a line headed "data
-// sources" would be wrong, and a 25-logo strip is noise either way.
+// `inFooter` marked the providers of DATA, as opposed to hosting, databases
+// and analysis tooling. It selects nothing now: the footer strip it fed was
+// removed, since fifteen provider names at the foot of every page were a
+// credit line nobody read, and the page behind the link carries all of them
+// with the detail of what each one is used for. The field is left on the
+// entries rather than stripped out, because the distinction it records is
+// still true and is the one a later strip would need.
 //
 // `status` is one of: live, partial, inactive, analysis. See DataSourcesPage
 // for what each means. Every entry was checked as actually wired in, meaning a

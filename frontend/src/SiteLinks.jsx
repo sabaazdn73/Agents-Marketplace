@@ -72,6 +72,13 @@ export function XMark({ size = 13, className = '' }) {
 export default function SiteLinks({
   onOpenDocs,
   onOpenEcosystem,
+  // The attribution page. It used to be reached from a Sources block at the
+  // foot of the page which listed fifteen provider names beside the link.
+  // That block is gone: the names were a credit line nobody read, repeated
+  // in full on the page behind the link, and they sat below two other
+  // footers. The link itself still belongs somewhere, so it is here, with
+  // the rest of the site's named destinations.
+  onOpenDataSources,
   // Real in-app routes rendered here as named links rather than as tabs.
   // Each is { key, label, Icon, onClick, active }. Passed in rather than
   // imported, so this component stays a footer and does not need to know
@@ -114,6 +121,9 @@ export default function SiteLinks({
     // itself rather than only from the store. `internal` is what keeps it out
     // of the target="_blank" branch below.
     { key: 'privacy', label: 'Privacy', href: '/privacy', internal: true },
+    onOpenDataSources && {
+      key: 'sources', label: 'Data sources', onClick: onOpenDataSources,
+    },
     { key: 'demo', label: 'Walkthrough', href: DEMO_VIDEO_URL },
   ].filter(Boolean);
 

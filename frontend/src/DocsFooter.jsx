@@ -1,9 +1,12 @@
 // DocsFooter.jsx
 //
-// Small attribution-strip footer, styled identically to
-// DataSourcesFooter.jsx / HackathonPartnersFooter.jsx, pointing at the
-// self-hosted /docs section built from the docs/*.md files.
-// Shared by web + mobile.
+// Small attribution-strip footer pointing at the self-hosted /docs section
+// built from the docs/*.md files.
+//
+// Not rendered anywhere at present. The foot of the page carried three of
+// these strips and now carries none: docs and the attribution page are both
+// named links in SiteLinks, which sits under the wallet area where someone
+// is already looking.
 import React from 'react';
 import { BookOpen } from 'lucide-react';
 

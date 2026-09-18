@@ -120,7 +120,6 @@ import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
-import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
@@ -1141,6 +1140,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             <SiteLinks
               onOpenDocs={onOpenDocs}
               onOpenEcosystem={onOpenEcosystem}
+              onOpenDataSources={onOpenDataSources}
               routeLinks={SIDEBAR_FOOTER_ITEMS.map((item) => ({
                 key: item.id,
                 label: item.label,
@@ -2173,7 +2173,6 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
             </div>
           )}
 
-          <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
         </div>
 
         {/* Replaces the old partner footer. It sits INSIDE main, at the end

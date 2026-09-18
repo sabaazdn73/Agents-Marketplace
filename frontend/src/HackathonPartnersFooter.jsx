@@ -1,9 +1,11 @@
 // HackathonPartnersFooter.jsx
 //
-// Small "Built for" attribution strip, styled identically to
-// DataSourcesFooter.jsx, partner names + logos (each fetched
+// Small "Built for" attribution strip: partner names + logos (each fetched
 // directly from the partner's own domain), each linking out to their real
-// site. Shared by web + mobile.
+// site.
+//
+// Not rendered anywhere at present. PartnerMarquee carries the chain and
+// event marks at the foot of the page instead.
 import React, { useState } from 'react';
 import { HACKATHON_PARTNERS } from './hackathonPartners';
 

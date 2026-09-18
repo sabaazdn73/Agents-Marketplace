@@ -76,7 +76,6 @@ import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
-import DataSourcesFooter from './DataSourcesFooter';
 import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
@@ -282,7 +281,7 @@ const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.
 // Mobile-optimized Wallet Modal / Sheet
 function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
                             onOpenEcosystem, onShowOnboarding,
-                            darkMode, onToggleTheme }) {
+                            onOpenDataSources, darkMode, onToggleTheme }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { ready, authenticated, user, logout } = usePrivy();
@@ -393,6 +392,9 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
             well would stack two rules a few pixels apart. */}
         <SiteLinks
           onOpenDocs={onOpenDocs ? () => { onOpenDocs(); onClose(); } : undefined}
+          onOpenDataSources={
+            onOpenDataSources ? () => { onOpenDataSources(); onClose(); } : undefined
+          }
           variant="light"
           className="mt-6"
         />
@@ -1622,9 +1624,6 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
           </div>
         )}
 
-        <div className="px-5">
-          <DataSourcesFooter onOpenDataSources={onOpenDataSources} />
-        </div>
 
         {/* Replaces the old partner footer. Outside the px-5 wrapper so it
             spans the full width. */}
@@ -1686,6 +1685,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
           nav={nav}
           onOpenDocs={onOpenDocs}
           onOpenEcosystem={onOpenEcosystem}
+          onOpenDataSources={onOpenDataSources}
           onShowOnboarding={() => setShowOnboarding(true)}
           darkMode={darkMode}
           onToggleTheme={() => setDarkMode(!darkMode)}
