@@ -899,6 +899,18 @@ async def hyperliquid_overview(limit: int = 50):
         """
         makers = service.makers(limit)
         bands = service.maker_bands(makers)
+        # Which of these rows are vaults. The table already carries a caveat
+        # saying some rows may be pooled accounts rather than one trader, and a
+        # caveat beside a table that knows which two they are is withholding
+        # something it has. One userRole call per row, cached six hours, so
+        # this is free after the first build of the day.
+        from core.hyperliquid import venuerole
+        roles = venuerole.roles_for([m.get("address") for m in makers])
+        for m in makers:
+            r = roles.get((m.get("address") or "").lower()) or {}
+            if r.get("role") == "vault":
+                m["account_role"] = "vault"
+                m["vault_name"] = r.get("vault_name")
         return {
             "coverage": service.coverage(),
             # Reported alongside, never summed with, the REST coverage: the

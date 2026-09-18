@@ -1330,12 +1330,14 @@ export default function HyperliquidView({ mutedBorder }) {
                       7,851 fills from 40 addresses. So this is a caveat rather
                       than a column. */}
                   <p className="text-[11px] text-gray-500 dark:text-gray-500 leading-relaxed mt-1">
-                    A row is an address, not a person. Two of the addresses ever polled are vaults
-                    trading other people&apos;s deposits, and sixteen submit through a front-end
-                    that charges a builder fee. The rest return an ordinary account, which is what
-                    a single trader looks like and also what a platform holding many customers in
-                    one account looks like. The venue publishes nothing that separates those two,
-                    so read a rate as the behaviour of an account.
+                    A row is an address, not a person. The rows marked Vault trade a strategy
+                    with other people&apos;s deposits in it, so their rate describes that strategy.
+                    Sixteen of the addresses ever polled submit through a front-end that charges a
+                    builder fee, which is what a person using an app looks like. Every other row
+                    returns an ordinary account, which is what a single trader looks like and also
+                    what a platform holding many customers in one account looks like. The venue
+                    publishes nothing that separates those two, so read an unmarked rate as the
+                    behaviour of an account.
                   </p>
                   <ScrollTable mutedBorder={mutedBorder} head={<>
                     <Th align="left">Address</Th><Th>Post-only</Th><Th>Refused</Th>
@@ -1349,6 +1351,19 @@ export default function HyperliquidView({ mutedBorder }) {
                              className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline">
                             {short(m.address)}
                           </a>
+                          {/* The venue reports these as vaults. The caveat
+                              below the table says some rows may be pooled
+                              accounts rather than one trader; naming the two
+                              it knows about is the difference between a
+                              caveat and a disclosure. */}
+                          {m.account_role === 'vault' && (
+                            <span
+                              title={`${m.vault_name || 'A vault'}: this address trades a strategy with other people's deposits in it, so the rate beside it describes that strategy rather than one person's trading.`}
+                              className="ml-2 inline-block align-middle text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                            >
+                              Vault{m.vault_name ? ` · ${m.vault_name}` : ''}
+                            </span>
+                          )}
                         </td>
                         <Td>{m.alo_total.toLocaleString()}</Td>
                         <Td>{m.alo_rejected.toLocaleString()}</Td>

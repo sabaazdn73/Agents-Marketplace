@@ -364,6 +364,85 @@ document.getElementById("lookup").addEventListener("submit", (ev) => {
   }
 });
 
+/** Why there is no panel on the page you are looking at.
+ *
+ *  WHY THIS EXISTS
+ *  Silence on a miss is the design: almost every address page on an explorer
+ *  is about an address nobody has measured, and a card announcing that on each
+ *  one would be noise. The cost is that a correct silence and a broken
+ *  extension look exactly alike, and the only person who could tell them apart
+ *  was whoever could read the source.
+ *
+ *  So the popup walks the same four steps the content script walks and reports
+ *  where it stopped. In order, because each depends on the one before:
+ *
+ *    1 host      is this a page the extension is loaded on at all
+ *    2 filter    has the local list downloaded yet
+ *    3 lookup    is this page's identifier in that list
+ *    4 backend   did the server answer for it
+ *
+ *  A miss at step 3 is the expected outcome and says so. Anything else is a
+ *  fault and says which.
+ */
+async function diagnose(url) {
+  const subject = subjectFromUrl(url);
+  const steps = [];
+
+  if (!subject) {
+    steps.push(["host", false,
+      "Not a page this extension reads. It is loaded on Hyperliquid address "
+      + "pages, on the explorers listed in the privacy policy, and on 8004scan."]);
+    return { steps, verdict: "not-covered-page" };
+  }
+  steps.push(["host", true, `Loaded here, and the page names ${
+    subject.kind === "agent" ? "an agent" : "an address"}.`]);
+
+  const membership = await askMembership([subject.key, ...(subject.altKeys || [])]);
+  if (!membership.ok) {
+    steps.push(["filter", false, membership.reason === "no_filter"
+      ? "The local list has not finished downloading. Give it a moment and "
+        + "reopen this. Until it arrives no panel is drawn anywhere, by design."
+      : "The extension's background worker did not answer."]);
+    return { steps, verdict: "filter-missing" };
+  }
+  steps.push(["filter", true,
+    `Local list loaded, built ${fmtDate(membership.built_at)}.`]);
+
+  const hit = Object.values(membership.hits || {}).some(Boolean);
+  if (!hit) {
+    steps.push(["lookup", false,
+      "This address is not in the list, so nothing was sent and no panel was "
+      + "drawn. That is the expected result for almost every address: the list "
+      + "holds only what this project has measured."]);
+    return { steps, verdict: "expected-miss" };
+  }
+  steps.push(["lookup", true, "This address is in the list."]);
+
+  try {
+    const id = subject.kind === "agent" ? subject.key : subject.address;
+    const d = await fetchSubject(id);
+    steps.push(["backend", true,
+      (d.subjects || []).length
+        ? "The server answered with a reading. A panel should be on the page."
+        : "The server answered and holds nothing under either subject."]);
+    return { steps, verdict: "answered" };
+  } catch (e) {
+    steps.push(["backend", false, `The server did not answer: ${e.message || e}.`]);
+    return { steps, verdict: "backend-down" };
+  }
+}
+
+function renderDiagnosis(d) {
+  const rows = d.steps.map(([name, ok, text]) =>
+    `<li class="diag-step ${ok ? "ok" : "no"}">
+       <b>${esc(name)}</b> <span>${esc(text)}</span>
+     </li>`).join("");
+  return `<details class="diag">
+    <summary>No panel on this page? Why</summary>
+    <ol class="diag-list">${rows}</ol>
+  </details>`;
+}
+
 (async function init() {
   let tabs = [];
   try {
@@ -376,7 +455,11 @@ document.getElementById("lookup").addEventListener("submit", (ev) => {
   // not only a Hyperliquid one.
   const subject = subjectFromUrl(url);
   if (subject && subject.address) {
-    show(subject.address, "From the tab you are on");
+    await show(subject.address, "From the tab you are on");
+    // Appended after the reading, because on a covered page the reading is the
+    // answer and this is the footnote. On an uncovered one it is the whole
+    // answer, which is the case below.
+    out.insertAdjacentHTML("beforeend", renderDiagnosis(await diagnose(url)));
     return;
   }
 
@@ -391,9 +474,10 @@ document.getElementById("lookup").addEventListener("submit", (ev) => {
   } else if (subjectFromUrl(url)) {
     ctx.textContent = "This page has its own panel";
     out.innerHTML = `<h2>The panel is on the page</h2>
-      <p class="body">This is a page Tnega reads. If a panel is not there, nothing is stored
-      for what the page is about, or the local list has not finished downloading yet. You
-      can still look up any address below.</p>`;
+      <p class="body">This is a page Tnega reads. If no panel is there, the steps below say
+      which of the four things stopped it, and the usual answer is that the address is not
+      one this project has measured.</p>`;
+    out.insertAdjacentHTML("beforeend", renderDiagnosis(await diagnose(url)));
   } else {
     ctx.textContent = "Not on a page Tnega reads";
     out.innerHTML = `<h2>Look up any address</h2>

@@ -180,3 +180,89 @@ def _kind(d: dict) -> dict:
                  "this is. That is a gap here, not a finding about the "
                  "address."),
     }
+
+
+def roles_for(addresses: list[str], budget_seconds: float = 6.0) -> dict[str, dict]:
+    """The account kind for a list of addresses, for the maker table.
+
+    Only userRole is called here, not the three calls `describe` makes. The
+    table needs one thing: which rows are vaults. approvedBuilders is a
+    per-address reading that belongs on a panel a reader has opened, not a
+    column on fifty rows, and asking for it here would triple the venue calls
+    to say something the table has no room for.
+
+    CONCURRENT, AND ON A BUDGET
+    Fifty calls run one after another took 36 seconds on a cold cache, measured,
+    which is a page load nobody would wait through even once every six hours.
+    They are independent lookups against an endpoint that answers in well under
+    a second, so they run in a small pool. The budget is a second bound on top:
+    when it is spent, the addresses not yet answered are simply left unlabelled
+    and the next request picks them up from the cache the finished ones filled.
+
+    An unlabelled row is the correct degradation. The table's caveat already
+    says of every row that who is behind it is not established, so a missing
+    label understates rather than misleads.
+    """
+    import concurrent.futures
+
+    out: dict[str, dict] = {}
+    now = time.time()
+    todo: list[str] = []
+    for a in addresses:
+        addr = (a or "").lower()
+        if not addr:
+            continue
+        with _lock:
+            hit = _cache.get(f"role:{addr}")
+        if hit and now - hit[0] < _TTL_SECONDS:
+            out[addr] = hit[1]
+        else:
+            todo.append(addr)
+
+    if not todo:
+        return out
+
+    def one(addr: str):
+        try:
+            r = _info({"type": "userRole", "user": addr}, timeout=6.0)
+            rec = {"role": r.get("role") if isinstance(r, dict) else None}
+        except Exception:  # noqa: BLE001
+            return addr, None          # not cached, so a later call retries
+        if rec["role"] == "vault":
+            try:
+                v = _info({"type": "vaultDetails", "vaultAddress": addr},
+                          timeout=6.0) or {}
+                rec["vault_name"] = v.get("name")
+            except Exception:  # noqa: BLE001
+                rec["vault_name"] = None
+        return addr, rec
+
+    # Eight at a time. The venue publishes a per-IP request budget and this is
+    # one page build every six hours, so the pool is sized for latency rather
+    # than against a limit.
+    # The pool is shut down with cancel_futures rather than left to a `with`
+    # block. A context manager waits for everything already running on exit, so
+    # an earlier version broke out of the loop at the deadline and then blocked
+    # anyway: measured 9.8 seconds against a 6 second budget. The budget now
+    # bounds what it says it bounds. Work already in flight still has to finish,
+    # which is one call, not fifty.
+    deadline = time.time() + budget_seconds
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+    try:
+        futures = [pool.submit(one, a) for a in todo]
+        for fut in concurrent.futures.as_completed(futures):
+            try:
+                addr, rec = fut.result()
+            except Exception:  # noqa: BLE001
+                continue
+            if rec is not None:
+                out[addr] = rec
+                with _lock:
+                    if len(_cache) >= _CACHE_MAX:
+                        _cache.clear()
+                    _cache[f"role:{addr}"] = (time.time(), rec)
+            if time.time() > deadline:
+                break
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
+    return out

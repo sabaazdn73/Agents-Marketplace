@@ -228,3 +228,52 @@ footer.bad { color: #F87171; }
 .acct .note { margin: 3px 0 0; color: #8b93a7; }
 .acct-vault { border-color: rgba(251, 191, 36, 0.40); }
 .acct-routed { border-color: rgba(151, 252, 228, 0.30); }
+
+/* The four-step diagnosis. Collapsed, because on a page with a reading it is a
+ * footnote, and a reader who is not asking the question should not have to
+ * scroll past it. */
+.diag {
+  margin-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 8px;
+}
+.diag summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: #8b93a7;
+  list-style: none;
+}
+.diag summary::-webkit-details-marker { display: none; }
+.diag summary::before { content: "▸ "; }
+.diag[open] summary::before { content: "▾ "; }
+.diag summary:hover { color: #e6e9f0; }
+.diag-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: diag;
+}
+.diag-step {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #8b93a7;
+  padding: 4px 0 4px 16px;
+  position: relative;
+}
+/* A tick or a cross, and the word beside it, so colour is never the only
+ * carrier of whether a step passed. */
+.diag-step::before {
+  position: absolute;
+  left: 0;
+  top: 4px;
+}
+.diag-step.ok::before { content: "✓"; color: #97fce4; }
+.diag-step.no::before { content: "✕"; color: #fbbf24; }
+.diag-step b {
+  color: #e6e9f0;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  margin-right: 4px;
+}
