@@ -85,31 +85,26 @@ const TELEGRAM_URL = 'https://t.me/Tnega_bot';
 // give a reader an address they can paste.
 const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
 
-// Where each operating system keeps the config a client reads, and the one
-// command that opens it. Claude Code is the shape shown, because it is the one
-// the copyable block below is exactly right for; the other clients differ by a
-// key name and their own shapes are listed under it.
+// ADDING THE SERVER, and the correction that produced this shape.
 //
-// The paths are the vendors' own documented locations. The commands only open
-// or create the file: nothing here edits a config on somebody's machine, and a
-// page that told a reader to pipe text into a file they cannot see first would
-// deserve the config it produced.
-const MCP_PLATFORMS = [
-  {
-    os: 'macOS',
-    path: '~/.claude/mcp.json',
-    command: "mkdir -p ~/.claude && open -e ~/.claude/mcp.json",
-  },
-  {
-    os: 'Windows',
-    path: '%USERPROFILE%\\.claude\\mcp.json',
-    command: 'notepad "%USERPROFILE%\\.claude\\mcp.json"',
-  },
-  {
-    os: 'Linux',
-    path: '~/.claude/mcp.json',
-    command: 'mkdir -p ~/.claude && ${EDITOR:-nano} ~/.claude/mcp.json',
-  },
+// An earlier version of this told the reader to open ~/.claude/mcp.json on
+// macOS and Linux and the same under %USERPROFILE% on Windows. That file does
+// not exist and nothing reads it. Checked on a machine with three MCP servers
+// already configured: Claude Code keeps them in ~/.claude.json, under
+// projects.<path>.mcpServers, written by its own CLI. A page that tells
+// somebody to create an empty file in a location nothing reads has sent them
+// somewhere worse than nowhere.
+//
+// So the supported route is the command, which is one line and the same on all
+// three systems. The file locations below are where the result lands, for a
+// reader who wants to see what changed, not somewhere to type into.
+const MCP_ADD_COMMAND =
+  'claude mcp add --transport http tnega \\\n  https://agents-marketplace-q3k4.onrender.com/mcp';
+
+const MCP_CONFIG_HOMES = [
+  { os: 'macOS', path: '~/.claude.json' },
+  { os: 'Linux', path: '~/.claude.json' },
+  { os: 'Windows', path: '%USERPROFILE%\\.claude.json' },
 ];
 
 // The six tools, one line each, in the order a caller meets them. Taken from
@@ -498,23 +493,21 @@ export default function HowItWorksPage({ variant = 'web' }) {
             </p>
 
             <div className="mt-3">
-              <Label>Where that file lives, and how to open it</Label>
-              <div className="space-y-2.5">
-                {MCP_PLATFORMS.map((pf) => (
-                  <div key={pf.os}>
-                    <div className="text-[12px] font-semibold text-gray-900 dark:text-gray-100">
-                      {pf.os}
-                      <code className="ml-2 font-mono text-[11px] font-normal text-gray-500 dark:text-gray-400">
-                        {pf.path}
-                      </code>
-                    </div>
-                    <CodeBlock text={pf.command} label={`the ${pf.os} command`} />
-                  </div>
-                ))}
-              </div>
+              <Label>Or let the client write it for you</Label>
+              <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
+                Claude Code takes one command, the same on macOS, Windows and Linux:
+              </p>
+              <CodeBlock text={MCP_ADD_COMMAND} label="the command" />
               <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-                Those commands open the file and nothing else. Paste the entry above into it, save,
-                and restart the client so it reads the config again.
+                That writes the entry itself. It lands in{' '}
+                {MCP_CONFIG_HOMES.map((h, i) => (
+                  <span key={h.os}>
+                    <code className="font-mono">{h.path}</code> on {h.os}
+                    {i < MCP_CONFIG_HOMES.length - 1 ? ', ' : ''}
+                  </span>
+                ))}
+                , under the project you ran it in. Restart the client afterwards so it reads the
+                config again.
               </p>
             </div>
             <ul className="mt-3 space-y-1.5">
@@ -539,13 +532,9 @@ export default function HowItWorksPage({ variant = 'web' }) {
             <Label>The sequence</Label>
             <HowItWorksFlow compact={compact} steps={[
               {
-                title: 'Open the config for your system',
-                body: 'The three commands above open or create it. Nothing edits it for you.',
-              },
-              {
-                title: 'Paste the entry and save',
-                body: 'One server, one URL, no key. Your client\u2019s own shape is in the list '
-                  + 'above if it is not Claude Code.',
+                title: 'Add the server',
+                body: 'One command in Claude Code, or the entry above pasted into whichever '
+                  + 'config file your client reads. One server, one URL, no key.',
               },
               {
                 title: 'Restart the client',
