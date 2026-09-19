@@ -46,9 +46,35 @@ const PRIMARY = new Set([PARTNER_KIND.EVENT, PARTNER_KIND.CHAIN]);
 // Removing the rows instead would have dropped the credit as well as the logo.
 const NOT_IN_STRIP = new Set(['Altana', 'PancakeSwap', 'TermiX']);
 
-const PRIMARY_PARTNERS = PARTNERS.filter(
-  (p) => PRIMARY.has(p.kind) && !NOT_IN_STRIP.has(p.name),
-);
+// THE CHAINS RUN TOGETHER, IN THE ORDER THE TABS ARE IN.
+//
+// They were scattered through the strip: BNB Chain early, Arbitrum and
+// Robinhood in the middle, and the four added on 2026-09-19 at the end, so the
+// chains the site covers read as unrelated credits rather than as one set.
+//
+// Ordered by name rather than by kind, because BNB Chain is in PARTNERS as an
+// event, which it also is. Sorting on kind would have put it with the
+// conferences and broken the run, and giving it a second entry under the chain
+// heading would put the same name in the strip twice.
+//
+// The order is ChainViewTabs' own FALLBACK_TABS order, so the strip and the tab
+// row name the chains in the same sequence. Anything not listed keeps its
+// position in PARTNERS, after the chains.
+const CHAIN_ORDER = [
+  'Hyperliquid', 'BNB Chain', 'Ethereum', 'Solana',
+  'Arbitrum', 'Robinhood Chain', 'Monad',
+];
+
+const PRIMARY_PARTNERS = PARTNERS
+  .filter((p) => PRIMARY.has(p.kind) && !NOT_IN_STRIP.has(p.name))
+  .sort((a, b) => {
+    const ai = CHAIN_ORDER.indexOf(a.name);
+    const bi = CHAIN_ORDER.indexOf(b.name);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return 0;
+  });
 
 function PartnerLogo({ p }) {
   const [broken, setBroken] = useState(false);
