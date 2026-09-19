@@ -202,6 +202,36 @@ leaderboard, the correlation between post-only rejection rate and 30-day
 return is +0.013 by Pearson and +0.118 by rank. The limit on that claim is
 n=30, not the quality of the file.
 
+**Where a profit figure came from. PARTLY BUILT 2026-09-19.** The leaderboard
+publishes a PnL and nothing about its composition, and an account can show
++$268M having never placed an order. `core.hyperliquid.attribution` computes
+the composition from this project's own reads, and reaches an answer for one
+shape of account.
+
+It closes for an account whose value sits in staking: on one address holding
+12.0M HYPE with no orders ever, integrating the stake hourly against the price
+path and valuing each payout when it landed gives $269,440,585 against the
+venue's $268,758,782, a 0.25% difference. The composition is reproduced; the
+cent is not, because the window boundary is only resolved to about an hour and
+an hour is worth roughly $2M on that stake.
+
+It does not close for an account that trades, and the reason is worth writing
+down because it is not the obvious one. `closedPnl` on a fill is what that
+position earned over its whole life, booked when it closed. A windowed figure
+is a mark-to-market change between two dates. Across accounts with complete
+fills history, `closedPnl` minus fees came to between -0.25 and 2.76 times the
+venue's figure for the same month, and restricting to accounts that were flat
+with USDC-only spot and no delegation did not fix it: a position open at the
+window start carries a cost basis from before it, and funding is not in
+`closedPnl` at all. Converting one into the other needs position and balance
+state at the boundary, which is not published.
+
+Two things that are NOT the obstacle, checked so nobody re-checks them. The
+2,000-record cap on `userFills` is on count rather than time, so 76% of
+sampled trading addresses have the full 30 days available. And
+`api-ui.hyperliquid.xyz`, the host the app itself uses, returns identical
+answers to the public API.
+
 **Spread, or how wide they quote.** The central market-making measure, and
 absent. It needs order book snapshots, which this project does not collect:
 the `l2Book` endpoint is a point-in-time read and the historical archive that

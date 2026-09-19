@@ -131,6 +131,30 @@ const DEFINITIONS = [
     text: 'The share of everything a maker submitted that ended in a trade. It '
         + 'counts every order, including the ones that were refused.',
   },
+  // PUBLISHED BECAUSE IT COST THIS PROJECT A WEEK'S WRONG ANSWER
+  //
+  // Not a definition of anything on this page, and here anyway. Anyone trying
+  // to work out where a Hyperliquid account's profit came from reaches for
+  // closedPnl first, because it is the only profit field on the fills, and it
+  // does not answer the question. The trap is that it produces a plausible
+  // number rather than an error.
+  {
+    term: 'Why closedPnl will not reconstruct a window',
+    text: 'A note for anyone attributing profit on this venue. An account\u2019s '
+        + 'fills carry closedPnl, which is what each position earned over its '
+        + 'whole life, booked when it closed. A windowed figure is a '
+        + 'mark-to-market change between two dates. They are different '
+        + 'quantities: a position open at the start of the window carries a '
+        + 'cost basis from before it, and funding is not in closedPnl at all. '
+        + 'Measured across accounts with complete fills history, closedPnl '
+        + 'minus fees came to between -0.25 and 2.76 times the venue\u2019s own '
+        + 'figure for the same month, and restricting to accounts that were '
+        + 'flat with no spot and no delegation did not fix it. Converting one '
+        + 'into the other needs the position and balance state at the window '
+        + 'boundary, which the venue does not publish. The one holding that '
+        + 'can be attributed is staking, because a stake is a quantity times a '
+        + 'price and both paths are served in full.',
+  },
 ];
 
 /** One maker's rate in each market it quotes.
