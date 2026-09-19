@@ -15,13 +15,38 @@ change with it.
 
     tnega-0.2.0.zip                   the package to upload
     icon-128.png                      store icon, 128x128
-    screenshot-1-rate.png             1280x800, the panel showing a rate
-    screenshot-2-no-rate.png          1280x800, the panel on an address outside
-                                        the measured set, showing the venue's
-                                        own record instead
-    screenshot-3-popup.png            1280x800, the toolbar popup, both subjects
+    screenshot-1-rate.png             Hyperliquid, the panel showing a rate
+    screenshot-2-no-rate.png          Hyperliquid, an address outside the
+                                        measured set, showing the venue's own
+                                        record instead of a rate
+    screenshot-3-popup.png            the toolbar popup, Hyperliquid subject
+    screenshot-4-agents.png           the toolbar popup, agent subject
+    screenshot-5-bscscan.png          the panel in place on BscScan
+    screenshot-6-etherscan.png        the panel in place on Etherscan, on an
+                                        agent registered on another chain
+    screenshot-7-8004scan.png         the floating panel on an 8004scan agent
+                                        page, beside that site's own scoring
     promo-440x280.png                 small promo tile
     promo-1400x560.png                marquee promo tile
+
+All screenshots are 1280x800 RGB with no alpha channel.
+
+THE STORE ACCEPTS FIVE. There are seven here because they cover four different
+placements and two subjects, and which five to show is an editorial choice
+rather than a technical one. The recommended five, in order:
+
+    1  screenshot-5-bscscan      what it does, on a page a reader recognises
+    2  screenshot-1-rate         the Hyperliquid measurement, the deepest thing
+                                   this project has
+    3  screenshot-2-no-rate      it refusing to state a number it has not
+                                   measured, which is the argument for it
+    4  screenshot-6-etherscan    the delivery record, and the cross-chain note
+    5  screenshot-4-agents       the popup, so the toolbar entry point is shown
+
+Held back: screenshot-3-popup duplicates 4 with the other tab selected, and
+screenshot-7-8004scan is the most interesting of all of them and the least
+legible at thumbnail size, because the panel floats in a column rather than
+running full width.
     listing.md                        every text field, ready to paste
     build.py                          rebuilds and re-checks the zip
     capture.py                        re-takes the screenshots from a live page
