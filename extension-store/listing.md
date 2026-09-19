@@ -1,22 +1,24 @@
 # Chrome Web Store listing: Tnega 0.2.0
 
-Replaces listing.md when 0.2.0 is packaged and submitted. Until then listing.md
-is the live listing and this is the draft, for the same reason
-PrivacyPage.next.jsx is a second file: a listing that describes a build nobody
-has is the same defect as one that understates the build, pointed the other way.
+This IS the live listing. It was the draft, held beside the 0.1.0 listing while
+0.1.0 was the published build, and it replaced that file by `git mv` in the
+commit that packaged 0.2.0.
 
 Everything here is ready to paste. Field names match the Developer Dashboard at
-chrome.google.com/webstore/devconsole. Nothing in this file is aspirational once
-0.2.0 is built: each claim is one the code supports, and the section at the end
-says which of them a reviewer can check in a minute. Every claim that the code
-does not yet support is a specification for the build, not a promise to the
-store, and this file goes nowhere near the dashboard until they agree.
+chrome.google.com/webstore/devconsole, and every claim is one the code supports:
+the package was verified against the working tree before upload, not after. The
+section at the end says which claims a reviewer can check in a minute.
+
+The Privacy tab's boxes cap each field at 1,000 characters and the versions
+below are written for a reader, so they are two to three times too long to
+paste. console-fields-0.2.0.md carries the same claims inside the limit; use
+that file for the form and this one for everything else.
 
 Package: extension-store/tnega-0.2.0.zip
 Icon: extension-store/icon-128.png
-Screenshots: extension-store/screenshot-1-rate.png, extension-store/screenshot-2-no-rate.png,
-plus two to be taken on an agent page before submission
-Promo tile: extension-store/promo-440x280.png
+Screenshots: seven in extension-store/screenshot-*.png, of which the store takes
+five; submitting.md records which five and why
+Promo tiles: extension-store/promo-440x280.png and promo-1400x560.png
 Privacy policy: https://www.tnega.app/privacy
 
 Item id is unchanged: dimmedbfoejeemojaenbknpcmjgomipk. A rename updates the
@@ -131,7 +133,7 @@ under Privacy practices.
 > checks a page against this local list before it asks our server anything, so
 > that pages about addresses we have not measured are never reported to us. Also
 > stored: the date the list was built, so the extension knows when to refresh it,
-> and a record of any panel the user dismissed, so it stays dismissed. No
+> and, per host, whether the user has collapsed the panel there, so it stays collapsed on that site and nowhere else. No
 > browsing history, no visited addresses, and no page content are stored.
 
 ### alarms

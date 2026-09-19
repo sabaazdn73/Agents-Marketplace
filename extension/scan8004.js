@@ -53,6 +53,25 @@ async function scanSync() {
 
   const membership = await askMembership([subject.key, ...(subject.altKeys || [])]);
 
+/** Place on 8004scan: in the flow if the page offers an anchor, floating if not.
+ *
+ *  It was unconditionally floating, and that was right when this file was
+ *  written: the page had no <main>, no <h1>, and nothing but CSS module hashes
+ *  to aim at. The site has both now, so the panel can sit under the agent's own
+ *  title the way it does on the Etherscan family, instead of covering the
+ *  right-hand column for the whole visit.
+ *
+ *  Floating is kept as the fallback rather than deleted. This is a client-side
+ *  app: on a cold route change the heading may not exist yet, and a panel that
+ *  floats is better than no panel. It also means the next redesign of that site
+ *  degrades to the old behaviour instead of to nothing.
+ */
+function placeScanPanel(el) {
+  if (placeAgentPanel(el, "inflow", false)) return;
+  placeAgentPanel(el, "floating");
+}
+
+
   const el = document.createElement("section");
   el.id = TNEGA_AGENT_PANEL_ID;
   el.className = "tnega-panel";
@@ -68,7 +87,7 @@ async function scanSync() {
           + "Reload in a moment."
         : "The extension's background worker did not answer.",
       subject, null);
-    placeAgentPanel(el, "floating");
+    placeScanPanel(el);
     return;
   }
 
@@ -80,12 +99,12 @@ async function scanSync() {
       "absent",
       subject.kind === "agent" ? "not_in_snapshot" : "not_covered",
       subject, coverage);
-    placeAgentPanel(el, "floating");
+    placeScanPanel(el);
     return;
   }
 
   el.innerHTML = agentPanelHtml("loading", null, subject, coverage);
-  placeAgentPanel(el, "floating");
+  placeScanPanel(el);
 
   const identifier = subject.kind === "agent" ? subject.key : subject.address;
   const attempt = {};
@@ -94,9 +113,13 @@ async function scanSync() {
     const data = await fetchSubject(identifier);
     if (scanInflight !== attempt) return;
     el.innerHTML = agentPanelHtml("ready", data, subject, coverage);
+    wireCollapse(el);
+    await applyCollapsedState(el);
   } catch (e) {
     if (scanInflight !== attempt) return;
     el.innerHTML = agentPanelHtml("error", String(e.message || e), subject, coverage);
+    wireCollapse(el);
+    await applyCollapsedState(el);
   }
 }
 

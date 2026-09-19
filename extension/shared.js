@@ -840,3 +840,89 @@ function rateSparklineSvg(series, opts) {
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" `
     + `aria-label="${esc(title)}"><title>${esc(title)}</title>${paths}</svg>`;
 }
+
+/** Collapse and restore, and why a panel that injects itself needs it.
+ *
+ *  This extension puts a card into somebody else's page. On the Etherscan
+ *  family and on Blockscout it lands in the flow and pushes content down,
+ *  which is polite. Where there is no anchor it is a fixed card, and a fixed
+ *  card sits ON TOP of the page: on 8004scan it covered the right-hand column
+ *  for the life of the visit with no way to get it out of the way.
+ *
+ *  Dismissing it entirely is the wrong control, because the panel is the
+ *  reason the extension is installed and a reader who hides it once should not
+ *  have to reinstall to see it again. Collapsing leaves the header, which is
+ *  one line, and remembers the choice per host so it stays collapsed on that
+ *  site and nowhere else.
+ *
+ *  Stored under one key in chrome.storage.local as a map of host to true.
+ *  Nothing about which page was visited goes into it beyond the hostname, and
+ *  it never leaves the machine.
+ */
+const COLLAPSE_KEY = "tnega_collapsed";
+
+async function collapsedHosts() {
+  try {
+    const got = await chrome.storage.local.get(COLLAPSE_KEY);
+    return got[COLLAPSE_KEY] || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+async function isCollapsed(host) {
+  return !!(await collapsedHosts())[host];
+}
+
+async function setCollapsed(host, value) {
+  try {
+    const map = await collapsedHosts();
+    if (value) map[host] = true; else delete map[host];
+    await chrome.storage.local.set({ [COLLAPSE_KEY]: map });
+  } catch (e) { /* the toggle still applies to this page view */ }
+}
+
+/** The control itself. Two glyphs rather than an icon font, so it carries no
+ *  asset and cannot fail to load. aria-expanded is what a screen reader reads;
+ *  the glyph is decorative and marked so. */
+function collapseButtonHtml(collapsed) {
+  return `<button type="button" class="tnega-min" aria-expanded="${collapsed ? "false" : "true"}"
+    title="${collapsed ? "Show this panel" : "Collapse this panel"}">
+    <span aria-hidden="true">${collapsed ? "+" : "\u2013"}</span>
+  </button>`;
+}
+
+/** Wire the button on a rendered panel. Idempotent: the panels re-render on
+ *  navigation in a single-page app and this is called again each time. */
+function wireCollapse(panel) {
+  const btn = panel.querySelector(".tnega-min");
+  if (!btn || btn.dataset.tnegaWired) return;
+  btn.dataset.tnegaWired = "1";
+  const host = location.hostname;
+  btn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const nowCollapsed = !panel.classList.contains("tnega-collapsed");
+    panel.classList.toggle("tnega-collapsed", nowCollapsed);
+    btn.setAttribute("aria-expanded", nowCollapsed ? "false" : "true");
+    btn.title = nowCollapsed ? "Show this panel" : "Collapse this panel";
+    const glyph = btn.querySelector("span");
+    if (glyph) glyph.textContent = nowCollapsed ? "+" : "–";
+    await setCollapsed(host, nowCollapsed);
+  });
+}
+
+/** Apply the remembered state before the panel is shown, so a collapsed panel
+ *  never flashes open first. */
+async function applyCollapsedState(panel) {
+  if (await isCollapsed(location.hostname)) {
+    panel.classList.add("tnega-collapsed");
+    const btn = panel.querySelector(".tnega-min");
+    if (btn) {
+      btn.setAttribute("aria-expanded", "false");
+      btn.title = "Show this panel";
+      const glyph = btn.querySelector("span");
+      if (glyph) glyph.textContent = "+";
+    }
+  }
+}

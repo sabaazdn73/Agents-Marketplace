@@ -51,6 +51,7 @@ function agentHead(title, sub) {
         <div class="tnega-title">${esc(title)}</div>
         <div class="tnega-sub">${esc(sub)}</div>
       </div>
+      ${collapseButtonHtml(false)}
       <a class="tnega-link" href="https://www.tnega.app/market" target="_blank" rel="noreferrer">Tnega</a>
     </div>`;
 }
@@ -349,12 +350,36 @@ function placeAgentPanel(el, mode, allowFallback) {
     if (h1) {
       let node = h1;
       while (node.parentElement && node.parentElement !== main) node = node.parentElement;
-      if (node.parentElement === main && node.nextElementSibling) {
-        main.insertBefore(el, node.nextElementSibling);
-        return true;
-      }
       if (node.parentElement === main) {
-        main.appendChild(el);
+        // DESCEND WHEN THE TOP-LEVEL BLOCK HAS NOTHING AFTER IT.
+        //
+        // On Blockscout main's children are [header, content] and the header
+        // has a following sibling, so the panel lands between them. On
+        // 8004scan main is [script, container] and everything is inside that
+        // one container, so stopping here put the panel at the very bottom of
+        // the page, below every card, which is why that site was given a
+        // floating panel instead.
+        //
+        // It has both a <main> and an <h1> now, and inside the container the
+        // heading sits in its own block with the content after it. So walk
+        // down while the chosen block has no following sibling, taking the
+        // child that still contains the heading. On 8004scan that lands on the
+        // header block and the panel sits under the agent title, which is
+        // structurally where it sits on the Etherscan family.
+        //
+        // Bounded, because an unbounded descent on a page shaped differently
+        // would walk to the heading itself and insert inside it.
+        let guard = 0;
+        while (!node.nextElementSibling && guard++ < 6) {
+          const child = Array.from(node.children).find((c) => c.contains(h1));
+          if (!child || child === h1) break;
+          node = child;
+        }
+        if (node.nextElementSibling) {
+          node.parentElement.insertBefore(el, node.nextElementSibling);
+          return true;
+        }
+        node.parentElement.appendChild(el);
         return true;
       }
     }

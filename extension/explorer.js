@@ -56,6 +56,8 @@ async function explorerSync() {
   el.className = "tnega-panel";
   const coverage = `List built ${fmtDate(membership.built_at)}.`;
   el.innerHTML = agentPanelHtml("loading", null, subject, coverage);
+  wireCollapse(el);
+  await applyCollapsedState(el);
 
   // The fallback is withheld for the whole wait, not offered on the first
   // attempt. A fallback that always succeeds ends the retry loop immediately
@@ -82,9 +84,13 @@ async function explorerSync() {
     const data = await fetchSubject(subject.address);
     if (explorerInflight !== attempt) return;
     el.innerHTML = agentPanelHtml("ready", data, subject, coverage);
+    wireCollapse(el);
+    await applyCollapsedState(el);
   } catch (e) {
     if (explorerInflight !== attempt) return;
     el.innerHTML = agentPanelHtml("error", String(e.message || e), subject, coverage);
+    wireCollapse(el);
+    await applyCollapsedState(el);
   }
 }
 

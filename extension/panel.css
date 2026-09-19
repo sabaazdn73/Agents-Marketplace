@@ -483,3 +483,57 @@
   color: #e6e9f0;
   margin-top: 3px;
 }
+
+/* THE COLLAPSE CONTROL AND THE COLLAPSED STATE
+ *
+ * This extension inserts a card into somebody else's page. In the flow it
+ * pushes content down, which is polite; floating, it sits on top of the page
+ * and covered 8004scan's right-hand column for the whole visit with no way to
+ * move it. Collapsing leaves the header, which is one line, so the panel is
+ * still reachable rather than gone.
+ *
+ * The control is a button rather than an icon font: no asset to load, nothing
+ * to fail. It is sized to a real target, not to the glyph. */
+.tnega-min {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  margin-right: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #c7ccd8;
+  font: 600 15px/1 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.tnega-min:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: #eef1f6;
+}
+.tnega-min:focus-visible {
+  outline: 2px solid #97FCE4;
+  outline-offset: 1px;
+}
+
+/* Everything except the header goes. The header keeps its own padding so the
+ * collapsed card is a titled strip rather than a cropped panel. */
+.tnega-panel.tnega-collapsed > *:not(.tnega-head) {
+  display: none !important;
+}
+.tnega-panel.tnega-collapsed .tnega-head {
+  border-bottom: 0;
+}
+
+/* Collapsed and floating is the case this was built for: it shrinks to a strip
+ * in the corner instead of a card over the content. */
+.tnega-panel.tnega-floating.tnega-collapsed {
+  max-height: none;
+  height: auto;
+  width: auto;
+  max-width: 320px;
+}

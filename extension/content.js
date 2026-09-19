@@ -195,6 +195,7 @@ function panelHtml(state, data, address) {
         <div class="tnega-title">Post-only rejection</div>
         <div class="tnega-sub">${shortAddr} &middot; measured by Tnega</div>
       </div>
+      ${collapseButtonHtml(false)}
       <a class="tnega-link" href="https://www.tnega.app/market" target="_blank" rel="noreferrer">Tnega</a>
     </div>`;
 
@@ -375,6 +376,11 @@ function place(el, address, allowFallback) {
 async function render(address) {
   const el = ensurePanel();
   el.innerHTML = panelHtml("loading", null, address);
+  // innerHTML replaces the header, and with it the control, so every render
+  // path re-wires. applyCollapsedState runs before the panel is populated so a
+  // collapsed panel never flashes open first.
+  wireCollapse(el);
+  await applyCollapsedState(el);
 
   // The card is rendered after this script runs, so wait for it rather than
   // giving up. Ten seconds is generous; a slow route change is common here.
@@ -401,9 +407,13 @@ async function render(address) {
     const data = await fetchAddress(address);
     if (inflight !== attempt) return; // a newer address won the race
     el.innerHTML = panelHtml("ready", data, address);
+    wireCollapse(el);
+    await applyCollapsedState(el);
   } catch (e) {
     if (inflight !== attempt) return;
     el.innerHTML = panelHtml("error", String(e.message || e), address);
+    wireCollapse(el);
+    await applyCollapsedState(el);
   }
 }
 
