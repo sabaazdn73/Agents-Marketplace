@@ -99,15 +99,14 @@ export default function SellYourAgentForm() {
     { id: 'x402', icon: Hammer, label: 'Pay-per-use', desc: 'Buyer is charged automatically each time they use it, paid straight to your wallet.' },
   ];
 
-  // mx-auto, and the same 3xl measure the other form pages use.
+  // FULL WIDTH, like every other tab in the shell.
   //
-  // Without mx-auto this block pinned itself to the left of a 1,363px column
-  // and left 691px of dead space beside it, measured in the browser, while How
-  // It Works and Build Your Agent centred at 768px. It was the only page in the
-  // shell that did not centre, which is what made the set look unfinished
-  // rather than deliberate.
+  // This first carried max-w-2xl with no mx-auto, so it pinned left and left
+  // 691px of dead space beside it. Centring it on 768px fixed the pinning and
+  // left a third of the row empty, which is the complaint that followed. The
+  // tabs are meant to read as one set, so the cap is gone rather than tuned.
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <div>
         <h2 className="text-2xl font-bold mb-1">Sell Your Agent</h2>
         <p className="text-sm text-gray-500">List an agent <strong>you own</strong> and choose how people pay you for it. We verify ownership against the public registry before listing.</p>

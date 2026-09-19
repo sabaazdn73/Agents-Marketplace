@@ -748,8 +748,11 @@ export default function HowItWorksPage({ variant = 'web' }) {
     },
   ];
 
+  // `compact` is the popup/panel rendering and keeps its own tight column. The
+  // full page is full width, like every other tab: it sat at 768px inside a
+  // 1,363px column, which is the empty-gutter complaint.
   return (
-    <div className={compact ? 'space-y-4' : 'max-w-3xl mx-auto'}>
+    <div className={compact ? 'space-y-4' : 'w-full'}>
       {!compact && (
         <div className="flex items-center gap-3 mb-3">
           <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">

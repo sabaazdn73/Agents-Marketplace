@@ -1984,7 +1984,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               the right. Every text tab now centres in the same way, so moving
               between tabs does not move the text. */}
           {nav === 'report' && (
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Advantage Report</h2>
               <p className="text-gray-500 mb-8">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
               <AdvantageReport />
@@ -2003,7 +2003,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
           {/* Learn Tab */}
           {nav === 'learn' && (
-            <div className="max-w-3xl mx-auto">
+            <div className="w-full">
               <h2 className="text-3xl font-bold tracking-tight mb-2">Learn</h2>
               <p className="text-gray-500 mb-6">What each agent does, and what authority you're granting when you hire one.</p>
 
@@ -2053,7 +2053,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               comment above for the full reasoning this was moved out of
               "Build Your Agent" for. */}
           {nav === 'skills' && (
-            <div className="max-w-3xl mx-auto">
+            <div className="w-full">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Zap size={24} /></div>
                 <h2 className="text-3xl font-bold tracking-tight">Skills</h2>
@@ -2067,7 +2067,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
           {/* Native Agent Marketplace Tab */}
           {nav === 'native' && (
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Bot size={24} /></div>
                 <h2 className="text-3xl font-bold tracking-tight">Native Agent Marketplace</h2>
@@ -2080,7 +2080,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           )}
 
           {nav === 'build' && (
-            <div className="max-w-3xl mx-auto">
+            <div className="w-full">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Sparkles size={24} /></div>
                 <h2 className="text-3xl font-bold tracking-tight">Build Your Agent</h2>
