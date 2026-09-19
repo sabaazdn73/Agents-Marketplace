@@ -428,6 +428,21 @@ def holdings(address: str) -> dict:
     Delegating HYPE is something most participants here do; it is not an
     alternative to trading.
 
+    IF YOU DO READ userNonFundingLedgerUpdates, READ usdcValue AND NOT amount.
+    An entry looks like:
+
+        {"type": "spotTransfer", "token": "HYPE",
+         "amount": "1352.15270288", "usdcValue": "99972.76224", ...}
+
+    `amount` is denominated in the TOKEN and `usdcValue` sits directly beside
+    it. On 2026-09-19 this project summed `amount` across a month of entries
+    and read the total as dollars: about $3M for an address that had actually
+    moved $122M of HYPE. The missing $119M was then written up as a
+    discrepancy in the venue's own accounting that could not be explained. It
+    was not the venue's, it was a unit error, and it survived review because
+    the number it produced was plausible on its own. Where usdcValue is absent,
+    multiply by the token price at the entry's timestamp rather than today's.
+
     The obvious second idea does not work either. userNonFundingLedgerUpdates
     looks like it would show what an address spends its time doing, and it
     does not: across three addresses of very different kinds the only delta

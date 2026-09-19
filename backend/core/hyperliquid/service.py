@@ -196,6 +196,15 @@ def address_detail(address: str) -> dict:
             venue = leaderboard_row(addr, include_pnl=(polls == 0))
         except Exception:  # noqa: BLE001
             venue = None
+        # WHAT THE PROFIT CAME FROM, where that can be computed rather than
+        # guessed. Only alongside a PnL figure: without one there is nothing
+        # for an attribution to attribute. attribution.attribute never raises
+        # and returns its own reason when it cannot finish, so the three cases
+        # a reader sees are established, not established with a named limit,
+        # and absent.
+        if venue and venue.get("includes_pnl"):
+            from core.hyperliquid import attribution
+            venue["attribution"] = attribution.attribute(addr)
 
     return {
         "address": addr,

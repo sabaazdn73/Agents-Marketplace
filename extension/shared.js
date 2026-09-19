@@ -738,15 +738,34 @@ function venueLeaderboardLines(vl) {
     out.push(`${signedUsd(all.pnl)} since the account opened.`);
   }
   if (m.pnl !== null && m.pnl !== undefined) {
-    // Said because this project checked and could not reproduce it. The file
-    // agrees with the venue's own portfolio endpoint to a median 0.17% of
-    // account value, so it is a faithful copy. What does not reconcile is the
-    // venue's PnL against the venue's own account value history: for
-    // 0x393d0b87 the month shows +$268.8M of PnL against a +$148.6M change in
-    // account value, and the ledger carries about $3M of transfers, which does
-    // not close a $120M gap.
-    out.push("The venue's own profit figure. It is not restricted to trading, "
-      + "and this project does not reproduce how it is derived.");
+    // WHAT THE PROFIT CAME FROM, on the one shape of account where that can be
+    // computed rather than guessed.
+    //
+    // The "we do not reproduce how it is derived" sentence used to be
+    // unconditional. It was written on the strength of a $120M gap that turned
+    // out to be this project's own unit error, and where the backend can now
+    // close the composition to 0.25% it is simply false. So it is kept only
+    // where the attribution could not be completed, which is still most
+    // accounts: see attribution.py for why a trading account cannot be done at
+    // all.
+    const at = vl.attribution;
+    if (at && at.established) {
+      const st = Math.round(at.stake_start_hype).toLocaleString();
+      // The line above already says there were no trades, so this one starts
+      // with what the account did hold rather than repeating the absence.
+      out.push(`It held about ${st} HYPE staked while HYPE moved from `
+        + `$${at.hype_start.toFixed(2)} to $${at.hype_end.toFixed(2)}, and was paid `
+        + `${Math.round(at.staking_rewards_hype).toLocaleString()} HYPE in staking rewards. `
+        + `Those two come to ${signedUsd(at.profit_usd)} on our own reading of the chain.`);
+    } else {
+      const why = at && at.detail
+        ? at.detail.charAt(0).toLowerCase() + at.detail.slice(1)
+        : null;
+      out.push("The venue's own profit figure. It is not restricted to trading, and "
+        + (why
+          ? `where it came from is not established here: ${why}`
+          : "this project does not reproduce how it is derived."));
+    }
   }
   return out;
 }

@@ -170,6 +170,29 @@ def fetch_leaderboard(timeout: int = 180) -> list[dict]:
     month ROI is +0.013 by Pearson and +0.118 by rank. The two are unrelated,
     which means a clean quoter is not thereby a profitable one. That was worth
     saying when the source was thought to be broken and is worth more now.
+
+    THE MONTH WINDOW ENDS AROUND 13:00 UTC, NOT AT THE FETCH TIME
+    Established 2026-09-19 by fit, because the venue documents it nowhere. One
+    address holds 12.0M HYPE staked and has never placed an order, so its whole
+    profit is the stake moving with the price and can be recomputed
+    independently. Sweeping the window boundary across 48 hours, that
+    recomputation lands within 0.1% of the file's figure for an end between
+    07:00 and 13:00 UTC, and diverges to +14% by 01:00 and +58% a day earlier.
+
+    Read these figures as describing that window rather than the moment the
+    file was downloaded. Last-Modified is when the file was written and is not
+    the same thing: it was 29 minutes old when this was measured, while the
+    window it describes had closed hours before.
+
+    One address and one fit, so it is a working assumption rather than a
+    documented fact, and a second attributable address is how it gets tested.
+
+    WHERE THE PnL CAME FROM CAN BE RECOMPUTED, FOR ONE SHAPE OF ACCOUNT
+    See core.hyperliquid.attribution. For an account whose value sits in
+    staking the composition closes to 0.25% from userFills, delegatorSummary
+    with its history and rewards, and the ledger. For an account that trades it
+    cannot be done at all, because the venue serves no fills history: asked for
+    any window older than today its fills endpoint returns nothing.
     """
     req = urllib.request.Request(
         LEADERBOARD_URL, headers={"User-Agent": "tnega-hl-collector/1"})
