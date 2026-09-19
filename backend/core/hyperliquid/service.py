@@ -175,8 +175,31 @@ def address_detail(address: str) -> dict:
                 band = name
                 break
 
+    # THE VENUE'S OWN RECORD, ATTACHED HERE AND NOT AT THE CALL SITES.
+    #
+    # WHY IT MOVED, 2026-09-19. This was added to core.extension.subject only,
+    # and there are two endpoints: /api/extension/subject, which subject.py
+    # serves, and /api/hyperliquid/address, which is what the panel on an
+    # address page actually calls. The second never got it, so an address in
+    # the leaderboard file rendered "it does not appear in the venue's
+    # leaderboard file either" while the file held a $35M account. The fix for
+    # a figure that two call sites have to remember is not a third call site.
+    #
+    # PnL FOLLOWS THE SAME RULE AS EVERYWHERE ELSE and it is decided here, on
+    # polls rather than on tracking: an address this project has never polled
+    # has no rate of ours on the panel for PnL to sit beside, and never will
+    # until it is selected. An address with polls behind it does, even when
+    # today's rate is withheld, so it gets scale and no PnL.
+    venue = None
+    if withheld is not None:
+        try:
+            venue = leaderboard_row(addr, include_pnl=(polls == 0))
+        except Exception:  # noqa: BLE001
+            venue = None
+
     return {
         "address": addr,
+        "venue_leaderboard": venue,
         "tracked": tracked,
         "as_of": now.isoformat(),
         "freshness": {

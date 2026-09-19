@@ -39,12 +39,25 @@ const WITHHELD = {
   },
   // Same reason, different situation: not in our set AND not in the venue's
   // leaderboard file either, so nothing follows and nothing should be promised.
+  //
+  // THIS NO LONGER INFERS ANYTHING FROM THE ABSENCE, corrected 2026-09-19.
+  // It used to end "so an address absent from both has most likely not traded
+  // there", which was a conclusion drawn from a gap in someone else's file.
+  // Tested: of 40 addresses absent from the file, 2 had a venue record, and
+  // both of those had fills, 3 and 20 of them. The file is narrower than the
+  // set of addresses that have traded, so absence from it is not evidence of
+  // anything about the address.
+  //
+  // The reliable statement is already on this panel, one block up: userRole
+  // answers "missing" for an address the venue has never seen, and the
+  // account block says so in its own words. That is a reading. This is not.
   not_tracked_no_record: {
     title: "Not in our measured set",
     body: "This project has not polled this address, so it has no rejection rate "
-      + "of ours, and it does not appear in the venue's leaderboard file either. "
-      + "That file covers addresses that have traded on Hyperliquid, so an "
-      + "address absent from both has most likely not traded there.",
+      + "of ours, and it is not in the venue's leaderboard file either. That "
+      + "file lists the accounts the venue ranks and is narrower than everyone "
+      + "who has traded, so its silence is not evidence about this address. "
+      + "Whether the venue has any record of it is said above.",
   },
   no_polls_yet: {
     title: "Tracked, not yet polled",

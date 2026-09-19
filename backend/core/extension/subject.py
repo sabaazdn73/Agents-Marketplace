@@ -225,19 +225,8 @@ async def _hyperliquid_block(address: str) -> dict:
         d = await asyncio.to_thread(service_address_detail, address)
         from core.hyperliquid import venuerole
         d["account"] = await asyncio.to_thread(venuerole.describe, address)
-        # An address in our set whose rate is withheld has the same empty
-        # panel, for a different reason. It gets the venue's scale figures
-        # too, and NOT the PnL: this address is one we measure, so a rate
-        # belongs on this panel and may return tomorrow. A column that
-        # appeared whenever an address went quiet and vanished when it came
-        # back would be a worse rule than either answer on its own.
-        if d.get("withheld_reason"):
-            try:
-                row = await asyncio.to_thread(leaderboard_row, address, False)
-            except Exception:  # noqa: BLE001
-                row = None
-            if row:
-                d["venue_leaderboard"] = row
+        # No attachment here any more. address_detail does it for every
+        # caller, which is what stopped the two endpoints disagreeing.
         return d
     except Exception:  # noqa: BLE001
         # The venue store is unreachable. That is not a statement about the

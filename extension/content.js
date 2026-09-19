@@ -226,13 +226,13 @@ function panelHtml(state, data, address) {
       ${accountHtml(data.account)}
       <div class="tnega-withheld-title">${w.title}</div>
       <div class="tnega-withheld-body">${w.body}</div>
-      ${f.polls === undefined && p.alo_total === undefined ? "" : `
+      ${(f.polls === undefined && p.alo_total === undefined) || !f.polls ? "" : `
       <div class="tnega-facts">
         <div><span>Polls stored</span><b>${fmtInt(f.polls)}</b></div>
         <div><span>Newest order seen</span><b>${fmtAge(f.newest_record_age_seconds)}</b></div>
         <div><span>Post-only orders seen</span><b>${fmtInt(p.alo_total)}</b></div>
       </div>`}
-      ${f.polls === undefined ? "" : `<div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>`}
+      ${!f.polls ? "" : `<div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>`}
       ${venueHtml(data.venue_leaderboard)}
       ${agentApprovalHtml(data.account)}
       ${holdingsHtml(data.holdings, (accountBlock(data.account) || {}).kind)}
