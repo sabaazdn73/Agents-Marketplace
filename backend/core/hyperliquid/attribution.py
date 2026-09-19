@@ -167,9 +167,10 @@ def _attribute(addr: str, window_days: int) -> dict:
         return _unestablished(
             "trades_in_window",
             f"The account placed {len(in_window):,} or more trades in the "
-            "window, and the venue does not serve the fills history needed to "
-            "value them. Asked for any window older than today, its fills "
-            "endpoint returns nothing.")
+            "window. Its fills say what each closed position earned over its "
+            "whole life, which is not the same as what the account gained "
+            "between two dates, and the position state needed to convert one "
+            "into the other is not published.")
 
     # 2. STAKING. The only holding whose history the venue does serve.
     summary = _info({"type": "delegatorSummary", "user": addr}) or {}
