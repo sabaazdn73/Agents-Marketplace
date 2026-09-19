@@ -16,8 +16,12 @@ change with it.
     tnega-0.2.0.zip                   the package to upload
     icon-128.png                      store icon, 128x128
     screenshot-1-rate.png             1280x800, the panel showing a rate
-    screenshot-2-no-rate.png          1280x800, the panel refusing to show one
+    screenshot-2-no-rate.png          1280x800, the panel on an address outside
+                                        the measured set, showing the venue's
+                                        own record instead
+    screenshot-3-popup.png            1280x800, the toolbar popup, both subjects
     promo-440x280.png                 small promo tile
+    promo-1400x560.png                marquee promo tile
     listing.md                        every text field, ready to paste
     build.py                          rebuilds and re-checks the zip
     capture.py                        re-takes the screenshots from a live page

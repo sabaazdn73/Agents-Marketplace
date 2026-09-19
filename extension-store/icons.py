@@ -50,6 +50,14 @@ def promo_svg(master_b64):
     what the extension shows and one saying what it does not. No Hypurr, no
     Hyperliquid mark, no number: a number on a promotional tile would either be
     invented or be stale the day after it was rendered.
+
+    The strapline reads "for Hyperliquid and On-chain Agents" from 0.2.0. It
+    was "for Hyperliquid", which described half the extension once the agent
+    subject existed. Note that the ITEM NAME dropped the venue's name entirely,
+    on the trademark reasoning in listing.md; naming the venue here says what
+    the extension works with rather than claiming to be their product, which is
+    the distinction the policy draws. The type is smaller because the line is
+    twice as long and the tile did not grow.
     """
     return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
      width="440" height="280" viewBox="0 0 440 280">
@@ -75,16 +83,66 @@ def promo_svg(master_b64):
   <text x="144" y="74" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
         font-size="27" font-weight="700" fill="#F3F4F6">Tnega</text>
   <text x="144" y="104" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="18" font-weight="500" fill="#97FCE4">for Hyperliquid</text>
+        font-size="14" font-weight="500" fill="#97FCE4">for Hyperliquid and On-chain Agents</text>
 
   <rect x="32" y="158" width="376" height="1" fill="#FFFFFF" fill-opacity="0.10"/>
 
   <text x="32" y="192" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="16" font-weight="600" fill="#E5E7EB">Post-only rejection, on the address page</text>
-  <text x="32" y="218" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="13" fill="#9CA3AF">The rate for an address, or the reason there is no rate</text>
-  <text x="32" y="240" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="13" fill="#9CA3AF">to show. No recommendation, no prediction.</text>
+        font-size="16" font-weight="600" fill="#E5E7EB">What was measured, on the address page</text>
+  <text x="32" y="216" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="13" fill="#9CA3AF">Post-only rejection, or whether an agent answers and who</text>
+  <text x="32" y="236" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="13" fill="#9CA3AF">has paid it. Or the reason there is nothing to show.</text>
+  <text x="32" y="258" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="12" fill="#6B7280">No recommendation, no prediction.</text>
+</svg>
+'''
+
+
+def marquee_svg(master_b64):
+    """The 1400x560 marquee tile.
+
+    Not the small tile scaled up. At 1400 wide the same three lines would sit
+    in a corner with half the canvas empty, so the mark and wordmark take the
+    left third and the three things the extension says take the right, each on
+    its own line at a size that survives the store's own downscaling.
+
+    The store crops this tile at several aspect ratios depending on where it is
+    shown, so nothing meaningful goes within 40px of any edge.
+    """
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1400" height="560" viewBox="0 0 1400 560">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B101B"/>
+      <stop offset="100%" stop-color="#131C2E"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#97FCE4" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#97FCE4" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1400" height="560" fill="url(#ground)"/>
+  <rect x="0" y="0" width="1400" height="4" fill="url(#hair)"/>
+
+  <image x="96" y="170" width="220" height="220" xlink:href="data:image/png;base64,{master_b64}"/>
+
+  <text x="360" y="246" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="68" font-weight="700" fill="#F3F4F6">Tnega</text>
+  <text x="360" y="296" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="26" font-weight="500" fill="#97FCE4">for Hyperliquid and On-chain Agents</text>
+
+  <rect x="360" y="330" width="944" height="1" fill="#FFFFFF" fill-opacity="0.10"/>
+
+  <text x="360" y="376" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="24" font-weight="600" fill="#E5E7EB">What was measured about the address on the page you are on</text>
+  <text x="360" y="414" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="19" fill="#9CA3AF">Post-only rejection on Hyperliquid. Whether a registered agent answers,</text>
+  <text x="360" y="442" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="19" fill="#9CA3AF">and who has paid it. Or the reason there is nothing to show.</text>
+  <text x="360" y="482" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="17" fill="#6B7280">No recommendation, no prediction, no score.</text>
 </svg>
 '''
 
@@ -122,7 +180,16 @@ def main():
         return 1
     print(f"wrote {tile.relative_to(ROOT)}")
 
-    for path in [ICONS / f"tnega-{s}.png" for s in TOOLBAR_SIZES] + [store_icon, tile]:
+    msvg = pathlib.Path(tempfile.gettempdir()) / "tnega-marquee.svg"
+    msvg.write_text(marquee_svg(base64.b64encode(MASTER.read_bytes()).decode()))
+    marquee = STORE / "promo-1400x560.png"
+    subprocess.run(
+        ["rsvg-convert", "-w", "1400", "-h", "560", "-o", str(marquee), str(msvg)],
+        check=True,
+    )
+    print(f"wrote {marquee.relative_to(ROOT)}")
+
+    for path in [ICONS / f"tnega-{s}.png" for s in TOOLBAR_SIZES] + [store_icon, tile, marquee]:
         print(f"  {path.relative_to(ROOT)}  {Image.open(path).size}")
     return 0
 
