@@ -35,7 +35,20 @@ import { PARTNERS, PARTNER_KIND } from './partners';
 // compete with each other and with these, and a mark that competes with twenty
 // others is not a mark anybody reads.
 const PRIMARY = new Set([PARTNER_KIND.EVENT, PARTNER_KIND.CHAIN]);
-const PRIMARY_PARTNERS = PARTNERS.filter((p) => PRIMARY.has(p.kind));
+
+// Kept out of the strip by name, 2026-09-19.
+//
+// Excluded here rather than deleted from partners.js because that file is the
+// project's credit list and these three are still used: TermiX is the venue
+// behind the Advantage Report, PancakeSwap and Altana are read by the running
+// system. What changes is that they are not marks in the moving strip, which
+// carries the chains this project deploys to and the events it was built for.
+// Removing the rows instead would have dropped the credit as well as the logo.
+const NOT_IN_STRIP = new Set(['Altana', 'PancakeSwap', 'TermiX']);
+
+const PRIMARY_PARTNERS = PARTNERS.filter(
+  (p) => PRIMARY.has(p.kind) && !NOT_IN_STRIP.has(p.name),
+);
 
 function PartnerLogo({ p }) {
   const [broken, setBroken] = useState(false);

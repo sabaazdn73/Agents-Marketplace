@@ -136,7 +136,7 @@ export default function VerificationExplainerSection({
           <div>
             <p className="font-medium text-gray-700 dark:text-gray-300 mb-1">Why we bother with this at all</p>
             <p className="text-xs leading-relaxed">
-              An independent study of the on-chain agent registries this marketplace draws from found that only
+              An independent study of the on-chain agent registries this house draws from found that only
               <strong> 3 to 15%</strong> of registered agents had a working, reachable service. The rest were registered
               but not answering. It also found that up to <strong>90%</strong> of written reviews on these registries
               looked coordinated rather than left by independent buyers. Being registered, or having plenty of

@@ -24,10 +24,38 @@ import RobinhoodView from './RobinhoodView';
 import MonadView from './MonadView';
 import ChainChooser from './ChainChooser';
 
-// Where the answer is remembered, so the choice is made once rather than at
-// every visit. A chooser that reappears after it has been answered is not a
-// decision point, it is a toll gate.
-const CHOICE_KEY = 'tnega_chain_choice';
+// The chooser is the Explore tab's first screen, every time Explore is opened.
+//
+// IT USED TO BE REMEMBERED, AND THAT WAS WRONG, corrected 2026-09-19.
+// The first version stored the answer in localStorage on the reasoning that a
+// chooser which reappears after being answered is a toll gate. What that
+// actually produced is a tab whose own entry point could not be reached:
+// clicking Explore went straight to whichever chain had been picked once,
+// weeks earlier, and there was no way back to the chain list at all. A screen
+// you can only ever see once is not the front of the tab, it is a splash.
+//
+// So the choice lasts for as long as you are looking at a chain, and clicking
+// Explore puts the list back. Nothing is stored across page loads.
+//
+// It is module state rather than component state because ChainViewTabs
+// unmounts whenever an agent's detail page opens and remounts on the way back.
+// Component state would reset there, and returning from one agent would throw
+// away the chain you were browsing, which is a worse fault than the one this
+// replaces. resetChainChoice is what the Explore nav item calls; nothing else
+// clears it.
+//
+// It also has to NOTIFY, not just clear. Clicking Explore while Explore is
+// already the open tab does not unmount this component, so a module variable
+// read once at mount would never be re-read and the click did nothing visible.
+// Found in the browser: the nav item was wired, the flag was cleared, and the
+// page did not change. The listener set is how the mounted instance hears it.
+let sessionChoice = null;
+const resetListeners = new Set();
+
+export function resetChainChoice() {
+  sessionChoice = null;
+  resetListeners.forEach((fn) => fn());
+}
 
 // The chain someone lands on if they decline to choose. The same default the
 // strip has always opened on, so declining leaves the page exactly as it was
@@ -114,7 +142,7 @@ export default function ChainViewTabs({ mutedBorder, children }) {
   // two initialisers would let the two pieces of state disagree about whether
   // the URL named a chain.
   const [urlView] = useState(() => viewFromLocation());
-  const [active, setActive] = useState(() => urlView || DEFAULT_VIEW);
+  const [active, setActive] = useState(() => urlView || sessionChoice || DEFAULT_VIEW);
 
   // WHO SEES THE CHOOSER, AND WHO MUST NOT
   //
@@ -126,24 +154,21 @@ export default function ChainViewTabs({ mutedBorder, children }) {
   //
   // Someone who has chosen before is in the same position for a weaker reason,
   // and is skipped too.
-  const [choosing, setChoosing] = useState(() => {
-    if (urlView) return false;
-    try {
-      return !window.localStorage.getItem(CHOICE_KEY);
-    } catch (e) {
-      // Private windows and blocked site data throw here. Showing the chooser
-      // is the safe branch: it is the intended first screen, and the cost of
-      // being wrong is one extra click rather than a page that will not load.
-      return true;
-    }
-  });
+  // Shown unless the URL already named a chain. A shared link has made the
+  // choice somewhere else, by being clicked, and putting a chooser in front of
+  // it would break the link rather than help its reader.
+  const [choosing, setChoosing] = useState(() => !urlView && !sessionChoice);
+
+  useEffect(() => {
+    const onReset = () => setChoosing(true);
+    resetListeners.add(onReset);
+    return () => resetListeners.delete(onReset);
+  }, []);
 
   const choose = (id) => {
     setActive(id);
     setChoosing(false);
-    try {
-      window.localStorage.setItem(CHOICE_KEY, id);
-    } catch (e) { /* the choice still applies to this visit */ }
+    sessionChoice = id;
   };
 
   // Keep the tab in step with back/forward, so returning to an agent's URL

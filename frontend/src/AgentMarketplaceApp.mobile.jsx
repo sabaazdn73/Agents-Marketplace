@@ -80,6 +80,7 @@ import SiteLinks from './SiteLinks';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
 import { ChainCardBadge } from './chainViews/chainMarks';
+import { resetChainChoice } from './chainViews/ChainViewTabs';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import SessionModesExplainer from './SessionModesExplainer';
@@ -127,7 +128,7 @@ const LEARN_TOPICS = [
   { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another, each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
   { h: 'How agents are built: parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
   { h: 'How agents are built: hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
- { h: "What's here right now", p: 'Fewer than 2% of the agents listed on this marketplace mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
+ { h: "What's here right now", p: 'Fewer than 2% of the agents listed on this house mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
 ];
 
 // bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
@@ -1667,7 +1668,12 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
             return (
               <button
                 key={item.id}
-                onClick={() => { dismissAgentDetail(); setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
+                onClick={() => {
+                  dismissAgentDetail();
+                  // Same as web: Explore opens on its chain list.
+                  if (item.id === 'market') resetChainChoice();
+                  setNav(item.id); setHiring(false); onNavChange?.(item.id);
+                }}
                 className={`flex flex-col items-center justify-center flex-1 max-w-[72px] h-14 rounded-xl transition-colors ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5'}`}
               >
                 <Icon size={20} className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`} />

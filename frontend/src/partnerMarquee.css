@@ -18,16 +18,43 @@
      own separation rather than sitting flush under the last row of cards. */
   margin-top: 3rem;
   border-top: 1px solid rgb(0 0 0 / 0.08);
-  background: rgb(255 255 255 / 0.4);
   padding: 0.75rem 0;
   overflow: hidden;
+
+  /* PINNED TO THE BOTTOM, NOT TRAILING THE CONTENT.
+   *
+   * It used to be the last element in the flow, so its position was whatever
+   * the page happened to be long enough to put it at: halfway up the window on
+   * the chain chooser, far below the fold on a full agent grid, somewhere else
+   * again on every other tab. A credit strip that lands in a different place on
+   * each tab reads as part of whatever it happens to sit under.
+   *
+   * The fix is in the flow, not in position: sticky.
+   *
+   * Sticky was tried first and is inert here. <main> carries overflow-x-hidden,
+   * which makes it a scroll container, so a sticky child resolves against
+   * main's own scrollport rather than the window; main does not scroll
+   * internally, so the strip never stuck to anything. Rather than pull that
+   * overflow guard out of a layout that relies on it, main is now a flex column
+   * whose content fills the height, which puts this element on the bottom edge
+   * by construction. It is the last thing on the page on every tab, at the same
+   * place, which is what it was failing to be.
+   */
+  background: rgb(248 249 251);
 }
 
-@media (prefers-color-scheme: dark) {
-  .partner-marquee {
-    border-top-color: rgb(255 255 255 / 0.08);
-    background: rgb(255 255 255 / 0.02);
-  }
+/* Dark follows the APP, not the operating system.
+ *
+ * This file only ever answered prefers-color-scheme, and the app's own dark
+ * mode is a `dark` class React toggles. The two disagreed in both directions:
+ * a light OS with the app switched to dark gave a white strip under a dark
+ * page, and a dark OS with the app in light gave the reverse. The media query
+ * is gone rather than kept alongside, because keeping it would have left the
+ * second case broken while fixing the first. Every other surface in this app
+ * is styled off the same class, so this now matches them. */
+.dark .partner-marquee {
+  border-top-color: rgb(255 255 255 / 0.08);
+  background: rgb(15 23 42);
 }
 
 .partner-marquee__viewport {
@@ -94,9 +121,9 @@
   color: rgb(75 85 99);
 }
 
-@media (prefers-color-scheme: dark) {
-  .partner-marquee__name { color: rgb(156 163 175); }
-}
+/* Same reason as the strip's own background above: the label colour follows
+   the app's dark class, not the operating system's preference. */
+.dark .partner-marquee__name { color: rgb(156 163 175); }
 
 @keyframes partner-marquee-scroll {
   from { transform: translateX(0); }

@@ -136,7 +136,7 @@ export function StoreWideDelivery({ totals, className = '' }) {
       Across the whole job index, not just the agents listed here:{' '}
       {withDelivery.toLocaleString()} owner addresses have delivered at least one
       job, {external.toLocaleString()} of them to a buyer other than themselves,
-      and {selfOnly.toLocaleString()} only ever to themselves. The marketplace
+      and {selfOnly.toLocaleString()} only ever to themselves. The house
       lists a diversified slice of a larger store, so a verified count taken from
       this page is smaller than the number of addresses that have delivered.
     </p>

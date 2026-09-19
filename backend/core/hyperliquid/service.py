@@ -491,21 +491,44 @@ def _ws_watch_cap() -> int | None:
         return None
 
 
+_WS_COVERAGE_TTL = 120.0
+_ws_coverage_cache: tuple[float, dict] | None = None
+
+
 def ws_coverage() -> dict:
     """What the seconds-resolution collector holds.
+
+    CACHED FOR TWO MINUTES, and the number is a trade rather than a default.
+    This read is count(DISTINCT address) and count(DISTINCT bucket_start) over
+    5.7M rows, and at 10.5s it was the slowest thing left in the tab's build
+    once the reads were made concurrent on 2026-09-19.
+
+    Two minutes rather than the half hour `brain` uses, because one of these
+    fields decides whether the page says the feed is live. The badge reads
+    last_bucket's age, so a longer cache would delay an outage appearing by
+    however long the cache held. Two minutes is under the threshold that badge
+    uses and takes the warm build to roughly three seconds.
 
     Reported separately from the REST coverage and never added to it. The two
     measure different things: the WebSocket feed omits `tif`, so its
     denominator is not the ALO denominator the REST metrics use. Summing them
     would produce a number that means nothing."""
+    global _ws_coverage_cache
+    now = time.time()
+    if _ws_coverage_cache and now - _ws_coverage_cache[0] < _WS_COVERAGE_TTL:
+        return _ws_coverage_cache[1]
+
     with _conn() as c, c.cursor() as cur:
+        # ONE SCAN, NOT TWO. hl_ws_buckets holds 5.7M rows and these were two
+        # separate full scans of it, measured together at 11.0s of a 41.7s page
+        # build on 2026-09-19. The rejected sum is the same aggregate with a
+        # FILTER, so it rides along with the first pass.
         cur.execute("SELECT count(*), count(DISTINCT address), "
                     "count(DISTINCT bucket_start), min(bucket_start), "
-                    "max(bucket_start), coalesce(sum(n),0) FROM hl_ws_buckets")
-        rows, addrs, buckets, first, last, updates = cur.fetchone()
-        cur.execute("SELECT coalesce(sum(n),0) FROM hl_ws_buckets "
-                    "WHERE status = 'badAloPxRejected'")
-        rejected = cur.fetchone()[0]
+                    "max(bucket_start), coalesce(sum(n),0), "
+                    "coalesce(sum(n) FILTER (WHERE status = 'badAloPxRejected'), 0) "
+                    "FROM hl_ws_buckets")
+        rows, addrs, buckets, first, last, updates, rejected = cur.fetchone()
 
         # Subscribed is read from hl_ws_coverage, which has a row per watched
         # address per bucket whether or not that address delivered. Delivering
@@ -543,7 +566,7 @@ def ws_coverage() -> dict:
     # collected is the bucket count times the bucket width.
     span_hours = ((last - first).total_seconds() / 3600.0) if (first and last) else 0.0
     collected_hours = (buckets or 0) * 10 / 3600.0
-    return {
+    out = {
         "bucket_rows": rows or 0,
         # Kept under its old name for the existing callers, but it is the
         # delivering count and always was.
@@ -573,6 +596,8 @@ def ws_coverage() -> dict:
         "coverage_last_bucket": coverage_last.isoformat() if coverage_last else None,
         "coverage_available": watched is not None,
     }
+    _ws_coverage_cache = (now, out)
+    return out
 
 
 # Bands for the at-a-glance grouping. The boundaries are set where the

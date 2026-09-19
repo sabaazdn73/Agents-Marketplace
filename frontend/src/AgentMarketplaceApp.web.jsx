@@ -42,7 +42,7 @@ import {
   groupCountsFromFacets, hackathonCountsFromFacets,
 } from './marketplaceQuery';
 import { updatePageMeta } from './seoMeta';
-import ChainViewTabs from './chainViews/ChainViewTabs';
+import ChainViewTabs, { resetChainChoice } from './chainViews/ChainViewTabs';
 import HireModePicker, { HIRE_MODE } from './HireModePicker';
 import BudgetHirePanel from './BudgetHirePanel';
 import { useBudgetModeStatus } from './budgetEscrow';
@@ -252,7 +252,7 @@ const LEARN_TOPICS = [
     { h: 'Sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another, each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
     { h: 'Parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
     { h: 'Hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
- { h: 'What\'s here right now', p: 'Fewer than 2% of the agents listed on this marketplace mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
+ { h: 'What\'s here right now', p: 'Fewer than 2% of the agents listed on this house mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
   ], src: SRC.adk },
 ];
 
@@ -1058,7 +1058,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 return (
                   <button
                     key={item.id}
-                    onClick={() => { dismissAgentDetail(); setNav(item.id); setHiring(false); onNavChange?.(item.id); }}
+                    onClick={() => {
+                      dismissAgentDetail();
+                      // Explore opens on its chain list. Without this, clicking
+                      // the tab you are already on did nothing visible, and the
+                      // chain list had no entry point at all once a chain was
+                      // picked.
+                      if (item.id === 'market') resetChainChoice();
+                      setNav(item.id); setHiring(false); onNavChange?.(item.id);
+                    }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left transition-all duration-200 ${
                       active
                         ? 'bg-white/10 text-white ring-1 ring-white/10'
@@ -1171,7 +1179,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
+      {/* A column that always fills the window, so the partner strip has a
+          bottom to sit at. Before this, main was exactly as tall as its
+          content, so the strip landed wherever the content ended: halfway up
+          the window on a short tab and far below the fold on a long one. main
+          has exactly two children, the capped content column and the strip, so
+          making it a flex column only moves those two. */}
+      <main className="flex-1 flex flex-col p-6 md:p-8 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
         {/* Was max-w-6xl (1152px). Measured at a 1599px viewport that left
             56px each side, but the cap is what binds on a larger screen: at
             1920px it was leaving ~224px of empty gutter either side of a
@@ -1179,7 +1193,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             1400px keeps a cap rather than going full width, because some
             tabs here are text rather than cards and an uncapped line length
             reads badly, but it hands the grid most of the room back. */}
-        <div className="max-w-[1400px] mx-auto">
+        <div className="max-w-[1400px] mx-auto w-full flex-1">
           
                     {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail

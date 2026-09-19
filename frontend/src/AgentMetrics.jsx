@@ -129,7 +129,7 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
             <ShieldQuestion size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
               <p className="font-semibold mb-1">This agent's endpoint required credentials we don't have.</p>
-              <p>We tested this agent's registered endpoint directly, and it requires an access credential (an API key or token) this marketplace doesn't hold. That's not a sign it's broken, but it may mean the agent never learns a job was funded without one. Some agents document a public way to get one (check the evidence below); others don't.</p>
+              <p>We tested this agent's registered endpoint directly, and it requires an access credential (an API key or token) this house doesn't hold. That's not a sign it's broken, but it may mean the agent never learns a job was funded without one. Some agents document a public way to get one (check the evidence below); others don't.</p>
               {escrowData?.evidence?.length > 0 && (
                 <button onClick={() => setShowEvidence((v) => !v)} className="flex items-center gap-1 mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-400 hover:underline">
                   {showEvidence ? 'Hide' : 'Show'} what we checked <ChevronDown size={11} className={`transition-transform ${showEvidence ? 'rotate-180' : ''}`} />
@@ -160,7 +160,7 @@ function InteractionGuidance({ agent, evaluation, escrowData, onHire }) {
           <div className="text-xs text-red-800 dark:text-red-300 leading-relaxed">
             <p className="font-semibold mb-1">This agent doesn't appear to operate through Tnega's on-chain escrow system.</p>
             {evaluation.differentProtocol ? (
- <p>We tested this agent's registered endpoint directly: it's a live, working service, just one that speaks a different protocol, not ERC-8183/A2A. If you fund a job here, no one may be listening for it in the shape this marketplace sends. Your payment would sit on hold until the deadline, with no way for this agent to deliver through Tnega specifically.</p>
+ <p>We tested this agent's registered endpoint directly: it's a live, working service, just one that speaks a different protocol, not ERC-8183/A2A. If you fund a job here, no one may be listening for it in the shape this house sends. Your payment would sit on hold until the deadline, with no way for this agent to deliver through Tnega specifically.</p>
             ) : (
  <p>We tested this agent's registered endpoint directly, and it rejected every job-protocol (ERC-8183/A2A) format we tried. If you fund a job here, no one may be listening for it. Your payment would sit on hold until the deadline, with no way for this agent to deliver.</p>
             )}
@@ -405,7 +405,7 @@ function IndependentCorroboration({ ownerAddress, agentId, category }) {
 
   return (
     <div>
- <SectionHeader icon={ShieldQuestion} title="Independent Corroboration" hint="A second, opinion from outside this marketplace, never blended into this marketplace's own numbers." />
+ <SectionHeader icon={ShieldQuestion} title="Independent Corroboration" hint="A second, opinion from outside this house, never blended into this house's own numbers." />
       {termix.status === 'loading' && !t ? (
         <div className="flex items-center gap-2 text-gray-400 text-xs"><Loader2 size={12} className="animate-spin" /> Checking TermiX's registry…</div>
       ) : t?.available ? (
@@ -436,16 +436,16 @@ function IndependentCorroboration({ ownerAddress, agentId, category }) {
 function LiveStatus({ agent, escrowData }) {
   return (
     <div>
-      <SectionHeader icon={Radio} title="Live Status" hint="Is this agent reachable right now, and does it speak this marketplace's escrow protocol." />
+      <SectionHeader icon={Radio} title="Live Status" hint="Is this agent reachable right now, and does it speak this house's escrow protocol." />
       <div className="flex items-center gap-3 flex-wrap">
         <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} size="md" />
         {escrowData?.escrow_incompatible ? (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-400">
-            <AlertTriangle size={10} /> Doesn't speak this marketplace's escrow protocol
+            <AlertTriangle size={10} /> Doesn't speak this house's escrow protocol
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-            <ShieldCheck size={10} /> Speaks this marketplace's escrow protocol
+            <ShieldCheck size={10} /> Speaks this house's escrow protocol
           </span>
         )}
       </div>

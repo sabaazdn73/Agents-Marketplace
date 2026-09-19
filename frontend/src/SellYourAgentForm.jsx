@@ -81,7 +81,7 @@ export default function SellYourAgentForm() {
     // Models 1 & 2, on-chain listing.
  if (!ownership.isOwner) return setLocalErr("Only this agent's owner can list it, this wallet isn't it.");
     if (!price.trim() || Number(price) <= 0) return setLocalErr('Enter a price above 0.');
-    if (!configured) return setLocalErr("Paid listings aren't turned on for this marketplace yet, check back soon.");
+    if (!configured) return setLocalErr("Paid listings aren't turned on for this house yet, check back soon.");
     try {
       const priceRaw = toRawUnits(price, 18);
       const periodSeconds = model === MODEL.SUBSCRIPTION ? Math.max(1, Math.floor(Number(periodDays) * 86400)) : 0;
@@ -118,7 +118,7 @@ export default function SellYourAgentForm() {
       {!configured && (
         <div className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40 text-[11px] text-gray-500 flex items-start gap-2">
           <ShieldCheck size={14} className="shrink-0 mt-0.5" />
-          <span>Paid listings (one-time purchase or subscription) aren't turned on for this marketplace yet. We're still setting that up. You can still confirm you own your agent below, and set up pay-per-use pricing.</span>
+          <span>Paid listings (one-time purchase or subscription) aren't turned on for this house yet. We're still setting that up. You can still confirm you own your agent below, and set up pay-per-use pricing.</span>
         </div>
       )}
 

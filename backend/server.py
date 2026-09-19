@@ -897,19 +897,46 @@ async def hyperliquid_overview(limit: int = 50):
         keepalives for a cluster that has gone silent, statement_timeout for
         one that answers slowly.
         """
-        makers = service.makers(limit)
+        # CONCURRENTLY, BECAUSE THEY DO NOT DEPEND ON EACH OTHER.
+        #
+        # Measured 2026-09-19, one after another: makers 2.7s, rate series
+        # 2.7s, maker_markets 3.1s, roles_for 2.8s, coverage 1.8s, ws_coverage
+        # 11.0s, markets 2.5s, status_breakdown 2.0s, brain 13.2s. 41.7s in
+        # total, and the tab waited for all of it.
+        #
+        # Every one of these is a blocking libpq read against a cluster that is
+        # idle while we wait, so the page cost was the SUM of them rather than
+        # the slowest. Only the maker-derived reads need makers() first; the
+        # rest are independent of everything. The pool is small because the
+        # constraint is the cluster's connection budget, not this container.
+        import concurrent.futures as _cf
+        pool = _cf.ThreadPoolExecutor(max_workers=6)
+        try:
+            f_cov = pool.submit(service.coverage)
+            f_ws = pool.submit(service.ws_coverage)
+            f_mkt = pool.submit(service.markets, 40)
+            f_stat = pool.submit(service.status_breakdown)
+            f_brain = pool.submit(service.brain)
+
+            makers = service.makers(limit)
+            addrs = [m["address"] for m in makers]
+            f_series = pool.submit(service.maker_rate_series, addrs)
+            f_cross = pool.submit(service.maker_markets, addrs)
+            from core.hyperliquid import venuerole
+            f_roles = pool.submit(venuerole.roles_for, addrs)
+        finally:
+            pool.shutdown(wait=False)
         bands = service.maker_bands(makers)
         # The history behind each rate, on the same denominator as the rate.
         # A figure without it is what the tab currently invites a reader to
         # misread: 0.27% could have been 0.27% all week or 40% yesterday.
-        rate_series = service.maker_rate_series([m["address"] for m in makers])
+        rate_series = f_series.result()
         # Which of these rows are vaults. The table already carries a caveat
         # saying some rows may be pooled accounts rather than one trader, and a
         # caveat beside a table that knows which two they are is withholding
         # something it has. One userRole call per row, cached six hours, so
         # this is free after the first build of the day.
-        from core.hyperliquid import venuerole
-        roles = venuerole.roles_for([m.get("address") for m in makers])
+        roles = f_roles.result()
         for m in makers:
             r = roles.get((m.get("address") or "").lower()) or {}
             if r.get("role") == "vault":
@@ -920,25 +947,25 @@ async def hyperliquid_overview(limit: int = 50):
         # so neither could answer the question someone routing order flow asks:
         # not this maker's rate and not this book's rate, but the rate where
         # the order is going.
-        maker_markets = service.maker_markets([m["address"] for m in makers])
+        maker_markets = f_cross.result()
         return {
             "rate_series": rate_series,
             "maker_markets": maker_markets,
-            "coverage": service.coverage(),
+            "coverage": f_cov.result(),
             # Reported alongside, never summed with, the REST coverage: the
             # WebSocket feed omits tif so its denominator differs.
-            "ws_coverage": service.ws_coverage(),
+            "ws_coverage": f_ws.result(),
             "makers": makers,
             "bands": {k: len(v) for k, v in bands.items()},
-            "markets": service.markets(40),
-            "statuses": service.status_breakdown(),
+            "markets": f_mkt.result(),
+            "statuses": f_stat.result(),
             # The persistence result, computed from the WebSocket buckets and
             # cached in the process for half an hour. None when no six-hour
             # stretch has a coverage row in every bucket, which is a statement
             # about the collector rather than a flat coefficient, and the tab
             # renders it as one. service.brain swallows its own failures so a
             # Cockroach hiccup on this one read does not take the tab down.
-            "brain": service.brain(),
+            "brain": f_brain.result(),
         }
 
     try:
