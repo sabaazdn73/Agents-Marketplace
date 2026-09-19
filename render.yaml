@@ -98,6 +98,28 @@ services:
   # That is Hyperliquid's own limit of ten unique users per IP for user
   # subscriptions, not a budget choice, and ws_collector.run raises rather than
   # silently truncating if it is handed more.
+  #
+  # SUSPENDED 2026-09-19, AND DELIBERATELY SO
+  #
+  # The deliverable was a cross-window comparison: the same coefficient
+  # measured over more than one complete six-hour window, which section 1.7 of
+  # docs/hyperliquid-brain-spec.md calls the most important constraint in that
+  # document. Three complete windows now exist, where two were needed. The sign
+  # replicated across all three and the magnitude did not, spanning +0.1179 to
+  # +0.3559.
+  #
+  # It is suspended rather than left running because further collection makes
+  # the published answer narrower rather than better supported. Every new
+  # window is drawn from ordinary conditions, and the range can only be pulled
+  # in by them. The evidence that the magnitude moves is carried by the widest
+  # window, and more ordinary windows dilute the presentation of that without
+  # contradicting it.
+  #
+  # A blueprint sync does NOT resume a suspended service, but a person reading
+  # this file will not see suspension state anywhere in it, which is why it is
+  # written here. Resume it from the Render dashboard, or POST to
+  # /v1/services/srv-damo4q67bikc73brdmq0/resume, when there is a NEW question
+  # that needs a window. Do not resume it to accumulate more of the same.
   - type: worker
     name: hl-ws-collector
     runtime: python
