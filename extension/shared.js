@@ -708,11 +708,32 @@ function venueLeaderboardLines(vl) {
   }
   if (m.pnl !== null && m.pnl !== undefined) {
     const roi = (m.roi !== null && m.roi !== undefined)
-      ? `, a return of ${(m.roi * 100).toFixed(1)}%` : "";
-    out.push(`${signedUsd(m.pnl)} over those 30 days${roi}.`);
+      ? `, which the venue reports as ${(m.roi * 100).toFixed(1)}%` : "";
+    // PnL WITHOUT TRADING IS NOT A TRADING RESULT, added 2026-09-19.
+    //
+    // 15,691 addresses, 58% of those with no 30-day volume, carry a non-zero
+    // 30-day PnL. 0x393d0b87 is the clearest: zero volume in every window,
+    // +$268M for the month, and what it holds is 12,001,915 HYPE delegated and
+    // $45 of spot. Printing that beside the word "return" invites a reader to
+    // take it as trading performance by an account that has never placed a
+    // trade.
+    out.push(vl.traded_in_window === false
+      ? `${signedUsd(m.pnl)} reported for those 30 days${roi}. The account placed no trades in the window, so this did not come from trading.`
+      : `${signedUsd(m.pnl)} over those 30 days${roi}.`);
   }
   if (all.pnl !== null && all.pnl !== undefined) {
     out.push(`${signedUsd(all.pnl)} since the account opened.`);
+  }
+  if (m.pnl !== null && m.pnl !== undefined) {
+    // Said because this project checked and could not reproduce it. The file
+    // agrees with the venue's own portfolio endpoint to a median 0.17% of
+    // account value, so it is a faithful copy. What does not reconcile is the
+    // venue's PnL against the venue's own account value history: for
+    // 0x393d0b87 the month shows +$268.8M of PnL against a +$148.6M change in
+    // account value, and the ledger carries about $3M of transfers, which does
+    // not close a $120M gap.
+    out.push("The venue's own profit figure. It is not restricted to trading, "
+      + "and this project does not reproduce how it is derived.");
   }
   return out;
 }
