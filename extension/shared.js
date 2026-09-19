@@ -926,3 +926,137 @@ async function applyCollapsedState(panel) {
     }
   }
 }
+
+/** Drag the floating panel, and why only that one.
+ *
+ *  Collapsing solved the panel covering the page, and left a smaller version of
+ *  the same problem: the strip sits top-right by default and on 8004scan that
+ *  is exactly where their own account controls are. A control that gets out of
+ *  the way has to be movable, or it has only moved the collision.
+ *
+ *  ONLY THE FLOATING PANEL. In-flow panels sit in the document and push content
+ *  down; dragging one would mean tearing it out of the layout it was placed in,
+ *  which is the behaviour this extension is careful not to have.
+ *
+ *  Position is remembered per host, next to the collapsed flag, and is clamped
+ *  into the viewport on every apply. Without the clamp a panel dragged to the
+ *  edge of a wide window is off screen at a narrow one with no way to reach it,
+ *  which would be worse than the corner it started in.
+ */
+const POSITION_KEY = "tnega_positions";
+
+async function savedPositions() {
+  try {
+    const got = await chrome.storage.local.get(POSITION_KEY);
+    return got[POSITION_KEY] || {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function clampToViewport(left, top, el) {
+  const w = el.offsetWidth || 340;
+  const h = el.offsetHeight || 80;
+  // A margin rather than 0, so a panel can never be dragged flush into a corner
+  // where its own control is under the browser's scrollbar.
+  const m = 8;
+  return {
+    left: Math.max(m, Math.min(left, window.innerWidth - w - m)),
+    top: Math.max(m, Math.min(top, window.innerHeight - h - m)),
+  };
+}
+
+async function applySavedPosition(el) {
+  if (!el.classList.contains("tnega-floating")) return;
+  const pos = (await savedPositions())[location.hostname];
+  if (!pos) return;
+  const { left, top } = clampToViewport(pos.left, pos.top, el);
+  el.style.left = `${left}px`;
+  el.style.top = `${top}px`;
+  el.style.right = "auto";
+}
+
+/** Drag by the header. Pointer events rather than mouse events, so a touch
+ *  drag works and the pointer stays captured if it leaves the element. */
+function wireDrag(el) {
+  if (!el.classList.contains("tnega-floating")) return;
+  const head = el.querySelector(".tnega-head");
+  if (!head || head.dataset.tnegaDrag) return;
+  head.dataset.tnegaDrag = "1";
+  head.classList.add("tnega-draggable");
+
+  // A flag rather than hasPointerCapture as the gate.
+  //
+  // The first version asked head.hasPointerCapture(e.pointerId) on every move
+  // and did nothing when it was false. setPointerCapture can fail, and when it
+  // does the panel simply refuses to move with no error anywhere: found in
+  // testing, where a synthetic pointer sequence moved the card 12px and then
+  // stopped. Capture is still requested, because it keeps the drag alive when
+  // the pointer leaves the header, but it is an improvement to the drag rather
+  // than the thing that decides whether there is one.
+  let dragging = false;
+  let pointerId = null;
+  let startX = 0, startY = 0, baseLeft = 0, baseTop = 0, moved = false;
+
+  head.addEventListener("pointerdown", (e) => {
+    // The control and the link are inside the header and must keep working, so
+    // a press that begins on either is not a drag.
+    if (e.target.closest(".tnega-min, .tnega-link")) return;
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const r = el.getBoundingClientRect();
+    baseLeft = r.left; baseTop = r.top;
+    startX = e.clientX; startY = e.clientY;
+    moved = false;
+    dragging = true;
+    pointerId = e.pointerId;
+    el.style.left = `${baseLeft}px`;
+    el.style.top = `${baseTop}px`;
+    el.style.right = "auto";
+    try { head.setPointerCapture(e.pointerId); } catch (err) { /* see above */ }
+    head.classList.add("tnega-dragging");
+    e.preventDefault();
+  });
+
+  head.addEventListener("pointermove", (e) => {
+    if (!dragging || e.pointerId !== pointerId) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+    moved = true;
+    const { left, top } = clampToViewport(baseLeft + dx, baseTop + dy, el);
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  });
+
+  const end = async (e) => {
+    if (!dragging || e.pointerId !== pointerId) return;
+    dragging = false;
+    pointerId = null;
+    try { head.releasePointerCapture(e.pointerId); } catch (err) { /* never captured */ }
+    head.classList.remove("tnega-dragging");
+    if (!moved) return;
+    try {
+      const all = await savedPositions();
+      all[location.hostname] = {
+        left: parseInt(el.style.left, 10),
+        top: parseInt(el.style.top, 10),
+      };
+      await chrome.storage.local.set({ [POSITION_KEY]: all });
+    } catch (err) { /* the move still applies to this page view */ }
+  };
+  head.addEventListener("pointerup", end);
+  head.addEventListener("pointercancel", end);
+
+  // A window that shrinks below the saved position would leave the panel off
+  // screen, so the clamp runs again on resize.
+  if (!el.dataset.tnegaResize) {
+    el.dataset.tnegaResize = "1";
+    window.addEventListener("resize", () => {
+      if (!el.style.left) return;
+      const { left, top } = clampToViewport(parseInt(el.style.left, 10),
+                                            parseInt(el.style.top, 10), el);
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+    });
+  }
+}

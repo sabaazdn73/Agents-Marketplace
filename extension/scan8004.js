@@ -115,11 +115,15 @@ function placeScanPanel(el) {
     el.innerHTML = agentPanelHtml("ready", data, subject, coverage);
     wireCollapse(el);
     await applyCollapsedState(el);
+    wireDrag(el);
+    await applySavedPosition(el);
   } catch (e) {
     if (scanInflight !== attempt) return;
     el.innerHTML = agentPanelHtml("error", String(e.message || e), subject, coverage);
     wireCollapse(el);
     await applyCollapsedState(el);
+    wireDrag(el);
+    await applySavedPosition(el);
   }
 }
 

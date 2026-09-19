@@ -133,7 +133,7 @@ under Privacy practices.
 > checks a page against this local list before it asks our server anything, so
 > that pages about addresses we have not measured are never reported to us. Also
 > stored: the date the list was built, so the extension knows when to refresh it,
-> and, per host, whether the user has collapsed the panel there, so it stays collapsed on that site and nowhere else. No
+> and, per host, whether the user collapsed the panel there and where they dragged it to, so it stays where they put it on that site and nowhere else. No
 > browsing history, no visited addresses, and no page content are stored.
 
 ### alarms

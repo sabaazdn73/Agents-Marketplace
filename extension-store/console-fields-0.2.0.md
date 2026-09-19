@@ -34,14 +34,14 @@ No page content is read through activeTab. Only the URL is used.
 
 ## storage justification
 
-716 of 1000 characters.
+826 of 1000 characters.
 
 ```
-Holds one thing: a list of the addresses and agents this project has measured, downloaded from our own server, about 1 MB, stored as text in chrome.storage.local.
+Holds one thing of any size: a list of the addresses and agents this project has measured, downloaded from our own server, about 1 MB, stored as text in chrome.storage.local.
 
 The extension checks a page against this local list before it asks our server anything, so pages about addresses we have not measured are never reported to us. This is a privacy measure, not a cache: without it every page view on a covered site would have to be sent somewhere to find out whether there was anything to say.
 
-Also stored: the date the list was built, so the extension knows when to refresh it, and, per host, whether the user has collapsed the panel there, so it stays collapsed on that site and nowhere else.
+Also stored, a few bytes each: the date the list was built, so the extension knows when to refresh it; and per host, whether the user collapsed the panel there and where they dragged it to, so it stays where they put it on that site and nowhere else.
 
 No browsing history, no visited addresses and no page content are stored.
 ```

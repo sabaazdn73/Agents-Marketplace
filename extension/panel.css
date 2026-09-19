@@ -537,3 +537,33 @@
   width: auto;
   max-width: 320px;
 }
+
+/* DRAGGING THE FLOATING PANEL
+ *
+ * Collapsing stopped the panel covering the page and left a smaller version of
+ * the same problem: the strip defaults to the top-right corner, which on
+ * 8004scan is where that site's own account controls are. So the floating panel
+ * can be moved, and remembers where it was put, per host.
+ *
+ * The grab cursor is on the header only. The control and the link inside it
+ * keep their own cursor and their own behaviour, because a press that starts on
+ * either is not a drag. */
+.tnega-panel.tnega-floating .tnega-head.tnega-draggable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.tnega-panel.tnega-floating .tnega-head.tnega-dragging {
+  cursor: grabbing;
+}
+.tnega-panel.tnega-floating .tnega-head .tnega-min,
+.tnega-panel.tnega-floating .tnega-head .tnega-link {
+  cursor: pointer;
+}
+
+/* While dragging, drop the shadow's blur so the card does not smear, and take
+ * the transition off so it tracks the pointer instead of easing after it. */
+.tnega-panel.tnega-floating:has(.tnega-dragging) {
+  transition: none;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
+}

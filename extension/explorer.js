@@ -58,6 +58,8 @@ async function explorerSync() {
   el.innerHTML = agentPanelHtml("loading", null, subject, coverage);
   wireCollapse(el);
   await applyCollapsedState(el);
+  wireDrag(el);
+  await applySavedPosition(el);
 
   // The fallback is withheld for the whole wait, not offered on the first
   // attempt. A fallback that always succeeds ends the retry loop immediately
@@ -86,11 +88,15 @@ async function explorerSync() {
     el.innerHTML = agentPanelHtml("ready", data, subject, coverage);
     wireCollapse(el);
     await applyCollapsedState(el);
+    wireDrag(el);
+    await applySavedPosition(el);
   } catch (e) {
     if (explorerInflight !== attempt) return;
     el.innerHTML = agentPanelHtml("error", String(e.message || e), subject, coverage);
     wireCollapse(el);
     await applyCollapsedState(el);
+    wireDrag(el);
+    await applySavedPosition(el);
   }
 }
 

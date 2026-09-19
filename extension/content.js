@@ -381,6 +381,8 @@ async function render(address) {
   // collapsed panel never flashes open first.
   wireCollapse(el);
   await applyCollapsedState(el);
+  wireDrag(el);
+  await applySavedPosition(el);
 
   // The card is rendered after this script runs, so wait for it rather than
   // giving up. Ten seconds is generous; a slow route change is common here.
@@ -409,11 +411,15 @@ async function render(address) {
     el.innerHTML = panelHtml("ready", data, address);
     wireCollapse(el);
     await applyCollapsedState(el);
+    wireDrag(el);
+    await applySavedPosition(el);
   } catch (e) {
     if (inflight !== attempt) return;
     el.innerHTML = panelHtml("error", String(e.message || e), address);
     wireCollapse(el);
     await applyCollapsedState(el);
+    wireDrag(el);
+    await applySavedPosition(el);
   }
 }
 
