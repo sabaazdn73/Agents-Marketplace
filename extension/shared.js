@@ -628,11 +628,16 @@ function venueLeaderboardLines(vl) {
   if (vl.account_value_usd !== null && vl.account_value_usd !== undefined) {
     out.push(`Account value ${fmtUsdShort(vl.account_value_usd)}, counting perps, spot, staking and vault equity together.`);
   }
-  if (m.volume !== null && m.volume !== undefined) {
+  if (vl.traded_in_window === false) {
+    // No rank here on purpose: 58% of the file is tied at zero volume and
+    // ranked only by the sort's tie-break, so a position among them would be
+    // a number with nothing behind it.
+    out.push("No trading in the last 30 days, though the account still appears in the venue's file.");
+  } else if (m.volume !== null && m.volume !== undefined) {
     out.push(`${fmtUsdShort(m.volume)} traded in 30 days, which is the leveraged figure a venue means by volume rather than capital at risk.`);
-  }
-  if (vl.volume_rank && vl.rows_in_file) {
-    out.push(`Ranked ${fmtInt(vl.volume_rank)} of ${fmtInt(vl.rows_in_file)} by that volume.`);
+    if (vl.volume_rank && vl.ranked_of) {
+      out.push(`Ranked ${fmtInt(vl.volume_rank)} of the ${fmtInt(vl.ranked_of)} addresses that traded at all.`);
+    }
   }
   if (m.pnl !== null && m.pnl !== undefined) {
     const roi = (m.roi !== null && m.roi !== undefined)

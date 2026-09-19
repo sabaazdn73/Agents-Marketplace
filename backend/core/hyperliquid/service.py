@@ -961,8 +961,21 @@ def leaderboard_row(address: str, include_pnl: bool = True) -> dict | None:
             "month": w(mp, mr, mv),
             "all_time": w(ap, ar, av_),
         },
-        "volume_rank": rank,
+        # RANK ONLY WHERE IT ORDERS ANYTHING, corrected 2026-09-19.
+        #
+        # 27,011 of the 46,269 addresses, 58%, traded nothing in the last 30
+        # days, and they occupy every rank from 19,259 to the bottom purely by
+        # the sort's tie-break. "Ranked 31,204 of 46,269" states an ordering
+        # that does not exist, which is a meaningless number presented as a
+        # measurement. Below the last address with volume there is no rank, and
+        # the surface says the address did not trade instead.
+        #
+        # 8,895 of them still hold over $1,000, so this is dormancy rather than
+        # an empty account, and account value remains worth showing for them.
+        "volume_rank": rank if (mv or 0) > 0 else None,
+        "ranked_of": total if (mv or 0) > 0 else None,
         "rows_in_file": total,
+        "traded_in_window": (mv or 0) > 0,
         "fetched_at": fetched.isoformat() if fetched else None,
         # Said in the payload so no surface has to reconstruct it, and so a
         # surface that forgets to render it is visibly missing something.
