@@ -43,8 +43,9 @@
 // handler never runs.
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, ChevronDown } from 'lucide-react';
 import './agentHero.css';
+import LandingStory from './LandingStory';
 
 const HERO_VIDEO = '/agent-hero/multiagents.mp4';
 // A frame taken from the clip itself, so the still and the motion are the
@@ -164,7 +165,18 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
         {/* The sidebar is hidden while this page shows, so "Explore Tnega"
             is the intended exit and this is the backstop. */}
         <a className="skip" href="/market">Skip to Explore</a>
+
+        {/* The page scrolls now, and nothing about a full-bleed hero says so.
+            Without this the story below it is found by accident or not at
+            all, which is the same as not having written it. */}
+        <a className="tn-scroll-cue" href="#tn-why" aria-label="Read what this measures">
+          <ChevronDown size={18} aria-hidden="true" />
+        </a>
       </section>
+
+      {/* Everything a visitor needs before the agent grid means anything.
+          See LandingStory for why the sections are in this order. */}
+      <LandingStory onEnter={() => onEnterMarketplace?.()} />
     </div>
   );
 }

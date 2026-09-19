@@ -167,3 +167,184 @@
   }
 .agent-hero .skip:hover{background:rgba(10,14,40,.85)}
 .agent-hero .skip:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   THE STORY BELOW THE HERO
+   ─────────────────────────────────────────────────────────────────────────
+   The landing page was one screen and stopped. These sections are what a
+   visitor reads before deciding whether the agent grid is worth their time.
+
+   Scoped under .tn-story so nothing here reaches the app, which has its own
+   design language and its own dark-mode class. This page is dark either way:
+   it sits in front of the app and never inherits its theme. */
+.tn-story {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.tn-sec {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 88px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.tn-sec--lead { border-top: 0; padding-top: 96px; }
+.tn-sec--quiet { background: rgba(255, 255, 255, 0.018); }
+.tn-sec--stats { padding-block: 56px; }
+
+.tn-eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+.tn-sec h2 {
+  font-size: clamp(26px, 3.6vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0 0 18px;
+  color: #fff;
+  font-weight: 700;
+  max-width: 22ch;
+}
+.tn-lead {
+  font-size: clamp(15px, 1.5vw, 18px);
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 0 0 14px;
+  max-width: 62ch;
+}
+
+/* Numbers. Each carries its own source line, because a statistic with no
+   provenance is the thing this project argues against. */
+.tn-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 22px;
+}
+.tn-stat-v {
+  font-size: clamp(28px, 3.4vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(90deg, var(--gold), var(--violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.tn-stat-l { font-size: 14px; color: var(--ink); margin-top: 2px; font-weight: 600; }
+.tn-stat-n { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+
+.tn-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  margin-top: 30px;
+}
+.tn-step {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px 20px 22px;
+  background: rgba(255, 255, 255, 0.022);
+  height: 100%;
+}
+.tn-step-n {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--violet);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.tn-step-i { color: var(--gold); margin: 10px 0 6px; display: block; }
+.tn-step h3 { font-size: 16px; margin: 0 0 8px; color: #fff; font-weight: 650; }
+.tn-step p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin: 0; }
+
+.tn-refuse { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 14px; }
+.tn-refuse li {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  padding-left: 16px;
+  border-left: 2px solid rgba(143, 107, 255, 0.5);
+  max-width: 68ch;
+}
+.tn-refuse b { color: var(--ink); font-weight: 650; }
+
+.tn-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+.tn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: linear-gradient(90deg, var(--gold), var(--violet));
+  color: #0b1020;
+  font-weight: 700;
+  font-size: 14.5px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.tn-btn--ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.tn-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+
+/* Reveal on scroll. The transition is the whole effect; the reveal itself
+   falls back to visible where IntersectionObserver or motion is unavailable,
+   which is handled in the component rather than here. */
+.tn-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 620ms ease, transform 620ms ease;
+}
+.tn-reveal.is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .tn-reveal { opacity: 1; transform: none; transition: none; }
+}
+
+@media (max-width: 640px) {
+  .tn-sec { padding: 60px 18px; }
+  .tn-sec h2 { max-width: none; }
+}
+
+/* The scroll cue. The hero fills the window, so nothing about it says there is
+   more underneath; before this the story was found by accident or not at all. */
+.agent-hero .tn-scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 7;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(6, 11, 31, 0.6);
+  color: var(--ink);
+  backdrop-filter: blur(6px);
+  animation: tn-cue 2.4s ease-in-out infinite;
+}
+.agent-hero .tn-scroll-cue:hover { background: rgba(6, 11, 31, 0.85); }
+.agent-hero .tn-scroll-cue:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+@keyframes tn-cue {
+  0%, 100% { transform: translate(-50%, 0); }
+  50%      { transform: translate(-50%, 5px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-hero .tn-scroll-cue { animation: none; }
+}
+
+/* The hero clips its own background gradients, which is why it carries
+   overflow:hidden. That must not clip the sections that now follow it, so the
+   wrapper scrolls and only the hero itself clips. */
+.agent-hero { overflow-x: hidden; }
