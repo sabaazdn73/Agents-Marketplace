@@ -32,8 +32,19 @@ const T = {
 const WITHHELD = {
   not_tracked: {
     title: "Not in our measured set",
+    // The body promised something the panel does not always have. See
+    // withheldCopy: this string is only correct when a venue block follows it.
     body: "This project has not polled this address, so it has no rejection rate "
       + "of ours. What follows is the venue's own published record of it.",
+  },
+  // Same reason, different situation: not in our set AND not in the venue's
+  // leaderboard file either, so nothing follows and nothing should be promised.
+  not_tracked_no_record: {
+    title: "Not in our measured set",
+    body: "This project has not polled this address, so it has no rejection rate "
+      + "of ours, and it does not appear in the venue's leaderboard file either. "
+      + "That file covers addresses that have traded on Hyperliquid, so an "
+      + "address absent from both has most likely not traded there.",
   },
   no_polls_yet: {
     title: "Tracked, not yet polled",
@@ -534,6 +545,29 @@ function noIdentityTitle(half) {
  *  The words are decided in backend/core/hyperliquid/venuerole.py and rendered
  *  verbatim here, the same rule the withheld reasons follow.
  */
+/** The withheld wording, chosen against what the panel actually has.
+ *
+ *  WHY THIS IS A FUNCTION AND NOT A LOOKUP, added 2026-09-19
+ *  `not_tracked` rendered a fixed sentence ending "What follows is the venue's
+ *  own published record of it", and the venue block that was supposed to
+ *  follow it is attached only when the address is in the leaderboard file.
+ *  Every other address reaching that panel, an agent owner or a job provider
+ *  that has never traded on the venue, got a promise with nothing after it.
+ *
+ *  The reason code is unchanged and still means one thing. What changes is
+ *  that the sentence is picked from what is present rather than asserted in
+ *  advance, which is the same rule the rest of this file follows for a rate.
+ */
+function withheldCopy(reason, data) {
+  if (reason === "not_tracked" && !(data && data.venue_leaderboard)) {
+    return WITHHELD.not_tracked_no_record;
+  }
+  return WITHHELD[reason] || {
+    title: "No rate available",
+    body: "No rate is being shown for this address.",
+  };
+}
+
 function accountBlock(a) {
   if (!a || !a.account_kind) return null;
   return {
@@ -543,6 +577,39 @@ function accountBlock(a) {
   };
 }
 
+
+/** API agent approvals, as a reading.
+ *
+ *  WHAT THIS SAYS AND WHAT IT REFUSES TO SAY
+ *  It reports a count and an expiry. It does not say the account is automated,
+ *  and that restraint is measured rather than cautious. Across the venue's
+ *  leaderboard by volume rank band, 24 addresses each, the share holding an
+ *  approval runs 46%, 54%, 50% and 38% from the top band down to rank 20,000:
+ *  a coin flip across the active population with no gradient. Front-ends
+ *  create these too, "Mobile QR" being the venue's own app pairing.
+ *
+ *  It is also current state. Every approval carries an expiry, observed
+ *  between 8 and 178 days out, so an account whose approval lapsed reads here
+ *  exactly like one that never had one. That is said on the panel rather than
+ *  left for a reader to discover, because the zero case is the one a reader
+ *  would otherwise treat as a finding.
+ */
+function agentApprovalLines(a) {
+  if (!a || a.agent_approvals === null || a.agent_approvals === undefined) return [];
+  const n = a.agent_approvals;
+  const out = [];
+  if (n > 0) {
+    const exp = a.agent_approval_expires_at;
+    const days = exp ? Math.round((exp * 1000 - Date.now()) / 86400000) : null;
+    out.push(`Has ${fmtInt(n)} currently valid API agent approval${n === 1 ? "" : "s"}`
+      + (days !== null && days > 0 ? `, the soonest expiring in ${fmtInt(days)} days.` : "."));
+  } else {
+    out.push("No currently valid API agent approval.");
+  }
+  out.push("Read as current state. Approvals expire, so one that has lapsed looks "
+    + "the same here as one that never existed, and front-ends create them too.");
+  return out;
+}
 
 /** What an address holds, for the case where there is no rate to show.
  *

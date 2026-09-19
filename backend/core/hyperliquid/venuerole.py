@@ -135,6 +135,43 @@ def describe(address: str) -> dict:
         # builder" on the strength of a call that failed.
         out["approved_builders"] = None
 
+    # API AGENT APPROVALS. A READING, NOT A CHARACTERISATION.
+    #
+    # extraAgents is per-address and shaped exactly like approvedBuilders, and
+    # it is a different fact: across 30 tracked makers, 20 have an agent and no
+    # builder, 8 have both, 2 have neither. The builder check misses two thirds
+    # of the addresses that have approved an agent.
+    #
+    # WHAT IT DOES NOT SAY, measured 2026-09-19 before deciding the wording.
+    # It is tempting to read an agent approval as "this account is automated
+    # rather than manual". The data does not support that sentence. By volume
+    # rank band, 24 addresses each: 46% of ranks 1-200 have one, 54% of
+    # 200-1,000, 50% of 1,000-5,000, 38% of 5,000-20,000. That is a coin flip
+    # across the whole active population with no gradient. Front-ends create
+    # agents too: "Mobile QR" is the venue's own app pairing and
+    # "pear-pair-trade" is a third-party one, both observed in the sample.
+    #
+    # AND IT IS CURRENT STATE WITH AN EXPIRY. Every approval carries
+    # validUntil, and across 65 of them the horizon ran 8 to 178 days. An
+    # account whose approval lapsed is indistinguishable here from one that
+    # never had one, which is also why the bottom rank band reads 0%: that band
+    # has no addresses that traded this month at all.
+    #
+    # So the panel gets the count and the expiry, and no adjective.
+    try:
+        agents = _info({"type": "extraAgents", "user": addr})
+        agents = agents if isinstance(agents, list) else []
+        out["agent_approvals"] = len(agents)
+        expiries = [a.get("validUntil") for a in agents
+                    if isinstance(a.get("validUntil"), (int, float))]
+        out["agent_approval_expires_at"] = (min(expiries) / 1000.0
+                                            if expiries else None)
+    except Exception:  # noqa: BLE001
+        # None means NOT READ, the same rule approved_builders follows. It must
+        # never become zero, because "has no agent approval" is a claim.
+        out["agent_approvals"] = None
+        out["agent_approval_expires_at"] = None
+
     # The sentence the panel renders. Written here, once, for the same reason
     # every withheld reason is written in the service layer: four surfaces show
     # this and only one of them should be deciding what it means.

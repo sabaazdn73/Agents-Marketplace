@@ -153,11 +153,13 @@ function hyperliquidHtml(h) {
     // where no_address_on_page and store_unavailable live. Neither table is
     // allowed to invent a reason: both are transcriptions of what the server
     // decided.
-    const w = WITHHELD[reason] || AGENT_WITHHELD[reason] || {
-      title: "No rate available",
-      body: "No rate is being shown, and this surface has no wording for the " +
-        "reason given.",
-    };
+    const w = (WITHHELD[reason] || AGENT_WITHHELD[reason])
+      ? withheldCopy(reason, h)
+      : {
+        title: "No rate available",
+        body: "No rate is being shown, and this surface has no wording for the " +
+          "reason given.",
+      };
     const acctKind = (accountBlock(h && h.account) || {}).kind;
     const hold = holdingsLines(h && h.holdings, acctKind);
     const venue = venueLeaderboardLines(h && h.venue_leaderboard);

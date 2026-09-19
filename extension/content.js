@@ -151,6 +151,16 @@ function accountHtml(account) {
  *  by how it performs, and a PnL figure sitting under the words "not in our
  *  measured set" invites exactly the opposite reading.
  */
+function agentApprovalHtml(account) {
+  const lines = agentApprovalLines(account);
+  if (!lines.length) return "";
+  return `<div class="tnega-holdings">
+    <div class="tnega-holdings-title">API agent approvals</div>
+    ${lines.slice(0, 1).map((l) => `<div class="tnega-holdings-line">${esc(l)}</div>`).join("")}
+    <div class="tnega-note">${esc(lines[1] || "")}</div>
+  </div>`;
+}
+
 function venueHtml(vl) {
   const lines = venueLeaderboardLines(vl);
   if (!lines.length) return "";
@@ -211,10 +221,7 @@ function panelHtml(state, data, address) {
   // Withheld. Say which of the reasons it is, because they are different
   // situations and a single greyed-out number would flatten them into one.
   if (data.withheld_reason) {
-    const w = WITHHELD[data.withheld_reason] || {
-      title: "No rate available",
-      body: "No rate is being shown for this address.",
-    };
+    const w = withheldCopy(data.withheld_reason, data);
     return `${head}<div class="tnega-body">
       ${accountHtml(data.account)}
       <div class="tnega-withheld-title">${w.title}</div>
@@ -227,6 +234,7 @@ function panelHtml(state, data, address) {
       </div>`}
       ${f.polls === undefined ? "" : `<div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>`}
       ${venueHtml(data.venue_leaderboard)}
+      ${agentApprovalHtml(data.account)}
       ${holdingsHtml(data.holdings, (accountBlock(data.account) || {}).kind)}
       ${coreHtml(data.core)}
     </div>${FOOT}`;
