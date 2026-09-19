@@ -311,7 +311,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
   };
   return (
-    <div className="max-w-3xl mx-auto mt-4">
+    <div className="w-full mt-4">
       <div className="flex items-center justify-between mb-6">
         <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
           <ChevronRight size={16} className="rotate-180" /> Back to Explore
@@ -1969,7 +1969,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               wallet is the client, so a completed hire has somewhere to be
               found afterward. See MyJobsPanel.jsx for the backing. */}
           {nav === 'my-agents' && (
-            <div className="max-w-2xl">
+            <div className="w-full">
               <h2 className="text-3xl font-bold tracking-tight mb-2">My Agents</h2>
               <p className="text-gray-500 mb-8">Every agent you've hired through here, and where things stand right now.</p>
               <MyJobsPanel accent={accent} mutedBorder="border-gray-200 dark:border-gray-800" />
