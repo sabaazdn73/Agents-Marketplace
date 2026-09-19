@@ -50,7 +50,7 @@ export default function StatusPage({ onBack }) {
 
   return (
     <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-white">
-      <div className="max-w-2xl mx-auto px-6 py-10">
+      <div className="max-w-[1400px] mx-auto px-6 py-10">
         <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors mb-8">
           <ArrowLeft size={16} /> Back to Explore
         </button>
