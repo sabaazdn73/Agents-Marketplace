@@ -138,28 +138,17 @@ export default function App() {
   const isMobile = useIsMobile();
   const [path, navigate] = useRoute();
 
-  // A first-time visitor arriving at the bare domain gets the Home page
-  // once; after that "/" opens the marketplace and Home stays available
-  // from the nav. The backend decides, because only it can see the
-  // request's address (see core/first_visit.py for what that does and does
-  // not store).
+  // "/" IS HOME, FOR EVERYONE, changed 2026-09-19.
   //
-  // Deliberately biased toward the marketplace. The check is given a short
-  // window and anything else -- a slow reply, an error, a backend restart,
-  // any path other than "/" -- leaves the marketplace showing. Home
-  // appearing when it should not is the more annoying way to be wrong.
-  const [firstVisitNav, setFirstVisitNav] = useState(null);
-  useEffect(() => {
-    if (path !== '/') return undefined;
-    const ctl = new AbortController();
-    const giveUp = setTimeout(() => ctl.abort(), 1500);
-    fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/first-visit`, { signal: ctl.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d?.first_visit) setFirstVisitNav('landing'); })
-      .catch(() => {})            // silence is correct: fall through to the marketplace
-      .finally(() => clearTimeout(giveUp));
-    return () => { clearTimeout(giveUp); ctl.abort(); };
-  }, [path]);
+  // It used to show Home only on a genuine first visit, decided by a backend
+  // call, and open the agent grid every time after that. That made the page
+  // that explains the project unreachable in practice: anyone who had been
+  // here before, which includes everyone the link is shared with twice, went
+  // straight to a grid of agents with no statement of what any of it is for.
+  //
+  // The first-visit check is gone rather than inverted. It existed to decide
+  // between two landings and there is only one now, so keeping it would be a
+  // network round trip on every cold load that changes nothing.
 
   useStaggeredWalletReconnect();
 
@@ -197,7 +186,7 @@ export default function App() {
   // here. That also means the sidebar is gone while it shows, so the exits
  // below are the only way out and both are links rather than
   // JS-only handlers.
-  if (path === '/home' || (path === '/' && firstVisitNav === 'landing')) {
+  if (path === '/home' || path === '/') {
     return <LandingPage onEnterMarketplace={() => navigate('/market')} />;
   }
 
@@ -247,7 +236,10 @@ export default function App() {
   // Without this a refresh on a detail page fell through to 'market' and
   // lost the agent.
   const resolvedNav = path.startsWith('/agent/') ? 'market' : (MAIN_TAB_PATHS[path] || 'market');
-  const initialNav = (path === '/' && firstVisitNav) ? firstVisitNav : resolvedNav;
+  // firstVisitNav is always null now that "/" renders Home directly, so this
+  // is just resolvedNav. Kept as one expression rather than threaded through,
+  // because the nav resolution is read in several places below.
+  const initialNav = resolvedNav;
   const onNavChange = (id) => navigate(NAV_TO_PATH[id] || '/market');
 
  // Genuinely different components, not one component with responsive

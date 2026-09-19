@@ -100,26 +100,35 @@ function PartnerLogo({ p }) {
   );
 }
 
+// How much wider than the screen each half is made when the list is too short
+// to fill it. Enough that the widest single mark cannot straddle the seam.
+const SEAM_MARGIN_PX = 200;
+
 export default function PartnerMarquee({ items = PRIMARY_PARTNERS }) {
   const viewportRef = useRef(null);
   const groupRef = useRef(null);
 
-  // SCROLL ONLY WHEN THERE IS MORE THAN FITS.
+  // IT ALWAYS MOVES, AND NO LOGO IS EVER ON SCREEN TWICE.
   //
-  // The loop is two identical halves translated by -50%, which reads as one
-  // continuous strip and, by construction, shows every logo again each time it
-  // comes round. That is what a marquee is, and it was right when the strip
-  // carried nine marks and overflowed every screen.
+  // Those two want opposite things and the middle is a measurement.
   //
-  // Three were removed on 2026-09-19 and six no longer fill a desktop width, so
-  // both halves were on screen at once and every logo was visibly present
-  // twice. Repeating the list to pad the width was tried first and is worse: it
-  // duplicates the names inside a single pass, so they still appear twice and
-  // now do so with no loop to explain it.
+  // The loop is two identical halves translated by -50%, so the second half
+  // lands where the first began and the motion never jumps. Seeing a logo twice
+  // at once happens only when a half is NARROWER than the viewport, because
+  // then both halves fit on screen together. Ten marks come to 1,223px against
+  // a 1,363px viewport, so they did.
   //
-  // There is nothing to scroll when everything already fits, so it does not.
-  // Below the width where the list overflows, the loop is exactly as it was.
-  const [scroll, setScroll] = useState(false);
+  // Stopping the animation fixed the duplicate and lost the movement. Repeating
+  // the list to pad the width kept the movement and put the duplicates inside a
+  // single pass, which is worse. So instead each half is widened to exactly the
+  // viewport width and the slack goes into the gaps: the strip runs
+  // continuously, one half covers the screen, and the copy of any given logo is
+  // always a full screen away from it.
+  //
+  // Measured rather than set in CSS. A percentage min-width inside a
+  // max-content track is circular, and the item widths are the partner names,
+  // which are not all the same length.
+  const [fillWidth, setFillWidth] = useState(null);
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
@@ -127,24 +136,24 @@ export default function PartnerMarquee({ items = PRIMARY_PARTNERS }) {
     if (!viewport || !group) return undefined;
 
     const measure = () => {
-      // MEASURED FROM THE ITEMS, NOT FROM THE GROUP.
-      //
-      // Static mode stretches the group to the full width and spaces the items
-      // out, so once it is on, group.scrollWidth equals the container and the
-      // comparison can never become true again: the strip latched static and
-      // stopped scrolling at any width. Found by narrowing the container to
-      // 420px and watching nothing happen.
-      //
-      // The items' own widths do not change with justify-content, so the
-      // natural width is their sum plus the gaps between them. That is the same
-      // number in both modes, which is what makes the switch reversible.
       const kids = Array.from(group.children);
       if (!kids.length) return;
       const styles = getComputedStyle(group);
       const gap = parseFloat(styles.columnGap || styles.gap) || 0;
+      // The natural width of one pass, summed from the items so it does not
+      // change when the group is stretched. Measuring group.scrollWidth here
+      // would latch: once stretched it reports the container width forever.
       const onePass = kids.reduce((w, k) => w + k.offsetWidth, 0)
         + gap * (kids.length - 1);
-      setScroll(onePass > viewport.clientWidth + 1);
+      // A MARGIN, NOT EXACTLY THE VIEWPORT.
+      //
+      // At exactly the viewport width the two halves meet on screen and the
+      // item sitting on that seam is visible at both edges at once: measured,
+      // Solana appeared twice. Making a half wider than the screen guarantees a
+      // full screen between any logo and its copy, so the seam falls where
+      // there is nothing to double.
+      const target = viewport.clientWidth + SEAM_MARGIN_PX;
+      setFillWidth(onePass < target ? target : null);
     };
 
     measure();
@@ -159,24 +168,24 @@ export default function PartnerMarquee({ items = PRIMARY_PARTNERS }) {
 
   if (!items.length) return null;
 
+  // Applied to BOTH halves, or they would be different widths and the -50%
+  // translate would no longer land the second where the first began.
+  const halfStyle = fillWidth
+    ? { minWidth: `${fillWidth}px`, justifyContent: 'space-evenly', paddingRight: 0 }
+    : undefined;
+
   return (
     <section className="partner-marquee" aria-label="Partners and tools this project uses">
-      <div
-        className={`partner-marquee__viewport${scroll ? "" : " partner-marquee__viewport--static"}`}
-        ref={viewportRef}
-      >
-        <div className={`partner-marquee__track${scroll ? "" : " partner-marquee__track--static"}`}>
-          <div className="partner-marquee__group" ref={groupRef}>
+      <div className="partner-marquee__viewport" ref={viewportRef}>
+        <div className="partner-marquee__track">
+          <div className="partner-marquee__group" ref={groupRef} style={halfStyle}>
             {items.map((p) => <PartnerLogo key={p.name} p={p} />)}
           </div>
-          {/* The second copy exists only to make the loop seamless, so it is
-              rendered only when there is a loop. Hidden from screen readers so
+          {/* Second half makes the loop seamless. Hidden from screen readers so
               each name is announced once. */}
-          {scroll && (
-            <div className="partner-marquee__group" aria-hidden="true">
-              {items.map((p) => <PartnerLogo key={`dup-${p.name}`} p={p} />)}
-            </div>
-          )}
+          <div className="partner-marquee__group" aria-hidden="true" style={halfStyle}>
+            {items.map((p) => <PartnerLogo key={`dup-${p.name}`} p={p} />)}
+          </div>
         </div>
       </div>
     </section>
