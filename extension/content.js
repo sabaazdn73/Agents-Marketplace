@@ -138,6 +138,32 @@ function accountHtml(account) {
  *  the address is for. See holdingsLines in shared.js for the measurement
  *  that ruled the second one out.
  */
+/** The venue's own figures, drawn where this project has no rate.
+ *
+ *  Kept visually distinct from everything else on the panel and headed with
+ *  whose numbers they are. The panel's other blocks are this project's
+ *  measurements; this one is a cached copy of a file Hyperliquid publishes,
+ *  and a reader who cannot tell them apart is being misled about provenance
+ *  even when every figure is correct.
+ *
+ *  The last line is not decoration. An address is selected into the measured
+ *  set by 30-day volume and by whether it still posts resting orders, never
+ *  by how it performs, and a PnL figure sitting under the words "not in our
+ *  measured set" invites exactly the opposite reading.
+ */
+function venueHtml(vl) {
+  const lines = venueLeaderboardLines(vl);
+  if (!lines.length) return "";
+  return `<div class="tnega-venue">
+    <div class="tnega-venue-title">Hyperliquid's own figures for this address</div>
+    ${lines.map((l) => `<div class="tnega-venue-line">${esc(l)}</div>`).join("")}
+    <div class="tnega-note">${esc(
+      "From the venue's public leaderboard, cached daily. Tnega measures none of "
+      + "it. Addresses enter our measured set by 30-day volume and by still "
+      + "posting resting orders, never by how they perform.")}</div>
+  </div>`;
+}
+
 function holdingsHtml(h, kind) {
   const lines = holdingsLines(h, kind);
   if (!lines.length) return "";
@@ -174,8 +200,13 @@ function panelHtml(state, data, address) {
     </div>${FOOT}`;
   }
 
-  const f = data.freshness;
-  const p = data.post_only;
+  // Defaulted, not assumed. An address that is on the venue's leaderboard but
+  // outside our measured set answers with a reason and no freshness or
+  // post_only at all, and reading .polls off undefined threw before the panel
+  // rendered anything. The panel a reader saw was blank because of an
+  // exception, which is the literal version of "reads as broken".
+  const f = data.freshness || {};
+  const p = data.post_only || {};
 
   // Withheld. Say which of the reasons it is, because they are different
   // situations and a single greyed-out number would flatten them into one.
@@ -188,12 +219,14 @@ function panelHtml(state, data, address) {
       ${accountHtml(data.account)}
       <div class="tnega-withheld-title">${w.title}</div>
       <div class="tnega-withheld-body">${w.body}</div>
+      ${f.polls === undefined && p.alo_total === undefined ? "" : `
       <div class="tnega-facts">
         <div><span>Polls stored</span><b>${fmtInt(f.polls)}</b></div>
         <div><span>Newest order seen</span><b>${fmtAge(f.newest_record_age_seconds)}</b></div>
         <div><span>Post-only orders seen</span><b>${fmtInt(p.alo_total)}</b></div>
-      </div>
-      <div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>
+      </div>`}
+      ${f.polls === undefined ? "" : `<div class="tnega-note">No rate is shown rather than a rate you cannot rely on.</div>`}
+      ${venueHtml(data.venue_leaderboard)}
       ${holdingsHtml(data.holdings, (accountBlock(data.account) || {}).kind)}
       ${coreHtml(data.core)}
     </div>${FOOT}`;

@@ -892,3 +892,97 @@ def maker_markets(addresses: list[str],
             "alo_total_shown": sum(r["alo_total"] for r in shown),
         }
     return out
+
+
+def leaderboard_row(address: str, include_pnl: bool = True) -> dict | None:
+    """The venue's own published figures for one address, or None.
+
+    EVERY FIGURE RETURNED HERE IS THE VENUE'S, NOT OURS
+    This reads a cached copy of Hyperliquid's leaderboard file. Nothing in it
+    is measured by this project, and the `source` field says so in the payload
+    rather than leaving each surface to remember. The maker table on the tab
+    makes the same distinction for the one column it already showed.
+
+    WHY IT EXISTS
+    An address outside the rotation had nothing to show, so its panel said
+    only that we were not tracking it, which reads as broken rather than as a
+    limit honestly stated. The venue publishes an account value and four
+    windows of PnL, ROI and volume for all 46,000 of them, and the daily
+    selection job downloads the file anyway.
+    """
+    addr = (address or "").lower()
+    if not addr:
+        return None
+    with _conn() as c, c.cursor() as cur:
+        cur.execute("""
+            SELECT account_value,
+                   day_pnl, day_roi, day_vlm,
+                   week_pnl, week_roi, week_vlm,
+                   month_pnl, month_roi, month_vlm,
+                   alltime_pnl, alltime_roi, alltime_vlm,
+                   volume_rank, rows_in_file, fetched_at
+            FROM hl_leaderboard WHERE address = %s
+        """, (addr,))
+        row = cur.fetchone()
+    if not row:
+        return None
+    (av, dp, dr, dv, wp, wr, wv, mp, mr, mv,
+     ap, ar, av_, rank, total, fetched) = row
+    def w(pnl, roi, vol):
+        # WHERE A REJECTION RATE IS ON THE SAME PANEL, PnL IS NOT
+        #
+        # The rule is structural rather than a matter of taste, and it is the
+        # only reason PnL is ever withheld here: the file itself was checked
+        # on 2026-09-19 and is sound. Across the 30 rated makers that appear
+        # on the leaderboard, the correlation between post-only rejection rate
+        # and 30-day return is +0.013 by Pearson and +0.118 by rank. Putting
+        # the two figures in one panel asserts a relationship the data
+        # rejects, to readers whose job is to act on it.
+        #
+        # An address we do not measure has no rate for PnL to sit beside, so
+        # the objection does not apply and the figures are shown. The line is
+        # drawn at whether the address is in our measured set, not at whether
+        # today's rate happens to be withheld, so a panel does not gain and
+        # lose a PnL column as an address goes quiet and comes back.
+        out = {"volume": vol}
+        if include_pnl:
+            out["pnl"] = pnl
+            out["roi"] = roi
+        return out
+
+    return {
+        "address": addr,
+        "source": "hyperliquid_leaderboard",
+        "includes_pnl": include_pnl,
+        "account_value_usd": av,
+        "windows": {
+            "day": w(dp, dr, dv),
+            "week": w(wp, wr, wv),
+            "month": w(mp, mr, mv),
+            "all_time": w(ap, ar, av_),
+        },
+        "volume_rank": rank,
+        "rows_in_file": total,
+        "fetched_at": fetched.isoformat() if fetched else None,
+        # Said in the payload so no surface has to reconstruct it, and so a
+        # surface that forgets to render it is visibly missing something.
+        "note": ("These are Hyperliquid's own published figures for this "
+                 "address, from its public leaderboard file. This project "
+                 "caches that file daily and measures none of it."),
+    }
+
+
+def leaderboard_addresses() -> list[str]:
+    """Every address in the cached leaderboard file.
+
+    For the membership filter. Returns an empty list rather than raising when
+    the table is not there yet, because a filter missing this key space still
+    works for every other subject, and the first run of hl_select_targets
+    after deploy fills it.
+    """
+    try:
+        with _conn() as c, c.cursor() as cur:
+            cur.execute("SELECT address FROM hl_leaderboard")
+            return [r[0] for r in cur.fetchall()]
+    except Exception:  # noqa: BLE001
+        return []

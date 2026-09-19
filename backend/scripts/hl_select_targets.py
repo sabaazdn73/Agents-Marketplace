@@ -52,6 +52,17 @@ def main() -> int:
     store.ensure_schema(conn)
     store.save_targets(conn, targets)
 
+    # The other 46,000 rows, which this job used to discard. They are the only
+    # thing this project can say about an address outside the rotation, and
+    # the file is already downloaded by the line above. Written after the
+    # targets so a failure here cannot cost the selection.
+    try:
+        kept = store.write_leaderboard(conn, rows)
+        print(f"[hl-select] leaderboard cached: {kept:,} rows", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"[hl-select] leaderboard cache FAILED: {type(e).__name__}: {e}",
+              flush=True)
+
     ages = [t["record_age_seconds"] for t in targets if t.get("record_age_seconds") is not None]
     alos = [t["alo_share"] for t in targets if t.get("alo_share") is not None]
     with conn.cursor() as cur:

@@ -31,8 +31,9 @@ const T = {
 // returns a reason rather than a null.
 const WITHHELD = {
   not_tracked: {
-    title: "Not tracked",
-    body: "This address is not in the collector's set, so nothing has been measured for it.",
+    title: "Not in our measured set",
+    body: "This project has not polled this address, so it has no rejection rate "
+      + "of ours. What follows is the venue's own published record of it.",
   },
   no_polls_yet: {
     title: "Tracked, not yet polled",
@@ -597,9 +598,64 @@ function holdingsLines(h, kind) {
   return out;
 }
 
+/** The venue's own published figures for an address, for a panel with no rate.
+ *
+ *  WHAT THIS IS, AND WHOSE IT IS
+ *  Every line below comes from Hyperliquid's public leaderboard file, cached
+ *  daily by this project's selection job. None of it is measured here. The
+ *  caller renders these under a heading that says so, the same distinction
+ *  the 30-day volume column on the tab already makes.
+ *
+ *  WHY THE PANEL HAS THEM AT ALL
+ *  An address outside the measured rotation used to get one sentence about
+ *  our coverage and no fact about the address, which reads as broken rather
+ *  than as a limit honestly stated. It was not even true that nothing was
+ *  known: the venue publishes an account value and four windows of PnL, ROI
+ *  and volume for all 46,000 of them.
+ *
+ *  PnL IS PRESENT ONLY WHEN THE BACKEND SENT IT
+ *  This function never decides that. service.leaderboard_row does, on one
+ *  rule: PnL is withheld wherever a post-only rejection rate appears on the
+ *  same panel, because the correlation between the two is +0.013 and putting
+ *  them side by side asserts a relationship the data rejects. An address we
+ *  do not measure has no rate, so it has no such adjacency.
+ */
+function venueLeaderboardLines(vl) {
+  if (!vl) return [];
+  const out = [];
+  const m = (vl.windows && vl.windows.month) || {};
+  const all = (vl.windows && vl.windows.all_time) || {};
+  if (vl.account_value_usd !== null && vl.account_value_usd !== undefined) {
+    out.push(`Account value ${fmtUsdShort(vl.account_value_usd)}, counting perps, spot, staking and vault equity together.`);
+  }
+  if (m.volume !== null && m.volume !== undefined) {
+    out.push(`${fmtUsdShort(m.volume)} traded in 30 days, which is the leveraged figure a venue means by volume rather than capital at risk.`);
+  }
+  if (vl.volume_rank && vl.rows_in_file) {
+    out.push(`Ranked ${fmtInt(vl.volume_rank)} of ${fmtInt(vl.rows_in_file)} by that volume.`);
+  }
+  if (m.pnl !== null && m.pnl !== undefined) {
+    const roi = (m.roi !== null && m.roi !== undefined)
+      ? `, a return of ${(m.roi * 100).toFixed(1)}%` : "";
+    out.push(`${signedUsd(m.pnl)} over those 30 days${roi}.`);
+  }
+  if (all.pnl !== null && all.pnl !== undefined) {
+    out.push(`${signedUsd(all.pnl)} since the account opened.`);
+  }
+  return out;
+}
+
+function signedUsd(v) {
+  const n = Number(v);
+  return `${n < 0 ? "\u2212" : "+"}${fmtUsdShort(Math.abs(n))}`;
+}
+
 function fmtUsdShort(v) {
   if (v === null || v === undefined) return "n/a";
   const n = Number(v);
+  // Billions matter here now. Leaderboard volume runs to $42B, and without
+  // this tier that rendered as $42750.0M.
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
   if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}k`;
   return `$${n.toFixed(0)}`;

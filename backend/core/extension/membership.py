@@ -231,6 +231,27 @@ async def collect_keys() -> dict:
         from core.hyperliquid import service
         for row in service.all_known_addresses():
             hyperliquid.add(f"h:{row.lower()}")
+        # EVERY ADDRESS ON THE VENUE'S LEADERBOARD, added 2026-09-19.
+        #
+        # Without this the leaderboard panel reaches almost nobody. The filter
+        # is what decides whether a panel is requested at all, and it held only
+        # the 66 addresses this project has ever polled, so an address outside
+        # the rotation produced no panel rather than a panel with the venue's
+        # figures on it.
+        #
+        # Cost measured before doing it: 46,269 more keys takes the filter from
+        # about 311 KB of bits to 392 KB at the same 0.001 false positive rate.
+        # chrome.storage.local allows 10 MB, so this is not close to a limit.
+        # A false positive still costs one request that answers "nothing here",
+        # which is the behaviour the filter already has for every other key
+        # space.
+        #
+        # They share the h: prefix deliberately. The extension does not need to
+        # tell a measured address from a listed one; the server answers with
+        # whichever payload is right, and a second prefix would put that
+        # decision in two places.
+        for row in service.leaderboard_addresses():
+            hyperliquid.add(f"h:{row.lower()}")
     except Exception:  # noqa: BLE001
         # The Hyperliquid store being unreachable must not produce a filter
         # with its addresses silently missing, because that reads to the

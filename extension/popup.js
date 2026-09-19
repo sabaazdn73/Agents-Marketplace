@@ -160,6 +160,14 @@ function hyperliquidHtml(h) {
     };
     const acctKind = (accountBlock(h && h.account) || {}).kind;
     const hold = holdingsLines(h && h.holdings, acctKind);
+    const venue = venueLeaderboardLines(h && h.venue_leaderboard);
+    const venueHtml = venue.length
+      ? `<div class="venue"><div class="prov-title">Hyperliquid's own figures for this address</div>
+           ${venue.map((l) => `<p class="prov-line">${esc(l)}</p>`).join("")}
+           <p class="note">From the venue's public leaderboard, cached daily. Tnega
+             measures none of it. Addresses enter our measured set by 30-day volume
+             and by still posting resting orders, never by how they perform.</p></div>`
+      : "";
     const holdHtml = hold.length
       ? `<div class="prov"><div class="prov-title">What this account holds</div>
            ${hold.map((l) => `<p class="prov-line">${esc(l)}</p>`).join("")}
@@ -174,6 +182,7 @@ function hyperliquidHtml(h) {
       ${acctW ? `<div class="acct acct-${esc(acctW.kind)}"><b>${esc(acctW.title)}</b>
         <p class="note">${esc(acctW.body)}</p></div>` : ""}
       <p class="note">No rate is shown rather than a rate you cannot rely on.</p>
+      ${venueHtml}
       ${holdHtml}`;
     // "No rate you cannot rely on" is the venue's own discipline and stays on
     // the venue's renderer. The agent half has no rate and never says this.

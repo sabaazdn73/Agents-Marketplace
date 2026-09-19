@@ -454,3 +454,32 @@
   color: #6f778a;
   margin-bottom: 2px;
 }
+
+/* The venue's own figures, for an address this project does not measure.
+ *
+ * Deliberately NOT styled like the measurement blocks above it. Those carry
+ * this project's readings; this one is a cached copy of a file Hyperliquid
+ * publishes. A reader who cannot tell the two apart at a glance has been
+ * misled about provenance even when every figure in both is correct, which is
+ * the error docs/hyperliquid-provenance.md exists to catch. The left rule and
+ * the flatter colour are the whole signal. */
+.tnega-venue {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-left: 2px solid rgba(151, 252, 228, 0.45);
+  background: rgba(151, 252, 228, 0.045);
+  border-radius: 0 8px 8px 0;
+}
+.tnega-venue-title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8b93a7;
+  margin-bottom: 5px;
+}
+.tnega-venue-line {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e6e9f0;
+  margin-top: 3px;
+}

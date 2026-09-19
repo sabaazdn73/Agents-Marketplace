@@ -192,13 +192,52 @@ async def _hyperliquid_block(address: str) -> dict:
     and it is already in every surface's vocabulary, so this shortcut changes
     what is spent and not what is said.
     """
-    if not await _in_hyperliquid_set(address):
-        return {"withheld_reason": "not_tracked"}
     import asyncio
+    if not await _in_hyperliquid_set(address):
+        # NOT TRACKED IS STILL NOT NOTHING, changed 2026-09-19
+        #
+        # This used to return the reason and stop, so an address outside the
+        # rotation got a panel carrying one sentence about our coverage and no
+        # fact about the address. That reads as broken rather than as a limit
+        # honestly stated, and it was not even true that nothing was known: the
+        # venue publishes an account value and four windows of PnL, ROI and
+        # volume for 46,000 addresses, and the daily selection job downloads
+        # the whole file to pick 31 of them.
+        #
+        # The reason is kept exactly as it was. What is added beside it is the
+        # venue's, is labelled as the venue's by service.leaderboard_row, and
+        # is not a measurement by this project. Nothing here changes what we
+        # claim to have measured.
+        out = {"withheld_reason": "not_tracked"}
+        try:
+            row = await asyncio.to_thread(leaderboard_row, address)
+        except Exception:  # noqa: BLE001
+            row = None
+        if row:
+            out["venue_leaderboard"] = row
+        try:
+            from core.hyperliquid import venuerole
+            out["account"] = await asyncio.to_thread(venuerole.describe, address)
+        except Exception:  # noqa: BLE001
+            pass
+        return out
     try:
         d = await asyncio.to_thread(service_address_detail, address)
         from core.hyperliquid import venuerole
         d["account"] = await asyncio.to_thread(venuerole.describe, address)
+        # An address in our set whose rate is withheld has the same empty
+        # panel, for a different reason. It gets the venue's scale figures
+        # too, and NOT the PnL: this address is one we measure, so a rate
+        # belongs on this panel and may return tomorrow. A column that
+        # appeared whenever an address went quiet and vanished when it came
+        # back would be a worse rule than either answer on its own.
+        if d.get("withheld_reason"):
+            try:
+                row = await asyncio.to_thread(leaderboard_row, address, False)
+            except Exception:  # noqa: BLE001
+                row = None
+            if row:
+                d["venue_leaderboard"] = row
         return d
     except Exception:  # noqa: BLE001
         # The venue store is unreachable. That is not a statement about the
@@ -209,6 +248,11 @@ async def _hyperliquid_block(address: str) -> dict:
 def service_address_detail(address: str) -> dict:
     from core.hyperliquid import service
     return service.address_detail(address)
+
+
+def leaderboard_row(address: str, include_pnl: bool = True) -> dict | None:
+    from core.hyperliquid import service
+    return service.leaderboard_row(address, include_pnl)
 
 
 # Above this many distinct clients, "has this provider delivered to this client
