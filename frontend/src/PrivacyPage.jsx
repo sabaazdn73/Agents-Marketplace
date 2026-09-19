@@ -1,20 +1,21 @@
-// PrivacyPage.next.jsx
+// PrivacyPage.jsx
 //
 // The privacy policy for version 0.2.0 of the extension, which covers more
 // than one site and is called Tnega rather than Tnega for Hyperliquid.
 //
-// WHY THIS IS A SECOND FILE AND NOT AN EDIT
-// PrivacyPage.jsx is live at /privacy and describes version 0.1.0, which is
-// what is published and what people have installed. Editing it now would put
-// a policy on the internet describing storage, a background worker and eight
-// hosts that no shipped build has, which is the same defect as a policy that
-// claims less than the code does, pointed the other way. This file replaces
-// that one in the commit that packages 0.2.0, by `git mv`, and not before.
+// THIS WAS PrivacyPage.next.jsx UNTIL 0.2.0 WAS PACKAGED
+// It was held as a separate file on purpose while 0.1.0 was the published
+// build: putting a policy on the internet describing storage, a background
+// worker and nine hosts that no shipped build had would have been the same
+// defect as a policy claiming less than the code does, pointed the other way.
+// It replaced the 0.1.0 page by `git mv` in the commit that packaged 0.2.0,
+// and the 0.1.0 page was deleted in the same commit rather than kept beside
+// it, because two privacy pages in a tree is how the wrong one gets routed.
 //
-// Every claim below has a line of code behind it, and the code does not exist
-// yet. So this list is also the build's specification: if the built extension
-// does not match it, this page is what has to be renegotiated, not quietly
-// left behind.
+// Every claim below has a line of code behind it, and the built package was
+// checked against this list rather than the other way round. If a future
+// build stops matching it, this page is what has to be renegotiated, not
+// quietly left behind.
 //
 //   reads the identifier from the URL   extension/shared.js, subjectFromUrl
 //   reads element text to place the     extension/panels/hyperliquid.js,

@@ -1,12 +1,19 @@
 # Submitting this to the Chrome Web Store
 
-Written for a first submission. It says what to upload where, what was checked
-before submitting rather than after, and what can be changed later without going
-through review again.
+Written for the first submission and kept current. It says what to upload
+where, what was checked before submitting rather than after, and what can be
+changed later without going through review again.
+
+The filename above is the one thing here that goes stale silently. It named the
+0.1.0 package for a day after 0.2.0 was built, with both zips sitting in this
+folder, and the older one is the file a reader reaches for first because it is
+the one this document points at. build.py writes tnega-<version>.zip from the
+manifest, so the name changes whenever the version does, and this line has to
+change with it.
 
 ## What is in this folder
 
-    tnega-for-hyperliquid-0.1.0.zip   the package to upload
+    tnega-0.2.0.zip                   the package to upload
     icon-128.png                      store icon, 128x128
     screenshot-1-rate.png             1280x800, the panel showing a rate
     screenshot-2-no-rate.png          1280x800, the panel refusing to show one

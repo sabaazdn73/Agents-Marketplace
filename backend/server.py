@@ -1029,8 +1029,10 @@ async def hyperliquid_address(address: str, response: Response = None):
         # Served from this endpoint rather than a new one so the extension
         # keeps its single host permission. Adding rpc.hyperliquid.xyz to the
         # extension's manifest would mean a new justification and another
-        # review pass while 0.1.0 is still pending, for a call the backend can
-        # make once and cache.
+        # review pass, for a call the backend can make once and cache. Written
+        # while 0.1.0 was pending; still true for 0.2.0, which adds eight
+        # content script hosts and would not survive another host being added
+        # to the same submission.
         #
         # Its own failures never take the rate down with them: corestate
         # returns a withheld reason rather than raising, and the panel draws
