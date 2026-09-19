@@ -16,7 +16,8 @@
 // on this page is a projection, a target, or a figure from a deck.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ShieldQuestion, Radio, Coins, Ban } from 'lucide-react';
+import { ArrowRight, ShieldQuestion, Radio, Coins, Ban, Building2, Wallet } from 'lucide-react';
+import { ChainMark } from './chainViews/chainMarks';
 
 /** Reveal on scroll, once, and never at the cost of the content.
  *
@@ -88,9 +89,69 @@ const STEPS = [
   },
 ];
 
+// The chains, in the order the tab row uses, so the landing page and the app
+// name them the same way round. Marks come from chainMarks, which is the same
+// component the tabs use: two lists of chain logos that can disagree is how one
+// of them goes stale.
+const CHAINS = [
+  { id: 'hyperliquid', name: 'Hyperliquid', note: 'Order-book measurements' },
+  { id: 'bnb', name: 'BNB Chain', note: '154,602 agents · hireable' },
+  { id: 'ethereum', name: 'Ethereum', note: '30,894 agents' },
+  { id: 'solana', name: 'Solana', note: '1,490 agents' },
+  { id: 'arbitrum', name: 'Arbitrum', note: '1,424 agents · hireable' },
+  { id: 'robinhood', name: 'Robinhood Chain', note: '221 agents · hireable' },
+  { id: 'monad', name: 'Monad', note: '10,170 agents' },
+];
+
+const AUDIENCES = [
+  {
+    icon: Wallet,
+    who: 'Someone about to pay an agent',
+    body: 'You have found an agent that claims to do the thing you need. Before '
+      + 'funding a job you want to know whether its endpoint answers, and whether '
+      + 'anyone other than its own deployer has ever paid it for work.',
+  },
+  {
+    icon: Building2,
+    who: 'A protocol routing other people’s orders',
+    body: 'You send user orders to a venue and need to know whether they rest. A '
+      + 'refused post-only order is not a maker’s strategy choice to you, it is a '
+      + 'user whose order neither rested nor filled.',
+  },
+];
+
 export default function LandingStory({ onEnter }) {
   return (
     <div className="tn-story">
+      <div className="tn-shell">
+        {/* STICKY INTRO, the layout this page was missing.
+            It carries the name, the one-line claim and the exits, and stays put
+            while the argument scrolls past it. Without it the reader loses what
+            the page is about by the third section, and the only way back to a
+            CTA is the bottom of the page. On a phone it is not sticky: a fixed
+            block would eat a third of a small screen. */}
+        <aside className="tn-aside">
+          <div className="tn-aside-in">
+            <p className="tn-eyebrow">Tnega</p>
+            <h2 className="tn-aside-h">
+              Agents are easy to register. Tnega measures whether they work.
+            </h2>
+            <p className="tn-aside-p">
+              198,801 agents across six chains, and the readings behind each of
+              them, including the ones we will not state.
+            </p>
+            <div className="tn-cta tn-cta--aside">
+              <button type="button" className="tn-btn" onClick={onEnter}>
+                Explore the agents <ArrowRight size={16} aria-hidden="true" />
+              </button>
+              <a className="tn-btn tn-btn--ghost" href="/how-it-works">
+                How it is measured
+              </a>
+            </div>
+          </div>
+        </aside>
+
+        <div className="tn-main">
       {/* ─── The problem, stated before any claim rests on it ─── */}
       <section className="tn-sec tn-sec--lead" aria-labelledby="tn-why">
         <Reveal>
@@ -173,6 +234,53 @@ export default function LandingStory({ onEnter }) {
         </Reveal>
       </section>
 
+      {/* ─── Who feels this, named rather than implied ─── */}
+      <section className="tn-sec" aria-labelledby="tn-who">
+        <Reveal>
+          <p className="tn-eyebrow">Who this is for</p>
+          <h2 id="tn-who">Two people who need the same answer</h2>
+        </Reveal>
+        <div className="tn-who">
+          {AUDIENCES.map((a) => {
+            const Icon = a.icon;
+            return (
+              <Reveal key={a.who}>
+                <div className="tn-who-card">
+                  <Icon size={20} aria-hidden="true" />
+                  <h3>{a.who}</h3>
+                  <p>{a.body}</p>
+                </div>
+              </Reveal>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ─── The chains, with the same marks the tab row uses ─── */}
+      <section className="tn-sec tn-sec--quiet" aria-labelledby="tn-chains">
+        <Reveal>
+          <p className="tn-eyebrow">Coverage</p>
+          <h2 id="tn-chains">Seven chains, three you can hire on</h2>
+          <p className="tn-lead">
+            Counts are read from the registries, not estimated. Where a chain has no
+            hiring path the page says so rather than implying one.
+          </p>
+        </Reveal>
+        <Reveal>
+          <div className="tn-chains">
+            {CHAINS.map((c) => (
+              <div key={c.id} className="tn-chain">
+                <ChainMark viewId={c.id} size={18} />
+                <div>
+                  <div className="tn-chain-n">{c.name}</div>
+                  <div className="tn-chain-s">{c.note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+      </section>
+
       {/* ─── Where it runs, then the exit ─── */}
       <section className="tn-sec" aria-labelledby="tn-where">
         <Reveal>
@@ -194,6 +302,8 @@ export default function LandingStory({ onEnter }) {
           </div>
         </Reveal>
       </section>
+        </div>
+      </div>
     </div>
   );
 }

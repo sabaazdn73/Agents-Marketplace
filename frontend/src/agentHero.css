@@ -347,4 +347,93 @@
 /* The hero clips its own background gradients, which is why it carries
    overflow:hidden. That must not clip the sections that now follow it, so the
    wrapper scrolls and only the hero itself clips. */
-.agent-hero { overflow-x: hidden; }
+/* clip, NOT hidden. overflow-x:hidden makes the used value of overflow-y
+   'auto', which turns this wrapper into a scroll container, and a position:
+   sticky descendant then resolves against IT rather than the window. The intro
+   column scrolled away at top:-1699px because of exactly that. overflow-x:clip
+   suppresses the horizontal overflow without creating a scroll container, so
+   sticky keeps the window as its reference. Same trap the partner marquee hit
+   inside <main> on 2026-09-19. */
+.agent-hero { overflow-x: clip; }
+
+/* ── The sticky intro column ──────────────────────────────────────────────
+   The page lost its subject by the third section: a reader deep in "what it
+   refuses to tell you" had no reminder of what the product is and no CTA short
+   of the very bottom. The intro stays put while the argument scrolls past it.
+
+   Not sticky on a phone. A fixed block there would take a third of the screen
+   away from the thing it is introducing. */
+.tn-shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 48px;
+  /* NOT align-items:start. A grid item sized to its own content is exactly as
+     tall as the intro block, so a sticky child inside it has nowhere to travel
+     and scrolls away with it: measured at top:-50px, above the viewport, which
+     is the whole failure this column exists to prevent. Stretching the column
+     to the row height gives sticky its range. */
+  align-items: stretch;
+}
+.tn-aside-in {
+  position: sticky;
+  top: 40px;
+  padding: 88px 0 40px;
+}
+.tn-aside-h {
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: #fff;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+.tn-aside-p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+.tn-cta--aside { margin-top: 0; }
+
+/* Inside the shell the sections no longer centre themselves: the column does
+   the centring, and a second max-width would leave the text hugging one edge. */
+.tn-shell .tn-sec { max-width: none; margin: 0; padding-inline: 0; }
+.tn-shell .tn-sec--quiet {
+  background: rgba(255, 255, 255, 0.018);
+  padding-inline: 20px;
+  border-radius: 16px;
+}
+
+.tn-who { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; margin-top: 26px; }
+.tn-who-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.022);
+  height: 100%;
+}
+.tn-who-card svg { color: var(--gold); margin-bottom: 10px; }
+.tn-who-card h3 { font-size: 15.5px; margin: 0 0 8px; color: #fff; font-weight: 650; }
+.tn-who-card p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin: 0; }
+
+.tn-chains { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 24px; }
+.tn-chain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.022);
+}
+.tn-chain-n { font-size: 14px; color: #fff; font-weight: 650; }
+.tn-chain-s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+@media (max-width: 900px) {
+  .tn-shell { grid-template-columns: 1fr; gap: 0; }
+  .tn-aside-in { position: static; padding: 64px 0 8px; }
+  .tn-shell .tn-sec--quiet { padding-inline: 16px; }
+}
