@@ -107,7 +107,7 @@ coincided with a BSC analysis batch in the twenty days the bug was live.
 Separately from the bug, roughly **9,100 absent BSC agents have a live
 service endpoint today**, concentrated in the blocks 8004scan never indexed.
 These were never ours to lose, but they are real, working agents missing from
-the marketplace.
+the house.
 
 They do not need 8004scan. The ERC-8004 registry is the authority, and
 `tokenURI` resolves for every one of them, so they can be ingested straight

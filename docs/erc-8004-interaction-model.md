@@ -294,9 +294,9 @@ checkable, which is the difference between a claim and a credential.
 
 ## Who would use it
 
-### Marketplaces
+### Houses
 
-A marketplace currently probes every agent itself and builds a classifier to
+A house currently probes every agent itself and builds a classifier to
 guess the rest. On this corpus that classifier fails on between 66.6% and
 90.1% of entries depending on the chain. A declared model replaces a guess
 with a claim it can verify.

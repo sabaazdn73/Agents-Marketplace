@@ -7,12 +7,12 @@ from a chain or an API at the moment the picture was taken.
 For the reasoning behind any of it, each section links to the doc that explains
 that part properly. This page is the tour, not the reference.
 
-## The marketplace
+## The house
 
 The front door. Six chain tabs, a live count under each, and the agents
 underneath.
 
-![The Tnega marketplace on BNB Chain, showing the chain tabs, the header stats and the first row of verified working agents](images/marketplace.jpg)
+![The Tnega house on BNB Chain, showing the chain tabs, the header stats and the first row of verified working agents](images/house.jpg)
 
 Three things worth pointing out, because each one is a decision rather than a
 default.
@@ -50,7 +50,7 @@ separate facts: one is a past delivery, the other is a live reachability check.
 
 ## Native Agents
 
-Tnega's own agents, as opposed to the third-party ones in the marketplace.
+Tnega's own agents, as opposed to the third-party ones in the house.
 Each compares candidates itself and shows its reasoning before you sign.
 
 ![The Health Factor Monitoring agent, reading a wallet's Aave v3 and Venus positions on BNB Chain and reporting each protocol on its own terms](images/native-health-factor.png)
@@ -218,7 +218,7 @@ read.
 
 | Screen | Where |
 |---|---|
-| Marketplace | [www.tnega.app/market](https://www.tnega.app/market) |
+| House | [www.tnega.app/market](https://www.tnega.app/market) |
 | Native Agents | [www.tnega.app/native-agents](https://www.tnega.app/native-agents) |
 | MultiAgents | [www.tnega.app/studio](https://www.tnega.app/studio) |
 | Rail check and payment | the Payment panel at the foot of the MultiAgents tab |

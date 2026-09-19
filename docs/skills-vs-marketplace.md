@@ -2,7 +2,7 @@
 
 ## The question
 
-The category-native evaluation framework (see [Category-Aware Evaluation](category-evaluation.md)) routes registered ERC-8004 agents into escrow-compatible (hire directly), SaaS-incompatible (visit their site), and a couple of other evidence-based interaction patterns. But Altana Skills, Venus Lending, PancakeSwap trading, and the rest, aren't registered agents being evaluated at all. Should they get their own, clearly-labeled place in the marketplace's main browsing experience instead of living inside a feature meant for something else?
+The category-native evaluation framework (see [Category-Aware Evaluation](category-evaluation.md)) routes registered ERC-8004 agents into escrow-compatible (hire directly), SaaS-incompatible (visit their site), and a couple of other evidence-based interaction patterns. But Altana Skills, Venus Lending, PancakeSwap trading, and the rest, aren't registered agents being evaluated at all. Should they get their own, clearly-labeled place in the house's main browsing experience instead of living inside a feature meant for something else?
 
 ## What was checked
 
@@ -14,15 +14,15 @@ They lived inside the "Build Your Agent" tab, a mismatch. That tab's own header 
 
 A Skill is not a registered ERC-8004 agent, has no owner wallet, no score, no reviews, no verification tier, and isn't hired through an ERC-8183 job-and-deliverable cycle at all. Running one is a direct, self-executed on-chain action; the user's own connected wallet signs it, right then, against Altana's own pre-built, fork-tested logic (the one exception is the x402-payments Skill, which still uses a spend-capped Altana mini-wallet, since it has no direct-wallet equivalent). There's no third-party counterparty to evaluate, no delivery to wait on, no escrow.
 
-The category-native evaluation framework (verification tiers, category groups, the unified Metrics presentation) exists specifically to answer "should I trust and pay this third-party agent for delivered work." That question doesn't apply to a Skill; you're not trusting an agent, you're running an already-audited action yourself. Folding Skills into that framework, a category-group badge on marketplace listings, a fifth verification tier, anything that implies "evaluate this like an agent," would blur the exact distinction the framework was built to draw. It was rejected for this reason, not for lack of a tidy place to put it.
+The category-native evaluation framework (verification tiers, category groups, the unified Metrics presentation) exists specifically to answer "should I trust and pay this third-party agent for delivered work." That question doesn't apply to a Skill; you're not trusting an agent, you're running an already-audited action yourself. Folding Skills into that framework, a category-group badge on house listings, a fifth verification tier, anything that implies "evaluate this like an agent," would blur the exact distinction the framework was built to draw. It was rejected for this reason, not for lack of a tidy place to put it.
 
 ## What shipped
 
-A new, top-level "Skills" tab, a peer of "Marketplace" rather than a sub-panel of "Build Your Agent," on both web and mobile:
+A new, top-level "Skills" tab, a peer of "House" rather than a sub-panel of "Build Your Agent," on both web and mobile:
 
-- `AltanaSkillsPanel` moved out of the Build tab entirely into its own tab, with an upfront explanation of what makes this different from hiring: "Different from hiring an agent from the Marketplace: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set."
+- `AltanaSkillsPanel` moved out of the Build tab entirely into its own tab, with an upfront explanation of what makes this different from hiring: "Different from hiring an agent from the House: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set."
 - "Build Your Agent" keeps its own unrelated custom-build flow, now matching its own name without an unrelated panel bolted on top.
 - The existing "Try it yourself" deep-link (`AgentGuidancePanel` -> `onTrySkill`) now lands on the new Skills tab instead of Build.
 - A bookmarkable `/skills` URL (`routePaths.js`), so the new tab works the same way every other top-level tab already does: direct link, refresh, and back-button all land correctly.
 
-No badge or category-group treatment was added to marketplace agent listings; per the reasoning above, there's no per-agent relationship to badge. A Skill isn't tied to a specific marketplace agent at all, so the existing category-to-skill suggestion on an agent's own detail page (routing by category of work, not by agent identity) is already the right level of abstraction, and stays as it was.
+No badge or category-group treatment was added to house agent listings; per the reasoning above, there's no per-agent relationship to badge. A Skill isn't tied to a specific house agent at all, so the existing category-to-skill suggestion on an agent's own detail page (routing by category of work, not by agent identity) is already the right level of abstraction, and stays as it was.

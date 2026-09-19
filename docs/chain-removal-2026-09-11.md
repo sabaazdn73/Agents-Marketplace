@@ -1,6 +1,6 @@
 # Narrowing to six chains, 2026-09-11
 
-The marketplace showed five named chain tabs plus a grouped Multi-Chain tab
+The house showed five named chain tabs plus a grouped Multi-Chain tab
 holding four more. It now shows six named tabs and nothing else. Two chains
 were deleted from the store, one is retained but hidden, and one was promoted
 out of the group and given its own tab.
@@ -63,7 +63,7 @@ user-facing number derives from "all stored chains":
 - `count_view` filters on the view's own `chain_ids`
 - `category_facets` filters on the view's own `chain_ids`
 - `fetch_page`'s `total` filters on the view's own query
-- the marketplace header stats (Agents Listed, On-chain Feedback, Verified
+- the house header stats (Agents Listed, On-chain Feedback, Verified
   Agents) come from the BNB Chain serving store, not the registry
 - the Ecosystem page reads `/api/agents`, which is the BNB Chain serving
   store

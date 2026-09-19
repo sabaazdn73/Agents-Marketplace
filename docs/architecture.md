@@ -2,7 +2,7 @@
 
 ## System overview
 
-Tnega has three separately-deployed pieces: a React frontend (one codebase, two responsive apps), a FastAPI backend, and a MongoDB store. A fourth service, an "explainer agent" listed in the marketplace itself, is an independently-deployed ERC-8004/ERC-8183 seller agent used to demonstrate the hire flow end to end.
+Tnega has three separately-deployed pieces: a React frontend (one codebase, two responsive apps), a FastAPI backend, and a MongoDB store. A fourth service, an "explainer agent" listed in the house itself, is an independently-deployed ERC-8004/ERC-8183 seller agent used to demonstrate the hire flow end to end.
 
 ```mermaid
 flowchart TB

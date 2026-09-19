@@ -1,6 +1,6 @@
 # The 512Mi memory ceiling, and why it is being lived with
 
-Both Render services (the web service and the background worker) are OOM-killed by the platform on a 512Mi container cap. As of 2026-09-05 this is a known, accepted condition, not an open bug. Render restarts automatically, the gap is seconds, and the marketplace stays up. This page records why the obvious fixes were rejected, so nobody re-derives it or retries something already measured and ruled out.
+Both Render services (the web service and the background worker) are OOM-killed by the platform on a 512Mi container cap. As of 2026-09-05 this is a known, accepted condition, not an open bug. Render restarts automatically, the gap is seconds, and the house stays up. This page records why the obvious fixes were rejected, so nobody re-derives it or retries something already measured and ruled out.
 
 
 ## The Atlas quota is metered on dataSize, not storageSize (2026-09-08)
@@ -150,7 +150,7 @@ Measured on the live payload:
 
 | | Before | After |
 |---|---|---|
-| Marketplace first load | 15,748,096 bytes | 64,215 bytes |
+| House first load | 15,748,096 bytes | 64,215 bytes |
 | The agent list within that | 15,712,666 | 27,776 |
 | Resident cache | 14.98 MB | 21.53 MB |
 

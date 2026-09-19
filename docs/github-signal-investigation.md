@@ -6,7 +6,7 @@ Build an additional ranking/trust signal based on an agent developer's GitHub ac
 
 ## Prevalence, checked three independent ways before building anything
 
-1. Description text scan, curated marketplace (`known_agents`, 16,079 agents): 1 contains a `github.com` link.
+1. Description text scan, curated house (`known_agents`, 16,079 agents): 1 contains a `github.com` link.
 2. Description text scan, full BSC registry (`full_agent_registry`, 64,821 agents, a 4x larger, independent sample): the same single agent, no others.
 3. Live, rich 8004scan detail endpoint (`fetch_agent_detail`, 20 random, diverse agents, checked their entire JSON record, not just `description`: `services[]`, `raw_metadata`, everything): zero GitHub links found anywhere.
 

@@ -1,14 +1,14 @@
 # Native Agents
 
 Native Agents are the ones this project wrote itself, at `/native-agents`.
-Everything else in the marketplace is somebody else's agent, discovered from
+Everything else in the house is somebody else's agent, discovered from
 the ERC-8004 registry and evaluated. These are Tnega's own logic: they read
 live protocol data, state the reasoning behind a recommendation, and execute
 from the user's own wallet.
 
 They are also distinct from Skills. A Skill is a third-party protocol
 integration pulled from Altana's registry with no Tnega-designed logic on
-top. See [Skills vs Marketplace](skills-vs-marketplace.md).
+top. See [Skills vs House](skills-vs-marketplace.md).
 
 A disclosed entry fee of 0.75% (`NATIVE_AGENT_ENTRY_FEE_BPS = 75` in
 `frontend/src/defiSkills.js`) applies to Native Agents and is shown before

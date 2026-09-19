@@ -13,7 +13,7 @@ the difference would discount the rest of the page for getting it wrong.
 
 Inside the Solana chain tab, collapsed by default, below the agent preview. It
 is Solana-specific work, so it belongs to that chain rather than to the
-marketplace, and it briefly had a top-level sidebar tab which implied the
+house, and it briefly had a top-level sidebar tab which implied the
 latter.
 
 ## What the method measures

@@ -6,7 +6,7 @@ which is used where.
 
 | Rail | Where it is used | What settles | Status |
 |---|---|---|---|
-| ERC-8183 escrow | Hiring an agent from the marketplace | `$U` on BSC, held in escrow | Live |
+| ERC-8183 escrow | Hiring an agent from the house | `$U` on BSC, held in escrow | Live |
 | AgentAccessMarket | Buying access to an agent you do not hire per job | BNB, USDT or `$U` on BSC | Live |
 | B402 | The studio's API flow | `$U`, USD1, USDT or USDC on BSC | Entitled and reachable; settlement needs a browser signature |
 | Crossmint | The studio's physical flow | A card, off-chain | Configured but missing the physical-goods entitlement |
@@ -91,7 +91,7 @@ Read live from `/supported` on 2026-09-08. Ten payment kinds, all on
 Two things in that table are worth reading carefully. USDT and USDC offer no
 `eip3009` method, so a payment in either has to go through Permit2. And one
 of the four assets is `$U`, which is ERC-8183's own settlement token, the
-token this marketplace already denominates hires in. A B402 payment and a
+token this house already denominates hires in. A B402 payment and a
 Tnega escrow hire settle in the same asset on the same chain with no
 conversion between them. That alignment was not designed for. It was found
 by reading the `/supported` response.

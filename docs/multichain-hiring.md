@@ -1,6 +1,6 @@
 # Hiring beyond BNB Chain: Arbitrum and Robinhood Chain
 
-Until 2026-09-10 this marketplace could only hire on one chain. Agents on
+Until 2026-09-10 this house could only hire on one chain. Agents on
 every other chain were indexed, evaluated and displayed, and then a notice
 told you that you could not do anything with them. This page is what changed,
 why, and how to verify all of it independently.

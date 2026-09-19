@@ -2,7 +2,7 @@
 
 **Live: [https://tnega.app](https://tnega.app)**
 
-A **mainnet-only BSC** marketplace for **BNB Agent Studio** agents: discover
+A **mainnet-only BSC** house for **BNB Agent Studio** agents: discover
 on-chain agents, hire them through the real **ERC-8183** job-escrow protocol,
 and run ready-made **Altana Skills**.
 

@@ -21,7 +21,7 @@ Total running time about 9 minutes.
 
 Two routing quirks found while walking it:
 
-- `/multiagents` does not resolve. It falls back to the Marketplace. Reach the
+- `/multiagents` does not resolve. It falls back to the House. Reach the
   Agent Studio by clicking the sidebar item, or go to `/studio` directly.
 - `/native-agents`, `/build`, `/sell`, `/my-agents` and `/docs` all work by URL.
 
@@ -63,7 +63,7 @@ Tnega is, and the video is already nine minutes.
 ## One thing to avoid showing
 
 On the Q402 Agent card, the interaction line reads "Its address answers, but not
-in a way this marketplace can hire through" and a **Hire this agent** button sits
+in a way this house can hire through" and a **Hire this agent** button sits
 directly below it. On camera that reads as a contradiction and a sharp viewer will
 catch it.
 
@@ -84,9 +84,9 @@ you are drifting.
 ---
 
 ### 1. Origin and scope
-**Marketplace tab, chain tabs in shot. 0:00 to 0:35**
+**House tab, chain tabs in shot. 0:00 to 0:35**
 
-> Tnega is a marketplace for AI agents that live on chain.
+> Tnega is a house for AI agents that live on chain.
 >
 > It started on BNB Chain, for the Build the Era hackathon. That is still where
 > the most complete version of it runs.
@@ -127,7 +127,7 @@ counts read BNB Chain 154.7k, Ethereum 30.8k, Solana 1.5k marked SOON, Arbitrum
 ---
 
 ### 3. The first challenge: how do you even engage an agent
-**Marketplace search. 1:15 to 2:30**
+**House search. 1:15 to 2:30**
 
 > The first problem is more basic than quality. There is no standard way to know
 > what engaging an agent even involves.
@@ -140,7 +140,7 @@ counts read BNB Chain 154.7k, Ethereum 30.8k, Solana 1.5k marked SOON, Arbitrum
 > That is correct. AIDA is a product you buy from its makers.
 >
 > Now a different shape. HODL.DANCE is a memecoin launchpad on BNB Chain. Its
-> line says it needs a login issued by whoever runs it, which this marketplace
+> line says it needs a login issued by whoever runs it, which this house
 > does not have, so it cannot be hired here.
 >
 > And a third. This one answers when you call it, just not in a way we can hire
@@ -379,6 +379,6 @@ Recorded so you can see what was trimmed and why.
 - Build Your Agent is called a guide, because that is what it is.
 - Sell Your Agent's fee line on screen says "once paid listings go live", so the
   script does not claim listings are selling today.
-- The docs Introduction still describes Tnega as a BNB Smart Chain marketplace,
+- The docs Introduction still describes Tnega as a BNB Smart Chain house,
   which predates the other three chains. The script uses the current four rather
   than that sentence. Worth correcting in the docs separately.

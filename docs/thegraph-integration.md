@@ -80,7 +80,7 @@ Only 1.7% of sampled BSC registration files carry any endpoint (mcp 0.4%, a2a 1.
 
 Rows merge with `$set`, exactly like the 8004scan path, and `to_registry_doc` writes only fields the subgraph knows. It does not invent `total_score`, `star_count`, `category` or `image_url`, so a later 8004scan pass fills those in rather than this source overwriting them with nulls. Every row it writes carries `source: "thegraph:agent0"` so provenance stays auditable.
 
-The data feeds the systems that already exist rather than a separate display: `supported_protocols` (derived from the structured endpoint fields) is what `core/protocol_compat.py` reasons over, and `x402_supported` is already consumed across the marketplace.
+The data feeds the systems that already exist rather than a separate display: `supported_protocols` (derived from the structured endpoint fields) is what `core/protocol_compat.py` reasons over, and `x402_supported` is already consumed across the house.
 
 ## Verified result, end to end
 

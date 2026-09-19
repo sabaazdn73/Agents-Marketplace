@@ -43,7 +43,7 @@ a pre-existing plan that happened to line up, and saying otherwise would be
 untrue.
 
 It also closed a gap that was real independently of any deadline. The
-marketplace had spent months indexing, classifying and evaluating agents on
+house had spent months indexing, classifying and evaluating agents on
 chains it could not hire on, and the notice explaining that was one of the
 weakest things on the site. Both things are true at once. The deadline is why
 it happened now.
@@ -85,7 +85,7 @@ each was checked on chain rather than assumed:
 
 ### 3. Evaluation signals extended
 
-Of the 13 signals the marketplace can show, Robinhood Chain went from 4 to 9
+Of the 13 signals the house can show, Robinhood Chain went from 4 to 9
 and Arbitrum from 8 to 9.
 
 The nine now available on both:
@@ -202,7 +202,7 @@ same contract was rehearsed against a forked mainnet before it was sent.
 
 ### Product-market fit
 
-The marketplace is live on mainnet and indexes real agents rather than
+The house is live on mainnet and indexes real agents rather than
 fixtures. Arbitrum carries 1,412 indexed agents of which 817 answer; Robinhood
 Chain carries 197 of which 32 answer. Those are the numbers the site shows,
 and the gap between indexed and answering is shown to visitors rather than
@@ -228,7 +228,7 @@ anything at all. Both chains now carry 9, and both are hireable.
 Almost no third-party agent can complete a hire on either chain. Drawing
 from a budget requires the agent to call `draw` on the escrow, which means
 code its developer has not written. The contract is deployed, the path works,
-and the marketplace can fund a budget, but the counterparty has to participate
+and the house can fund a budget, but the counterparty has to participate
 and almost none can yet. This is the single most important caveat on this
 page, and a judge who discovers it after reading a page that omitted it would
 be right to discount everything else here.

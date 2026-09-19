@@ -83,7 +83,7 @@ original measurement did.
 
 The verified count on BNB Chain read 27 in the morning, 20 in the afternoon and
 31 in the evening. The rule did not change once. What changed was which agents
-the marketplace was serving.
+the house was serving.
 
 A storage cap was added to known_agents, because the collection had grown to
 102,997 documents against a 512 MiB cluster quota with 46 MB of headroom. The

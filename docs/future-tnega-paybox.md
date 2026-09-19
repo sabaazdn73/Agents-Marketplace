@@ -4,7 +4,7 @@ Status, updated 2026-09-04: the settlement rail is now built and live-tested. Ev
 
 The original research framing is kept intact rather than rewritten, because the constraints it documents are still true of MetaMask Card and MoonPay, B402 didn't resolve them, it went around them.
 
-Surfaced in-app as a "Web2 Agents + PayBox" Coming Soon card in the Native Agent Marketplace, a vision/roadmap summary only, no code behind it, linking back here for the full research. That card also names a second, separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own much larger future project, comparable in scope to BNB Agent Studio or Claude Code itself, not scoped here or anywhere in this codebase; noted for the record, not researched.
+Surfaced in-app as a "Web2 Agents + PayBox" Coming Soon card in the Native Agent House, a vision/roadmap summary only, no code behind it, linking back here for the full research. That card also names a second, separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own much larger future project, comparable in scope to BNB Agent Studio or Claude Code itself, not scoped here or anywhere in this codebase; noted for the record, not researched.
 
 ## The idea in one paragraph
 
@@ -88,7 +88,7 @@ async def checkout_handoff(
 ) -> list[CheckoutHandoff]:
     """Optional: where this cart is paid for when that is not a route in the
     host app, such as the platform's hosted checkout URL, or one URL per
-    seller on a marketplace. The executor puts the result on the ``checkout``
+    seller on a house. The executor puts the result on the ``checkout``
     card's payload after the model's call, so the URL is never a tool
     argument and never reaches the model."""
 
@@ -147,7 +147,7 @@ Every settlement rail researched above failed on the same thing: BSC. MetaMask C
 
 [Binance B402](https://web3.binance.com/en/dev-docs/products/b402-api/integration-guide) is the x402 standard settled natively on BSC. No bridge, no chain gap, no third party's signup queue in the middle. Confirmed live against the API with credentials, not assumed: all 10 payment kinds this account can accept are on `eip155:56`.
 
-The unplanned bonus, found by reading the real `/supported` response rather than designed for: one of the four assets B402 settles here is United Stables ($U, `0xcE24439F2D9C6a2289F741120FE202248B666666`), ERC-8183's own settlement token, the exact asset this marketplace already denominates escrowed hires in. A PayBox payment and a Tnega hire settle in the same asset on the same chain, with no conversion between them.
+The unplanned bonus, found by reading the real `/supported` response rather than designed for: one of the four assets B402 settles here is United Stables ($U, `0xcE24439F2D9C6a2289F741120FE202248B666666`), ERC-8183's own settlement token, the exact asset this house already denominates escrowed hires in. A PayBox payment and a Tnega hire settle in the same asset on the same chain, with no conversion between them.
 
 ### What is built and running
 

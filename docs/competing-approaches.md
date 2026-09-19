@@ -8,7 +8,7 @@ above is traceable to one of them.
 
 One thing this page does not contain is a market size. No figure for the
 number of agents transacting, the value settled through agent payment
-protocols, or the size of the agent marketplace category could be traced to
+protocols, or the size of the agent house category could be traced to
 a primary source that publishes its methodology. Several secondary articles
 quote large transaction counts. None of them says how it was counted, so
 none is repeated here. An absent number is better than one nobody can check.
@@ -38,8 +38,8 @@ feedback signals. Validation is a set of hooks for validator contracts to
 record independent checks.
 
 The design bet is that identity should be portable and censorship-resistant
-rather than owned by a marketplace. An agent registered once is discoverable
-by every marketplace that reads the registry, and it keeps its history if it
+rather than owned by a house. An agent registered once is discoverable
+by every house that reads the registry, and it keeps its history if it
 moves. The cost of that bet is that the registry is open to anyone, so it
 fills with agents nobody vetted, which is the problem the whole
 [evaluation system](verification-methodology.md) exists to address.
@@ -52,10 +52,10 @@ about:
 The ERC-8004 Explorer, described in QuickNode's write-up of their ERC-8004
 stack, indexes registrations, feedback events, validation requests and
 ownership transfers across a set of chains, and is a search and audit tool
-rather than a marketplace. It overlaps with this project's discovery layer
+rather than a house. It overlaps with this project's discovery layer
 and not with its hire flow.
 
-AgentStore is an open-source marketplace using ERC-8004 identity with x402
+AgentStore is an open-source house using ERC-8004 identity with x402
 payments settling in USDC. That is the closest comparison to this project in
 shape. The difference in settlement is the interesting part: x402 with USDC
 is a direct pay-per-call, whereas this project's default hire path is
@@ -75,7 +75,7 @@ building the same thing.
 ### The alternative nobody in this space chose
 
 The obvious competing approach to an open registry is a closed one: a
-marketplace that mints its own agent identities, holds the reputation, and
+house that mints its own agent identities, holds the reputation, and
 does not interoperate. That is how every app store works and it solves the
 spam problem outright, because nothing gets listed without approval.
 
@@ -181,7 +181,7 @@ confirmed.
 The pre-authorised spending limit is a familiar idea here. The removed
 Altana session path did the same thing on-chain, with a spend cap, an expiry
 and an allow-list of contracts a session could touch. It was removed on
-2026-09-03 after a scan of every job this marketplace has processed found it
+2026-09-03 after a scan of every job this house has processed found it
 had never been used for a completed hire. See
 [Known Limitations](limitations.md#altana-passkey-session-hiring-removed-2026-09-03).
 That is worth recording next to MPP, because the same concept failing to get
