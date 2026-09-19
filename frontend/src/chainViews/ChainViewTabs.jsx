@@ -22,6 +22,17 @@ import HyperliquidView from './HyperliquidView';
 import ArbitrumView from './ArbitrumView';
 import RobinhoodView from './RobinhoodView';
 import MonadView from './MonadView';
+import ChainChooser from './ChainChooser';
+
+// Where the answer is remembered, so the choice is made once rather than at
+// every visit. A chooser that reappears after it has been answered is not a
+// decision point, it is a toll gate.
+const CHOICE_KEY = 'tnega_chain_choice';
+
+// The chain someone lands on if they decline to choose. The same default the
+// strip has always opened on, so declining leaves the page exactly as it was
+// before this screen existed.
+const DEFAULT_VIEW = 'bnb';
 
 // Which tab owns a given chain id. Needed so that landing directly on an
 // agent's own URL opens that agent's chain rather than the default tab.
@@ -99,7 +110,41 @@ const compactCount = (n) =>
   new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
 export default function ChainViewTabs({ mutedBorder, children }) {
-  const [active, setActive] = useState(() => viewFromLocation() || 'bnb');
+  // Read once. viewFromLocation touches window.location, and calling it from
+  // two initialisers would let the two pieces of state disagree about whether
+  // the URL named a chain.
+  const [urlView] = useState(() => viewFromLocation());
+  const [active, setActive] = useState(() => urlView || DEFAULT_VIEW);
+
+  // WHO SEES THE CHOOSER, AND WHO MUST NOT
+  //
+  // A shared link names its chain and has to land there. /chain/hyperliquid
+  // from the extension's panel footer, and /chain-agent/<id>/<token> for one
+  // agent's own page, both resolve through viewFromLocation, and putting a
+  // chooser in front of either would break the link rather than help its
+  // reader: they already decided, somewhere else, by clicking.
+  //
+  // Someone who has chosen before is in the same position for a weaker reason,
+  // and is skipped too.
+  const [choosing, setChoosing] = useState(() => {
+    if (urlView) return false;
+    try {
+      return !window.localStorage.getItem(CHOICE_KEY);
+    } catch (e) {
+      // Private windows and blocked site data throw here. Showing the chooser
+      // is the safe branch: it is the intended first screen, and the cost of
+      // being wrong is one extra click rather than a page that will not load.
+      return true;
+    }
+  });
+
+  const choose = (id) => {
+    setActive(id);
+    setChoosing(false);
+    try {
+      window.localStorage.setItem(CHOICE_KEY, id);
+    } catch (e) { /* the choice still applies to this visit */ }
+  };
 
   // Keep the tab in step with back/forward, so returning to an agent's URL
   // reopens its chain rather than leaving the strip pointing elsewhere.
@@ -131,6 +176,21 @@ export default function ChainViewTabs({ mutedBorder, children }) {
   const tabs = loading || !views.length ? FALLBACK_TABS : views;
 
   const Active = VIEW_COMPONENTS[active];
+
+  // One layer in front, and nothing behind it is conditional on it. When this
+  // returns, the strip and the view below render exactly as they did before
+  // this screen was added.
+  if (choosing) {
+    return (
+      <ChainChooser
+        views={tabs}
+        onChoose={choose}
+        onSkip={() => choose(DEFAULT_VIEW)}
+        skipLabel={`Skip and browse ${
+          (tabs.find((v) => v.id === DEFAULT_VIEW) || {}).label || 'BNB Chain'}`}
+      />
+    );
+  }
 
   return (
     <div>
