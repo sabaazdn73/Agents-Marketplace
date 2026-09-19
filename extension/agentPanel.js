@@ -56,6 +56,33 @@ function agentHead(title, sub) {
 }
 
 /** One agent: identity, then whether its endpoint answers. */
+/** Who produced what is in this panel, for the subtitle.
+ *
+ *  WHY THIS IS NOT "measured by Tnega", corrected 2026-09-19
+ *  Every branch of the summary used to end "measured by Tnega", including the
+ *  branch where nothing had been measured at all. Almost nothing in an agent
+ *  row is ours: the name, the category, the chain, the token id and the owner
+ *  all come from 8004scan's registry listing, ingested by
+ *  full_registry_ingest. What this project produces is the service reading,
+ *  which is whether the published endpoint answered when it was last called.
+ *
+ *  This is the same provenance error docs/hyperliquid-provenance.md was
+ *  written to catch on the tab, on the surface people actually use: someone
+ *  else's data presented under our name. The Hyperliquid panel's own
+ *  "measured by Tnega" is left alone, because the post-only rejection rate on
+ *  it really is counted from this project's polls.
+ *
+ *  Returns null when there is nothing to attribute, so the caller can leave
+ *  the claim off entirely rather than make a weaker version of it.
+ */
+function provenanceSub(agents) {
+  if (!agents || !agents.length) return null;
+  const checked = agents.some((a) => a.service && !a.service.withheld_reason);
+  return checked
+    ? "listed by 8004scan, endpoint checked by Tnega"
+    : "listed by 8004scan, endpoint not checked yet";
+}
+
 function agentRow(a) {
   const s = a.service || {};
   let service;
@@ -218,17 +245,21 @@ function agentPanelHtml(state, data, subject, coverage) {
   // literal separator. An earlier version used the &middot; entity here and
   // the panel printed the entity, because it was escaped on the way through.
   const SEP = " \u00b7 ";
+  const prov = provenanceSub(agents);
   if (subject.kind === "agent") {
     title = "Registered agent";
-    sub = `${agents[0] ? agents[0].chain_name : ""}${SEP}measured by Tnega`;
+    sub = [agents[0] ? agents[0].chain_name : "", prov].filter(Boolean).join(SEP);
   } else if (agents.length === 0) {
     title = noIdentityTitle(half);
-    sub = `${shortAddr(subject.address)}${SEP}measured by Tnega`;
+    // No attribution here on purpose. This is the branch where nothing was
+    // found, and "measured by Tnega" under a heading saying nothing was
+    // measured claimed authorship of an absence.
+    sub = shortAddr(subject.address);
   } else {
     title = agents.length === 1
       ? "This address holds a registered agent"
       : `This address holds ${agents.length} registered agents`;
-    sub = `${shortAddr(subject.address)}${SEP}measured by Tnega`;
+    sub = [shortAddr(subject.address), prov].filter(Boolean).join(SEP);
   }
 
   // An owner can hold agents on several chains, and the panel is drawn on one

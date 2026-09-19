@@ -61,8 +61,11 @@ single purpose allows: "a single purpose limited to a narrow focus area or
 subject matter".
 
 > The extension has one purpose: when a page is about an on-chain address or a
-> registered ERC-8004 agent, it shows what this project has already measured
-> about that address or agent, or the reason it has nothing to show.
+> registered ERC-8004 agent, it shows what this project already holds about
+> that address or agent, or the reason it has nothing to show. Some of that is
+> this project's own measurement, such as whether an agent's published endpoint
+> answered when it was last called, and some of it is a registry listing this
+> project ingested from 8004scan. Each panel says which.
 >
 > It is one behaviour on every site it runs on. The identifier comes out of the
 > page URL, which already contains it: an address on a block explorer address
