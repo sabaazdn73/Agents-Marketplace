@@ -78,21 +78,55 @@ LAGS = (10, 20, 30, 60, 120, 300, 600, 900, 1800)
 # then withheld by age, which is what section 6.4 of the specification asks for.
 #
 # STALE_AFTER_DAYS IS POLICY, NOT MEASUREMENT. Nothing in the data measures how
-# long the coefficient survives; the only evidence is that it moved from +0.16
-# to +0.36 across three windows inside two days, which says it moves, not how
-# fast.
+# long the coefficient survives. The evidence is that it moved from +0.1179 to
+# +0.3559 across three complete windows inside three days, all three positive
+# and each at least 2.9 standard errors from zero, which says the sign holds
+# and the size moves. It does not say how fast, so this number is a choice.
 LOOKBACK_DAYS = 60
 STALE_AFTER_DAYS = 14
 
-# Wall-clock budget for the optional cross-window comparison, measured from the
-# start of the computation. The headline window is computed first and is never
-# cut; only the extra windows behind `magnitude_range` are dropped when the
-# budget is gone. A read behind an HTTP handler on a 512MiB container gets a
-# bound, not an ambition.
-TIME_BUDGET_SECONDS = 9.0
+# Wall-clock budgets. Two of them, and the split is the point.
+#
+# WHY THIS WAS ONE NUMBER AND WAS WRONG, corrected 2026-09-19
+# There used to be a single 9 second budget measured from the start of the
+# whole computation, with the headline window computed first and never cut.
+# The headline work alone takes 9.4 to 10.4 seconds on this cluster, so the
+# budget was already spent by the time the cross-window comparison was
+# reached, every time, on a cold process. Measured that day: four warm calls
+# returned three windows and the first cold call returned none.
+#
+# That was tolerable while one window existed, because "not compared" was
+# true. With three complete windows it made the section assert there was only
+# one, which is the failure this file exists to prevent: reporting an absence
+# of evidence that is actually an absence of compute. The comparison now gets
+# a budget of its own, measured from when it starts, under a total ceiling so
+# an HTTP handler on a 512MiB container still has a bound.
+TOTAL_BUDGET_SECONDS = 14.0
+MAGNITUDE_BUDGET_SECONDS = 4.0
 
-# At most this many windows are compared for `magnitude_range`, newest first.
-MAX_MAGNITUDE_WINDOWS = 3
+# How many NOT-YET-CACHED windows to compute per call. It is a rate limit on
+# work, not a limit on how many windows the comparison covers: closed windows
+# never change, so each one is computed once per process and then compared for
+# free. A cold process reaches the full set within a few calls.
+MAX_NEW_WINDOWS_PER_CALL = 3
+
+# Median r1 per closed window, keyed by (start, end).
+#
+# WHY NOTHING IS EVICTED BY AGE, decided 2026-09-19
+# This was `windows[1:MAX_MAGNITUDE_WINDOWS]` over a newest-first list, so the
+# fourth complete window would have pushed out the oldest. On the day the
+# question was asked the oldest window carried the entire high end of the
+# range, +0.3559 against +0.1179 and +0.1748, so that rule would have narrowed
+# the published range from 3.0x to about 1.5x with nothing having happened on
+# the venue, and the page would have reported a steadier coefficient because
+# it had forgotten the evidence of instability.
+#
+# The comparison exists to show that the magnitude does not replicate. A
+# window that is the only evidence of instability is the one worth keeping,
+# and dropping it for being old inverts what the comparison is for. So the
+# range is taken over every window still inside LOOKBACK_DAYS, and the only
+# pruning is of windows that have fallen out of that lookback entirely.
+_WINDOW_MEDIANS: dict[tuple, float] = {}
 
 DENOMINATOR = "all order updates, not post-only orders"
 STATISTIC = "lag-k autocorrelation, within address, demeaned"
@@ -515,21 +549,52 @@ def compute(cur) -> dict | None:
 
     # The cross-window comparison, which is the constraint the whole section is
     # built on rather than a decoration: the sign replicates and the magnitude
-    # does not. It needs more than one complete window, and it is the only part
-    # of this computation that may be dropped for time. When it is dropped the
-    # field is absent, and the section says the window has not been compared
-    # rather than asserting a difference it has not measured.
-    medians = [median_r1]
-    for other_start, other_end, _ in windows[1:MAX_MAGNITUDE_WINDOWS]:
-        if time.monotonic() - began > TIME_BUDGET_SECONDS:
+    # does not.
+    #
+    # How many complete windows EXIST is reported unconditionally, separately
+    # from how many were compared. Those are different facts and collapsing
+    # them is what let the section claim there was one window while three were
+    # stored.
+    block["complete_windows"] = len(windows)
+
+    _WINDOW_MEDIANS[(start, end)] = median_r1
+    live = {(s, e) for s, e, _ in windows}
+    for key in list(_WINDOW_MEDIANS):
+        if key not in live:
+            del _WINDOW_MEDIANS[key]
+
+    phase_began = time.monotonic()
+    computed = 0
+    for other_start, other_end, _ in windows:
+        if (other_start, other_end) in _WINDOW_MEDIANS:
+            continue
+        if computed >= MAX_NEW_WINDOWS_PER_CALL:
+            break
+        now = time.monotonic()
+        if (now - phase_began > MAGNITUDE_BUDGET_SECONDS
+                or now - began > TOTAL_BUDGET_SECONDS):
             break
         other = _median_r1(_bucket_rows(cur, other_start, other_end))
+        computed += 1
         if other is not None:
-            medians.append(other)
+            _WINDOW_MEDIANS[(other_start, other_end)] = other
+
+    medians = list(_WINDOW_MEDIANS.values())
     if len(medians) > 1:
         block["magnitude_range"] = {
             "min": round(min(medians), 4),
             "max": round(max(medians), 4),
             "windows": len(medians),
+            # So a reader can tell a comparison over everything stored from one
+            # that is still filling in behind a budget.
+            "windows_available": len(windows),
+        }
+    elif len(windows) > 1:
+        # The distinction the old code could not draw. More than one complete
+        # window is stored and this call could not compute them, which is not
+        # the same as there being nothing to compare against.
+        block["magnitude_range_pending"] = {
+            "windows_available": len(windows),
+            "windows_compared": len(medians),
         }
     return block

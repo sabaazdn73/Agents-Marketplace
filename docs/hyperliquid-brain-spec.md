@@ -685,11 +685,65 @@ claim, so both sides of it are counted over all time: tracked addresses in
 gave 56 where the answer is 53, and reported three addresses that were listened
 to earlier as ones that never were.
 
-### 10.5 Still true, and still not shown
+### 10.5 Resolved 2026-09-19, and it did not resolve itself
 
-`magnitude_range` is emitted only when more than one complete window exists.
-There is one, so the cross-window comparison that section 1.7 calls the most
-important constraint in this document reaches the reader as a sentence saying
-the window has not been compared, not as a range. That is honest and it is
-weaker than section 1.7 deserves. It resolves itself when the collector
-completes a second six-hour stretch with coverage in every bucket.
+This section said `magnitude_range` was absent because only one complete
+window existed, and that it would resolve when the collector completed a
+second six-hour stretch. The collector completed a second and a third. The
+comparison still did not appear, for a reason that had nothing to do with the
+data.
+
+The budget was a single 9 second allowance measured from the start of the
+whole computation, with the headline window computed first and never cut. The
+headline work alone takes 9.4 to 10.4 seconds on this cluster, so the budget
+was spent before the comparison was reached. Four warm calls returned three
+windows and the first cold call returned none, which is the shape the web
+service sees after every deploy and every idle recycle. The comparison now
+has a budget of its own measured from when it starts, under a total ceiling,
+and closed-window medians are cached because a closed window cannot change.
+
+The number, measured 2026-09-19 over three complete windows:
+
+| Window | median r1 | min pairs | approx SE | distance from zero |
+|---|---|---|---|---|
+| 09-16 14:00-20:00Z | +0.3559 | 129 | 0.0880 | 4.0 SE |
+| 09-18 21:00-03:00Z | +0.1748 | 558 | 0.0423 | 4.1 SE |
+| 09-19 03:00-09:00Z | +0.1179 | 590 | 0.0412 | 2.9 SE |
+
+**The sign replicates and the magnitude does not,** which is what section 1.7
+predicted and is now measured rather than asserted. All three are positive and
+each is at least 2.9 standard errors from zero. The range spans a factor of
+3.0, far outside what those standard errors absorb.
+
+Read the first window carefully before quoting it. It has 129 minimum pairs
+against 558 and 590, so its standard error is more than double the others, and
+it produced the largest coefficient. A noisy first measurement giving the
+biggest number and settling lower as the sample improves is regression to the
+mean. The two well-sampled windows agree far better with each other than
+either does with the first, so +0.3559 is best described as the least precise
+of the three rather than as contradicted.
+
+### 10.6 Why the oldest window is never evicted
+
+The comparison used to read `windows[1:MAX_MAGNITUDE_WINDOWS]` over a
+newest-first list, so a fourth complete window would have pushed out the
+oldest. Verified against the three windows above: under that rule the
+published range narrows from 3.0x to 1.5x the moment a fourth ordinary window
+arrives, with nothing having happened on the venue, and the page reports a
+steadier coefficient because it has forgotten the evidence of instability.
+
+A window that is the only evidence the magnitude moves is the one worth
+keeping, and dropping it for being old inverts what the comparison is for. The
+range is now taken over every window inside `LOOKBACK_DAYS`, and the only
+pruning is of windows that have fallen out of that lookback. What is capped is
+how many new windows are computed per call, which is a rate limit on work
+rather than on what the comparison covers.
+
+### 10.7 The collector was stopped on 2026-09-19
+
+Three complete windows answered the question section 1.7 asks, where two were
+needed. The worker is stopped rather than left running, because the collection
+that would follow makes the published answer narrower rather than better
+supported: every further window is drawn from ordinary conditions and can only
+pull the range in. It is restarted when there is a new question, not to
+accumulate more of the same.

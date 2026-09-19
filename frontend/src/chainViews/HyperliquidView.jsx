@@ -422,7 +422,13 @@ function SourceRow({ icon: Icon, name, what, status, tone }) {
 //                                      withheld_reason }]
 //     denominator_control           { median_r1, addresses_higher,
 //                                     addresses_total }, optional
-//     magnitude_range               { min, max, windows }, optional
+//     complete_windows              int, how many complete windows are stored
+//     magnitude_range               { min, max, windows, windows_available },
+//                                     optional
+//     magnitude_range_pending       { windows_available, windows_compared },
+//                                     optional, and present only when more
+//                                     than one window is stored but this call
+//                                     could not compare them
 //     over_dispersion               { median, min, max, convention }, optional
 //   }
 
@@ -612,6 +618,9 @@ function BrainReady({ brain, mutedBorder }) {
   const ctl = b.denominator_control;
   const disp = b.over_dispersion;
   const mag = b.magnitude_range;
+  // Stored but not yet compared. Distinct from there being nothing to compare
+  // against, which is what this section used to say in both cases.
+  const magPending = b.magnitude_range_pending;
 
   return (
     <div className="pt-3 space-y-5">
@@ -849,18 +858,31 @@ function BrainReady({ brain, mutedBorder }) {
           </p>
         )}
 
-        {/* Two branches, because one window and several windows support
-            different sentences. The endpoint sends `magnitude_range` only
-            when it has measured more than one complete window, and with one
-            window there is no evidence here about how much the coefficient
-            moves, only the general reason not to treat it as fixed. */}
+        {/* THREE BRANCHES, corrected 2026-09-19, because there are three
+            states and the previous two sentences covered them wrongly.
+
+            The fallback used to read "This is one window". That was true
+            while one window existed. By 2026-09-19 three complete windows
+            were stored and the endpoint was still dropping the comparison on
+            a cold process, so the page asserted there was one window while
+            the store held three. An absence of compute was being reported as
+            an absence of evidence, which is the failure this whole section is
+            built to avoid.
+
+            So: compared, or stored-but-not-yet-compared, or genuinely one
+            window. Only the last of those may say there is nothing to
+            compare against. */}
         <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
           {mag && Number.isFinite(mag.min) && Number.isFinite(mag.max)
             ? `Direction only. The size of the effect differed between the ${mag.windows} windows `
               + `measured, from ${signed(mag.min, 2)} to ${signed(mag.max, 2)}, so no number here `
               + 'should be read as a constant.'
-            : 'Direction only. This is one window, and it has not been measured against another '
-              + 'one here, so nothing above should be read as a constant.'}
+            : magPending
+              ? `Direction only. ${magPending.windows_available} complete windows are stored and `
+                + 'this reading could not compare them, so the size of the effect is unmeasured '
+                + 'here rather than known to be steady.'
+              : 'Direction only. This is one window, and it has not been measured against another '
+                + 'one here, so nothing above should be read as a constant.'}
         </p>
 
         <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
