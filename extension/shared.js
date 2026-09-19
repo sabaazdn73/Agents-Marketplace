@@ -556,10 +556,21 @@ function accountBlock(a) {
  *  101,815 HYPE, is an active maker carrying a rejection rate on this same
  *  panel. Delegating is something most participants here do.
  *
+ *  TAKES THE ACCOUNT KIND, added 2026-09-19
+ *  clearinghouseState answers 0 for an address the venue has never seen, so
+ *  for such an address this used to print "No perp account value and no open
+ *  position on this venue right now", under a heading reading "What this
+ *  account holds". Both sentences describe an account that does not exist.
+ *  The zero was the absence of a record being rendered as a measurement of
+ *  emptiness, which is the same defect the account block carried one line
+ *  above it. When the venue says it has no record, there is nothing to hold
+ *  and this returns nothing.
+ *
  *  Returns an array of plain sentences, or an empty array when there is
  *  nothing to say. The caller renders the note beside them.
  */
-function holdingsLines(h) {
+function holdingsLines(h, kind) {
+  if (kind === "no_account") return [];
   if (!h || h.withheld_reason) return [];
   const out = [];
   const d = h.hype_delegated;
@@ -577,6 +588,11 @@ function holdingsLines(h) {
   }
   if (sp !== null && sp !== undefined && sp > 0) {
     out.push(`${fmtInt(sp)} spot balance${sp === 1 ? "" : "s"}.`);
+  }
+  // A list that is short because a call failed must say so, or it reads as a
+  // list that is short because the account holds little.
+  if (h.not_read && h.not_read.length && out.length) {
+    out.push(`Not read: ${h.not_read.join(", ")}. Those are gaps here, not zeroes.`);
   }
   return out;
 }

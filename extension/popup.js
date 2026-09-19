@@ -158,13 +158,17 @@ function hyperliquidHtml(h) {
       body: "No rate is being shown, and this surface has no wording for the " +
         "reason given.",
     };
-    const hold = holdingsLines(h && h.holdings);
+    const acctKind = (accountBlock(h && h.account) || {}).kind;
+    const hold = holdingsLines(h && h.holdings, acctKind);
     const holdHtml = hold.length
       ? `<div class="prov"><div class="prov-title">What this account holds</div>
            ${hold.map((l) => `<p class="prov-line">${esc(l)}</p>`).join("")}
            <p class="note">${esc((h.holdings && h.holdings.note) || "")}</p></div>`
       : "";
     const acctW = accountBlock(h && h.account);
+    // acctKind above is this same block's kind, read before the holdings so
+    // the two cannot disagree about whether there is an account.
+
     return `<h2>${esc(w.title)}</h2>
       <p class="body">${esc(w.body)}</p>
       ${acctW ? `<div class="acct acct-${esc(acctW.kind)}"><b>${esc(acctW.title)}</b>

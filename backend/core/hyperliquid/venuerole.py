@@ -101,9 +101,16 @@ def describe(address: str) -> dict:
     try:
         role = _info({"type": "userRole", "user": addr})
         out["role"] = role.get("role") if isinstance(role, dict) else None
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         out["role"] = None
-        out["withheld_reason"] = "venue_unreachable"
+        # Named rather than lumped, because the common one is a rate limit and
+        # not an outage. Measured 2026-09-19: 25 userRole calls with no pause
+        # returned 14 HTTP 429s. roles_for runs eight at a time over fifty
+        # addresses, so this path is ordinary traffic, not an edge case, which
+        # is what makes everything downstream of it worth getting right.
+        out["withheld_reason"] = (
+            "venue_rate_limited"
+            if getattr(e, "code", None) == 429 else "venue_unreachable")
 
     if out.get("role") == "vault":
         try:
@@ -123,6 +130,9 @@ def describe(address: str) -> dict:
         approved = _info({"type": "approvedBuilders", "user": addr})
         out["approved_builders"] = len(approved) if isinstance(approved, list) else 0
     except Exception:  # noqa: BLE001
+        # None means NOT READ. It does not mean zero, and _kind must not let it
+        # become zero: the sentence downstream used to assert "no approved
+        # builder" on the strength of a call that failed.
         out["approved_builders"] = None
 
     # The sentence the panel renders. Written here, once, for the same reason
@@ -137,7 +147,58 @@ def describe(address: str) -> dict:
 
 
 def _kind(d: dict) -> dict:
-    """One of three answers, and the third is the common one."""
+    """What kind of account this is, or which part of that was not read.
+
+    AN ABSENCE IS NEVER A FINDING, corrected 2026-09-19
+    This function had three branches and produced false statements in two
+    situations, both of them ordinary rather than rare.
+
+    The venue answers `{"role": "missing"}` for an address it has never seen.
+    Nothing here handled that, so it fell through to the last branch and the
+    panel said "The venue did not answer when asked what kind of account this
+    is". The venue answered, clearly and usefully, and the reader was told the
+    lookup had failed. That is an answer reported as an absence, and it cost
+    the panel the single most useful thing it could say on an empty address:
+    that there is no account here at all.
+
+    The reverse error sat one branch above it. `approved_builders` is None when
+    that call fails, `(x or 0) > 0` reads None as zero, and the fall-through
+    branch asserts "an ordinary account with no approved builder". A call that
+    failed was being published as a fact about somebody's address. With the
+    builder lookup returning 429 under ordinary load, that was not hypothetical.
+
+    So every branch below states only what was actually read, and the ambiguity
+    sentence, which is the one that carries weight, is reached only when the
+    venue answered, said there is an account, and the builder lookup succeeded.
+    """
+    # Nothing was read. Said first so no later branch can be reached on the
+    # strength of a missing value.
+    reason = d.get("withheld_reason")
+    if d.get("role") is None:
+        rate = reason == "venue_rate_limited"
+        return {
+            "kind": "unknown",
+            "title": "Account type not checked",
+            "body": ("The venue limited our requests when asked what kind of "
+                     "account this is, so it was not read."
+                     if rate else
+                     "The venue did not answer when asked what kind of account "
+                     "this is.")
+            + " That is a gap here, not a finding about the address.",
+        }
+
+    # The venue answered, and what it said is that it has no record. This is a
+    # reading, not a failure to read.
+    if d.get("role") == "missing":
+        return {
+            "kind": "no_account",
+            "title": "No account on this venue",
+            "body": ("The venue reports no record of this address on "
+                     "Hyperliquid. It has not opened an account here, so there "
+                     "is nothing for this panel to measure. That is the venue's "
+                     "answer, not a lookup that failed."),
+        }
+
     if d.get("role") == "vault":
         v = d.get("vault") or {}
         return {
@@ -162,7 +223,44 @@ def _kind(d: dict) -> dict:
                 "an account being operated by a person through an app looks "
                 "like, rather than a platform's own book."),
         }
-    if d.get("role") == "user":
+    if d.get("role") in ("user", "agent", "subAccount"):
+        named = ({"agent": "an API wallet acting for another account",
+                  "subAccount": "a sub-account of another account"}
+                 .get(d.get("role")))
+        # The builder lookup failed, so half of what this branch would say was
+        # never read. Say the half that was.
+        if d.get("approved_builders") is None:
+            return {
+                "kind": "partly_checked",
+                "title": "Account type only partly checked",
+                "body": (
+                    f"The venue reports {named or 'an ordinary account'}. "
+                    "Whether it submits through a front-end was not read, so "
+                    "nothing here says either way."),
+            }
+        if d["approved_builders"] > 0:
+            n = d["approved_builders"]
+            return {
+                "kind": "routed",
+                "title": "Submits through a front-end",
+                "body": (
+                    f"This address has approved {n} builder"
+                    f"{'' if n == 1 else 's'}, which means its orders are "
+                    "submitted through an interface that charges a builder "
+                    "fee. That is what an account being operated by a person "
+                    "through an app looks like, rather than a platform's own "
+                    "book."),
+            }
+        if named:
+            return {
+                "kind": "delegated",
+                "title": ("An API wallet" if d["role"] == "agent"
+                          else "A sub-account"),
+                "body": (f"The venue reports this address as {named}, with no "
+                         "approved builder. What is measured here belongs to "
+                         "whatever controls it rather than to this address on "
+                         "its own."),
+            }
         return {
             "kind": "unestablished",
             "title": "Who is behind this address is not established",
@@ -173,12 +271,15 @@ def _kind(d: dict) -> dict:
                 "like, and nothing public separates the two. Read the rate as "
                 "the behaviour of an account, not of a person."),
         }
+
+    # A role the venue has added since this was written. Name it rather than
+    # pretending the lookup failed.
     return {
         "kind": "unknown",
-        "title": "Account type not checked",
-        "body": ("The venue did not answer when asked what kind of account "
-                 "this is. That is a gap here, not a finding about the "
-                 "address."),
+        "title": "Account type not recognised",
+        "body": (f"The venue reports this address as \"{d.get('role')}\", which "
+                 "this project does not have a reading for. That is a gap "
+                 "here, not a finding about the address."),
     }
 
 
@@ -329,6 +430,22 @@ def holdings(address: str) -> dict:
     except Exception:  # noqa: BLE001
         out["spot_balances"] = None
 
+    # WHICH READS FAILED, not just whether all of them did.
+    #
+    # The withheld_reason below fires only when BOTH the delegation and the
+    # perp account are unreadable. A partial failure produced no flag at all,
+    # and holdingsLines skips a line whose value is None, so one failed call
+    # turned into a shorter list that looked complete: a reader saw "What this
+    # account holds" with the staking line quietly missing and no way to tell
+    # an address that stakes nothing from one whose staking could not be read.
+    # Same defect as the account block above, one step further down.
+    not_read = [name for name, ok in (
+        ("staking", out.get("hype_delegated") is not None),
+        ("the perp account", out.get("perp_account_value_usd") is not None),
+        ("spot balances", out.get("spot_balances") is not None),
+    ) if not ok]
+    if not_read:
+        out["not_read"] = not_read
     if out.get("hype_delegated") is None and out.get("perp_account_value_usd") is None:
         out["withheld_reason"] = "venue_unreachable"
     out["note"] = (
