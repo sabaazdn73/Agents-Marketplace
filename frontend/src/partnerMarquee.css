@@ -141,3 +141,22 @@
     overflow-x: auto;
   }
 }
+
+/* STATIC MODE: everything fits, so nothing moves.
+ *
+ * The track stops animating and the single group spreads across the width
+ * instead of bunching at the left, which is what a row of six credits should
+ * look like on a desktop. The animation and the second copy come back the
+ * moment the list overflows, which on a phone it still does. */
+.partner-marquee__track--static {
+  animation: none;
+  width: 100%;
+}
+.partner-marquee__viewport--static {
+  overflow-x: hidden;
+}
+.partner-marquee__track--static .partner-marquee__group {
+  width: 100%;
+  justify-content: space-evenly;
+  padding-right: 0;
+}

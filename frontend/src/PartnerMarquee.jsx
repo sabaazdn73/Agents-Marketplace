@@ -26,7 +26,7 @@
 // changing their icon path degrades to a text credit instead of a broken
 // image box.
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { PARTNERS, PARTNER_KIND } from './partners';
 
 // The strip carries the primary marks only: the chains this project deploys
@@ -75,20 +75,82 @@ function PartnerLogo({ p }) {
 }
 
 export default function PartnerMarquee({ items = PRIMARY_PARTNERS }) {
+  const viewportRef = useRef(null);
+  const groupRef = useRef(null);
+
+  // SCROLL ONLY WHEN THERE IS MORE THAN FITS.
+  //
+  // The loop is two identical halves translated by -50%, which reads as one
+  // continuous strip and, by construction, shows every logo again each time it
+  // comes round. That is what a marquee is, and it was right when the strip
+  // carried nine marks and overflowed every screen.
+  //
+  // Three were removed on 2026-09-19 and six no longer fill a desktop width, so
+  // both halves were on screen at once and every logo was visibly present
+  // twice. Repeating the list to pad the width was tried first and is worse: it
+  // duplicates the names inside a single pass, so they still appear twice and
+  // now do so with no loop to explain it.
+  //
+  // There is nothing to scroll when everything already fits, so it does not.
+  // Below the width where the list overflows, the loop is exactly as it was.
+  const [scroll, setScroll] = useState(false);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const group = groupRef.current;
+    if (!viewport || !group) return undefined;
+
+    const measure = () => {
+      // MEASURED FROM THE ITEMS, NOT FROM THE GROUP.
+      //
+      // Static mode stretches the group to the full width and spaces the items
+      // out, so once it is on, group.scrollWidth equals the container and the
+      // comparison can never become true again: the strip latched static and
+      // stopped scrolling at any width. Found by narrowing the container to
+      // 420px and watching nothing happen.
+      //
+      // The items' own widths do not change with justify-content, so the
+      // natural width is their sum plus the gaps between them. That is the same
+      // number in both modes, which is what makes the switch reversible.
+      const kids = Array.from(group.children);
+      if (!kids.length) return;
+      const styles = getComputedStyle(group);
+      const gap = parseFloat(styles.columnGap || styles.gap) || 0;
+      const onePass = kids.reduce((w, k) => w + k.offsetWidth, 0)
+        + gap * (kids.length - 1);
+      setScroll(onePass > viewport.clientWidth + 1);
+    };
+
+    measure();
+    // The logos are lazy images, so a pass can be narrower at first paint than
+    // it will be a moment later. A ResizeObserver catches that and the window
+    // changing width.
+    const ro = new ResizeObserver(measure);
+    ro.observe(viewport);
+    ro.observe(group);
+    return () => ro.disconnect();
+  }, [items.length]);
+
   if (!items.length) return null;
 
   return (
     <section className="partner-marquee" aria-label="Partners and tools this project uses">
-      <div className="partner-marquee__viewport">
-        <div className="partner-marquee__track">
-          <div className="partner-marquee__group">
+      <div
+        className={`partner-marquee__viewport${scroll ? "" : " partner-marquee__viewport--static"}`}
+        ref={viewportRef}
+      >
+        <div className={`partner-marquee__track${scroll ? "" : " partner-marquee__track--static"}`}>
+          <div className="partner-marquee__group" ref={groupRef}>
             {items.map((p) => <PartnerLogo key={p.name} p={p} />)}
           </div>
-          {/* Second copy makes the loop seamless. Hidden from screen
-              readers so each name is announced once. */}
-          <div className="partner-marquee__group" aria-hidden="true">
-            {items.map((p) => <PartnerLogo key={`dup-${p.name}`} p={p} />)}
-          </div>
+          {/* The second copy exists only to make the loop seamless, so it is
+              rendered only when there is a loop. Hidden from screen readers so
+              each name is announced once. */}
+          {scroll && (
+            <div className="partner-marquee__group" aria-hidden="true">
+              {items.map((p) => <PartnerLogo key={`dup-${p.name}`} p={p} />)}
+            </div>
+          )}
         </div>
       </div>
     </section>
