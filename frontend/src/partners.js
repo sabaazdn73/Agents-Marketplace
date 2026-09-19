@@ -122,6 +122,29 @@ export const PARTNERS = [
   { name: 'Arbitrum', kind: PARTNER_KIND.CHAIN, url: 'https://arbitrum.io', logo: 'https://arbitrum.io/favicon.ico' },
   { name: 'Robinhood Chain', kind: PARTNER_KIND.CHAIN, url: 'https://robinhood.com', logo: 'https://robinhood.com/favicon.ico' },
 
+  // EVERY CHAIN THE SITE HAS A TAB FOR, added 2026-09-19.
+  //
+  // The strip carried three of the seven, so a reader saw Arbitrum and
+  // Robinhood Chain credited and not Ethereum, Solana, Monad or the venue the
+  // deepest measurements on the site come from.
+  //
+  // The marks are the same URLs chainViews/chainMarks.jsx uses for the tab
+  // strip, deliberately: two lists of chain logos that can disagree is how one
+  // of them ends up stale, and every one of these was already checked live
+  // when its tab was added. The reasoning behind each is in that file, and the
+  // Hyperliquid one is worth repeating: their brand kit ships only ZIPs, so
+  // the mark comes from the path the app's own <head> declares, because
+  // app.hyperliquid.xyz/favicon.ico returns the SPA's HTML and the apex
+  // returns 403.
+  //
+  // BNB Chain is NOT repeated here. It is already in this list as an event,
+  // which is how it reaches the strip, and a second entry would put the same
+  // name in twice, which is the fault that was just fixed.
+  { name: 'Hyperliquid', kind: PARTNER_KIND.CHAIN, url: 'https://hyperliquid.xyz', logo: 'https://app.hyperliquid.xyz/favicon-32x32.png' },
+  { name: 'Ethereum', kind: PARTNER_KIND.CHAIN, url: 'https://ethereum.org', logo: 'https://ethereum.org/favicon.ico' },
+  { name: 'Solana', kind: PARTNER_KIND.CHAIN, url: 'https://solana.com', logo: 'https://solana.com/src/img/branding/solanaLogoMark.svg' },
+  { name: 'Monad', kind: PARTNER_KIND.CHAIN, url: 'https://monad.xyz', logo: 'https://monad.xyz/favicon.ico' },
+
   // Tools in the build and payment path.
   { name: 'MetaMask', kind: PARTNER_KIND.TOOL, url: 'https://metamask.io', logo: 'https://metamask.io/favicon.ico' },
   { name: 'Crossmint', kind: PARTNER_KIND.TOOL, url: 'https://www.crossmint.com', logo: 'https://www.crossmint.com/favicon.ico' },
