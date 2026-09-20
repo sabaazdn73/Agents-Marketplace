@@ -3001,7 +3001,32 @@ async def chain_views_index():
     out = []
     for v in chain_views.describe_views():
         v = dict(v)
-        v["count"] = await chain_views.count_view(v["id"])
+        if v["id"] == "bnb":
+            # BNB IS THE ONE VIEW COUNTED FROM A DIFFERENT PLACE THAN IT IS
+            # SERVED FROM, and the card was overstating it tenfold.
+            #
+            # Every other view is both counted and served from
+            # full_agent_registry, through /api/chain-view/{view}, so its card
+            # and its grid agree by construction. BNB's listing is /api/agents,
+            # which serves known_agents through agent_store.get_stored_agents()
+            # capped at SERVE_LIMIT (15,000). Measured against the database on
+            # 2026-09-20: full_agent_registry holds 154,579 on chain 56,
+            # known_agents holds 39,802, and /api/agents serves 14,902. The card
+            # was showing the first of those and the grid the last.
+            #
+            # Report what the grid will actually show, by asking the index the
+            # same question /api/agents asks it with no filters set. Not
+            # _cache["count"], which is the raw record count before the index
+            # drops the nameless: that reads 15,000 against a grid of 14,902.
+            #
+            # A cold index knows no count, and null leaves the card silent
+            # rather than stating a number that would be wrong in either
+            # direction: the chooser omits the line when count is absent, and
+            # reads 0 as "no agents indexed", which would be the worse lie.
+            ix = _cache["index"]
+            v["count"] = len(ix.select(include_unclassified=True)) if ix else None
+        else:
+            v["count"] = await chain_views.count_view(v["id"])
         out.append(v)
     return {"views": out}
 

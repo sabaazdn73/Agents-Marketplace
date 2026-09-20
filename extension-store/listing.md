@@ -238,11 +238,11 @@ submit.
 
 Paste from here to the end of this section.
 
-Deliberately does not name the eight sites one by one. The spam policy asks a
+Deliberately does not name the nine sites one by one. The spam policy asks a
 description not to list more than five brands and suggests a link instead, and
-naming six explorers plus 8004scan plus Hyperliquid would be eight. The list is
+naming seven explorers plus 8004scan plus Hyperliquid would be nine. The list is
 in the privacy policy, which is linked, and in the permissions Chrome shows at
-install.
+install. As it stands the text names three: Hyperliquid, 8004scan and Chrome.
 
 > Tnega adds one panel to a page you are already looking at, when that page is
 > about something this project has measured.
