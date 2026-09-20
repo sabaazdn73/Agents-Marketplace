@@ -98,27 +98,38 @@ const DEFINITIONS = [
     // order behaviour, not of outcome, which is true by construction and
     // needs no data to assert.
     //
-    // The second half now names a number. The venue's leaderboard carries
-    // PnL, and joined against these rates the correlation is +0.013 by
-    // Pearson and +0.118 by rank. An earlier version of this comment refused
-    // to state that as a finding, on the grounds that the file's month PnL
-    // exceeded its allTime PnL on 51.3% of rows and a correlation against a
-    // measure that noisy is pulled toward zero regardless. That objection was
-    // withdrawn on 2026-09-18: PnL is signed, and 87.9% of those rows simply
-    // have a negative allTime figure. Checked against the venue's own
-    // portfolio endpoint the file agrees to a median 0.17% of account value.
-    // What limits the claim now is n, which is 30, not the source.
+    // THE NUMBER WAS QUOTED, AND THEN IT MOVED.
+    //
+    // This used to state a single figure, +0.013, measured on 2026-09-18
+    // against the venue's leaderboard. Re-measured on 2026-09-20 on the same
+    // 30 addresses it came out at -0.066 by Pearson, with the rank
+    // correlation moving +0.118 to +0.245 over the same two days.
+    //
+    // Nothing about the source changed. n is 30, and at that size a
+    // correlation this close to zero carries a standard error wide enough to
+    // cover both readings and the sign flip between them. So the page now
+    // gives both measurements and declines to quote one figure: a point
+    // estimate that reverses sign in two days is not a finding, and printing
+    // it to three decimals claims a steadiness the data does not have.
+    //
+    // The underlying objection to the source was separately withdrawn on
+    // 2026-09-18 and stays withdrawn. The file's month PnL exceeding its
+    // allTime PnL on 51.3% of rows was not a contradiction: PnL is signed and
+    // 87.9% of those rows have a negative allTime figure. Against the venue's
+    // own portfolio endpoint the file agrees to a median 0.17% of account
+    // value. The limit here is n, not the data.
     // See collector.fetch_leaderboard.
     term: 'What the rate does not say',
     text: 'Whether the maker is any good, or making money. A low rate means its '
         + 'quotes reach the book, which is what quoting looks like, not a score. '
         + 'The tracked set contains addresses that quote cleanly and lose, and '
-        + 'addresses that are refused constantly and gain. That is not an '
-        + 'impression: across the 30 makers here that also appear on the '
-        + 'venue\u2019s leaderboard, the correlation between this rate and their '
-        + '30-day return is +0.013, which is no relationship at all. Nothing on '
-        + 'this page measures profit, and a low rate should not be read as a '
-        + 'proxy for it.',
+        + 'addresses that are refused constantly and gain. Checked against the '
+        + 'venue\u2019s own leaderboard, for the 30 makers here that appear on it, '
+        + 'the correlation between this rate and their 30-day return measured '
+        + '+0.01 on 18 September and \u22120.07 on 20 September. It sits near zero '
+        + 'and it does not hold still, so no single figure for it is given here. '
+        + 'Nothing on this page measures profit, and a low rate should not be read '
+        + 'as a proxy for it.',
   },
   {
     term: 'Cancel to fill',
@@ -1430,8 +1441,10 @@ export default function HyperliquidView({ mutedBorder }) {
           {' '}Hyperliquid serves only the 2,000 most recent orders per address and cannot be asked
           for older ones, so this history begins when collection began and grows from there.
           {cov.polls_with_gap > 0 && (
-            <> {cov.polls_with_gap} polls had a gap, meaning orders happened between two polls that
-            no poll saw. Those count as missing rather than as zero.</>
+            <> {(cov.polls_with_gap).toLocaleString()} of those polls
+            {cov.polls > 0 ? `, ${Math.round((cov.polls_with_gap / cov.polls) * 100)}%,` : ''} had a
+            gap, meaning orders happened between two polls that no poll saw. Those count as missing
+            rather than as zero.</>
           )}
         </div>
       </div>
@@ -1444,7 +1457,7 @@ export default function HyperliquidView({ mutedBorder }) {
             title: 'Memory',
             icon: Database,
             note: 'What it has collected so far',
-            badge: `${(cov.orders_observed ?? 0).toLocaleString()} orders, all time`,
+            badge: `${(cov.orders_observed ?? 0).toLocaleString()} order sightings`,
             badgeTone: 'border-[#97FCE4]/40 bg-[#97FCE4]/10 text-[#0B7A66] dark:text-[#97FCE4]',
             render: () => (
               <div className="space-y-4 pt-2">
@@ -1459,11 +1472,22 @@ export default function HyperliquidView({ mutedBorder }) {
                     to the same word. Each tile now carries its own period. */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    ['Orders recorded', (cov.orders_observed ?? 0).toLocaleString(), 'all time'],
+                    // NOT "orders". This is a sum of per-poll counts, and the
+                    // venue's window moves slower than the poll does, so an
+                    // order still inside the window is counted again by the
+                    // next poll that sees it. Measured on 2026-09-20 by
+                    // comparing each poll's window against the one before it,
+                    // about 21% of the 35.5M are the same orders seen more
+                    // than once. Calling the total "orders recorded" made a
+                    // count of sightings read as a count of orders.
+                    ['Order sightings', (cov.orders_observed ?? 0).toLocaleString(),
+                      'all time, repeats included'],
                     ['Polls', (cov.polls ?? 0).toLocaleString(), 'all time'],
                     ['Addresses ever polled', cov.addresses ?? 0,
                       `${cov.addresses_tracked ?? 0} in the set now`],
-                    ['Polls with a gap', cov.polls_with_gap ?? 0, 'all time'],
+                    ['Polls with a gap', (cov.polls_with_gap ?? 0).toLocaleString(),
+                      cov.polls ? `${Math.round((cov.polls_with_gap / cov.polls) * 100)}% of polls`
+                                : 'all time'],
                   ].map(([k, v, period]) => (
                     <div key={k} className="rounded-xl border border-gray-200 dark:border-gray-800 p-2.5">
                       <div className="text-[15px] font-bold tabular-nums text-gray-900 dark:text-gray-100">{v}</div>
@@ -1473,13 +1497,33 @@ export default function HyperliquidView({ mutedBorder }) {
                   ))}
                 </div>
 
+                {/* SAID ON THE PAGE, NOT ONLY IN THE CODE.
+                    The first tile used to read "orders recorded", which is a
+                    count of sightings presented as a count of orders. The
+                    venue's window moves slower than the poll does, so an order
+                    still inside it is counted again by the next poll. Anyone
+                    dividing by this number, or comparing it to a venue figure,
+                    was going to be wrong by about a fifth. */}
+                <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                  The first figure counts sightings, not distinct orders. Each poll returns the
+                  venue&apos;s most recent window, and that window turns over more slowly than the
+                  polling, so an order still inside it is counted again by the next poll that sees
+                  it. Comparing each poll&apos;s window against the one before it on 20 September
+                  2026, about 21% of those sightings are the same orders seen more than once,
+                  leaving roughly 27.9 million distinct. That is an estimate from the window
+                  timestamps rather than a count: the stored rows are per-poll totals and carry no
+                  order identifiers, so repeats cannot be counted exactly. The rejection rates are
+                  unaffected either way, because a repeated order is counted on both sides of the
+                  division.
+                </p>
+
                 <div>
                   <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">By market</h4>
                   {/* The distribution, not one number. A pooled rate on a book
                       where two addresses place most of the quotes is a
-                      statement about those two: BTC pools to 57% while the
-                      median of its makers is under half a percent and fifteen
-                      of twenty-three sit under one percent. The pooled figure
+                      statement about those two: on 2026-09-20 BTC pooled to
+                      58.8% while the median of its makers was 0.6% and 14 of
+                      its 23 sat under one percent. The pooled figure
                       is still here, named for what it is, in its own column at
                       the end. */}
                   <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
@@ -1540,14 +1584,20 @@ export default function HyperliquidView({ mutedBorder }) {
                       here can be an account holding many customers rather than
                       one trader, and a 92% rejection rate means something
                       different for each. Checked against the venue's own API
-                      across all 66 addresses ever polled: userRole reports two
-                      of them as vaults, and approvedBuilders reports 16 as
-                      submitting through a front-end, which is what a person
-                      using an app looks like. The remaining 48 return an
-                      ordinary account with no approved builder, which is what
-                      a single trader looks like AND what a custodial account
+                      Re-measured 2026-09-20 across all 68 addresses ever
+                      polled, replacing a 66-address reading from two days
+                      earlier that said two vaults and 16 builders: userRole
+                      now reports 64 ordinary accounts and three vaults, with
+                      one address not answering, and approvedBuilders reports
+                      17 submitting through a front-end, which is what a person
+                      using an app looks like. An ordinary account is what a
+                      single trader looks like AND what a custodial account
                       holding many customers looks like. Nothing public
                       separates those two.
+
+                      These counts are hardcoded and will drift again. They
+                      are dated on the page for that reason. Making them live
+                      needs an endpoint that does not exist yet.
 
                       There is no per-fill builder attribution to fall back on:
                       userFills carries no builder field at all, read across
@@ -1556,12 +1606,13 @@ export default function HyperliquidView({ mutedBorder }) {
                   <p className="text-[11px] text-gray-500 dark:text-gray-500 leading-relaxed mt-1">
                     A row is an address, not a person. The rows marked Vault trade a strategy
                     with other people&apos;s deposits in it, so their rate describes that strategy.
-                    Sixteen of the addresses ever polled submit through a front-end that charges a
-                    builder fee, which is what a person using an app looks like. Every other row
-                    returns an ordinary account, which is what a single trader looks like and also
-                    what a platform holding many customers in one account looks like. The venue
-                    publishes nothing that separates those two, so read an unmarked rate as the
-                    behaviour of an account.
+                    Of the 68 addresses ever polled, 17 submit through a front-end that charges
+                    a builder fee, which is what a person using an app looks like, and three are
+                    vaults. The rest return an ordinary account, which is what a single trader
+                    looks like and also what a platform holding many customers in one account looks
+                    like. The venue publishes nothing that separates those two, so read an unmarked
+                    rate as the behaviour of an account. Checked against the venue on 20 September
+                    2026; one address did not answer and is counted in neither group.
                   </p>
                   <ScrollTable mutedBorder={mutedBorder} head={<>
                     <Th align="left">Address</Th><Th>30d volume</Th><Th>Post-only</Th>
