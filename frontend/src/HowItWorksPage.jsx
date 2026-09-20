@@ -194,6 +194,119 @@ function CodeBlock({ text, label }) {
 
 /** A status word beside a card's title, so the state of a way in is next to
  *  its name rather than three paragraphs down. */
+// The Colosseum progress updates, newest first. One entry per week, each one a
+// standalone deck under frontend/public/weekly/ that is self-contained enough to
+// record from without the site running. Adding week 2 is adding an object here
+// and a file beside week-1.html; nothing below this array needs to change.
+//
+// `figures` is the short list a reader should be able to carry away. Every one
+// of them is measured, and the date is the date it was measured on, not the date
+// the deck was written, because these move: the pooled rate and the overlap
+// share both changed between the first draft of week 1 and its publication.
+const WEEKLY_UPDATES = [
+  {
+    week: 1,
+    href: '/weekly/week-1.html',
+    // The HTML is the surface the video is recorded from: it animates, it goes
+    // full screen, and it moves on the arrow keys. The PDF is the same eight
+    // slides printed at the same 1280 by 800, for wherever a file has to be
+    // attached instead of a link opened.
+    pdf: '/weekly/week-1.pdf',
+    dates: '15 to 20 September 2026',
+    measured: '20 September 2026',
+    title: 'What the order book does not show you',
+    // Not "two orders of magnitude": 12.5% over 0.17% is 74, and rounding it up
+    // to a hundred to make the sentence land is the thing this project is for.
+    line: 'Post-only rejection on Hyperliquid: what a refused order costs the person who '
+      + 'sent it, why the venue-wide figure and the figure a single maker sees are about '
+      + 'seventy times apart, and two measurements of my own that were wrong.',
+    figures: [
+      ['0.17%', 'the median maker in the median market, across 40 markets'],
+      ['12.5%', 'pooled across all 18,469,277 post-only orders observed'],
+      ['100%', 'one address refused on all 252,994 of its orders in one market'],
+    ],
+  },
+];
+
+/** The weekly update list.
+ *
+ * Deliberately not a card in the Cards grid above it. Those four are ways to
+ * use the product and they are interchangeable with each other; this is a log
+ * that grows, and putting it in the same row would say it is a fifth way in.
+ */
+function WeeklyProgress({ compact }) {
+  return (
+    <div className="mt-8">
+      <div className="flex items-center gap-2 mb-1.5">
+        <h3 className={`font-bold text-gray-900 dark:text-gray-100 ${compact ? 'text-[15px]' : 'text-[17px]'}`}>
+          Weekly progress
+        </h3>
+        <Pill tone="quiet">Week {WEEKLY_UPDATES[0].week}</Pill>
+      </div>
+      <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300 mb-4 max-w-[78ch]`}>
+        A short deck each week on what was built and what it measured. Each one states the date
+        its figures were read on, and where a figure could not be measured it is left out rather
+        than estimated.
+      </p>
+
+      <div className="space-y-3">
+        {WEEKLY_UPDATES.map((u) => (
+          <div
+            key={u.week}
+            className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] p-4 sm:p-5"
+          >
+            <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 mb-1.5">
+              <span className="text-[11px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
+                Week {u.week}
+              </span>
+              <span className={`font-bold text-gray-900 dark:text-gray-100 ${compact ? 'text-[14px]' : 'text-[15px]'}`}>
+                {u.title}
+              </span>
+              <span className="text-[11px] text-gray-400">{u.dates}</span>
+            </div>
+            <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300 max-w-[80ch]`}>
+              {u.line}
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+              {u.figures.map(([n, what]) => (
+                <div key={n} className="rounded-xl bg-gray-50 dark:bg-white/5 px-3 py-2.5">
+                  <div className={`font-bold tabular-nums text-gray-900 dark:text-gray-100 ${compact ? 'text-[17px]' : 'text-[20px]'}`}>
+                    {n}
+                  </div>
+                  <div className="text-[11px] leading-snug text-gray-500 dark:text-gray-400 mt-0.5">{what}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-4">
+              <a
+                href={u.href}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
+              >
+                Open the deck <ExternalLink size={12} />
+              </a>
+              <a
+                href={u.pdf}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              >
+                PDF <ExternalLink size={12} />
+              </a>
+              <span className="text-[11px] text-gray-400">
+                Figures measured {u.measured}. Arrow keys to move, f for full screen.
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Pill({ tone = 'quiet', children }) {
   const tones = {
     live: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
@@ -807,6 +920,8 @@ export default function HowItWorksPage({ variant = 'web' }) {
       </p>
 
       <Cards cards={cards} compact={compact} />
+
+      <WeeklyProgress compact={compact} />
     </div>
   );
 }

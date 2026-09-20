@@ -154,16 +154,13 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
               and separate what you can browse from what you can hire. */}
           <h1>Autonomous agents, one verifiable network across chains</h1>
           <p>Discover and verify agents on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain.</p>
-          <a
-            href="/market"
-            onClick={(e) => { e.preventDefault(); onEnterMarketplace?.(); }}
-          >
-            Explore Tnega
-          </a>
         </div>
 
-        {/* The sidebar is hidden while this page shows, so "Explore Tnega"
-            is the intended exit and this is the backstop. */}
+        {/* The button that used to sit under the video was removed: over a
+            full-bleed video it read as the only thing to do, and the story
+            below it went unread. The scroll cue is now the invitation. The
+            sidebar is hidden while this page shows, so this skip link is the
+            one remaining exit from the hero for anyone who wants it. */}
         <a className="skip" href="/market">Skip to Explore</a>
 
         {/* The page scrolls now, and nothing about a full-bleed hero says so.
