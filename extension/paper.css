@@ -1,0 +1,136 @@
+/* paper.css
+ *
+ * Practice mode's panel, styled to sit inside Hyperliquid's page rather than
+ * on top of it. Every colour comes from a custom property that paper.js sets
+ * from what the page computes for itself, so if they ever ship a light theme
+ * this follows it instead of staying dark against it.
+ *
+ * The header is the exception to blending in. It is always legible, always
+ * present, and it does not dim with the rest: someone glancing at this panel
+ * has to be able to tell in one look that the money is not there.
+ */
+
+.tnega-paper {
+  --tp-bg: #1a1a1a; --tp-raised: #242424; --tp-border: rgba(255,255,255,.12);
+  --tp-fg: #fff; --tp-muted: rgba(255,255,255,.55); --tp-font: system-ui, sans-serif;
+  --tp-long: #1fa67d; --tp-short: #e5484d; --tp-accent: #50d2c1;
+
+  box-sizing: border-box;
+  background: var(--tp-bg);
+  color: var(--tp-fg);
+  font-family: var(--tp-font);
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid var(--tp-border);
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: 5;
+}
+.tnega-paper *, .tnega-paper *::before, .tnega-paper *::after { box-sizing: border-box; }
+
+/* ── The header that never goes away ─────────────────────────────────────── */
+.tnega-paper .tp-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px;
+  background: var(--tp-raised);
+  border-bottom: 1px solid var(--tp-border);
+}
+.tnega-paper .tp-mark {
+  font-size: 11px; font-weight: 700; letter-spacing: .02em;
+  color: var(--tp-accent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tnega-paper .tp-spacer { flex: 1 1 auto; min-width: 4px; }
+.tnega-paper .tp-bal { font-variant-numeric: tabular-nums; font-weight: 600; }
+.tnega-paper .tp-min {
+  flex: 0 0 auto;
+  background: transparent; color: var(--tp-fg);
+  border: 1px solid var(--tp-border); border-radius: 4px;
+  padding: 3px 9px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.tnega-paper .tp-min:hover { border-color: var(--tp-accent); color: var(--tp-accent); }
+
+/* ── Body ────────────────────────────────────────────────────────────────── */
+.tnega-paper .tp-body { padding: 10px; }
+.tnega-paper .tp-cols {
+  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px;
+  align-items: start;
+}
+.tnega-paper .tp-row { display: flex; gap: 6px; }
+.tnega-paper .tp-sides, .tnega-paper .tp-types { margin-bottom: 8px; }
+
+.tnega-paper .tp-side, .tnega-paper .tp-tab {
+  flex: 1 1 0; padding: 6px 4px; font: inherit; cursor: pointer;
+  background: transparent; color: var(--tp-muted);
+  border: 1px solid var(--tp-border); border-radius: 4px;
+}
+.tnega-paper .tp-tab.on { color: var(--tp-fg); border-color: var(--tp-accent); }
+.tnega-paper .tp-side.tp-buy.on { background: var(--tp-long); border-color: var(--tp-long); color: #fff; }
+.tnega-paper .tp-side.tp-sell.on { background: var(--tp-short); border-color: var(--tp-short); color: #fff; }
+
+.tnega-paper .tp-field { display: block; margin-bottom: 8px; }
+.tnega-paper .tp-field span { display: block; color: var(--tp-muted); margin-bottom: 3px; }
+.tnega-paper .tp-field input {
+  width: 100%; padding: 6px 8px; font: inherit;
+  background: var(--tp-raised); color: var(--tp-fg);
+  border: 1px solid var(--tp-border); border-radius: 4px;
+}
+.tnega-paper .tp-field input:focus { outline: none; border-color: var(--tp-accent); }
+.tnega-paper .tp-checks { flex-wrap: wrap; margin-bottom: 8px; }
+.tnega-paper .tp-check { display: flex; align-items: center; gap: 4px; color: var(--tp-muted); }
+
+.tnega-paper .tp-submit {
+  width: 100%; padding: 8px; font: inherit; font-weight: 600; cursor: pointer;
+  border: 0; border-radius: 4px; color: #fff;
+}
+.tnega-paper .tp-submit.tp-buy { background: var(--tp-long); }
+.tnega-paper .tp-submit.tp-sell { background: var(--tp-short); }
+.tnega-paper .tp-touch { margin-top: 7px; color: var(--tp-muted); font-size: 11px; }
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+.tnega-paper .tp-sub { font-weight: 600; margin: 10px 0 5px; }
+.tnega-paper .tp-sub:first-child { margin-top: 0; }
+.tnega-paper .tp-sub2 { font-weight: 600; margin: 9px 0 4px; }
+.tnega-paper .tp-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tnega-paper .tp-table th {
+  text-align: left; font-weight: 400; color: var(--tp-muted);
+  padding: 3px 8px 3px 0; white-space: nowrap; font-size: 11px;
+}
+.tnega-paper .tp-table td { padding: 3px 8px 3px 0; white-space: nowrap; }
+.tnega-paper .tp-up { color: var(--tp-long); }
+.tnega-paper .tp-down { color: var(--tp-short); }
+.tnega-paper .tp-empty { color: var(--tp-muted); padding: 2px 0; }
+
+.tnega-paper .tp-close, .tnega-paper .tp-x {
+  background: transparent; color: var(--tp-muted); font: inherit; font-size: 11px;
+  border: 1px solid var(--tp-border); border-radius: 4px; padding: 2px 8px; cursor: pointer;
+}
+.tnega-paper .tp-close:hover, .tnega-paper .tp-x:hover { color: var(--tp-fg); border-color: var(--tp-accent); }
+
+/* ── What happened, which is where the teaching is ───────────────────────── */
+.tnega-paper .tp-events { list-style: none; margin: 0; padding: 0; }
+.tnega-paper .tp-events li {
+  padding: 5px 0 5px 9px; border-left: 2px solid var(--tp-border); margin-bottom: 4px;
+}
+.tnega-paper .tp-ev-no { border-left-color: var(--tp-short); }
+.tnega-paper .tp-ev-ok { border-left-color: var(--tp-long); }
+.tnega-paper .tp-ev-h { display: block; }
+.tnega-paper .tp-ev-d { display: block; color: var(--tp-muted); font-size: 11px; margin-top: 2px; }
+
+/* ── The disclosure ──────────────────────────────────────────────────────── */
+.tnega-paper .tp-disc { margin-top: 12px; border-top: 1px solid var(--tp-border); padding-top: 8px; }
+.tnega-paper .tp-disc summary { cursor: pointer; color: var(--tp-muted); }
+.tnega-paper .tp-disc summary:hover { color: var(--tp-fg); }
+.tnega-paper .tp-note { color: var(--tp-muted); font-size: 11px; margin: 6px 0; max-width: 90ch; }
+.tnega-paper .tp-list { color: var(--tp-muted); font-size: 11px; margin: 4px 0; padding-left: 16px; max-width: 90ch; }
+.tnega-paper .tp-list li { margin-bottom: 3px; }
+
+/* ── Narrow ──────────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .tnega-paper { border-radius: 0; border-left: 0; border-right: 0; }
+  .tnega-paper .tp-cols { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .tnega-paper .tp-mark { white-space: normal; }
+  /* A table of eight columns does not fit a phone, and shrinking the type to
+     make it fit makes it unreadable instead of unfitting. It scrolls. */
+  .tnega-paper .tp-right { overflow-x: auto; }
+}

@@ -28,10 +28,13 @@
       ],
       "js": [
         "shared.js",
-        "content.js"
+        "content.js",
+        "paperSim.js",
+        "paper.js"
       ],
       "css": [
-        "panel.css"
+        "panel.css",
+        "paper.css"
       ],
       "run_at": "document_idle"
     },
