@@ -190,28 +190,37 @@ export default function App() {
     return <LandingPage onEnterMarketplace={() => navigate('/market')} />;
   }
 
+  // WHERE "BACK TO EXPLORE" GOES, IN ONE PLACE.
+  //
+  // Every footer page's Back button used to be navigate('/'), which was
+  // correct while "/" rendered the marketplace. It stopped being correct the
+  // moment "/" started rendering Home, above: seven Back buttons quietly
+  // became Home buttons, and the button still said Explore. Named here so the
+  // next change to what "/" renders cannot do that again.
+  const backToExplore = () => navigate('/market');
+
   if (path === '/status') {
-    return <StatusPage onBack={() => navigate('/')} />;
+    return <StatusPage onBack={backToExplore} />;
   }
 
   if (path === '/data-sources') {
-    return <DataSourcesPage onBack={() => navigate('/')} />;
+    return <DataSourcesPage onBack={backToExplore} />;
   }
 
   if (path === '/privacy') {
-    return <PrivacyPage onBack={() => navigate('/')} />;
+    return <PrivacyPage onBack={backToExplore} />;
   }
 
   if (path === '/partners') {
-    return <HackathonPartnersPage onBack={() => navigate('/')} />;
+    return <HackathonPartnersPage onBack={backToExplore} />;
   }
 
   if (path === '/docs' || path.startsWith('/docs/') || path.startsWith('/docs#')) {
-    return <DocsPage path={path} navigate={navigate} onBack={() => navigate('/')} isMobile={isMobile} />;
+    return <DocsPage path={path} navigate={navigate} onBack={backToExplore} isMobile={isMobile} />;
   }
 
   if (path === '/canary') {
-    return <CanaryTestingPanel onBack={() => navigate('/')} />;
+    return <CanaryTestingPanel onBack={backToExplore} />;
   }
 
   if (path === '/ecosystem') {
@@ -221,7 +230,7 @@ export default function App() {
           <Loader2 size={28} className="animate-spin text-indigo-400" />
         </div>
       }>
-        <EcosystemGlobePage onBack={() => navigate('/')} />
+        <EcosystemGlobePage onBack={backToExplore} />
       </Suspense>
     );
   }
