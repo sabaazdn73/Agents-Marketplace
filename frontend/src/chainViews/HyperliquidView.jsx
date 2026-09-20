@@ -62,30 +62,48 @@ function short(a) {
   return a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '';
 }
 
-const BAND_COPY = {
-  quoting: {
-    label: 'Quoting',
-    blurb: 'Under 5% refused. Their orders reach the book.',
-    tone: 'text-emerald-700 dark:text-emerald-400 border-emerald-500/25 bg-emerald-500/5',
-  },
-  mixed: {
-    label: 'Mixed',
-    blurb: 'Between 5% and 50% refused.',
-    tone: 'text-amber-700 dark:text-amber-400 border-amber-500/25 bg-amber-500/5',
-  },
-  spraying: {
-    label: 'Spraying',
-    blurb: 'Over half refused. Most of what they send never rests.',
-    tone: 'text-rose-700 dark:text-rose-400 border-rose-500/25 bg-rose-500/5',
-  },
-  unknown: {
-    label: 'Not enough yet',
-    blurb: 'Fewer than five polls so far, so no rate is shown.',
-    tone: 'text-gray-600 dark:text-gray-400 border-gray-300/40 dark:border-gray-700 bg-gray-500/5',
-  },
-};
+/** Band copy built from the thresholds the backend sorts by.
+ *
+ *  NOT A CONSTANT ANY MORE, AND THAT IS THE POINT. This read "Under 5%",
+ *  "Between 5% and 50%" and "Fewer than five polls" as prose, beside a
+ *  backend holding 0.05, 0.50 and 5 as the values it actually uses. Two
+ *  copies of one threshold with nothing checking they agree: change the
+ *  constant and the page goes on describing the old one, in confident
+ *  English. They come from /overview's `constants` now.
+ *
+ *  The fallbacks are for the frame before the fetch lands, not a second
+ *  source of truth.
+ */
+function bandCopy(k = {}) {
+  const quotingMax = pct(k.band_quoting_max ?? 0.05, 0);
+  const mixedMax = pct(k.band_mixed_max ?? 0.50, 0);
+  const minPolls = k.min_polls_for_rate ?? 5;
+  return {
+    quoting: {
+      label: 'Quoting',
+      blurb: `Under ${quotingMax} refused. Their orders reach the book.`,
+      tone: 'text-emerald-700 dark:text-emerald-400 border-emerald-500/25 bg-emerald-500/5',
+    },
+    mixed: {
+      label: 'Mixed',
+      blurb: `Between ${quotingMax} and ${mixedMax} refused.`,
+      tone: 'text-amber-700 dark:text-amber-400 border-amber-500/25 bg-amber-500/5',
+    },
+    spraying: {
+      label: 'Spraying',
+      blurb: `Over ${mixedMax} refused. Most of what they send never rests.`,
+      tone: 'text-rose-700 dark:text-rose-400 border-rose-500/25 bg-rose-500/5',
+    },
+    unknown: {
+      label: 'Not enough yet',
+      blurb: `Fewer than ${minPolls} polls so far, so no rate is shown.`,
+      tone: 'text-gray-600 dark:text-gray-400 border-gray-300/40 dark:border-gray-700 bg-gray-500/5',
+    },
+  };
+}
 
-const DEFINITIONS = [
+function definitions() {
+  return [
   {
     term: 'Post-only rejection rate',
     text: 'Of the orders a maker asked to rest on the book without trading, the '
@@ -165,8 +183,20 @@ const DEFINITIONS = [
         + 'boundary, which the venue does not publish. The one holding that '
         + 'can be attributed is staking, because a stake is a quantity times a '
         + 'price and both paths are served in full.',
-  },
-];
+      // WHY THIS ONE IS NOT LIVE, said beside it rather than left to a date.
+      // The range came from a one-off reconciliation across accounts with a
+      // complete fills history. That is not a query this service can run: it
+      // needs every fill for every account, and the venue serves a capped
+      // window going forward only. It is a statement about how the venue's
+      // fields relate to each other rather than a measurement of the current
+      // set, so it does not go stale the way a count does.
+      note: 'This range came from a one-off reconciliation rather than from '
+        + 'anything this page polls, so it carries no date. It describes how the '
+        + 'venue\u2019s fields relate to each other, not the set being tracked '
+        + 'now, and it does not move as that set does.',
+    },
+  ];
+}
 
 /** One maker's rate in each market it quotes.
  *
@@ -183,7 +213,7 @@ const DEFINITIONS = [
  *  market rather than dividing, because 1 of 3 rendered as 33% sits in the
  *  same column as a figure computed from two million.
  */
-function MarketBreakdown({ cross }) {
+function MarketBreakdown({ cross, constants = {} }) {
   if (!cross || !(cross.markets || []).length) {
     return (
       <p className="text-[11px] text-gray-500 dark:text-gray-500">
@@ -199,7 +229,8 @@ function MarketBreakdown({ cross }) {
       <p className="text-[11px] text-gray-500 dark:text-gray-500 mb-1.5">
         Its {cross.markets_shown} busiest markets of {cross.markets_total}, carrying{' '}
         {pct(share, 0)} of the post-only orders we have seen from this address. A rate is
-        withheld where the market carries fewer than 200 of them.
+        withheld where the market carries fewer than{' '}
+        {(constants.min_orders_for_market_rate ?? 200).toLocaleString()} of them.
       </p>
       <div className="flex flex-wrap gap-1.5">
         {cross.markets.map((mk) => (
@@ -1239,6 +1270,11 @@ export default function HyperliquidView({ mutedBorder }) {
   const [openMaker, setOpenMaker] = useState(null);
   const [core, setCore] = useState(null);
   const [coreState, setCoreState] = useState('loading'); // loading | ready | failed
+  // Account roles across every address ever polled. Its own request because
+  // answering it is up to three venue calls per address, paced, and this is a
+  // footnote under one table: it must not hold the page up. Until it lands the
+  // sentence says nothing rather than a number.
+  const [roles, setRoles] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1254,6 +1290,11 @@ export default function HyperliquidView({ mutedBorder }) {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d) => { if (!cancelled) { setCore(d); setCoreState('ready'); } })
       .catch(() => { if (!cancelled) setCoreState('failed'); });
+
+    fetch(`${API_BASE_URL}/api/hyperliquid/address-roles`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => { if (!cancelled) setRoles(d); })
+      .catch(() => { if (!cancelled) setRoles(null); });
     return () => { cancelled = true; };
   }, []);
 
@@ -1284,6 +1325,10 @@ export default function HyperliquidView({ mutedBorder }) {
   const cov = data.coverage || {};
   const ws = data.ws_coverage || {};
   const bands = data.bands || {};
+  // The thresholds and the venue's own limits, served rather than retyped.
+  const kts = data.constants || {};
+  const bands_copy = bandCopy(kts);
+  const overlap = data.overlap || null;
   const makers = data.makers || [];
   const markets = data.markets || [];
   const statuses = data.statuses || [];
@@ -1411,7 +1456,7 @@ export default function HyperliquidView({ mutedBorder }) {
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           {['quoting', 'mixed', 'spraying', 'unknown'].map((k) => {
-            const c = BAND_COPY[k];
+            const c = bands_copy[k];
             return (
               <div key={k} className={`rounded-xl border p-3 ${c.tone}`}>
                 <div className="text-2xl font-bold tabular-nums leading-none">{bands[k] ?? 0}</div>
@@ -1438,8 +1483,10 @@ export default function HyperliquidView({ mutedBorder }) {
                recent trading activity, so the other ${cov.addresses - cov.addresses_tracked} are
                not being polled now and what is stored for them stopped ageing when they left it`
             : ''}.
-          {' '}Hyperliquid serves only the 2,000 most recent orders per address and cannot be asked
-          for older ones, so this history begins when collection began and grows from there.
+          {' '}Hyperliquid serves only the{' '}
+          {(kts.venue_order_window_records ?? 2000).toLocaleString()} most recent orders per address
+          and cannot be asked for older ones, so this history begins when collection began and
+          grows from there.
           {cov.polls_with_gap > 0 && (
             <> {(cov.polls_with_gap).toLocaleString()} of those polls
             {cov.polls > 0 ? `, ${Math.round((cov.polls_with_gap / cov.polls) * 100)}%,` : ''} had a
@@ -1508,13 +1555,23 @@ export default function HyperliquidView({ mutedBorder }) {
                   The first figure counts sightings, not distinct orders. Each poll returns the
                   venue&apos;s most recent window, and that window turns over more slowly than the
                   polling, so an order still inside it is counted again by the next poll that sees
-                  it. Comparing each poll&apos;s window against the one before it on 20 September
-                  2026, about 21% of those sightings are the same orders seen more than once,
-                  leaving roughly 27.9 million distinct. That is an estimate from the window
-                  timestamps rather than a count: the stored rows are per-poll totals and carry no
-                  order identifiers, so repeats cannot be counted exactly. The rejection rates are
-                  unaffected either way, because a repeated order is counted on both sides of the
-                  division.
+                  it.{' '}
+                  {overlap && Number.isFinite(overlap.repeats_share) ? (
+                    <>
+                      Comparing each poll&apos;s window against the ones before it,{' '}
+                      {pct(overlap.repeats_share, 0)} of those sightings are the same orders seen
+                      more than once, leaving{' '}
+                      {(overlap.distinct_estimated ?? 0).toLocaleString()} distinct. That is an
+                      estimate rather than a count: the stored rows are per-poll totals and carry
+                      no order identifiers, so repeats cannot be counted exactly, and the
+                      apportioning assumes orders fall evenly across a poll&apos;s window.
+                    </>
+                  ) : (
+                    <>How much of it is repeats was not measured on this response, so no figure
+                    for it is given here.</>
+                  )}
+                  {' '}The rejection rates are unaffected either way, because a repeated order is
+                  counted on both sides of the division.
                 </p>
 
                 <div>
@@ -1564,9 +1621,30 @@ export default function HyperliquidView({ mutedBorder }) {
                   </ScrollTable>
                   <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-1.5">
                     Where those two columns disagree sharply, a few addresses are placing most of
-                    the quotes. On BTC the pooled figure moves by tens of points if either of two
-                    addresses leaves the polled set, which happens when the set is rebuilt, so it
-                    describes those addresses rather than the book.
+                    the quotes.
+                    {(() => {
+                      // NAMED FROM THE TABLE, NOT FROM MEMORY. This read "On
+                      // BTC ... either of two addresses", written when BTC
+                      // happened to be the widest gap. Whichever market is
+                      // widest today is whichever market is widest today.
+                      const widest = markets
+                        .filter((m) => Number.isFinite(m.pooled_rejection_rate)
+                          && Number.isFinite(m.median_rejection_rate))
+                        .map((m) => ({ ...m, gap: m.pooled_rejection_rate - m.median_rejection_rate }))
+                        .sort((a, b) => b.gap - a.gap)[0];
+                      if (!widest || widest.gap <= 0.1) return null;
+                      const n = widest.makers_over_half ?? 0;
+                      return (
+                        <>
+                          {' '}On {widest.coin} the pooled figure is {pct(widest.pooled_rejection_rate)}
+                          {' '}against a median maker at {pct(widest.median_rejection_rate)}
+                          {n > 0 ? `, with ${n} of its ${widest.makers} refused on more than half
+                            their orders` : ''}. Drop those from the polled set, which happens when
+                          the set is rebuilt, and the pooled figure moves a long way: it describes
+                          them rather than the book.
+                        </>
+                      );
+                    })()}
                   </p>
                 </div>
 
@@ -1606,13 +1684,34 @@ export default function HyperliquidView({ mutedBorder }) {
                   <p className="text-[11px] text-gray-500 dark:text-gray-500 leading-relaxed mt-1">
                     A row is an address, not a person. The rows marked Vault trade a strategy
                     with other people&apos;s deposits in it, so their rate describes that strategy.
-                    Of the 68 addresses ever polled, 17 submit through a front-end that charges
-                    a builder fee, which is what a person using an app looks like, and three are
-                    vaults. The rest return an ordinary account, which is what a single trader
-                    looks like and also what a platform holding many customers in one account looks
-                    like. The venue publishes nothing that separates those two, so read an unmarked
-                    rate as the behaviour of an account. Checked against the venue on 20 September
-                    2026; one address did not answer and is counted in neither group.
+                    {roles && roles.measured ? (
+                      <>
+                        Of the {roles.addresses} addresses ever polled, {roles.routed} submit
+                        through a front-end that charges a builder fee, which is what a person
+                        using an app looks like, and {roles.vaults} are vaults. The other{' '}
+                        {roles.ordinary} return an ordinary account, which is what a single trader
+                        looks like and also what a platform holding many customers in one account
+                        looks like. The venue publishes nothing that separates those two, so read
+                        an unmarked rate as the behaviour of an account.
+                        {roles.unanswered > 0 || roles.builders_unread > 0 ? (
+                          <>
+                            {' '}A further {roles.unanswered + roles.builders_unread} could not be
+                            read from the venue and are counted in none of those groups.
+                          </>
+                        ) : null}
+                        {' '}Read from the venue{relAge(roles.age_seconds) ? ` ${relAge(roles.age_seconds)} ago` : ''},
+                        and re-read when it ages past half a day.
+                      </>
+                    ) : (
+                      <>
+                        How many of these addresses submit through a front-end, and how many are
+                        vaults, is read from the venue rather than written here, and it has not
+                        come back yet. An unmarked row is an ordinary account, which is what a
+                        single trader looks like and also what a platform holding many customers in
+                        one account looks like. The venue publishes nothing that separates those
+                        two, so read an unmarked rate as the behaviour of an account.
+                      </>
+                    )}
                   </p>
                   <ScrollTable mutedBorder={mutedBorder} head={<>
                     <Th align="left">Address</Th><Th>30d volume</Th><Th>Post-only</Th>
@@ -1702,7 +1801,8 @@ export default function HyperliquidView({ mutedBorder }) {
                                 and capping it at the viewport keeps it where
                                 the address they clicked is. */}
                             <div className="sticky left-0 w-[calc(100vw-5rem)] sm:w-auto sm:max-w-none">
-                              <MarketBreakdown cross={(data.maker_markets || {})[m.address]} />
+                              <MarketBreakdown cross={(data.maker_markets || {})[m.address]}
+                                constants={kts} />
                             </div>
                           </td>
                         </tr>
@@ -1751,10 +1851,19 @@ export default function HyperliquidView({ mutedBorder }) {
                     <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">What these numbers mean</h4>
                   </div>
                   <dl className="space-y-2">
-                    {DEFINITIONS.map((d) => (
+                    {definitions().map((d) => (
                       <div key={d.term}>
                         <dt className="text-[12px] font-semibold text-gray-800 dark:text-gray-200">{d.term}</dt>
                         <dd className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">{d.text}</dd>
+                        {/* Where a figure cannot be read live, the reason sits
+                            beside it. A date would only say when it was taken,
+                            which leaves a reader to guess whether it has since
+                            moved. This says whether it can. */}
+                        {d.note && (
+                          <dd className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1">
+                            {d.note}
+                          </dd>
+                        )}
                       </div>
                     ))}
                   </dl>
@@ -1774,8 +1883,10 @@ export default function HyperliquidView({ mutedBorder }) {
                 <SourceRow
                   icon={Database} name="Info endpoint" status="Connected"
                   tone="border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
-                  what={`Order history for any address, polled every 15 minutes. It serves the
-                         2,000 most recent records and ignores any date range asked of it, so it
+                  what={`Order history for any address, polled every ${
+                           kts.poll_interval_minutes ?? 15} minutes. It serves the ${
+                           (kts.venue_order_window_records ?? 2000).toLocaleString()
+                         } most recent records and ignores any date range asked of it, so it
                          cannot be used to fill in the past. ${(cov.polls ?? 0).toLocaleString()}
                          polls so far.`}
                 />

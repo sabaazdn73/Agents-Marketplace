@@ -132,6 +132,7 @@ app.add_middleware(
 
 import time
 import asyncio
+import threading
 
 # Real, best-effort keep-alive for the explainer-agent's own Render free-tier
 # instance (srv-da2api9t0dsc7392afdg), added 2026-08-21 after a real,
@@ -913,6 +914,12 @@ async def hyperliquid_overview(limit: int = 50):
         pool = _cf.ThreadPoolExecutor(max_workers=6)
         try:
             f_cov = pool.submit(service.coverage)
+            # The overlap the Memory prose quotes. One windowed scan of
+            # hl_poll, independent of everything else here, so it rides along
+            # rather than costing the page a second request. It was written
+            # into the copy as "about 21%" on the day it was measured, which
+            # is the class of defect this whole pass is removing.
+            f_overlap = pool.submit(service.coverage_overlap)
             f_ws = pool.submit(service.ws_coverage)
             f_mkt = pool.submit(service.markets, 40)
             f_stat = pool.submit(service.status_breakdown)
@@ -952,6 +959,14 @@ async def hyperliquid_overview(limit: int = 50):
             "rate_series": rate_series,
             "maker_markets": maker_markets,
             "coverage": f_cov.result(),
+            # How much of that count is the same order counted twice, measured
+            # per poll rather than written into the copy. Carries `estimated`
+            # and `measured_at`, because the stored rows hold no order
+            # identifiers and repeats cannot be counted exactly.
+            "overlap": f_overlap.result(),
+            # The thresholds the copy quotes. Served so a sentence saying
+            # "under 5%" and a constant saying 0.05 cannot drift apart.
+            "constants": service.constants(),
             # Reported alongside, never summed with, the REST coverage: the
             # WebSocket feed omits tif so its denominator differs.
             "ws_coverage": f_ws.result(),
@@ -976,6 +991,74 @@ async def hyperliquid_overview(limit: int = 50):
         raise HTTPException(
             status_code=503,
             detail=f"Hyperliquid store unavailable: {type(e).__name__}")
+
+
+@app.get("/api/hyperliquid/address-roles")
+async def hyperliquid_address_roles():
+    """How many addresses ever polled are vaults, routed through a front-end,
+    or plain, read from the venue rather than written into the page.
+
+    ITS OWN ENDPOINT, NOT PART OF THE OVERVIEW.
+    Answering it means up to three venue calls per address across everything
+    ever polled, which is 200 or so on a cold cache. The overview already
+    takes fifteen seconds, and this is a footnote under one table: it loads
+    after the page rather than holding it up. Cached six hours in the process,
+    so it is one venue round trip a quarter of a day.
+
+    The response reports what could not be checked as its own count rather
+    than folding it into the plain accounts. "We could not read this one" and
+    "this one is an ordinary account" are different statements.
+    """
+    from core.hyperliquid import service, store, venuerole
+
+    STALE_AFTER_SECONDS = 12 * 3600
+
+    def _read():
+        with service._conn() as conn:
+            return store.read_role_summary(conn)
+
+    def _refresh():
+        """Recompute and store. Runs off the request, paced for the venue."""
+        try:
+            addrs = service.all_known_addresses()
+            summary = venuerole.role_summary(addrs)
+            with service._conn() as conn:
+                store.write_role_summary(conn, summary)
+        except Exception:  # noqa: BLE001
+            pass                      # the stored answer stays; nothing breaks
+
+    try:
+        stored = await asyncio.to_thread(_read)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not read account roles right now: {type(e).__name__}")
+
+    age = None
+    if stored and stored.get("measured_at"):
+        try:
+            from datetime import datetime, timezone
+            t = datetime.fromisoformat(stored["measured_at"])
+            age = (datetime.now(timezone.utc) - t).total_seconds()
+        except Exception:  # noqa: BLE001
+            age = None
+
+    if stored is None or age is None or age > STALE_AFTER_SECONDS:
+        # Kick a refresh and answer with what there is. A first-ever call has
+        # nothing, and says so rather than blocking a page behind 200 paced
+        # venue calls.
+        threading.Thread(target=_refresh, daemon=True).start()
+
+    if stored is None:
+        return {
+            "measured": False,
+            "reason": "not_measured_yet",
+            "refreshing": True,
+        }
+    stored["measured"] = True
+    stored["age_seconds"] = age
+    stored["refreshing"] = bool(age is None or age > STALE_AFTER_SECONDS)
+    return stored
 
 
 @app.get("/api/hyperliquid/core")

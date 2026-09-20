@@ -163,6 +163,12 @@ CREATE TABLE IF NOT EXISTS hl_ws_coverage (
 -- by its history spanning 13 days for a new account and 1,101 for an old one.
 -- accountValue is perps, spot, staking and vault equity together, which is
 -- why it does not match clearinghouseState and must not be compared to it.
+CREATE TABLE IF NOT EXISTS hl_role_summary (
+    id          STRING PRIMARY KEY,
+    payload     JSONB NOT NULL,
+    measured_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS hl_leaderboard (
     address       STRING PRIMARY KEY,
     account_value FLOAT,
@@ -511,3 +517,37 @@ def _window(row: dict, name: str, field: str):
         if w and w[0] == name:
             return _f((w[1] or {}).get(field))
     return None
+
+
+# ── The account-role summary, persisted ─────────────────────────────────────
+#
+# The venue rate-limits: 25 userRole calls with no pause returned 14 HTTP 429s
+# when that was measured. Reading three calls for each of 68 addresses inside
+# one web request therefore answers for a handful and reports the rest as
+# unanswered, which is truthful and useless. So it is computed on a schedule,
+# in the background, at a pace the venue tolerates, and the page reads the
+# stored answer with the time it was taken.
+
+ROLE_SUMMARY_ID = "current"
+
+
+def read_role_summary(conn) -> dict | None:
+    with conn.cursor() as cur:
+        cur.execute("SELECT payload, measured_at FROM hl_role_summary WHERE id = %s",
+                    (ROLE_SUMMARY_ID,))
+        row = cur.fetchone()
+    if not row:
+        return None
+    payload, measured_at = row
+    out = dict(payload or {})
+    out["measured_at"] = measured_at.isoformat() if measured_at else None
+    return out
+
+
+def write_role_summary(conn, payload: dict) -> None:
+    import json as _json
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPSERT INTO hl_role_summary (id, payload, measured_at) VALUES (%s, %s, now())",
+            (ROLE_SUMMARY_ID, _json.dumps(payload)))
+    conn.commit()

@@ -6,11 +6,30 @@ When a figure is refreshed, refresh the date at the top with it: these move,
 and the pooled rate and the overlap share both changed between this deck's
 first draft and its publication.
 
+THE OVERLAP FIGURE HAS TWO MEASUREMENTS AND THEY ARE NOT THE SAME QUANTITY.
+An earlier draft of this slide read "7,888,530 of 31,550,761 orders came from
+overlapping windows" under the heading "A count inflated by 25%". The sentence
+was right and the heading was wrong:
+
+  A  share of records that came from a poll whose window overlapped the poll
+     before it. Counts every record of such a poll, including the new ones.
+     25.8% on 2026-09-20. This is the right figure for the warning in
+     service.rate_series, that two adjacent points are not independent.
+
+  B  estimated share of records that are the same order counted again, each
+     poll weighted by how much of its window was already covered.
+     21.4% on 2026-09-20. This is the right figure for a claim about the
+     total being inflated, which is what this slide makes.
+
+A poll overlapping by one percent contributes all of its records to A and one
+percent of them to B, so using A to say the count is inflated overstates it.
+The slide uses B. The Hyperliquid tab uses B for the same claim.
+
 Sources, so the next person can re-read them rather than trust this file:
   0.17% / 12.5% / 40 markets      service.maker_markets()
   100% of 252,994, xyz:SP500      service.maker_markets(), worst single pair
   88x, BTC 58.4% vs 0.66%         same, 2 of 23 makers place most of the orders
-  31,550,761 / 7,888,530 / 25.0%  service overlap accounting
+  35.6M records, 21% repeats     the overlap, measured per poll, see below
   32 addresses / 16,244 polls     the collector's tracked set and poll store
   51.3% / 87.9%                   docs/hyperliquid-provenance.md
   nine sites                      extension/manifest.json content_scripts
@@ -166,13 +185,14 @@ S("hard", '''
   <h2 class="hand">My own numbers were measuring<br>the wrong thing</h2>
   <div class="cols">
     <div class="who">
-      <p class="who-h">A count inflated by 25%</p>
+      <p class="who-h">A count inflated by a fifth</p>
       <p>The venue returns a rolling window of recent orders and ignores the date
       range asked for. When an address is quiet, consecutive polls return the same
       records and each poll stored them again.</p>
-      <p class="who-t">7,888,530 of 31,550,761 orders came from overlapping windows.
-      The rates were unaffected, because numerator and denominator inflate together.
-      The total was not.</p>
+      <p class="who-t">About 21% of the 35.6 million stored records are the same
+      orders counted twice, leaving roughly 28 million distinct. The rates were
+      unaffected, because numerator and denominator inflate together. The total
+      was not.</p>
     </div>
     <div class="who">
       <p class="who-h">A profit finding withdrawn after publication</p>

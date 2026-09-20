@@ -59,6 +59,7 @@ where we know nothing.
 
 from __future__ import annotations
 
+import datetime as _dt
 import json
 import threading
 import time
@@ -510,4 +511,96 @@ def holdings(address: str) -> dict:
         if len(_cache) >= _CACHE_MAX:
             _cache.clear()
         _cache[key] = (now, out)
+    return out
+
+
+# ── The whole-set summary, so a page never hardcodes these counts ───────────
+#
+# WHY THIS EXISTS
+# The Hyperliquid tab used to carry a sentence reading "Sixteen of the
+# addresses ever polled submit through a front-end". It was measured once, by
+# hand, over 66 addresses. Within days the set was 68 and the answer was 17
+# vaults-and-builders apart from what the page said, while the page went on
+# saying sixteen. A number written into copy has no way of being wrong out
+# loud: nothing checks it, and nobody is watching the clock on it.
+#
+# So the counts are read from the venue and the page renders whatever comes
+# back, including the part that did not answer.
+_SUMMARY_TTL_SECONDS = 6 * 3600
+_summary_cache: dict = {}
+
+
+def role_summary(addresses: list[str], budget_seconds: float = 240.0,
+                 stagger_seconds: float = 0.25) -> dict:
+    """How many of these addresses are vaults, routed, or plain, from the venue.
+
+    EVERY BUCKET IS REPORTED, INCLUDING THE ONE THAT MEANS "WE DO NOT KNOW".
+    `unanswered` is addresses whose userRole did not come back, and
+    `builders_unread` is addresses whose role is known but whose builder list
+    was not read. Folding either into "ordinary" would turn a failed lookup
+    into a finding about an account, which is the defect this module exists to
+    avoid. A caller must be able to say how many it could not check.
+    """
+    import concurrent.futures
+
+    addrs = sorted({(a or "").lower() for a in addresses if a})
+    key = f"{len(addrs)}:{hash(tuple(addrs))}"
+    now = time.time()
+    hit = _summary_cache.get(key)
+    if hit and now - hit[0] < _SUMMARY_TTL_SECONDS:
+        return hit[1]
+
+    described: dict[str, dict] = {}
+    deadline = now + budget_seconds
+
+    # PACED, BECAUSE THE VENUE RATE-LIMITS.
+    # Eight workers with no gap answered 6 of 68 and reported the other 62 as
+    # unanswered: truthful, and useless. 25 calls with no pause had already
+    # been measured returning 14 HTTP 429s. Three workers with a short stagger
+    # between starts stays under it. This runs in the background where nobody
+    # is waiting, so slower is free.
+    def paced(index_and_addr):
+        i, a = index_and_addr
+        time.sleep(i * stagger_seconds)
+        return a, describe(a)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(paced, (i, a)) for i, a in enumerate(addrs)]
+        for fut in concurrent.futures.as_completed(futures):
+            if time.time() > deadline:
+                break
+            try:
+                a, d = fut.result()
+                described[a] = d
+            except Exception:  # noqa: BLE001
+                pass
+
+    vaults = routed = ordinary = unanswered = builders_unread = 0
+    for a in addrs:
+        d = described.get(a)
+        if not d or d.get("role") is None:
+            unanswered += 1
+            continue
+        if d.get("role") == "vault":
+            vaults += 1
+            continue
+        nb = d.get("approved_builders")
+        if nb is None:
+            builders_unread += 1
+        elif nb > 0:
+            routed += 1
+        else:
+            ordinary += 1
+
+    out = {
+        "addresses": len(addrs),
+        "vaults": vaults,
+        "routed": routed,
+        "ordinary": ordinary,
+        "unanswered": unanswered,
+        "builders_unread": builders_unread,
+        "checked": len(addrs) - unanswered,
+        "measured_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+    }
+    _summary_cache[key] = (now, out)
     return out

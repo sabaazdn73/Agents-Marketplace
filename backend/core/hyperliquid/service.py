@@ -811,9 +811,19 @@ def maker_rate_series(addresses: list[str], hours: int = RATE_SERIES_HOURS) -> d
     historicalOrders returns a rolling 2,000-record window that ignores any
     date range, so when an address is quiet consecutive polls return
     overlapping records and an hour can share orders with the hour before it.
-    22.4% of all stored orders come from such polls. The shape of the line is
-    sound; a reader should not treat two adjacent points as two independent
-    samples.
+    25.8% of all stored records come from a poll whose window overlapped the
+    poll before it, measured 2026-09-20 and 22.4% when this was first written.
+    The shape of the line is sound; a reader should not treat two adjacent
+    points as two independent samples.
+
+    THAT IS NOT THE DUPLICATION RATE, and the two have been confused once
+    already. This figure counts every record of an overlapping poll, including
+    the ones that were new, which is what the independence warning above
+    needs. The share of records that are the same order counted again is
+    smaller, 21.4% on the same day, because a poll overlapping by one percent
+    contributes all of its records here and one percent of them there. Use
+    this one for independence and that one for any claim about the total being
+    inflated. See coverage_overlap().
     """
     if not addresses:
         return {}
@@ -1056,3 +1066,93 @@ def leaderboard_addresses() -> list[str]:
             return [r[0] for r in cur.fetchall()]
     except Exception:  # noqa: BLE001
         return []
+
+
+# ── The overlap, measured rather than written down ──────────────────────────
+
+def coverage_overlap() -> dict:
+    """How much of the stored order count is the same order counted twice.
+
+    TWO QUANTITIES, AND THEY HAVE BEEN CONFUSED ONCE ALREADY.
+
+    `from_overlapping_polls` counts every record of a poll whose window
+    overlapped the poll before it, including the records that were new. That
+    is the right figure for the warning in rate_series, that two adjacent
+    points are not independent samples: any overlap at all makes them share.
+
+    `repeats` estimates how many records are the same order seen again, by
+    weighting each poll by the share of its window that was already covered.
+    That is the right figure for any claim about the total being inflated.
+
+    A poll overlapping by one percent contributes all of its records to the
+    first and one percent of them to the second, so the first is always the
+    larger and using it to say the count is inflated overstates it. On
+    2026-09-20 they were 25.8% and 21.4% of the same 35.6M records.
+
+    IT IS AN ESTIMATE AND SAYS SO. hl_order_counts stores per-poll totals by
+    coin, tif and status, with no order identifiers, so repeats cannot be
+    counted exactly. The apportioning assumes orders are spread evenly across
+    a poll's window, which is the assumption available rather than a measured
+    distribution. The estimated flag travels with the number.
+    """
+    with _conn() as c, c.cursor() as cur:
+        cur.execute("""
+            WITH w AS (
+                SELECT address, n_records, window_start, window_end,
+                       max(window_end) OVER (
+                           PARTITION BY address ORDER BY polled_at
+                           ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                       ) AS covered_to
+                FROM hl_poll
+                WHERE window_start IS NOT NULL AND window_end IS NOT NULL
+            )
+            SELECT
+              coalesce(sum(n_records), 0),
+              coalesce(sum(CASE WHEN covered_to IS NOT NULL
+                                 AND window_start < covered_to
+                            THEN n_records ELSE 0 END), 0),
+              coalesce(sum(CASE
+                WHEN covered_to IS NOT NULL AND window_start < covered_to
+                 AND extract(epoch FROM (window_end - window_start)) > 0
+                -- CockroachDB will not multiply INT by FLOAT implicitly:
+                -- "unsupported binary operator: <int> * <float>". Cast.
+                THEN n_records::FLOAT * least(1.0, greatest(0.0,
+                       extract(epoch FROM (least(window_end, covered_to) - window_start))
+                     / extract(epoch FROM (window_end - window_start))))
+                ELSE 0 END), 0)
+            FROM w
+        """)
+        total, from_overlapping, repeats = cur.fetchone()
+
+    total = int(total or 0)
+    from_overlapping = int(from_overlapping or 0)
+    repeats = float(repeats or 0.0)
+    return {
+        "records": total,
+        "from_overlapping_polls": from_overlapping,
+        "from_overlapping_share": (from_overlapping / total) if total else None,
+        "repeats_estimated": int(round(repeats)),
+        "repeats_share": (repeats / total) if total else None,
+        "distinct_estimated": int(round(total - repeats)) if total else None,
+        "estimated": True,
+        "measured_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+
+
+def constants() -> dict:
+    """The thresholds the copy has to quote, served so it never quotes them
+    from memory. Every one of these is a module constant above; the page used
+    to repeat them in prose and the two could drift without anything failing.
+    """
+    return {
+        "band_quoting_max": BANDS[0][2],
+        "band_mixed_max": BANDS[1][2],
+        "min_polls_for_rate": MIN_POLLS_FOR_RATE,
+        "min_orders_for_market_rate": MIN_ORDERS_FOR_MARKET_RATE,
+        "markets_per_maker": MARKETS_PER_MAKER,
+        # The venue's own limits, not ours. historicalOrders returns this many
+        # records and ignores any date range asked of it, which is why there is
+        # no backfill and why consecutive polls overlap at all.
+        "venue_order_window_records": 2000,
+        "poll_interval_minutes": 15,
+    }
