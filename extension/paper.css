@@ -170,6 +170,10 @@
 .tnega-paper .tp-lev-note {
   color: var(--tp-sell); font-size: 11px; line-height: 1.4; margin: -2px 0 8px;
 }
+/* The same line carrying the other of its two sentences: that the number in
+   the box is the leverage already open on this market. That is not a warning,
+   so it is not painted as one. */
+.tnega-paper .tp-lev-note.tp-lev-seeded { color: var(--tp-muted); }
 
 /* ── Row two: the Market / Limit tabs ─────────────────────────────────────── */
 /* Theirs are UNDERLINE tabs, not filled ones: a 1px bottom border on every tab,
@@ -587,6 +591,61 @@
 /* A closed row stored without all three of its parts cannot be totalled, and
    says so where the total goes rather than showing a sum with a part missing. */
 .tnega-paper .tp-rest-na { color: var(--tp-muted); font-size: 11px; white-space: nowrap; }
+
+/* ── The other markets' positions ─────────────────────────────────────────── */
+/* A section that collapses, which is what every perps interface does with the
+   parts of an account that are not about the trade in front of you. The header
+   is a <button> element so the keyboard reaches it; it is stripped back to the row
+   it looks like rather than styled as a control, because a filled button here
+   would read as something that places an order. */
+.tnega-paper .tp-others-h {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  background: transparent; border: 0; padding: 0 0 6px; margin: 0;
+  font: inherit; font-size: 12px; color: var(--tp-fg);
+  cursor: pointer; text-align: left;
+}
+.tnega-paper .tp-others-h:hover .tp-others-t { color: var(--tp-accent); }
+.tnega-paper .tp-others-h:focus-visible {
+  outline: 1px solid var(--tp-accent); outline-offset: 2px;
+}
+/* 9px, which is the size the page's own disclosure marker is drawn at. The
+   glyphs are the full-size triangles; the small ones came out as a dot. */
+.tnega-paper .tp-others-caret {
+  flex: 0 0 auto; width: 10px; color: var(--tp-muted); font-size: 9px; line-height: 1;
+}
+.tnega-paper .tp-others-h:hover .tp-others-caret { color: var(--tp-accent); }
+.tnega-paper .tp-others-t { flex: 0 0 auto; margin: 0; }
+/* How many markets are behind a collapsed header. Without it, collapsing this
+   section puts the panel back where it started: holding three and seeing one. */
+.tnega-paper .tp-others-n {
+  flex: 1 1 auto; text-align: right; color: var(--tp-muted); font-size: 11px;
+}
+
+.tnega-paper .tp-others-note { margin: 0 0 6px; }
+.tnega-paper .tp-others-l li { align-items: flex-start; gap: 10px; }
+/* The market, as a link, because going to it is what the row is for. Their own
+   accent, underlined only on hover, so a column of them does not read as a
+   block of rules. */
+.tnega-paper .tp-others-m {
+  color: var(--tp-accent); text-decoration: none; margin-right: 6px;
+  font-variant-numeric: normal;
+}
+.tnega-paper .tp-others-m:hover { text-decoration: underline; }
+.tnega-paper .tp-others-m:focus-visible {
+  outline: 1px solid var(--tp-accent); outline-offset: 2px; border-radius: 3px;
+}
+.tnega-paper .tp-others-f { flex: 0 0 auto; white-space: nowrap; }
+/* The one sum, and only when the engine hands one over. Set apart from the
+   rows above it by a line rather than by weight, because weight is what makes
+   a figure read as a score. */
+.tnega-paper .tp-others-sum {
+  margin-top: 7px; padding-top: 7px; border-top: 1px solid var(--tp-ctl);
+  font-size: 11px; line-height: 1.4; font-variant-numeric: tabular-nums;
+}
+/* The words are muted whether they carry a total or the reason there is none,
+   because in both cases they are a sentence. Only the figure takes a colour. */
+.tnega-paper .tp-others-sum-t { color: var(--tp-muted); }
+.tnega-paper .tp-others-sum-f { white-space: nowrap; }
 
 /* ── What happened, which is where the teaching is ────────────────────────── */
 .tnega-paper .tp-events { list-style: none; margin: 0; padding: 0; }

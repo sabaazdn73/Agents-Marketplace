@@ -22,6 +22,8 @@ const EXPORTS = [
   "setPositionLevel", "clearPositionLevel", "markHasPassedLevel", "levelIsStale",
   "levelBelowEntry", "closeValueAt", "realisedValue", "positionLadder",
   "LEVEL_PASSED_NOTE", "LIQUIDATION_UNPRICED_NOTE", "LEVEL_STALE_NOTE",
+  "assetSpecs", "ticketLeverage", "positionRow", "openPositions", "closeAllValue",
+  "assetUnreadNote", "markUnreadNote", "FEES_UNREAD_NOTE",
 ];
 
 // The exact source line implementing the inferred min-notional exemption. The
@@ -31,7 +33,8 @@ const EXPORTS = [
 const EXEMPTION_LINE = "if (notional < MIN_NOTIONAL_USD && !closesExactly) {";
 const EXEMPTION_OFF = "if (notional < MIN_NOTIONAL_USD) {";
 
-/** @param {{storage?: object, failStorage?: boolean, disableExemption?: boolean}} opts */
+/** @param {{storage?: object, failStorage?: boolean, disableExemption?: boolean,
+ *           countRequests?: boolean}} opts */
 function load(opts = {}) {
   const store = opts.storage || {};
   const fail = !!opts.failStorage;
@@ -45,8 +48,20 @@ function load(opts = {}) {
       Object.assign(store, JSON.parse(JSON.stringify(o)));
     },
   };
+  // Every request the module makes, in order, as the `type` on its body. The
+  // module's own cache sits behind hlInfo, so what lands here is what actually
+  // went to the venue and nothing that was served from memory. Used by the
+  // case that counts what pricing every open position costs.
+  const requests = [];
+  const countingFetch = async (url, init) => {
+    let type = "?";
+    try { type = JSON.parse(init && init.body).type; } catch (e) { /* leave it */ }
+    requests.push(type);
+    return fetch(url, init);
+  };
   const sandbox = {
-    console, fetch, setTimeout, clearTimeout, Date, Math, JSON, Number, Promise, Map, Set,
+    console, fetch: opts.countRequests ? countingFetch : fetch,
+    setTimeout, clearTimeout, Date, Math, JSON, Number, Promise, Map, Set,
     Array, Object, String, isFinite, parseFloat, parseInt, Error, NaN, Infinity,
     chrome: { storage: { local } },
     module: { exports: {} },
@@ -65,7 +80,7 @@ function load(opts = {}) {
   }
   vm.createContext(sandbox);
   vm.runInContext(src + tail, sandbox, { filename: SRC });
-  return { api: sandbox.module.exports, store };
+  return { api: sandbox.module.exports, store, requests };
 }
 
 module.exports = { load, SRC };

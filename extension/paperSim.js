@@ -1504,3 +1504,251 @@ function positionLadder(pos, info, fees, markPx) {
   rows.sort((a, b) => a.px - b.px);
   return rows;
 }
+
+// ── Every open position, not only this market's ─────────────────────────────
+//
+// The panel renders the position for the coin the page is on. Somebody holding
+// three sees one, and the other two exist only as a smaller free balance. This
+// is the read the panel needs in order to list the rest of them.
+//
+// WHAT IT COSTS AT THE VENUE: NOTHING BEYOND WHAT IS ALREADY FETCHED.
+// metaAndAssetCtxs answers with the whole universe in one response: every
+// asset's szDecimals, maxLeverage and marginTableId, a context per asset in the
+// same order carrying its mark, and the margin tables themselves. assetInfo
+// already asks for it and hlInfo caches it by request body, so pricing the
+// second, third and tenth position reuses the entry the first one filled.
+// Counted, not asserted: the case "pricing every open position costs no extra
+// venue request" in test/paperSim/cases.js wraps fetch, counts it, and prints
+// the numbers on every run of `node test/paperSim/cases.js`.
+
+/** Every perp the venue lists, in the shape assetInfo returns for one of them.
+ *
+ *  ONE RESPONSE, NOT ONE PER COIN. Everything closeValueAt and liquidationPrice
+ *  need for any asset is in metaAndAssetCtxs, and this reads the same two cache
+ *  entries assetInfo reads, so calling it after assetInfo has run adds no
+ *  request at all.
+ *
+ *  THE MARGIN TABLES ARE THE PART THAT LOOKS LIKE IT NEEDS A FETCH AND DOES
+ *  NOT. `marginTables` is a list of [id, table] pairs, and it does not name
+ *  every id the universe uses. The ids it leaves out are flat tables: one tier,
+ *  whose maxLeverage is the asset's own maxLeverage, which is exactly what
+ *  maintenanceFraction falls back to when marginTiers is null. So a table that
+ *  is not embedded is not missing data, and asking marginTable for it would buy
+ *  the identical answer at the price of a request per asset. Checked against
+ *  the live venue across the whole universe by the case "an asset with no
+ *  embedded margin table is flat at its own max leverage", and checked as an
+ *  outcome rather than a shape by "the liquidation price is the same whether
+ *  the margin table was embedded or fetched", both in test/paperSim/cases.js.
+ */
+async function assetSpecs() {
+  const [meta, ctxPair] = await Promise.all([perpMeta(), assetContexts()]);
+  const head = (ctxPair && ctxPair[0]) || meta || {};
+  const universe = head.universe || (meta && meta.universe) || [];
+  const ctxs = (ctxPair && ctxPair[1]) || [];
+  const tables = new Map();
+  for (const pair of head.marginTables || (meta && meta.marginTables) || []) {
+    if (Array.isArray(pair) && pair.length === 2) tables.set(Number(pair[0]), pair[1]);
+  }
+  const out = new Map();
+  universe.forEach((spec, i) => {
+    const ctx = ctxs[i] || {};
+    const table = tables.get(Number(spec.marginTableId));
+    out.set(spec.name, {
+      coin: spec.name,
+      szDecimals: spec.szDecimals,
+      maxLeverage: spec.maxLeverage,
+      marginTiers: (table && table.marginTiers) || null,
+      markPx: Number(ctx.markPx),
+      oraclePx: Number(ctx.oraclePx),
+      midPx: Number(ctx.midPx),
+      hourlyFunding: Number(ctx.funding),
+    });
+  });
+  return out;
+}
+
+// ── Which absence a row is reporting ────────────────────────────────────────
+//
+// Three different things can stop a position being priced and they are not the
+// same thing, so they do not share a sentence. The panel renders whichever one
+// arrives; it does not have to decide which happened, and it never gets a zero
+// or a dash standing in for one of them.
+
+/** The coin is not in the venue's asset list at all. */
+function assetUnreadNote(coin) {
+  return `${coin} is not in the venue's current list of perps, so there is no mark price `
+    + "to value this position at. It is still open and its size, entry and margin are "
+    + "unchanged; only what it is worth right now is unknown.";
+}
+
+/** The coin is listed but its context carried no mark. */
+function markUnreadNote(coin) {
+  return `The venue listed ${coin} but sent no mark price for it in the same response. `
+    + "Without a mark there is no price to value the position at, so no figure is put "
+    + "against it rather than one worked from the entry price.";
+}
+
+/** The fee schedule has not been read. Same reason closeValueAt returns null. */
+const FEES_UNREAD_NOTE =
+  "The fee schedule has not been read, so the exit fee cannot be charged. A "
+  + "figure for what closing would realise, with its exit fee left off, is larger than "
+  + "the figure it claims to be, so none is shown.";
+
+/** What the order ticket should show as the leverage already open on a market.
+ *
+ *  pos.leverage is the EFFECTIVE leverage, read back in openPosition from the
+ *  margin actually put up, so a position opened at 20x and added to at 5x
+ *  carries neither of those numbers but the fractional one the combined margin
+ *  implies. That number is correct and the panel should show it on the row: it
+ *  is what the position is running at. It is not a number the ticket can be set
+ *  to. The venue's leverage control takes whole numbers from 1 to the asset's
+ *  maximum, so the ticket needs one of those, and today it gets 1 after every
+ *  fill, which is how somebody who opened at 20x places their next order at 1x
+ *  without noticing. The case "adding at 5x leaves an effective leverage that
+ *  is neither 20 nor 5" in test/paperSim/cases.js prints the value it produced
+ *  on every run of `node test/paperSim/cases.js`.
+ *
+ *  IT ROUNDS DOWN, AND THAT DIRECTION IS THE POINT. Rounding an effective
+ *  leverage up to the next whole number would put up less margin per unit than
+ *  the position already carries, so the ticket would be proposing the riskier
+ *  of the two nearest choices without anybody having asked for it. Rounding
+ *  down cannot do that. The case "the ticket leverage rounds down and not to
+ *  nearest" pins the direction on values where floor, round and ceil disagree.
+ *
+ *  Clamped into [1, maxLeverage]: roundSize truncates the combined size on an
+ *  add, which can leave the effective leverage a hair under 1, and an asset's
+ *  maximum leverage can be lowered under a position that was opened above it.
+ */
+function ticketLeverage(pos, info) {
+  const lev = Number(pos && pos.leverage);
+  const max = Number(info && info.maxLeverage);
+  const cap = isFinite(max) && max >= 1 ? Math.floor(max) : Infinity;
+  if (!isFinite(lev) || lev < 1) return 1;
+  return Math.max(1, Math.min(cap, Math.floor(lev)));
+}
+
+/** One row: what a position is, and what closing the whole of it now realises.
+ *
+ *  EVERY FIGURE ON IT COMES FROM closeValueAt, called at the venue's mark. Not
+ *  from arithmetic here and not from arithmetic at the render site. It is the
+ *  same call the ladder's mark row makes with the same arguments, so this list
+ *  and the ladder cannot disagree about what a position is worth, and the
+ *  defect that has already been fixed twice cannot come back through this door.
+ *
+ *  `value` is the whole closeValueAt result, so the panel has pnl, entryFee,
+ *  exitFee and funding to show where the figure went, and `realises` as the
+ *  figure itself.
+ */
+function positionRow(pos, spec, fees) {
+  const size = Math.abs(Number(pos.size));
+  const row = {
+    coin: pos.coin,
+    side: pos.side,
+    size,
+    entryPx: Number(pos.entryPx),
+    // The effective leverage, fractional after an add, and the whole number the
+    // ticket can actually be set to. See ticketLeverage.
+    leverage: Number(pos.leverage),
+    ticketLeverage: ticketLeverage(pos, spec),
+    openedAt: pos.openedAt,
+    szDecimals: spec ? spec.szDecimals : null,
+    maxLeverage: spec ? spec.maxLeverage : null,
+    markPx: null,
+    liquidationPx: null,
+    value: null,
+    unpriced: null,
+  };
+  if (!spec) {
+    row.unpriced = { code: "asset_unread", message: assetUnreadNote(pos.coin) };
+    return row;
+  }
+  // Derived from this asset's own tiers and its own maxLeverage, both out of
+  // the same response. Null when there is none, which a 1x long has not.
+  row.liquidationPx = liquidationPrice(pos, spec);
+  const mark = Number(spec.markPx);
+  if (!(mark > 0)) {
+    row.unpriced = { code: "mark_unread", message: markUnreadNote(pos.coin) };
+    return row;
+  }
+  row.markPx = mark;
+  const value = closeValueAt(pos, spec, fees, mark);
+  if (!value) {
+    row.unpriced = size > 0
+      ? { code: "fees_unread", message: FEES_UNREAD_NOTE }
+      : { code: "no_size", message: `This ${pos.coin} position has no size on it, so there is nothing to close.` };
+    return row;
+  }
+  row.value = value;
+  return row;
+}
+
+/** Every open position, with what closing the whole of each one now realises.
+ *
+ *  THE ORDER, AND WHY THIS ONE. Newest first, by openedAt, with the coin name
+ *  breaking a tie. Two other orders were considered and rejected. Sorting by
+ *  what a position is worth, or by its notional at the mark, reorders the list
+ *  under a moving price: somebody reading the third row watches it become the
+ *  first one while they read it, which is the one thing a list of positions
+ *  must not do. Sorting by coin name is stable but says nothing, and it puts
+ *  AAVE above the position opened ten seconds ago every time. openedAt does not
+ *  move when the price does, it is already how `closed` and `events` are
+ *  ordered in this file, and the position somebody just opened is the one they
+ *  are looking for. The coin tiebreak is there because two fills applied in the
+ *  same millisecond would otherwise fall back on object key order.
+ *
+ *  `specs` is optional and exists so a caller that already has the map does not
+ *  build it again. Left out, it is fetched, and assetSpecs explains why that
+ *  costs nothing.
+ *
+ *  Funding is NOT settled here. This is a read, and settleFunding writes to the
+ *  position and the balance. A row's `value` charges the funding that has been
+ *  settled onto the position so far, which is exactly what the ladder's mark
+ *  row charges at the same instant.
+ */
+async function openPositions(state, fees, specs) {
+  const map = specs || await assetSpecs();
+  const rows = [];
+  for (const pos of Object.values((state && state.positions) || {})) {
+    if (!pos || !pos.coin) continue;
+    rows.push(positionRow(pos, map.get(pos.coin) || null, fees));
+  }
+  rows.sort((a, b) => (Number(b.openedAt) || 0) - (Number(a.openedAt) || 0)
+    || String(a.coin).localeCompare(String(b.coin)));
+  return rows;
+}
+
+/** What closing every open position right now would realise.
+ *
+ *  IT IS NOT A SCORE AND IT IS NOT A P&L HEADLINE. It is one question with one
+ *  answer: if you closed all of these at the mark, at this instant, paying the
+ *  exit fee on each and carrying the funding already charged, what would land
+ *  in the balance. Label it as that. It is not a track record, it says nothing
+ *  about the trades that are already closed, and it moves with the mark.
+ *
+ *  Summed from the same rows, which are summed from closeValueAt, so it cannot
+ *  say something the rows do not.
+ *
+ *  NULL WHEN ANY ROW IS UNPRICED, with a count of how many. A total that
+ *  quietly leaves out the position it could not price is the same defect as a
+ *  row showing a zero, one level up, and it is worse because nothing on the
+ *  surface shows the gap. Zero positions is not that case: nothing open does
+ *  realise nothing, so `realises` is 0 and `positions` is 0, and the panel
+ *  can decide it has nothing to draw.
+ */
+function closeAllValue(rows) {
+  const list = rows || [];
+  const unpriced = list.filter((r) => r && r.unpriced);
+  if (unpriced.length) {
+    return {
+      realises: null,
+      positions: list.length,
+      unpriced: unpriced.length,
+      note: `${unpriced.length} of these ${list.length} positions could not be priced, so there `
+        + "is no total. A figure leaving one of them out would be smaller than the answer "
+        + "and would not say so. The rows say which ones and why.",
+    };
+  }
+  let realises = 0;
+  for (const r of list) realises += r.value.realises;
+  return { realises, positions: list.length, unpriced: 0, note: null };
+}

@@ -101,6 +101,16 @@
 const PAPER_PANEL_ID = "tnega-paper-panel";
 const PAPER_TAB_ID = "tnega-paper-tab";
 const PAPER_OPEN_KEY = "tnega_paper_open";
+// Whether the list of positions on OTHER markets is showing. Stored the same
+// way the panel's own open state is, in chrome.storage.local under its own key,
+// so the choice survives a reload and every market change.
+//
+// It defaults to SHOWING, which is the opposite of the panel's own default and
+// deliberately so. The panel is closed by default because practice mode should
+// cover none of their page until it is asked for. This section exists because
+// positions on other markets were invisible, and a fix for invisibility that
+// starts collapsed has not fixed it.
+const PAPER_OTHERS_KEY = "tnega_paper_others_open";
 
 // Present in every state. The tab carries it in full as well, because the cat
 // alone does not say that the money is not there.
@@ -908,6 +918,14 @@ function buildPaperPanel() {
   // No second Close button down here. There is exactly one, in the brief
   // above, next to the button that opened the position.
 
+  // EVERY OTHER MARKET'S POSITION, directly under this market's and below it.
+  // Below, because the position on the market the page is on is the prominent
+  // one and stays where it is, and because this list grows with the account:
+  // anything it could push down the page has to be something nobody needs, and
+  // everything above it here is either the ticket, the outcome banner or the
+  // control that closes the position, none of which may move.
+  buildOthers(acct, ui);
+
   ui.restSec = tpEl(acct, "div", "tp-sec tp-hide");
   tpEl(ui.restSec, "div", "tp-sub", "Resting orders");
   ui.restList = tpEl(ui.restSec, "ul", "tp-rest");
@@ -928,6 +946,62 @@ function buildPaperPanel() {
   buildDisclosure(acct);
 
   return { root, ui };
+}
+
+/** The positions on every market except the one this page is on.
+ *
+ *  WHY IT EXISTS. The panel priced and showed exactly one position, the one
+ *  belonging to the market in the URL. Somebody holding three saw one, and the
+ *  other two were present only as a balance that read smaller than it should
+ *  with nothing saying where the rest had gone.
+ *
+ *  WHY IT COLLAPSES. Their own interface collapses the parts of an account
+ *  panel that are not about the trade in front of you, and this is that. The
+ *  header is a <button> element, so it is reachable from the keyboard and carries
+ *  aria-expanded, and the choice is stored under PAPER_OTHERS_KEY.
+ *
+ *  WHAT IS NOT HERE. No liquidation price and no ladder. Those are about
+ *  managing a position, which is done on that position's own market, and this
+ *  list is for deciding whether to go there. The row carries what that decision
+ *  needs and stops.
+ */
+function buildOthers(parent, ui) {
+  const sec = tpEl(parent, "div", "tp-sec tp-others tp-hide");
+  ui.othersSec = sec;
+
+  const head = tpEl(sec, "button", "tp-others-h");
+  head.type = "button";
+  head.dataset.act = "others";
+  ui.othersHead = head;
+  // The triangle is text so it inherits the type size and needs no asset. It
+  // is aria-hidden because aria-expanded on the button already says which way
+  // it points, and a screen reader announcing a glyph as well says it twice.
+  ui.othersCaret = tpEl(head, "span", "tp-others-caret", "");
+  ui.othersCaret.setAttribute("aria-hidden", "true");
+  tpEl(head, "span", "tp-sub tp-others-t", "Other open positions");
+  ui.othersCount = tpEl(head, "span", "tp-others-n", "");
+
+  const body = tpEl(sec, "div", "tp-others-b");
+  ui.othersBody = body;
+  // SAID ONCE, HERE, RATHER THAN ON EVERY ROW. Eight rows each carrying "if
+  // closed now" beside the figure is the same sentence eight times in a column
+  // 342px wide. It is one claim about the whole column, so it sits above it.
+  tpEl(body, "p", "tp-note tp-others-note",
+    "Each figure is what closing that position now would realise, at its own "
+    + "market's mark and after the exit fee and the funding already charged. "
+    + "Choosing a market takes this page to it.");
+  ui.othersList = tpEl(body, "ul", "tp-rest tp-others-l");
+  // Only ever drawn when the engine hands over a total. See refreshOthers.
+  //
+  // TWO SPANS, BECAUSE ONLY THE FIGURE IS COLOURED. Painting the whole sentence
+  // in the loss colour made a line of ordinary prose read as an alarm and put
+  // it in competition with the figures on the rows above, which are the things
+  // that are supposed to carry colour here. The words stay muted; the number is
+  // the only part that is red or teal.
+  ui.othersSum = tpEl(body, "div", "tp-others-sum tp-hide");
+  ui.othersSumT = tpEl(ui.othersSum, "span", "tp-others-sum-t", "");
+  ui.othersSumF = tpEl(ui.othersSum, "span", "tp-others-sum-f tp-hide", "");
+  return sec;
 }
 
 // ── The levels, and the ladder they sit on ──────────────────────────────────
@@ -1152,6 +1226,17 @@ const paper = {
   submitting: false,
   coin: null,
   timer: null,
+  // Every open position priced, read once a tick and rendered from here, in
+  // the shape written down above paperReadOtherPositions. null until the first
+  // read answers, which is a different thing from an account holding nothing
+  // and the section says which it is.
+  others: null,
+  othersOpen: true,
+  // Which position the leverage box was last seeded from, as coin plus the
+  // instant it was opened plus the leverage it holds. The leverage is part of
+  // the identity because adding to a position changes it under an unchanged
+  // openedAt, and the ticket should follow the position it is about.
+  levSeed: null,
   draft: {
     side: "buy", type: "market", size: "", px: "", leverage: "1",
     postOnly: false, reduceOnly: false,
@@ -1251,6 +1336,16 @@ function paperDataProblem() {
   return null;
 }
 
+/** The leverage the order will actually be placed at.
+ *
+ *  A WHOLE NUMBER, because the venue's leverage control takes whole numbers
+ *  from 1 to the asset's maximum and this box is a copy of that control. It is
+ *  also what the engine's ticketLeverage produces when it seeds this box from a
+ *  position that was added to: the position runs at 17.105...x and the box is
+ *  set to 17, which is the nearest thing the control expresses without
+ *  proposing more risk than is already on. A fraction typed in here is said out
+ *  loud by paperLeverageNote rather than quietly truncated.
+ */
 function paperLeverage() {
   const max = paper.info ? paper.info.maxLeverage : 50;
   const n = parseInt(paper.draft.leverage, 10);
@@ -1268,7 +1363,7 @@ function paperLeverageNote() {
   const raw = String(paper.draft.leverage || "").trim();
   const used = paperLeverage();
   if (raw === "") return `No leverage given, so this will be placed at ${used}x.`;
-  const n = parseInt(raw, 10);
+  const n = parseFloat(raw);
   if (!isFinite(n)) {
     return `"${raw}" is not a number of times, so this will be placed at ${used}x.`;
   }
@@ -1278,6 +1373,14 @@ function paperLeverageNote() {
       + `placed as ${max}x. Every figure below is ${max}x arithmetic.`;
   }
   if (n < 1) return `Leverage cannot be under 1x, so ${n} will be placed as 1x.`;
+  // A FRACTION IS A SUBSTITUTION AND IT WAS SILENT. The box takes whole numbers
+  // because their control does, so 2.5 has always been placed as 2, with the
+  // field still reading 2.5 and the margin figures below it worked at 2x.
+  // Every other substitution this box makes is said out loud; this one was not.
+  if (n !== Math.floor(n)) {
+    return `Leverage is set in whole times, so ${n}x will be placed as ${used}x. `
+      + `Every figure below is ${used}x arithmetic.`;
+  }
   return null;
 }
 
@@ -1491,6 +1594,57 @@ function unpricedReason() {
   return "The simulation did not put a figure on that price.";
 }
 
+// ── Every open position, priced ─────────────────────────────────────────────
+//
+// WHAT THIS FILE CONSUMES, WRITTEN DOWN BECAUSE IT IS A CONTRACT ACROSS TWO
+// FILES and this side of it is only a renderer. From paperSim.js:
+//
+//   await openPositions(state, fees, specs?) -> rows, newest opened first
+//     { coin, side, size, entryPx, openedAt,
+//       leverage,        effective, fractional after an add, what is RUNNING
+//       ticketLeverage,  a whole number in [1, maxLeverage], what the control
+//                        can be SET to, rounded down and never to nearest
+//       szDecimals, maxLeverage,   null when the asset was not read
+//       markPx,          null when unpriced
+//       liquidationPx,   null when there is none or the asset was not read
+//       value,           the whole closeValueAt result, or null
+//       unpriced }       null, or { code, message }
+//
+//   ticketLeverage(pos, info)   the same whole number for one position
+//   closeAllValue(rows)         { realises, positions, unpriced, note }
+//
+// THREE RULES THAT COME WITH IT.
+//
+// `value.realises` IS THE FIGURE, NEVER `value.pnl`. pnl is gross, it sits
+// right there on the row and it reads like the answer. That is the exact
+// defect this panel has had fixed twice, and the only reason it cannot come
+// back through this door is that nothing here adds, subtracts or nets
+// anything: the row is rendered, not computed.
+//
+// `ticketLeverage` IS NOT `leverage`. The row shows what the position is
+// running at, which after an add is 17.105...x. The ticket is set to what the
+// venue's control accepts, which is 17. They are different numbers with
+// different jobs and using either for the other's is wrong.
+//
+// openPositions IS CALLED WITHOUT A PER-COIN LOOKUP. It reads the whole
+// universe out of metaAndAssetCtxs, which assetInfo has already put in the
+// cache, and costs no extra request for any number of positions. Calling
+// assetInfo per held coin is the obvious implementation and it adds a
+// marginTable request per coin.
+
+/** Every open position with its mark and what closing it would realise.
+ *
+ *  Called from the tick, never from refresh(): it awaits, and refresh() runs on
+ *  every keystroke. What it returns is parked on paper.others and drawn from
+ *  there, the same arrangement paper.info already has.
+ */
+async function paperReadOtherPositions() {
+  if (!paper.state) return null;
+  if (typeof openPositions !== "function") return null;
+  const rows = await openPositions(paper.state, paperLadderFees());
+  return Array.isArray(rows) ? rows : null;
+}
+
 /** Commit a level, or clear it. Follows the person's own blur, Enter or Clear,
  *  which is why it is allowed to write the field: the focus rule is about what
  *  a TICK may touch, and a tick never reaches this. */
@@ -1570,10 +1724,19 @@ function refresh() {
   setShown(ui.postOnly.label, isLimit);
 
   setText(ui.size.unit, coin);
+  // Before the field is written, because this is what decides what goes in it
+  // when the market has a position open on it already.
+  seedTicketLeverage();
   setVal(ui.leverage, d.leverage);
+  // Two different sentences, one place, and they cannot both be true: the
+  // warning is that the number typed is not the number that will be used, and
+  // the quiet one is that the number in the box was put there by the position
+  // already open. The warning wins, and the class says which is showing.
   const levNote = paperLeverageNote();
-  setText(ui.leverageNote, levNote || "");
-  setShown(ui.leverageNote, !!levNote);
+  const seedNote = levNote ? null : ticketLeverageSeedNote();
+  setText(ui.leverageNote, levNote || seedNote || "");
+  setShown(ui.leverageNote, !!(levNote || seedNote));
+  ui.leverageNote.classList.toggle("tp-lev-seeded", !levNote && !!seedNote);
   ui.reduceOnly.input.checked = d.reduceOnly;
   ui.postOnly.input.checked = d.postOnly;
 
@@ -1599,13 +1762,22 @@ function refresh() {
     heldElsewhere += m;
     heldCoins.push(k);
   }
+  // THE COIN LIST GOES WHEN THE SECTION BELOW CARRIES IT. This line was the
+  // partial answer to "where did the rest of the balance go": it named the
+  // markets, and that was all it could do. The other positions now have their
+  // own section, with the side, the size, the entry, the mark and what closing
+  // each would realise, so naming them twice spends four lines of a 342px
+  // column saying less than the rows below already say. The money figure stays
+  // here, because it belongs beside the balance it explains.
+  const listedBelow = !!(Array.isArray(paper.others)
+    && paper.others.some((r) => r && r.coin !== paper.coin));
   const shownCoins = heldCoins.length > 6
     ? heldCoins.slice(0, 6).join(", ") + ` and ${heldCoins.length - 6} more`
     : heldCoins.join(", ");
   setText(ui.availableNote, heldCoins.length
     ? `${pmoney(heldElsewhere)} more is margin on `
       + `${heldCoins.length === 1 ? "an open position" : heldCoins.length + " open positions"}`
-      + `: ${shownCoins}. It comes back `
+      + (listedBelow ? ", listed below" : `: ${shownCoins}`) + ". It comes back "
       + `${heldCoins.length === 1 ? "when it is closed" : "as each one is closed"}.`
     : "");
   setShown(ui.availableNote, heldCoins.length > 0);
@@ -1730,6 +1902,7 @@ function refresh() {
   }
 
   refreshPosition(pos, info);
+  refreshOthers();
   refreshLevels(pos, info);
   refreshResting(state, info);
   refreshEvents(state);
@@ -1802,6 +1975,228 @@ function refreshPosition(pos, info) {
   setText(ui.posLiq, lp ? ppx(lp, info) : `none at ${pnum(pos.leverage, 2)}x`);
   ui.posLiq.title = lp ? "" : PAPER_NO_LIQ;
   setText(ui.posFunding, pmoney(-(pos.fundingPaid || 0)));
+}
+
+/** The positions on every market except this one.
+ *
+ *  EVERY FIGURE ON EVERY ROW IS THE ENGINE'S. `realises` is closeValueAt at
+ *  that market's own mark, worked out where the rest of the money is worked
+ *  out. Nothing here does arithmetic on it, including adding two of them up.
+ */
+function refreshOthers() {
+  const ui = paper.ui;
+  const all = Array.isArray(paper.others) ? paper.others : [];
+  // The market this page is on is above, in full, with its ladder. It is still
+  // in the engine's rows, which are every open position, so it is filtered out
+  // here by coin and nowhere else.
+  const rows = all.filter((r) => r && r.coin && r.coin !== paper.coin);
+  setShown(ui.othersSec, rows.length > 0);
+  if (!rows.length) return;
+
+  const open = !!paper.othersOpen;
+  ui.othersHead.setAttribute("aria-expanded", String(open));
+  // THE FULL-SIZE TRIANGLES, NOT THE SMALL ONES. U+25B8 and U+25BE render at
+  // roughly 3px in this face at 10px, and on a rendered panel both states came
+  // out as the same faint dot: the control gave no sign of which way it was
+  // pointing. These are the pair the page's own <details> marker uses, at the
+  // size that marker is drawn.
+  setText(ui.othersCaret, open ? "▼" : "▶");
+  // THE COUNT IS ON THE HEADER, so a section that is collapsed still says how
+  // much is behind it. A collapse that hides the fact that anything is there
+  // would put the panel back where it started.
+  setText(ui.othersCount,
+    rows.length === 1 ? "1 market" : `${rows.length} markets`);
+  setShown(ui.othersBody, open);
+
+  const sig = rows.map((r) => [
+    r.coin, r.side, r.size, r.entryPx, r.markPx, r.leverage,
+    r.value ? r.value.realises : "unpriced",
+  ].join(",")).join("|");
+
+  syncList(ui.othersList, sig, rows.map((r) => {
+    // The asset's own precision when its rules were read, and six places with
+    // the reason said out loud when they were not. Same rule the closed list
+    // follows for a row belonging to another market.
+    const px = (v) => (r.szDecimals != null
+      ? ppx(v, { coin: r.coin, szDecimals: r.szDecimals })
+      : pnum(v, 6));
+    const size = r.szDecimals != null ? pnum(r.size, r.szDecimals) : pnum(r.size, 6);
+    // The EFFECTIVE leverage, which is what the position is running at and is
+    // fractional after an add. Not ticketLeverage: that is the whole number the
+    // control can be set to, and printing it here would say the position is
+    // running at something it is not.
+    const lev = isFinite(Number(r.leverage))
+      ? `${pnum(r.leverage, 2)}x`
+      : "at a leverage this account did not store";
+    const dirClass = r.side === "long" ? "tp-up" : "tp-down";
+    // realises, NEVER pnl. pnl is the gross move, it is on the same object and
+    // it reads like the answer. The engine's own note on closeValueAt is that
+    // two call sites for one quantity is the defect, so there is one: this row
+    // prints the figure the engine put on it.
+    const net = r.value && isFinite(Number(r.value.realises))
+      ? Number(r.value.realises) : null;
+    const figure = net == null
+      ? '<span class="tp-rest-na">not priced here</span>'
+      : `<span class="tp-others-f ${net >= 0 ? "tp-up" : "tp-down"}">`
+        + `${pesc((net > 0 ? "+" : "") + pmoney(net))}</span>`;
+    // WHICH absence, in the engine's own words. Never a zero, never a dash, and
+    // the row is not dropped: the side, the size, the entry and the leverage on
+    // it are all still true, and a position vanishing because its market could
+    // not be read is the invisibility this section exists to end.
+    const away = net == null
+      ? `${pesc(size)} ${pesc(r.coin)}, in at ${pesc(px(r.entryPx))}. `
+        + pesc((r.unpriced && r.unpriced.message) || unpricedReason())
+      : `${pesc(size)} ${pesc(r.coin)}, in at ${pesc(px(r.entryPx))}, `
+        + `mark ${pesc(px(r.markPx))}`;
+    // AN <a> WITH AN href, and the click handler turns it into their own
+    // client-side navigation. Left as a link so it reads as one, so the keyboard
+    // reaches it, and so a modifier-click still opens the market in a new tab
+    // the way a link is expected to.
+    return `
+    <li>
+      <span class="tp-rest-t">
+        <a class="tp-others-m" href="/trade/${pesc(encodeURIComponent(r.coin))}"
+           data-act="goto" data-coin="${pesc(r.coin)}"
+           title="Go to ${pesc(r.coin)}">${pesc(r.coin)}</a>
+        <span class="${dirClass}">${pesc(r.side)} ${pesc(lev)}</span>
+        <span class="tp-rest-away">${away}</span>
+      </span>
+      ${figure}
+    </li>`;
+  }).join(""));
+
+  // THE ONLY SUM THIS PANEL WILL SHOW, and it is the engine's.
+  //
+  // It is what closing every open position right now would realise, said in
+  // those words, over EVERY row and not only the ones listed here: a total of
+  // the others alone would be a number with no question behind it. It is not a
+  // score, not a total earned and not a track record. Nothing here has been
+  // closed and nobody has any of it.
+  //
+  // WHEN IT CANNOT BE TOTALLED IT SAYS SO INSTEAD. closeAllValue returns null
+  // the moment any row is unpriced, on purpose: a sum quietly missing a leg is
+  // the show-a-zero defect one level up, and worse, because nothing on the
+  // surface shows the gap. The engine's own sentence goes in its place.
+  let total = null;
+  let totalNote = null;
+  if (typeof closeAllValue === "function") {
+    try {
+      const sum = closeAllValue(all);
+      if (sum && typeof sum.then !== "function") {
+        total = isFinite(Number(sum.realises)) && sum.realises !== null
+          ? Number(sum.realises) : null;
+        totalNote = total == null ? (sum.note || null) : null;
+      }
+    } catch (e) { total = null; totalNote = null; }
+  }
+  if (total != null) {
+    setText(ui.othersSumT,
+      "Closing every open position now, this market's included, would realise ");
+    setText(ui.othersSumF, (total > 0 ? "+" : "") + pmoney(total));
+  } else if (totalNote) {
+    setText(ui.othersSumT, totalNote);
+    setText(ui.othersSumF, "");
+  }
+  ui.othersSumF.classList.toggle("tp-up", total != null && total >= 0);
+  ui.othersSumF.classList.toggle("tp-down", total != null && total < 0);
+  setShown(ui.othersSumF, total != null);
+  setShown(ui.othersSum, total != null || !!totalNote);
+}
+
+/** Put the leverage already open on this market into the ticket.
+ *
+ *  THE DEFECT. The ticket opened at 1x whatever was held. Somebody who opened
+ *  BTC at 20x, reloaded or came back to the market, and placed a second order
+ *  got 1x, with the only sign of it a margin figure they had no reason to be
+ *  reading. Nothing on the screen said the number had changed, because nothing
+ *  on the screen had changed: the box said 1 the whole time.
+ *
+ *  THE NUMBER IS ticketLeverage AND NOT pos.leverage. A position that was added
+ *  to is running at the leverage its combined margin implies, which is
+ *  17.105...x, and the venue's control does not take that. The engine rounds it
+ *  DOWN to a whole number inside the asset's maximum, because rounding up would
+ *  put up less margin per unit than the position already carries and so would
+ *  propose the riskier of the two nearest choices unasked. The row below shows
+ *  the 17.11x that is running; the box shows the 17x it can be set to; the line
+ *  under the box says both when they differ.
+ *
+ *  SEEDED ON A CHANGE, NOT ON EVERY PASS. refresh() runs on every keystroke, so
+ *  assigning the position's leverage each time would make the field impossible
+ *  to change. It is seeded when the position the ticket is about becomes a
+ *  different position, and its leverage is part of that identity because adding
+ *  to a position moves the effective leverage under an unchanged openedAt.
+ *
+ *  AND NEVER UNDER THE CURSOR. The token is not advanced while the box has
+ *  focus either, so the seeding happens on the first pass after the person
+ *  leaves it rather than being skipped.
+ */
+function seedTicketLeverage() {
+  const ui = paper.ui;
+  if (!ui || !paper.coin) return;
+  const pos = paper.state ? paper.state.positions[paper.coin] : null;
+  const seed = pos
+    ? `${paper.coin}:${pos.openedAt}:${pos.leverage}`
+    : `${paper.coin}:none`;
+  if (paper.levSeed === seed) return;
+  if (document.activeElement === ui.leverage) return;
+  // THE MAXIMUM HAS TO BE THIS MARKET'S. ticketLeverage clamps into the
+  // asset's maximum, so seeding a BTC position against AVAX's info caps 20x at
+  // 10x and the box then holds a number nothing on the page explains. The info
+  // on hand is another market's for as long as a tick that started before a
+  // market change is still in flight, which tick() now also guards against.
+  // Without it the token is left alone rather than advanced, so the seeding
+  // happens on the first pass after this market has been read rather than
+  // being done once against the wrong rules and never revisited.
+  if (pos && !(paper.info && paper.info.coin === paper.coin)) return;
+  paper.levSeed = seed;
+  // Nothing open on this market, so there is nothing for the ticket to
+  // reflect and the box keeps whatever the person last chose. Snapping it back
+  // to 1x on a market they hold nothing on would be inventing a preference.
+  if (!pos) return;
+  const lev = paperTicketLeverage(pos);
+  if (lev == null) return;
+  paper.draft.leverage = String(lev);
+}
+
+/** The whole number the leverage control can be set to for this position.
+ *  The engine's own, because rounding one out here is how the box and the row
+ *  come to disagree, and the direction of the rounding is a decision the engine
+ *  has made and written down. */
+function paperTicketLeverage(pos) {
+  if (!pos || typeof ticketLeverage !== "function") return null;
+  // Only this market's rules, never whatever info happens to be on hand. See
+  // the note in seedTicketLeverage.
+  const info = (paper.info && paper.info.coin === paper.coin) ? paper.info : null;
+  try {
+    const v = Number(ticketLeverage(pos, info));
+    return isFinite(v) && v >= 1 ? v : null;
+  } catch (e) { return null; }
+}
+
+/** Said under the box while the number in it is the one the open position put
+ *  there, and not after it has been changed.
+ *
+ *  TWO SENTENCES WHEN THE TWO NUMBERS DIFFER. After an add the box says 17 and
+ *  the position is running at 17.11, and a line claiming 17x is what is open
+ *  would be the panel printing a rounded number under the words "already open".
+ *  The gap is small, it is also the whole reason the box does not just carry
+ *  the position's own figure, and it is said rather than smoothed over.
+ */
+function ticketLeverageSeedNote() {
+  const pos = (paper.state && paper.coin) ? paper.state.positions[paper.coin] : null;
+  if (!pos) return null;
+  const lev = paperTicketLeverage(pos);
+  if (lev == null) return null;
+  if (String(paper.draft.leverage).trim() !== String(lev)) return null;
+  const running = Number(pos.leverage);
+  // ONE LINE WHEN IT CAN BE, because this sits above the outcome banner and the
+  // Close control in a panel that is 440px tall at 1280, and every line it
+  // takes pushes those further down.
+  if (!isFinite(running) || Math.abs(running - lev) < 0.005) {
+    return `Set to ${lev}x, the leverage already open on ${paper.coin}.`;
+  }
+  return `Set to ${lev}x. The ${paper.coin} position is running at `
+    + `${pnum(running, 2)}x after being added to, which the control does not take.`;
 }
 
 /** The two level fields and the ladder.
@@ -2366,8 +2761,23 @@ function paperErrorText(e) {
 
 async function tick() {
   if (!paper.coin) return;
+  // WHICH MARKET THIS PASS IS ABOUT, captured before the first await.
+  //
+  // A pass that is waiting on the venue outlives a market change: the person
+  // follows a link, paperSwitchCoin clears paper.info and starts a new pass,
+  // and then the old pass's assetInfo resolves and writes the market they just
+  // left into paper.info under the new market's name. Caught on a rendered
+  // panel, moving from AVAX to BTC on a link in the other-positions list: the
+  // ticket seeded itself from BTC's 20x position against AVAX's maximum of 10
+  // and settled on 10x, with the line that explains the number absent because
+  // by then the info was BTC's again and 10 was not what it would have said.
+  // Everything else this pass writes is the same hazard one step quieter: a
+  // mark, a liquidation price and a book belonging to another market.
+  const forCoin = paper.coin;
   try {
-    paper.info = await assetInfo(paper.coin);
+    const info = await assetInfo(forCoin);
+    if (paper.coin !== forCoin) return;   // the market moved under this pass
+    paper.info = info;
     paper.infoAt = Date.now();
     paper.lastError = null;
   } catch (e) {
@@ -2380,7 +2790,9 @@ async function tick() {
   }
   if (paper.open) {
     try {
-      paper.book = await orderBook(paper.coin);
+      const book = await orderBook(forCoin);
+      if (paper.coin !== forCoin) return;   // same hazard, same guard
+      paper.book = book;
       paper.bookAt = Date.now();
     } catch (e) { paper.lastError = paperErrorText(e); }
   }
@@ -2423,6 +2835,16 @@ async function tick() {
     }
   }
   paper.state.resting = still;
+
+  // Every open position priced, off the response assetInfo has just put in the
+  // cache. Last, so it sees the state a fill on this pass has already changed.
+  // A failure leaves the previous read standing rather than blanking the
+  // section: the rows carry their own marks and the next pass replaces them.
+  try {
+    const others = await paperReadOtherPositions();
+    if (others) paper.others = others;
+  } catch (e) { /* the previous read stands */ }
+
   await saveState(paper.state);
   refresh();
 }
@@ -2454,6 +2876,47 @@ async function setPaperOpen(open) {
   if (paper.open) tick();
 }
 
+/** Show or hide the other markets' positions, and remember which it was.
+ *
+ *  Stored exactly the way the panel's own open state is: one key in
+ *  chrome.storage.local, written on the click, read once at startup. */
+async function setPaperOthersOpen(open) {
+  paper.othersOpen = !!open;
+  try { await chrome.storage.local.set({ [PAPER_OTHERS_KEY]: paper.othersOpen }); }
+  catch (e) { /* the section still opens, it just will not be remembered */ }
+  refresh();
+}
+
+/** Go to another market, through their own routing rather than around it.
+ *
+ *  MEASURED, NOT ASSUMED, on app.hyperliquid.xyz on 2026-09-21. A plain
+ *  anchor click to /trade/ETH reloads the document: a marker set on window
+ *  before the click was gone after it. history.pushState followed by a
+ *  popstate event does not: the marker survived, their market header went from
+ *  BTC-USDC to SOL-USDC and document.title from "86,041 | BTC | Hyperliquid"
+ *  to "117.72 | SOL | Hyperliquid". So their router listens to popstate, and
+ *  this is their own client-side navigation and not a page load dressed up.
+ *
+ *  If pushState ever throws, the href on the link is still the right URL and a
+ *  full navigation is the correct fallback: slower, and it goes to the right
+ *  place.
+ */
+function paperGoToMarket(coin) {
+  if (!coin || coin === paper.coin) return;
+  const path = "/trade/" + encodeURIComponent(coin);
+  try {
+    history.pushState(history.state, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+  } catch (e) {
+    location.href = path;
+    return;
+  }
+  // Immediately, rather than waiting up to 700ms for the path watcher to
+  // notice. The watcher then sees a path it has already caught up with and
+  // does nothing, because the coin it reads is the one already held.
+  paperSwitchCoin(coin);
+}
+
 function wirePaper(panel) {
   panel.addEventListener("click", async (e) => {
     const act = e.target.closest("[data-act]");
@@ -2461,6 +2924,15 @@ function wirePaper(panel) {
     const kind = act.dataset.act;
     if (kind === "shut") {
       await setPaperOpen(false);
+    } else if (kind === "others") {
+      await setPaperOthersOpen(!paper.othersOpen);
+    } else if (kind === "goto") {
+      // A modifier click, or anything that is not the primary button, is the
+      // browser's to handle: that is how a person opens a market in a new tab,
+      // and taking it over would be worse than not being a link at all.
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      paperGoToMarket(act.dataset.coin);
     } else if (kind === "side" || kind === "type") {
       paper.draft[kind] = act.dataset.v;
       paper.outcome = null;
@@ -2491,6 +2963,11 @@ function wirePaper(panel) {
       paper.state = await resetState();
       paper.draft.size = ""; paper.draft.px = "";
       if (paper.ui) { paper.ui.size.input.value = ""; paper.ui.price.input.value = ""; }
+      // The priced rows are a read of a state that no longer exists. Held on
+      // to, they would list positions the reset has just closed for as long as
+      // it takes the next tick to come round, which is a panel showing an
+      // account that is not there. Emptied rather than left to expire.
+      paper.others = [];
       refresh();
     }
   });
@@ -2566,6 +3043,13 @@ async function startPaper() {
       paper.open = !!(got && got[PAPER_OPEN_KEY]);
     } catch (e) { paper.open = false; }
     try {
+      // Absent means never chosen, and the default for this one is SHOWING.
+      // `!== false` rather than a truthiness test, so a stored `false` is
+      // honoured and a missing key is not read as a choice to hide it.
+      const got = await chrome.storage.local.get(PAPER_OTHERS_KEY);
+      paper.othersOpen = !(got && got[PAPER_OTHERS_KEY] === false);
+    } catch (e) { paper.othersOpen = true; }
+    try {
       paper.fees = await feeSchedule();
       paper.feesRead = true;
     } catch (e) { /* the base constants stand, and the Fees row says so */ }
@@ -2598,25 +3082,46 @@ async function startPaper() {
 
 // The app rewrites the URL without a load when the market changes, so the coin
 // has to be watched rather than read once.
+/** Move the panel to a different market.
+ *
+ *  Lifted out of the path watcher because the market links in the other
+ *  positions list take this route too, and the two doing it differently is how
+ *  a panel ends up showing one market's numbers under another market's name.
+ */
+function paperSwitchCoin(c) {
+  if (!c || c === paper.coin) return;
+  paper.coin = c;
+  // The draft is about the old market. Prices and sizes do not carry across
+  // assets with different ticks and lot sizes, so they are cleared, and this
+  // is a market change rather than a tick so writing the fields is correct.
+  paper.draft.px = "";
+  paper.draft.size = "";
+  if (paper.ui) { paper.ui.size.input.value = ""; paper.ui.price.input.value = ""; }
+  // The ticket is about a different market now, so the leverage in it is about
+  // to be re-seeded from whatever is open on THIS one. Clearing the token is
+  // what lets that happen; without it the ticket would keep the last market's
+  // number under the new market's name.
+  paper.levSeed = null;
+  // The new market's data has not been read yet, and the old market's must
+  // not be shown as though it were this one's.
+  paper.info = null; paper.infoAt = 0; paper.bookAt = 0;
+  paper.book = { levels: [[], []] };
+  paperFormEl = null; paperBookEl = null;
+  // The list of other markets is one market out of date the instant the coin
+  // changes: the one just left belongs in it and the one just arrived at does
+  // not. refreshOthers filters on paper.coin, so this is right immediately and
+  // the next tick re-prices it.
+  refresh();
+  tick();
+}
+
 let paperLastPath = null;
 setInterval(() => {
   if (location.pathname === paperLastPath) return;
   paperLastPath = location.pathname;
   const c = paperCoinFromUrl();
   if (c && c !== paper.coin) {
-    paper.coin = c;
-    // The draft is about the old market. Prices and sizes do not carry across
-    // assets with different ticks and lot sizes, so they are cleared, and this
-    // is a market change rather than a tick so writing the fields is correct.
-    paper.draft.px = "";
-    paper.draft.size = "";
-    if (paper.ui) { paper.ui.size.input.value = ""; paper.ui.price.input.value = ""; }
-    // The new market's data has not been read yet, and the old market's must
-    // not be shown as though it were this one's.
-    paper.info = null; paper.infoAt = 0; paper.bookAt = 0;
-    paper.book = { levels: [[], []] };
-    paperFormEl = null; paperBookEl = null;
-    tick();
+    paperSwitchCoin(c);
   } else if (!c && paper.panel) {
     paper.panel.remove();
     if (paper.tab) paper.tab.remove();

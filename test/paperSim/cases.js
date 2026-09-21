@@ -987,6 +987,388 @@ const LONG_TAIL = /\d\.\d{8,}/;
     check("priceTick at 9.8, szDecimals 5 (decimal places bind)", String(api.priceTick(9.8, 5)), api.priceTick(9.8, 5) === 0.1);
   }
 
+  // ── every open position, not only this market's ───────────────────────────
+  //
+  // Positions are opened through the live books, so entry, fees and margin are
+  // the ones the venue's own depth produces, and then their openedAt is
+  // stamped to distinct values. Stamping is deliberate: three fills applied
+  // inside one millisecond carry the same openedAt, which would make the
+  // ordering case pass whatever the sort did. The tie is checked separately.
+  {
+    const openInto = (s, info, book, side, size, lev) => {
+      const d = decide(s, info, book, { coin: info.coin, side, type: "market", size, leverage: lev });
+      if (!d.ok) throw new Error(`could not open ${info.coin} ${side}: ${d.code} ${d.message}`);
+      api.applyFill(s, info, d.fill);
+      return s.positions[info.coin];
+    };
+    const three = () => {
+      const s = rich();
+      openInto(s, btc, bookB, "buy", 0.1, 10);
+      openInto(s, sol, bookS, "sell", 10, 5);
+      openInto(s, doge, bookD, "buy", 5000, 3);
+      s.positions.BTC.openedAt = 1000000;
+      s.positions.SOL.openedAt = 2000000;
+      s.positions.DOGE.openedAt = 3000000;
+      return s;
+    };
+    const specs = await api.assetSpecs();
+
+    // ── the marks and the margin tiers are already in hand ──────────────────
+    //
+    // Counted, not asserted. A fresh module with a wrapped fetch, so what is
+    // counted is what left for the venue and not what hlInfo served out of its
+    // own cache. The four positions are written straight into the state rather
+    // than filled, because a fill needs an order book and an order book is a
+    // request about placing orders, not about pricing what is already open.
+    // ATOM is in there on purpose: its margin table is one of the ones
+    // metaAndAssetCtxs does not embed, so a per-coin fetch would show up here.
+    {
+      const held = (coin, side, size, entryPx, lev) => ({
+        coin, side, size, entryPx, margin: (size * entryPx) / lev, leverage: lev,
+        feesPaid: size * entryPx * 0.00045, fundingPaid: 0,
+        stopPx: null, targetPx: null, openedAt: 1, fundingSettledAt: 1,
+      });
+      const m = load({ countRequests: true });
+      const f = await m.api.feeSchedule();
+      const bi = await m.api.assetInfo("BTC");
+      await m.api.orderBook("BTC");
+      const baseline = m.requests.length;
+      const st = m.api.emptyState();
+      st.positions = {
+        BTC: held("BTC", "long", 0.1, bi.markPx, 10),
+        SOL: held("SOL", "short", 10, 100, 5),
+        DOGE: held("DOGE", "long", 5000, 0.1, 3),
+        ATOM: held("ATOM", "long", 100, 2, 4),
+      };
+      const rows = await m.api.openPositions(st, f);
+      const added = m.requests.length - baseline;
+      console.log(`  requests: what the panel already makes for the page's own market = ${baseline}`
+        + ` (${m.requests.slice(0, baseline).join(", ")}); openPositions over ${rows.length}`
+        + ` positions across ${rows.length} coins added ${added}; total ${m.requests.length}`);
+      check("pricing every open position costs no extra venue request",
+        `${baseline} before, ${m.requests.length} after, ${added} added for ${rows.length} positions`,
+        added === 0 && rows.length === 4 && rows.every((r) => r.unpriced === null),
+        "metaAndAssetCtxs already carries every mark and every margin table");
+    }
+    {
+      // The counterfactual, measured rather than argued: what one assetInfo per
+      // coin costs on the same four coins. This is the path openPositions does
+      // not take, and the difference is the whole reason assetSpecs exists.
+      const perCoinMod = load({ countRequests: true });
+      await perCoinMod.api.assetInfo("BTC");
+      const afterFirst = perCoinMod.requests.length;
+      for (const c of ["SOL", "DOGE", "ATOM"]) await perCoinMod.api.assetInfo(c);
+      const perCoin = perCoinMod.requests.length - afterFirst;
+      const specMod = load({ countRequests: true });
+      await specMod.api.assetInfo("BTC");
+      const afterFirst2 = specMod.requests.length;
+      await specMod.api.assetSpecs();
+      const viaSpecs = specMod.requests.length - afterFirst2;
+      console.log(`  requests: assetInfo one coin at a time for 3 more coins = ${perCoin}`
+        + ` (${perCoinMod.requests.slice(afterFirst).join(", ")}); assetSpecs for all 234 = ${viaSpecs}`);
+      check("the other route costs a request per coin and this one costs none",
+        `assetInfo per coin ${perCoin}, assetSpecs ${viaSpecs}`,
+        perCoin > 0 && viaSpecs === 0,
+        "the marginTable calls assetSpecs does not make");
+    }
+
+    // ── the margin tables are all in that one response too ──────────────────
+    {
+      const pair = await api.assetContexts();
+      const universe = pair[0].universe;
+      const embedded = new Map((pair[0].marginTables || []).map((e) => [Number(e[0]), e[1]]));
+      const absentIds = [...new Set(universe.map((a) => Number(a.marginTableId)).filter((id) => !embedded.has(id)))];
+      const fetched = new Map();
+      for (const id of absentIds) fetched.set(id, await api.marginTable(id));
+      let flat = 0;
+      const broken = [];
+      for (const a of universe) {
+        const id = Number(a.marginTableId);
+        if (embedded.has(id)) continue;
+        const tiers = ((fetched.get(id) || {}).marginTiers) || [];
+        const ok = tiers.length === 1 && Number(tiers[0].lowerBound) === 0
+          && Number(tiers[0].maxLeverage) === Number(a.maxLeverage);
+        if (ok) flat++; else broken.push(a.name);
+      }
+      console.log(`  margin tables: ${universe.length} assets; ${embedded.size} tables embedded in the`
+        + ` response covering ${universe.length - flat - broken.length}; ${absentIds.length} ids absent`
+        + ` (${absentIds.join(",")}) covering ${flat + broken.length}`);
+      for (const [id, t] of embedded) {
+        const used = universe.filter((a) => Number(a.marginTableId) === id).map((a) => a.name);
+        if (!used.length) continue;
+        console.log(`    table ${id}: ` + t.marginTiers.map((x) => `${x.maxLeverage}x from ${api.fmtUsd(Number(x.lowerBound))}`).join(", ")
+          + ` (${used.length}: ${used.slice(0, 6).join(",")}${used.length > 6 ? ",..." : ""})`);
+      }
+      check("an asset with no embedded margin table is flat at its own max leverage",
+        `${flat + broken.length} assets use one of ${absentIds.length} absent ids; ${broken.length} are not`
+          + ` flat at their own max leverage${broken.length ? ": " + broken.slice(0, 5).join(",") : ""}`,
+        broken.length === 0 && flat > 0,
+        "so a null marginTiers gives maintenanceFraction the same answer, and no per-coin fetch is needed");
+
+      // The outcome, not the shape. One position, two routes to the asset spec,
+      // and liquidationPrice has to land in the same place. BTC's table is
+      // embedded and tiered; ATOM's is one of the absent ones.
+      for (const coin of ["BTC", "ATOM"]) {
+        const fetchedInfo = await api.assetInfo(coin);
+        const specInfo = specs.get(coin);
+        const pos = {
+          coin, side: "long", size: 3, entryPx: 100, margin: (3 * 100) / 4,
+          leverage: 4, feesPaid: 0, fundingPaid: 0, stopPx: null, targetPx: null,
+          openedAt: 1, fundingSettledAt: 1,
+        };
+        const a = api.liquidationPrice(pos, fetchedInfo);
+        const b = api.liquidationPrice(pos, specInfo);
+        check(`${coin}: the liquidation price is the same whether the margin table was embedded or fetched`,
+          `marginTable fetch ${n6(a)} vs metaAndAssetCtxs ${n6(b)}`,
+          a != null && b != null && Math.abs(a - b) < 1e-12,
+          specInfo.marginTiers ? "tiers embedded" : "no embedded tiers, falls back to maxLeverage");
+      }
+
+      // The equivalence above is checked on a small position, where every tier
+      // of a tiered table gives the same answer, so on its own it would pass
+      // with the tiers thrown away. These two positions sit past the upper tier
+      // boundary of their own table, where the tiers are the whole answer.
+      // The boundary each one is past is printed by the table dump above, so
+      // the size chosen here can be checked against the tier it lands in.
+      for (const [coin, size, entryPx] of [["BTC", 2500, 100000], ["DOGE", 300000000, 0.1]]) {
+        const specInfo = specs.get(coin);
+        const notional = size * entryPx;
+        const pos = {
+          coin, side: "long", size, entryPx, margin: notional / 2,
+          leverage: 2, feesPaid: 0, fundingPaid: 0, stopPx: null, targetPx: null,
+          openedAt: 1, fundingSettledAt: 1,
+        };
+        const withTiers = api.liquidationPrice(pos, specInfo);
+        const withFetched = api.liquidationPrice(pos, await api.assetInfo(coin));
+        const noTiers = api.liquidationPrice(pos, { ...specInfo, marginTiers: null });
+        const mf = api.maintenanceFraction(specInfo, notional);
+        check(`${coin} at ${api.fmtUsd(notional)} is priced on its margin tier and not on the headline leverage`,
+          `maintenance fraction 1/${n6(1 / mf)}; liq from tiers ${n6(withTiers)}, from the fetched table ${n6(withFetched)}, ignoring tiers ${n6(noTiers)}`,
+          Math.abs(withTiers - withFetched) < 1e-9 && Math.abs(withTiers - noTiers) > 1e-6
+            && Math.abs(1 / mf - 2 * specInfo.maxLeverage) > 1e-9,
+          "a position past the boundary is the only place the tiers change the answer");
+      }
+    }
+
+    // ── the mark on a row belongs to the coin on that row ────────────────────────
+    //
+    // The universe and the contexts are two parallel arrays in one response and
+    // assetSpecs pairs them by index, which is the one thing in it that can be
+    // silently wrong: every row would still be priced, every figure would still
+    // come from closeValueAt, and every one of them would be about a different
+    // asset. Checked against allMids, which is keyed by coin name and has no
+    // index in it at all, so it cannot be misaligned the same way.
+    {
+      const mids = await api.hlInfo({ type: "allMids" }, 2500);
+      const off = [];
+      let compared = 0;
+      for (const [coin, spec] of specs) {
+        const mid = Number(mids[coin]);
+        if (!(mid > 0) || !(spec.markPx > 0)) continue;
+        compared++;
+        const bp = Math.abs(spec.markPx - mid) / mid * 10000;
+        if (bp > 100) off.push(`${coin} mark ${spec.markPx} vs mid ${mid} (${Math.round(bp)} bp)`);
+      }
+      check("the mark on every asset is the mark for that asset, checked against a name-keyed endpoint",
+        `${compared} assets compared with allMids, ${off.length} more than 100 bp apart${off.length ? ": " + off.slice(0, 4).join("; ") : ""}`,
+        compared > 100 && off.length === 0,
+        "pairing universe[i] with ctxs[i] is the one thing in assetSpecs that can be silently wrong");
+    }
+
+    // ── zero, one and several ───────────────────────────────────────────────
+    {
+      const none = await api.openPositions(fresh(), fees, specs);
+      check("no open positions is an empty list, not a row saying so",
+        JSON.stringify(none), Array.isArray(none) && none.length === 0);
+      const t = api.closeAllValue(none);
+      check("  and closing nothing realises nothing, as a number rather than a refusal",
+        `realises ${t.realises} over ${t.positions} positions`,
+        t.realises === 0 && t.positions === 0 && t.unpriced === 0 && t.note === null);
+    }
+    {
+      const s = rich();
+      openInto(s, btc, bookB, "buy", 0.1, 10);
+      const pos = s.positions.BTC;
+      const spec = specs.get("BTC");
+      const rows = await api.openPositions(s, fees, specs);
+      const r = rows[0];
+      check("one open position is one row carrying what it is",
+        `${rows.length} row: ${r.coin} ${r.side} size ${api.fmtSz(r.size, r.szDecimals)} lev ${n6(r.leverage)}`
+          + ` entry ${api.fmtPx(r.entryPx, r.szDecimals)} mark ${api.fmtPx(r.markPx, r.szDecimals)}`
+          + ` liq ${r.liquidationPx == null ? "none" : api.fmtPx(r.liquidationPx, r.szDecimals)}`
+          + ` realises ${api.fmtUsd(r.value.realises)}`,
+        rows.length === 1 && r.coin === "BTC" && r.side === "long"
+          && r.size === pos.size && r.entryPx === pos.entryPx
+          && r.szDecimals === btc.szDecimals && r.maxLeverage === btc.maxLeverage
+          && r.markPx === spec.markPx && r.liquidationPx > 0 && r.unpriced === null);
+      const want = api.closeValueAt(pos, spec, fees, spec.markPx);
+      check("  and its figure is closeValueAt at the mark, to the last bit",
+        `row ${n6(r.value.realises)} vs closeValueAt ${n6(want.realises)}`,
+        r.value.realises === want.realises && r.value.exitFee === want.exitFee
+          && r.value.entryFee === want.entryFee && r.value.funding === want.funding);
+      const ladderMark = api.positionLadder(pos, spec, fees, spec.markPx).find((x) => x.role === "mark");
+      check("  and it is the figure the ladder's mark row already shows",
+        `list ${n6(r.value.realises)} vs ladder mark ${n6(ladderMark.value.realises)}`,
+        r.value.realises === ladderMark.value.realises,
+        "one function, so the list and the ladder cannot disagree about one position");
+    }
+    {
+      const s = three();
+      const rows = await api.openPositions(s, fees, specs);
+      check("three open positions are three rows, long and short, every one priced",
+        rows.map((r) => `${r.coin} ${r.side} ${api.fmtUsd(r.value ? r.value.realises : NaN)}`).join(" | "),
+        rows.length === 3 && rows.every((r) => r.unpriced === null && isFinite(r.value.realises))
+          && rows.some((r) => r.side === "long") && rows.some((r) => r.side === "short"));
+      {
+        const r = rows.find((x) => x.coin === "SOL");
+        const w = api.closeValueAt(s.positions.SOL, specs.get("SOL"), fees, specs.get("SOL").markPx);
+        check("  and the short's figure is closeValueAt on the short, not a long read backwards",
+          `${r.side} ${n6(r.value.realises)} vs ${n6(w.realises)}`,
+          r.side === "short" && r.value.side === "short" && r.value.realises === w.realises);
+      }
+      check("  and the list is ordered newest first",
+        rows.map((r) => `${r.coin}@${r.openedAt}`).join(" > "),
+        rows.map((r) => r.coin).join(",") === "DOGE,SOL,BTC",
+        "openedAt, so a moving mark cannot reorder the list under somebody reading it");
+
+      // Checked against marks that have moved, because reordering under a
+      // moving price is the failure a value-ordered list has and this does not.
+      const moved = new Map();
+      for (const [k, v] of specs) moved.set(k, { ...v, markPx: v.markPx * (k === "DOGE" ? 0.5 : 1.5) });
+      const rows2 = await api.openPositions(s, fees, moved);
+      check("  and it stays in that order when the marks move under it",
+        rows2.map((r) => `${r.coin} ${api.fmtUsd(r.value.realises)}`).join(" > "),
+        rows2.map((r) => r.coin).join(",") === rows.map((r) => r.coin).join(","),
+        "sorting by what a row is worth is what makes the third row become the first one");
+
+      const t = api.closeAllValue(rows);
+      const sum = rows.reduce((a, r) => a + r.value.realises, 0);
+      check("  and closing everything now realises the sum of those same figures",
+        `${api.fmtUsd(t.realises)} over ${t.positions} positions`,
+        t.positions === 3 && t.unpriced === 0 && t.note === null
+          && Math.abs(t.realises - sum) < 1e-9);
+    }
+    {
+      // The tie the stamped openedAt above deliberately avoids.
+      const s = three();
+      for (const c of ["BTC", "SOL", "DOGE"]) s.positions[c].openedAt = 7;
+      const rows = await api.openPositions(s, fees, specs);
+      check("positions opened in the same millisecond fall back on the coin name",
+        rows.map((r) => r.coin).join(","),
+        rows.map((r) => r.coin).join(",") === "BTC,DOGE,SOL",
+        "object key order is not an order");
+    }
+
+    // ── an absence says which absence ───────────────────────────────────────
+    {
+      const s = three();
+      const gone = new Map(specs); gone.delete("SOL");
+      const rows = await api.openPositions(s, fees, gone);
+      // Not destructured before the count is checked: a dropped row is exactly
+      // the failure this case exists for, and it must read as a failure rather
+      // than as a crash in the harness.
+      const r = rows.find((x) => x.coin === "SOL") || {};
+      check("a coin missing from the response keeps its row and names which absence it is",
+        `${rows.length} rows, SOL row ${r.coin ? "present" : "DROPPED"}: value ${r.value}, mark ${r.markPx}, code ${(r.unpriced || {}).code}`,
+        rows.length === 3 && r.coin === "SOL" && r.value === null && r.markPx === null
+          && (r.unpriced || {}).code === "asset_unread" && (r.unpriced || {}).message.includes("SOL"),
+        "not a zero, not a dash, and not a dropped row");
+      check("  and it still carries what the position is, which needs no venue data",
+        `${r.side} size ${r.size} entry ${n6(r.entryPx)} lev ${n6(r.leverage)}`,
+        r.side === "short" && r.size === s.positions.SOL.size
+          && r.entryPx === s.positions.SOL.entryPx && r.leverage === s.positions.SOL.leverage);
+      check("  and the other two are priced as normal",
+        rows.filter((x) => x.unpriced === null).map((x) => x.coin).join(","),
+        rows.filter((x) => x.unpriced === null).length === 2);
+      const t = api.closeAllValue(rows);
+      check("  and there is no total, because a total missing a leg is that defect one level up",
+        `realises ${t.realises}, unpriced ${t.unpriced} of ${t.positions}, note says so: ${/1 of these 3/.test(t.note || "")}`,
+        t.realises === null && t.unpriced === 1 && t.positions === 3 && /1 of these 3/.test(t.note || ""));
+    }
+    {
+      const s = three();
+      const noMark = new Map(specs);
+      noMark.set("DOGE", { ...specs.get("DOGE"), markPx: NaN });
+      const rows = await api.openPositions(s, fees, noMark);
+      const r = rows.find((x) => x.coin === "DOGE") || {};
+      check("a coin that is listed but sent no mark says THAT absence, not the other one",
+        `code ${(r.unpriced || {}).code}, names DOGE ${((r.unpriced || {}).message || "").includes("DOGE")}, value ${r.value}`,
+        (r.unpriced || {}).code === "mark_unread" && ((r.unpriced || {}).message || "").includes("DOGE")
+          && r.value === null && r.markPx === null);
+      check("  and it still has a liquidation price, which needs no mark",
+        r.liquidationPx == null ? "none" : api.fmtPx(r.liquidationPx, r.szDecimals),
+        r.liquidationPx > 0,
+        "the tiers and the max leverage came out of the same response the mark was missing from");
+    }
+    {
+      const s = three();
+      const rows = await api.openPositions(s, null, specs);
+      check("with no fee schedule every row says so rather than showing a fee-free figure",
+        rows.map((r) => `${r.coin}:${(r.unpriced || {}).code}`).join(" "),
+        rows.length === 3 && rows.every((r) => r.value === null && (r.unpriced || {}).code === "fees_unread"),
+        "Number(null) is 0, so a missing schedule reads as a free exit unless it is refused");
+      check("  and the sentence it carries is the one the engine owns",
+        String((rows[0].unpriced || {}).message).slice(0, 60) + "...",
+        (rows[0].unpriced || {}).message === api.FEES_UNREAD_NOTE && /exit fee/.test(api.FEES_UNREAD_NOTE));
+      const t = api.closeAllValue(rows);
+      check("  and there is no total across three unpriced rows",
+        `realises ${t.realises}, unpriced ${t.unpriced} of ${t.positions}`,
+        t.realises === null && t.unpriced === 3);
+    }
+    {
+      // Nothing is dropped, ever. Checked as a count rather than a spot read.
+      const gone = new Map(specs); gone.delete("DOGE");
+      for (const [label, f, m] of [["normal", fees, specs], ["no fees", null, specs], ["a coin gone", fees, gone]]) {
+        const s = three();
+        const rows = await api.openPositions(s, f, m);
+        check(`every open position gets a row (${label})`,
+          `${rows.length} rows for ${Object.keys(s.positions).length} positions`,
+          rows.length === Object.keys(s.positions).length);
+      }
+    }
+
+    // ── the leverage the ticket should show ─────────────────────────────────
+    {
+      const s = rich();
+      const pos = openInto(s, btc, bookB, "buy", 0.1, 20);
+      check("a position opened at 20x reads back 20x, and the ticket shows 20",
+        `pos.leverage ${n6(pos.leverage)}, ticketLeverage ${api.ticketLeverage(pos, btc)}`,
+        pos.leverage === 20 && api.ticketLeverage(pos, btc) === 20,
+        "today the ticket resets to 1x after a fill");
+
+      openInto(s, btc, bookB, "buy", 0.07, 5);
+      const eff = pos.leverage;
+      check("  adding at 5x leaves an effective leverage that is neither 20 nor 5",
+        `pos.leverage ${n6(eff)}`,
+        eff > 5 && eff < 20,
+        "it is read back from the margin actually put up, so it can be fractional");
+      const rows = await api.openPositions(s, fees, specs);
+      check("  the row carries that number unrounded and the whole number under it",
+        `leverage ${n6(rows[0].leverage)}, ticketLeverage ${rows[0].ticketLeverage}`,
+        rows[0].leverage === eff && rows[0].ticketLeverage === Math.floor(eff)
+          && api.ticketLeverage(pos, btc) === Math.floor(eff));
+    }
+    {
+      // The rounding direction, on values chosen so floor, round and ceil all
+      // disagree. Without this a fractional effective leverage that happens to
+      // land on a whole number would let any of the three pass.
+      const at = (l) => api.ticketLeverage({ leverage: l }, btc);
+      check("the ticket leverage rounds down and not to nearest",
+        [11.43, 11.51, 19.99, 1.9].map((l) => `${l}->${at(l)}`).join(" "),
+        at(11.43) === 11 && at(11.51) === 11 && at(19.99) === 19 && at(1.9) === 1,
+        "rounding up would put up less margin per unit than the position already carries");
+      check("  it is capped at the asset's maximum",
+        `${at(99)} against maxLeverage ${btc.maxLeverage}`,
+        at(99) === btc.maxLeverage,
+        "an asset's maximum can be lowered under a position opened above it");
+      const low = [0.999999, 0, -3, NaN, undefined];
+      check("  and it never falls below 1",
+        low.map((l) => `${l}->${at(l)}`).join(" "),
+        low.every((l) => at(l) === 1),
+        "roundSize truncating the combined size can leave the effective leverage a hair under 1");
+    }
+  }
+
   // ── storage failure has to be visible ─────────────────────────────────────
   {
     const broken = load({ failStorage: true });
