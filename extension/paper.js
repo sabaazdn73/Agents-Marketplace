@@ -531,10 +531,20 @@ const pusd = (n) => Number(n).toLocaleString("en-US",
  *  more precise than the venue can express: the liquidation price came out as
  *  65,455.797468 on a market whose tick is 0.1. */
 function ppx(n, info) {
-  if (!info || !isFinite(Number(n))) return "N/A";
+  // Two different absences, and they were the same two letters. Without `info`
+  // this market has not been read and the precision to print at is not known;
+  // with a value that is not a number there is nothing to print at any
+  // precision. Neither is "N/A", which is the string this panel is retiring.
+  if (!info) return "not read";
+  if (!isFinite(Number(n))) return "not a price";
   const r = roundPrice(Number(n), info.szDecimals);
-  return isFinite(r) ? pnum(r, Math.max(0, 6 - info.szDecimals)) : "N/A";
+  return isFinite(r) ? pnum(r, Math.max(0, 6 - info.szDecimals)) : "not a price";
 }
+
+/** Why a position can have no liquidation price at all. */
+const PAPER_NO_LIQ =
+  "A position whose margin is its whole value cannot be liquidated by price: "
+  + "there is no price at which the margin runs out, short of zero.";
 
 /** The coin is in the path, /trade/BTC, so it is read from the URL and not
  *  from the page. Same rule the address panel follows. */
@@ -576,7 +586,7 @@ function tpField(parent, label, fname, unit) {
 function tpKv(parent, label) {
   const row = tpEl(parent, "div", "tp-kv");
   tpEl(row, "span", "tp-kv-k", label);
-  return tpEl(row, "span", "tp-kv-v", "N/A");
+  return tpEl(row, "span", "tp-kv-v", "");
 }
 
 /** Their checkbox: a 16px box with a 3px radius. The native input stays in the
@@ -597,7 +607,7 @@ function tpCheck(parent, label, fname) {
 function tpRow(tbody, label) {
   const tr = tpEl(tbody, "tr");
   tpEl(tr, "th", null, label);
-  return tpEl(tr, "td", null, "N/A");
+  return tpEl(tr, "td", null, "");
 }
 
 /** The cat, as an <img>, or nothing if there is no extension runtime to ask.
@@ -683,6 +693,12 @@ function buildPaperPanel() {
   const body = tpEl(root, "div", "tp-body");
   ui.body = body;
 
+  // NOTHING IS BEING KEPT, AND IT SAYS SO ABOVE EVERYTHING IT IS ABOUT.
+  // Only rendered when it is true. It used to sit near the bottom, among the
+  // standing sentences, which is the wrong place for a notice that every figure
+  // below it is about to be lost: at 390 it was off the screen entirely.
+  ui.storage = tpEl(body, "div", "tp-storage tp-hide");
+
   // ── Their Cross | 20x | Unified strip.
   //
   // NOT three chips. The first version copied their three filled buttons
@@ -734,6 +750,13 @@ function buildPaperPanel() {
   ui.sideSell.dataset.act = "side"; ui.sideSell.dataset.v = "sell";
 
   ui.available = tpKv(body, "Available to Trade");
+  // WHERE THE REST OF THE BALANCE WENT. Somebody holding positions on SOL and
+  // ETH looked at BTC and read "Available to Trade 179.34 USDC" with nothing
+  // saying that the other nine thousand was margin on two markets this panel
+  // was not showing. A balance that reads nearly empty with no reason given is
+  // an absence without an explanation, which is the thing this panel exists to
+  // not do.
+  ui.availableNote = tpEl(body, "div", "tp-kv-note tp-hide");
   ui.currentPos = tpKv(body, "Current Position");
 
   // Price sits above Size on their form when Limit is selected.
@@ -838,17 +861,24 @@ function buildPaperPanel() {
   tpEl(always, "div", "tp-always-l",
     "A closed position shows what it would have earned. Nobody earned it, and it "
     + "is not a track record.");
-  // Only when it is true. Somebody with site data blocked would otherwise trade
-  // a whole session, watch a balance move, and lose all of it on reload with
-  // nothing having said a word.
-  ui.storage = tpEl(always, "div", "tp-always-l tp-stale tp-hide");
 
   // ── Their derived figures, in their order, plus one of ours.
   const stats = tpEl(body, "div", "tp-stats");
-  ui.liq = tpKv(stats, "Liquidation Price");
-  ui.orderValue = tpKv(stats, "Order Value");
-  ui.marginReq = tpKv(stats, "Margin Required");
-  ui.slippage = tpKv(stats, "Slippage");
+
+  // THESE FOUR DESCRIBE AN ORDER, so they are on screen when there is an order
+  // to describe and not before. They used to render "N/A" apiece the moment the
+  // panel opened: four stacked N/As under the button, which is what a broken
+  // panel looks like, and which said nothing about WHICH kind of nothing it
+  // was. One line in their place says the one thing that is true.
+  ui.previewRows = tpEl(stats, "div", "tp-preview");
+  ui.liq = tpKv(ui.previewRows, "Liquidation Price");
+  ui.orderValue = tpKv(ui.previewRows, "Order Value");
+  ui.marginReq = tpKv(ui.previewRows, "Margin Required");
+  ui.slippage = tpKv(ui.previewRows, "Slippage");
+  ui.previewNone = tpEl(stats, "div", "tp-preview-none tp-hide");
+
+  // These two are about the panel's own reading rather than about an order, so
+  // they stand whether or not one is being typed.
   ui.feeLine = tpKv(stats, "Fees");
   // Not on their form, and here because everything above it is priced off a
   // read that can silently stop happening. A figure without its age is the
@@ -983,7 +1013,7 @@ function buildLevels(parent, ui) {
     const a = tpEl(row, "div", "tp-rung-a");
     tpEl(a, "span", "tp-rung-dot");
     tpEl(a, "span", "tp-rung-k", r.label);
-    const px = tpEl(a, "span", "tp-rung-px", "N/A");
+    const px = tpEl(a, "span", "tp-rung-px", "");
     const b = tpEl(row, "div", "tp-rung-b");
     const d = tpEl(b, "span", "tp-rung-d", "");
     const pc = tpEl(b, "span", "tp-rung-pc", "");
@@ -1135,6 +1165,55 @@ const paper = {
   // one already there does not re-seed, so a commit cannot fight the typing.
   levelSeed: null,
 };
+
+/** Does this content script still have a live extension behind it?
+ *
+ *  Asked only after a save has already failed, which matters: the injection
+ *  harness shims chrome.runtime with a getURL and no id, so this would report
+ *  an orphan on every headless run if it were asked unconditionally.
+ */
+function paperRuntimeAlive() {
+  try { return !!(chrome && chrome.runtime && chrome.runtime.id); }
+  catch (e) { return false; }
+}
+
+/** Whether the practice account is being saved, and if it is not, WHICH of the
+ *  two different failures it is, because they have different remedies.
+ *
+ *  A user's panel read: "This browser is not storing the practice account, so
+ *  everything below is lost on reload. Extension context invalidated."
+ *
+ *  That diagnosis is wrong. "Extension context invalidated" is not a browser
+ *  refusing to store anything. It is what every chrome.* call throws inside a
+ *  content script whose extension was reloaded, updated or disabled while the
+ *  page stayed open: this page is running an orphaned copy of this file and its
+ *  handles are dead. Nothing is wrong with the browser and nothing about it
+ *  needs changing, and the fix, reloading the page, is not the one the sentence
+ *  implies. Naming the wrong thing and pointing at the wrong remedy is the same
+ *  defect as an absence with no reason, one step further on.
+ *
+ *  The account saved before the orphaning is untouched on disk, which is the
+ *  part worth saying: what is at risk is only what has happened since.
+ */
+function paperSaveState() {
+  let store = { ok: true, reason: null };
+  try { store = storageStatus(); } catch (e) { /* older engine: assume it saves */ }
+  if (store.ok) return { ok: true, orphaned: false, message: "" };
+  const reason = String(store.reason || "");
+  const orphaned = /context invalidated/i.test(reason) || !paperRuntimeAlive();
+  return {
+    ok: false,
+    orphaned,
+    message: orphaned
+      ? "The extension was reloaded or updated while this page was open, so this "
+        + "page is running an old copy of it that can no longer save anything. "
+        + "Nothing done here from now on is being kept, and no order will be "
+        + "accepted while that is true. Reload the page: the practice account as "
+        + "it stood before this is still saved and comes back with it."
+      : "This browser is not storing the practice account, so everything below is "
+        + "lost on reload. " + (reason || "No reason was given."),
+  };
+}
 
 /** Age of the oldest read the panel is currently drawing from, in ms, or null
  *  if it has never had one. */
@@ -1469,16 +1548,12 @@ function refresh() {
   }
   if (!paper.open) return;                      // nothing below is on screen
 
-  // Whether the practice account is actually persisting. Asked of the engine,
-  // which is where the failure happens, rather than inferred here.
-  let store = { ok: true, reason: null };
-  try { store = storageStatus(); } catch (e) { /* older engine: assume it saves */ }
-  setShown(ui.storage, !store.ok);
-  if (!store.ok) {
-    setText(ui.storage,
-      "This browser is not storing the practice account, so everything below is "
-      + "lost on reload. " + (store.reason || "No reason was given."));
-  }
+  // Whether the practice account is actually persisting, and if it is not,
+  // WHICH of the two very different reasons it is not.
+  const save = paperSaveState();
+  setShown(ui.storage, !save.ok);
+  ui.storage.classList.toggle("tp-orphan", save.orphaned);
+  if (!save.ok) setText(ui.storage, save.message);
 
   const info = paper.info;
   const state = paper.state;
@@ -1502,12 +1577,38 @@ function refresh() {
   ui.reduceOnly.input.checked = d.reduceOnly;
   ui.postOnly.input.checked = d.postOnly;
 
-  // Their two account rows.
-  setText(ui.available, state ? `${pusd(state.balance)} USDC` : "N/A");
+  // Their two account rows. Neither says "N/A" when it has nothing: one is
+  // waiting on the stored account and the other on the venue, and those are
+  // different absences with different reasons.
+  setText(ui.available, state ? `${pusd(state.balance)} USDC` : "not loaded yet");
   const pos = (state && info) ? state.positions[info.coin] : null;
   setText(ui.currentPos, info
     ? `${pos ? (pos.side === "short" ? "-" : "") + pnum(pos.size, info.szDecimals) : (0).toFixed(Math.min(5, info.szDecimals))} ${coin}`
-    : "N/A");
+    : "not read yet");
+  ui.currentPos.title = info ? "" : "This market has not been read from "
+    + "Hyperliquid's public data yet, so the size held in it is not known here.";
+
+  // And where the rest of the balance is. Summed from the margin each position
+  // actually put up, which is the number openPosition stored, so this is a
+  // total of figures rather than a second derivation of them.
+  let heldElsewhere = 0;
+  const heldCoins = [];
+  for (const k of Object.keys((state && state.positions) || {})) {
+    const m = Number(state.positions[k].margin) || 0;
+    if (!(m > 0)) continue;
+    heldElsewhere += m;
+    heldCoins.push(k);
+  }
+  const shownCoins = heldCoins.length > 6
+    ? heldCoins.slice(0, 6).join(", ") + ` and ${heldCoins.length - 6} more`
+    : heldCoins.join(", ");
+  setText(ui.availableNote, heldCoins.length
+    ? `${pmoney(heldElsewhere)} more is margin on `
+      + `${heldCoins.length === 1 ? "an open position" : heldCoins.length + " open positions"}`
+      + `: ${shownCoins}. It comes back `
+      + `${heldCoins.length === 1 ? "when it is closed" : "as each one is closed"}.`
+    : "");
+  setShown(ui.availableNote, heldCoins.length > 0);
 
   // The slider follows the size field, never the other way round inside this
   // function: size is the person's own text and refresh() does not rewrite it.
@@ -1563,7 +1664,7 @@ function refresh() {
   // it left an inert button with no explanation attached to it.
   const problem = paperDataProblem();
   const pv = problem ? null : paperPreview();
-  let liq = "N/A", ov = "N/A", mr = "N/A", slip = "N/A";
+  let liq = "", ov = "", mr = "", slip = "";
   setShown(ui.refusal, false);
   // An inference that lets an order through says so here, before the click.
   setText(ui.assumption, (pv && pv.ok && pv.assumption) || "");
@@ -1588,7 +1689,12 @@ function refresh() {
       size: f.size, entryPx: f.avgPx, margin,
     };
     const lp = liquidationPrice(hypothetical, info);
-    liq = lp ? ppx(lp, info) : "N/A";
+    // NOT "N/A". A position whose margin is its whole value cannot be
+    // liquidated by price, which is a fact about the order rather than a figure
+    // that failed to arrive. It read as broken directly above a position block
+    // quoting a liquidation price perfectly well.
+    liq = lp ? ppx(lp, info) : `none at ${pnum(f.leverage || 1, 2)}x`;
+    ui.liq.title = lp ? "" : PAPER_NO_LIQ;
   } else if (pv && pv.ok && pv.kind === "rest") {
     const o = pv.order;
     ov = `${pusd(o.size * o.px)} USDC`;
@@ -1598,10 +1704,30 @@ function refresh() {
     setText(ui.refusal, pv.message + (pv.detail ? " " + pv.detail : ""));
     setShown(ui.refusal, true);
   }
-  setText(ui.liq, liq);
-  setText(ui.orderValue, ov);
-  setText(ui.marginReq, mr);
-  setText(ui.slippage, slip);
+  // THE FOUR ROWS, OR ONE LINE SAYING WHY THERE ARE NONE.
+  //
+  // Every one of these described an order and printed "N/A" when there was no
+  // order, which is a fifth meaning of the same two letters and the one a
+  // person meets first. The rows appear when there is something to put in
+  // them; otherwise the reason there is nothing appears in their place, and
+  // when the reason is already on screen in the refusal above, neither does.
+  const priced = !!(pv && pv.ok);
+  setShown(ui.previewRows, priced);
+  let none = "";
+  if (!priced && !problem && !(pv && !pv.ok)) {
+    const complaint = sizeComplaint(d.size);
+    none = String(d.size).trim() === ""
+      ? "Enter a size to see what this order would cost."
+      : (complaint ? complaint.message : "");
+  }
+  setText(ui.previewNone, none);
+  setShown(ui.previewNone, !!none);
+  if (priced) {
+    setText(ui.liq, liq);
+    setText(ui.orderValue, ov);
+    setText(ui.marginReq, mr);
+    setText(ui.slippage, slip);
+  }
 
   refreshPosition(pos, info);
   refreshLevels(pos, info);
@@ -1652,9 +1778,11 @@ function refreshPosition(pos, info) {
     setText(ui.posEmpty, `No open ${paper.coin || ""} position.`);
     // Blanked rather than left hidden with the last position's numbers in it.
     // A hidden table holding stale figures is one dropped stylesheet away from
-    // telling somebody they still hold something they closed.
+    // telling somebody they still hold something they closed. "no position",
+    // not "N/A": if this ever does become visible it should say which nothing
+    // it is.
     for (const cell of [ui.posSide, ui.posSize, ui.posEntry, ui.posMark,
-                        ui.posWorth, ui.posLiq, ui.posFunding]) setText(cell, "N/A");
+                        ui.posWorth, ui.posLiq, ui.posFunding]) setText(cell, "no position");
     return;
   }
   const up = closedNow;
@@ -1671,7 +1799,8 @@ function refreshPosition(pos, info) {
   setText(ui.posWorth, (up > 0 ? "+" : "") + pmoney(up) + grossOnly);
   ui.posWorth.className = up >= 0 ? "tp-up" : "tp-down";
   const lp = liquidationPrice(pos, info);
-  setText(ui.posLiq, lp ? ppx(lp, info) : "N/A");
+  setText(ui.posLiq, lp ? ppx(lp, info) : `none at ${pnum(pos.leverage, 2)}x`);
+  ui.posLiq.title = lp ? "" : PAPER_NO_LIQ;
   setText(ui.posFunding, pmoney(-(pos.fundingPaid || 0)));
 }
 
@@ -1772,7 +1901,17 @@ function refreshLevels(pos, info) {
   const present = {};
   for (const r of rows) present[r.role] = true;
   for (const def of TP_RUNGS) {
-    setShown(ui.rungs[def.role].row, !!present[def.role]);
+    const node = ui.rungs[def.role];
+    setShown(node.row, !!present[def.role]);
+    if (present[def.role]) continue;
+    // Written rather than left holding the last position's numbers, the same
+    // rule the position table follows, and written as the reason rather than as
+    // "N/A": a stop with no level is not set, which is the phrase its own field
+    // shows as a placeholder, and a liquidation row is absent because there is
+    // no liquidation price to put in it.
+    setText(node.px, def.role === "liquidation"
+      ? `none at ${pnum(pos.leverage, 2)}x` : "not set");
+    for (const cell of [node.d, node.pc, node.q, node.rl, node.note]) setText(cell, "");
   }
 
   const entry = pos.entryPx;
@@ -2067,6 +2206,20 @@ async function submitPaperOrder() {
 
 async function submitPaperOrderInner() {
   const d = paper.draft;
+  // AN ORPHANED PAGE CANNOT KEEP A FILL, SO IT IS NOT GIVEN ONE.
+  // With the extension reloaded out from under this page, every chrome.* call
+  // throws and saveState writes nothing. Accepting an order here would move a
+  // balance on screen, report a fill, and lose all of it the moment the page
+  // reloads, which is the failure this panel exists to not perform quietly.
+  // Closing a position is still allowed: it reduces what is at risk, and the
+  // banner above says the outcome is not being kept either way.
+  const save = paperSaveState();
+  if (save.orphaned) {
+    pushEvent({ ok: false, at: Date.now(),
+      message: "Not placed. This page can no longer save anything.",
+      detail: save.message });
+    refresh(); return;
+  }
   // NO MARKET DATA, NO ORDER, AND IT SAYS SO.
   // decideOrder destructures info, so calling it with paper.info still null
   // threw TypeError inside an async click handler, which becomes an unhandled

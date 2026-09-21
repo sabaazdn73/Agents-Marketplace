@@ -510,6 +510,29 @@
 .tnega-paper .tp-lvl-why-l:last-child { margin-bottom: 0; }
 .tnega-paper .tp-levels .tp-note { margin: 7px 0 0; }
 
+/* NOTHING IS BEING KEPT. At the top of the body, above every figure it is
+   about, and in the sell colour when the cause is an orphaned content script:
+   that one is not a browser setting, it is this page running a copy of an
+   extension that has been reloaded, and it is fixed by reloading the page. */
+.tnega-paper .tp-storage {
+  color: var(--tp-sell); font-size: 11px; line-height: 1.4;
+  margin: 0 0 10px; padding: 7px 9px;
+  background: rgba(237, 112, 136, .09); border-radius: 6px;
+}
+.tnega-paper .tp-storage.tp-orphan { border-left: 2px solid var(--tp-sell); }
+
+/* Where the rest of the balance is, under the balance it is missing from. */
+.tnega-paper .tp-kv-note {
+  color: var(--tp-muted); font-size: 10px; line-height: 1.35;
+  margin: -4px 0 8px;
+}
+
+/* The four order figures, and the line that stands in for them when there is
+   no order to describe. */
+.tnega-paper .tp-preview-none {
+  color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin-top: 4px;
+}
+
 /* ── The two sentences that are never collapsed ───────────────────────────── */
 /* Under the button, where the number that looks like a profit is. Quiet, not
    a warning box: this is the panel saying what it is, not an alert. */
