@@ -357,16 +357,6 @@
 .tnega-paper .tp-outcome .tp-ev-h { display: block; color: var(--tp-fg); }
 .tnega-paper .tp-outcome .tp-ev-d { display: block; color: var(--tp-muted); margin-top: 3px; }
 
-/* The open position and the way out of it, on screen without scrolling. */
-.tnega-paper .tp-brief {
-  display: flex; align-items: center; gap: 9px;
-  margin: 8px 0 0; padding: 7px 9px;
-  background: var(--tp-ctl); border-radius: 6px;
-  font-size: 11px; line-height: 1.35;
-}
-.tnega-paper .tp-brief-t { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
-.tnega-paper .tp-brief-x { flex: 0 0 auto; }
-
 .tnega-paper .tp-submit:disabled { opacity: .55; cursor: default; filter: none; }
 
 .tnega-paper .tp-assume {
@@ -415,10 +405,12 @@
  * 246px without truncating one of them, and a price cell is the one that may
  * never be truncated.
  */
-.tnega-paper .tp-levels { margin: 10px 0 0; }
-.tnega-paper .tp-levels .tp-sub { margin-bottom: 7px; }
+/* Inside the position block, under the two rows that say what is open. It has
+   no heading of its own: the position's heading is its heading. */
+.tnega-paper .tp-levels { margin: 8px 0 0; }
 
 .tnega-paper .tp-lvl-wrap { margin-bottom: 8px; }
+.tnega-paper .tp-lvl-wrap:last-child { margin-bottom: 0; }
 .tnega-paper .tp-lvl-field { margin-bottom: 0; }
 .tnega-paper .tp-lvl-field.tp-lvl-bad { border-color: var(--tp-sell); }
 .tnega-paper .tp-lvl-clear { flex: 0 0 auto; padding: 2px 7px; font-size: 10px; }
@@ -437,11 +429,11 @@
 .tnega-paper .tp-lvl-state {
   color: var(--tp-muted); font-size: 10px; line-height: 1.35; margin: 4px 0 0;
 }
-/* The sentence denying that any of this executes, above the fields rather than
-   under the ladder, where two open refusals used to push it off a 390 screen. */
-.tnega-paper .tp-levels .tp-note.tp-lvl-deny { margin: 0 0 9px; }
+/* The sentence denying that any of this executes, above the two fields rather
+   than under them, where two open refusals used to push it off a 390 screen. */
+.tnega-paper .tp-levels .tp-note.tp-lvl-deny { margin: 9px 0 8px; }
 
-.tnega-paper .tp-ladder { margin-top: 6px; }
+.tnega-paper .tp-ladder { margin-top: 2px; }
 
 .tnega-paper .tp-rungs { display: flex; flex-direction: column; }
 .tnega-paper .tp-rung { padding: 2px 0; }
@@ -512,7 +504,6 @@
   color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin: 0 0 6px;
 }
 .tnega-paper .tp-lvl-why-l:last-child { margin-bottom: 0; }
-.tnega-paper .tp-levels .tp-note { margin: 7px 0 0; }
 
 /* NOTHING IS BEING KEPT. At the top of the body, above every figure it is
    about, and in the sell colour when the cause is an orphaned content script:
@@ -538,27 +529,80 @@
 }
 
 /* ── The two sentences that are never collapsed ───────────────────────────── */
-/* Under the button, where the number that looks like a profit is. Quiet, not
-   a warning box: this is the panel saying what it is, not an alert. */
-.tnega-paper .tp-always { margin-top: 12px; }
+/* At the foot of the panel with the disclosure, which is where the standing
+   prose was collected: the sentence about a closed position sits directly under
+   the list of closed positions it is about. Quiet, not a warning box: this is
+   the panel saying what it is, not an alert. */
 .tnega-paper .tp-always-l {
-  color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin-bottom: 5px;
+  color: var(--tp-muted); font-size: 11px; line-height: 1.45; margin-bottom: 6px;
 }
+.tnega-paper .tp-standing .tp-disc { margin-top: 10px; }
 
-/* ── The derived figures under the button ─────────────────────────────────── */
-/* 21px from the button to the first row, which is their spacing. */
+/* ── What the order being typed would cost, under the button ──────────────── */
+/* 21px from the button to the first row, which is their own spacing under
+   their Connect button, and their 22px row pitch down the block. */
 .tnega-paper .tp-stats { margin-top: 21px; }
 .tnega-paper .tp-stats .tp-kv { margin-bottom: 10px; }
 .tnega-paper .tp-stale { color: var(--tp-sell); }
 
-/* ── The practice account, which is ours and not a copy of anything ───────── */
-.tnega-paper .tp-acct { border-top: 1px solid var(--tp-ctl); margin-top: 6px; padding-top: 10px; }
+/* The footnote under those figures: what they were priced from, and how old
+   that reading is. One line of small muted type, two cells, so it reads as a
+   note on the figures above rather than as two more figures. */
+.tnega-paper .tp-meta {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  margin: 2px 0 10px; font-size: 10px; line-height: 1.4;
+}
+.tnega-paper .tp-meta-c { display: inline-flex; gap: 5px; min-width: 0; }
+.tnega-paper .tp-meta-k { color: var(--tp-muted); }
+.tnega-paper .tp-meta-v {
+  color: var(--tp-white); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* Written again at this specificity on purpose: .tp-stale is declared above
+   .tp-meta-v and the two are equally specific, so on this cell the later rule
+   would win and a stale reading would be painted as a current one. */
+.tnega-paper .tp-meta-v.tp-stale { color: var(--tp-sell); }
+
+/* ── The practice account, which is ours and not a copy of anything ─────────
+ *
+ * ONE RHYTHM FOR EVERY REGION BELOW THE BUTTON. They were a stack of blocks
+ * with a heading each and a single line across the top of the lot, so nothing
+ * said where one ended and the next began except the size of the gap, and the
+ * gaps varied with whatever the last block had rendered. Each region now opens
+ * with the same 1px rule in their own control colour and the same 12px of air
+ * above and below it, which is the pitch their form keeps between groups.
+ */
+/* No margin of its own: every region inside it carries the same 12px, and two
+   margins stacking put 24px between the outcome banner and the first rule. */
+.tnega-paper .tp-acct { margin-top: 0; }
 .tnega-paper .tp-sub {
   color: var(--tp-fg); font-size: 12px; font-weight: 500; margin: 0 0 6px;
 }
-.tnega-paper .tp-sec { margin-bottom: 14px; }
-.tnega-paper .tp-sec:last-child { margin-bottom: 0; }
+.tnega-paper .tp-sec { margin-bottom: 0; }
+/* The first of them carries the rule too: it is what separates the position
+   from the outcome banner above it, and it is the same rule, so the column
+   reads evenly from the button all the way down. */
+.tnega-paper .tp-region {
+  border-top: 1px solid var(--tp-ctl); margin-top: 12px; padding-top: 12px;
+}
 .tnega-paper .tp-empty { color: var(--tp-muted); font-size: 12px; }
+
+/* ── The position: what is open, then every price it has ──────────────────── */
+/* The heading and the one control that closes the position, on one line, so
+   the way out is beside the name of the thing it acts on rather than at the
+   end of a column of numbers. */
+.tnega-paper .tp-pos-h {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 7px;
+}
+.tnega-paper .tp-pos-h .tp-sub { flex: 1 1 auto; min-width: 0; margin: 0; }
+.tnega-paper .tp-pos-x { flex: 0 0 auto; }
+/* Two rows, and they are the two facts the ladder under them has no rung for.
+   Tighter than a seven-row table needed to be. */
+.tnega-paper .tp-pos-t th, .tnega-paper .tp-pos-t td { padding: 2px 0; }
+/* A position held on a market that has not been read: the rows above are still
+   true, every price is missing, and this says so. */
+.tnega-paper .tp-pos-why {
+  color: var(--tp-muted); font-size: 11px; line-height: 1.45; margin: 6px 0 0;
+}
 
 .tnega-paper .tp-table {
   width: 100%; border-collapse: collapse;
@@ -658,8 +702,11 @@
 .tnega-paper .tp-ev-h { display: block; color: var(--tp-fg); line-height: 1.35; }
 .tnega-paper .tp-ev-d { display: block; color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin-top: 3px; }
 
-/* ── The disclosure ───────────────────────────────────────────────────────── */
-.tnega-paper .tp-disc { border-top: 1px solid var(--tp-ctl); padding-top: 9px; margin-top: 4px; }
+/* ── The disclosure ─────────────────────────────────────────────────────────
+ * No rule of its own along the top: it is the second half of the standing
+ * block, which already opens with one, and two lines 30px apart read as two
+ * sections rather than as a sentence and the reference behind it. */
+.tnega-paper .tp-disc { padding-top: 2px; }
 .tnega-paper .tp-disc summary { cursor: pointer; color: var(--tp-muted); font-size: 12px; }
 .tnega-paper .tp-disc summary:hover { color: var(--tp-fg); }
 .tnega-paper .tp-note { color: var(--tp-muted); font-size: 11px; line-height: 1.45; margin: 7px 0; }

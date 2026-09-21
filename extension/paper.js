@@ -767,7 +767,14 @@ function buildPaperPanel() {
   // an absence without an explanation, which is the thing this panel exists to
   // not do.
   ui.availableNote = tpEl(body, "div", "tp-kv-note tp-hide");
-  ui.currentPos = tpKv(body, "Current Position");
+
+  // THEIR "Current Position" ROW IS NOT COPIED, AND THAT IS THE DEDUPLICATION.
+  // It said "0.05 BTC" three rows above a line reading "long 0.05 BTC at
+  // 85,977", a ladder carrying the same entry, and a table repeating side,
+  // size, entry, mark, worth, liquidation and funding: one position stated four
+  // times in a 342px column. The position now has exactly one home, below the
+  // button, and when there is none that home says "No open BTC position."
+  // rather than a zero on a row of their form.
 
   // Price sits above Size on their form when Limit is selected.
   ui.price = tpField(body, "Price", "px", "USD");
@@ -810,6 +817,16 @@ function buildPaperPanel() {
   ui.reduceOnly = tpCheck(body, "Reduce Only", "reduceOnly");
   ui.postOnly = tpCheck(body, "Post Only", "postOnly");
 
+  // What the venue would refuse, said before the click instead of after it,
+  // and directly above the button it is about to stop.
+  ui.refusal = tpEl(body, "div", "tp-refusal tp-hide");
+
+  // What was ASSUMED to let this order through, which is the other direction
+  // and the one that used to be silent. decideOrder carries the sentence on
+  // the decision when an inferred rule is what makes the difference, so the
+  // moment it speaks is the moment it changes the outcome.
+  ui.assumption = tpEl(body, "div", "tp-assume tp-hide");
+
   // ── Where their Connect button is.
   ui.submit = tpEl(body, "button", "tp-submit", "Place practice buy");
   ui.submit.type = "button";
@@ -832,47 +849,18 @@ function buildPaperPanel() {
   ui.outcomeH = tpEl(ui.outcome, "span", "tp-ev-h");
   ui.outcomeD = tpEl(ui.outcome, "span", "tp-ev-d");
 
-  // What the venue would refuse, said before the click instead of after it.
-  ui.refusal = tpEl(body, "div", "tp-refusal tp-hide");
-
-  // What was ASSUMED to let this order through, which is the other direction
-  // and the one that used to be silent. decideOrder carries the sentence on
-  // the decision when an inferred rule is what makes the difference, so the
-  // moment it speaks is the moment it changes the outcome.
-  ui.assumption = tpEl(body, "div", "tp-assume tp-hide");
-
-  // THE OPEN POSITION AND THE WAY OUT OF IT, ALSO NEXT TO THE BUTTON.
-  // Measured with a position open: the position table and "Close at the mark"
-  // were both below the fold, so somebody who opened a position could not
-  // close it without discovering a scroll they had no reason to expect. The
-  // full table stays further down; the line that matters and the control that
-  // acts on it are here.
-  ui.posBrief = tpEl(body, "div", "tp-brief tp-hide");
-  ui.briefText = tpEl(ui.posBrief, "span", "tp-brief-t");
-  ui.briefClose = tpEl(ui.posBrief, "button", "tp-x tp-brief-x", "Close position");
-  ui.briefClose.type = "button";
-  ui.briefClose.dataset.act = "close";
-
-  // THE LEVELS AND THE LADDER, directly under the position they belong to.
-  buildLevels(body, ui);
-
-  // ── The two sentences that do not get to hide behind a disclosure.
+  // ── WHAT THE ORDER BEING TYPED WOULD COST, ON THE SIDE OF THE BUTTON THEIR
+  // OWN FORM PUTS IT.
   //
-  // Everything this simulation will not model used to live inside a collapsed
-  // <details> and nowhere else, which is the same as not saying it: an audit
-  // asked whether what is not modelled is visible without opening something
-  // nobody opens, and the answer was no. The long lists can stay collapsed,
-  // because they are reference. These two are load-bearing and are on the
-  // surface, under the button, where the number that looks like a profit is.
-  const always = tpEl(body, "div", "tp-always");
-  tpEl(always, "div", "tp-always-l",
-    "The money is not there. The prices, fees and funding are Hyperliquid's own; "
-    + "the balance is not.");
-  tpEl(always, "div", "tp-always-l",
-    "A closed position shows what it would have earned. Nobody earned it, and it "
-    + "is not a track record.");
-
-  // ── Their derived figures, in their order, plus one of ours.
+  // Theirs are under their Connect button and so are these. Above it was tried
+  // and measured: it pushed the button 104px down the ticket, past the bottom
+  // of the panel in the one case the placement cannot make taller, which is the
+  // 440px minimum at 1280x813. The button is the point of the panel and it does
+  // not go behind a scroll to make room for a description of what it would do.
+  //
+  // They do not push the position far: the four rows are only drawn while a
+  // size is in the field, and placing the order clears it, so a person reading
+  // a position they hold has one muted line here and not four figures.
   const stats = tpEl(body, "div", "tp-stats");
 
   // THESE FOUR DESCRIBE AN ORDER, so they are on screen when there is an order
@@ -887,36 +875,62 @@ function buildPaperPanel() {
   ui.slippage = tpKv(ui.previewRows, "Slippage");
   ui.previewNone = tpEl(stats, "div", "tp-preview-none tp-hide");
 
-  // These two are about the panel's own reading rather than about an order, so
-  // they stand whether or not one is being typed.
-  ui.feeLine = tpKv(stats, "Fees");
-  // Not on their form, and here because everything above it is priced off a
-  // read that can silently stop happening. A figure without its age is the
-  // thing this project does not ship.
-  ui.dataLine = tpKv(stats, "Market data");
+  // WHAT THOSE FIGURES ARE PRICED FROM, ON ONE LINE RATHER THAN TWO ROWS.
+  // Neither is about an order, both are about the panel's own reading, and a
+  // figure without its age is the thing this project does not ship. One line,
+  // in the small muted type, because they are a footnote to the figures above
+  // rather than two more of them.
+  const meta = tpEl(body, "div", "tp-meta");
+  ui.feeLine = tpMeta(meta, "Fees");
+  ui.dataLine = tpMeta(meta, "Market data");
 
   // ── The practice account. Ours, not a copy of anything of theirs.
+  //
+  // WHAT IS BELOW THE BUTTON AND WHY IT IS IN THIS ORDER. Everything down here
+  // reports what has already happened, nearest in time first. The banner above
+  // is the last press; then what is open on this market, what is open
+  // elsewhere, what is resting, what happened before that, and what has been
+  // closed. The standing sentences are last because they are read once.
   const acct = tpEl(body, "div", "tp-acct");
 
-  ui.posSec = tpEl(acct, "div", "tp-sec");
-  ui.posTitle = tpEl(ui.posSec, "div", "tp-sub", "Practice position");
+  // THE OPEN POSITION AND THE WAY OUT OF IT, NEXT TO THE BUTTON.
+  // Measured with a position open: the position table and "Close at the mark"
+  // were both below the fold, so somebody who opened a position could not
+  // close it without discovering a scroll they had no reason to expect.
+  //
+  // ONE HOME FOR THE POSITION, AND THIS IS IT. It was stated four times: a
+  // Current Position row on the ticket, a one-line brief, the ladder, and a
+  // seven-row table repeating five of the ladder's own fields to add two. The
+  // ladder carries every price the position has, each with what closing there
+  // would realise, so it is the home; the two facts it does not carry, the
+  // size and the funding charged so far, are the two rows above it.
+  ui.posSec = tpEl(acct, "div", "tp-sec tp-region tp-pos");
+  const posHead = tpEl(ui.posSec, "div", "tp-pos-h");
+  ui.posTitle = tpEl(posHead, "div", "tp-sub", "Practice position");
+  // The only control that closes a position, and it is beside the heading of
+  // the thing it closes rather than at the end of a list of numbers.
+  ui.posClose = tpEl(posHead, "button", "tp-x tp-pos-x", "Close position");
+  ui.posClose.type = "button";
+  ui.posClose.dataset.act = "close";
+
   ui.posEmpty = tpEl(ui.posSec, "div", "tp-empty", "No open position.");
-  const ptab = tpEl(ui.posSec, "table", "tp-table");
+  const ptab = tpEl(ui.posSec, "table", "tp-table tp-pos-t");
   const ptb = tpEl(ptab, "tbody");
   ui.posTable = ptab;
-  ui.posSide = tpRow(ptb, "Side");
+  // Side, size and leverage on one row, because they are one fact: what is
+  // open. Entry, mark and liquidation are not here; they are prices, and the
+  // prices are on the ladder below with a figure against each.
   ui.posSize = tpRow(ptb, "Size");
-  ui.posEntry = tpRow(ptb, "Entry");
-  ui.posMark = tpRow(ptb, "Mark");
-  // NOT "Profit if closed now". The word profit on its own is the one word
-  // this panel does not use for a figure nobody has earned, and the brief
-  // above the table already carries the same number under the same words
-  // without it.
-  ui.posWorth = tpRow(ptb, "If closed now");
-  ui.posLiq = tpRow(ptb, "Liquidation");
   ui.posFunding = tpRow(ptb, "Funding paid");
-  // No second Close button down here. There is exactly one, in the brief
-  // above, next to the button that opened the position.
+  // A position held on a market whose rules have not been read yet still has a
+  // side, a size and a funding charge, so the rows above stand. What is missing
+  // is every price, and this says which absence that is rather than leaving the
+  // ladder simply gone.
+  ui.posUnpriced = tpEl(ui.posSec, "div", "tp-pos-why tp-hide");
+
+  // THE LADDER AND THE TWO LEVEL FIELDS, inside the position they belong to
+  // rather than in a section of their own with its own heading.
+  buildLevels(ui.posSec, ui);
 
   // EVERY OTHER MARKET'S POSITION, directly under this market's and below it.
   // Below, because the position on the market the page is on is the prominent
@@ -926,26 +940,63 @@ function buildPaperPanel() {
   // control that closes the position, none of which may move.
   buildOthers(acct, ui);
 
-  ui.restSec = tpEl(acct, "div", "tp-sec tp-hide");
+  ui.restSec = tpEl(acct, "div", "tp-sec tp-region tp-hide");
   tpEl(ui.restSec, "div", "tp-sub", "Resting orders");
   ui.restList = tpEl(ui.restSec, "ul", "tp-rest");
+  // One line. The rest of it, that the mark has to go clear through the level
+  // and that queue position is not public, is in the disclosure with the other
+  // standing explanations.
   tpEl(ui.restSec, "p", "tp-note",
-    "A resting order is not filled when the mark touches it. It fills only once "
-    + "the mark has gone clear through the level, and that is an assumption this "
-    + "panel is making, not something the public data settles. Queue position is "
-    + "not public.");
+    "Filled only once the mark has gone clear through the level, which is this "
+    + "panel's assumption rather than something public data settles.");
 
-  ui.evSec = tpEl(acct, "div", "tp-sec tp-hide");
-  tpEl(ui.evSec, "div", "tp-sub", "What happened");
+  // WHAT HAPPENED BEFORE THE THING THAT JUST HAPPENED.
+  // The newest event is the banner under the button, word for word, so it is
+  // not printed twice: refreshEvents drops it from this list for as long as the
+  // banner is carrying it. That leaves this list as what it is, which is the
+  // earlier ones, and the heading says so.
+  ui.evSec = tpEl(acct, "div", "tp-sec tp-region tp-hide");
+  tpEl(ui.evSec, "div", "tp-sub", "Earlier");
   ui.evList = tpEl(ui.evSec, "ul", "tp-events");
 
-  ui.closedSec = tpEl(acct, "div", "tp-sec tp-hide");
+  ui.closedSec = tpEl(acct, "div", "tp-sec tp-region tp-hide");
   tpEl(ui.closedSec, "div", "tp-sub", "Closed, and what each would have earned");
   ui.closedList = tpEl(ui.closedSec, "ul", "tp-rest");
 
-  buildDisclosure(acct);
+  // ── The standing prose, collected, and the two sentences that stay out of
+  // the collapse.
+  //
+  // Everything this simulation will not model used to live inside a collapsed
+  // <details> and nowhere else, which is the same as not saying it: an audit
+  // asked whether what is not modelled is visible without opening something
+  // nobody opens, and the answer was no. The long lists can stay collapsed,
+  // because they are reference. These two are load-bearing and are on the
+  // surface.
+  //
+  // THEY SIT HERE RATHER THAN UNDER THE BUTTON. The sentence about a closed
+  // position is directly under the list of closed positions it is about, and
+  // the explanation that used to be scattered across four places on the way
+  // down the panel is now in one block with the disclosure it belongs to.
+  const standing = tpEl(acct, "div", "tp-sec tp-region tp-standing");
+  tpEl(standing, "div", "tp-always-l",
+    "The money is not there. The prices, fees and funding are Hyperliquid's own; "
+    + "the balance is not.");
+  tpEl(standing, "div", "tp-always-l",
+    "A closed position shows what it would have earned. Nobody earned it, and it "
+    + "is not a track record.");
+
+  buildDisclosure(standing);
 
   return { root, ui };
+}
+
+/** One half of the footnote row under the order figures: a muted label and its
+ *  value, side by side, several to a line. Not a tp-kv, which is a full-width
+ *  row of their form and would put these two on two lines of their own. */
+function tpMeta(parent, label) {
+  const cell = tpEl(parent, "span", "tp-meta-c");
+  tpEl(cell, "span", "tp-meta-k", label);
+  return tpEl(cell, "span", "tp-meta-v", "");
 }
 
 /** The positions on every market except the one this page is on.
@@ -966,7 +1017,7 @@ function buildPaperPanel() {
  *  needs and stops.
  */
 function buildOthers(parent, ui) {
-  const sec = tpEl(parent, "div", "tp-sec tp-others tp-hide");
+  const sec = tpEl(parent, "div", "tp-sec tp-region tp-others tp-hide");
   ui.othersSec = sec;
 
   const head = tpEl(sec, "button", "tp-others-h");
@@ -987,9 +1038,8 @@ function buildOthers(parent, ui) {
   // closed now" beside the figure is the same sentence eight times in a column
   // 342px wide. It is one claim about the whole column, so it sits above it.
   tpEl(body, "p", "tp-note tp-others-note",
-    "Each figure is what closing that position now would realise, at its own "
-    + "market's mark and after the exit fee and the funding already charged. "
-    + "Choosing a market takes this page to it.");
+    "Each figure is what closing that position now would realise. Choosing a "
+    + "market takes this page to it.");
   ui.othersList = tpEl(body, "ul", "tp-rest tp-others-l");
   // Only ever drawn when the engine hands over a total. See refreshOthers.
   //
@@ -1055,27 +1105,10 @@ function tpLevelField(parent, label, fname, place) {
 function buildLevels(parent, ui) {
   const sec = tpEl(parent, "div", "tp-levels tp-hide");
   ui.levels = sec;
-  tpEl(sec, "div", "tp-sub", "Levels on this position");
-
-  // NOT AN ORDER, SAID FIRST AND ABOVE EVERYTHING IT IS ABOUT.
-  //
-  // It used to sit under the ladder. At 390 with both fields carrying an open
-  // refusal, the refusals pushed it off the bottom of the panel, so the only
-  // sentence on the screen denying that any of this executes left the screen at
-  // exactly the moment somebody was deepest in setting a level. Above the
-  // fields it cannot be pushed anywhere by anything below it.
-  tpEl(sec, "p", "tp-note tp-lvl-deny",
-    "These are marks of yours, not orders. Nothing rests at the venue, nothing "
-    + "here triggers, and a price reaching one of these levels closes nothing: "
-    + "the button above is the only thing that closes a position.");
-
-  // "Take profit", not "Target". The engine calls it a take profit in every
-  // refusal it writes, and a refusal reading "a take profit on a long goes
-  // above the entry" pointing at a box labelled Target is the panel and its own
-  // messages using two names for one thing. The engine's word wins, here and on
-  // the rung below, because its refusals are the text a person reads hardest.
-  ui.stopLvl = tpLevelField(sec, "Stop loss", "stop", "not set");
-  ui.targetLvl = tpLevelField(sec, "Take profit", "target", "not set");
+  // NO HEADING OF ITS OWN. "Levels on this position" sat under "Practice
+  // position in BTC" with the position stated between them, and the two
+  // headings were about one thing. The position's heading covers both; what is
+  // under it is the position's prices and the two fields that add to them.
 
   const ladder = tpEl(sec, "div", "tp-ladder");
   ui.ladder = ladder;
@@ -1107,19 +1140,28 @@ function buildLevels(parent, ui) {
   // figure is missing. Identical sentences are said once.
   ui.ladderWhy = tpEl(sec, "div", "tp-lvl-why tp-hide");
 
-  // WHAT THE TWO NUMBERS ON EACH LINE ARE.
+  // NOT AN ORDER, SAID ABOVE THE TWO FIELDS THAT LOOK MOST LIKE ONE.
   //
-  // The percentage needs saying because nothing about it announces that it is a
-  // price move rather than a return. On a long its sign agrees with the money
-  // beside it and on a short it opposes it, so somebody who learns the pattern
-  // on a long reads a short as contradicting itself; and it is not a return on
-  // either side, because leverage multiplies what a price move does to margin.
-  tpEl(sec, "p", "tp-note",
-    "On each line, the percentage is how far that price is from your entry, not "
-    + "a return on your margin: at 5x, a price 5% away from entry is 25% of the "
-    + "margin. The money is what closing the whole position at that price would "
-    + "realise, after the fee on the way in, the fee on the way out, and the "
-    + "funding charged so far.");
+  // It is one line rather than three. What the percentage on each rung is, and
+  // what the money beside it includes, were another five lines here; they are
+  // standing explanation rather than news, they were the same paragraph on
+  // every render, and they are in the disclosure now with the rest of it. The
+  // words that keep each figure hypothetical are on the rungs themselves.
+  //
+  // It stays ABOVE the fields. Under them, two open refusals pushed it off the
+  // bottom of a 390 screen at exactly the moment somebody was deepest in
+  // setting a level.
+  tpEl(sec, "p", "tp-note tp-lvl-deny",
+    "Marks of yours, not orders. Nothing rests at the venue and nothing here "
+    + "triggers: the button above is the only thing that closes a position.");
+
+  // "Take profit", not "Target". The engine calls it a take profit in every
+  // refusal it writes, and a refusal reading "a take profit on a long goes
+  // above the entry" pointing at a box labelled Target is the panel and its own
+  // messages using two names for one thing. The engine's word wins, here and on
+  // the rung above, because its refusals are the text a person reads hardest.
+  ui.stopLvl = tpLevelField(sec, "Stop loss", "stop", "not set");
+  ui.targetLvl = tpLevelField(sec, "Take profit", "target", "not set");
   return sec;
 }
 
@@ -1127,19 +1169,38 @@ function buildLevels(parent, ui) {
  *  in here updates and nothing in here takes focus. */
 function buildDisclosure(parent) {
   const d = tpEl(parent, "details", "tp-disc");
+  // WHERE THE STANDING EXPLANATION WENT. Three paragraphs used to be printed on
+  // every render, in three different places on the way down the panel: what the
+  // percentage on a ladder rung is and what the money beside it includes, what
+  // a figure on another market's row is, and what a resting order does here.
+  // None of them is news, none of them changes, and all three are reference,
+  // which is what this disclosure is for. The two sentences that are not
+  // reference are above it and are never collapsed.
   d.innerHTML = `
     <summary>What this does not model, and what it refuses to guess</summary>
     <p class="tp-note">Everything priced here is Hyperliquid's own: the mark, the book,
     the fee schedule, the funding rates, the tick and lot sizes, the margin tiers. The
     money is the only thing that is not.</p>
+    <p class="tp-sub2">Reading the ladder</p>
+    <p class="tp-note">On each rung, the percentage is how far that price is from your
+    entry, not a return on your margin: at 5x, a price 5% away from entry is 25% of the
+    margin. The money is what closing the whole position at that price would realise,
+    after the fee on the way in, the fee on the way out, and the funding charged so far.
+    The same figure on another market's row is that market's own mark worked the same
+    way. Nothing on the ladder is an order, and a price reaching one of these levels
+    closes nothing.</p>
+    <p class="tp-sub2">Resting orders</p>
+    <p class="tp-note">A resting order is not filled when the mark touches it. It fills
+    only once the mark has gone clear through the level, and that is an assumption this
+    panel is making, not something the public data settles. Queue position is not
+    public.</p>
     <p class="tp-sub2">Refusals it does simulate</p>
     <ul class="tp-list">${REFUSALS_SIMULATED.map((s) => `<li>${pesc(s)}</li>`).join("")}</ul>
     <p class="tp-sub2">Not modelled</p>
     <ul class="tp-list">${NOT_MODELLED.map((s) => `<li>${pesc(s)}</li>`).join("")}</ul>
     <p class="tp-note">${pesc(REFUSALS_NOT_SIMULATED)}</p>
-    <p class="tp-note">A closed position above shows what it would have earned. Nobody
-    earned it. This is not a track record, and the difference between it and trading is
-    the list you just read.</p>
+    <p class="tp-note">The difference between what a closed position above would have
+    earned and what trading earns is the list you have just read.</p>
     <p class="tp-note">Positions and history are kept in this browser's local storage.
     They do not sync to any device or account, nothing is sent anywhere, and clearing
     site data erases them.</p>
@@ -1475,8 +1536,10 @@ function pctFromSize() {
 //       no ordering of its own: not by role, and not by reversing either.
 //
 //   closeValueAt(pos, info, fees, px)
-//       The same figure for one price, used for the "if closed now" line beside
-//       the position so that line and the mark rung cannot print two numbers.
+//       The same figure for one price. positionLadder already carries it on
+//       every rung, and the mark rung IS the "if closed now" figure, so this
+//       file no longer calls it a second time for a line of its own: one
+//       quantity, one call site, and no chance of two numbers under one label.
 //
 //   LEVEL_PASSED_NOTE / LEVEL_STALE_NOTE / LIQUIDATION_UNPRICED_NOTE
 //       The sentences for the three things a row can be. Rendered verbatim;
@@ -1744,12 +1807,11 @@ function refresh() {
   // waiting on the stored account and the other on the venue, and those are
   // different absences with different reasons.
   setText(ui.available, state ? `${pusd(state.balance)} USDC` : "not loaded yet");
-  const pos = (state && info) ? state.positions[info.coin] : null;
-  setText(ui.currentPos, info
-    ? `${pos ? (pos.side === "short" ? "-" : "") + pnum(pos.size, info.szDecimals) : (0).toFixed(Math.min(5, info.szDecimals))} ${coin}`
-    : "not read yet");
-  ui.currentPos.title = info ? "" : "This market has not been read from "
-    + "Hyperliquid's public data yet, so the size held in it is not known here.";
+  // The position on this market, WITHOUT requiring the market to have been
+  // read. It is held in the practice account, so it exists whether or not
+  // Hyperliquid has answered; what needs `info` is its prices, and the position
+  // block says so in its own words rather than disappearing.
+  const pos = (state && paper.coin) ? state.positions[paper.coin] : null;
 
   // And where the rest of the balance is. Summed from the margin each position
   // actually put up, which is the number openPosition stored, so this is a
@@ -1774,11 +1836,13 @@ function refresh() {
   const shownCoins = heldCoins.length > 6
     ? heldCoins.slice(0, 6).join(", ") + ` and ${heldCoins.length - 6} more`
     : heldCoins.join(", ");
+  // ONE LINE. The sentence that followed it, that the margin comes back as each
+  // position is closed, is a standing fact about margin rather than news about
+  // this balance, and it was costing a line of a 342px column on every render.
   setText(ui.availableNote, heldCoins.length
     ? `${pmoney(heldElsewhere)} more is margin on `
       + `${heldCoins.length === 1 ? "an open position" : heldCoins.length + " open positions"}`
-      + (listedBelow ? ", listed below" : `: ${shownCoins}`) + ". It comes back "
-      + `${heldCoins.length === 1 ? "when it is closed" : "as each one is closed"}.`
+      + (listedBelow ? ", listed below." : `: ${shownCoins}.`)
     : "");
   setShown(ui.availableNote, heldCoins.length > 0);
 
@@ -1910,71 +1974,67 @@ function refresh() {
   scheduleAnchor();
 }
 
+/** The position, in the two facts the ladder under it does not carry.
+ *
+ *  WHAT IS NOT HERE ANY MORE, AND WHY. Side, size, entry, mark, what closing
+ *  now would realise, the liquidation price and the funding were seven rows
+ *  here, under a one-line brief that said four of them again, under a ladder
+ *  carrying every price with a figure against it. Five of those seven are
+ *  prices, and prices belong on the ladder where they can be compared: it
+ *  prints entry, mark, liquidation, stop and take profit each with what
+ *  closing there would realise. So the rows left are the two the ladder has
+ *  no rung for, which are what is open and what the funding has cost.
+ *
+ *  NO FIGURE IS WORKED OUT HERE. The live "if closed now" is the ladder's mark
+ *  rung, which is positionLadder's own row, which is closeValueAt at the mark.
+ *  There is one call site for that quantity and it is not this one.
+ */
 function refreshPosition(pos, info) {
   const ui = paper.ui;
   setText(ui.posTitle, `Practice position${paper.coin ? " in " + paper.coin : ""}`);
-  const has = !!(pos && info);
+  // HELD IS NOT THE SAME QUESTION AS PRICED. The position is in the practice
+  // account whether or not this market has answered; only its prices need the
+  // read. Treating the two as one question made a held position vanish from the
+  // panel while the venue was slow.
+  const held = !!pos;
+  const priced = !!(pos && info);
 
-  // ONE NUMBER FOR "IF CLOSED NOW", EVERYWHERE IT IS SAID.
-  // The ladder's mark rung is positionLadder's mark row, which is closeValueAt
-  // at the mark. This line and the table row said the same sentence off
-  // `unrealised`, which is the price difference and nothing else, so the panel
-  // carried two figures under one label as soon as a fee existed. Both ask
-  // closeValueAt now; the price difference is the fallback only while there is
-  // no fee schedule to charge the exit at, and the Fees row says when that is.
-  let nowAt = null;
-  try { nowAt = has ? closeValueAt(pos, info, paperLadderFees(), info.markPx) : null; }
-  catch (e) { nowAt = null; }
-  const closedNow = has
-    ? (nowAt ? nowAt.realises : unrealised(pos, info.markPx))
-    : 0;
-  // And when the fallback is what is showing, the figure says which it is. The
-  // fallback is the price difference with no fee in it at all, so printing it
-  // under the same words as the netted one would be the flattering number
-  // wearing the accurate one's label.
-  const grossOnly = has && !nowAt ? " before fees" : "";
+  setShown(ui.posEmpty, !held);
+  setShown(ui.posTable, held);
+  setShown(ui.posClose, held);
+  setShown(ui.posUnpriced, held && !priced);
 
-  // The brief, which is the copy of this that is on screen without scrolling.
-  setShown(ui.posBrief, has);
-  if (has) {
-    const up = closedNow;
-    const sign = up > 0 ? "+" : "";
-    setText(ui.briefText,
-      `${pos.side} ${pnum(pos.size, info.szDecimals)} ${info.coin} at `
-      + `${ppx(pos.entryPx, info)}, ${sign}${pmoney(up)}${grossOnly} if closed now`);
-    ui.briefText.className = "tp-brief-t " + (up >= 0 ? "tp-up" : "tp-down");
-  }
-
-  setShown(ui.posEmpty, !has);
-  setShown(ui.posTable, has);
-  if (!has) {
+  if (!held) {
     setText(ui.posEmpty, `No open ${paper.coin || ""} position.`);
     // Blanked rather than left hidden with the last position's numbers in it.
     // A hidden table holding stale figures is one dropped stylesheet away from
     // telling somebody they still hold something they closed. "no position",
     // not "N/A": if this ever does become visible it should say which nothing
     // it is.
-    for (const cell of [ui.posSide, ui.posSize, ui.posEntry, ui.posMark,
-                        ui.posWorth, ui.posLiq, ui.posFunding]) setText(cell, "no position");
+    for (const cell of [ui.posSize, ui.posFunding]) setText(cell, "no position");
     return;
   }
-  const up = closedNow;
-  // A position that was added to carries the effective leverage read back from
-  // the margin actually put up, so it can be 3.7419...x. Printed raw it looks
-  // like a bug rather than like arithmetic.
-  setText(ui.posSide, `${pos.side} ${pnum(pos.leverage, 2)}x`);
-  ui.posSide.className = pos.side === "long" ? "tp-up" : "tp-down";
-  setText(ui.posSize, `${pnum(pos.size, info.szDecimals)} ${info.coin}`);
-  setText(ui.posEntry, ppx(pos.entryPx, info));
-  setText(ui.posMark, ppx(info.markPx, info));
-  // Signed. "Would be worth $0.00" read as the position being worthless the
-  // instant it was opened, when what it means is that it has not moved yet.
-  setText(ui.posWorth, (up > 0 ? "+" : "") + pmoney(up) + grossOnly);
-  ui.posWorth.className = up >= 0 ? "tp-up" : "tp-down";
-  const lp = liquidationPrice(pos, info);
-  setText(ui.posLiq, lp ? ppx(lp, info) : `none at ${pnum(pos.leverage, 2)}x`);
-  ui.posLiq.title = lp ? "" : PAPER_NO_LIQ;
+
+  // Side, size and leverage are one fact: what is open. A position that was
+  // added to carries the effective leverage read back from the margin actually
+  // put up, so it can be 3.7419...x; printed raw it looks like a bug rather
+  // than like arithmetic.
+  //
+  // The asset's own lot precision when it was read, and six places with the
+  // reason said below when it was not. Same rule the closed list follows for a
+  // row belonging to a market whose rules are not on hand.
+  const size = priced ? pnum(pos.size, info.szDecimals) : pnum(pos.size, 6);
+  const lev = isFinite(Number(pos.leverage)) ? ` at ${pnum(pos.leverage, 2)}x` : "";
+  setText(ui.posSize, `${pos.side} ${size} ${pos.coin || paper.coin || ""}${lev}`);
+  ui.posSize.className = pos.side === "long" ? "tp-up" : "tp-down";
   setText(ui.posFunding, pmoney(-(pos.fundingPaid || 0)));
+
+  if (!priced) {
+    setText(ui.posUnpriced,
+      `${paper.coin || "This market"} has not been read from Hyperliquid's public `
+      + "data yet, so there are no prices to put under this: no entry, no mark, no "
+      + "liquidation price, and nothing on what closing it now would realise.");
+  }
 }
 
 /** The positions on every market except this one.
@@ -2265,8 +2325,17 @@ function refreshLevels(pos, info) {
 
     // What the ladder is showing, said in the one place somebody would
     // otherwise assume the box is showing it.
+    //
+    // ON THE FIELD BEING EDITED, AND NOT ON BOTH. These two lines are the same
+    // 19 words, and with a draft in each box the panel printed them twice, one
+    // under the other, four lines apart. A draft only exists while somebody is
+    // in the box making it, because leaving the box commits it, so the line
+    // belongs to the box that has the caret in it. The exception is a refusal:
+    // that one has to stand after the focus has gone, because the refusal is
+    // the reason the level the person typed is not on the ladder.
+    const editing = document.activeElement === f.input;
     let state = "";
-    if (!settled) {
+    if (!settled && (editing || bad)) {
       const still = held !== null
         ? `The ladder still has it at ${ppx(held, info)}.`
         : "There is nothing on the ladder for it yet.";
@@ -2433,9 +2502,26 @@ function refreshResting(state, info) {
   }).join(""));
 }
 
+/** The history, which is everything except the thing that is already on screen.
+ *
+ *  THE SAME TWO SENTENCES WERE PRINTED TWICE. "Filled 0.05 BTC at 85,977, fee
+ *  $1.93." and the line under it were the outcome banner beside the button and
+ *  also the newest row here, word for word, four inches apart in a 342px
+ *  column. The banner is the one that earns its place at the moment it appears:
+ *  it is the answer to "I just pressed that" and it is against the thing that
+ *  was pressed. So for as long as the banner is carrying an event, this list
+ *  starts at the one after it, and its heading says Earlier.
+ *
+ *  Nothing is lost by it. Editing any field on the ticket drops the banner,
+ *  because at that point the person is describing a new order rather than
+ *  reading about the last one, and the event comes back at the top of this
+ *  list on the same pass.
+ */
 function refreshEvents(state) {
   const ui = paper.ui;
-  const rows = state ? state.events.slice(0, 6) : [];
+  let rows = state ? state.events.slice(0, 7) : [];
+  if (paper.outcome && rows[0] === paper.outcome) rows = rows.slice(1);
+  rows = rows.slice(0, 6);
   setShown(ui.evSec, rows.length > 0);
   if (!rows.length) return;
   const sig = rows.map((e) => `${e.at}:${e.message}`).join("|");
