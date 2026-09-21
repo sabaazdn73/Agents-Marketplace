@@ -1,136 +1,498 @@
 /* paper.css
  *
- * Practice mode's panel, styled to sit inside Hyperliquid's page rather than
- * on top of it. Every colour comes from a custom property that paper.js sets
- * from what the page computes for itself, so if they ever ship a light theme
- * this follows it instead of staying dark against it.
+ * Practice mode's order ticket, built to be a copy of Hyperliquid's own order
+ * form rather than something that merely sits near it.
  *
- * The header is the exception to blending in. It is always legible, always
- * present, and it does not dim with the rest: someone glancing at this panel
- * has to be able to tell in one look that the money is not there.
+ * WHY THE PALETTE IS WRITTEN OUT INSTEAD OF SAMPLED FROM THE PAGE
+ * An earlier version derived its colours from getComputedStyle(document.body)
+ * and shifted the luminance to invent a raised surface. That produced colours
+ * near theirs and never theirs, in two different ways. Their control fill is
+ * rgb(39,48,53), which is darker AND blue-shifted from the body colour, so no
+ * luminance shift of the body colour reaches it. And the surface their form is
+ * painted on is not the body colour at all: their grid item carries its own
+ * inline rgb(15,26,31). Every value below was read off the live page on
+ * 2026-09-21, the full element dump is in the brief's order-form-spec.txt, and
+ * the surface colour was confirmed by sampling the rendered pixel. The cost of
+ * hardcoding is explicit: if Hyperliquid ships a light theme these constants
+ * are wrong and have to be re-measured. That is better than a derivation that
+ * is quietly wrong today.
+ *
+ * Numbers that look arbitrary are measured, not chosen: 33px control height,
+ * 29px inner pill, 35px tab strip, 8px radius on controls, 5px on the active
+ * side pill, 5px on their card, 3px on the checkbox, 16px checkbox, 12px/400
+ * type nearly everywhere, 10px side padding inside a 362px column.
  */
 
-.tnega-paper {
-  --tp-bg: #1a1a1a; --tp-raised: #242424; --tp-border: rgba(255,255,255,.12);
-  --tp-fg: #fff; --tp-muted: rgba(255,255,255,.55); --tp-font: system-ui, sans-serif;
-  --tp-long: #1fa67d; --tp-short: #e5484d; --tp-accent: #50d2c1;
+.tnega-paper, .tnega-paper-tab {
+  /* Read from app.hyperliquid.xyz/trade/BTC, 2026-09-21. */
+  /* CORRECTED. This was rgb(48,48,48) for one build, taken from document.body,
+     which is the page BEHIND their grid rather than the card their order form
+     is painted on. Their grid item carries its own inline
+     `background: rgb(15,26,31); border-radius: 5px`, confirmed by sampling the
+     rendered pixel at (1100,460). The grey version read as a foreign card on
+     their blue-black column: 33 points lighter and a different hue, and it was
+     the most visible tell that the panel was not theirs. */
+  --tp-card: rgb(15, 26, 31);        /* the surface their form is painted on */
+  --tp-page: rgb(48, 48, 48);        /* document.body, behind the grid */
+  --tp-ctl: rgb(39, 48, 53);         /* their control fill, and the Size box border */
+  --tp-accent: rgb(80, 210, 193);    /* their teal */
+  --tp-on-accent: rgb(2, 35, 30);    /* text on the active Buy pill */
+  --tp-btn-fg: rgb(4, 6, 12);        /* text on their Connect button */
+  --tp-fg: rgb(246, 254, 253);       /* primary text */
+  --tp-white: rgb(255, 255, 255);    /* the value half of a label/value row */
+  --tp-muted: rgb(148, 158, 156);    /* labels, inactive tabs */
+  --tp-line: rgb(87, 94, 98);        /* checkbox border, inactive slider dots */
+  /* Their Sell pill when it is the active side. Not in the spec dump, which
+     only caught Buy active, so it was read by clicking their own Sell control
+     in a headless render and sampling the pill underneath it. */
+  --tp-sell: rgb(237, 112, 136);
 
+  /* Only what the panel and the tab actually share lives in this block.
+     `display: flex; flex-direction: column` was in here, and the tab is a ROW,
+     so it inherited column, stacked the cat above the sentence, and was then
+     clipped by its own max-height to just the cat: the header sentence and the
+     affordance were both invisible at every window size. A shared rule is only
+     shared for the properties that are actually the same. */
   box-sizing: border-box;
-  background: var(--tp-bg);
+  position: fixed;
+  /* Their highest z-index anywhere on the page is 9999. Sitting one below it
+     keeps this above the trading grid, whose items carry no z-index at all,
+     while anything they deliberately put at the top of the stack still wins. */
+  z-index: 9990;
+  background: var(--tp-card);
   color: var(--tp-fg);
-  font-family: var(--tp-font);
-  font-size: 12px;
-  line-height: 1.5;
-  border: 1px solid var(--tp-border);
-  border-radius: 6px;
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.tnega-paper {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  z-index: 5;
+  font-size: 12px;
+  line-height: 1.25;
+  /* Their container is radius 5 with no border and no shadow. A 1px border and
+     a drop shadow were both wrong: the shadow darkened their page 3px to the
+     panel's left, which is a visible edit to their page rather than a panel
+     sitting in it. */
+  border: 0;
+  border-radius: 5px;
 }
 .tnega-paper *, .tnega-paper *::before, .tnega-paper *::after { box-sizing: border-box; }
+/* Both forms, and the root one is not optional. `.tnega-paper .tp-hide` is a
+   DESCENDANT selector and the panel root is not a descendant of itself, so
+   hiding the root silently did nothing: the tab and the panel were both on
+   screen at once, in every state, at every window size. */
+.tnega-paper .tp-hide, .tnega-paper-tab .tp-hide { display: none !important; }
+.tnega-paper.tp-hide, .tnega-paper-tab.tp-hide { display: none !important; }
 
-/* ── The header that never goes away ─────────────────────────────────────── */
+/* ── The header, which is present in both states ─────────────────────────────
+ *
+ * It is the one part that does not blend in. Someone glancing at a panel that
+ * looks this much like the venue's own form has to be able to tell in one look
+ * that the money is not there, so the accent colour and the cat both live here
+ * and the sentence never shortens. The tab carries the same sentence, which is
+ * how the rule survives the panel being closed by default.
+ */
 .tnega-paper .tp-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px;
-  background: var(--tp-raised);
-  border-bottom: 1px solid var(--tp-border);
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px;
+  background: var(--tp-ctl);
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  /* An explicit top edge. The panel is painted on their card colour and sits
+     in their column, so where it begins is otherwise only implied by the
+     header's lighter fill. At 1280 the last three read-only rows of their form
+     can remain on screen directly above it, and one accent line is the
+     difference between "the panel starts here" and "this bar is floating". */
+  border-top: 1px solid var(--tp-accent);
 }
+.tnega-paper .tp-cat { width: 22px; height: 22px; flex: 0 0 auto; object-fit: contain; display: block; }
 .tnega-paper .tp-mark {
-  font-size: 11px; font-weight: 700; letter-spacing: .02em;
   color: var(--tp-accent);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 11px; font-weight: 600; letter-spacing: .01em; line-height: 1.2;
+  min-width: 0;
 }
 .tnega-paper .tp-spacer { flex: 1 1 auto; min-width: 4px; }
-.tnega-paper .tp-bal { font-variant-numeric: tabular-nums; font-weight: 600; }
+.tnega-paper .tp-bal {
+  flex: 0 0 auto; color: var(--tp-white);
+  font-variant-numeric: tabular-nums; font-size: 11px;
+}
 .tnega-paper .tp-min {
-  flex: 0 0 auto;
-  background: transparent; color: var(--tp-fg);
-  border: 1px solid var(--tp-border); border-radius: 4px;
-  padding: 3px 9px; font: inherit; font-size: 11px; cursor: pointer;
-}
-.tnega-paper .tp-min:hover { border-color: var(--tp-accent); color: var(--tp-accent); }
-
-/* ── Body ────────────────────────────────────────────────────────────────── */
-.tnega-paper .tp-body { padding: 10px; }
-.tnega-paper .tp-cols {
-  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px;
-  align-items: start;
-}
-.tnega-paper .tp-row { display: flex; gap: 6px; }
-.tnega-paper .tp-sides, .tnega-paper .tp-types { margin-bottom: 8px; }
-
-.tnega-paper .tp-side, .tnega-paper .tp-tab {
-  flex: 1 1 0; padding: 6px 4px; font: inherit; cursor: pointer;
+  flex: 0 0 auto; cursor: pointer;
   background: transparent; color: var(--tp-muted);
-  border: 1px solid var(--tp-border); border-radius: 4px;
+  border: 1px solid var(--tp-line); border-radius: 5px;
+  padding: 2px 8px; font: inherit; font-size: 11px; line-height: 16px;
 }
-.tnega-paper .tp-tab.on { color: var(--tp-fg); border-color: var(--tp-accent); }
-.tnega-paper .tp-side.tp-buy.on { background: var(--tp-long); border-color: var(--tp-long); color: #fff; }
-.tnega-paper .tp-side.tp-sell.on { background: var(--tp-short); border-color: var(--tp-short); color: #fff; }
+.tnega-paper .tp-min:hover { color: var(--tp-fg); border-color: var(--tp-accent); }
 
-.tnega-paper .tp-field { display: block; margin-bottom: 8px; }
-.tnega-paper .tp-field span { display: block; color: var(--tp-muted); margin-bottom: 3px; }
+/* ── The body scrolls, the panel does not grow past the viewport ──────────── */
+.tnega-paper .tp-body {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 12px 10px 14px;
+}
+.tnega-paper .tp-body::-webkit-scrollbar { width: 6px; }
+.tnega-paper .tp-body::-webkit-scrollbar-thumb { background: var(--tp-line); border-radius: 3px; }
+.tnega-paper .tp-body::-webkit-scrollbar-track { background: transparent; }
+
+/* ── Row one: where their Cross | 20x | Unified strip is ──────────────────── */
+/* Three 107px cells inside 342px of inner width leaves 21px of gutter, so 10.5
+   each; flex with gap 11 gives 106.67 at this width and holds when the column
+   is dragged narrower.
+
+   Theirs are three filled buttons and all three of theirs work. Two of ours are
+   statements, so they are not drawn as buttons: no fill, muted text, no pointer.
+   The middle one is the only editable thing in the row and it gets the Size
+   box's outline so it reads as a field. Copying their three filled chips exactly
+   produced two dead controls and hid the one live field inside the middle of
+   them, and a reviewer could not find it without dumping the DOM. */
+.tnega-paper .tp-chips { display: flex; gap: 11px; margin-bottom: 8px; }
+.tnega-paper .tp-chip-static {
+  flex: 1 1 0; min-width: 0; height: 33px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--tp-muted);
+  border: 0; font-size: 12px; white-space: nowrap; cursor: default;
+}
+.tnega-paper .tp-chip-field {
+  flex: 1.5 1 0; min-width: 0; height: 33px;
+  display: flex; align-items: center; gap: 5px; padding: 0 9px;
+  border: 1px solid var(--tp-ctl); border-radius: 8px;
+}
+.tnega-paper .tp-chip-field:focus-within { border-color: var(--tp-accent); }
+.tnega-paper .tp-chip-field input {
+  flex: 1 1 auto; width: 100%; min-width: 0; padding: 0; margin: 0; height: 31px;
+  text-align: right; background: transparent; color: var(--tp-fg);
+  border: 0; outline: none; font: inherit; font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+/* Said when the number typed is not the number that will be used. */
+.tnega-paper .tp-lev-note {
+  color: var(--tp-sell); font-size: 11px; line-height: 1.4; margin: -2px 0 8px;
+}
+
+/* ── Row two: the Market / Limit tabs ─────────────────────────────────────── */
+/* Theirs are UNDERLINE tabs, not filled ones: a 1px bottom border on every tab,
+   bright on the active one and muted on the rest, with the text colour
+   following it. Getting this wrong is the single most legible tell that a panel
+   is not theirs, because the filled-tab version is what every other widget on
+   the internet does. */
+.tnega-paper .tp-tabs { display: flex; margin-bottom: 8px; }
+.tnega-paper .tp-tab {
+  flex: 1 1 0; height: 35px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none;
+  color: var(--tp-muted); font-size: 12px;
+  border-bottom: 1px solid var(--tp-muted);
+}
+.tnega-paper .tp-tab.on { color: var(--tp-fg); border-bottom-color: var(--tp-fg); }
+
+/* ── Row three: the filled Buy / Sell pill ────────────────────────────────── */
+/* A 33px track in their control fill with a 29px pill inside it, 2px of inset
+   top and bottom, radius 5 on the pill against radius 8 on the track. */
+.tnega-paper .tp-sides {
+  display: flex; height: 33px; padding: 2px;
+  background: var(--tp-ctl); border-radius: 8px; margin-bottom: 10px;
+}
+.tnega-paper .tp-side {
+  flex: 1 1 0; height: 29px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; user-select: none;
+  color: var(--tp-fg); font-size: 12px; border-radius: 5px;
+}
+.tnega-paper .tp-side.on { background: var(--tp-accent); color: var(--tp-on-accent); }
+/* Their Sell pill keeps the light text and takes the red fill, which is why
+   this is not simply the accent rule with a different variable. */
+.tnega-paper .tp-side.tp-sell.on { background: var(--tp-sell); color: var(--tp-fg); }
+
+/* ── Label / value rows ───────────────────────────────────────────────────── */
+/* 15px tall, 22px apart on their form, label muted and value white. */
+.tnega-paper .tp-kv {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; height: 15px; margin-bottom: 7px;
+}
+.tnega-paper .tp-kv-k { color: var(--tp-muted); font-size: 12px; white-space: nowrap; }
+.tnega-paper .tp-kv-v {
+  color: var(--tp-white); font-size: 12px; text-align: right;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── The label / input / unit row, which is their Size box ────────────────── */
+/* Transparent fill with a 1px border in the control colour, so it reads as an
+   outline against the page rather than as a filled control. The input carries
+   no border and no background of its own: the box is the control. */
+.tnega-paper .tp-field {
+  display: flex; align-items: center; gap: 6px;
+  height: 33px; padding: 0 11px; margin-bottom: 8px;
+  border: 1px solid var(--tp-ctl); border-radius: 8px;
+}
+.tnega-paper .tp-field:focus-within { border-color: var(--tp-accent); }
+.tnega-paper .tp-field-k { flex: 0 0 auto; color: var(--tp-muted); font-size: 12px; }
 .tnega-paper .tp-field input {
-  width: 100%; padding: 6px 8px; font: inherit;
-  background: var(--tp-raised); color: var(--tp-fg);
-  border: 1px solid var(--tp-border); border-radius: 4px;
+  flex: 1 1 auto; min-width: 0; width: 100%;
+  padding: 0; margin: 0; height: 31px;
+  background: transparent; color: var(--tp-fg);
+  border: 0; outline: none;
+  font: inherit; font-size: 12px; text-align: right;
+  font-variant-numeric: tabular-nums;
 }
-.tnega-paper .tp-field input:focus { outline: none; border-color: var(--tp-accent); }
-.tnega-paper .tp-checks { flex-wrap: wrap; margin-bottom: 8px; }
-.tnega-paper .tp-check { display: flex; align-items: center; gap: 4px; color: var(--tp-muted); }
+.tnega-paper .tp-field input::placeholder { color: var(--tp-line); }
+.tnega-paper .tp-field-u { flex: 0 0 auto; color: var(--tp-muted); font-size: 12px; white-space: nowrap; }
 
+/* ── The percentage slider ────────────────────────────────────────────────── */
+/* An 8px track with radius 14, five 6px dots, the first teal and the rest in
+   the line colour, and a 14px teal handle. The dots are inset so the first and
+   last sit inside the track instead of half outside it, which is what
+   calc(N% - N*0.06px) does. */
+.tnega-paper .tp-pct { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.tnega-paper .tp-track { position: relative; flex: 1 1 auto; height: 33px; min-width: 0; }
+.tnega-paper .tp-bar {
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  height: 8px; background: var(--tp-ctl); border-radius: 14px;
+}
+.tnega-paper .tp-dot {
+  position: absolute; top: 1px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--tp-line);
+}
+.tnega-paper .tp-dot.on { background: var(--tp-accent); }
+.tnega-paper .tp-range {
+  -webkit-appearance: none; appearance: none;
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; padding: 0; background: transparent; outline: none; cursor: pointer;
+}
+.tnega-paper .tp-range::-webkit-slider-runnable-track { height: 33px; background: transparent; }
+.tnega-paper .tp-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; margin-top: 9px;
+  border: 0; border-radius: 50%; background: var(--tp-accent); cursor: pointer;
+}
+.tnega-paper .tp-range::-moz-range-track { height: 33px; background: transparent; }
+.tnega-paper .tp-range::-moz-range-thumb {
+  width: 14px; height: 14px; border: 0; border-radius: 50%; background: var(--tp-accent);
+}
+/* Their percentage box is 60 wide against the 272 of the track. */
+.tnega-paper .tp-pctbox {
+  flex: 0 0 60px; display: flex; align-items: center; gap: 2px;
+  height: 33px; padding: 0 8px;
+  border: 1px solid var(--tp-ctl); border-radius: 8px;
+}
+.tnega-paper .tp-pctbox:focus-within { border-color: var(--tp-accent); }
+.tnega-paper .tp-pctbox input {
+  flex: 1 1 auto; min-width: 0; width: 100%; padding: 0; height: 31px;
+  background: transparent; color: var(--tp-fg); border: 0; outline: none;
+  font: inherit; font-size: 12px; text-align: right;
+}
+.tnega-paper .tp-pct-u { flex: 0 0 auto; color: var(--tp-fg); font-size: 12px; }
+
+/* ── Checkboxes ───────────────────────────────────────────────────────────── */
+/* 16px box, radius 3, 1px in the line colour, label starting at 26px from the
+   left edge, which is the 16px box plus a 10px gap. The native input is kept
+   in the DOM and hidden rather than replaced, so the label toggles it, the
+   keyboard reaches it, and the checked state stays readable by the harness. */
+.tnega-paper .tp-check {
+  /* Positioned, because the hidden input below is absolute and without this it
+     would resolve against the panel and sit as a 16px invisible click target
+     over the header. */
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  height: 21px; margin-bottom: 2px; cursor: pointer;
+  color: var(--tp-fg); font-size: 12px; user-select: none;
+}
+.tnega-paper .tp-check input {
+  position: absolute; left: 0; top: 2px;
+  opacity: 0; width: 16px; height: 16px; margin: 0; cursor: pointer;
+}
+.tnega-paper .tp-box {
+  flex: 0 0 16px; width: 16px; height: 16px;
+  border: 1px solid var(--tp-line); border-radius: 3px;
+  position: relative;
+}
+.tnega-paper .tp-check input:checked + .tp-box {
+  background: var(--tp-accent); border-color: var(--tp-accent);
+}
+.tnega-paper .tp-check input:checked + .tp-box::after {
+  content: ""; position: absolute; left: 4px; top: 1px;
+  width: 5px; height: 9px;
+  border: solid var(--tp-on-accent); border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.tnega-paper .tp-check input:focus-visible + .tp-box { box-shadow: 0 0 0 2px rgba(80, 210, 193, .5); }
+
+/* ── The submit button, which is where their Connect sits ─────────────────── */
+/* Weight 400 and a 21px gap to the first derived row, both measured off their
+   Connect button. Weight 500 and a 10px gap were mine, and both showed. */
 .tnega-paper .tp-submit {
-  width: 100%; padding: 8px; font: inherit; font-weight: 600; cursor: pointer;
-  border: 0; border-radius: 4px; color: #fff;
+  display: block; width: 100%; height: 33px; margin: 10px 0 0;
+  border: 0; border-radius: 8px; cursor: pointer;
+  background: var(--tp-accent); color: var(--tp-btn-fg);
+  font: inherit; font-size: 12px; font-weight: 400;
 }
-.tnega-paper .tp-submit.tp-buy { background: var(--tp-long); }
-.tnega-paper .tp-submit.tp-sell { background: var(--tp-short); }
-.tnega-paper .tp-touch { margin-top: 7px; color: var(--tp-muted); font-size: 11px; }
+.tnega-paper .tp-submit.tp-is-sell { background: var(--tp-sell); color: var(--tp-fg); }
+.tnega-paper .tp-submit:hover { filter: brightness(1.06); }
 
-/* ── Tables ──────────────────────────────────────────────────────────────── */
-.tnega-paper .tp-sub { font-weight: 600; margin: 10px 0 5px; }
-.tnega-paper .tp-sub:first-child { margin-top: 0; }
-.tnega-paper .tp-sub2 { font-weight: 600; margin: 9px 0 4px; }
-.tnega-paper .tp-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+/* What the venue would refuse, and what was assumed to let an order through.
+   Both shown before the click rather than after it. The refusal takes the sell
+   colour because it is a stop; the assumption takes the accent because it is a
+   disclosure attached to something that is going to happen. */
+.tnega-paper .tp-refusal {
+  color: var(--tp-sell); font-size: 11px; line-height: 1.35;
+  margin: 8px 0 0; padding: 6px 8px;
+  background: rgba(237, 112, 136, .09); border-radius: 6px;
+}
+/* The outcome of what was just pressed, immediately under the button that was
+   pressed. The event list further down is the history; this is the answer. */
+.tnega-paper .tp-outcome {
+  margin: 8px 0 0; padding: 7px 9px; border-radius: 6px;
+  border-left: 2px solid var(--tp-line);
+  background: rgba(255, 255, 255, .04);
+  font-size: 11px; line-height: 1.4;
+}
+.tnega-paper .tp-outcome.tp-ev-ok { border-left-color: var(--tp-accent); }
+.tnega-paper .tp-outcome.tp-ev-no { border-left-color: var(--tp-sell); }
+.tnega-paper .tp-outcome .tp-ev-h { display: block; color: var(--tp-fg); }
+.tnega-paper .tp-outcome .tp-ev-d { display: block; color: var(--tp-muted); margin-top: 3px; }
+
+/* The open position and the way out of it, on screen without scrolling. */
+.tnega-paper .tp-brief {
+  display: flex; align-items: center; gap: 9px;
+  margin: 8px 0 0; padding: 7px 9px;
+  background: var(--tp-ctl); border-radius: 6px;
+  font-size: 11px; line-height: 1.35;
+}
+.tnega-paper .tp-brief-t { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
+.tnega-paper .tp-brief-x { flex: 0 0 auto; }
+
+.tnega-paper .tp-submit:disabled { opacity: .55; cursor: default; filter: none; }
+
+.tnega-paper .tp-assume {
+  color: var(--tp-accent); font-size: 11px; line-height: 1.4;
+  margin: 8px 0 0; padding: 6px 8px;
+  background: rgba(80, 210, 193, .08); border-radius: 6px;
+}
+
+/* ── The two sentences that are never collapsed ───────────────────────────── */
+/* Under the button, where the number that looks like a profit is. Quiet, not
+   a warning box: this is the panel saying what it is, not an alert. */
+.tnega-paper .tp-always { margin-top: 12px; }
+.tnega-paper .tp-always-l {
+  color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin-bottom: 5px;
+}
+
+/* ── The derived figures under the button ─────────────────────────────────── */
+/* 21px from the button to the first row, which is their spacing. */
+.tnega-paper .tp-stats { margin-top: 21px; }
+.tnega-paper .tp-stats .tp-kv { margin-bottom: 10px; }
+.tnega-paper .tp-stale { color: var(--tp-sell); }
+
+/* ── The practice account, which is ours and not a copy of anything ───────── */
+.tnega-paper .tp-acct { border-top: 1px solid var(--tp-ctl); margin-top: 6px; padding-top: 10px; }
+.tnega-paper .tp-sub {
+  color: var(--tp-fg); font-size: 12px; font-weight: 500; margin: 0 0 6px;
+}
+.tnega-paper .tp-sec { margin-bottom: 14px; }
+.tnega-paper .tp-sec:last-child { margin-bottom: 0; }
+.tnega-paper .tp-empty { color: var(--tp-muted); font-size: 12px; }
+
+.tnega-paper .tp-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; font-variant-numeric: tabular-nums;
+}
 .tnega-paper .tp-table th {
   text-align: left; font-weight: 400; color: var(--tp-muted);
-  padding: 3px 8px 3px 0; white-space: nowrap; font-size: 11px;
+  padding: 3px 0; white-space: nowrap; width: 46%;
 }
-.tnega-paper .tp-table td { padding: 3px 8px 3px 0; white-space: nowrap; }
-.tnega-paper .tp-up { color: var(--tp-long); }
-.tnega-paper .tp-down { color: var(--tp-short); }
-.tnega-paper .tp-empty { color: var(--tp-muted); padding: 2px 0; }
-
-.tnega-paper .tp-close, .tnega-paper .tp-x {
-  background: transparent; color: var(--tp-muted); font: inherit; font-size: 11px;
-  border: 1px solid var(--tp-border); border-radius: 4px; padding: 2px 8px; cursor: pointer;
+.tnega-paper .tp-table td {
+  text-align: right; color: var(--tp-white); padding: 3px 0; white-space: nowrap;
 }
-.tnega-paper .tp-close:hover, .tnega-paper .tp-x:hover { color: var(--tp-fg); border-color: var(--tp-accent); }
+.tnega-paper .tp-up { color: var(--tp-accent); }
+.tnega-paper .tp-down { color: var(--tp-sell); }
 
-/* ── What happened, which is where the teaching is ───────────────────────── */
+.tnega-paper .tp-x {
+  background: transparent; color: var(--tp-muted);
+  border: 1px solid var(--tp-line); border-radius: 5px;
+  padding: 3px 9px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.tnega-paper .tp-x:hover { color: var(--tp-fg); border-color: var(--tp-accent); }
+
+.tnega-paper .tp-rest { list-style: none; margin: 0; padding: 0; }
+.tnega-paper .tp-rest li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; border-bottom: 1px solid var(--tp-ctl);
+}
+.tnega-paper .tp-rest-t { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
+.tnega-paper .tp-rest-away { display: block; color: var(--tp-muted); font-size: 10px; margin-top: 2px; }
+
+/* ── What happened, which is where the teaching is ────────────────────────── */
 .tnega-paper .tp-events { list-style: none; margin: 0; padding: 0; }
 .tnega-paper .tp-events li {
-  padding: 5px 0 5px 9px; border-left: 2px solid var(--tp-border); margin-bottom: 4px;
+  padding: 5px 0 6px 9px; margin-bottom: 5px;
+  border-left: 2px solid var(--tp-line);
 }
-.tnega-paper .tp-ev-no { border-left-color: var(--tp-short); }
-.tnega-paper .tp-ev-ok { border-left-color: var(--tp-long); }
-.tnega-paper .tp-ev-h { display: block; }
-.tnega-paper .tp-ev-d { display: block; color: var(--tp-muted); font-size: 11px; margin-top: 2px; }
+.tnega-paper .tp-ev-ok { border-left-color: var(--tp-accent); }
+.tnega-paper .tp-ev-no { border-left-color: var(--tp-sell); }
+.tnega-paper .tp-ev-h { display: block; color: var(--tp-fg); line-height: 1.35; }
+.tnega-paper .tp-ev-d { display: block; color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin-top: 3px; }
 
-/* ── The disclosure ──────────────────────────────────────────────────────── */
-.tnega-paper .tp-disc { margin-top: 12px; border-top: 1px solid var(--tp-border); padding-top: 8px; }
-.tnega-paper .tp-disc summary { cursor: pointer; color: var(--tp-muted); }
+/* ── The disclosure ───────────────────────────────────────────────────────── */
+.tnega-paper .tp-disc { border-top: 1px solid var(--tp-ctl); padding-top: 9px; margin-top: 4px; }
+.tnega-paper .tp-disc summary { cursor: pointer; color: var(--tp-muted); font-size: 12px; }
 .tnega-paper .tp-disc summary:hover { color: var(--tp-fg); }
-.tnega-paper .tp-note { color: var(--tp-muted); font-size: 11px; margin: 6px 0; max-width: 90ch; }
-.tnega-paper .tp-list { color: var(--tp-muted); font-size: 11px; margin: 4px 0; padding-left: 16px; max-width: 90ch; }
-.tnega-paper .tp-list li { margin-bottom: 3px; }
+.tnega-paper .tp-note { color: var(--tp-muted); font-size: 11px; line-height: 1.45; margin: 7px 0; }
+.tnega-paper .tp-sub2 { color: var(--tp-fg); font-size: 11px; font-weight: 500; margin: 9px 0 3px; }
+.tnega-paper .tp-list {
+  color: var(--tp-muted); font-size: 11px; line-height: 1.45;
+  margin: 4px 0; padding-left: 15px;
+}
+.tnega-paper .tp-list li { margin-bottom: 4px; }
 
-/* ── Narrow ──────────────────────────────────────────────────────────────── */
-@media (max-width: 700px) {
-  .tnega-paper { border-radius: 0; border-left: 0; border-right: 0; }
-  .tnega-paper .tp-cols { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .tnega-paper .tp-mark { white-space: normal; }
-  /* A table of eight columns does not fit a phone, and shrinking the type to
-     make it fit makes it unreadable instead of unfitting. It scrolls. */
-  .tnega-paper .tp-right { overflow-x: auto; }
+/* ── Phone width ──────────────────────────────────────────────────────────── */
+/* Below about 1005 there is no trading grid to anchor to, so paper.js docks
+   this to the bottom edge as a sheet, clear of whatever fixed navigation their
+   page keeps there. Square off the bottom corners; a 1px top line stands in
+   for the drop shadow their own cards do not have. */
+.tnega-paper.tp-sheet {
+  border-radius: 10px 10px 0 0;
+  border-top: 1px solid var(--tp-ctl);
+}
+.tnega-paper.tp-sheet .tp-mark { white-space: normal; }
+
+/* ── The tab, which is the default state ──────────────────────────────────── */
+/* Painted on their card colour with their radius, because it sits INSIDE their
+   order form, in the band between the last checkbox and the Connect button. It
+   has a 1px outline in their control colour so it is legible as a thing to
+   click against a surface of exactly its own colour, which is the one place a
+   border earns its place. */
+.tnega-paper-tab {
+  box-sizing: border-box;
+  position: fixed;
+  z-index: 9990;
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 10px;
+  overflow: hidden; text-align: left; cursor: pointer;
+  background: var(--tp-card);
+  border: 1px solid var(--tp-ctl);
+  border-radius: 5px;
+  color: var(--tp-fg);
+  font-family: inherit; font-size: 10px; font-weight: 400; line-height: 1.3;
+}
+.tnega-paper-tab *, .tnega-paper-tab *::before { box-sizing: border-box; }
+.tnega-paper-tab:hover { border-color: var(--tp-accent); }
+.tnega-paper-tab .tp-tab-cat { width: 26px; height: 26px; flex: 0 0 auto; object-fit: contain; }
+.tnega-paper-tab .tp-tab-mark { flex: 1 1 auto; min-width: 0; }
+.tnega-paper-tab .tp-tab-line { display: block; color: var(--tp-accent); }
+.tnega-paper-tab .tp-tab-held { display: block; color: var(--tp-muted); margin-top: 2px; }
+.tnega-paper-tab .tp-tab-open {
+  flex: 0 0 auto; color: var(--tp-muted);
+  border: 1px solid var(--tp-line); border-radius: 5px;
+  padding: 2px 8px; line-height: 14px; font-size: 10px;
+}
+.tnega-paper-tab:hover .tp-tab-open { color: var(--tp-fg); border-color: var(--tp-accent); }
+
+/* Docked to the bottom edge when there is no grid. Full width, square top
+   corners, and paper.js lifts it above their own fixed bottom navigation. */
+.tnega-paper-tab.tp-tab-dock {
+  border-radius: 8px 8px 0 0;
+  border-left: 0; border-right: 0; border-bottom: 0;
+  padding: 8px 12px;
 }
