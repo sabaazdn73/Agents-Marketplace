@@ -820,6 +820,9 @@ function buildPaperPanel() {
   ui.briefClose.type = "button";
   ui.briefClose.dataset.act = "close";
 
+  // THE LEVELS AND THE LADDER, directly under the position they belong to.
+  buildLevels(body, ui);
+
   // ── The two sentences that do not get to hide behind a disclosure.
   //
   // Everything this simulation will not model used to live inside a collapsed
@@ -865,7 +868,11 @@ function buildPaperPanel() {
   ui.posSize = tpRow(ptb, "Size");
   ui.posEntry = tpRow(ptb, "Entry");
   ui.posMark = tpRow(ptb, "Mark");
-  ui.posWorth = tpRow(ptb, "Profit if closed now");
+  // NOT "Profit if closed now". The word profit on its own is the one word
+  // this panel does not use for a figure nobody has earned, and the brief
+  // above the table already carries the same number under the same words
+  // without it.
+  ui.posWorth = tpRow(ptb, "If closed now");
   ui.posLiq = tpRow(ptb, "Liquidation");
   ui.posFunding = tpRow(ptb, "Funding paid");
   // No second Close button down here. There is exactly one, in the brief
@@ -891,6 +898,125 @@ function buildPaperPanel() {
   buildDisclosure(acct);
 
   return { root, ui };
+}
+
+// ── The levels, and the ladder they sit on ──────────────────────────────────
+//
+// THE FIVE THINGS A LADDER ROW CAN BE. The roles are positionLadder's own, so
+// its rows land on these nodes by name. The order they are declared in is the
+// order they are BUILT in and nothing else: every pass takes the engine's
+// price-sorted list and sets `order` from it, which is the only thing that
+// makes a short read correctly. Role never decides position.
+const TP_RUNGS = [
+  { role: "liquidation", label: "liquidation" },
+  { role: "stop", label: "stop" },
+  { role: "entry", label: "entry" },
+  { role: "mark", label: "mark" },
+  { role: "target", label: "take profit" },
+];
+
+/** A level field: their Size box, plus a Clear that is only there when there is
+ *  something to clear. The message hangs under it rather than in a shared
+ *  banner, so a refusal about the stop cannot be read as being about the
+ *  target. */
+function tpLevelField(parent, label, fname, place) {
+  const wrap = tpEl(parent, "div", "tp-lvl-wrap");
+  const box = tpEl(wrap, "div", "tp-field tp-lvl-field");
+  tpEl(box, "span", "tp-field-k", label);
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "decimal";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.placeholder = place;
+  input.dataset.f = fname;
+  input.setAttribute("aria-label", label + ", a price");
+  box.appendChild(input);
+  tpEl(box, "span", "tp-field-u", "USD");
+  const clear = tpEl(box, "button", "tp-x tp-lvl-clear tp-hide", "Clear");
+  clear.type = "button";
+  clear.dataset.act = "lvlclear";
+  clear.dataset.k = fname;
+  const msg = tpEl(wrap, "div", "tp-lvl-msg tp-hide");
+  // Whether what is in the box is what the engine holds, and if it is not, what
+  // the ladder is actually showing. Muted, because it is a statement of state
+  // rather than a refusal; the refusal above it has the sell colour.
+  const state = tpEl(wrap, "div", "tp-lvl-state tp-hide");
+  return { wrap, box, input, clear, msg, state };
+}
+
+/** The whole levels block: two fields, the ladder, and the sentences that say
+ *  none of it is an order. Built once; every pass afterwards only writes text,
+ *  toggles `tp-hide`, and sets `order` on nodes that already exist. */
+function buildLevels(parent, ui) {
+  const sec = tpEl(parent, "div", "tp-levels tp-hide");
+  ui.levels = sec;
+  tpEl(sec, "div", "tp-sub", "Levels on this position");
+
+  // NOT AN ORDER, SAID FIRST AND ABOVE EVERYTHING IT IS ABOUT.
+  //
+  // It used to sit under the ladder. At 390 with both fields carrying an open
+  // refusal, the refusals pushed it off the bottom of the panel, so the only
+  // sentence on the screen denying that any of this executes left the screen at
+  // exactly the moment somebody was deepest in setting a level. Above the
+  // fields it cannot be pushed anywhere by anything below it.
+  tpEl(sec, "p", "tp-note tp-lvl-deny",
+    "These are marks of yours, not orders. Nothing rests at the venue, nothing "
+    + "here triggers, and a price reaching one of these levels closes nothing: "
+    + "the button above is the only thing that closes a position.");
+
+  // "Take profit", not "Target". The engine calls it a take profit in every
+  // refusal it writes, and a refusal reading "a take profit on a long goes
+  // above the entry" pointing at a box labelled Target is the panel and its own
+  // messages using two names for one thing. The engine's word wins, here and on
+  // the rung below, because its refusals are the text a person reads hardest.
+  ui.stopLvl = tpLevelField(sec, "Stop loss", "stop", "not set");
+  ui.targetLvl = tpLevelField(sec, "Take profit", "target", "not set");
+
+  const ladder = tpEl(sec, "div", "tp-ladder");
+  ui.ladder = ladder;
+
+  const rungs = tpEl(ladder, "div", "tp-rungs");
+  ui.rungs = {};
+  for (const r of TP_RUNGS) {
+    const row = tpEl(rungs, "div", `tp-rung tp-rung-${r.role} tp-hide`);
+    const a = tpEl(row, "div", "tp-rung-a");
+    tpEl(a, "span", "tp-rung-dot");
+    tpEl(a, "span", "tp-rung-k", r.label);
+    const px = tpEl(a, "span", "tp-rung-px", "N/A");
+    const b = tpEl(row, "div", "tp-rung-b");
+    const d = tpEl(b, "span", "tp-rung-d", "");
+    const pc = tpEl(b, "span", "tp-rung-pc", "");
+    // The words that keep the money beside them hypothetical, on the row.
+    const q = tpEl(b, "span", "tp-rung-q tp-hide");
+    const rl = tpEl(b, "span", "tp-rung-r", "");
+    // The engine's sentence about this row, when it has one that is about a
+    // change to the row rather than a standing fact. Rendered verbatim.
+    const note = tpEl(row, "div", "tp-rung-note tp-hide");
+    ui.rungs[r.role] = { row, px, d, pc, q, rl, b, note };
+  }
+
+  // Why a row could not be priced, said once under the ladder rather than
+  // squeezed into a cell 46px wide. Every row that carries no figure ends up
+  // with a sentence here: the liquidation row's own note, which is about
+  // exactly that, and for every other row the reason the schedule behind the
+  // figure is missing. Identical sentences are said once.
+  ui.ladderWhy = tpEl(sec, "div", "tp-lvl-why tp-hide");
+
+  // WHAT THE TWO NUMBERS ON EACH LINE ARE.
+  //
+  // The percentage needs saying because nothing about it announces that it is a
+  // price move rather than a return. On a long its sign agrees with the money
+  // beside it and on a short it opposes it, so somebody who learns the pattern
+  // on a long reads a short as contradicting itself; and it is not a return on
+  // either side, because leverage multiplies what a price move does to margin.
+  tpEl(sec, "p", "tp-note",
+    "On each line, the percentage is how far that price is from your entry, not "
+    + "a return on your margin: at 5x, a price 5% away from entry is 25% of the "
+    + "margin. The money is what closing the whole position at that price would "
+    + "realise, after the fee on the way in, the fee on the way out, and the "
+    + "funding charged so far.");
+  return sec;
 }
 
 /** Static, so it is written once with innerHTML and then left alone. Nothing
@@ -999,7 +1125,15 @@ const paper = {
   draft: {
     side: "buy", type: "market", size: "", px: "", leverage: "1",
     postOnly: false, reduceOnly: false,
+    // The two level fields. Text, not numbers, because they are what the person
+    // typed and the engine is what turns that into a price or a refusal.
+    stop: "", target: "",
   },
+  // Which position the two level fields were last seeded from, as coin plus the
+  // instant it was opened. A position that is closed and a new one opened is a
+  // different position and gets its own empty fields; a level committed onto the
+  // one already there does not re-seed, so a commit cannot fight the typing.
+  levelSeed: null,
 };
 
 /** Age of the oldest read the panel is currently drawing from, in ms, or null
@@ -1124,6 +1258,187 @@ function pctFromSize() {
   const cap = paper.state.balance * paperLeverage();
   if (!(cap > 0)) return 0;
   return Math.max(0, Math.min(100, Math.round((size * px * 100) / cap)));
+}
+
+// ── What this file uses from paperSim.js for levels ─────────────────────────
+//
+// THE SHAPE, WRITTEN DOWN BECAUSE IT IS A CONTRACT ACROSS TWO FILES and this
+// side of it is only a renderer. Read off paperSim.js, not assumed:
+//
+//   state.positions[coin].stopPx / .targetPx
+//       the two marks, or null. Written only by the two functions below.
+//
+//   setPositionLevel(state, info, coin, which, px)   which is "stop"|"target"
+//       Writes the level and returns { ok: true, which, px, side, markPassed,
+//       note, at }, or a refusal in the shape every other refusal in that file
+//       uses: { ok: false, code, message, detail, at }. It owns every rule
+//       about where a level may sit: the venue's price grid, which side of
+//       entry it belongs on, and whether a stop is past the liquidation price.
+//       NONE of those rules is repeated here. The panel shows a refusal by
+//       running this against a COPY of the state before the commit and the
+//       live state at the commit, so the message and the outcome are the same
+//       function answering twice and cannot disagree.
+//
+//   clearPositionLevel(state, coin, which)
+//       The other half, and independent of the one it is not clearing.
+//
+//   positionLadder(pos, info, fees, markPx)
+//       Every price belonging to the position, SORTED BY PRICE ASCENDING, as
+//       { role, px, pxChangePct, value, markPassed, stale, note }. role is one
+//       of liquidation, stop, entry, mark, target. `value` is closeValueAt's
+//       object, whose `realises` is the figure the ladder prints, or null when
+//       the engine will not put a figure on that price. The sort is the
+//       engine's and it is what makes a short come out right. Rows are drawn in
+//       the order it returns them, lowest price at the top, and this file does
+//       no ordering of its own: not by role, and not by reversing either.
+//
+//   closeValueAt(pos, info, fees, px)
+//       The same figure for one price, used for the "if closed now" line beside
+//       the position so that line and the mark rung cannot print two numbers.
+//
+//   LEVEL_PASSED_NOTE / LEVEL_STALE_NOTE / LIQUIDATION_UNPRICED_NOTE
+//       The sentences for the three things a row can be. Rendered verbatim;
+//       positionLadder already attaches the right one to the right row.
+
+/** A copy of the state deep enough that setPositionLevel can be run against it
+ *  as a question rather than as an instruction. Same trick marginShortfall
+ *  uses: ask the engine what it would do by letting it do it, to a copy. */
+function paperStateProbe() {
+  const s = paper.state;
+  if (!s) return null;
+  const positions = {};
+  for (const k of Object.keys(s.positions || {})) positions[k] = { ...s.positions[k] };
+  return { ...s, positions, resting: (s.resting || []).slice(),
+           closed: (s.closed || []).slice(), events: (s.events || []).slice() };
+}
+
+/** The text of a level field as either a clear or a price. Grouping is stripped
+ *  because the field echoes prices back and 81,200 is what a person retypes. */
+function levelInput(raw) {
+  const t = String(raw == null ? "" : raw).trim().replace(/,/g, "");
+  return t === "" ? { clear: true } : { clear: false, n: Number(t), raw: t };
+}
+
+/** Ask the engine what this level would do, against `state`. Pass the probe to
+ *  preview, the live state to commit. null when there is nothing to decide. */
+function levelDecision(which, raw, state) {
+  const info = paper.info;
+  if (!state || !info || !state.positions[info.coin]) return null;
+  const v = levelInput(raw);
+  if (v.clear) return null;
+  try {
+    return setPositionLevel(state, info, info.coin, which, v.n);
+  } catch (e) {
+    return { ok: false, message: "The simulation could not take that level.",
+      detail: paperErrorText(e) };
+  }
+}
+
+/** A percentage away from entry, signed. The number is the engine's
+ *  pxChangePct; only the number of places is decided here.
+ *
+ *  ONE PRECISION DOWN THE WHOLE COLUMN, because comparing its entries against
+ *  each other is the only thing that column does. Two places, fixed.
+ *
+ *  Both other ways of writing this were tried and both were worse. Rounding to
+ *  two places and stopping printed a 0.004% move as +0.00%, which is an absence
+ *  in the shape of a reading. Scaling the places with the size of the move
+ *  fixed that and broke the column: it came out reading -5%, +0.00117%, +4.03%,
+ *  +18.5%, four precisions down four lines with the longest string against the
+ *  least significant number.
+ *
+ *  So two places everywhere, and a move too small to show at two places says it
+ *  is too small rather than rounding itself away. Two rather than the one the
+ *  specimen uses because the mark rung is the one that moves while somebody
+ *  watches it, and on BTC one place quantises it to steps of about eighty-five
+ *  dollars.
+ */
+function ppct(v) {
+  if (!isFinite(v)) return "";
+  const a = Math.abs(v);
+  if (a === 0) return "0.00%";
+  // Below what two places can show, and unsigned: "-<0.01%" parses as a minus
+  // sign against a less-than and reads like a typo. The direction is already on
+  // the row twice, in the price distance to its left and in the money to its
+  // right, so nothing is lost by leaving it off the one cell that cannot
+  // resolve it.
+  if (a < 0.005) return "<0.01%";
+  return (v > 0 ? "+" : "-") + a.toFixed(2) + "%";
+}
+
+/** A signed price distance, at the precision the PRICE it is measured against
+ *  is quoted to.
+ *
+ *  Not at the precision of the distance itself. ppx rounds by the magnitude of
+ *  the number it is given, so a 72.8 gap on BTC came out as "-72.8" sitting
+ *  directly under prices printed as 85,282 and 89,973: one decimal against
+ *  none, in a column whose whole job is to be compared down its length. The
+ *  tick at the reference price is the grid both of them are on. */
+function pdelta(v, info, ref) {
+  if (!isFinite(v) || !info) return "";
+  const tick = priceTick(Number(ref) > 0 ? Number(ref) : Math.abs(v), info.szDecimals);
+  const dp = Math.max(0, Math.min(8, Math.ceil(-Math.log10(tick))));
+  return (v > 0 ? "+" : v < 0 ? "-" : "") + pnum(Math.abs(v), dp);
+}
+
+/** The fee schedule, but only when it was actually read.
+ *
+ *  THE GUARD WAS DEAD AND THE SENTENCE EXPLAINING IT WAS FALSE.
+ *  closeValueAt returns null rather than a fee-free number when it is handed no
+ *  taker rate, and the panel said so: that the figure is left out rather than
+ *  worked out without a rate. It was never left out. `paper.fees` is seeded
+ *  with the base-tier constants and they stand when the read fails, so
+ *  closeValueAt was always handed a rate, every row was priced from constants,
+ *  and the sentence describing the opposite could not be reached.
+ *
+ *  Passing null when the schedule was never read makes the guard the thing the
+ *  panel already claimed it was. The constants still back decideOrder, because
+ *  refusing to let anyone place an order is a worse answer than pricing one at
+ *  a rate the Fees row labels "not read"; the difference is that a fill is
+ *  reported with its own fee attached, while a ladder figure is a bare number
+ *  in a column of measured ones.
+ */
+function paperLadderFees() {
+  return paper.feesRead ? paper.fees : null;
+}
+
+/** Why a row that is not the liquidation row carries no figure. */
+function unpricedReason() {
+  if (!paper.feesRead) {
+    return "Hyperliquid's fee schedule has not been read, so the exit fee is not "
+      + "known, and what closing at these prices would realise is left out rather "
+      + "than worked out without it.";
+  }
+  return "The simulation did not put a figure on that price.";
+}
+
+/** Commit a level, or clear it. Follows the person's own blur, Enter or Clear,
+ *  which is why it is allowed to write the field: the focus rule is about what
+ *  a TICK may touch, and a tick never reaches this. */
+async function commitLevel(which, raw) {
+  const info = paper.info;
+  const pos = (paper.state && info) ? paper.state.positions[info.coin] : null;
+  if (!pos) return;
+  const v = levelInput(raw);
+  if (v.clear) {
+    try { clearPositionLevel(paper.state, info.coin, which); } catch (e) { /* nothing to clear */ }
+  } else {
+    const d = levelDecision(which, raw, paper.state);
+    if (d && d.ok === false) {
+      // Refused, so nothing was written and the field keeps what was typed.
+      // The engine's own message is rendered under it by the next pass.
+      refresh();
+      return;
+    }
+  }
+  // Echo back what is actually held. The engine refuses an off-grid price
+  // rather than snapping it, so this only ever differs by the grouping.
+  const held = Number(pos[which === "stop" ? "stopPx" : "targetPx"]);
+  paper.draft[which] = isFinite(held) && held > 0 ? String(held) : "";
+  const el = which === "stop" ? paper.ui.stopLvl.input : paper.ui.targetLvl.input;
+  if (el) el.value = paper.draft[which];
+  await saveState(paper.state);
+  refresh();
 }
 
 // ── The update pass ─────────────────────────────────────────────────────────
@@ -1289,6 +1604,7 @@ function refresh() {
   setText(ui.slippage, slip);
 
   refreshPosition(pos, info);
+  refreshLevels(pos, info);
   refreshResting(state, info);
   refreshEvents(state);
   refreshClosed(state, info);
@@ -1300,14 +1616,33 @@ function refreshPosition(pos, info) {
   setText(ui.posTitle, `Practice position${paper.coin ? " in " + paper.coin : ""}`);
   const has = !!(pos && info);
 
+  // ONE NUMBER FOR "IF CLOSED NOW", EVERYWHERE IT IS SAID.
+  // The ladder's mark rung is positionLadder's mark row, which is closeValueAt
+  // at the mark. This line and the table row said the same sentence off
+  // `unrealised`, which is the price difference and nothing else, so the panel
+  // carried two figures under one label as soon as a fee existed. Both ask
+  // closeValueAt now; the price difference is the fallback only while there is
+  // no fee schedule to charge the exit at, and the Fees row says when that is.
+  let nowAt = null;
+  try { nowAt = has ? closeValueAt(pos, info, paperLadderFees(), info.markPx) : null; }
+  catch (e) { nowAt = null; }
+  const closedNow = has
+    ? (nowAt ? nowAt.realises : unrealised(pos, info.markPx))
+    : 0;
+  // And when the fallback is what is showing, the figure says which it is. The
+  // fallback is the price difference with no fee in it at all, so printing it
+  // under the same words as the netted one would be the flattering number
+  // wearing the accurate one's label.
+  const grossOnly = has && !nowAt ? " before fees" : "";
+
   // The brief, which is the copy of this that is on screen without scrolling.
   setShown(ui.posBrief, has);
   if (has) {
-    const up = unrealised(pos, info.markPx);
+    const up = closedNow;
     const sign = up > 0 ? "+" : "";
     setText(ui.briefText,
       `${pos.side} ${pnum(pos.size, info.szDecimals)} ${info.coin} at `
-      + `${ppx(pos.entryPx, info)}, ${sign}${pmoney(up)} if closed now`);
+      + `${ppx(pos.entryPx, info)}, ${sign}${pmoney(up)}${grossOnly} if closed now`);
     ui.briefText.className = "tp-brief-t " + (up >= 0 ? "tp-up" : "tp-down");
   }
 
@@ -1322,7 +1657,7 @@ function refreshPosition(pos, info) {
                         ui.posWorth, ui.posLiq, ui.posFunding]) setText(cell, "N/A");
     return;
   }
-  const up = unrealised(pos, info.markPx);
+  const up = closedNow;
   // A position that was added to carries the effective leverage read back from
   // the margin actually put up, so it can be 3.7419...x. Printed raw it looks
   // like a bug rather than like arithmetic.
@@ -1333,11 +1668,207 @@ function refreshPosition(pos, info) {
   setText(ui.posMark, ppx(info.markPx, info));
   // Signed. "Would be worth $0.00" read as the position being worthless the
   // instant it was opened, when what it means is that it has not moved yet.
-  setText(ui.posWorth, (up > 0 ? "+" : "") + pmoney(up));
+  setText(ui.posWorth, (up > 0 ? "+" : "") + pmoney(up) + grossOnly);
   ui.posWorth.className = up >= 0 ? "tp-up" : "tp-down";
   const lp = liquidationPrice(pos, info);
   setText(ui.posLiq, lp ? ppx(lp, info) : "N/A");
   setText(ui.posFunding, pmoney(-(pos.fundingPaid || 0)));
+}
+
+/** The two level fields and the ladder.
+ *
+ *  NO POSITION, NO LADDER. Everything in here is about a position that is open,
+ *  and a scale with nothing on it is a scale that is claiming something.
+ */
+function refreshLevels(pos, info) {
+  const ui = paper.ui;
+  if (!ui || !ui.levels) return;
+  const has = !!(pos && info);
+  setShown(ui.levels, has);
+
+  // Seed the fields from what the engine holds, once per position. Keyed on
+  // the position's own identity so a commit does not re-seed and fight the
+  // typing, and a new position does not inherit the last one's levels.
+  const key = has ? `${pos.coin}:${pos.openedAt}` : "";
+  if (paper.levelSeed !== key) {
+    paper.levelSeed = key;
+    for (const which of ["stop", "target"]) {
+      const held = has ? Number(pos[which === "stop" ? "stopPx" : "targetPx"]) : NaN;
+      paper.draft[which] = (has && isFinite(held) && held > 0) ? String(held) : "";
+      const el = which === "stop" ? ui.stopLvl.input : ui.targetLvl.input;
+      if (el && document.activeElement !== el) el.value = paper.draft[which];
+    }
+  }
+  if (!has) return;
+
+  // Each field, the engine's refusal under it if there is one, and WHETHER WHAT
+  // IS IN THE BOX IS WHAT IS ON THE LADDER.
+  //
+  // A level is committed when the person leaves the field or presses Enter,
+  // which is right: committing per keystroke would put 8, then 88, then 818 on
+  // the ladder. What was wrong is that a draft was drawn exactly like a
+  // committed value. A field reading 81,895 in the same weight and colour as a
+  // set level, with a Clear button beside it, while the engine held no stop at
+  // all and the ladder had no stop row. The Clear button was the worst of it: a
+  // Clear next to a number is a claim that the number is set, so it asserted
+  // the opposite of the truth. The only thing separating the two states was the
+  // focus ring, which goes away at the same instant the value commits, so the
+  // one moment a person could see the difference was while they were still
+  // typing and looking at the ladder rather than at the box.
+  //
+  // So: the value goes muted whenever it is not what the engine holds, a line
+  // under the field says which state it is in and what the ladder is still
+  // showing, and Clear appears only when there is a committed level to clear.
+  // The refusal is obtained by running setPositionLevel against a COPY of the
+  // state, so what is shown before the commit is the same function that
+  // performs it.
+  const probe = paperStateProbe();
+  for (const which of ["stop", "target"]) {
+    const f = which === "stop" ? ui.stopLvl : ui.targetLvl;
+    setVal(f.input, paper.draft[which]);
+
+    const heldN = Number(pos[which === "stop" ? "stopPx" : "targetPx"]);
+    const held = isFinite(heldN) && heldN > 0 ? heldN : null;
+    const typed = String(paper.draft[which]).trim().replace(/,/g, "");
+    const d = levelDecision(which, paper.draft[which], probe);
+    const bad = !!(d && d.ok === false);
+    const settled = typed === "" ? held === null : Number(typed) === held;
+
+    setText(f.msg, bad ? d.message + (d.detail ? " " + d.detail : "") : "");
+    setShown(f.msg, bad);
+    f.box.classList.toggle("tp-lvl-bad", bad);
+    f.box.classList.toggle("tp-lvl-draft", !settled);
+
+    // What the ladder is showing, said in the one place somebody would
+    // otherwise assume the box is showing it.
+    let state = "";
+    if (!settled) {
+      const still = held !== null
+        ? `The ladder still has it at ${ppx(held, info)}.`
+        : "There is nothing on the ladder for it yet.";
+      if (bad) state = `Not set. ${still}`;
+      else if (typed === "") state = `${still} Leave the field to clear it.`;
+      else state = `Not set yet. ${still} Press Enter, or click away, to set it.`;
+    }
+    setText(f.state, state);
+    setShown(f.state, !!state);
+
+    setShown(f.clear, held !== null);
+  }
+
+  // EVERY ROW, AND THE ORDER, FROM THE ENGINE, IN THE ORDER IT RETURNS THEM.
+  //
+  // positionLadder returns only the prices that exist, so a 1x long has no
+  // liquidation row and a level nobody set has no row, and it returns them
+  // sorted by price, lowest first. This file does not reorder them, not even by
+  // reversing: sorting by role is what makes a short read as nonsense, the
+  // engine has already sorted by price, and there is no branch below that asks
+  // which side the position is. The scale beside the rows is mapped the same
+  // way round, lowest at the top, so the two cannot disagree.
+  let rows = [];
+  try { rows = positionLadder(pos, info, paperLadderFees(), info.markPx) || []; }
+  catch (e) { rows = []; }
+
+  const present = {};
+  for (const r of rows) present[r.role] = true;
+  for (const def of TP_RUNGS) {
+    setShown(ui.rungs[def.role].row, !!present[def.role]);
+  }
+
+  const entry = pos.entryPx;
+  const why = [];
+  rows.forEach((r, i) => {
+    const node = ui.rungs[r.role];
+    if (!node) return;
+    // `order` rather than moving nodes. The DOM is built once and stays built;
+    // only the numbers change.
+    node.row.style.order = String(i);
+    setText(node.px, ppx(r.px, info));
+
+    // WHAT IS UNUSUAL ABOUT THIS ROW, IN THE ENGINE'S OWN WORDS AND NOT IN ANY
+    // OF MINE. markPassed means the venue's mark printed this price, which is a
+    // reading; filled, triggered and stopped out are claims about an order, and
+    // there is no order. Writing a short label of my own here is how one of
+    // those words gets onto the screen without anybody deciding to put it
+    // there, so the note is rendered verbatim, inside the row it belongs to, in
+    // the two cases where something has actually changed about the row. The
+    // liquidation row's note is permanent and general, so it goes under the
+    // ladder instead of adding three lines to every position.
+    const inRow = !!(r.note && (r.markPassed || r.stale));
+    setText(node.note, inRow ? r.note : "");
+    setShown(node.note, inRow);
+    if (!inRow && r.note && why.indexOf(r.note) < 0) why.push(r.note);
+
+    // Entry is the origin, so it has no distance from itself. It does have a
+    // figure, because closing at the price you opened at still costs both fees
+    // and whatever funding has been charged, and that is worth one line.
+    const isEntry = r.role === "entry";
+    setText(node.d, isEntry ? "" : pdelta(r.px - entry, info, entry));
+    setText(node.pc, isEntry ? "" : ppct(r.pxChangePct));
+
+    // The figure, and never this file's arithmetic. positionLadder carries
+    // closeValueAt's own object; `realises` is the whole of it.
+    //
+    // QUALIFIED IN THE ROW, NOT ONLY IN THE PARAGRAPH UNDER IT. A bare
+    // +$589.83 beside the word target is the one cell on this panel where a
+    // hypothetical can be read as something earned, and a reader who has not
+    // got to the paragraph yet has nothing telling them otherwise. The
+    // specimen in the brief carries the words on the row for the same reason.
+    let text;
+    let qual = "";
+    let cls = "tp-rung-r";
+    if (r.value && isFinite(Number(r.value.realises))) {
+      const v = Number(r.value.realises);
+      text = (v > 0 ? "+" : "") + pmoney(v);
+      cls += v >= 0 ? " tp-up" : " tp-down";
+      qual = isEntry ? "in and out at this price"
+        : (r.role === "mark" ? "if closed now" : "would realise");
+    } else {
+      text = "not priced";
+      cls += " tp-rung-na";
+      // The liquidation row's absence carries its own sentence, already on
+      // screen under the ladder. Asked of the ROLE and not of whether the row
+      // happens to have a note: a stop the mark has been past has a note about
+      // that, which says nothing about why it has no figure, and under that
+      // test the reason went unsaid on exactly the row that needed it.
+      if (r.role !== "liquidation") {
+        const reason = unpricedReason();
+        if (why.indexOf(reason) < 0) why.push(reason);
+      }
+    }
+    setText(node.q, qual);
+    setShown(node.q, !!qual);
+    setText(node.rl, text);
+    if (node.rl.className !== cls) node.rl.className = cls;
+  });
+
+  // THERE IS NO PROPORTIONAL SCALE BESIDE THESE ROWS, AND THERE WAS ONE.
+  //
+  // It was a 24px track whose ticks were placed at each price's true fraction
+  // of the span. The rows are not placed that way: they stack at their own
+  // heights, evenly, because a row carrying the engine's mark-passed note is
+  // 140px tall and one that is not is 34px. Two spacings side by side with
+  // nothing joining a tick to its row, and measured the ticks landed beside the
+  // wrong words: the stop's tick 52px off, one and a half rows, so in every
+  // configuration tested it sat against the word entry. Someone reading it
+  // concluded their stop was at their entry when it was 3,420 away.
+  //
+  // The reason this feature is in our own panel rather than on their chart is
+  // that their price-to-pixel mapping could not be derived and a line in the
+  // wrong place is worse than no line. A scale that mispairs its own ticks with
+  // its own labels fails that test inside the panel built to pass it, so it is
+  // gone rather than approximately right. Every distance it was drawing is on
+  // the row in two forms, in price and in percent, which is the part that was
+  // never approximate.
+  //
+  // Anything put back here has to be positioned by the row, not beside it: a
+  // bar inside each line cannot mispair with the line it is inside.
+
+  const uniq = [];
+  for (const w of why) if (w && uniq.indexOf(w) < 0) uniq.push(w);
+  syncList(ui.ladderWhy, uniq.join("|"),
+    uniq.map((w) => `<p class="tp-lvl-why-l">${pesc(w)}</p>`).join(""));
+  setShown(ui.ladderWhy, uniq.length > 0);
 }
 
 function refreshResting(state, info) {
@@ -1395,14 +1926,47 @@ function refreshClosed(state, info) {
   syncList(ui.closedList, sig, rows.map((c) => {
     const own = info && c.coin === info.coin;
     const px = (v) => (own ? ppx(v, info) : pnum(v, 6));
+    // THE ENGINE'S SUM, NOT ONE WRITTEN AGAIN HERE.
+    //
+    // This rendered `c.pnl`, the gross move, under a heading saying what each
+    // would have earned, while the ladder quoted closeValueAt's net figure for
+    // the same price. Measured on 0.1 BTC at 10x: the ladder's take profit row
+    // said +589.83 and closing there printed +598.20. The gap is the fees plus
+    // the funding and it always ran in the flattering direction, so somebody
+    // acted on the smaller number and was then shown the larger one.
+    //
+    // realisedValue is the fix, and calling it rather than writing the
+    // subtraction at this call site is the point: two places writing the same
+    // expression is how the two figures came apart in the first place. It
+    // returns null rather than a partial figure when a stored row is missing
+    // one of its three parts, so a row from an older build says it cannot be
+    // totalled instead of quietly reporting a sum with its funding left out.
+    //
+    // A closed row carries ONE combined `fees` and has no entryFee or exitFee
+    // of its own, so the closeValueAt pairing does not apply to it.
+    const net = realisedValue(c);
+    const fees = Number(c.fees);
+    const funding = Number(c.funding);
+    // The components beside the figure, not instead of it, so the distance
+    // between the gross move and what it came to is visible rather than only
+    // correct. Funding only when there was some: most practice positions are
+    // closed inside the hour and a row of zeroes is noise.
+    const parts = net == null
+      ? "This row was stored without all of its parts, so it cannot be totalled."
+      : `${pesc(pmoney(c.pnl))} on the move, ${pesc(pmoney(-fees))} in fees`
+        + (funding ? `, ${pesc(pmoney(-funding))} funding` : "");
+    const figure = net == null
+      ? '<span class="tp-rest-na">not totalled</span>'
+      : `<span class="${net >= 0 ? "tp-up" : "tp-down"}">${pesc(pmoney(net))}</span>`;
     return `
     <li>
       <span class="tp-rest-t">
         <span class="${c.side === "long" ? "tp-up" : "tp-down"}">${pesc(c.side)}</span>
         ${pesc(pnum(c.size, 6))} ${pesc(c.coin)}
         at ${pesc(px(c.entryPx))} out ${pesc(px(c.exitPx))}
+        <span class="tp-rest-away">${parts}</span>
       </span>
-      <span class="${c.pnl >= 0 ? "tp-up" : "tp-down"}">${pesc(pmoney(c.pnl))}</span>
+      ${figure}
     </li>`;
   }).join(""));
 }
@@ -1413,10 +1977,19 @@ function refreshClosed(state, info) {
  *  and redraw everything derived from it. */
 function onFieldInput(el) {
   const f = el.dataset.f;
-  // Editing anything means the person is describing the next order, not still
-  // reading about the last one. The history list keeps it either way.
-  paper.outcome = null;
-  if (f === "size") {
+  // Editing anything ON THE ORDER TICKET means the person is describing the
+  // next order, not still reading about the last one. The history list keeps it
+  // either way. The two level fields are not part of the ticket: they are about
+  // a position that is already open, so marking a level does not wipe the
+  // confirmation of the fill that opened it.
+  const onTicket = f !== "stop" && f !== "target";
+  if (onTicket) paper.outcome = null;
+  if (f === "stop" || f === "target") {
+    // Held as text until the person commits it by leaving the field, pressing
+    // Enter, or pressing Clear. Committing on every keystroke would store 8 on
+    // the way to 81200 and send the ladder somewhere nobody asked it to go.
+    paper.draft[f] = el.value;
+  } else if (f === "size") {
     paper.draft.size = el.value;
   } else if (f === "px") {
     paper.draft.px = el.value;
@@ -1752,6 +2325,12 @@ function wirePaper(panel) {
       await submitPaperOrder();
     } else if (kind === "close") {
       await closePaperPosition();
+    } else if (kind === "lvlclear") {
+      const k = act.dataset.k;
+      paper.draft[k] = "";
+      const el = k === "stop" ? paper.ui.stopLvl.input : paper.ui.targetLvl.input;
+      if (el) el.value = "";
+      await commitLevel(k, "");
     } else if (kind === "cancel") {
       paper.state.resting = paper.state.resting.filter((o) => o.id !== act.dataset.id);
       await saveState(paper.state); refresh();
@@ -1778,16 +2357,33 @@ function wirePaper(panel) {
   // instead would make 50 unreachable on a market capped at 40.
   panel.addEventListener("focusout", (e) => {
     const el = e.target;
-    if (!el || !el.dataset || el.dataset.f !== "leverage") return;
+    if (!el || !el.dataset) return;
+    // Leaving a level field is when it is committed, which is the one call
+    // that writes to the position rather than to a copy. Committing per
+    // keystroke would store every prefix of the number on the way to it.
+    if (el.dataset.f === "stop" || el.dataset.f === "target") {
+      commitLevel(el.dataset.f, el.value);
+      return;
+    }
+    if (el.dataset.f !== "leverage") return;
     const used = String(paperLeverage());
     if (el.value !== used) { el.value = used; paper.draft.leverage = used; refresh(); }
   });
 
   // Enter submits from any text field, which is what an order ticket does.
+  //
+  // EXCEPT THE TWO LEVEL FIELDS. They are not the ticket. Enter in the stop
+  // field placing a market order is the worst version of this panel guessing
+  // what was meant, so there Enter commits the level and nothing else.
   panel.addEventListener("keydown", async (e) => {
     if (e.key !== "Enter") return;
-    if (!e.target.closest || !e.target.closest("[data-f]")) return;
+    const f = e.target.closest ? e.target.closest("[data-f]") : null;
+    if (!f) return;
     e.preventDefault();
+    if (f.dataset.f === "stop" || f.dataset.f === "target") {
+      await commitLevel(f.dataset.f, f.value);
+      return;
+    }
     await submitPaperOrder();
   });
 }

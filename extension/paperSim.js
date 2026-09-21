@@ -483,6 +483,14 @@ const NOT_MODELLED = [
     + "happens at it involves backstop liquidity and a fee, and is not run here.",
   "Funding on a size that changed mid-hour. Each hourly rate is charged on the "
     + "size held when funding is settled, not on the size held at that hour.",
+  "A stop or a take profit as an order. A level set here is a price marked on your "
+    + "own ladder and not an order at the venue: nothing is placed, nothing rests, "
+    + "and nothing is closed when the price reaches it. Whether an order there would "
+    + "have filled depends on queue position, which is not public, and which is the "
+    + "same thing this refuses to guess for a resting limit order.",
+  "Slippage when closing at a marked price. What a level would realise is worked "
+    + "at exactly that price. Closing on the venue walks the book and pays the "
+    + "average of the levels it takes, which on anything but a thin size is worse.",
 ];
 
 const REFUSALS_SIMULATED = [
@@ -495,6 +503,11 @@ const REFUSALS_SIMULATED = [
   "A market order larger than the whole visible book.",
   "A limit order with no price on it.",
   "More margin than the practice account holds.",
+  "A stop on the winning side of entry, or a take profit on the losing side. "
+    + "Which side that is inverts on a short.",
+  "A stop at or through the liquidation price. The position is gone before the "
+    + "price gets there, so the stop protects nothing.",
+  "A stop or take profit at a price the asset does not trade at.",
 ];
 
 const REFUSALS_NOT_SIMULATED =
@@ -917,6 +930,16 @@ function openPosition(state, info, fill) {
     coin, side: fill.side === "buy" ? "long" : "short",
     size: roundSize(fill.size, info.szDecimals), entryPx: fill.avgPx, margin, leverage: lev,
     feesPaid: fill.fee, fundingPaid: 0,
+    // A stop and a take profit the person has marked, in price. Null rather
+    // than absent so the shape of a position is the same whether or not one has
+    // ever been set, and so a state stored before these existed reads back with
+    // the same keys as one stored after.
+    //
+    // A fill that flips the side deletes the position and opens a new one
+    // through here, so the levels do not survive the flip. They must not: a stop
+    // below entry on a long is above entry on the short that replaces it, which
+    // is the one shape setPositionLevel refuses to create.
+    stopPx: null, targetPx: null,
     openedAt: fill.at, fundingSettledAt: fill.at,
   };
 }
@@ -1077,4 +1100,407 @@ function restingWouldFill(order, markPx, szDecimals) {
   const tick = priceTick(order.px, szDecimals);
   if (order.side === "buy") return markPx <= order.px - tick;
   return markPx >= order.px + tick;
+}
+
+// ── The price ladder: a stop, a take profit, and what each price realises ────
+//
+// A position carries two optional prices, stopPx and targetPx. They are marks
+// on a ladder drawn in this panel's own coordinate space. THEY ARE NOT ORDERS.
+// Nothing here places one, rests one, or closes a position because the mark
+// reached one, for exactly the reason restingWouldFill gives above: whether an
+// order at a price would have filled depends on queue position, and queue
+// position is not public. A simulator that closed a position on a stop would be
+// inventing the one fact that decides the outcome, and it would be inventing it
+// in the direction that flatters the person using it.
+//
+// So the only thing this will ever say about a level is that the venue's MARK
+// has passed it. That is a reading of published data. "Filled", "triggered",
+// "stopped out" and "executed" are not. No field, code or role exposed here is
+// named after any of them, which the case "nothing a level exposes is named
+// after an execution" checks by scanning the keys, because a key called
+// `triggered` becomes a label reading Triggered without anybody deciding to
+// write one. Those words appear only inside LEVEL_PASSED_NOTE, and only to deny
+// them. The field is markPassed, and it carries that sentence with it so the
+// panel has one to render rather than inventing its own.
+
+/** Said wherever a level has been passed by the mark, so one sentence covers
+ *  every place it can be read and the panel does not write its own. */
+const LEVEL_PASSED_NOTE =
+  "The mark has gone past this price. That is all this knows. No order was placed "
+  + "at it, nothing was triggered, and the position is still open: whether an order "
+  + "here would have filled depends on queue position, which is not public.";
+
+/** Why the liquidation row on the ladder carries a price and no figure. */
+const LIQUIDATION_UNPRICED_NOTE =
+  "The liquidation price can be derived, so it is shown. What closing there would "
+  + "leave cannot: liquidation runs through backstop liquidity and a liquidation fee, "
+  + "and neither is simulated here, so no figure is put against it.";
+
+/** Why a level can be left sitting on the wrong side of its own entry. */
+const LEVEL_STALE_NOTE =
+  "Adding to the position moved its entry price, and this level is now on the wrong "
+  + "side of it. It was valid when it was set. Set it again, or clear it.";
+
+function levelWord(which) {
+  return which === "stop" ? "stop" : "take profit";
+}
+
+function levelField(which) {
+  return which === "stop" ? "stopPx" : "targetPx";
+}
+
+/** Should this level sit below the entry price?
+ *
+ *  A stop goes on the losing side of entry and a target on the winning side.
+ *  For a long the losing side is below; a short inverts both at once. Written
+ *  as one comparison rather than four branches so there is a single place for
+ *  the inversion to be right or wrong:
+ *
+ *      long  stop    below   (true  === true)   -> true
+ *      long  target  above   (false === true)   -> false
+ *      short stop    above   (true  === false)  -> false
+ *      short target  below   (false === false)  -> true
+ */
+function levelBelowEntry(which, side) {
+  return (which === "stop") === (side === "long");
+}
+
+/** Has the venue's mark gone past a level the person marked?
+ *
+ *  READ THIS AS "THE PRICE HAS BEEN THERE", NOT "THIS CLOSED". Nothing in this
+ *  file acts on the answer. It exists so the panel can grey a row or say the
+ *  price has been reached, and it is paired with LEVEL_PASSED_NOTE everywhere
+ *  it is returned so that sentence travels with it.
+ *
+ *  Past means at or beyond, not a tick beyond. restingWouldFill demands a full
+ *  tick through because it is deciding whether something filled, and that is a
+ *  claim about the book. This decides whether a price printed, which the mark
+ *  touching it settles on its own.
+ */
+function markHasPassedLevel(pos, which, markPx) {
+  if (!pos) return false;
+  const px = Number(which === "stop" ? pos.stopPx : pos.targetPx);
+  const m = Number(markPx);
+  if (!(px > 0) || !isFinite(m)) return false;
+  return levelBelowEntry(which, pos.side) ? m <= px : m >= px;
+}
+
+/** Is a level no longer on the side of entry it was set on?
+ *
+ *  Only one thing moves an entry price under a level that was already valid:
+ *  adding to the position, which blends the new fill into entryPx. A long
+ *  averaged down can end up with its stop above the new entry. setPositionLevel
+ *  refuses to create that, so it cannot be left sitting there unmarked either.
+ *
+ *  It is reported rather than cleared. Deleting somebody's stop without being
+ *  asked is the worse of the two failures, and a row that says why it is wrong
+ *  can be acted on.
+ */
+function levelIsStale(pos, which) {
+  const px = Number(which === "stop" ? pos.stopPx : pos.targetPx);
+  if (!(px > 0)) return false;
+  return levelBelowEntry(which, pos.side) ? !(px < pos.entryPx) : !(px > pos.entryPx);
+}
+
+/** Set a stop or a take profit on an open position.
+ *
+ *  `which` is "stop" or "target". On success the level is written onto the
+ *  position and the caller persists it with saveState, the same as after a
+ *  fill. On failure nothing is written and the return is a refusal in the same
+ *  shape as every other refusal in this file: ok false, a code, a message and a
+ *  detail.
+ *
+ *  WHAT HAPPENS WHEN THE MARK IS ALREADY PAST THE LEVEL: it is accepted, and
+ *  the result carries markPassed true and LEVEL_PASSED_NOTE. It is accepted
+ *  because a level here is a mark and not an order, so there is nothing for the
+ *  price being past it to have done. Refusing would mean treating it as an
+ *  order that would have fired the instant it was set, which is the claim this
+ *  file will not make, and it would leave somebody whose position has already
+ *  run past where they wanted out unable to write that price down at all.
+ */
+function setPositionLevel(state, info, coin, which, px) {
+  if (which !== "stop" && which !== "target") {
+    return refuse("level_kind", "A position level is either a stop or a take profit.",
+      `Asked for "${String(which)}".`);
+  }
+  const pos = state.positions[coin];
+  if (!pos) {
+    return refuse("no_position",
+      `There is no open ${coin} position to put a ${levelWord(which)} on.`,
+      "A stop and a take profit belong to a position, so one has to be open first.");
+  }
+  const { szDecimals } = info;
+  const v = Number(px);
+  if (!isFinite(v) || v <= 0) {
+    return refuse("level_px", `A ${levelWord(which)} needs a price.`,
+      px === undefined || px === null || px === "" || Number.isNaN(Number(px))
+        ? "No price was given." : `${fmtNum(px)} is not a price.`);
+  }
+
+  // The venue's own grid, and the same roundPrice the order form is checked
+  // against, so a level cannot be set at a price an order could not be placed
+  // at. A ladder row quoting a price the asset does not trade at is a made-up
+  // number sitting in a column of measured ones.
+  const onGrid = roundPrice(v, szDecimals);
+  if (onGrid !== v) {
+    return refuse("level_tick",
+      `${fmtNum(v)} is not a price ${coin} trades at.`,
+      `Around here ${coin} quotes in steps of ${fmtNum(priceTick(v, szDecimals))}, `
+      + `so the nearest price it can quote is ${fmtPx(onGrid, szDecimals)}.`);
+  }
+
+  // The side check, and the message that says which one they probably meant.
+  // Somebody putting a stop above entry on a long has almost certainly typed it
+  // into the wrong box, and being told only that it is invalid leaves them to
+  // work out which of the two boxes was wrong.
+  const below = levelBelowEntry(which, pos.side);
+  const onCorrectSide = below ? v < pos.entryPx : v > pos.entryPx;
+  if (!onCorrectSide) {
+    const other = which === "stop" ? "take profit" : "stop";
+    return refuse("level_side",
+      `A ${levelWord(which)} on a ${pos.side} goes ${below ? "below" : "above"} the entry, and `
+      + `${fmtPx(v, szDecimals)} is ${below ? "at or above" : "at or below"} it. `
+      + `That is where the ${other} goes on a ${pos.side}, so this is probably the ${other}.`,
+      `The ${coin} position is ${pos.side} from ${fmtPx(pos.entryPx, szDecimals)}. `
+      + `On a ${pos.side} the stop sits ${pos.side === "long" ? "below" : "above"} entry and the `
+      + `take profit ${pos.side === "long" ? "above" : "below"} it. A short inverts both.`);
+  }
+
+  // A stop past the liquidation price protects nothing, because the position is
+  // gone before the price reaches it. Accepting it would draw a ladder whose
+  // stop row sits on the far side of the liquidation row, which reads as a floor
+  // under a loss that is not there.
+  if (which === "stop") {
+    const liq = liquidationPrice(pos, info);
+    if (liq != null) {
+      const through = pos.side === "long" ? v <= liq : v >= liq;
+      if (through) {
+        return refuse("level_liq",
+          `A stop at ${fmtPx(v, szDecimals)} cannot protect anything. This position is `
+          + `liquidated at ${fmtPx(liq, szDecimals)}, which the price reaches first.`,
+          `The position is closed out at the liquidation price, so a stop `
+          + `${pos.side === "long" ? "at or below" : "at or above"} it is never reached. Put the stop `
+          + `${pos.side === "long" ? "above" : "below"} ${fmtPx(liq, szDecimals)}, or add margin to `
+          + "move the liquidation price further away. What happens at liquidation is not "
+          + "simulated here in any case.");
+      }
+    }
+  }
+
+  pos[levelField(which)] = v;
+  const passed = markHasPassedLevel(pos, which, info.markPx);
+  return {
+    ok: true, which, coin, px: v, side: pos.side,
+    markPassed: passed,
+    note: passed ? LEVEL_PASSED_NOTE : null,
+    at: Date.now(),
+  };
+}
+
+/** Clear a stop or a take profit. Independent of the other one.
+ *
+ *  Clearing something that was never set is not a refusal: the end state the
+ *  caller asked for is the end state it gets. `cleared` says whether anything
+ *  was actually removed, so a panel can stay quiet when nothing changed.
+ */
+function clearPositionLevel(state, coin, which) {
+  if (which !== "stop" && which !== "target") {
+    return refuse("level_kind", "A position level is either a stop or a take profit.",
+      `Asked for "${String(which)}".`);
+  }
+  const pos = state.positions[coin];
+  if (!pos) {
+    return refuse("no_position",
+      `There is no open ${coin} position to clear a ${levelWord(which)} from.`, null);
+  }
+  const field = levelField(which);
+  const had = Number(pos[field]) > 0 ? Number(pos[field]) : null;
+  pos[field] = null;
+  return { ok: true, which, coin, px: null, cleared: had != null, previousPx: had, at: Date.now() };
+}
+
+/** What closing the WHOLE position at this price would realise.
+ *
+ *  ONE FUNCTION, SO EVERY PRICE ON THE PANEL AGREES BY CONSTRUCTION. The stop
+ *  row, the target row, the mark row and anything added later all come through
+ *  here, so they cannot drift into two arithmetics the way the closed table and
+ *  the balance once did.
+ *
+ *  It is not the price difference. The figure is what the closed row would show
+ *  for this position if it were closed at this price, which is
+ *
+ *      pnl  -  entry fee  -  exit fee  -  funding paid
+ *
+ *  and that is not a choice about presentation, it is the constraint. applyFill
+ *  writes a closed row carrying pnl, fees and funding separately; a ladder that
+ *  added up a different set of those would contradict the table the person sees
+ *  straight after they close. Two cases in test/paperSim/cases.js check that
+ *  rather than leave it asserted, and they check different halves of it. "The
+ *  ladder figure equals the closed row" closes at market against the live book,
+ *  which lands on whatever average that book produces. "Closing AT the stop
+ *  price realises what the stop row said" forces the fill onto the stop and the
+ *  target themselves, which are the prices the ladder actually puts a figure
+ *  against, using a one-level book built for no purpose other than choosing the
+ *  fill price. Both run long and short on two assets, with funding already
+ *  charged. The second was added because the sentence here used to claim the
+ *  first covered ladder prices, and it does not.
+ *
+ *  The exit fee is charged at the TAKER rate. Closing at a level you have marked
+ *  means taking what is there when the price arrives, not resting and waiting,
+ *  and this file will not assume a maker fill it cannot know you would get.
+ *
+ *  The entry fee and the funding are already off the balance. They are still
+ *  subtracted, because the question is what the trade came to and not what the
+ *  balance does next, and they are returned separately so the panel can show
+ *  where the figure went rather than only its total.
+ *
+ *  NO SLIPPAGE IS IN IT. The figure is worked at exactly the price given,
+ *  because that price is the one the person named. A close on the venue walks
+ *  the book. That is in NOT_MODELLED.
+ *
+ *  Returns null rather than a figure when there is no fee schedule to charge
+ *  the exit at, because a "would realise" missing its exit fee is the kind of
+ *  number this panel exists not to print.
+ */
+function closeValueAt(pos, info, fees, px) {
+  if (!pos) return null;
+  const p = Number(px);
+  const size = Math.abs(Number(pos.size));
+  // Number(null) is 0, not NaN, so a missing fee schedule reads as a free exit
+  // unless it is tested for before the conversion. It was caught by the case
+  // "with no fee schedule there is no figure rather than a fee-free one".
+  const taker = fees && isFinite(Number(fees.taker)) ? Number(fees.taker) : null;
+  if (!(p > 0) || !(size > 0) || taker === null) return null;
+
+  const dir = pos.side === "long" ? 1 : -1;
+  const pnl = dir * (p - pos.entryPx) * size;
+  const entryFee = Number(pos.feesPaid) || 0;
+  const exitFee = size * p * taker;
+  const funding = Number(pos.fundingPaid) || 0;   // positive means paid out
+  return {
+    px: p,
+    side: pos.side,
+    size,
+    pxChangePct: ((p - pos.entryPx) / pos.entryPx) * 100,  // price move, NOT side-signed
+    pnl,
+    entryFee,
+    exitFee,
+    funding,
+    realises: pnl - entryFee - exitFee - funding,
+  };
+}
+
+/** What a closed row came to, net. The other end of closeValueAt.
+ *
+ *  THE DEFECT THIS EXISTS TO MAKE IMPOSSIBLE, which was found on the panel and
+ *  not in the arithmetic. The ladder said a target would realise one figure.
+ *  The position was closed at that target and the closed list printed a larger
+ *  one, under a heading saying what each trade would have earned. Neither number
+ *  was computed wrongly. The list rendered closedRow.pnl, which is gross, sits
+ *  right there on the row, and reads like the answer. The gap was exactly the
+ *  fees plus the funding.
+ *
+ *  Two call sites computing one quantity is the defect, not the formula, and
+ *  `pnl - fees - funding` written out at the render site holds only until
+ *  somebody writes it slightly differently or leaves the funding term off. So
+ *  there is one function and the closed list calls it. That is the same choice
+ *  closeValueAt already made for every price on the ladder.
+ *
+ *  WATCH THE ASYMMETRY BETWEEN THE TWO SHAPES, because the obvious pairing is
+ *  wrong. A closed row carries `fees` as the entry share and the exit share
+ *  COMBINED. closeValueAt splits the same money into `entryFee` and `exitFee`.
+ *  A closed row has no entryFee field at all, so anything reaching for the
+ *  familiar name gets undefined and the subtraction gives NaN. That is the one
+ *  mercy in it: it fails loudly rather than printing a plausible wrong figure.
+ *
+ *  Returns null rather than a partial figure when a row is missing one of its
+ *  three parts. A net figure quietly missing its funding is the shape of the
+ *  defect above.
+ *
+ *  The components stay on the row, as pnl, fees and funding, for anything that
+ *  wants to show where the figure went.
+ *
+ *  The case "closing AT the stop price realises what the stop row said" in
+ *  test/paperSim/cases.js asserts this equals what closeValueAt promised at that
+ *  price, long and short across two assets, and "the closed row's gross pnl is
+ *  not what the trade came to" measures the gap and checks it is exactly the
+ *  fees plus the funding.
+ */
+function realisedValue(closedRow) {
+  if (!closedRow) return null;
+  const pnl = Number(closedRow.pnl);
+  const fees = Number(closedRow.fees);
+  const funding = Number(closedRow.funding);
+  if (!isFinite(pnl) || !isFinite(fees) || !isFinite(funding)) return null;
+  return pnl - fees - funding;
+}
+
+/** Every price that belongs to an open position, ordered by price.
+ *
+ *  ORDERED BY PRICE AND NEVER BY ROLE. On a long the order happens to read
+ *  liquidation, stop, entry, mark, target, and building the list in that order
+ *  works right up until somebody opens a short, where liquidation is above entry
+ *  and the target is below it. Sorting the prices is the same code for both
+ *  sides, so the short cannot be got wrong separately from the long.
+ *
+ *  Rows:
+ *      role          "liquidation" | "stop" | "entry" | "mark" | "target"
+ *      px            the price, on the venue's grid
+ *      pxChangePct   price move from entry, not side-signed and not a return
+ *      value         closeValueAt at this price, or null
+ *      markPassed    stop and target only: the mark has gone past this price.
+ *                    NOT a fill, NOT a trigger. See LEVEL_PASSED_NOTE.
+ *      stale         the entry moved under this level after it was set
+ *      note          the sentence belonging to whatever is unusual about the row
+ *
+ *  The liquidation row carries a price and a null value on purpose: see
+ *  LIQUIDATION_UNPRICED_NOTE. Rows appear only when they exist, so a 1x long
+ *  has no liquidation row and an untouched position has no stop or target row.
+ */
+function positionLadder(pos, info, fees, markPx) {
+  if (!pos || !(Math.abs(Number(pos.size)) > 0)) return [];
+  const rows = [];
+  const pct = (p) => ((p - pos.entryPx) / pos.entryPx) * 100;
+
+  const liq = liquidationPrice(pos, info);
+  if (liq != null) {
+    rows.push({
+      role: "liquidation", px: liq, pxChangePct: pct(liq),
+      value: null, markPassed: false, stale: false, note: LIQUIDATION_UNPRICED_NOTE,
+    });
+  }
+
+  for (const which of ["stop", "target"]) {
+    const px = Number(pos[levelField(which)]);
+    if (!(px > 0)) continue;
+    const passed = markHasPassedLevel(pos, which, markPx);
+    const stale = levelIsStale(pos, which);
+    rows.push({
+      role: which === "stop" ? "stop" : "target",
+      px, pxChangePct: pct(px),
+      value: closeValueAt(pos, info, fees, px),
+      markPassed: passed, stale,
+      // Stale is the more urgent of the two to say, because it means the row is
+      // not where the person put it relative to entry any more.
+      note: stale ? LEVEL_STALE_NOTE : (passed ? LEVEL_PASSED_NOTE : null),
+    });
+  }
+
+  rows.push({
+    role: "entry", px: pos.entryPx, pxChangePct: 0,
+    value: closeValueAt(pos, info, fees, pos.entryPx),
+    markPassed: false, stale: false, note: null,
+  });
+
+  const m = Number(markPx);
+  if (isFinite(m) && m > 0) {
+    rows.push({
+      role: "mark", px: m, pxChangePct: pct(m),
+      value: closeValueAt(pos, info, fees, m),
+      markPassed: false, stale: false, note: null,
+    });
+  }
+
+  rows.sort((a, b) => a.px - b.px);
+  return rows;
 }

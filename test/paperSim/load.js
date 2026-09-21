@@ -19,6 +19,9 @@ const EXPORTS = [
   "openPosition", "settleFunding", "settleAndApplyFill", "fundingDue", "fillWouldApply",
   "marginShortfall", "fmtUsd", "fmtPx", "fmtSz", "fmtNum", "unrealised", "restingWouldFill", "MIN_NOTIONAL_USD",
   "STARTING_BALANCE", "PAPER_KEY",
+  "setPositionLevel", "clearPositionLevel", "markHasPassedLevel", "levelIsStale",
+  "levelBelowEntry", "closeValueAt", "realisedValue", "positionLadder",
+  "LEVEL_PASSED_NOTE", "LIQUIDATION_UNPRICED_NOTE", "LEVEL_STALE_NOTE",
 ];
 
 // The exact source line implementing the inferred min-notional exemption. The

@@ -17,6 +17,13 @@ function check(name, outcome, pass, note) {
 }
 const n6 = (x) => (x == null || !isFinite(x) ? String(x) : Number(x).toFixed(6));
 
+// Shared by every block that reads refusal text, so the two rules cannot drift
+// into two versions of themselves. What each one catches is written out where
+// they are first used, under "every number a person reads, in every refusal".
+//           a run of 4+ digits that is not the fractional part of a number
+const UNGROUPED = /(?<![\d.])\d{4,}/;
+const LONG_TAIL = /\d\.\d{8,}/;
+
 (async () => {
   const { api } = load();
   const [btc, sol, doge, fees] = await Promise.all([
@@ -114,9 +121,6 @@ const n6 = (x) => (x == null || !isFinite(x) ? String(x) : Number(x).toFixed(6))
   // check is the one that was missing, and it is the one that catches the
   // money values: the first check passes them happily.
   {
-    //           a run of 4+ digits that is not the fractional part of a number
-    const UNGROUPED = /(?<![\d.])\d{4,}/;
-    const LONG_TAIL = /\d\.\d{8,}/;
     const bigBook = bookB.levels[1].reduce((a, l) => a + Number(l.sz), 0) * 2;
     const probes = [
       ["book depth", rich(), btc, bookB, { coin: "BTC", side: "buy", type: "market", size: bigBook, leverage: 40 }],
@@ -315,6 +319,509 @@ const n6 = (x) => (x == null || !isFinite(x) ? String(x) : Number(x).toFixed(6))
     check("maintenance tier switches at the published bound",
       `BTC $1.4e8 -> ${api.maintenanceFraction(btc, 1.4e8)}, $1.5e8 -> ${api.maintenanceFraction(btc, 1.5e8)}`,
       api.maintenanceFraction(btc, 1.4e8) === 1 / 80 && api.maintenanceFraction(btc, 1.5e8) === 1 / 40);
+  }
+
+  // ── the price ladder: stop, take profit, and what each price realises ─────
+  //
+  // Every position here is built from the live book or from prices scaled off
+  // it, so nothing is asserted against a price chosen to make the assertion
+  // pass. The short cases are run against an actual short position rather than
+  // a long read backwards, because the inversion is the part that goes wrong.
+  {
+    // A position opened through the live book, so entry, fees and margin are
+    // the ones the venue's own depth produces.
+    const openPos = (info, book, side, size, lev) => {
+      const s = fresh();
+      const d = decide(s, info, book, { coin: info.coin, side, type: "market", size, leverage: lev });
+      if (!d.ok) throw new Error(`could not open ${info.coin} ${side}: ${d.code} ${d.message}`);
+      api.applyFill(s, info, d.fill);
+      return s;
+    };
+    const dp = (info) => info.szDecimals;
+    const grid = (info, px) => api.roundPrice(px, dp(info));
+
+    // ── a level starts unset, and is set, cleared and persisted on its own ──
+    {
+      const s = openPos(btc, bookB, "buy", 0.1, 10);
+      const pos = s.positions.BTC;
+      check("a new position carries no stop and no target",
+        `stopPx ${pos.stopPx}, targetPx ${pos.targetPx}`,
+        pos.stopPx === null && pos.targetPx === null);
+
+      const stop = grid(btc, pos.entryPx * 0.96);
+      const target = grid(btc, pos.entryPx * 1.06);
+      const rs = api.setPositionLevel(s, btc, "BTC", "stop", stop);
+      check("a stop below entry on a long is accepted",
+        rs.ok ? `set at ${api.fmtPx(rs.px, 5)}` : `REFUSED ${rs.code}: ${rs.message}`,
+        rs.ok === true && pos.stopPx === stop);
+      const rt = api.setPositionLevel(s, btc, "BTC", "target", target);
+      check("  a take profit above entry on a long is accepted",
+        rt.ok ? `set at ${api.fmtPx(rt.px, 5)}` : `REFUSED ${rt.code}: ${rt.message}`,
+        rt.ok === true && pos.targetPx === target);
+
+      const c = api.clearPositionLevel(s, "BTC", "stop");
+      check("  clearing the stop leaves the take profit alone",
+        `stopPx ${pos.stopPx}, targetPx ${pos.targetPx}, cleared ${c.cleared}`,
+        c.ok === true && c.cleared === true && pos.stopPx === null && pos.targetPx === target);
+      const c2 = api.clearPositionLevel(s, "BTC", "stop");
+      check("  clearing one that was never set is not a refusal",
+        `ok ${c2.ok}, cleared ${c2.cleared}`, c2.ok === true && c2.cleared === false);
+
+      // moved through the store the panel actually uses
+      await api.saveState(s);
+      const back = await api.loadState();
+      check("  levels persist with the rest of the state",
+        back.positions.BTC ? `stopPx ${back.positions.BTC.stopPx}, targetPx ${back.positions.BTC.targetPx}` : "no position",
+        !!back.positions.BTC && back.positions.BTC.targetPx === target && back.positions.BTC.stopPx === null);
+
+      const none = api.setPositionLevel(fresh(), btc, "BTC", "stop", stop);
+      check("  a level with no position open", none.ok ? "ACCEPTED" : `refused ${none.code}`,
+        !none.ok && none.code === "no_position");
+      const bad = api.setPositionLevel(s, btc, "BTC", "target", null);
+      check("  a level with no price", bad.ok ? "ACCEPTED" : `refused ${bad.code}`,
+        !bad.ok && bad.code === "level_px");
+    }
+
+    // ── the side check, on a long and on an actual short ────────────────────
+    for (const [nm, info, book, T, size] of [["BTC", btc, bookB, B, 0.1], ["SOL", sol, bookS, S, 10]]) {
+      for (const side of ["buy", "sell"]) {
+        const s = openPos(info, book, side, size, 10);
+        const pos = s.positions[nm];
+        const long = pos.side === "long";
+        const above = grid(info, pos.entryPx * 1.05);
+        const below = grid(info, pos.entryPx * 0.95);
+        // On a long the stop is below and the target above. On a short both flip.
+        const wrongStop = long ? above : below;
+        const wrongTarget = long ? below : above;
+
+        const a = api.setPositionLevel(s, info, nm, "stop", wrongStop);
+        check(`${nm} ${pos.side}: stop on the winning side of entry`,
+          a.ok ? "ACCEPTED" : `refused ${a.code}`, !a.ok && a.code === "level_side");
+        check(`  and it names the take profit as what they probably meant`,
+          a.message || "", !a.ok && /probably the take profit/.test(a.message || ""));
+
+        const b = api.setPositionLevel(s, info, nm, "target", wrongTarget);
+        check(`${nm} ${pos.side}: take profit on the losing side of entry`,
+          b.ok ? "ACCEPTED" : `refused ${b.code}`, !b.ok && b.code === "level_side");
+        check(`  and it names the stop as what they probably meant`,
+          b.message || "", !b.ok && /probably the stop/.test(b.message || ""));
+
+        // Against a copy whose entry is ON the grid, so "at the entry price" is
+        // exactly that. A fill that walks two levels has an average entry the
+        // venue cannot quote, and rounding it lands a tick to one side, which is
+        // a valid level rather than the boundary case being tested here.
+        const clone = { ...pos, entryPx: grid(info, pos.entryPx), stopPx: null, targetPx: null };
+        const at = api.setPositionLevel({ positions: { [nm]: clone } }, info, nm, "stop", clone.entryPx);
+        check(`${nm} ${pos.side}: a stop at the entry price`,
+          at.ok ? "ACCEPTED" : `refused ${at.code}`, !at.ok && at.code === "level_side",
+          "entry is neither the losing side nor the winning one");
+
+        // and the right way round is accepted, or the check above is decoration
+        const rightStop = long ? below : above;
+        const rightTarget = long ? above : below;
+        const g1 = api.setPositionLevel(s, info, nm, "stop", rightStop);
+        const g2 = api.setPositionLevel(s, info, nm, "target", rightTarget);
+        check(`${nm} ${pos.side}: the same two prices the right way round`,
+          `stop ${g1.ok ? "ok" : g1.code} / target ${g2.ok ? "ok" : g2.code}`,
+          g1.ok === true && g2.ok === true);
+      }
+    }
+
+    // ── the venue's price grid ──────────────────────────────────────────────
+    {
+      const s = openPos(btc, bookB, "buy", 0.1, 10);
+      const pos = s.positions.BTC;
+      const on = grid(btc, pos.entryPx * 0.96);
+      const tick = api.priceTick(on, 5);
+      const off = on + tick / 2;
+      const r = api.setPositionLevel(s, btc, "BTC", "stop", off);
+      check("a stop half a tick off the venue's grid",
+        r.ok ? "ACCEPTED" : `refused ${r.code}`,
+        api.roundPrice(off, 5) === off ? null : (!r.ok && r.code === "level_tick"),
+        api.roundPrice(off, 5) === off ? "that price is on the grid here, nothing to catch" : `BTC ticks by ${tick} at ${api.fmtPx(on, 5)}`);
+      check("  and the refusal names a price the venue can quote",
+        r.detail || "", !r.ok && (r.detail || "").includes(api.fmtPx(api.roundPrice(off, 5), 5)));
+      const ok = api.setPositionLevel(s, btc, "BTC", "stop", api.roundPrice(on - tick, 5));
+      check("  and a price one tick away on the grid is accepted",
+        ok.ok ? `set at ${api.fmtPx(ok.px, 5)}` : `REFUSED ${ok.code}`, ok.ok === true);
+    }
+
+    // ── a stop past the liquidation price protects nothing ──────────────────
+    for (const [nm, info, book, size] of [["BTC", btc, bookB, 0.1], ["SOL", sol, bookS, 10]]) {
+      for (const side of ["buy", "sell"]) {
+        const s = openPos(info, book, side, size, 10);
+        const pos = s.positions[nm];
+        const liq = api.liquidationPrice(pos, info);
+        if (liq == null) { check(`${nm} ${pos.side} 10x has no liquidation price`, "null", null); continue; }
+        const long = pos.side === "long";
+        const d = dp(info);
+        // The nearest quotable price that is at or past liquidation, so "at or
+        // through" is what gets tested and not merely "well past".
+        let atLiq = api.roundPrice(liq, d);
+        if (long ? atLiq > liq : atLiq < liq) atLiq = api.roundPrice(atLiq + (long ? -1 : 1) * api.priceTick(atLiq, d), d);
+        const r = api.setPositionLevel(s, info, nm, "stop", atLiq);
+        check(`${nm} ${pos.side}: a stop at the liquidation price`,
+          r.ok ? "ACCEPTED" : `refused ${r.code}`, !r.ok && r.code === "level_liq",
+          `liquidation ${api.fmtPx(liq, d)}, stop ${api.fmtPx(atLiq, d)}`);
+        check(`  and it says the position is gone before the stop is reached`,
+          (r.detail || "").slice(0, 60), !r.ok && /never reached/.test(r.detail || ""));
+
+        const inside = api.roundPrice((pos.entryPx + liq) / 2, d);
+        const r2 = api.setPositionLevel(s, info, nm, "stop", inside);
+        check(`${nm} ${pos.side}: a stop between entry and liquidation`,
+          r2.ok ? `set at ${api.fmtPx(r2.px, d)}` : `REFUSED ${r2.code}`, r2.ok === true);
+      }
+    }
+    {
+      // a 1x long has no liquidation price, so nothing can be refused against one
+      const s = openPos(btc, bookB, "buy", 0.05, 1);
+      const pos = s.positions.BTC;
+      const r = api.setPositionLevel(s, btc, "BTC", "stop", grid(btc, pos.entryPx * 0.2));
+      check("a 1x long takes a stop far below entry",
+        r.ok ? `set at ${api.fmtPx(r.px, 5)}` : `REFUSED ${r.code}`,
+        api.liquidationPrice(pos, btc) === null ? r.ok === true : null,
+        "there is no liquidation price to be past");
+      const rows = api.positionLadder(pos, btc, fees, btc.markPx);
+      check("  and its ladder has no liquidation row",
+        rows.map((x) => x.role).join(" < "), !rows.some((x) => x.role === "liquidation"));
+    }
+
+    // ── what a price would realise, tied to the closed row by construction ──
+    for (const [nm, info, book, size] of [["BTC", btc, bookB, 0.1], ["SOL", sol, bookS, 10]]) {
+      for (const side of ["buy", "sell"]) {
+        const s = openPos(info, book, side, size, 10);
+        const pos = s.positions[nm];
+        // Funding that has already been charged, so the figure has to carry it.
+        // Signed the way settleFunding signs it: positive means paid out.
+        pos.fundingPaid = 0.37;
+        const closeSide = pos.side === "long" ? "sell" : "buy";
+        const d = decide(s, info, book, { coin: nm, side: closeSide, type: "market", size: pos.size, reduceOnly: true, leverage: 10 });
+        const want = api.closeValueAt(pos, info, fees, d.fill.avgPx);
+        api.applyFill(s, info, d.fill);
+        const row = s.closed[0];
+        // Through the helper, not written out here. A suite that does the
+        // subtraction by hand is the second call site all over again, and it
+        // would pass while the panel renders something else.
+        const got = api.realisedValue(row);
+        check(`${nm} ${pos.side}: the ladder figure equals the closed row`,
+          `ladder ${n6(want.realises)} vs closed ${n6(got)}`,
+          Math.abs(want.realises - got) < 1e-9,
+          "pnl minus both fees minus funding, and the two arithmetics cannot drift");
+        check(`  and it is not the price difference`,
+          `pnl ${n6(want.pnl)}, realises ${n6(want.realises)}`,
+          Math.abs(want.pnl - want.realises) > 1e-9 && want.realises < want.pnl);
+        check(`  the exit fee is the taker rate on the exit notional`,
+          `${n6(want.exitFee)} vs ${n6(want.size * want.px * fees.taker)}`,
+          Math.abs(want.exitFee - want.size * want.px * fees.taker) < 1e-12);
+        check(`  and the funding already paid is in it`, n6(want.funding), Math.abs(want.funding - 0.37) < 1e-12);
+      }
+    }
+    // ── closing AT a stop or a target, which is what the ladder promises ────
+    //
+    // The loop above closes at market against the live book, so it lands on the
+    // average that book produces and never on a stop or a target. That checks
+    // the arithmetic agrees at SOME price; it does not check it at the prices
+    // the ladder actually puts a figure against, which are the prices the person
+    // named. Those need the fill forced onto an exact price, and the live book
+    // cannot be asked to quote one.
+    //
+    // So the close runs against a book holding one level at the level's own
+    // price and nothing else. That is a fabricated book, and it is only ever
+    // used to choose a fill price: nothing here reads depth off it, asserts
+    // anything about it, or lets it reach a person. The measured book is still
+    // what every other case in this file runs on.
+    for (const [nm, info, book, size] of [["BTC", btc, bookB, 0.1], ["SOL", sol, bookS, 10]]) {
+      for (const side of ["buy", "sell"]) {
+        const base = openPos(info, book, side, size, 10);
+        const pos0 = base.positions[nm];
+        pos0.fundingPaid = 0.41;          // already charged, so the figure has to carry it
+        const long = pos0.side === "long";
+        const d = dp(info);
+        const liq = api.liquidationPrice(pos0, info);
+        api.setPositionLevel(base, info, nm, "stop", api.roundPrice((pos0.entryPx + liq) / 2, d));
+        api.setPositionLevel(base, info, nm, "target", grid(info, pos0.entryPx * (long ? 1.06 : 0.94)));
+
+        for (const role of ["stop", "target"]) {
+          const s = JSON.parse(JSON.stringify(base));
+          const pos = s.positions[nm];
+          const row = api.positionLadder(pos, info, fees, info.markPx).find((r) => r.role === role);
+          const want = api.closeValueAt(pos, info, fees, row.px);
+          const lvl = [{ px: String(row.px), sz: String(size * 10) }];
+          const synth = { levels: [lvl, lvl] };
+          const dec = decide(s, info, synth,
+            { coin: nm, side: long ? "sell" : "buy", type: "market", size: pos.size, reduceOnly: true, leverage: 10 });
+          if (!dec.ok) {
+            check(`${nm} ${pos0.side}: closing AT the ${role} price realises what the ${role} row said`,
+              `REFUSED ${dec.code}: ${dec.message}`, false);
+            continue;
+          }
+          api.applyFill(s, info, dec.fill);
+          const closedRow = s.closed[0];
+          const got = api.realisedValue(closedRow);
+          // walkBook divides cost by size, and (size * px) / size is not always
+          // px in IEEE 754: at BTC size 0.1 it comes back one ulp out. So the
+          // fill is checked against the price the venue could quote rather than
+          // against the bit pattern, and the residual is printed.
+          check(`${nm} ${pos0.side}: closing AT the ${role} price realises what the ${role} row said`,
+            `filled at ${api.fmtPx(dec.fill.avgPx, d)}, row said ${api.fmtUsd(want.realises)}, closed ${api.fmtUsd(got)}, residual ${Math.abs(want.realises - got).toExponential(2)}`,
+            api.roundPrice(dec.fill.avgPx, d) === row.px
+              && Math.abs(want.realises - got) < 1e-9
+              && !s.positions[nm],
+            `the ${role} sits ${long ? (role === "stop" ? "below" : "above") : (role === "stop" ? "above" : "below")} entry on a ${pos0.side}`);
+          check(`  and the figure is still not the price difference`,
+            `pnl ${n6(want.pnl)}, realises ${n6(want.realises)}`,
+            Math.abs(want.pnl - want.realises) > 1e-9 && want.realises < want.pnl);
+        }
+      }
+    }
+
+    // ── one quantity, one function, and the gross figure that is not it ────
+    {
+      // Pinned against the expression itself. Every other case calls
+      // realisedValue on one side of its comparison, so without this one the
+      // helper could be redefined into something else and they would all keep
+      // passing. This is the only place the subtraction is written out.
+      const made = { pnl: 512.7, fees: 7.930855, funding: 0.41 };
+      check("realisedValue is pnl minus fees minus funding, and nothing else",
+        `${n6(api.realisedValue(made))} vs ${n6(made.pnl - made.fees - made.funding)}`,
+        api.realisedValue(made) === made.pnl - made.fees - made.funding);
+      check("  a row missing its funding has no figure rather than a partial one",
+        String(api.realisedValue({ pnl: 1, fees: 2 })),
+        api.realisedValue({ pnl: 1, fees: 2 }) === null,
+        "a net figure quietly missing a term is the shape of the defect it exists to stop");
+      check("  and no row at all is null, not zero",
+        `${api.realisedValue(null)} / ${api.realisedValue(undefined)}`,
+        api.realisedValue(null) === null && api.realisedValue(undefined) === null);
+
+      // The defect as measured, end to end: set a target, close at exactly it,
+      // then read the row the closed list reads.
+      const s = openPos(btc, bookB, "buy", 0.1, 10);
+      const pos = s.positions.BTC;
+      pos.fundingPaid = 0.41;
+      const target = grid(btc, pos.entryPx * 1.06);
+      api.setPositionLevel(s, btc, "BTC", "target", target);
+      const promised = api.positionLadder(pos, btc, fees, btc.markPx)
+        .find((r) => r.role === "target").value.realises;
+      const lvl = [{ px: String(target), sz: "1" }];
+      const dec = decide(s, btc, { levels: [lvl, lvl] },
+        { coin: "BTC", side: "sell", type: "market", size: pos.size, reduceOnly: true, leverage: 10 });
+      api.applyFill(s, btc, dec.fill);
+      const closedRow = s.closed[0];
+      const net = api.realisedValue(closedRow);
+      const gap = closedRow.pnl - net;
+      check("the closed row's gross pnl is not what the trade came to",
+        `ladder promised ${api.fmtUsd(promised)}, row.pnl ${api.fmtUsd(closedRow.pnl)}, realisedValue ${api.fmtUsd(net)}, gap ${api.fmtUsd(gap)}`,
+        gap > 0 && Math.abs(gap - (closedRow.fees + closedRow.funding)) < 1e-9
+          && Math.abs(net - promised) < 1e-9,
+        "rendering pnl under a heading about what a trade earned is the defect; the gap is exactly fees plus funding");
+
+      // The asymmetry, asserted rather than left in a comment. A closed row
+      // carries the two fees summed and closeValueAt carries them split, so the
+      // familiar names are not on the row and reaching for them gives NaN.
+      const plausible = closedRow.pnl - closedRow.entryFee - closedRow.exitFee - closedRow.funding;
+      check("  a closed row splits its fees differently from closeValueAt",
+        `row has fees ${n6(closedRow.fees)}, entryFee ${closedRow.entryFee}, exitFee ${closedRow.exitFee}; the familiar pairing gives ${plausible}`,
+        closedRow.entryFee === undefined && closedRow.exitFee === undefined && Number.isNaN(plausible),
+        "the pairing that looks right fails loudly instead of printing a plausible wrong figure");
+      const atPx = api.closeValueAt({ ...pos, size: closedRow.size }, btc, fees, closedRow.exitPx);
+      check("  and the split still sums to what the row carries",
+        `${n6(atPx.entryFee + atPx.exitFee)} vs ${n6(closedRow.fees)}`,
+        Math.abs(atPx.entryFee + atPx.exitFee - closedRow.fees) < 1e-9);
+    }
+
+    {
+      const s = openPos(btc, bookB, "buy", 0.1, 10);
+      const pos = s.positions.BTC;
+      check("with no fee schedule there is no figure rather than a fee-free one",
+        String(api.closeValueAt(pos, btc, null, btc.markPx)),
+        api.closeValueAt(pos, btc, null, btc.markPx) === null);
+      check("  and a price of zero has no figure either",
+        String(api.closeValueAt(pos, btc, fees, 0)), api.closeValueAt(pos, btc, fees, 0) === null);
+      const rows = api.positionLadder(pos, btc, fees, btc.markPx);
+      const mark = rows.find((x) => x.role === "mark");
+      check("the mark row comes from the same function as every other row",
+        `${n6(mark.value.realises)}`,
+        Math.abs(mark.value.realises - api.closeValueAt(pos, btc, fees, btc.markPx).realises) < 1e-12);
+    }
+
+    // ── the ladder is ordered by price, and a short inverts it ──────────────
+    for (const [nm, info, book, size] of [["BTC", btc, bookB, 0.1], ["SOL", sol, bookS, 10]]) {
+      for (const side of ["buy", "sell"]) {
+        const s = openPos(info, book, side, size, 10);
+        const pos = s.positions[nm];
+        const long = pos.side === "long";
+        const liq = api.liquidationPrice(pos, info);
+        const d = dp(info);
+        api.setPositionLevel(s, info, nm, "stop", api.roundPrice((pos.entryPx + liq) / 2, d));
+        api.setPositionLevel(s, info, nm, "target", grid(info, pos.entryPx * (long ? 1.06 : 0.94)));
+        const rows = api.positionLadder(pos, info, fees, info.markPx);
+        const order = rows.map((x) => x.role);
+        const ascending = rows.every((r, i) => i === 0 || rows[i - 1].px <= r.px);
+        check(`${nm} ${pos.side} ladder is ordered by price`, order.join(" < "), ascending);
+        const at = (role) => order.indexOf(role);
+        check(`  ${pos.side}: liquidation and stop sit ${long ? "below" : "above"} entry, target ${long ? "above" : "below"}`,
+          `${order.join(" < ")}`,
+          long
+            ? at("liquidation") < at("stop") && at("stop") < at("entry") && at("entry") < at("target")
+            : at("target") < at("entry") && at("entry") < at("stop") && at("stop") < at("liquidation"),
+          "ordering by role rather than by price is what reads as nonsense on a short");
+        const liqRow = rows[at("liquidation")];
+        check(`  ${pos.side}: the liquidation row carries a price and no figure`,
+          `px ${api.fmtPx(liqRow.px, d)}, value ${liqRow.value}`,
+          liqRow.value === null && (liqRow.note || "").includes("backstop"));
+        check(`  ${pos.side}: every other row carries one`,
+          rows.filter((r) => r.role !== "liquidation" && r.value == null).map((r) => r.role).join(",") || "all priced",
+          rows.filter((r) => r.role !== "liquidation").every((r) => r.value && isFinite(r.value.realises)));
+      }
+    }
+    {
+      const s = openPos(btc, bookB, "buy", 0.1, 10);
+      const rows = api.positionLadder(s.positions.BTC, btc, fees, btc.markPx);
+      check("a position with neither level set has neither row",
+        rows.map((x) => x.role).join(" < "),
+        !rows.some((x) => x.role === "stop" || x.role === "target"));
+      check("  and no position at all is an empty ladder",
+        JSON.stringify(api.positionLadder(null, btc, fees, btc.markPx)),
+        api.positionLadder(null, btc, fees, btc.markPx).length === 0);
+    }
+
+    // ── the mark passing a level does nothing, and says nothing else ────────
+    {
+      const s = openPos(btc, bookB, "buy", 0.1, 10);
+      const pos = s.positions.BTC;
+      const liq = api.liquidationPrice(pos, btc);
+      const stop = api.roundPrice((pos.entryPx + liq) / 2, 5);
+      api.setPositionLevel(s, btc, "BTC", "stop", stop);
+      const sizeBefore = pos.size, balBefore = s.balance, closedBefore = s.closed.length;
+
+      // A mark far below the stop. Passed through every entry point that takes
+      // one, because a trigger could only be simulated by one of them.
+      const through = stop * 0.5;
+      const passed = api.markHasPassedLevel(pos, "stop", through);
+      const rows = api.positionLadder(pos, btc, fees, through);
+      const stopRow = rows.find((x) => x.role === "stop");
+      check("the mark far through the stop: the mark has passed it",
+        `markHasPassedLevel ${passed}, row.markPassed ${stopRow.markPassed}`,
+        passed === true && stopRow.markPassed === true);
+      check("  and the position is untouched",
+        `size ${sizeBefore} -> ${s.positions.BTC ? s.positions.BTC.size : "GONE"}, balance ${balBefore.toFixed(6)} -> ${s.balance.toFixed(6)}, closed ${closedBefore} -> ${s.closed.length}`,
+        !!s.positions.BTC && s.positions.BTC.size === sizeBefore && s.balance === balBefore && s.closed.length === closedBefore);
+      check("  and the row says the mark passed it, not that it closed",
+        (stopRow.note || "").slice(0, 52) + "...",
+        stopRow.note === api.LEVEL_PASSED_NOTE
+          && /nothing was triggered/.test(stopRow.note)
+          && /still open/.test(stopRow.note));
+
+      // The words are the failure mode, so the keys are checked for them too. A
+      // panel reads keys; a key called `triggered` becomes a label called
+      // Triggered without anybody deciding to write one.
+      const FORBIDDEN = /trigger|fill|execut|stopped ?out|closed/i;
+      const keys = new Set();
+      for (const r of rows) { for (const k of Object.keys(r)) keys.add(k); if (r.value) for (const k of Object.keys(r.value)) keys.add(k); }
+      const setRes = api.setPositionLevel(s, btc, "BTC", "target", api.roundPrice(pos.entryPx * 1.05, 5));
+      for (const k of Object.keys(setRes)) keys.add(k);
+      const offenders = [...keys].filter((k) => FORBIDDEN.test(k));
+      check("nothing a level exposes is named after an execution",
+        offenders.length ? offenders.join(",") : [...keys].sort().join(","), offenders.length === 0);
+      check("  and that check would catch one", `FORBIDDEN.test("triggered") = ${FORBIDDEN.test("triggered")}`,
+        FORBIDDEN.test("triggered") && FORBIDDEN.test("wouldFill") && !FORBIDDEN.test("markPassed"));
+
+      const nm = api.NOT_MODELLED.filter((t) => /not an order/.test(t) && /queue position/.test(t));
+      check("NOT_MODELLED says a level is not an order at the venue",
+        nm.length ? nm[0].slice(0, 60) + "..." : "MISSING", nm.length === 1);
+      const sl = api.NOT_MODELLED.filter((t) => /[Ss]lippage/.test(t) && /marked price/.test(t));
+      check("  and that the figure carries no slippage",
+        sl.length ? sl[0].slice(0, 60) + "..." : "MISSING", sl.length === 1);
+    }
+
+    // ── set while the mark is already past the level ────────────────────────
+    {
+      // Entry above the live mark, built through openPosition so the mark is on
+      // a known side of it. 2x, so the liquidation price is nowhere near.
+      const s = fresh();
+      const entry = api.roundPrice(btc.markPx * 1.1, 5);
+      api.openPosition(s, btc, { coin: "BTC", side: "buy", size: 0.1, avgPx: entry, fee: 0, leverage: 2, at: Date.now() });
+      const pos = s.positions.BTC;
+      const stop = api.roundPrice(btc.markPx * 1.02, 5);   // below entry, above the mark
+      const r = api.setPositionLevel(s, btc, "BTC", "stop", stop);
+      check("a stop the mark is already past is accepted, and says so",
+        r.ok ? `markPassed ${r.markPassed}` : `REFUSED ${r.code}: ${r.message}`,
+        r.ok === true && r.markPassed === true && r.note === api.LEVEL_PASSED_NOTE,
+        "a level is a mark, not an order, so there is nothing for it to have done");
+      check("  and it is on the position afterwards", String(pos.stopPx), pos.stopPx === stop);
+      const t = api.setPositionLevel(s, btc, "BTC", "target", api.roundPrice(entry * 1.1, 5));
+      check("  a level the mark has not reached says so too",
+        `markPassed ${t.markPassed}, note ${t.note}`, t.ok === true && t.markPassed === false && t.note === null);
+    }
+
+    // ── a level the entry price moved under ─────────────────────────────────
+    {
+      // Averaging down a long drags entry below a stop that was set correctly.
+      // Built with two openPosition calls at chosen prices because the live mark
+      // cannot be asked to move.
+      const s = fresh();
+      const p1 = api.roundPrice(B.ask, 5);
+      const s1 = api.roundPrice(p1 * 0.95, 5);
+      api.openPosition(s, btc, { coin: "BTC", side: "buy", size: 0.1, avgPx: p1, fee: 0, leverage: 10, at: Date.now() });
+      const set = api.setPositionLevel(s, btc, "BTC", "stop", s1);
+      const pos = s.positions.BTC;
+      api.openPosition(s, btc, { coin: "BTC", side: "buy", size: 0.1, avgPx: api.roundPrice(p1 * 0.8, 5), fee: 0, leverage: 10, at: Date.now() });
+      check("a stop valid when set, left above entry by averaging down",
+        `set below ${api.fmtPx(p1, 5)}, entry now ${api.fmtPx(pos.entryPx, 5)}`,
+        set.ok === true && api.levelIsStale(pos, "stop") === true && s1 > pos.entryPx);
+      const row = api.positionLadder(pos, btc, fees, btc.markPx).find((x) => x.role === "stop");
+      check("  the ladder marks it rather than dropping it",
+        `stale ${row.stale}, note ${(row.note || "").slice(0, 40)}...`,
+        row.stale === true && row.note === api.LEVEL_STALE_NOTE && row.px === s1);
+      const again = api.setPositionLevel(s, btc, "BTC", "stop", s1);
+      check("  and setting that same price now is refused",
+        again.ok ? "ACCEPTED" : `refused ${again.code}`, !again.ok && again.code === "level_side",
+        "the stale flag and the validator have to agree about which side is which");
+    }
+
+    // ── a flip does not keep the levels of the position it replaced ─────────
+    {
+      const s = openPos(btc, bookB, "buy", 0.01, 10);
+      const pos = s.positions.BTC;
+      const liq = api.liquidationPrice(pos, btc);
+      api.setPositionLevel(s, btc, "BTC", "stop", api.roundPrice((pos.entryPx + liq) / 2, 5));
+      api.setPositionLevel(s, btc, "BTC", "target", api.roundPrice(pos.entryPx * 1.06, 5));
+      const flip = decide(s, btc, bookB, { coin: "BTC", side: "sell", type: "market", size: 0.03, leverage: 10 });
+      api.applyFill(s, btc, flip.fill);
+      const p2 = s.positions.BTC;
+      check("flipping long to short does not carry the old levels across",
+        p2 ? `${p2.side}, stopPx ${p2.stopPx}, targetPx ${p2.targetPx}` : "no position",
+        !!p2 && p2.side === "short" && p2.stopPx === null && p2.targetPx === null,
+        "a stop below entry on the long is above entry on the short");
+    }
+
+    // ── level refusals read like every other refusal ────────────────────────
+    {
+      const s = openPos(btc, bookB, "buy", 0.1, 10);
+      const pos = s.positions.BTC;
+      const liq = api.liquidationPrice(pos, btc);
+      const probes = [
+        ["level side", () => api.setPositionLevel(s, btc, "BTC", "stop", api.roundPrice(pos.entryPx * 1.05, 5))],
+        ["level tick", () => api.setPositionLevel(s, btc, "BTC", "stop", api.roundPrice(pos.entryPx * 0.96, 5) + 0.5)],
+        ["level liq", () => api.setPositionLevel(s, btc, "BTC", "stop", api.roundPrice(liq * 0.9, 5))],
+        ["level px", () => api.setPositionLevel(s, btc, "BTC", "stop", "not a price")],
+        ["no position", () => api.setPositionLevel(fresh(), btc, "BTC", "stop", 80000)],
+        ["level kind", () => api.setPositionLevel(s, btc, "BTC", "trail", 80000)],
+      ];
+      const tails = [], groups = [], shapes = [];
+      for (const [label, run] of probes) {
+        const r = run();
+        if (r.ok) { shapes.push(`${label}: ACCEPTED`); continue; }
+        if (typeof r.code !== "string" || typeof r.message !== "string" || !("detail" in r)) shapes.push(`${label}: shape`);
+        const text = [r.message, r.detail].filter(Boolean).join(" ");
+        if (LONG_TAIL.test(text)) tails.push(`${label}: ${LONG_TAIL.exec(text)[0]}`);
+        if (UNGROUPED.test(text)) groups.push(`${label}: ${UNGROUPED.exec(text)[0]}`);
+      }
+      check("every level refusal has a code, a message and a detail",
+        shapes.length ? shapes.join(" | ") : `${probes.length} refusal paths`, shapes.length === 0);
+      check("  and carries no raw float tail", tails.length ? tails.join(" | ") : "clean", tails.length === 0);
+      check("  and no ungrouped run of digits", groups.length ? groups.join(" | ") : "clean", groups.length === 0);
+    }
   }
 
   // ── funding ───────────────────────────────────────────────────────────────

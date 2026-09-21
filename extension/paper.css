@@ -371,6 +371,145 @@
   background: rgba(80, 210, 193, .08); border-radius: 6px;
 }
 
+/* ── The levels, and the ladder they sit on ───────────────────────────────────
+ *
+ * WHY THE LADDER IS NOT ON THEIR CHART, IN ONE LINE, BECAUSE IT IS THE WHOLE
+ * REASON THIS BLOCK EXISTS. Their chart is a TradingView instance whose widget
+ * handle is not exposed, and both the plot and the price axis are canvas, so
+ * price cannot be turned into a pixel. A line drawn in the wrong place is worse
+ * than no line, so the prices are listed here instead, in an order and with
+ * distances that do not depend on any mapping to pixels at all.
+ *
+ * AND WHY THERE IS NO PROPORTIONAL SCALE BESIDE THE ROWS EITHER. There was one,
+ * a 24px track with a tick at each price's true fraction of the span. The rows
+ * next to it are not spaced that way and cannot be: a row carrying the engine's
+ * mark-passed note is 140px tall and one that is not is 34px. Measured, the
+ * ticks landed beside the wrong words, the stop's by 52px, so it sat against
+ * the word entry in every configuration tested. That is the same failure as a
+ * line in the wrong place on their chart, reproduced inside the panel built to
+ * avoid it, so it was deleted rather than left approximately right. The rules
+ * for anything put back: it is positioned BY the row, inside it, where it
+ * cannot mispair, and it never carries a colour that means better or worse
+ * unless it is read from the same figure the row prints.
+ *
+ * The rungs are two lines rather than five columns, and the number that decides
+ * it is how narrow their column gets. MEASURED, 2026-09-21, on
+ * app.hyperliquid.xyz/trade/BTC: their order form and their order book are the
+ * same width at every window size, the panel takes that width, and the body's
+ * inner width is it less 20px of padding. Re-derive by injecting paper.js and
+ * reading theirOrderForm().getBoundingClientRect() at each window width:
+ *
+ *     window   their column   panel   body inner
+ *       1280        362        362       342
+ *       1440        266        266       246
+ *       1600        296        296       276
+ *       1920        356        356       336
+ *
+ * So the narrowest case is 246px of usable width, at 1440 and not at the
+ * smallest window, because their grid gives the column a share rather than a
+ * minimum. Label, price, price distance, percent and figure do not fit across
+ * 246px without truncating one of them, and a price cell is the one that may
+ * never be truncated.
+ */
+.tnega-paper .tp-levels { margin: 10px 0 0; }
+.tnega-paper .tp-levels .tp-sub { margin-bottom: 7px; }
+
+.tnega-paper .tp-lvl-wrap { margin-bottom: 8px; }
+.tnega-paper .tp-lvl-field { margin-bottom: 0; }
+.tnega-paper .tp-lvl-field.tp-lvl-bad { border-color: var(--tp-sell); }
+.tnega-paper .tp-lvl-clear { flex: 0 0 auto; padding: 2px 7px; font-size: 10px; }
+.tnega-paper .tp-lvl-msg {
+  color: var(--tp-sell); font-size: 11px; line-height: 1.35; margin: 4px 0 0;
+}
+/* A DRAFT HAS TO LOOK LIKE A DRAFT. A level is committed when the field is
+   left or Enter is pressed, so between the last keystroke and that moment the
+   box holds a number the engine has never seen. Drawn in the committed weight
+   and colour it was indistinguishable from a set level, and the only thing
+   separating them, the focus ring, disappears at the same instant the value
+   commits. The uncommitted value is muted and dashed; the line under the field
+   says what the ladder is actually showing. */
+.tnega-paper .tp-lvl-field.tp-lvl-draft { border-style: dashed; }
+.tnega-paper .tp-lvl-field.tp-lvl-draft input { color: var(--tp-muted); }
+.tnega-paper .tp-lvl-state {
+  color: var(--tp-muted); font-size: 10px; line-height: 1.35; margin: 4px 0 0;
+}
+/* The sentence denying that any of this executes, above the fields rather than
+   under the ladder, where two open refusals used to push it off a 390 screen. */
+.tnega-paper .tp-levels .tp-note.tp-lvl-deny { margin: 0 0 9px; }
+
+.tnega-paper .tp-ladder { margin-top: 6px; }
+
+.tnega-paper .tp-rungs { display: flex; flex-direction: column; }
+.tnega-paper .tp-rung { padding: 2px 0; }
+.tnega-paper .tp-rung-a, .tnega-paper .tp-rung-b {
+  display: flex; align-items: baseline; gap: 6px;
+}
+.tnega-paper .tp-rung-b { margin-top: 1px; flex-wrap: wrap; }
+.tnega-paper .tp-rung-dot {
+  flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--tp-muted);
+}
+.tnega-paper .tp-rung-liquidation .tp-rung-dot { background: var(--tp-sell); }
+.tnega-paper .tp-rung-stop .tp-rung-dot { background: transparent; border: 1px solid var(--tp-sell); }
+.tnega-paper .tp-rung-entry .tp-rung-dot { background: transparent; border: 1px solid var(--tp-muted); }
+.tnega-paper .tp-rung-mark .tp-rung-dot { background: var(--tp-white); }
+.tnega-paper .tp-rung-target .tp-rung-dot { background: var(--tp-accent); }
+.tnega-paper .tp-rung-k { flex: 0 0 auto; min-width: 0; font-size: 12px; color: var(--tp-muted); }
+/* The engine's sentence about this row, when the mark has been past the price
+   or the entry has moved under it. Verbatim and in full: a short label of this
+   panel's own is how the word triggered or filled ends up on a screen that has
+   no order on it, so there is no short label. */
+.tnega-paper .tp-rung-note {
+  color: var(--tp-muted); font-size: 10px; line-height: 1.35;
+  margin: 3px 0 2px 12px; padding-left: 7px;
+  border-left: 1px solid var(--tp-line);
+}
+/* Coloured by ROLE, not by sign. A short's liquidation is ABOVE its entry, so
+   its distance from entry is a positive number, and a green +12.7% beside the
+   word liquidation is the single most wrong thing this block could say. Only
+   the realised figure, which does mean better or worse, is coloured by sign. */
+.tnega-paper .tp-rung-liquidation .tp-rung-k, .tnega-paper .tp-rung-stop .tp-rung-k { color: var(--tp-sell); }
+.tnega-paper .tp-rung-target .tp-rung-k { color: var(--tp-accent); }
+.tnega-paper .tp-rung-mark .tp-rung-k { color: var(--tp-fg); }
+.tnega-paper .tp-rung-px {
+  /* margin-left rather than a flexing sibling, because the tag beside it is
+     display:none most of the time and an adjacent-sibling rule cannot see that. */
+  flex: 0 0 auto; margin-left: auto;
+  color: var(--tp-white); font-size: 12px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tnega-paper .tp-rung-b { padding-left: 12px; }
+.tnega-paper .tp-rung-d, .tnega-paper .tp-rung-pc {
+  flex: 0 0 auto; color: var(--tp-muted); font-size: 11px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* "would realise", "if closed now", "in and out at this price": the words that
+   keep the money beside them a hypothetical, ON THE ROW and not only in the
+   paragraph under the ladder. A bare +$589.83 next to the word target is the
+   one cell here where a figure nobody has earned can read as earned, and a
+   reader who has not reached the paragraph has nothing saying otherwise.
+   The second line wraps rather than truncates: at their narrowest column the
+   money drops onto its own line, still right-aligned, and a price or a figure
+   is never cut off to make room. */
+.tnega-paper .tp-rung-q {
+  flex: 0 0 auto; margin-left: auto; padding-left: 8px;
+  color: var(--tp-muted); font-size: 10px; white-space: nowrap;
+}
+.tnega-paper .tp-rung-r {
+  flex: 1 1 auto; min-width: 54px; text-align: right;
+  font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.tnega-paper .tp-rung-na { color: var(--tp-muted); }
+
+/* A row that could not be priced says so in a cell 46px wide; the reason it
+   could not is said once, here, in words. */
+.tnega-paper .tp-lvl-why { margin: 7px 0 0; }
+.tnega-paper .tp-lvl-why-l {
+  color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin: 0 0 6px;
+}
+.tnega-paper .tp-lvl-why-l:last-child { margin-bottom: 0; }
+.tnega-paper .tp-levels .tp-note { margin: 7px 0 0; }
+
 /* ── The two sentences that are never collapsed ───────────────────────────── */
 /* Under the button, where the number that looks like a profit is. Quiet, not
    a warning box: this is the panel saying what it is, not an alert. */
@@ -422,6 +561,9 @@
 }
 .tnega-paper .tp-rest-t { flex: 1 1 auto; min-width: 0; font-variant-numeric: tabular-nums; }
 .tnega-paper .tp-rest-away { display: block; color: var(--tp-muted); font-size: 10px; margin-top: 2px; }
+/* A closed row stored without all three of its parts cannot be totalled, and
+   says so where the total goes rather than showing a sum with a part missing. */
+.tnega-paper .tp-rest-na { color: var(--tp-muted); font-size: 11px; white-space: nowrap; }
 
 /* ── What happened, which is where the teaching is ────────────────────────── */
 .tnega-paper .tp-events { list-style: none; margin: 0; padding: 0; }
