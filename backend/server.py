@@ -1175,6 +1175,109 @@ async def hyperliquid_address(address: str, response: Response = None):
     return data
 
 
+# ── the accumulated series ───────────────────────────────────────────────────
+#
+# TWO ROUTES BESIDE THE SINGLE-ADDRESS ONE, AND NOTHING TOUCHING IT.
+# /api/hyperliquid/address/{address} is what the shipped Chrome extension
+# reads, its CORS is open for a content script, and it is unchanged: same
+# path, same shape, same headers, same access. Everything below is new surface
+# next to it.
+#
+# WHY THIS IS THE DATASET WORTH SERVING.
+# historicalOrders returns only the 2,000 most recent records per address and
+# ignores startTime and endTime; both were tested and each returns the
+# identical 2,000 rows. There is no backfill. Any history this project has is
+# history it collected, so the accumulated series is the one thing here a
+# caller could not get by calling the venue themselves.
+#
+# FREE, AND BUILT AS IF IT WERE NOT.
+# There is no payment layer on these routes and no 402 path. The withholding
+# discipline is not a function of price: every figure carries its coverage,
+# every absence carries a reason rather than a zero, and the words are the ones
+# core/hyperliquid/service.py already uses rather than a second vocabulary.
+#
+# CORS IS THE DEFAULT POLICY HERE, DELIBERATELY.
+# The wildcard on /api/hyperliquid/address exists for one reason: a content
+# script on app.hyperliquid.xyz sends an Origin no allowlist can contain.
+# Nothing in the extension calls these routes, and the callers they are for
+# (a server, a script, an MCP client) ignore CORS headers entirely. Opening
+# them wide would be copying a header without its reason.
+
+
+@app.get("/api/hyperliquid/history/{address}")
+async def hyperliquid_history(address: str, start: str = None, end: str = None,
+                              bucket: str = "hour", limit: int = None,
+                              response: Response = None):
+    """Post-only rejection over time for one address, oldest first.
+
+    Query: start, end (ISO 8601, `end` exclusive), bucket (hour or day),
+    limit (points, capped). Defaults: the last seven days, hourly.
+
+    Partial coverage is the normal case and is answered rather than hidden.
+    coverage.segments partitions the requested range end to end and names the
+    state of every part of it, so a range reaching back before collection
+    started, or covering an address that entered the tracked set on a later
+    date, comes back saying which part it actually covers. Nothing is
+    interpolated and nothing is silently truncated.
+
+    Paging is a forward walk: next_cursor is the bucket after the last point
+    returned, handed back as `start`.
+    """
+    from core.hyperliquid import history
+    try:
+        data = await asyncio.to_thread(
+            history.address_history, address, start=start, end=end,
+            bucket=bucket, limit=limit)
+    except history.RangeError as e:
+        # A stated boundary, not a stack trace. Every refusal this raises
+        # carries what was wrong and what to send instead.
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        # A Cockroach outage must read as "we cannot tell you right now", never
+        # as an empty series that looks like an address with no rejections.
+        raise HTTPException(
+            status_code=503,
+            detail=f"Hyperliquid store unavailable: {type(e).__name__}")
+    if response is not None:
+        # The collector writes about every thirteen minutes per address and
+        # every bucket before the current one is final.
+        response.headers["Cache-Control"] = "public, max-age=300"
+    return data
+
+
+@app.get("/api/hyperliquid/history")
+async def hyperliquid_history_bulk(addresses: str, start: str = None,
+                                   end: str = None, bucket: str = "hour",
+                                   response: Response = None):
+    """The same series for several addresses, plus the window they share.
+
+    Query: addresses (comma separated), start, end, bucket. Its own route
+    rather than a parameter on the one above, because "how did this address
+    behave" and "which of these is quoting" have different boundaries: that
+    one pages, this one refuses a range it cannot fit, since a comparison
+    trimmed to a shorter window is a comparison over a range nobody chose.
+
+    value.comparable_window is the intersection of the buckets actually
+    covered for every address that has any, with each rate recomputed inside
+    it. Ranking addresses on rates measured over different windows is the
+    mistake this endpoint exists to make hard.
+    """
+    from core.hyperliquid import history
+    wanted = [a for a in (addresses or "").split(",") if a.strip()]
+    try:
+        data = await asyncio.to_thread(
+            history.bulk_history, wanted, start=start, end=end, bucket=bucket)
+    except history.RangeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"Hyperliquid store unavailable: {type(e).__name__}")
+    if response is not None:
+        response.headers["Cache-Control"] = "public, max-age=300"
+    return data
+
+
 @app.get("/api/monitors/reconciliation")
 async def monitors_reconciliation():
     """Does each published figure still match the source it came from.
