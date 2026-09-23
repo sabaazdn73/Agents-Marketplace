@@ -522,8 +522,16 @@
   margin: -4px 0 8px;
 }
 
-/* The four order figures, and the line that stands in for them when there is
-   no order to describe. */
+/* A row of their order-form tail that is naming an absence rather than holding
+   a figure. Their form prints N/A in these cells and this panel does not, so
+   the cell carries a short phrase instead; muted, because four repetitions of
+   the same three words in the value colour read as four numbers. */
+.tnega-paper .tp-kv-v.tp-kv-off {
+  color: var(--tp-muted); font-variant-numeric: normal;
+}
+
+/* The complaint about what is in the size field, under the rows it is about:
+   longer than a cell, so it is not in one. */
 .tnega-paper .tp-preview-none {
   color: var(--tp-muted); font-size: 11px; line-height: 1.4; margin-top: 4px;
 }
@@ -541,8 +549,17 @@
 /* ── What the order being typed would cost, under the button ──────────────── */
 /* 21px from the button to the first row, which is their own spacing under
    their Connect button, and their 22px row pitch down the block. */
-.tnega-paper .tp-stats { margin-top: 21px; }
-.tnega-paper .tp-stats .tp-kv { margin-bottom: 10px; }
+/* 21px was measured from their Connect button to the first row of their tail.
+   The outcome banner sits between the two here, so this gap is banner to tail
+   and not button to tail, and the measurement was never about it. 12px is the
+   rhythm the rest of the column keeps. */
+.tnega-paper .tp-stats { margin-top: 12px; }
+/* THEIR OWN 22px PITCH, which is the 15px row and the 7px every other tp-kv on
+   this panel already carries. The 10px here was set when four of these rows
+   appeared only while an order was being described; there are five of them now
+   and they are always drawn, so 3px a row was 15px of a 390 screen spent on
+   looking less like their form rather than more. */
+.tnega-paper .tp-stats .tp-kv { margin-bottom: 7px; }
 .tnega-paper .tp-stale { color: var(--tp-sell); }
 
 /* The footnote under those figures: what they were priced from, and how old

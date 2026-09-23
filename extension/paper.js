@@ -408,12 +408,30 @@ function anchorPaperPanel() {
 
   if (!grid) {
     // No grid to anchor to. A bottom sheet, lifted clear of whatever fixed
-    // navigation their page keeps on the bottom edge, at 72% of the screen so
-    // their market header and part of the chart stay visible behind it.
+    // navigation their page keeps on the bottom edge, and no taller than it
+    // needs to be: the height is the content's and this is only the cap.
+    //
+    // 84%, RAISED FROM 72%, AND MEASURED RATHER THAN PICKED. 72% is 572px at
+    // 390x844, which left 529px of body, and the control that closes a position
+    // sat at 590. So somebody who opened a position could not close it without
+    // finding a scroll they had no reason to expect, which is the exact failure
+    // the placement rules here exist to prevent, and use_it.py reports it by
+    // name. What changed under the cap is that their order form's tail is five
+    // always-present rows rather than four rows drawn only while an order was
+    // being typed, which is 100px that now stands between the button and the
+    // position in every state.
+    //
+    // 84% is 668px, which puts the top edge at 127 at 390x844. Their market
+    // header, the pair and the mark, ends at 125 and stays visible; what is
+    // covered that was not is their Chart / Order Book / Trades strip and the
+    // top of the chart. That is the trade this panel is already making at 1280,
+    // where it covers their order book outright, and it is the smaller half of
+    // it: a position you cannot close is worse than a chart you have to close
+    // the panel to read.
     const lift = bottomObstruction();
     s.left = "0px"; s.right = "0px"; s.bottom = lift + "px";
     s.top = "auto"; s.width = "auto"; s.height = "auto";
-    s.maxHeight = Math.round((vh - lift) * 0.72) + "px";
+    s.maxHeight = Math.round((vh - lift) * 0.84) + "px";
     return;
   }
 
@@ -863,25 +881,41 @@ function buildPaperPanel() {
   // a position they hold has one muted line here and not four figures.
   const stats = tpEl(body, "div", "tp-stats");
 
-  // THESE FOUR DESCRIBE AN ORDER, so they are on screen when there is an order
-  // to describe and not before. They used to render "N/A" apiece the moment the
-  // panel opened: four stacked N/As under the button, which is what a broken
-  // panel looks like, and which said nothing about WHICH kind of nothing it
-  // was. One line in their place says the one thing that is true.
-  ui.previewRows = tpEl(stats, "div", "tp-preview");
-  ui.liq = tpKv(ui.previewRows, "Liquidation Price");
-  ui.orderValue = tpKv(ui.previewRows, "Order Value");
-  ui.marginReq = tpKv(ui.previewRows, "Margin Required");
-  ui.slippage = tpKv(ui.previewRows, "Slippage");
+  // THEIR FIVE ROWS, IN THEIR ORDER, ALWAYS PRESENT, AND NOT ONE N/A AMONG
+  // THEM. Their form's tail is Liquidation Price, Order Value, Margin Required,
+  // Slippage, Fees, drawn whether anything has been entered or not, and three
+  // of theirs print N/A while nothing has been.
+  //
+  // Four of these were hidden behind one stand-in line, which was the previous
+  // answer to the same tension and went too far the other way: the tail of
+  // their form disappeared, so the panel had a shape theirs does not and a
+  // person looking for Margin Required found nothing at all where it should
+  // be. The rows are back. What is not back is N/A, which was removed because
+  // a failed read and an empty field printed the same two letters and a person
+  // could not tell a broken panel from an untouched one.
+  //
+  // So: their shape, our words. Every row stands, and when it has no figure it
+  // carries the short name of the absence it is in, which differs by cause.
+  // The sentence behind that name, when there is more to say, is the refusal or
+  // the complaint already rendered above the button.
+  ui.liq = tpKv(stats, "Liquidation Price");
+  ui.orderValue = tpKv(stats, "Order Value");
+  ui.marginReq = tpKv(stats, "Margin Required");
+  ui.slippage = tpKv(stats, "Slippage");
+  // THEIRS TOO, AND IT USED TO BE A FOOTNOTE. The fee schedule was in the small
+  // muted line under these rows, beside how old the market read is, which made
+  // the one figure of the five that is always knowable look like a note about
+  // the other four. It is their fifth row and it is now the fifth row.
+  ui.fees = tpKv(stats, "Fees");
+  // The longer form of whatever the size field is doing wrong, when there is a
+  // longer form. Not "enter a size", which the rows above now say themselves.
   ui.previewNone = tpEl(stats, "div", "tp-preview-none tp-hide");
 
-  // WHAT THOSE FIGURES ARE PRICED FROM, ON ONE LINE RATHER THAN TWO ROWS.
-  // Neither is about an order, both are about the panel's own reading, and a
-  // figure without its age is the thing this project does not ship. One line,
-  // in the small muted type, because they are a footnote to the figures above
-  // rather than two more of them.
+  // HOW OLD THE READ BEHIND THOSE FIGURES IS. Not one of their rows: it is
+  // about this panel rather than about the order, and a figure without its age
+  // is the thing this project does not ship. One line of small muted type,
+  // because it is a footnote to the rows above rather than one more of them.
   const meta = tpEl(body, "div", "tp-meta");
-  ui.feeLine = tpMeta(meta, "Fees");
   ui.dataLine = tpMeta(meta, "Market data");
 
   // ── The practice account. Ours, not a copy of anything of theirs.
@@ -917,11 +951,35 @@ function buildPaperPanel() {
   const ptab = tpEl(ui.posSec, "table", "tp-table tp-pos-t");
   const ptb = tpEl(ptab, "tbody");
   ui.posTable = ptab;
-  // Side, size and leverage on one row, because they are one fact: what is
-  // open. Entry, mark and liquidation are not here; they are prices, and the
-  // prices are on the ladder below with a figure against each.
+  // THEIR NINE COLUMNS, IN THEIR ORDER AND IN THEIR WORDS, AS ROWS.
+  //
+  // Their positions table runs Market, Size, Position Value, Entry Price, Mark
+  // Price, PNL (ROE %), Liq. Price, Margin, Funding across the foot of the
+  // page. This column is 342px of inner width and a nine-column table does not
+  // go in it, so the ones that are figures about the position are label/value
+  // rows here and the ones that are PRICES stay on the ladder below, where each
+  // already carries what closing there would realise. Market is the heading.
+  // Entry Price, Mark Price and Liq. Price are the ladder's entry, mark and
+  // liquidation rungs.
+  //
+  // That left three of theirs with nowhere to be, and they are the three added
+  // here: Position Value, PNL (ROE %) and Margin. The relative order is theirs,
+  // so the two tables read the same way down.
+  //
+  // Side, size and leverage share the Size row, because they are one fact:
+  // what is open.
   ui.posSize = tpRow(ptb, "Size");
-  ui.posFunding = tpRow(ptb, "Funding paid");
+  ui.posValue = tpRow(ptb, "Position Value");
+  // THE PERCENT THE LADDER SAYS IT IS NOT. Every rung's percentage is how far
+  // that price is from entry; the disclosure says so and says it is not a
+  // return on the margin. ROE is the return on the margin, so this row is the
+  // figure that note has been pointing at, not a contradiction of it. The two
+  // are kept apart by living in different places and being named differently.
+  ui.posPnl = tpRow(ptb, "PNL (ROE %)");
+  ui.posMargin = tpRow(ptb, "Margin");
+  // Their word is Funding, and the sign carries the direction: negative is paid
+  // out, positive is received, which is how their column reads it too.
+  ui.posFunding = tpRow(ptb, "Funding");
   // A position held on a market whose rules have not been read yet still has a
   // side, a size and a funding charge, so the rows above stand. What is missing
   // is every price, and this says which absence that is rather than leaving the
@@ -1184,8 +1242,11 @@ function buildDisclosure(parent) {
     <p class="tp-sub2">Reading the ladder</p>
     <p class="tp-note">On each rung, the percentage is how far that price is from your
     entry, not a return on your margin: at 5x, a price 5% away from entry is 25% of the
-    margin. The money is what closing the whole position at that price would realise,
+    margin. The return on your margin is the ROE in brackets on the PNL row above, which
+    is worked at the mark. The money is what closing the whole position at that price would realise,
     after the fee on the way in, the fee on the way out, and the funding charged so far.
+    The PNL row is the move on its own, before those three, so it is the larger of the
+    two and the mark rung here is the one to act on.
     The same figure on another market's row is that market's own mark worked the same
     way. Nothing on the ladder is an order, and a price reaching one of these levels
     closes nothing.</p>
@@ -1293,6 +1354,14 @@ const paper = {
   // and the section says which it is.
   others: null,
   othersOpen: true,
+  // Every listed perp's own rules, keyed by coin, as assetSpecs returns them.
+  // The closed list needs one asset's szDecimals per ROW and the rows span
+  // whatever markets have been traded, so `paper.info`, which is the market on
+  // screen, cannot price them: a row from another market printed at six places
+  // and read as more precise than the venue can quote. null until the first
+  // read answers, and a row whose coin is not in it says so rather than
+  // pretending to a precision.
+  specs: null,
   // Which position the leverage box was last seeded from, as coin plus the
   // instant it was opened plus the leverage it holds. The leverage is part of
   // the identity because adding to a position changes it under an unchanged
@@ -1703,9 +1772,33 @@ function unpricedReason() {
  */
 async function paperReadOtherPositions() {
   if (!paper.state) return null;
+  // THE MAP FIRST, AND BEFORE THE openPositions GUARD. It is read by two
+  // surfaces, not one: the rows below and the closed list, and the closed list
+  // has rows on markets that nothing is open on any more. Fetched here rather
+  // than inside openPositions so there is one read a tick instead of two, and
+  // passed in so openPositions does not build a second copy of it.
+  if (typeof assetSpecs === "function") {
+    try {
+      const specs = await assetSpecs();
+      if (specs && specs.size) paper.specs = specs;
+    } catch (e) { /* the previous map stands, and a row with no spec says so */ }
+  }
   if (typeof openPositions !== "function") return null;
-  const rows = await openPositions(paper.state, paperLadderFees());
+  const rows = await openPositions(paper.state, paperLadderFees(), paper.specs);
   return Array.isArray(rows) ? rows : null;
+}
+
+/** The asset rules to print one coin's prices at.
+ *
+ *  The market on screen is already read in full, so it answers for itself.
+ *  Everything else comes out of the universe map. null when neither has it,
+ *  which is a different thing from a price that is not a number and is printed
+ *  as its own sentence rather than as six decimal places nobody asked for.
+ */
+function paperSpecFor(coin) {
+  if (!coin) return null;
+  if (paper.info && paper.info.coin === coin) return paper.info;
+  return (paper.specs && paper.specs.get(coin)) || null;
 }
 
 /** Commit a level, or clear it. Follows the person's own blur, Enter or Clear,
@@ -1881,15 +1974,18 @@ function refresh() {
     : (age < 6000 ? "live" : `${Math.round(age / 1000)}s old`));
   ui.dataLine.classList.toggle("tp-stale", stale || age == null);
 
-  // The fee schedule, and whether it was read or is the base constant. These
-  // two numbers are correct today and are still not a reading, and a constant
-  // printed in the shape of a measurement is the thing this project does not
-  // ship. If userFees never answered the row says so instead of the number.
-  setText(ui.feeLine, paper.feesRead
+  // Their Fees row: taker then maker, the way theirs prints it, and whether it
+  // was read or is the base constant. These two numbers are correct today and
+  // are still not a reading, and a constant printed in the shape of a
+  // measurement is the thing this project does not ship. If userFees never
+  // answered the row says so instead of the number. This one is the same in
+  // every state, which is why it is not among the four below: it does not
+  // depend on there being an order.
+  setText(ui.fees, paper.feesRead
     ? `${(paper.fees.taker * 100).toFixed(4)}% / ${(paper.fees.maker * 100).toFixed(4)}%`
     : "not read");
-  ui.feeLine.classList.toggle("tp-stale", !paper.feesRead);
-  ui.feeLine.title = paper.feesRead
+  ui.fees.classList.toggle("tp-stale", !paper.feesRead);
+  ui.fees.title = paper.feesRead
     ? "Taker / maker, read from Hyperliquid's own fee schedule at the base tier."
     : "Hyperliquid's fee schedule did not answer, so no rate is shown. The "
       + "simulation is using the base tier constants until it does.";
@@ -1901,6 +1997,10 @@ function refresh() {
   const problem = paperDataProblem();
   const pv = problem ? null : paperPreview();
   let liq = "", ov = "", mr = "", slip = "";
+  // Cleared before the branches. The only branch that sets it is the one that
+  // prices a fill, so without this a hover explaining why a 1x order has no
+  // liquidation price outlived the order it was about.
+  ui.liq.title = "";
   setShown(ui.refusal, false);
   // An inference that lets an order through says so here, before the click.
   setText(ui.assumption, (pv && pv.ok && pv.assumption) || "");
@@ -1919,7 +2019,15 @@ function refresh() {
     mr = `${pusd(margin)} USDC`;
     // slippageVsTouch is a price difference; against the fill price it reads
     // as the percentage their own form shows.
-    slip = `Est: ${(Math.abs(f.slippageVsTouch) / f.avgPx * 100).toFixed(3)}%`;
+    //
+    // THEIRS READS "Est: 0% / Max: 8.00%" AND OURS HAS NO MAX, so ours does not
+    // print one. Their Max is a protection setting that rejects a market order
+    // whose fill comes back worse than the cap; nothing here caps anything, the
+    // order walks whatever the book holds, and a "Max" copied across for the
+    // sake of the shape would be a control this panel does not have. The word
+    // is on the row because a slippage estimate with no cap beside it reads as
+    // though there were one.
+    slip = `Est: ${(Math.abs(f.slippageVsTouch) / f.avgPx * 100).toFixed(3)}%, uncapped`;
     const hypothetical = {
       side: f.side === "buy" ? "long" : "short",
       size: f.size, entryPx: f.avgPx, margin,
@@ -1940,54 +2048,82 @@ function refresh() {
     setText(ui.refusal, pv.message + (pv.detail ? " " + pv.detail : ""));
     setShown(ui.refusal, true);
   }
-  // THE FOUR ROWS, OR ONE LINE SAYING WHY THERE ARE NONE.
+  // THE FOUR ROWS THAT DESCRIBE AN ORDER, IN EVERY STATE, AND NEVER AS N/A.
   //
-  // Every one of these described an order and printed "N/A" when there was no
-  // order, which is a fifth meaning of the same two letters and the one a
-  // person meets first. The rows appear when there is something to put in
-  // them; otherwise the reason there is nothing appears in their place, and
-  // when the reason is already on screen in the refusal above, neither does.
+  // Their form draws these four whatever is entered and prints N/A in three of
+  // them while nothing is. Both halves of that were wrong here: hiding the rows
+  // lost the shape of their form, and N/A made a failed read and an untouched
+  // field look identical. So the rows stand and the cell names the absence it
+  // is in. Four causes, four different words, and each one is the short form of
+  // whatever longer sentence is already on screen above the button:
+  //
+  //     no size typed      the field is empty and nothing has gone wrong
+  //     size not usable    it holds something that is not an order yet, and
+  //                        the complaint underneath says what
+  //     market not read    paperDataProblem, whose sentence is in the refusal
+  //     order refused      the engine's own refusal, likewise
+  //
+  // "not read" is the phrase the Fees row and ppx already use for a reading
+  // that did not arrive, so a person meets one vocabulary and not four.
   const priced = !!(pv && pv.ok);
-  setShown(ui.previewRows, priced);
-  let none = "";
-  if (!priced && !problem && !(pv && !pv.ok)) {
-    const complaint = sizeComplaint(d.size);
-    none = String(d.size).trim() === ""
-      ? "Enter a size to see what this order would cost."
-      : (complaint ? complaint.message : "");
+  const complaint = priced ? null : sizeComplaint(d.size);
+  const emptySize = String(d.size).trim() === "";
+  let blank = "";
+  if (!priced) {
+    if (problem) blank = "market not read";
+    else if (pv && !pv.ok) blank = "order refused";
+    else if (emptySize) blank = "no size typed";
+    else blank = "size not usable";
   }
+  setText(ui.liq, priced ? liq : blank);
+  setText(ui.orderValue, priced ? ov : blank);
+  setText(ui.marginReq, priced ? mr : blank);
+  setText(ui.slippage, priced ? slip : blank);
+  // Muted when the cell is naming an absence rather than carrying a figure, so
+  // four repetitions of the same three words do not read as four numbers.
+  for (const cell of [ui.liq, ui.orderValue, ui.marginReq, ui.slippage]) {
+    cell.classList.toggle("tp-kv-off", !priced);
+  }
+
+  // The complaint about what is in the size field, which is longer than a cell
+  // and is the only thing the row above cannot say for itself. An empty field
+  // is not a complaint: "no size typed" is already on all four rows and a line
+  // under them telling somebody to type a size says it a fifth time.
+  const none = (!priced && !problem && !(pv && !pv.ok) && !emptySize && complaint)
+    ? complaint.message : "";
   setText(ui.previewNone, none);
   setShown(ui.previewNone, !!none);
-  if (priced) {
-    setText(ui.liq, liq);
-    setText(ui.orderValue, ov);
-    setText(ui.marginReq, mr);
-    setText(ui.slippage, slip);
-  }
 
   refreshPosition(pos, info);
   refreshOthers();
   refreshLevels(pos, info);
   refreshResting(state, info);
   refreshEvents(state);
-  refreshClosed(state, info);
+  refreshClosed(state);
   scheduleAnchor();
 }
 
-/** The position, in the two facts the ladder under it does not carry.
+/** The position, in the facts their positions table carries that the ladder
+ *  under it does not.
  *
- *  WHAT IS NOT HERE ANY MORE, AND WHY. Side, size, entry, mark, what closing
- *  now would realise, the liquidation price and the funding were seven rows
- *  here, under a one-line brief that said four of them again, under a ladder
- *  carrying every price with a figure against it. Five of those seven are
- *  prices, and prices belong on the ladder where they can be compared: it
- *  prints entry, mark, liquidation, stop and take profit each with what
- *  closing there would realise. So the rows left are the two the ladder has
- *  no rung for, which are what is open and what the funding has cost.
+ *  WHAT IS NOT HERE, AND WHY. Entry, mark and liquidation are prices, and
+ *  prices belong on the ladder where they can be compared: it prints each one
+ *  with what closing there would realise. So the rows here are the ones their
+ *  table has and the ladder has no rung for.
  *
- *  NO FIGURE IS WORKED OUT HERE. The live "if closed now" is the ladder's mark
- *  rung, which is positionLadder's own row, which is closeValueAt at the mark.
- *  There is one call site for that quantity and it is not this one.
+ *  THE TWO DIFFERENT P&L FIGURES ON THIS PANEL, BECAUSE CONFUSING THEM IS THE
+ *  DEFECT THAT HAS BEEN FIXED TWICE. PNL here is closeValueAt's `pnl`, which is
+ *  the move on the position and nothing else: their column is that figure and
+ *  the ROE beside it is that figure over the margin. The ladder's mark rung is
+ *  closeValueAt's `realises`, which is the same move after the fee in, the fee
+ *  out and the funding, and it is labelled "if closed now". They are different
+ *  numbers answering different questions and the smaller one is the one to act
+ *  on, so the row says which of the two it is rather than leaving a reader to
+ *  find out by subtracting them.
+ *
+ *  NEITHER IS WORKED OUT HERE. Both come out of one closeValueAt call, at the
+ *  venue's mark, which is the same call with the same arguments the ladder's
+ *  mark rung makes, so the two cannot disagree.
  */
 function refreshPosition(pos, info) {
   const ui = paper.ui;
@@ -2011,7 +2147,10 @@ function refreshPosition(pos, info) {
     // telling somebody they still hold something they closed. "no position",
     // not "N/A": if this ever does become visible it should say which nothing
     // it is.
-    for (const cell of [ui.posSize, ui.posFunding]) setText(cell, "no position");
+    for (const cell of [ui.posSize, ui.posValue, ui.posPnl, ui.posMargin, ui.posFunding]) {
+      setText(cell, "no position");
+      cell.className = "";
+    }
     return;
   }
 
@@ -2027,7 +2166,46 @@ function refreshPosition(pos, info) {
   const lev = isFinite(Number(pos.leverage)) ? ` at ${pnum(pos.leverage, 2)}x` : "";
   setText(ui.posSize, `${pos.side} ${size} ${pos.coin || paper.coin || ""}${lev}`);
   ui.posSize.className = pos.side === "long" ? "tp-up" : "tp-down";
+
+  // Margin and Funding are held on the position itself, so they are true with
+  // or without a mark. Both are what the engine stored when it put the margin
+  // up and when it settled the funding, read off rather than re-derived.
+  setText(ui.posMargin, pmoney(pos.margin));
   setText(ui.posFunding, pmoney(-(pos.fundingPaid || 0)));
+
+  // ── Position Value and PNL (ROE %), which both need the mark.
+  const mark = priced ? Number(info.markPx) : NaN;
+  const haveMark = isFinite(mark) && mark > 0;
+
+  // POSITION VALUE IS THE ONE FIGURE ON THIS PANEL THE ENGINE HAS NO FUNCTION
+  // FOR, and this comment is here so the next person does not have to work out
+  // whether that is an oversight. It is a notional, size at the mark, and it is
+  // not a P&L: it has no entry price in it, no fee, no funding and no sign, so
+  // it cannot be mistaken for what closing would give and cannot drift away
+  // from what the ladder says the way a second P&L expression did. Both of its
+  // operands are the engine's, the size off the position and the mark off the
+  // read. If paperSim.js ever grows a notional function, this calls it.
+  setText(ui.posValue, haveMark ? `${pusd(pos.size * mark)} USDC` : "no mark price");
+
+  // THE ENGINE'S OWN FIGURE, AT THE ENGINE'S OWN MARK. Not `realises`, which is
+  // the ladder's "if closed now" and is this less the exit fee; see above.
+  const v = haveMark ? closeValueAt(pos, info, paperLadderFees(), mark) : null;
+  if (!v || !isFinite(Number(v.pnl))) {
+    // Which nothing it is: no mark to value against, or a fee schedule that has
+    // not been read, which is the reason the ladder prints under itself.
+    setText(ui.posPnl, haveMark ? "not priced" : "no mark price");
+    ui.posPnl.className = "";
+  } else {
+    const pnl = Number(v.pnl);
+    // ROE, the return on the margin held, which is the percentage the ladder's
+    // own note says its rungs are not giving. A ratio of two engine figures and
+    // not a third money figure. Left off when there is no margin to return on,
+    // rather than dividing by zero and printing an infinity.
+    const m = Number(pos.margin);
+    const roe = isFinite(m) && m > 0 ? ppct((pnl / m) * 100) : "";
+    setText(ui.posPnl, (pnl > 0 ? "+" : "") + pmoney(pnl) + (roe ? ` (${roe})` : ""));
+    ui.posPnl.className = pnl >= 0 ? "tp-up" : "tp-down";
+  }
 
   if (!priced) {
     setText(ui.posUnpriced,
@@ -2532,20 +2710,26 @@ function refreshEvents(state) {
     </li>`).join(""));
 }
 
-function refreshClosed(state, info) {
+function refreshClosed(state) {
   const ui = paper.ui;
   const rows = state ? state.closed.slice(0, 8) : [];
   setShown(ui.closedSec, rows.length > 0);
   if (!rows.length) return;
-  const sig = rows.map((c) => `${c.closedAt}:${c.coin}:${c.pnl}`).join("|");
-  // Prices through ppx, which rounds to the tick the asset can express. These
-  // two were pnum(.., 6), which is the thing ppx's own comment says not to do:
-  // an exit printed as 84,539.123456 on a market whose tick is 1 reads as more
-  // precise than the venue can quote. Only this market's szDecimals are known
-  // here, so a closed row from another market keeps six places and says why.
+  // The signature carries whether each row's rules are on hand, so the list is
+  // redrawn at the right precision the moment the map arrives rather than
+  // keeping the six-place fallback until something else happens to change.
+  const sig = rows.map((c) => `${c.closedAt}:${c.coin}:${c.pnl}:${paperSpecFor(c.coin) ? 1 : 0}`)
+    .join("|");
+  // EVERY ROW AT ITS OWN ASSET'S TICK, not at this market's and not at six
+  // places. This read `info`, the market the page is on, so a row belonging to
+  // anything else fell through to pnum(.., 6): somebody on BTC saw "short
+  // 30.6264 ETH at 2,761.005777 out 2,766", a price with six decimals on a
+  // market that quotes in steps of 0.1. assetSpecs carries every listed perp's
+  // szDecimals out of a response this panel already makes, so the precision for
+  // another market's row is on hand and costs nothing to use.
   syncList(ui.closedList, sig, rows.map((c) => {
-    const own = info && c.coin === info.coin;
-    const px = (v) => (own ? ppx(v, info) : pnum(v, 6));
+    const spec = paperSpecFor(c.coin);
+    const px = (v) => (spec ? ppx(v, spec) : pnum(v, 6));
     // THE ENGINE'S SUM, NOT ONE WRITTEN AGAIN HERE.
     //
     // This rendered `c.pnl`, the gross move, under a heading saying what each
@@ -2571,10 +2755,15 @@ function refreshClosed(state, info) {
     // between the gross move and what it came to is visible rather than only
     // correct. Funding only when there was some: most practice positions are
     // closed inside the hour and a row of zeroes is noise.
-    const parts = net == null
+    // The one case the tick is still unknown in: a coin the venue no longer
+    // lists, or a list that has not been read yet. Six places, and the row says
+    // which of those it is rather than leaving the extra decimals unexplained.
+    const untick = spec ? "" : ` ${pesc(c.coin)} is not in the venue's current list of `
+      + "perps, so these two prices are printed to six places rather than to its tick.";
+    const parts = (net == null
       ? "This row was stored without all of its parts, so it cannot be totalled."
       : `${pesc(pmoney(c.pnl))} on the move, ${pesc(pmoney(-fees))} in fees`
-        + (funding ? `, ${pesc(pmoney(-funding))} funding` : "");
+        + (funding ? `, ${pesc(pmoney(-funding))} funding` : "")) + untick;
     const figure = net == null
       ? '<span class="tp-rest-na">not totalled</span>'
       : `<span class="${net >= 0 ? "tp-up" : "tp-down"}">${pesc(pmoney(net))}</span>`;
