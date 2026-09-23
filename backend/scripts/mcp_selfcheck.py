@@ -81,6 +81,52 @@ def check(ok: bool, label: str, detail: str = "") -> None:
         FAILURES.append(label)
 
 
+# ── 0. annotations ───────────────────────────────────────────────────────────
+#
+# THE IDENTITY STATEMENT, WHERE A MACHINE CAN READ IT.
+#
+# "It reads. It cannot spend anything, sign anything, or hire anyone." That
+# sentence sits in the Chrome Web Store listing and in the docs, which is to
+# say it is prose: a person can read it and nothing can enforce it. MCP has a
+# field for the same claim, and a client can refuse a tool on it.
+#
+# So this checks the claim is actually made, on every tool, rather than
+# assumed. It cannot check the claim is TRUE, which is what a reviewer reading
+# the handlers is for; it can check the surface does not quietly stop making
+# it, which is how it would be lost.
+
+def check_annotations() -> None:
+    print("\nannotations")
+    for t in tools.TOOLS:
+        a = t.get("annotations") or {}
+        check(bool(a), f"{t['name']} declares annotations")
+        check(a.get("readOnlyHint") is True,
+              f"{t['name']} says it writes nothing",
+              "readOnlyHint")
+        check(a.get("destructiveHint") is False,
+              f"{t['name']} says it destroys nothing",
+              "destructiveHint")
+        check(isinstance(a.get("openWorldHint"), bool),
+              f"{t['name']} states whether it reaches outside",
+              f"openWorldHint={a.get('openWorldHint')}")
+        check(isinstance(a.get("title"), str) and len(a.get("title", "")) > 4,
+              f"{t['name']} carries a readable title")
+
+    # And the guard itself works. A check that cannot fail is decoration.
+    import copy
+    saved = copy.deepcopy(tools.TOOLS)
+    try:
+        tools.TOOLS[0].pop("annotations", None)
+        try:
+            tools.manifest()
+            check(False, "manifest refuses a tool with no annotations",
+                  "it did not")
+        except RuntimeError:
+            check(True, "manifest refuses a tool with no annotations")
+    finally:
+        tools.TOOLS[:] = saved
+
+
 # ── 1. descriptions ──────────────────────────────────────────────────────────
 
 def check_descriptions() -> None:
@@ -504,6 +550,7 @@ def check_live_datasets() -> None:
 
 def main() -> int:
     print("MCP surface self-check")
+    check_annotations()
     check_descriptions()
     check_encoder()
     check_one_encoder()

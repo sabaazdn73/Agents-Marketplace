@@ -411,6 +411,26 @@ async def series(datasets: dict, args: dict) -> dict:
 TOOLS = [
     {
         "name": "tnega_catalogue",
+        "annotations": {
+            "title": "The measurements Tnega holds",
+            # NOTHING THIS SERVER EXPOSES WRITES ANYTHING. Stated here rather
+            # than only in prose, because a client can enforce this and a
+            # listing cannot. Verified rather than assumed: no handler in
+            # tools.py, no dataset reader in registry.py, and nothing they
+            # dispatch to performs a write, a signature or a transaction.
+            "readOnlyHint": True,
+            # Redundant under the spec, which says this is only meaningful
+            # when readOnlyHint is false. Set anyway for a client that reads
+            # it without checking readOnlyHint first.
+            "destructiveHint": False,
+            # True, and measured rather than defaulted. tnega_get on
+            # hyperliquid.post_only reaches api.hyperliquid.xyz through
+            # attribution.attribute while answering. The others are set
+            # the same way rather than claimed closed, because proving
+            # that negative across every dataset reader is not worth a
+            # false annotation, and true is the spec default anyway.
+            "openWorldHint": True,
+        },
         "description":
             "Lists every measurement Tnega holds: dataset ids, what each one "
             "measures, the keys it accepts, which of get/list/summary/series it "
@@ -422,6 +442,23 @@ TOOLS = [
     },
     {
         "name": "tnega_resolve",
+        "annotations": {
+            "title": "What this identifier belongs to",
+            # NOTHING THIS SERVER EXPOSES WRITES ANYTHING. Stated here rather
+            # than only in prose, because a client can enforce this and a
+            # listing cannot. Verified rather than assumed: no handler in
+            # tools.py, no dataset reader in registry.py, and nothing they
+            # dispatch to performs a write, a signature or a transaction.
+            "readOnlyHint": True,
+            # Redundant under the spec, which says this is only meaningful
+            # when readOnlyHint is false. Set anyway for a client that reads
+            # it without checking readOnlyHint first.
+            "destructiveHint": False,
+            # False, and this one is checked: resolve reads stored data
+            # only and performs no live lookup, which its own description
+            # has always said.
+            "openWorldHint": False,
+        },
         "description":
             "Turns one string into the datasets that accept it: a 0x address, an "
             "ERC-8004 token id, an agent id, or a chain view name. Returns up to "
@@ -438,6 +475,26 @@ TOOLS = [
     },
     {
         "name": "tnega_get",
+        "annotations": {
+            "title": "One measured record",
+            # NOTHING THIS SERVER EXPOSES WRITES ANYTHING. Stated here rather
+            # than only in prose, because a client can enforce this and a
+            # listing cannot. Verified rather than assumed: no handler in
+            # tools.py, no dataset reader in registry.py, and nothing they
+            # dispatch to performs a write, a signature or a transaction.
+            "readOnlyHint": True,
+            # Redundant under the spec, which says this is only meaningful
+            # when readOnlyHint is false. Set anyway for a client that reads
+            # it without checking readOnlyHint first.
+            "destructiveHint": False,
+            # True, and measured rather than defaulted. tnega_get on
+            # hyperliquid.post_only reaches api.hyperliquid.xyz through
+            # attribution.attribute while answering. The others are set
+            # the same way rather than claimed closed, because proving
+            # that negative across every dataset reader is not worth a
+            # false annotation, and true is the spec default anyway.
+            "openWorldHint": True,
+        },
         "description":
             "One record in full from one dataset: an agent, a Hyperliquid "
             "address, a provider's job record, an agent's budget record, or a "
@@ -456,6 +513,26 @@ TOOLS = [
     },
     {
         "name": "tnega_list",
+        "annotations": {
+            "title": "A page of records",
+            # NOTHING THIS SERVER EXPOSES WRITES ANYTHING. Stated here rather
+            # than only in prose, because a client can enforce this and a
+            # listing cannot. Verified rather than assumed: no handler in
+            # tools.py, no dataset reader in registry.py, and nothing they
+            # dispatch to performs a write, a signature or a transaction.
+            "readOnlyHint": True,
+            # Redundant under the spec, which says this is only meaningful
+            # when readOnlyHint is false. Set anyway for a client that reads
+            # it without checking readOnlyHint first.
+            "destructiveHint": False,
+            # True, and measured rather than defaulted. tnega_get on
+            # hyperliquid.post_only reaches api.hyperliquid.xyz through
+            # attribution.attribute while answering. The others are set
+            # the same way rather than claimed closed, because proving
+            # that negative across every dataset reader is not worth a
+            # false annotation, and true is the spec default anyway.
+            "openWorldHint": True,
+        },
         "description":
             "A filtered page of compact rows from one dataset, about 200 bytes "
             "each rather than whole records. Give dataset, optional filters or a "
@@ -481,6 +558,26 @@ TOOLS = [
     },
     {
         "name": "tnega_summary",
+        "annotations": {
+            "title": "A dataset's totals",
+            # NOTHING THIS SERVER EXPOSES WRITES ANYTHING. Stated here rather
+            # than only in prose, because a client can enforce this and a
+            # listing cannot. Verified rather than assumed: no handler in
+            # tools.py, no dataset reader in registry.py, and nothing they
+            # dispatch to performs a write, a signature or a transaction.
+            "readOnlyHint": True,
+            # Redundant under the spec, which says this is only meaningful
+            # when readOnlyHint is false. Set anyway for a client that reads
+            # it without checking readOnlyHint first.
+            "destructiveHint": False,
+            # True, and measured rather than defaulted. tnega_get on
+            # hyperliquid.post_only reaches api.hyperliquid.xyz through
+            # attribution.attribute while answering. The others are set
+            # the same way rather than claimed closed, because proving
+            # that negative across every dataset reader is not worth a
+            # false annotation, and true is the spec default anyway.
+            "openWorldHint": True,
+        },
         "description":
             "An aggregate over one dataset with the coverage behind it: counts by "
             "verification tier or behaviour band, category breakdowns, totals. "
@@ -501,6 +598,26 @@ TOOLS = [
     },
     {
         "name": "tnega_series",
+        "annotations": {
+            "title": "A measurement over time",
+            # NOTHING THIS SERVER EXPOSES WRITES ANYTHING. Stated here rather
+            # than only in prose, because a client can enforce this and a
+            # listing cannot. Verified rather than assumed: no handler in
+            # tools.py, no dataset reader in registry.py, and nothing they
+            # dispatch to performs a write, a signature or a transaction.
+            "readOnlyHint": True,
+            # Redundant under the spec, which says this is only meaningful
+            # when readOnlyHint is false. Set anyway for a client that reads
+            # it without checking readOnlyHint first.
+            "destructiveHint": False,
+            # True, and measured rather than defaulted. tnega_get on
+            # hyperliquid.post_only reaches api.hyperliquid.xyz through
+            # attribution.attribute while answering. The others are set
+            # the same way rather than claimed closed, because proving
+            # that negative across every dataset reader is not worth a
+            # false annotation, and true is the spec default anyway.
+            "openWorldHint": True,
+        },
         "description":
             "A measurement over time from one dataset, newest first. Today that "
             "is hyperliquid.post_only at 10 second buckets for one address. Give "
@@ -525,5 +642,18 @@ BY_NAME = {t["name"]: t for t in TOOLS}
 
 
 def manifest() -> list[dict]:
-    """What tools/list returns. The handler is ours and does not go on the wire."""
+    """What tools/list returns. The handler is ours and does not go on the wire.
+
+    EVERY TOOL DECLARES ITS OWN ANNOTATIONS, AND THIS REFUSES TO SHIP ONE THAT
+    DOES NOT. Applying readOnlyHint centrally would be less typing and would be
+    the wrong shape: a tool added later that did write something would inherit
+    the claim that it does not, silently, and a false annotation is worse than
+    an absent one because a client can act on it. Declared per tool, a new tool
+    with no annotations fails here instead.
+    """
+    missing = [t["name"] for t in TOOLS if not t.get("annotations")]
+    if missing:
+        raise RuntimeError(
+            "these tools declare no annotations, so tools/list would describe "
+            "them less than the rest: " + ", ".join(missing))
     return [{k: v for k, v in t.items() if k != "handler"} for t in TOOLS]
