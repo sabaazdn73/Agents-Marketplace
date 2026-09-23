@@ -848,6 +848,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     [VERIFICATION_TIER.CANARY_VERIFIED]: filteredTiers?.canary_verified ?? 0,
     [VERIFICATION_TIER.RESPONDING]: filteredTiers?.responding ?? 0,
     [VERIFICATION_TIER.UNPROVEN]: filteredTiers?.unproven ?? 0,
+    [VERIFICATION_TIER.UNCHECKED]: filteredTiers?.unchecked ?? 0,
   }), [filteredTiers]);
   const visibleTierBreaks = useMemo(() => {
     let lastTier = null;
@@ -1162,7 +1163,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
  {/* Real, permanently-accessible explainer (2026-08-27),
                     parity with web. See VerificationExplainerSection.jsx. */}
-                <VerificationExplainerSection className="mb-4" storeWideTotals={perfStoreWide} />
+                <VerificationExplainerSection className="mb-4" storeWideTotals={perfStoreWide} livenessCoverage={facets.livenessCoverage} />
 
                 <div className="mb-4">
                   <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>

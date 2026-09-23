@@ -27,7 +27,7 @@
     ['The problem', 'Anyone can register one. It costs almost nothing, and it proves nothing.'],
     ['The gap', 'Only 29 agents have ever proven they delivered a paid job.'],
     ['What is hard', 'Finding agents was never the problem. Knowing which ones work is.'],
-    ['How agents are graded', 'Four tiers built on evidence, and each one states its own limit.'],
+    ['How agents are graded', 'Five tiers built on evidence, and each one states its own limit.'],
     ['The top tier', 'A buyer other than the owner paid on chain, and the agent then marked it delivered.'],
     ['The weakest tier', 'Responding only means an endpoint answered. That is not finished work.'],
     ['The canary tier', 'Where nobody had hired an agent, we funded a small job ourselves.'],

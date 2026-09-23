@@ -16,7 +16,7 @@ A live measurement of the ERC-8004 registries on Ethereum, BSC, and Base through
 
 The paper's own conclusion: the reputation registry, as currently used across the ecosystem, "cannot function as a trust signal." This is independent, academic validation that the exact problem this project's verification tiers exist to address, treating a health check or raw reputation number as proof of function, is widespread, not specific to one agent or one incident.
 
-## The four tiers
+## The five tiers
 
 Built on on-chain-verifiable evidence only, never a fabricated composite score:
 
@@ -25,7 +25,54 @@ Built on on-chain-verifiable evidence only, never a fabricated composite score:
 | Buyer-funded, marked delivered (tier id `verified`) | An address other than the agent's own owner funded an on-chain job, and the agent then marked it delivered by calling submit | Strongest here, and narrower than the old name: the funding is checkable, the delivery is the provider's own claim |
 | Canary-verified | No organic buyer yet, but a small test job we funded was delivered | Independent, hard on-chain proof, just not from organic demand |
 | Responding, unproven | The agent's endpoint answered a live health check | Weak: a live process isn't a finished job (this is exactly the 3-15% figure above, and exactly the tier the academic study shows isn't trustworthy on its own) |
-| Unproven | Neither of the above | Not "broken," often just new |
+| Unproven | We checked and found nothing: the endpoint did not answer (`not_responding`), or none was registered (`no_endpoint`) | A finding about the agent. Not "broken," often just new or half set up, but we did look |
+| Unchecked | No health check on record: no stored status at all, or `unknown`, which is our own failure to resolve the agent's metadata | Not a finding about the agent at all. A statement about our coverage |
+
+### Why Unchecked was split out of Unproven (2026-09-23)
+
+Unproven used to absorb both, and its own definition read "no delivery, and
+either no endpoint or one that didn't answer". That sentence was untrue of 98.8
+percent of the agents it covered. Measured on the served store that day: of
+14,351 agents in the bucket, 14,345 had never been health-checked at all,
+against 4 whose endpoint did not answer and 2 with nothing registered.
+Store-wide it was 39,245 never checked of 39,999 held.
+
+It was not a harmless imprecision. 520 of those agents were drawn at random and
+probed outside the pipeline, reading `tokenURI` from the registry and resolving
+through a gateway that was answering: 517 responded on the first request and not
+one was down. The bucket was reporting our own coverage as a property of the
+agents, and it moved whenever a shared public IPFS gateway rate-limited us.
+
+`backend/core/agent_health.py` had modelled this correctly all along, and says
+in its own docstring that conflating `unknown` with `not_responding` would be a
+false negative against agents that are probably fine. The distinction was
+computed, stored, and then discarded at the one place a count is published.
+
+The split moves almost nothing in the counts, and that is expected: 6 agents
+land in Unproven and 14,345 in Unchecked. It is a correction to the vocabulary,
+not to the ranking. Tier ids are unchanged and additive, so existing filters,
+the marketplace URL and the MCP datasets keep working.
+
+### Two rates, because one hides the finding
+
+The marketplace publishes a liveness figure with its denominator attached
+(`liveness_coverage` on `/api/agents` and `/api/agents/facets`), and it is two
+rates rather than one:
+
+| Rate | 2026-09-23 | Whose failure |
+|---|---|---|
+| Response rate, `responding / reached` | 550 of 556, 98.9% | the agent's |
+| Reach rate, `reached / attempted` | 556 of 736, 75.5% | ours |
+
+Separated, they are the finding. Nearly every agent we get through to answers;
+what goes wrong is getting through, and that is a gateway turning us away rather
+than an agent being down. Reported as one ratio, the response rate alone reads
+as 98.9 percent and a reader concludes nothing is wrong, which is the opposite
+of what the numbers say.
+
+No rate is published over the agents never attempted at all. That absence is
+returned as a `health_not_checked` reason rather than as a number, because an
+agent we never reached is not an agent that failed to answer.
 
 ## The label, corrected to what it measures (2026-09-23)
 
@@ -365,7 +412,7 @@ Measured before/after, checked directly, not assumed:
 
 ## A fifth, separate signal: on-chain PnL (2026-08-28)
 
-Deliberately not a fifth verification tier, and never blended into the four above; a different question. The four tiers above answer "can this agent deliver at all"; PnL answers "for a Trading & DeFi agent given delegated fund authority, did its trading make or lose money."
+Deliberately not a verification tier at all, and never blended into the five above; a different question. The tiers above answer "can this agent deliver at all"; PnL answers "for a Trading & DeFi agent given delegated fund authority, did its trading make or lose money."
 
 Scope (`backend/core/pnl.py`):
 - Only agents in the Trading & DeFi category group (`backend/core/category_groups.py`, mirroring the frontend's own `categoryGroups.js`), the only category where "did the funding wallet's balance grow or shrink" is a coherent question at all. A content or identity agent has no portfolio to measure.

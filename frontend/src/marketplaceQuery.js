@@ -240,7 +240,8 @@ export async function fetchAgentById(agentId) {
  */
 export function useMarketplaceFacets() {
   const [facets, setFacets] = useState({
-    total: 0, categories: [], tiers: null, totalFeedbacks: 0, loaded: false,
+    total: 0, categories: [], tiers: null, livenessCoverage: null,
+    totalFeedbacks: 0, loaded: false,
   });
 
   useEffect(() => {
@@ -252,6 +253,11 @@ export function useMarketplaceFacets() {
           total: d.total || 0,
           categories: d.categories || [],
           tiers: d.tiers || null,
+          // Travels with the tier counts and is never dropped here. The
+          // responding count is measured over the agents we managed to probe,
+          // and without this a reader divides it by `total`, which is a
+          // liveness figure for a population most of which was never checked.
+          livenessCoverage: d.liveness_coverage || null,
           totalFeedbacks: d.total_feedbacks || 0,
           loaded: true,
         });

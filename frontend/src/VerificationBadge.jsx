@@ -53,7 +53,13 @@ export default function VerificationBadge({ agent, size = 'sm', className = '' }
       </span>
     );
   }
- return null; // UNPROVEN: honestly nothing to show, not a badge implying "broken"
+ // UNPROVEN and UNCHECKED both show no badge, for the same reason and with
+ // one difference worth keeping in mind. UNPROVEN means we checked and got
+ // nothing, UNCHECKED means we never checked; neither is evidence the agent is
+ // broken, and a badge here would read as an accusation in both cases. The
+ // distinction is carried by the tier divider and the explainer rather than by
+ // a mark on the row, because a row is not where a reader can absorb it.
+ return null;
 }
 
 /** tier-section header, dropped into the grid/table wherever the

@@ -908,6 +908,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     [VERIFICATION_TIER.CANARY_VERIFIED]: filteredTiers?.canary_verified ?? 0,
     [VERIFICATION_TIER.RESPONDING]: filteredTiers?.responding ?? 0,
     [VERIFICATION_TIER.UNPROVEN]: filteredTiers?.unproven ?? 0,
+    [VERIFICATION_TIER.UNCHECKED]: filteredTiers?.unchecked ?? 0,
   }), [filteredTiers]);
   // Marks the first row/card of each new tier on THIS page, so a divider
  // only renders where the tier changes, `paginated` is a
@@ -1289,7 +1290,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
  {/* Real, permanently-accessible explainer (2026-08-27), the
                   tier legend used to live ONLY behind the small tooltip
- below, which only covered 2 of the 4 tiers and
+ below, which only covered 2 of the 5 tiers and
                   required already knowing to hover/click a small (i) icon.
  This is a real, always-visible section instead (collapsed
                   by default to stay out of the way, but the toggle itself
@@ -1298,7 +1299,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   and 24px for what is a toggle and a tooltip link, and
                   neither needs a line to itself. */}
               <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <VerificationExplainerSection className="flex-1 min-w-[260px]" storeWideTotals={perfStoreWide} />
+              <VerificationExplainerSection className="flex-1 min-w-[260px]" storeWideTotals={perfStoreWide} livenessCoverage={facets.livenessCoverage} />
 
               <div className="shrink-0">
                 <InfoTooltip label="What does the live 'Online now' badge mean?" size={12}>

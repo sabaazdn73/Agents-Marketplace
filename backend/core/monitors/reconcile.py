@@ -139,10 +139,21 @@ async def check_verified_share() -> dict:
 async def check_health_store_agreement() -> dict:
     """The same agent's service_status in two stores.
 
-    known_agents is refreshed on a TTL; full_agent_registry writes a verdict
-    once and, for `responding`, never re-queues it. The site reads the first
-    and the Chrome extension reads the second, so a disagreement is two
-    surfaces telling a reader different things about one agent.
+    known_agents is refreshed on a TTL. full_agent_registry used to write a
+    verdict once and never revisit it, which is what this docstring said until
+    2026-09-23 and had been untrue since 2026-09-18: full_registry_analysis.py
+    gained VERDICT_EXPIRY_SECONDS, so a real verdict there now expires after 21
+    days and is re-queued oldest first. The two stores therefore drift on
+    different clocks rather than one moving and one standing still.
+
+    The site reads the first and the Chrome extension reads the second, so a
+    disagreement is two surfaces telling a reader different things about one
+    agent. Worth knowing when reading a disagreement: the re-check path in
+    full_registry_analysis.py writes its result with a plain $set and has no
+    equivalent of agent_store.update_agent_health's guard, so a failed
+    resolution there can overwrite a stored verdict with `unknown`, which the
+    same failure against known_agents cannot do. A disagreement in that
+    direction is more likely to be our own gateway than the agent.
     """
     from core.full_registry_ingest import FULL_REGISTRY_COLLECTION
     db = get_db()

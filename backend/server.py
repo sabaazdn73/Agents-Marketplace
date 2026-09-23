@@ -842,11 +842,16 @@ async def agents(
         # request: the grid shows a tally for the *current filters*, which is
         # exactly this selection, and it is a walk over ints we already hold.
         tiers = json.dumps(ix.tier_counts(idx), separators=(",", ":"))
+        # The denominator travels with the number. `tiers.responding` is a
+        # count over agents we managed to probe, not over the selection, and
+        # without this a reader divides by `total` and gets a liveness figure
+        # that moves with our gateway luck. See AgentsIndex.liveness_coverage.
+        coverage = json.dumps(ix.liveness_coverage(idx), separators=(",", ":"))
         body = (
             b'{"agents":' + agents_index.join_page(blobs)
             + f',"total":{total},"limit":{lim},"offset":{off},'
               f'"next_offset":{nxt if nxt < total else "null"},'
-              f'"tiers":{tiers}'.encode("utf-8")
+              f'"tiers":{tiers},"liveness_coverage":{coverage}'.encode("utf-8")
             + envelope_tail.encode("utf-8") + b"}"
         )
         return Response(content=body, media_type="application/json")
@@ -1443,6 +1448,9 @@ async def agents_facets(
         "total": len(idx),
         "categories": ix.facets(idx),
         "tiers": ix.tier_counts(idx),
+        # Published beside the tiers so the stat cards cannot show a responding
+        # count without the number of agents it was measured over.
+        "liveness_coverage": ix.liveness_coverage(idx),
         "total_feedbacks": ix.feedback_total(idx),
         "cached_at": _cache["fetched_at"],
         "cache_age_seconds": int(time.time() - _cache["fetched_at"]),
@@ -1548,6 +1556,19 @@ async def status():
     # different fact from "it ran and removed nothing", and the two must stay
     # distinguishable.
     out["store_cap"] = agent_store.last_cap_result()
+
+    # The same question across processes. `store_cap` above is null whenever the
+    # cap has not run since THIS worker booted, which is most of the time and is
+    # what made the 2026-09-23 tier investigation unable to say whether the cap
+    # had deleted anything at all. These runs are read from the collection, so
+    # they survive a restart, and each carries `verdicts_destroyed`: how many of
+    # the documents it removed held a health verdict that no later pass can
+    # recompute. A falling responding tier is explained or exonerated here.
+    try:
+        out["store_cap_runs"] = await agent_store.recent_cap_runs(limit=10)
+    except Exception as e:  # noqa: BLE001
+        out["store_cap_runs"] = None
+        out["store_cap_runs_error"] = f"{type(e).__name__}: {e}"
     return out
 
 

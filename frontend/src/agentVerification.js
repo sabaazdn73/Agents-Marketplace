@@ -2,8 +2,10 @@
 //
 // Real, verification tiers for the marketplace, built directly on
 // this session's job #56659 finding: a health check answering "online" is
-// NOT proof an agent delivers paid work. Four tiers, from
-// strongest evidence to weakest, never blended into one score:
+// NOT proof an agent delivers paid work. Five tiers, from
+// strongest evidence to weakest, never blended into one score. The last two
+// separate what we looked at from what we never reached, which is the whole
+// point of having five rather than four:
 //
 // VERIFIED, at least one on-chain job for this agent's
 // owner, from a PAYING BUYER WHO IS NOT THAT OWNER,
@@ -55,16 +57,74 @@
 //                       health check just now (service_status ===
 // 'responding'). Real, but weak, a live process is
 //                       not the same as a finished job.
-//   UNPROVEN, none of the above: no delivery, and either no
-//                       endpoint or one that didn't answer. Not "broken"
-// (an agent can be genuinely new), just nothing yet
-//                       to point to.
+//   UNPROVEN, no delivery, and we PROBED the agent and found
+//                       nothing to point to: its registered endpoint did not
+//                       answer (service_status === 'not_responding'), or it
+//                       registered no endpoint at all ('no_endpoint'). A
+//                       finding about the agent. Not "broken", an agent can
+//                       be new or half set up, but we did look.
+//   UNCHECKED, no delivery and NO HEALTH CHECK ON RECORD. Either
+//                       no stored status at all, or 'unknown', which is this
+//                       pipeline failing to resolve the agent's metadata
+//                       rather than the agent failing to answer. A statement
+//                       about our coverage, never evidence about the agent.
 //
-// Deliberately NOT a 5th "not responding" tier distinct from "no endpoint"
-//, both cases share the same evidence (zero) and the same honest
-// label, so splitting them would manufacture a distinction the data
-// doesn't support (ServiceHealthBadge already shows the raw status
-// separately for anyone who wants that detail).
+// WHY UNCHECKED EXISTS, ADDED 2026-09-23
+// This comment used to say the opposite, and the reasoning is preserved here
+// because it was wrong in an instructive way. It read: deliberately NOT a 5th
+// tier distinct from "no endpoint", because both cases share the same evidence
+// (zero) and the same label, so splitting them would manufacture a distinction
+// the data doesn't support.
+//
+// The case that dominates shares no evidence at all, which is a different
+// thing from zero evidence. Measured on the served store that day: of the
+// 14,340 agents in UNPROVEN, 14,165 had never been health-checked, against 4
+// whose endpoint did not answer and 2 with nothing registered. So the tier's
+// own definition above, "no endpoint or one that didn't answer", was untrue of
+// 98.8% of the agents it described. Store-wide it was 39,245 never checked of
+// 39,999 held.
+//
+// It was not a harmless imprecision. Agents from that bucket were drawn at
+// random and probed outside this pipeline, reading tokenURI from the identity
+// registry and resolving metadata through a gateway that was answering rather
+// than through ipfs.io, which was returning 429. Two samples, as a funnel
+// rather than a ratio, because the losses before the probe are the part a bare
+// ratio hides:
+//
+//              drawn  tokenURI read  resolved  probed  answered
+//   seed 11      120            120       120     120       120
+//   seed 77      400            400       397     397       397
+//   total        520            520       517     517       517
+//
+// So: 517 of 520 drawn, the 3 lost to HTTP errors from an agent's own metadata
+// host before any probe happened, and zero agents found not responding.
+//
+// Worth stating because it looks inconsistent with a separate sample of the
+// 181 agents stored at 'unknown', where 88 could not be resolved at all. That
+// is composition rather than method. This sample is drawn from the
+// never-checked population, which is 396 of 400 and 117 of 120 HTTP tokenURIs,
+// so an IPFS gateway is barely in its path; the 'unknown' population is by
+// construction the IPFS-dependent slice, which is exactly where a refusing
+// gateway does its damage. Neither sample contained a demonstrably down agent.
+//
+// The tier was reporting our own coverage as though it were a property of the
+// agents, and it moved whenever a shared public IPFS gateway rate-limited us.
+// backend/core/agent_health.py had modelled this correctly all along and says
+// in its own docstring that conflating 'unknown' with 'not_responding' would be
+// a false negative against agents that are probably fine; the distinction was
+// computed, stored, and then discarded at the one place a count is published.
+//
+// backend/core/monitors/liveness_probe.py is this probe, committed, so the
+// next version of this figure comes with a funnel and a control rather than
+// from somebody's scratch directory.
+//
+// This is the same rule the rest of the project already follows: an absence
+// says which absence it is (core/interaction_summary.py separates no_endpoint,
+// not_responding and unchecked and attaches a basis; core/job_index.py refuses
+// to collapse a missing deliverable into the zero word).
+//
+// ServiceHealthBadge still shows the raw status for anyone who wants the
+// underlying state, and that remains the place for finer detail than a tier.
 //
 // An agent WITH hires but zero completed/submitted (e.g. every job
 // went REJECTED/EXPIRED) correctly lands in RESPONDING or UNPROVEN, not
@@ -79,6 +139,11 @@ export const VERIFICATION_TIER = {
   CANARY_VERIFIED: 'canary_verified',
   RESPONDING: 'responding',
   UNPROVEN: 'unproven',
+  // Added 2026-09-23. Additive: every id above kept its spelling and its
+  // meaning, so existing filters, the marketplace URL and the MCP datasets are
+  // unaffected. UNPROVEN is simply smaller now, because the agents nobody ever
+  // probed moved out of it and into their own name.
+  UNCHECKED: 'unchecked',
 };
 
 // Lower rank sorts first, used to put the strongest proof ahead of
@@ -89,6 +154,10 @@ const TIER_RANK = {
   [VERIFICATION_TIER.CANARY_VERIFIED]: 1,
   [VERIFICATION_TIER.RESPONDING]: 2,
   [VERIFICATION_TIER.UNPROVEN]: 3,
+  // Last, below UNPROVEN. An agent we probed and found nothing on is a weaker
+  // prospect than one we never got to, but it is a FINDING, and sorting an
+  // admission of no coverage above it would present our own gap as evidence.
+  [VERIFICATION_TIER.UNCHECKED]: 4,
 };
 
 export function getVerificationTier(agent) {
@@ -101,7 +170,11 @@ export function getVerificationTier(agent) {
   if (delivered > 0) return VERIFICATION_TIER.VERIFIED;
   if ((agent.canaryDelivered ?? 0) > 0) return VERIFICATION_TIER.CANARY_VERIFIED;
   if (agent.serviceStatus === 'responding') return VERIFICATION_TIER.RESPONDING;
-  return VERIFICATION_TIER.UNPROVEN;
+  // Probed and found nothing, versus never established. See the UNCHECKED
+  // block at the top of this file for what merging these two cost.
+  if (agent.serviceStatus === 'not_responding'
+      || agent.serviceStatus === 'no_endpoint') return VERIFICATION_TIER.UNPROVEN;
+  return VERIFICATION_TIER.UNCHECKED;
 }
 
 export function verificationTierRank(agent) {
@@ -150,7 +223,8 @@ export const VERIFICATION_LABEL = {
   [VERIFICATION_TIER.VERIFIED]: 'Buyer-funded, marked delivered',
   [VERIFICATION_TIER.CANARY_VERIFIED]: 'Canary-verified',
   [VERIFICATION_TIER.RESPONDING]: 'Responding, unproven',
-  [VERIFICATION_TIER.UNPROVEN]: 'Unproven',
+  [VERIFICATION_TIER.UNPROVEN]: 'Checked, no answer',
+  [VERIFICATION_TIER.UNCHECKED]: 'Not checked yet',
 };
 
 // For controls too narrow for the full label (a filter toggle, a stat tile).
@@ -164,7 +238,8 @@ export const VERIFICATION_HINT = {
  [VERIFICATION_TIER.VERIFIED]: VERIFIED_MEANING,
  [VERIFICATION_TIER.CANARY_VERIFIED]: 'No organic buyer job yet, but a small, proactive test job we funded ourselves was delivered, real, independent proof, just not from demand yet.',
   [VERIFICATION_TIER.RESPONDING]: "Endpoint online just now, but no confirmed completed or submitted jobs yet, being online isn't proof it finishes paid work.",
- [VERIFICATION_TIER.UNPROVEN]: "No confirmed delivered job and no endpoint currently responding, nothing yet to judge this agent's function on.",
+ [VERIFICATION_TIER.UNPROVEN]: "We checked this agent's registered endpoint and got nothing back, or it registered no endpoint at all. No confirmed delivered job either. This is something we looked at.",
+  [VERIFICATION_TIER.UNCHECKED]: "We have not checked this agent yet, so we are not saying anything about it. Most agents here are in this state: the health pass reaches a few hundred a day, and sometimes resolving an agent's metadata fails on our side rather than theirs. It is not a mark against the agent.",
 };
 
 /** Tier-first comparator: VERIFIED before RESPONDING before UNPROVEN, ties

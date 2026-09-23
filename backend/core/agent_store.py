@@ -229,12 +229,52 @@ KNOWN_AGENTS_MAX_DELETE_PER_RUN = 25_000
 # in seventeen seconds is not observability. This is queryable for as long as
 # the process lives, which is the interval that matters for a job that runs
 # every refresh.
+#
+# In-process only, and that was not enough. On 2026-09-23 an investigation into
+# the responding tier falling 652 -> 529 in a day needed to know whether this
+# cap had deleted anything, and /api/status returned null for it: the refresh
+# that last ran the cap had happened in a worker that no longer existed. The
+# question "did the cap run, and what did it take" survived seventeen seconds
+# of logs and then nothing at all. So the same result is now also written to a
+# collection, below, and this global is kept as the cheap read for the current
+# process.
 _LAST_CAP_RESULT: dict | None = None
+
+# Where a cap run is recorded so it outlives the process that made it.
+#
+# One document per run, never updated, because the value of this record is the
+# sequence: a single tier count falling over a day is explained by what a
+# series of runs removed, not by what the most recent one did.
+CAP_RUN_COLLECTION = "known_agents_cap_runs"
 
 
 def last_cap_result() -> dict | None:
     """What the store cap did on its most recent run in this process."""
     return _LAST_CAP_RESULT
+
+
+async def recent_cap_runs(limit: int = 20) -> list[dict]:
+    """The last `limit` cap runs, newest first, across every process.
+
+    Reads the durable record rather than the in-process global, so this answers
+    the question the global could not: what has the cap been doing since before
+    this worker booted.
+    """
+    db = get_db()
+    return await db[CAP_RUN_COLLECTION].find(
+        {}, {"_id": 0}).sort("ran_at_ts", -1).limit(limit).to_list(length=limit)
+
+
+async def _record_cap_run(result: dict) -> None:
+    """Persist one cap run. Never raises: the cap must not fail because its own
+    bookkeeping could not be written."""
+    try:
+        db = get_db()
+        await db[CAP_RUN_COLLECTION].insert_one(
+            {**result, "ran_at_ts": time.time()})
+    except Exception as e:  # noqa: BLE001
+        print(f"[agent_store] cap run not recorded ({type(e).__name__}: {e}); "
+              f"the cap itself ran and its result stands", flush=True)
 
 
 async def _owners_with_delivery(db) -> list[str]:
@@ -287,8 +327,19 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
     total = await coll.count_documents({})
     over = total - max_docs
     if over <= 0:
+        # A run that found nothing to do still writes a row. Zero rather than
+        # null or absent, because "the cap ran and removed nothing" and "the
+        # cap never ran" are different facts, and the sequence of runs is the
+        # whole point of recording them: a tier falling over a day is explained
+        # by what a series of runs took, not by the most recent one.
         _LAST_CAP_RESULT = {"ran_at": ran_at, "total": total, "over": 0,
-                            "deleted": 0, "capped_at": max_docs}
+                            "deleted": 0, "verdicts_destroyed": 0,
+                            "verdicts_destroyed_by_status": {"responding": 0, "not_responding": 0,
+                                             "no_endpoint": 0, "unknown": 0},
+                            "verdicts_exclude_unknown": True,
+                            "capped_at": max_docs,
+                            "note": "under the ceiling; nothing to remove"}
+        await _record_cap_run(_LAST_CAP_RESULT)
         return dict(_LAST_CAP_RESULT)
 
     # Never evictable, however long since they were last selected.
@@ -343,19 +394,114 @@ async def enforce_store_cap(max_docs: int = KNOWN_AGENTS_MAX,
 
     if not cutoff or not running:
         _LAST_CAP_RESULT = {"ran_at": ran_at, "total": total, "over": over,
-                            "deleted": 0, "capped_at": max_docs,
+                            "deleted": 0, "verdicts_destroyed": 0,
+                            "verdicts_destroyed_by_status": {"responding": 0, "not_responding": 0,
+                                             "no_endpoint": 0, "unknown": 0},
+                            "verdicts_exclude_unknown": True,
+                            "capped_at": max_docs,
                             "note": "the oldest hour alone exceeds the per-run "
                                     "delete bound; nothing removed this run"}
+        await _record_cap_run(_LAST_CAP_RESULT)
         return dict(_LAST_CAP_RESULT)
+
+    doomed = {**keep, "last_seen_at": {"$lte": cutoff + "\uffff"}}
+
+    # WHAT THIS RUN IS ABOUT TO DESTROY THAT CANNOT BE RECOMPUTED.
+    #
+    # A `service_status` is the only evidence behind the responding tier, and
+    # unlike every other field on these documents it is not re-derivable from
+    # the registry: it was earned by a live probe of that agent's endpoint at a
+    # moment that has passed. Deleting the document deletes the verdict, and
+    # the agent returns from the next upsert with no health state at all.
+    #
+    # This counts that loss BEFORE the delete, because afterwards there is
+    # nothing left to count. It is the number that decides whether eviction
+    # explains a falling responding tier: on 2026-09-23 that tier fell from 652
+    # to 529 in a day and the question could only be argued by elimination,
+    # because no measurement of this existed. One count_documents against the
+    # same filter the delete uses, so the two cannot describe different sets.
+    #
+    # Deliberately NOT a policy change. This run still deletes exactly what it
+    # would have deleted before, including the verdicts. Instrumenting and
+    # changing what is evicted are separate, and doing both at once would make
+    # the first measurement unattributable.
+    #
+    # NOT YET EXERCISED, AS OF 2026-09-23. This counting path has never run.
+    # enforce_store_cap is only called on a refresh landing 5,000 or more fresh
+    # agents, and no such refresh happened while this was written, so the first
+    # verdicts_destroyed figure will be produced in production with nobody
+    # watching it. Treat the first row this collection receives as the thing
+    # being tested rather than as a measurement to act on: check it against
+    # `deleted` and against the invariant below before believing it.
+    # WHAT COUNTS AS A VERDICT, AND WHY `unknown` DOES NOT.
+    #
+    # The first version of this counted every document with a non-null
+    # service_status, which counts `unknown` as lost evidence. It is not:
+    # update_agent_health above exists precisely to stop `unknown` overwriting
+    # a verdict, on the stated grounds that a failed check is not a verdict.
+    # `unknown` is this pipeline failing to resolve an agent's metadata, so
+    # deleting it destroys nothing that was ever established. On 2026-09-23,
+    # 181 of 754 probed records were `unknown`, so a single number under this
+    # name would have been up to a quarter our own failed resolutions counted
+    # as evidence lost, overstating the exact quantity the eviction question
+    # turns on.
+    #
+    # So the headline counts only earned verdicts, and the breakdown is kept
+    # beside it so nobody has to trust the classification blind.
+    verdicts_destroyed = None
+    verdicts_destroyed_by_status = None
+    try:
+        by_status = {}
+        for st in ("responding", "not_responding", "no_endpoint", "unknown"):
+            by_status[st] = await coll.count_documents(
+                {**doomed, "service_status": st})
+        verdicts_destroyed_by_status = by_status
+        # `unknown` deliberately excluded from the headline, per above.
+        verdicts_destroyed = (by_status["responding"]
+                              + by_status["not_responding"]
+                              + by_status["no_endpoint"])
+    except Exception as e:  # noqa: BLE001
+        # Counting must never be the reason the cap does not run: the cap
+        # exists to keep the cluster inside a quota that has refused writes
+        # once. An uncounted run is recorded as uncounted rather than as zero,
+        # because null here means "not measured" and 0 means "measured, none",
+        # and collapsing those is the defect this whole pass is about.
+        print(f"[agent_store] cap could not count doomed verdicts "
+              f"({type(e).__name__}: {e})", flush=True)
 
     # `<` against the next hour's boundary, so the chosen hour is included
     # whole and no document is deleted whose hour was only partly counted.
-    res = await coll.delete_many({**keep, "last_seen_at": {"$lte": cutoff + "\uffff"}})
+    res = await coll.delete_many(doomed)
     deleted = res.deleted_count
     _LAST_CAP_RESULT = {"ran_at": ran_at, "total": total, "over": over,
                         "deleted": deleted, "remaining": total - deleted,
+                        "verdicts_destroyed": verdicts_destroyed,
+                        "verdicts_destroyed_by_status": verdicts_destroyed_by_status,
+                        "verdicts_exclude_unknown": True,
                         "capped_at": max_docs, "cutoff": cutoff,
                         "protected_owners": len(protected)}
+
+    # THE INVARIANT, PUBLISHED RATHER THAN ASSUMED.
+    #
+    # Counting and deleting are two operations with upserts running between
+    # them, so verdicts_destroyed is an upper bound on what was really lost,
+    # with a known direction of error: last_seen_at only moves forward, so a
+    # document can leave the doomed set between the count and the delete and
+    # can never join it. The count can therefore exceed the deletion, never the
+    # reverse.
+    #
+    # So verdicts_destroyed <= deleted always holds, and a row that violates it
+    # is a row where the race fired and whose count is stale. Saying which is
+    # cheaper than having a later reader rediscover the race from an impossible
+    # number.
+    if (verdicts_destroyed is not None) and verdicts_destroyed > deleted:
+        _LAST_CAP_RESULT["invariant_violated"] = (
+            f"verdicts_destroyed ({verdicts_destroyed}) exceeds deleted "
+            f"({deleted}): documents left the doomed set between the count and "
+            f"the delete, so the verdict counts on this row are stale upper "
+            f"bounds rather than what was removed")
+
+    await _record_cap_run(_LAST_CAP_RESULT)
     return dict(_LAST_CAP_RESULT)
 
 

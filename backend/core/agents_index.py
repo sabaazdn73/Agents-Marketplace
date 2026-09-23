@@ -55,10 +55,56 @@ DEFAULT_PAGE_SIZE = 24
 # Verification tiers, ranked. Mirrors frontend/src/agentVerification.js, which
 # is the definition of record. The order matters: a filter for "verified" means
 # this rank or better, so these must stay in this relative order.
-TIER_UNPROVEN = 0
-TIER_RESPONDING = 1
-TIER_CANARY_VERIFIED = 2
-TIER_VERIFIED = 3
+#
+# WHY THERE ARE FIVE OF THESE SINCE 2026-09-23, AND WHAT THE FIFTH FIXES
+# There were four, and the bottom one carried two unrelated facts. Everything
+# that was not responding fell into `unproven`, which the definition of record
+# described as "no delivery, and either no endpoint or one that didn't answer".
+# That sentence was untrue of 98.8% of the agents it covered. Measured that day
+# on the served store: 14,165 of the 14,340 agents in the bucket had never been
+# health-checked at all, against 4 whose endpoint did not answer and 2 with
+# nothing registered. Store-wide the ratio was starker, 39,245 never checked of
+# 39,999 held.
+#
+# So the published figure said "we looked and found nothing" about a population
+# we had overwhelmingly never looked at. A direct probe of 520 of them, drawn at
+# random and resolved outside this pipeline, found 517 answering on the first
+# request and not one agent down: the bucket was not describing the agents, it
+# was describing our own coverage.
+#
+# agent_health.py already models this correctly and says so in its own module
+# docstring: `unknown` is our failure to resolve and conflating it with
+# `not_responding` "would be a false negative against agents that are probably
+# fine". That distinction was computed, stored, and then discarded here, at the
+# one place the marketplace publishes a count of.
+#
+# The split follows the evidence rather than the wording:
+#   TIER_UNPROVEN    we probed and found nothing to point to. not_responding
+#                    (the endpoint did not answer) or no_endpoint (nothing is
+#                    registered to answer). A finding about the agent.
+#   TIER_UNCHECKED   we never established anything. No health state stored at
+#                    all, or `unknown`, which is this pipeline's own resolution
+#                    failure. An admission about us, and never evidence about
+#                    the agent.
+#
+# Ranks are internal and are not persisted or served: only TIER_NAMES below
+# crosses a boundary, and `record()` attaches the NAME. So renumbering here is
+# safe, and the new tier is added at the bottom so that `min_tier` filtering,
+# which only ever asks for TIER_VERIFIED or better, is unaffected.
+TIER_UNCHECKED = 0
+TIER_UNPROVEN = 1
+TIER_RESPONDING = 2
+TIER_CANARY_VERIFIED = 3
+TIER_VERIFIED = 4
+
+# The health states that count as having been probed, i.e. as producing a
+# finding about the agent rather than about us. Kept beside the tiers because
+# the split above is only as meaningful as this list is accurate, and because
+# a new health state added to agent_health.py has to be classified here
+# deliberately rather than falling into whichever bucket the default happens
+# to be.
+PROBED_STATUSES = ("responding", "not_responding", "no_endpoint")
+UNESTABLISHED_STATUSES = ("", "unknown")
 
 # The names these ranks carry outside this file. One table, because the page
 # counts and the compact projection both name them and two tables would drift.
@@ -70,11 +116,19 @@ TIER_VERIFIED = 3
 # definition of record. What the id means in full: an address other than the
 # owner funded an on-chain job, and the agent then marked it delivered, which
 # is counted from SUBMITTED and so from before the dispute window closes.
+#
+# `unchecked` is new on 2026-09-23 and is additive: every id that existed
+# before still exists and still means something a caller can filter on. What
+# changed is that `unproven` no longer absorbs the agents nobody ever probed,
+# so it is now much smaller and finally matches its own definition. A client
+# reading `tiers.unproven` keeps working and starts getting the number that
+# sentence always claimed to describe.
 TIER_NAMES = {
     TIER_VERIFIED: "verified",
     TIER_CANARY_VERIFIED: "canary_verified",
     TIER_RESPONDING: "responding",
     TIER_UNPROVEN: "unproven",
+    TIER_UNCHECKED: "unchecked",
 }
 
 # Sort key -> the index array it reads. Named with the client's own sort keys
@@ -135,9 +189,25 @@ def _tier(record: dict, perf: dict | None, canary: dict | None) -> int:
     c = (canary or {}).get(owner) or {}
     if (c.get("delivered") or 0) > 0:
         return TIER_CANARY_VERIFIED
-    if record.get("service_status") == "responding":
+    # Health, which is the weakest evidence here and the only one that can be
+    # absent rather than merely negative.
+    #
+    # The three-way split matters because the two failing cases are not the
+    # same fact. `not_responding` and `no_endpoint` were learned about the
+    # agent: we reached the question and the answer was nothing. An absent
+    # status, or `unknown`, was learned about us: agent_health.py records
+    # `unknown` when it could not resolve the agent's metadata at all, most
+    # often because a shared public IPFS gateway refused us, and an absent
+    # status means the health pass has simply never reached this agent.
+    #
+    # Collapsing those into one tier is what let a gateway rate-limiting us
+    # read as agents having nothing to show. See the TIER_UNCHECKED comment.
+    status = record.get("service_status") or ""
+    if status == "responding":
         return TIER_RESPONDING
-    return TIER_UNPROVEN
+    if status in PROBED_STATUSES:
+        return TIER_UNPROVEN
+    return TIER_UNCHECKED
 
 
 def split_array(body: bytes) -> list[bytes]:
@@ -460,10 +530,129 @@ class AgentsIndex:
 
     def tier_counts(self, idx: list[int]) -> dict[str, int]:
         """The stat-card numbers, which the client used to derive by filtering
-        the whole array it had been sent."""
+        the whole array it had been sent.
+
+        Carries an `unchecked` key since 2026-09-23. Every previous key is
+        still present and still counts the same kind of thing; `unproven` is
+        smaller because the agents nobody probed moved to their own name."""
         out = {name: 0 for name in TIER_NAMES.values()}
         for i in idx:
             out[TIER_NAMES[self.tier[i]]] += 1
+        return out
+
+    def liveness_coverage(self, idx: list[int]) -> dict:
+        """Two rates, not one, because the finding is that two things were
+        being conflated.
+
+        WHY ONE RATIO CANNOT CARRY THIS
+        A responding count over the size of the selection is a sentence about
+        our coverage wearing the costume of a sentence about agents. But the
+        obvious repair, reporting only the share of the agents we reached,
+        publishes the flattering half on its own: it reads 98.9% and a reader
+        concludes nothing is wrong, when what was wrong is that we reached so
+        few. So both stages are reported and named for what they measure:
+
+            response rate   responding / reached     did the agent answer
+            reach rate      reached / attempted      did WE get to the agent
+
+        A failure in the first is the agent's. A failure in the SECOND IS OURS:
+        it means a health check ran and could not resolve the agent's metadata,
+        almost always because a shared public IPFS gateway turned us away. On
+        2026-09-23 the response rate was 550 of 556, which is 98.9% and looks
+        like health, while the reach rate was 556 of 736, which is 75.5% and is
+        where the whole incident lived. Publishing the first alone would have
+        reported the opposite of what was found.
+
+        THE THREE POPULATIONS, WHICH ARE NOT INTERCHANGEABLE
+            selected        every agent in this selection
+            attempted       a health check ran, whatever it concluded
+            reached         it concluded something ABOUT THE AGENT, so one of
+                            PROBED_STATUSES. `unknown` is excluded: it is this
+                            pipeline failing to resolve, and putting it in a
+                            denominator that purports to measure agents
+                            reintroduces the conflation this split exists to
+                            remove.
+
+        BOTH TERMS OF BOTH RATES ARE service_status COUNTS
+        None of these is tier_counts()["responding"] and they will not match
+        it. The tier is assigned top-down, so an agent that was probed and
+        answered but has also delivered a job is counted under `verified` and
+        never reaches the responding tier: 554 answering against a responding
+        tier of 533 in one pass on 2026-09-23. Dividing a tier count by a probe
+        count would build a ratio from two populations and understate the
+        response rate by systematically dropping the best agents. So every term
+        here is read from self.status, in one pass over one selection, at one
+        instant.
+
+        THE WINDOW IS CUMULATIVE AND IS NAMED RATHER THAN IMPLIED
+        `attempted` counts every agent with any health check on record, with no
+        recency bound. That is a step function: it jumps when a health pass
+        runs and drifts down as the store rotates, and on 2026-09-23 the same
+        selection gave 430 within six hours, 729 within a day and 754 ever. A
+        denominator that moves that much with an unstated window is not a
+        denominator, so `window` names which one this is. A recent-window rate
+        would have to bound on service_checked_at, which this index does not
+        carry.
+
+        EVERY FIGURE QUOTED ABOVE NAMES ITS SNAPSHOT, BECAUSE NONE OF THEM KEEPS
+        The 550, 556 and 736 are one pass over the served window on 2026-09-23,
+        and a later pass the same day gave 741 attempted over a selection of
+        15,000. That is the store rotating rather than an error, but a
+        documented figure the code will not reproduce tomorrow has to say which
+        moment it came from, or it reads as a target being missed.
+        """
+        attempted = unresolved = reached = responding = 0
+        for i in idx:
+            st = self.status[i]
+            if not st:
+                continue
+            attempted += 1
+            if st == "unknown":
+                unresolved += 1
+            elif st in PROBED_STATUSES:
+                reached += 1
+                if st == "responding":
+                    responding += 1
+        total = len(idx)
+        out = {
+            "selected": total,
+            "never_attempted": total - attempted,
+            "attempted": attempted,
+            "reached": reached,
+            "unresolved": unresolved,
+            "responding": responding,
+            "measured": "service_status, every term, one pass over one selection",
+            "window": "any_check_on_record",
+            # None rather than 0 on an empty denominator: a rate over nothing
+            # is not zero percent, it is not a rate.
+            "response_rate_of_reached": (
+                round(responding / reached, 4) if reached else None),
+            "reach_rate_of_attempted": (
+                round(reached / attempted, 4) if attempted else None),
+            # Named here so a caller does not have to infer which way to read a
+            # low value, which is the thing a bare pair of numbers gets wrong.
+            "reach_failure_is_ours": True,
+            "withheld_reason": None,
+        }
+        if total - attempted:
+            # A code a caller can branch on, plus a sentence a person can read.
+            # The code is the one core/extension/subject.py already emits on
+            # exactly this predicate, so the same absence has one name across
+            # the surfaces that report it rather than two spellings of one
+            # judgment.
+            out["withheld_reason"] = {
+                "code": "health_not_checked",
+                "detail": (
+                    f"{total - attempted} of {total} agents in this selection "
+                    f"have never been health-checked at all. No rate is "
+                    f"published over them: an agent we never attempted is not "
+                    f"an agent that failed to answer, and counting it as one "
+                    f"would describe our coverage rather than the agents. Of "
+                    f"the {attempted} we did attempt, we reached {reached} and "
+                    f"{responding} of those answered; the {unresolved} we "
+                    f"could not resolve are our own failure, not theirs."
+                ),
+            }
         return out
 
 

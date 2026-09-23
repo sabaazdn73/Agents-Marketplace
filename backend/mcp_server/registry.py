@@ -222,6 +222,7 @@ def build(providers) -> dict[str, Dataset]:
             "agents": ix.count,
             "selectable": len(idx),
             "tiers": ix.tier_counts(idx),
+            "liveness_coverage": ix.liveness_coverage(idx),
             "chains": sorted({c for c in ix.chain if c}),
             "partial": False,
         }
@@ -253,6 +254,7 @@ def build(providers) -> dict[str, Dataset]:
         return {
             "matched": len(idx),
             "tiers": ix.tier_counts(idx),
+            "liveness_coverage": ix.liveness_coverage(idx),
             **_reconciled_categories(facets, len(idx)),
             "feedback_entries": ix.feedback_total(idx),
         }
@@ -289,6 +291,23 @@ def build(providers) -> dict[str, Dataset]:
                  "canary_verified is a weaker claim, from a test hire funded by "
                  "Tnega rather than by a buyer, and is never blended with "
                  "verified.",
+                 "unproven and unchecked are different answers and were one id "
+                 "until 2026-09-23. unproven means the agent was probed and "
+                 "there was nothing to point to: its endpoint did not answer, "
+                 "or it registered none. unchecked means nothing was ever "
+                 "established, either because no health pass has reached the "
+                 "agent or because resolving its metadata failed on our side, "
+                 "usually a shared public IPFS gateway rate-limiting us. The "
+                 "second is a statement about our coverage and is never "
+                 "evidence about the agent. They were merged, and the merged "
+                 "bucket was 98.8% unchecked while its published definition "
+                 "said every agent in it had failed to answer.",
+                 "responding is a count over agents that were probed, not over "
+                 "agents that exist. liveness_coverage beside the tiers carries "
+                 "probed, unprobed and the responding share OF PROBED; the "
+                 "share over the unprobed is withheld with a reason rather than "
+                 "returned as a number, because most of the store has never "
+                 "been probed and dividing by it measures us, not them.",
                  "is_verified in the record is 8004scan's own registry field. "
                  "It is false for every agent in this index and is unrelated to "
                  "tier. Where the two look like they disagree, tier is the one "

@@ -33,3 +33,9 @@ __pycache__/
 
 # Local test scratch dir — never commit (per standing project rule)
 x402-test-merchant/
+
+# Local tooling configuration, never committed (per standing project rule).
+# Machine-specific and carries no project meaning; a `git add -A` would
+# otherwise sweep it in alongside real work.
+.claude/
+skills-lock.json
