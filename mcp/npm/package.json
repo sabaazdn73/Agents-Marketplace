@@ -1,12 +1,30 @@
 {
   "name": "tnega-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Adds Tnega's read-only MCP server to your client. Measurements of on-chain agents and Hyperliquid post-only rejection, each answer carrying its own coverage.",
-  "bin": { "tnega-mcp": "bin/tnega-mcp.js" },
-  "files": ["bin", "README.md"],
-  "engines": { "node": ">=18" },
+  "bin": {
+    "tnega-mcp": "bin/tnega-mcp.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT",
   "homepage": "https://www.tnega.app/how-it-works",
-  "repository": { "type": "git", "url": "git+https://github.com/sabaazdn73/Agents-Marketplace.git", "directory": "mcp/npm" },
-  "keywords": ["mcp", "model-context-protocol", "tnega", "erc-8004", "hyperliquid", "read-only"]
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sabaazdn73/Agents-Marketplace.git",
+    "directory": "mcp/npm"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "tnega",
+    "erc-8004",
+    "hyperliquid",
+    "read-only"
+  ]
 }
