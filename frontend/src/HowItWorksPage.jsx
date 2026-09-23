@@ -103,6 +103,14 @@ const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
 // backtick, so on Windows the second line would have run as its own command
 // and the add would have been malformed. A command introduced as identical on
 // three systems has to actually be identical on three systems.
+// The package, published 2026-09-23 as tnega-mcp@0.1.0. Three files, no
+// dependencies, and it starts no server: this server is hosted over HTTP, so
+// there is nothing to run locally and the package only writes a config entry.
+// It asks the client's own CLI to write it rather than editing ~/.claude.json
+// itself, because this page once told people to edit ~/.claude/mcp.json, a
+// file that does not exist and nothing reads.
+const MCP_NPX_COMMAND = 'npx tnega-mcp';
+
 const MCP_ADD_COMMAND =
   'claude mcp add --transport http tnega https://agents-marketplace-q3k4.onrender.com/mcp';
 
@@ -545,6 +553,21 @@ export default function HowItWorksPage({ variant = 'web' }) {
       key: 'mcp',
       title: 'The MCP server',
       icon: Terminal,
+      // THE ONE SURFACE THAT INSTALLS IN A COMMAND HAD NO MARK, which made it
+      // read as the least finished thing on a page where the extension beside
+      // it carries one. It stands for the server and the package together.
+      //
+      // Drawn in the family rather than as a new language: the arch, the two
+      // bands and the glass ground are lifted from icon_v2.svg unchanged, and
+      // only what stands inside the arch differs, which is the same way the
+      // extension mark differs. Three rows leaving the arch, ragged because
+      // some answers are withheld, and nothing flowing in, which is the
+      // read-only claim made by omission.
+      //
+      // Nothing is borrowed from a client that connects to it, for the reason
+      // the Claude Code and OpenAI marks are absent from this page.
+      markSrc: '/mcp-mark.svg',
+      markAlt: 'Tnega MCP server',
       pill: <Pill tone="live">Live</Pill>,
       line: 'Point your own assistant at this site and it can read every measurement here, '
         + 'with the coverage behind each one. No key, no account, no sign-up.',
@@ -577,6 +600,10 @@ export default function HowItWorksPage({ variant = 'web' }) {
             <Label>Endpoint</Label>
             <CodeBlock text={MCP_ENDPOINT} label="the endpoint" />
             <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
+              Every tool declares <code className="font-mono">readOnlyHint: true</code> and{' '}
+              <code className="font-mono">destructiveHint: false</code> in the protocol itself,
+              so a client can establish that this server writes nothing before it calls anything,
+              rather than taking the claim from this page.
               It speaks JSON-RPC over POST, with no authentication and no sign-up. There is no
               server-initiated stream: a GET returns 405 and says to POST instead. Every reply
               carries the coverage behind its number, and returns a stated reason rather than a
@@ -602,7 +629,43 @@ export default function HowItWorksPage({ variant = 'web' }) {
           </div>
 
           <div>
-            <Label>Adding it to a client</Label>
+            {/* ONE COMMAND FIRST, AND THE CONFIG SHAPES UNDER IT.
+                The config block led this section while the shortest path to a
+                working server was three lines further down. Someone who can run
+                one command should not have to read a JSON shape to find that
+                out, and someone whose client is not Claude Code still needs the
+                shapes, so both stay and the order changed. */}
+            <Label>The one command</Label>
+            <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
+              If you use Claude Code, this is the whole install. No key, no account,
+              no sign-up.
+            </p>
+            <CodeBlock text={MCP_NPX_COMMAND} label="the install command" />
+            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
+              It writes one config entry by asking Claude Code&apos;s own CLI to write it,
+              and does nothing else: no server is started, no dependency is installed,
+              nothing runs afterwards. It prints the command it ran, then tells you to
+              start a new session and ask for <code className="font-mono">tnega_catalogue</code>.
+              Run it twice and it says the server is already configured and changes nothing.
+              Add <code className="font-mono">--scope user</code> for every project rather than
+              this one, or <code className="font-mono">--print</code> to see the config and paste
+              it yourself.
+            </p>
+            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
+              Three files and no dependencies, so you can read it before you run it:{' '}
+              <a
+                href="https://www.npmjs.com/package/tnega-mcp"
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                tnega-mcp on npm
+              </a>.
+            </p>
+          </div>
+
+          <div>
+            <Label>Or the config entry, for any other client</Label>
             {/* The shapes differ between clients by more than they look, and a
                 key in the wrong place fails quietly. So the copyable block is
                 labelled with the one client it is exactly right for, and every
@@ -619,13 +682,16 @@ export default function HowItWorksPage({ variant = 'web' }) {
             </p>
 
             <div className="mt-3">
-              <Label>Or let the client write it for you</Label>
+              {/* What npx tnega-mcp runs underneath, for anyone who would rather
+                  run it themselves or does not want to run an npm package. */}
+              <Label>What that command runs</Label>
               <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
-                Claude Code takes one command, the same on macOS, Windows and Linux:
+                The installer shells out to this, and you can run it yourself instead.
+                The same on macOS, Windows and Linux:
               </p>
               <CodeBlock text={MCP_ADD_COMMAND} label="the command" />
               <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-                That writes the entry itself. It lands in{' '}
+                It lands in{' '}
                 {MCP_CONFIG_HOMES.map((h, i) => (
                   <span key={h.os}>
                     <code className="font-mono">{h.path}</code> on {h.os}
