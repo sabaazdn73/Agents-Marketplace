@@ -727,8 +727,9 @@ export default function HowItWorksPage({ variant = 'web' }) {
             page, and none of what it reads there is sent anywhere or kept: the address from the URL
             is the only thing that leaves the browser. It does not read form fields, balances or
             wallet state. It stores nothing, on your machine or off it: no cookie, no local storage,
-            no background worker. It runs on app.hyperliquid.xyz and nowhere else, which is the
-            single entry in its manifest and is what the browser enforces.
+            no background worker beyond the one that holds the membership list. It runs on
+            the 9 sites listed in its manifest and nowhere else, which is what the
+            browser enforces.
           </p>
           <p className="text-[12px] text-gray-500 dark:text-gray-400">
             The panel displays what the API returns and computes nothing itself, so the rule for
@@ -741,10 +742,18 @@ export default function HowItWorksPage({ variant = 'web' }) {
             <HowItWorksFlow compact={compact} steps={[
               {
                 title: 'Install it from the Chrome Web Store',
-                body: 'Two permissions and no more: activeTab, so the toolbar popup can read '
-                  + 'the address of the tab you clicked, and one host permission for this '
-                  + 'site\u2019s API. The content script runs on app.hyperliquid.xyz and nowhere '
-                  + 'else.',
+                // COUNTED FROM THE MANIFEST WHEN THIS WAS WRITTEN, AND IT HAD
+                // DRIFTED TWICE OVER. This said two permissions and one site
+                // while the extension shipped 3 permissions and 9 sites,
+                // which is the shape of claim that gets a listing taken down:
+                // understating what an extension reaches is worse than
+                // overstating it. activeTab, storage, alarms, and the sites are the
+                // content_scripts matches.
+                body: '3 permissions and no more: activeTab, so the toolbar popup can read '
+                  + 'the address of the tab you clicked, storage for the membership list, '
+                  + 'alarms to refresh it daily, and one host permission for this '
+                  + 'site\u2019s API. The content script runs on 9 sites: Hyperliquid, '
+                  + '8004scan and seven block explorers, and nowhere else.',
               },
               {
                 title: 'Open an address page on Hyperliquid',

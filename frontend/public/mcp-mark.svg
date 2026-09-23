@@ -1,0 +1,79 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"
+     role="img" aria-label="Tnega MCP server">
+  <title>Tnega MCP server</title>
+  <!--
+    THE MARK FOR THE MCP SERVER AND THE tnega-mcp PACKAGE.
+
+    IN THE FAMILY, NOT A NEW LANGUAGE. The arch, the two side bands and the
+    deep glass ground are lifted from icon_v2.svg unchanged: same path
+    geometry, same gradient stops, same 112 corner radius. What changes is
+    what stands inside the arch, which is how the extension mark differs too.
+
+    WHAT STANDS INSIDE, AND WHY IT IS THREE BARS.
+    This is not a product with a face. It is six tools that answer and cannot
+    write. So the figure is a stack of rows leaving the arch to the right:
+    what the server does is hand rows out. They are ragged rather than equal
+    because every answer here carries its own coverage and some of them are
+    withheld, so an even stack would be the wrong picture.
+
+    NOTHING FLOWS IN. There is no inbound arrow and no second direction. The
+    read-only claim is the one thing this surface is for, and the mark says it
+    by omission rather than by adding a symbol for it.
+
+    DRAWN FOR 16px, WHICH IS WHERE IT LIVES.
+    The card renders it at 18 on desktop and 16 on mobile. At that size a
+    lattice of cubes is mush, which the extension mark can afford because it
+    is the only mark on its card. This one sits a card away from it, so the
+    two have to be told apart at 16px: an arch over a lattice against an arch
+    over three bars. The bars are 26 tall with 22 of air between them, which
+    is the smallest that survived the render at 16.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#132B66"/>
+      <stop offset="50%" stop-color="#1E4599"/>
+      <stop offset="100%" stop-color="#3A72DA"/>
+    </linearGradient>
+    <radialGradient id="innerVignette" cx="50%" cy="105%" r="75%">
+      <stop offset="0%" stop-color="#04102E" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#04102E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bandLeft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#F4D35E"/>
+      <stop offset="30%" stop-color="#EE8C6B"/>
+      <stop offset="60%" stop-color="#D8536B"/>
+      <stop offset="100%" stop-color="#7C6FC9"/>
+    </linearGradient>
+    <linearGradient id="bandRight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#7C6FC9"/>
+      <stop offset="40%" stop-color="#5BA8D8"/>
+      <stop offset="100%" stop-color="#4ADEC4"/>
+    </linearGradient>
+    <linearGradient id="row" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#97FCE4" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#innerVignette)"/>
+
+  <!-- The arch, unchanged from icon_v2.svg. -->
+  <path d="M 120 384 C 120 302, 120 222, 168 170 C 196 140, 232 130, 232 130
+           L 232 178 C 232 178, 208 186, 190 208 C 168 234, 168 302, 168 384 Z"
+        fill="url(#bandLeft)"/>
+  <path d="M 392 384 C 392 302, 392 222, 344 170 C 316 140, 280 130, 280 130
+           L 280 178 C 280 178, 304 186, 322 208 C 344 234, 344 302, 344 384 Z"
+        fill="url(#bandRight)"/>
+  <g opacity="0.55" stroke="#FFFFFF" stroke-width="3" fill="none">
+    <path d="M 168 380 C 168 300, 168 234, 190 208"/>
+    <path d="M 344 380 C 344 300, 344 234, 322 208"/>
+  </g>
+
+  <!-- Rows going out. Ragged, and the shortest one is the withheld answer. -->
+  <g fill="url(#row)">
+    <rect x="196" y="236" width="150" height="26" rx="13"/>
+    <rect x="196" y="284" width="196" height="26" rx="13"/>
+    <rect x="196" y="332" width="104" height="26" rx="13"/>
+  </g>
+</svg>

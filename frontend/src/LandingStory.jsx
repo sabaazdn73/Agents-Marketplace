@@ -48,15 +48,44 @@ function Reveal({ children, className = '' }) {
   );
 }
 
-// Measured 2026-09-19 and sourced per line. A number on a landing page with no
-// provenance is the thing this project exists to argue against, so each one
-// carries where it came from.
-const STATS = [
-  { value: '198,801', label: 'agents indexed', note: 'ERC-8004 registries, six chains' },
-  { value: '6', label: 'chains read', note: 'three of them hireable today' },
-  { value: '12.0M', label: 'orders observed', note: 'post-only orders on Hyperliquid' },
-  { value: '46,269', label: 'addresses cached', note: "the venue's own leaderboard, daily" },
+// THESE READ THEMSELVES NOW, and the reason is what they used to be.
+//
+// They were stamped by hand, "Measured 2026-09-19", under a comment saying a
+// number on a landing page with no provenance is the thing this project exists
+// to argue against. The provenance was there and the number moved: four days
+// later this said 12.0M orders observed against 53,106,754 live, understated by
+// a factor of 4.4. The other three had drifted under 1.5% and were fine, which
+// is the point: the figure that moves fastest is the one a hand-written stamp
+// cannot keep, and re-stamping it would only set the same trap again.
+//
+// The values below are the fallback, not the source. They render on the first
+// frame and are replaced when /api/landing-stats answers, because a headline
+// that blanks while a request is in flight is worse than one that is a day old.
+// That is the same rule the How It Works opening paragraph already follows.
+// What is different here is that the page says which of the two it is showing,
+// so a stale fallback cannot pass itself off as a reading.
+const STAT_FALLBACK = [
+  { key: 'agents_indexed', value: '199,217', label: 'agents indexed',
+    note: 'ERC-8004 registries, six chains' },
+  // Six, not the seven chain views. The seventh is Hyperliquid, which is a
+  // venue with no ERC-8004 registry to read, so counting it here would put a
+  // venue in a registry figure.
+  { key: 'registry_chains', value: '6', label: 'chains read',
+    note: 'three of them hireable today' },
+  { key: 'orders_observed', value: '53.1M', label: 'orders observed',
+    note: 'post-only orders on Hyperliquid' },
+  { key: 'addresses_cached', value: '46,882', label: 'addresses cached',
+    note: "the venue's own leaderboard, daily" },
 ];
+
+/** A count as this page writes counts: millions short, everything else grouped. */
+function statValue(key, n) {
+  if (!Number.isFinite(n)) return null;
+  if (key === 'orders_observed') {
+    return n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n.toLocaleString('en-US');
+  }
+  return n.toLocaleString('en-US');
+}
 
 const STEPS = [
   {
@@ -120,7 +149,33 @@ const AUDIENCES = [
   },
 ];
 
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+
+/** How long ago the figures were read, in the page's own register. */
+function statAge(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return 'just now';
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  if (s < 90) return 'seconds ago';
+  if (s < 5400) return `${Math.round(s / 60)} minutes ago`;
+  if (s < 172800) return `${Math.round(s / 3600)} hours ago`;
+  return `${Math.round(s / 86400)} days ago`;
+}
+
 export default function LandingStory({ onEnter }) {
+  // Never blocks the page. The fallback renders on the first frame and this
+  // swaps in when it lands; a failure leaves the fallback with the line below
+  // saying so, rather than a blank or a silent stale figure.
+  const [stats, setStats] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/api/landing-stats`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d) => { if (!cancelled) setStats(d); })
+      .catch(() => { if (!cancelled) setStats(null); });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="tn-story">
       <div className="tn-shell">
@@ -137,7 +192,12 @@ export default function LandingStory({ onEnter }) {
               Agents are easy to register. Tnega measures whether they work.
             </h2>
             <p className="tn-aside-p">
-              198,801 agents across six chains, and the readings behind each of
+              {/* The same figure as the first tile, from the same read. It was a
+                  second hardcoded copy of it, which is how one stale number
+                  becomes two: the tile was corrected once and this was not. */}
+              {(stats && Number.isFinite(stats.agents_indexed)
+                ? stats.agents_indexed.toLocaleString('en-US')
+                : '199,217')} agents across six chains, and the readings behind each of
               them, including the ones we will not state.
             </p>
             <div className="tn-cta tn-cta--aside">
@@ -173,14 +233,25 @@ export default function LandingStory({ onEnter }) {
       <section className="tn-sec tn-sec--stats" aria-label="What has been measured">
         <Reveal>
           <div className="tn-stats">
-            {STATS.map((s) => (
-              <div key={s.label} className="tn-stat">
-                <div className="tn-stat-v">{s.value}</div>
-                <div className="tn-stat-l">{s.label}</div>
-                <div className="tn-stat-n">{s.note}</div>
-              </div>
-            ))}
+            {STAT_FALLBACK.map((s) => {
+              const live = stats ? statValue(s.key, stats[s.key]) : null;
+              return (
+                <div key={s.label} className="tn-stat">
+                  <div className="tn-stat-v">{live || s.value}</div>
+                  <div className="tn-stat-l">{s.label}</div>
+                  <div className="tn-stat-n">{s.note}</div>
+                </div>
+              );
+            })}
           </div>
+          {/* Which of the two is on screen. Without this the fallback is
+              indistinguishable from a reading, which is the defect that put a
+              four-day-old figure here under a provenance stamp. */}
+          <p className="tn-stat-asof">
+            {stats
+              ? `Read from the store ${statAge(stats.as_of)}.`
+              : 'Last measured 23 September 2026. Live figures have not loaded.'}
+          </p>
         </Reveal>
       </section>
 

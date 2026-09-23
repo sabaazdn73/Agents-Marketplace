@@ -51,10 +51,18 @@ FILES = [
     "explorer.js",
     "scan8004.js",
     "content.js",
+    # Practice mode, added 2026-09-23. Left off when it was written, and
+    # the manifest named all three, so this script refused to build at all
+    # rather than shipping a package whose manifest pointed at files that
+    # were not in it. That is the check working: the store zip has been
+    # unbuildable since practice mode landed, rather than quietly broken.
+    "paperSim.js",
+    "paper.js",
     "popup.js",
     "popup.html",
     "popup.css",
     "panel.css",
+    "paper.css",
     "icons/tnega-16.png",
     "icons/tnega-32.png",
     "icons/tnega-48.png",
@@ -74,6 +82,13 @@ ALLOWED_HOSTS = {
     # in the source without appearing in the manifest, which is how an
     # undeclared injection would get past review.
     "app.hyperliquid.xyz",
+    # Not a content_scripts match and deliberately not one: it is the
+    # venue's public info endpoint, which practice mode reads for the
+    # book, the fee schedule, funding and the tick sizes. It answers
+    # access-control-allow-origin *, so a content script on
+    # app.hyperliquid.xyz reaches it with the page's own origin and no
+    # host permission is requested for it.
+    "api.hyperliquid.xyz",
     "etherscan.io",
     "bscscan.com",
     "basescan.org",

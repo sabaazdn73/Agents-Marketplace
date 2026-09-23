@@ -131,6 +131,7 @@ app.add_middleware(
 
 
 import time
+import datetime as dt
 import asyncio
 import threading
 
@@ -3074,6 +3075,95 @@ async def agent_detail(agent_id: str):
 # 30,000-document read behind this service's memory ratchet. These routes
 # add no resting memory: every call is a bounded, projected, uncached
 # skip/limit read. See core/chain_views.py.
+
+
+# The four figures on the landing page, read rather than stamped.
+#
+# THEY WERE HARDCODED, AND ONE OF THEM DRIFTED BY 4.4x.
+# LandingStory.jsx carried them under a comment reading "A number on a landing
+# page with no provenance is the thing this project exists to argue against",
+# with each one sourced and stamped 2026-09-19. Four days later the order count
+# read 12.0M against 53,094,754 live. Three of the four had drifted under 1.5%
+# and were fine; the one that moves fastest was the one that made the stamp a
+# liability. A number that has to be re-stamped by hand is a number that will
+# be wrong again, so it reads itself now.
+#
+# CHEAP ENOUGH FOR A LANDING PAGE, which is why this is not /api/hyperliquid/
+# overview. That one takes about fifteen seconds because it also builds the
+# maker tables, the brain and the websocket coverage. This calls the one
+# coverage read it needs, plus six indexed count_documents and one row count,
+# and caches the lot.
+_LANDING_TTL_SECONDS = 15 * 60
+_landing_cache: dict = {"at": 0.0, "value": None}
+
+
+@app.get("/api/landing-stats")
+async def landing_stats():
+    """What the landing page states, measured now.
+
+    Every figure carries what it counts, because two of them have a defensible
+    second answer and a reader of the page cannot see which was chosen:
+    agents_indexed counts the registry rows behind the chain views and not the
+    smaller served set, and registry_chains is six rather than the seven chain
+    views, because Hyperliquid is a venue and has no ERC-8004 registry to read.
+    """
+    now = time.time()
+    hit = _landing_cache["value"]
+    if hit and now - _landing_cache["at"] < _LANDING_TTL_SECONDS:
+        return hit
+
+    from core import chain_views
+
+    registry = [v for v in chain_views.describe_views()
+                if v.get("kind") != "venue"]
+
+    # The registry counts are Mongo, and the client is bound to THIS loop. An
+    # earlier version ran them with asyncio.run inside the worker thread below,
+    # which raised on every view and, because the counter swallowed it, served
+    # agents_indexed as null while the other three figures looked fine. Awaited
+    # here; only the blocking Cockroach reads go to a thread.
+    agents = 0
+    for v in registry:
+        try:
+            agents += await chain_views.count_view(v["id"])
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _build():
+        from core.hyperliquid import service, store as hl_store
+
+        orders = None
+        try:
+            orders = (service.coverage() or {}).get("orders_observed")
+        except Exception:  # noqa: BLE001
+            orders = None
+
+        cached = None
+        try:
+            with hl_store.connect(statement_timeout_ms=20000) as c, c.cursor() as cur:
+                cur.execute("SELECT count(*) FROM hl_leaderboard")
+                cached = cur.fetchone()[0]
+        except Exception:  # noqa: BLE001
+            cached = None
+
+        return {
+            "agents_indexed": agents or None,
+            "registry_chains": len(registry),
+            "hireable_chains": sum(1 for v in registry
+                                   if (v.get("hire_paths") or {}).get("any")),
+            "orders_observed": orders,
+            "addresses_cached": cached,
+            "as_of": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+
+    try:
+        out = await asyncio.to_thread(_build)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not measure the landing figures: {type(e).__name__}")
+    _landing_cache.update(at=now, value=out)
+    return out
 
 
 @app.get("/api/chain-views")

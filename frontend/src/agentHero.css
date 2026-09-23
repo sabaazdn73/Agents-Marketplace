@@ -437,3 +437,10 @@
   .tn-aside-in { position: static; padding: 64px 0 8px; }
   .tn-shell .tn-sec--quiet { padding-inline: 16px; }
 }
+
+/* The line saying whether the four figures above were read or are the
+   fallback. Small and muted: it is provenance, not a headline. */
+.tn-stat-asof{
+  margin:10px 0 0; font-size:12px; line-height:1.5;
+  color:rgba(255,255,255,.45);
+}

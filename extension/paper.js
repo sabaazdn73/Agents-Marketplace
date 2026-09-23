@@ -1008,18 +1008,25 @@ function buildPaperPanel() {
     "Filled only once the mark has gone clear through the level, which is this "
     + "panel's assumption rather than something public data settles.");
 
-  // WHAT HAPPENED BEFORE THE THING THAT JUST HAPPENED.
-  // The newest event is the banner under the button, word for word, so it is
-  // not printed twice: refreshEvents drops it from this list for as long as the
-  // banner is carrying it. That leaves this list as what it is, which is the
-  // earlier ones, and the heading says so.
-  ui.evSec = tpEl(acct, "div", "tp-sec tp-region tp-hide");
-  tpEl(ui.evSec, "div", "tp-sub", "Earlier");
-  ui.evList = tpEl(ui.evSec, "ul", "tp-events");
-
   ui.closedSec = tpEl(acct, "div", "tp-sec tp-region tp-hide");
   tpEl(ui.closedSec, "div", "tp-sub", "Closed, and what each would have earned");
   ui.closedList = tpEl(ui.closedSec, "ul", "tp-rest");
+
+  // HISTORY, AND IT SITS AFTER THE CLOSED LIST RATHER THAN BEFORE IT.
+  //
+  // It was above, headed Earlier, which put a running log of fills and
+  // refusals between the position and the closed trades those fills produced.
+  // A person reading down went position, log, then the outcomes the log was
+  // describing, so the two halves of one story were separated by the story
+  // itself. Closed trades are the result and belong next to the position;
+  // history is the record of how it got there and belongs under both.
+  //
+  // The newest event is the banner under the button, word for word, so it is
+  // not printed twice: refreshEvents drops it from this list for as long as
+  // the banner is carrying it.
+  ui.evSec = tpEl(acct, "div", "tp-sec tp-region tp-hide");
+  tpEl(ui.evSec, "div", "tp-sub", "History");
+  ui.evList = tpEl(ui.evSec, "ul", "tp-events");
 
   // ── The standing prose, collected, and the two sentences that stay out of
   // the collapse.
@@ -2688,7 +2695,7 @@ function refreshResting(state, info) {
  *  column. The banner is the one that earns its place at the moment it appears:
  *  it is the answer to "I just pressed that" and it is against the thing that
  *  was pressed. So for as long as the banner is carrying an event, this list
- *  starts at the one after it, and its heading says Earlier.
+ *  starts at the one after it, and its heading says History.
  *
  *  Nothing is lost by it. Editing any field on the ticket drops the banner,
  *  because at that point the person is describing a new order rather than
