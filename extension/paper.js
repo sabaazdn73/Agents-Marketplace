@@ -631,6 +631,55 @@ function tpCheck(parent, label, fname) {
   return { label: l, input: i };
 }
 
+/** One of their two linked rows: a price box, and beside it the gain or the
+ *  loss with a unit picker, either of which can be typed.
+ *
+ *  THEIR LAYOUT, ELEMENT FOR ELEMENT. Read off their shipped bundle on
+ *  2026-09-23, component Hp: a CSS grid of `1fr 120px` with a 10px gap on
+ *  desktop and `1fr 1fr` on a phone, the price on the left with its label
+ *  inside the box, and on the right a number whose right component is a
+ *  two-option select reading `$` or `%`. Their labels, from the catalogue their
+ *  app imports at runtime: `tp.price` is "TP Price", `sl.price` is "SL Price",
+ *  `gain` is "Gain", `loss` is "Loss".
+ */
+function tpTicketLevel(parent, label, fname, sideLabel, gname) {
+  const wrap = tpEl(parent, "div", "tp-tl");
+  const row = tpEl(wrap, "div", "tp-tl-row");
+  const box = tpEl(row, "div", "tp-field tp-tl-f");
+  tpEl(box, "span", "tp-field-k", label);
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "decimal";
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.placeholder = "not set";
+  input.dataset.f = fname;
+  input.setAttribute("aria-label", label + ", a price");
+  box.appendChild(input);
+
+  const gbox = tpEl(row, "div", "tp-field tp-tl-g");
+  tpEl(gbox, "span", "tp-field-k", sideLabel);
+  const gain = document.createElement("input");
+  gain.type = "text";
+  gain.inputMode = "decimal";
+  gain.autocomplete = "off";
+  gain.spellcheck = false;
+  gain.placeholder = "0";
+  gain.dataset.f = gname;
+  gain.setAttribute("aria-label", sideLabel);
+  gbox.appendChild(gain);
+  // THE UNIT PICKER IS ON THIS SIDE AND IS SHARED BY BOTH ROWS, which is
+  // theirs: setIsNtl writes one global setting that the gain row and the loss
+  // row both read, so switching either switches both. A per-row unit would let
+  // the two halves of one decision be quoted in different currencies.
+  const unit = tpEl(gbox, "button", "tp-field-u tp-unit", "%");
+  unit.type = "button";
+  unit.dataset.act = "tpslunit";
+
+  const msg = tpEl(wrap, "div", "tp-lvl-msg tp-hide");
+  return { wrap, box, input, gbox, gain, unit, msg };
+}
+
 /** A two-column table row whose value cell is returned for later updates. */
 function tpRow(tbody, label) {
   const tr = tpEl(tbody, "tr");
@@ -704,6 +753,7 @@ function buildPaperPanel() {
 
   // ── Header. Never removed, never emptied.
   const head = tpEl(root, "div", "tp-head");
+  ui.head = head;
   tpCat(head, "tp-cat");
   ui.mark = tpEl(head, "span", "tp-mark", PAPER_HEADER_TEXT);
   tpEl(head, "span", "tp-spacer");
@@ -727,38 +777,74 @@ function buildPaperPanel() {
   // below it is about to be lost: at 390 it was off the screen entirely.
   ui.storage = tpEl(body, "div", "tp-storage tp-hide");
 
-  // ── Their Cross | 20x | Unified strip.
+  // ── Their Isolated | 20x | Practice strip, as three buttons that all open
+  //    something.
   //
-  // NOT three chips. The first version copied their three filled buttons
-  // exactly, and two of the three did nothing: dead divs with cursor:auto and
-  // no handler, pixel-identical to their working controls. Worse, the only
-  // editable thing in the row, the leverage box, was hidden inside the middle
-  // one and looked exactly like the two that did nothing. A reviewer said they
-  // would not have found it without dumping the DOM.
+  // WHAT THIS REPLACES, AND WHY THE EARLIER FIX IS NOT BEING UNDONE.
   //
-  // So the two that are statements are drawn as statements, in the muted
-  // colour with no fill, and the one that is a field is drawn with the same
-  // outline their Size box has. The row keeps its place and its height; it
-  // stops claiming to be three buttons.
-  const chips = tpEl(body, "div", "tp-chips");
-  tpEl(chips, "div", "tp-chip-static", "Cross");
-  const levChip = tpEl(chips, "div", "tp-chip-field");
-  tpEl(levChip, "span", "tp-field-k", "Leverage");
-  ui.leverage = document.createElement("input");
-  ui.leverage.type = "text";
-  ui.leverage.inputMode = "numeric";
-  ui.leverage.autocomplete = "off";
-  ui.leverage.dataset.f = "leverage";
-  ui.leverage.value = "1";
-  ui.leverage.setAttribute("aria-label", "Leverage");
-  levChip.appendChild(ui.leverage);
-  tpEl(levChip, "span", "tp-field-u", "x");
-  tpEl(chips, "div", "tp-chip-static", "Practice");
+  // The first version of this row copied their three filled buttons exactly
+  // and two of the three did nothing: dead divs with cursor:auto and no
+  // handler, pixel-identical to their working controls. Worse, the only
+  // editable thing in the row, a leverage text box, was hidden inside the
+  // middle one and looked exactly like the two that did nothing. A reviewer
+  // said they would not have found it without dumping the DOM.
+  //
+  // The answer then was to draw the two statements as statements. That was
+  // right about "do not draw a dead button" and wrong about the interaction:
+  // on their form the middle control is a BUTTON reading "20x" that opens a
+  // modal with a slider in it, and ours was a field you type a number into.
+  // Typing is not what a person does there.
+  //
+  // So all three are buttons again, and the rule that produced the earlier
+  // comment still holds without exception: every one of these opens a panel.
+  // Not one of them is a label wearing a button's clothes.
+  //
+  //   1  MARGIN MODE. Theirs switches the asset between cross and isolated.
+  //      Ours opens the same choice and says which of the two this simulation
+  //      runs. It is isolated: liquidationPrice in paperSim.js solves from the
+  //      margin that one position put up, never from the account balance, and
+  //      that is the isolated rule. The row used to read "Cross", which was
+  //      the wrong word for the arithmetic underneath it.
+  //   2  LEVERAGE, as "20x", opening the slider. The headline change.
+  //   3  Theirs picks which account the order goes to, Unified or One-Way.
+  //      There is one account here, it is local, and it cannot be switched, so
+  //      copying their word would name a feature that does not exist. The slot
+  //      opens what the practice account is instead, and holds the control
+  //      that resets it.
+  //
+  // WIDTH. Their desktop row is three buttons in repeat(3, 1fr) with a 10px
+  // gap. Their phone row is two, because their order-type dropdown takes the
+  // third slot beside it. Our order type keeps a row of its own at every
+  // width, so this row keeps all three at 390 as well.
+  const strip = tpEl(body, "div", "tp-strip");
+  ui.marginBtn = tpEl(strip, "button", "tp-strip-b", "Isolated");
+  ui.marginBtn.type = "button";
+  ui.marginBtn.dataset.act = "openmargin";
+  ui.marginBtn.setAttribute("aria-label", "Margin mode");
+  ui.levBtn = tpEl(strip, "button", "tp-strip-b", "20x");
+  ui.levBtn.type = "button";
+  ui.levBtn.dataset.act = "openlev";
+  ui.levBtn.setAttribute("aria-label", "Adjust leverage");
+  ui.acctBtn = tpEl(strip, "button", "tp-strip-b", "Practice");
+  ui.acctBtn.type = "button";
+  ui.acctBtn.dataset.act = "openacct";
+  ui.acctBtn.setAttribute("aria-label", "The practice account");
 
-  // Said out loud when the number typed is not the number that will be used.
-  // Substituting silently was the previous behaviour: 500 on a market whose
-  // maximum is 40 left the field reading 500, showed 40x arithmetic in the
-  // stats, and opened a 40x position without a word.
+  // WHAT IS LEFT FOR THIS LINE NOW THAT THE BOX IS A SLIDER.
+  //
+  // It used to carry four sentences, one for each way a typed number was not
+  // the number that would be used: not a number at all, above the market's
+  // maximum, under 1, and fractional. A slider that runs 1 to the market's own
+  // maximum in whole steps cannot produce any of those, so all four are gone
+  // from paperLeverageNote along with the typing that caused them.
+  //
+  // Two cases are left and they are not about typing. A leverage chosen while
+  // the market's rules were still unread is held against a fallback maximum of
+  // 50, and the venue also lowers an asset's maximum from time to time: either
+  // way a number already chosen can end up above what the market now allows,
+  // and the substitution still has to be said out loud. The other sentence
+  // this line carries is ticketLeverageSeedNote, which says the number came
+  // from the position already open.
   ui.leverageNote = tpEl(body, "div", "tp-lev-note tp-hide");
 
   // ── Their Market | Limit | Pro tabs, underline style.
@@ -786,17 +872,50 @@ function buildPaperPanel() {
   // not do.
   ui.availableNote = tpEl(body, "div", "tp-kv-note tp-hide");
 
-  // THEIR "Current Position" ROW IS NOT COPIED, AND THAT IS THE DEDUPLICATION.
-  // It said "0.05 BTC" three rows above a line reading "long 0.05 BTC at
-  // 85,977", a ladder carrying the same entry, and a table repeating side,
-  // size, entry, mark, worth, liquidation and funding: one position stated four
-  // times in a 342px column. The position now has exactly one home, below the
-  // button, and when there is none that home says "No open BTC position."
-  // rather than a zero on a row of their form.
+  // THEIR "Current Position" ROW, IN THEIR PLACE FOR IT, TWO ROWS UNDER
+  // Available to Trade AND DIRECTLY ABOVE THE SIZE BOX.
+  //
+  // THE HISTORY OF THIS ROW, BECAUSE IT WAS TAKEN OUT AND PUT BACK AND THE TWO
+  // DECISIONS ARE ABOUT DIFFERENT THINGS.
+  //
+  // It was removed as deduplication. The measurement behind that was true and
+  // is worth keeping: with one position open, this panel stated it four times
+  // in a 342px column, as this row, as a one-line brief, as the ladder, and as
+  // a seven-row table that repeated five of the ladder's own fields to add two.
+  // Three of those four were ours. They were merged, the brief and the table
+  // are gone, and the position below the button now has one home.
+  //
+  // This row was the fourth, and it was the wrong one to cut, because it is the
+  // only one of the four that is on Hyperliquid's own form. Their form carries
+  // it here AND carries a positions table at the foot of the page, and nobody
+  // reading their form experiences that as being told the same thing twice: it
+  // is the number you glance at while sizing an order, and it belongs beside
+  // the size box rather than only below the button.
+  //
+  // So the rule this file now follows, stated once here because two different
+  // comments in this pass depend on it: where Hyperliquid has a thing, match
+  // them, and say that is why. Where we invented a repeat, say it once. The
+  // repeats removed elsewhere in this pass are all of the second kind.
+  //
+  // A ZERO HERE IS A READING, NOT AN ABSENCE. "0.00000 BTC" is the true size of
+  // no position, which is a different thing from a figure that could not be
+  // worked out, and the row says which of the two it is showing.
+  ui.currentPos = tpKv(body, "Current Position");
 
   // Price sits above Size on their form when Limit is selected.
   ui.price = tpField(body, "Price", "px", "USD");
   ui.size = tpField(body, "Size", "size", "");
+  // THEIR UNIT IS A CONTROL, NOT A CAPTION. The chip at the right of their Size
+  // box carries a radius and swaps the box between the coin and USD; ours was a
+  // plain span reading "BTC", so a person who wanted to buy fifty dollars of
+  // something had to work out the coin amount themselves. Swapped here to a
+  // button in the same place, with the same two states. The coin amount stays
+  // the one the engine is given either way: see setSizeField.
+  ui.sizeUnit = tpEl(null, "button", "tp-field-u tp-unit", "");
+  ui.sizeUnit.type = "button";
+  ui.sizeUnit.dataset.act = "sizeunit";
+  ui.size.box.replaceChild(ui.sizeUnit, ui.size.unit);
+  ui.size.unit = ui.sizeUnit;
 
   // ── Their percentage slider.
   const pct = tpEl(body, "div", "tp-pct");
@@ -833,6 +952,43 @@ function buildPaperPanel() {
   // place is the one this extension exists for: post-only, which is the order
   // type whose rejection rate the rest of the extension measures.
   ui.reduceOnly = tpCheck(body, "Reduce Only", "reduceOnly");
+
+  // ── THEIR TAKE PROFIT / STOP LOSS CHECKBOX, THEIR TWO PRICE BOXES, AND NOT
+  //    THEIR MEANING.
+  //
+  // This was declined in the last pass, with the reason that a level here is a
+  // mark on our own ladder rather than an order, and that two price boxes on an
+  // order ticket imply the venue is holding something. The reason has not
+  // changed and is not being abandoned: what changes is that the feature is
+  // built and the implication is what gets designed out.
+  //
+  // So the boxes take a price and write it onto the position the moment the
+  // order fills, exactly as typing the same number into the two fields further
+  // down would. Nothing is sent, nothing rests, and nothing triggers. The line
+  // under them says that in the same words the position's own fields use, and
+  // the labels avoid every word that belongs to an order: there is no
+  // "trigger", no "TP order", and no "attached order" anywhere in this block.
+  //
+  // REFUSED BEFORE THE ORDER GOES, NOT AFTER. A stop on the winning side of
+  // entry is a refusal the engine already writes, and getting it after the fill
+  // would leave somebody holding a position they opened for the sake of a stop
+  // they cannot have. paperTicketLevels runs setPositionLevel against the
+  // position this order WOULD leave behind, so it is the same function giving
+  // the same answer, one step earlier.
+  ui.tpsl = tpCheck(body, "Take Profit / Stop Loss", "tpsl");
+  ui.tpslBox = tpEl(body, "div", "tp-tpsl tp-hide");
+  ui.tpTicket = tpTicketLevel(ui.tpslBox, "TP Price", "tpPx", "Gain", "tpGain");
+  ui.slTicket = tpTicketLevel(ui.tpslBox, "SL Price", "slPx", "Loss", "slLoss");
+  // Their form puts a Gain % beside the take profit and a Loss % beside the
+  // stop. The cell is in the same place and carries what closing the whole
+  // position there would realise, from the engine's own closeValueAt, because
+  // that is the figure the rest of this panel quotes and a second percentage
+  // measured a third way is how two numbers for one quantity get on screen.
+  tpEl(ui.tpslBox, "p", "tp-note tp-lvl-deny",
+    "Marks of yours, not orders. They go onto the position when this order "
+    + "fills. Nothing rests at the venue and nothing here triggers: the close "
+    + "button is the only thing that closes a position.");
+
   ui.postOnly = tpCheck(body, "Post Only", "postOnly");
 
   // What the venue would refuse, said before the click instead of after it,
@@ -1052,7 +1208,150 @@ function buildPaperPanel() {
 
   buildDisclosure(standing);
 
+  buildModals(root, ui);
+
   return { root, ui };
+}
+
+/** One modal sheet: a title, a body to fill, and a close control.
+ *
+ *  OVER THE PANEL, NOT OVER THE PAGE. Their modal covers their whole window.
+ *  Ours covers the panel and nothing else, for the reason the panel itself is
+ *  placed the way it is: this is a guest on somebody's trading page and it does
+ *  not get to black out their chart to ask a question about a practice
+ *  account. It is a child of the panel root rather than of the scrolling body,
+ *  so it cannot be scrolled half out of view, and it is inside the panel so the
+ *  one delegated click listener on the panel already reaches it.
+ */
+function tpSheet(host, name, title) {
+  const sheet = tpEl(host, "div", "tp-sheet tp-hide");
+  sheet.dataset.sheet = name;
+  sheet.setAttribute("role", "dialog");
+  sheet.setAttribute("aria-modal", "true");
+  sheet.setAttribute("aria-label", title);
+  const head = tpEl(sheet, "div", "tp-sheet-h");
+  tpEl(head, "div", "tp-sheet-t", title);
+  const x = tpEl(head, "button", "tp-sheet-x", "Close");
+  x.type = "button";
+  x.dataset.act = "closesheet";
+  return { sheet, body: tpEl(sheet, "div", "tp-sheet-b") };
+}
+
+/** The three panels the strip opens.
+ *
+ *  THE LEVERAGE ONE IS THEIRS, ELEMENT FOR ELEMENT AND IN THEIR ORDER: the
+ *  title, the explanation line, a second explanation line only when the asset
+ *  has more than one margin tier, a row holding the slider and a number box
+ *  with a literal x after it, one alert line, and a confirm button. Read off
+ *  their shipped bundle on 2026-09-23. Their own English for every line of it
+ *  came from the message catalogue their app imports at runtime; the two
+ *  sentences that are ours are marked where they are added, and they are added
+ *  because this leverage is not sent anywhere.
+ */
+function buildModals(root, ui) {
+  const host = tpEl(root, "div", "tp-modal tp-hide");
+  ui.modal = host;
+
+  // ── Adjust Leverage
+  const lev = tpSheet(host, "leverage", "Adjust Leverage");
+  ui.levSheet = lev.sheet;
+  ui.levExpl = tpEl(lev.body, "p", "tp-sheet-p", "");
+  // Only when the asset has more than one margin tier, which is 39 of the 234
+  // perps listed and only above three million dollars of notional. The rule is
+  // theirs: marginTiers.length > 1.
+  ui.levTiers = tpEl(lev.body, "p", "tp-sheet-p tp-hide", "");
+  const levRow = tpEl(lev.body, "div", "tp-lev-row");
+  const levTrack = tpEl(levRow, "div", "tp-lev-track");
+  // NO TICK MARKS. Their slider is rendered with dots switched off and its
+  // value is the fraction across the track rounded to a whole number, so every
+  // integer from 1 to the asset's maximum is reachable by dragging. The number
+  // that looks like a tick interval in their code is a haptic milestone: it
+  // decides when a phone buzzes, not where the handle can stop.
+  ui.levRange = document.createElement("input");
+  ui.levRange.type = "range";
+  ui.levRange.className = "tp-lev-range";
+  ui.levRange.min = "1";
+  ui.levRange.max = "50";
+  ui.levRange.step = "1";
+  ui.levRange.value = "1";
+  ui.levRange.dataset.f = "levrange";
+  ui.levRange.setAttribute("aria-label", "Leverage");
+  levTrack.appendChild(ui.levRange);
+  // Two children and two columns. A third child here put the number box on a
+  // row of its own under the slider, which is not their layout.
+  const levBox = tpEl(levRow, "div", "tp-lev-box");
+  ui.levNum = document.createElement("input");
+  ui.levNum.type = "text";
+  ui.levNum.inputMode = "numeric";
+  ui.levNum.autocomplete = "off";
+  ui.levNum.spellcheck = false;
+  ui.levNum.dataset.f = "levnum";
+  ui.levNum.setAttribute("aria-label", "Leverage");
+  levBox.appendChild(ui.levNum);
+  tpEl(levBox, "span", "tp-lev-x", "x");
+  // Exactly one line, which is theirs: the risk sentence normally, and the
+  // reduce-leverage sentence when the modal was opened by an order that could
+  // not be placed at this leverage. They are two different message ids chosen
+  // by that one flag, not one sentence under two names.
+  ui.levAlert = tpEl(lev.body, "p", "tp-sheet-alert", "");
+  ui.levOk = tpEl(lev.body, "button", "tp-sheet-ok", "Confirm");
+  ui.levOk.type = "button";
+  ui.levOk.dataset.act = "levok";
+  // OURS, AND IT IS UNDER THE BUTTON RATHER THAN IN THEIR ALERT SLOT. Theirs
+  // sends updateLeverage to the venue on confirm. This sends nothing at all,
+  // and a control that looks exactly like one that changes an account has to
+  // say which of the two it is.
+  tpEl(lev.body, "p", "tp-sheet-foot",
+    "Confirming changes the leverage this panel works in. Nothing is sent to "
+    + "Hyperliquid and no account of yours is touched.");
+
+  // ── Margin mode
+  const mm = tpSheet(host, "margin", "Margin Mode");
+  ui.mmSheet = mm.sheet;
+  ui.mmBody = mm.body;
+  tpEl(mm.body, "p", "tp-sheet-p",
+    "Isolated is the mode this simulation runs, and it is not switchable here.");
+  // WHY THE OTHER ONE IS NOT OFFERED, rather than a second card that does
+  // nothing when it is pressed. paperSim solves a liquidation price from the
+  // margin one position put up and from nothing else, which is the isolated
+  // rule. Cross would have to solve it against the whole practice balance and
+  // against every other position at once, and that is a change to the engine
+  // rather than a label on this button.
+  const mmList = tpEl(mm.body, "dl", "tp-sheet-dl");
+  tpEl(mmList, "dt", null, "Isolated");
+  tpEl(mmList, "dd", null,
+    "Each position is backed by the margin it put up on its own. If that margin "
+    + "runs out the position is liquidated, and the rest of the practice balance "
+    + "is not pulled in to save it. Every liquidation price this panel shows is "
+    + "worked that way.");
+  tpEl(mmList, "dt", null, "Cross");
+  tpEl(mmList, "dd", null,
+    "All cross positions share one pool of collateral, so a loss on one is "
+    + "carried by the balance backing the others. Working a liquidation price "
+    + "under that rule means pricing every open position at once, which this "
+    + "simulation does not do, so it is not offered rather than approximated.");
+  tpEl(mm.body, "p", "tp-sheet-foot",
+    "Their form starts an asset in cross. This row said Cross for the same "
+    + "reason and the arithmetic under it was always isolated, so the word "
+    + "changed rather than the sums.");
+
+  // ── The practice account, which is where their third button's slot goes.
+  const acct = tpSheet(host, "account", "Practice account");
+  ui.acctSheet = acct.sheet;
+  ui.acctBal = tpKv(acct.body, "Balance");
+  ui.acctStart = tpKv(acct.body, "Started with");
+  ui.acctHeld = tpKv(acct.body, "Margin on open positions");
+  tpEl(acct.body, "p", "tp-sheet-p",
+    "One account, kept in this browser's local storage. It does not sync to any "
+    + "device or account, nothing is sent anywhere, and clearing site data "
+    + "erases it.");
+  const reset = tpEl(acct.body, "button", "tp-sheet-ok tp-sheet-danger",
+    "Reset practice account");
+  reset.type = "button";
+  reset.dataset.act = "reset";
+  tpEl(acct.body, "p", "tp-sheet-foot",
+    "Resetting closes every open position without recording it and puts the "
+    + "balance back to where it started.");
 }
 
 /** One half of the footnote row under the order figures: a muted label and its
@@ -1099,12 +1398,16 @@ function buildOthers(parent, ui) {
 
   const body = tpEl(sec, "div", "tp-others-b");
   ui.othersBody = body;
-  // SAID ONCE, HERE, RATHER THAN ON EVERY ROW. Eight rows each carrying "if
-  // closed now" beside the figure is the same sentence eight times in a column
-  // 342px wide. It is one claim about the whole column, so it sits above it.
-  tpEl(body, "p", "tp-note tp-others-note",
-    "Each figure is what closing that position now would realise. Choosing a "
-    + "market takes this page to it.");
+  // THE SENTENCE THAT USED TO BE HERE IS IN THE DISCLOSURE.
+  //
+  // It read "Each figure is what closing that position now would realise.
+  // Choosing a market takes this page to it." Both halves are standing
+  // explanation rather than news: the first is the same claim the ladder and
+  // the closed list already make about their own figures and it is made once,
+  // in the disclosure, for all three; the second describes an affordance the
+  // rows carry themselves, as underlined links with their own titles. With
+  // nothing open on the market on screen this section was five lines of frame
+  // around one line of fact, and this was two of the five.
   ui.othersList = tpEl(body, "ul", "tp-rest tp-others-l");
   // Only ever drawn when the engine hands over a total. See refreshOthers.
   //
@@ -1170,6 +1473,11 @@ function tpLevelField(parent, label, fname, place) {
 function buildLevels(parent, ui) {
   const sec = tpEl(parent, "div", "tp-levels tp-hide");
   ui.levels = sec;
+  // Which position the two fields below are about, and the way to change it.
+  // Both are silent when there is one position and it is on the market on
+  // screen, which is the ordinary case. See paperLevelTarget.
+  ui.levelsWho = tpEl(sec, "div", "tp-lvl-who tp-hide");
+  ui.levelsPick = tpEl(sec, "div", "tp-lvl-picks tp-hide");
   // NO HEADING OF ITS OWN. "Levels on this position" sat under "Practice
   // position in BTC" with the position stated between them, and the two
   // headings were about one thing. The position's heading covers both; what is
@@ -1246,6 +1554,27 @@ function buildDisclosure(parent) {
     <p class="tp-note">Everything priced here is Hyperliquid's own: the mark, the book,
     the fee schedule, the funding rates, the tick and lot sizes, the margin tiers. The
     money is the only thing that is not.</p>
+    <p class="tp-sub2">What a money figure on this panel is</p>
+    <p class="tp-note">Every one of them is what closing that whole position now,
+    or at the price on the row, would realise: the ladder's rungs, the row for each
+    position on another market, and the two boxes on the ticket. Each comes from the
+    same function in the simulation, so no two of them can disagree. A market named
+    on a row is a link and takes this page to it.</p>
+    <p class="tp-sub2">The one percentage here that is not a price move</p>
+    <p class="tp-note">Gain and Loss on the ticket are a return on your margin, the
+    way Hyperliquid's own form works them: the price move multiplied by the leverage.
+    At 20x a take profit 1% above where the order would fill reads 20%. Every other
+    percentage on this panel, including every rung of the ladder, is the price move on
+    its own. The two are kept apart by living in differently named places, and they are
+    both correct.</p>
+    <p class="tp-note">Gain and Loss are measured from the price this order would be
+    filled at: the top of the book on the side you are buying or selling into, or your
+    limit price on a limit order. Hyperliquid measures them from the mid instead, which
+    on a market order is half a spread away from either. The touch is used here because
+    it is what Order Value, Margin Required and the percentage slider on this ticket are
+    already worked from, and two figures on one ticket disagreeing about what an order
+    costs would be worse than the gap itself. Once the order fills, the ladder stops
+    using either: every rung there is measured from what the position actually paid.</p>
     <p class="tp-sub2">Reading the ladder</p>
     <p class="tp-note">On each rung, the percentage is how far that price is from your
     entry, not a return on your margin: at 5x, a price 5% away from entry is 25% of the
@@ -1271,9 +1600,8 @@ function buildDisclosure(parent) {
     earned and what trading earns is the list you have just read.</p>
     <p class="tp-note">Positions and history are kept in this browser's local storage.
     They do not sync to any device or account, nothing is sent anywhere, and clearing
-    site data erases them.</p>
-    <p class="tp-note"><button type="button" class="tp-x" data-act="reset">Reset practice
-    account</button></p>`;
+    site data erases them. The control that resets the account is in the Practice
+    button at the top of the ticket, beside the leverage.</p>`;
   return d;
 }
 
@@ -1374,8 +1702,32 @@ const paper = {
   // the identity because adding to a position changes it under an unchanged
   // openedAt, and the ticket should follow the position it is about.
   levSeed: null,
+  // What the person chose in the leverage modal, per market. Their app stores a
+  // leverage per asset and so does this: a choice made on BTC must not follow
+  // you to a market whose maximum is 3. In memory only, because a practice
+  // leverage is not worth a second storage key and the venue default it falls
+  // back to is the same number their form would show you anyway.
+  levChoice: {},
+  // Which sheet is over the panel, or null. One at a time.
+  sheet: null,
+  // The leverage being chosen inside the modal, before Confirm. `touched` is
+  // their guard: opening the modal and confirming without moving anything
+  // changes nothing at all, rather than writing the value back over itself.
+  lev: { value: 1, touched: false, error: false },
   draft: {
-    side: "buy", type: "market", size: "", px: "", leverage: "1",
+    side: "buy", type: "market", size: "", px: "", leverage: "20",
+    // Their Take Profit / Stop Loss checkbox and its two prices. Text, like the
+    // position's own two fields, because what the person typed and what the
+    // engine will accept are different things and the engine decides.
+    tpslOn: false, tpPx: "", slPx: "",
+    // The other half of each linked pair, and the unit both of them are in.
+    // `tpslNtl` false is their `%`, true is their `$`. One setting for both
+    // rows, which is theirs. In memory rather than stored: a practice unit
+    // preference is not worth a storage key and the default is the useful one.
+    tpGain: "", slLoss: "", tpslNtl: false,
+    // Which unit the Size box is showing. The engine is always given the coin
+    // amount; this only decides what the box displays and what it accepts.
+    sizeUnit: "coin",
     postOnly: false, reduceOnly: false,
     // The two level fields. Text, not numbers, because they are what the person
     // typed and the engine is what turns that into a price or a refusal.
@@ -1386,6 +1738,16 @@ const paper = {
   // different position and gets its own empty fields; a level committed onto the
   // one already there does not re-seed, so a commit cannot fight the typing.
   levelSeed: null,
+  // Which open position the stop and take profit fields are pointing at, when
+  // more than one is open and the person has chosen. null means "work it out",
+  // which is the market on screen if it holds one and the first open position
+  // otherwise. See paperLevelTarget.
+  levelCoin: null,
+  // Which position, and which of its marks, the ticket's two level boxes were
+  // last filled from. The prices are part of the identity because clearing a
+  // mark from the position's own field has to reload the ticket. See
+  // seedTicketLevels.
+  tpslSeed: null,
 };
 
 /** Does this content script still have a live extension behind it?
@@ -1473,52 +1835,340 @@ function paperDataProblem() {
   return null;
 }
 
+// The maximum the leverage control runs to before this market's rules have
+// been read. Theirs uses the same number in the same place: the modal falls
+// back to 50 when the asset is not in the universe it holds. It is a fallback
+// and not a claim, which is why paperLeverageNote still exists: a number chosen
+// against 50 and then measured against a market whose maximum is 3 is a
+// substitution, and substitutions here are said out loud.
+const PAPER_LEV_FALLBACK_MAX = 50;
+
+// What a market starts at when nothing has been chosen and nothing is open.
+//
+// VERIFIED AGAINST THE LIVE API, NOT TAKEN FROM THE BUNDLE. The shipped bundle
+// reads `leverage ?? { type: cross, value: universe[i].maxLeverage ?? 20 }`,
+// which says a new market starts at the asset's maximum. That branch only
+// fires when activeAssetData has not answered. It always answers, and what it
+// returns is min(20, maxLeverage). Swept over the info endpoint on 2026-09-23
+// with an address holding nothing, for every distinct maximum in the universe:
+//
+//     PURR  max 3   default 3      HYPE   max 10  default 10
+//     ATOM  max 5   default 5      SOL    max 20  default 20
+//     kPEPE max 10  default 10     ETH    max 25  default 20
+//                                  BTC    max 40  default 20
+//
+// BTC and ETH are the only two assets above 20, so that is exhaustive over the
+// cases where the two rules disagree. Building the bundle's rule would open BTC
+// at 40x by default, twice what a new user is actually given.
+//
+// Ours seeded 1x, which is not on their form anywhere except spot, where
+// everything is 1x. That is almost certainly where it came from.
+function paperVenueDefaultLeverage(max) {
+  return Math.max(1, Math.min(20, max));
+}
+
+/** The maximum this market allows, or the fallback while it is unread. */
+function paperLeverageMax() {
+  const known = paper.info && paper.info.coin === paper.coin;
+  const m = known ? Number(paper.info.maxLeverage) : NaN;
+  return isFinite(m) && m >= 1 ? Math.floor(m) : PAPER_LEV_FALLBACK_MAX;
+}
+
 /** The leverage the order will actually be placed at.
  *
  *  A WHOLE NUMBER, because the venue's leverage control takes whole numbers
- *  from 1 to the asset's maximum and this box is a copy of that control. It is
- *  also what the engine's ticketLeverage produces when it seeds this box from a
- *  position that was added to: the position runs at 17.105...x and the box is
- *  set to 17, which is the nearest thing the control expresses without
- *  proposing more risk than is already on. A fraction typed in here is said out
- *  loud by paperLeverageNote rather than quietly truncated.
+ *  from 1 to the asset's maximum and this panel's control is a copy of that
+ *  one. It is also what the engine's ticketLeverage produces when it seeds this
+ *  from a position that was added to: the position runs at 17.105...x and the
+ *  control is set to 17, which is the nearest thing it expresses without
+ *  proposing more risk than is already on.
  */
 function paperLeverage() {
-  const max = paper.info ? paper.info.maxLeverage : 50;
+  const max = paper.info ? paper.info.maxLeverage : PAPER_LEV_FALLBACK_MAX;
   const n = parseInt(paper.draft.leverage, 10);
   return Math.max(1, Math.min(isFinite(n) ? n : 1, max));
 }
 
-/** The sentence to show when the leverage that will be used is not the number
- *  in the field, or null when they agree.
+/** The sentence to show when the leverage that will be used is not the one the
+ *  control is set to, or null when they agree.
  *
- *  The field itself is NOT rewritten while it has focus: that is the rule the
- *  whole render path is built on, and clamping mid-keystroke would make 50
- *  unreachable on a market whose maximum is 40 by rewriting after the 5. It is
- *  snapped on blur instead, and said out loud in the meantime. */
+ *  WHAT THE SLIDER TOOK AWAY. This used to carry four sentences, one for each
+ *  way a typed number could fail: not a number at all, above the market's
+ *  maximum, under 1, and fractional. A slider that runs 1 to the market's own
+ *  maximum in whole steps cannot produce any of the four, and the modal's
+ *  number box ignores anything outside the range instead of storing it, so all
+ *  four are gone with the typing that caused them.
+ *
+ *  ONE CASE IS LEFT AND IT IS NOT ABOUT TYPING. The control is opened against a
+ *  fallback maximum of 50 while this market's rules are still unread, and the
+ *  venue lowers an asset's maximum from time to time. Either way a leverage
+ *  already chosen, or already carried by an open position, can end up above
+ *  what the market allows now, and the substitution still has to be said. */
 function paperLeverageNote() {
   const raw = String(paper.draft.leverage || "").trim();
   const used = paperLeverage();
-  if (raw === "") return `No leverage given, so this will be placed at ${used}x.`;
   const n = parseFloat(raw);
-  if (!isFinite(n)) {
-    return `"${raw}" is not a number of times, so this will be placed at ${used}x.`;
+  if (raw === "" || !isFinite(n)) {
+    return `No leverage is set, so this will be placed at ${used}x.`;
   }
-  const max = paper.info ? paper.info.maxLeverage : null;
+  const max = (paper.info && paper.info.coin === paper.coin)
+    ? paper.info.maxLeverage : null;
   if (max != null && n > max) {
     return `${paper.coin || "This market"} allows at most ${max}x, so ${n}x will be `
       + `placed as ${max}x. Every figure below is ${max}x arithmetic.`;
   }
-  if (n < 1) return `Leverage cannot be under 1x, so ${n} will be placed as 1x.`;
-  // A FRACTION IS A SUBSTITUTION AND IT WAS SILENT. The box takes whole numbers
-  // because their control does, so 2.5 has always been placed as 2, with the
-  // field still reading 2.5 and the margin figures below it worked at 2x.
-  // Every other substitution this box makes is said out loud; this one was not.
-  if (n !== Math.floor(n)) {
-    return `Leverage is set in whole times, so ${n}x will be placed as ${used}x. `
-      + `Every figure below is ${used}x arithmetic.`;
+  return null;
+}
+
+// ── The sheets the strip opens ──────────────────────────────────────────────
+
+/** Open one of the three, or the leverage one in its error state.
+ *
+ *  `error` is their showLeverageError. It swaps the single alert line for the
+ *  one about reducing leverage and is set by the order path, not by the button.
+ */
+function openSheet(name, error) {
+  paper.sheet = name;
+  if (name === "leverage") {
+    // The modal opens holding what the ticket holds, which is theirs:
+    // useState(leverage). `touched` starts false so a confirm that moved
+    // nothing writes nothing.
+    // `error` is the sentence, not a flag: it is what goes in their single
+    // alert slot in place of the standing one. Coercing it to a boolean here
+    // printed the word "true" over the modal.
+    paper.lev = { value: paperLeverage(), touched: false, error: error || null };
+  }
+  refresh();
+  // Focus goes to the control the sheet is about, so a keyboard reaches the
+  // slider without tabbing through the ticket behind it.
+  const first = (paper.ui && paper.sheet === "leverage") ? paper.ui.levRange : null;
+  if (first && typeof first.focus === "function") first.focus();
+}
+
+/** Put every sheet away and empty the leverage one, without rendering.
+ *
+ *  BLANKED ON THE WAY OUT, NOT LEFT LOADED. refreshSheets only writes into a
+ *  sheet that is open, so a closed leverage sheet kept the last market's
+ *  maximum, its tier line and its slider bound sitting in the DOM. A market
+ *  change closes the sheet, so what was parked there was the wrong asset's
+ *  rules, ready to be shown for the frame before the next render replaced them.
+ */
+function clearSheet() {
+  paper.sheet = null;
+  paper.lev = { value: 0, touched: false, error: null };
+  const ui = paper.ui;
+  if (!ui || !ui.levExpl) return;
+  setText(ui.levExpl, "");
+  setText(ui.levTiers, "");
+  setShown(ui.levTiers, false);
+  setText(ui.levAlert, "");
+  ui.levAlert.classList.remove("tp-alert-err");
+  setVal(ui.levNum, "");
+}
+
+function closeSheet() {
+  clearSheet();
+  refresh();
+}
+
+/** Their `v`, which is the whole rule for what the control accepts.
+ *
+ *      v = e => { e === undefined ? d(0) : (e >= 0 && e <= m && d(Math.round(e))) }
+ *
+ *  Three things fall out of it and all three are copied:
+ *
+ *   - Whole numbers only, by Math.round and not by truncation. 2.6 becomes 3.
+ *   - OUT OF RANGE IS IGNORED, NOT CLAMPED. 999 on a market whose maximum is 40
+ *     leaves the value where it was; it does not become 40. The box then shows
+ *     the value again on the next write, so typing 999 on BTC bounces back to
+ *     whatever was there rather than settling on 40.
+ *   - Clearing the box is 0, which is reachable and is the only way to reach it:
+ *     the slider's own minimum is 1. Confirm is disabled there.
+ */
+function setLeverageChoice(raw) {
+  const max = paperLeverageMax();
+  paper.lev.touched = true;
+  const t = String(raw == null ? "" : raw).trim();
+  if (t === "") { paper.lev.value = 0; return; }
+  const n = Number(t);
+  if (!isFinite(n)) return;
+  if (n >= 0 && n <= max) paper.lev.value = Math.round(n);
+}
+
+/** Confirm, which on their form dispatches updateLeverage and here writes one
+ *  local number.
+ *
+ *  THE NO-OP GUARD IS THEIRS. Opening the modal and pressing Confirm without
+ *  moving anything closes it and changes nothing, so a person who opened it to
+ *  read the maximum does not come out of it having pinned a choice. That
+ *  matters more here than there: pinning a choice stops this market's control
+ *  following the position that is open on it.
+ */
+function confirmLeverage() {
+  const v = Number(paper.lev.value);
+  if (!(v > 0)) return;                       // their disabled condition
+  const unchanged = !paper.lev.touched || String(v) === String(paper.draft.leverage);
+  if (!unchanged) {
+    paper.draft.leverage = String(v);
+    paper.levChoice[paper.coin] = v;
+  }
+  closeSheet();
+}
+
+// ── The Size box's unit ─────────────────────────────────────────────────────
+
+/** What the unit button reads: the coin, or USD. */
+function sizeUnitLabel() {
+  return paper.draft.sizeUnit === "usd" ? "USD" : (paper.coin || "");
+}
+
+/** The coin amount behind whatever is in the box.
+ *
+ *  paper.draft.size is ALWAYS the coin amount, because every reader of it is:
+ *  decideOrder, the preview, the percentage slider and sizeComplaint. The unit
+ *  only decides what the box shows and what it accepts, and this is the single
+ *  place the two meet.
+ *
+ *  Text that is not a number is passed through unchanged rather than turned
+ *  into an empty string, so sizeComplaint still gets to say that "abc" is not a
+ *  number instead of "enter a size first".
+ */
+function coinSizeFrom(text) {
+  if (paper.draft.sizeUnit !== "usd") return text;
+  const t = String(text == null ? "" : text).trim();
+  if (t === "") return "";
+  const n = Number(t);
+  if (!isFinite(n)) return t;
+  const px = paperRefPx();
+  if (!px || !paper.info) return "";
+  const sz = roundSize(n / px, paper.info.szDecimals);
+  return sz > 0 ? sz.toFixed(paper.info.szDecimals) : "";
+}
+
+/** The other direction, for writing the box from a coin amount. */
+function usdSizeFrom(coinText) {
+  const t = String(coinText == null ? "" : coinText).trim();
+  if (t === "") return "";
+  const n = Number(t);
+  const px = paperRefPx();
+  if (!isFinite(n) || !px) return t;
+  return String(Math.round(n * px * 100) / 100);
+}
+
+/** Write the Size box and the coin amount behind it together.
+ *
+ *  `force` is for the two deliberate writes that follow a click of the person's
+ *  own: clearing the ticket after a fill, and the reset. Everything else goes
+ *  through setVal and leaves a focused field alone, which is the rule the whole
+ *  render path is built on.
+ */
+function setSizeField(coinText, force) {
+  paper.draft.size = coinText;
+  const shown = paper.draft.sizeUnit === "usd" ? usdSizeFrom(coinText) : coinText;
+  if (!paper.ui) return;
+  if (force) paper.ui.size.input.value = shown;
+  else setVal(paper.ui.size.input, shown);
+}
+
+/** The notional above which the chosen leverage cannot be held, or null.
+ *
+ *  Theirs, unchanged: the first margin tier whose own maximum is below the
+ *  leverage being chosen gives the notional its lower bound sits at. Only 39 of
+ *  the 234 perps listed have more than one tier and the lowest bound among them
+ *  is three million dollars, so on a ten thousand dollar practice account this
+ *  is a line of explanation rather than a limit anybody meets.
+ */
+function paperTierBound(chosen) {
+  const known = paper.info && paper.info.coin === paper.coin;
+  const tiers = known && Array.isArray(paper.info.marginTiers)
+    ? paper.info.marginTiers : null;
+  if (!tiers || !chosen) return null;
+  for (const t of tiers) {
+    if (Number(t.maxLeverage) < chosen) return Number(t.lowerBound);
   }
   return null;
+}
+
+function refreshSheets() {
+  const ui = paper.ui;
+  if (!ui || !ui.modal) return;
+  const open = paper.sheet;
+  // THE HEADER IS NEVER COVERED, and its height is measured rather than
+  // guessed: the sentence saying the money is not there is present in every
+  // state, and a modal drawn from the top of the panel would be the one state
+  // where it is not. Measured on the way in, because the sentence wraps to two
+  // lines when the column is dragged narrow.
+  if (open) {
+    const h = ui.head ? Math.round(ui.head.getBoundingClientRect().height) : 0;
+    if (h > 0) ui.modal.style.top = h + "px";
+  }
+  setShown(ui.modal, !!open);
+  setShown(ui.levSheet, open === "leverage");
+  setShown(ui.mmSheet, open === "margin");
+  setShown(ui.acctSheet, open === "account");
+  if (open === "leverage") refreshLeverageSheet();
+  if (open === "account") refreshAccountSheet();
+}
+
+/** Their modal's contents, in their order and in their words.
+ *
+ *  The English is theirs: every line of their interface is a message id
+ *  resolved at runtime from a catalogue their app imports as a separate module,
+ *  and these are the strings behind the ids the modal uses. The sentence under
+ *  the button is ours, because theirs sends the choice to the venue and this
+ *  one does not.
+ */
+function refreshLeverageSheet() {
+  const ui = paper.ui;
+  const max = paperLeverageMax();
+  const coin = paper.coin || "this market";
+  const v = Number(paper.lev.value) || 0;
+
+  setText(ui.levExpl,
+    `Control the leverage used for ${coin} positions. The maximum leverage is ${max}x.`);
+
+  const known = paper.info && paper.info.coin === paper.coin;
+  const tiers = known && Array.isArray(paper.info.marginTiers)
+    ? paper.info.marginTiers : null;
+  const tiered = !!(tiers && tiers.length > 1);
+  const bound = tiered ? paperTierBound(v) : null;
+  setText(ui.levTiers, tiered
+    ? "Max position size decreases the higher your leverage."
+      + (bound != null
+        ? ` The max position size for ${v}x leverage on ${coin} is ${pmoney(bound)}.`
+        : "")
+    : "");
+  setShown(ui.levTiers, tiered);
+
+  ui.levRange.max = String(max);
+  // The slider cannot reach 0; only clearing the number box can, and it parks
+  // the handle at the minimum while the value it carries is 0.
+  setVal(ui.levRange, String(Math.max(1, Math.min(v || 1, max))));
+  setVal(ui.levNum, v ? String(v) : "");
+
+  const alert = paper.lev.error
+    ? String(paper.lev.error)
+    : "Note that setting a higher leverage increases the risk of liquidation.";
+  setText(ui.levAlert, alert);
+  ui.levAlert.classList.toggle("tp-alert-err", !!paper.lev.error);
+  ui.levOk.disabled = v === 0;
+}
+
+function refreshAccountSheet() {
+  const ui = paper.ui;
+  const st = paper.state;
+  setText(ui.acctBal, st ? pmoney(st.balance) : "not loaded yet");
+  setText(ui.acctStart, typeof STARTING_BALANCE === "number"
+    ? pmoney(STARTING_BALANCE) : "not read");
+  let held = 0;
+  let n = 0;
+  for (const k of Object.keys((st && st.positions) || {})) {
+    const m = Number(st.positions[k].margin) || 0;
+    if (m > 0) { held += m; n += 1; }
+  }
+  setText(ui.acctHeld, n
+    ? `${pmoney(held)} on ${n === 1 ? "1 position" : n + " positions"}`
+    : "none");
 }
 
 /** The price the order would be measured against: the touch for a market
@@ -1557,6 +2207,285 @@ function paperPreview() {
       leverage: paperLeverage(),
     });
   } catch (e) { return null; }
+}
+
+/** What the ticket's two level boxes would do, asked of the position this order
+ *  would leave behind.
+ *
+ *  THE POSITION DOES NOT EXIST YET, WHICH IS THE WHOLE PROBLEM. A stop belongs
+ *  to a position, so setPositionLevel refuses when there is none, and checking
+ *  the boxes against the live state would therefore always refuse. The fill is
+ *  applied to a COPY of the state first, by the same applyFill the order itself
+ *  runs, and the levels are then run against that copy by the same
+ *  setPositionLevel the position's own fields use. Nothing about the rules is
+ *  restated here: the side the stop belongs on, the venue's price grid, and
+ *  whether the stop sits past the liquidation price are all the engine's, one
+ *  step earlier than usual.
+ *
+ *  The stop is checked first and its result is left on the copy, so the take
+ *  profit is judged against a position that already carries the stop, which is
+ *  the order the two are actually written in.
+ */
+function paperTicketLevels() {
+  const out = {
+    probe: null, pos: null, stop: null, target: null, refusal: null,
+    // What the position ALREADY carries, and whether each box is asking to
+    // change it. See the overwrite note below.
+    held: { stop: null, target: null },
+    want: { stop: null, target: null },
+  };
+  if (!paper.draft.tpslOn) return out;
+  const live = (paper.state && paper.coin) ? paper.state.positions[paper.coin] : null;
+  for (const which of ["stop", "target"]) {
+    const v = live ? Number(live[which === "stop" ? "stopPx" : "targetPx"]) : NaN;
+    out.held[which] = isFinite(v) && v > 0 ? v : null;
+  }
+
+  // WHAT COUNTS AS A REQUEST, WHICH IS THE WHOLE OF THE OVERWRITE FIX.
+  //
+  // THE DEFECT. The boxes started empty and whatever was in them was written
+  // over the position on every fill. Somebody who had set a stop at 83,079 and
+  // a take profit at 88,921, then typed new prices for a routine add with the
+  // box still ticked, ended with 84,044 and 92,309 and was told only the new
+  // pair. Two marks they had set were destroyed with nothing said before and
+  // nothing said after. That is the same class of defect as a zero standing in
+  // for a reading: the panel lost something and reported success.
+  //
+  // THE FIX IS BY CONSTRUCTION RATHER THAN BY WARNING. The boxes are now
+  // seeded from the marks the position already holds, so the ordinary case,
+  // placing an add without touching them, asks for nothing. Two rules fall out
+  // and both are here rather than at the call sites:
+  //
+  //   - A price EQUAL to the mark already held is a no-op. It is not checked
+  //     and it is not written, so an add whose new entry would have made the
+  //     old mark unplaceable cannot be blocked by a level nobody re-typed.
+  //   - AN EMPTY BOX NEVER REMOVES A MARK. Empty means "do not set one with
+  //     this order". Clearing a level is a deliberate act with its own Clear
+  //     button on the position's own field, and the ticket does not get a
+  //     second, silent way to do it.
+  //
+  // So the ticket can add a mark or deliberately change one, and cannot lose
+  // one. A change is still a change, and the outcome names what it replaced.
+  for (const which of ["stop", "target"]) {
+    const raw = which === "stop" ? paper.draft.slPx : paper.draft.tpPx;
+    const v = levelInput(raw);
+    if (v.clear) continue;
+    if (out.held[which] != null && Number(v.n) === out.held[which]) continue;
+    out.want[which] = v.n;
+  }
+
+  const d = paperPreview();
+  if (!d || !d.ok || d.kind !== "fill" || !paper.info || !paper.coin) return out;
+  const probe = paperStateProbe();
+  if (!probe) return out;
+  try { applyFill(probe, paper.info, d.fill); } catch (e) { return out; }
+  if (!probe.positions[paper.coin]) return out;
+  out.probe = probe;
+  out.pos = probe.positions[paper.coin];
+  // Only what is actually being asked for is put to the engine. The stop goes
+  // first and its result stays on the copy, so the take profit is judged
+  // against a position that already carries it.
+  for (const which of ["stop", "target"]) {
+    if (out.want[which] == null) continue;
+    out[which] = levelDecision(which, String(out.want[which]), probe, paper.coin, paper.info);
+  }
+  out.refusal = (out.stop && out.stop.ok === false) ? out.stop
+    : ((out.target && out.target.ok === false) ? out.target : null);
+  return out;
+}
+
+/** The price the ticket's gain and loss are measured from.
+ *
+ *  THEIRS IS THE MID FOR A MARKET ORDER AND THE LIMIT PRICE FOR A LIMIT ORDER,
+ *  read off their bundle: `baseline: isLimit(orderType) ? Number(limitPx) : mid`
+ *  where `mid` is the coin's entry in their allMids map.
+ *
+ *  OURS IS THE TOUCH, NOT THE MID, AND THAT IS A DELIBERATE DIFFERENCE. This
+ *  simulation walks the visible book: a market buy is priced from the best ask
+ *  and pays worse as it takes depth. Quoting a gain from the mid would measure
+ *  it against a price no order here is filled at, and the panel would print a
+ *  figure off by half the spread on every market order before the size is even
+ *  typed. paperRefPx is the price the rest of this file already prices an order
+ *  against, so the gain, the Order Value row and the preview all agree.
+ *
+ *  Once the order fills the marks stop being measured from here at all: the
+ *  ladder works every rung from the position's own entry, which is the average
+ *  the fill actually paid.
+ */
+function tpslBaseline() {
+  const px = paperRefPx();
+  return isFinite(px) && px > 0 ? px : null;
+}
+
+/** Whether this row's price sits below the baseline rather than above it.
+ *
+ *  Theirs: the gain row is `inverse: !isBuy` and the loss row is `inverse:
+ *  isBuy`. So on a buy the gain is above and the loss below, and a sell inverts
+ *  both, which is the same rule the engine already applies to a stop and a take
+ *  profit on a short.
+ */
+function tpslInverse(which) {
+  const buy = paper.draft.side === "buy";
+  return which === "target" ? !buy : buy;
+}
+
+/** Their Vp: the gain or the loss implied by a price.
+ *
+ *      isNtl ? sz * (price - baseline)
+ *            : (price / baseline - 1) * leverage * 100
+ *      then negated on the inverse row, then floored to two places.
+ *
+ *  THE PERCENT IS A RETURN ON MARGIN, NOT A PRICE MOVE, because the leverage is
+ *  in it. That is theirs and it is worth stating twice: every OTHER percentage
+ *  on this panel is a price move, the ladder says so on every rung and the
+ *  disclosure explains it. This one is the other kind, which is why its box is
+ *  labelled Gain and Loss rather than with a percent of anything.
+ */
+function tpslGainFromPrice(which, priceText) {
+  const base = tpslBaseline();
+  const px = Number(String(priceText).trim().replace(/,/g, ""));
+  if (base == null || !isFinite(px) || px <= 0) return null;
+  const ntl = !!paper.draft.tpslNtl;
+  let v;
+  if (ntl) {
+    const sz = Number(paper.draft.size);
+    if (!isFinite(sz) || sz <= 0) return null;   // their "Must specify order size"
+    v = sz * (px - base);
+  } else {
+    v = (px / base - 1) * paperLeverage() * 100;
+  }
+  if (tpslInverse(which)) v *= -1;
+  if (!isFinite(v)) return null;
+  return Math.floor(v * 100) / 100;
+}
+
+/** The same relation the other way round, which is their P.
+ *
+ *      isNtl ? baseline +/- value / sz
+ *            : baseline * (1 +/- value / leverage / 100)
+ *
+ *  ROUNDED ONTO THE VENUE'S GRID, as theirs is: they floor the computed price
+ *  with the same rounder their order form checks a limit price against. A price
+ *  the asset cannot quote would be refused by setPositionLevel a moment later,
+ *  and offering it as the answer to a number somebody just typed would be the
+ *  panel proposing something it is about to reject.
+ */
+function tpslPriceFromGain(which, gainText) {
+  const base = tpslBaseline();
+  const t = String(gainText).trim().replace(/,/g, "");
+  if (base == null || t === "") return null;
+  const v = Number(t);
+  if (!isFinite(v)) return null;
+  const inv = tpslInverse(which);
+  let px;
+  if (paper.draft.tpslNtl) {
+    const sz = Number(paper.draft.size);
+    if (!isFinite(sz) || sz <= 0) return null;
+    px = inv ? base - v / sz : base + v / sz;
+  } else {
+    const n = v / paperLeverage() / 100;
+    px = inv ? base * (1 - n) : base * (1 + n);
+  }
+  if (!isFinite(px) || px <= 0) return null;
+  const szd = (paper.info && paper.info.coin === paper.coin) ? paper.info.szDecimals : null;
+  if (szd == null) return null;
+  const onGrid = roundPrice(px, szd);
+  return isFinite(onGrid) && onGrid > 0 ? onGrid : null;
+}
+
+/** Which of their three "this row cannot be used yet" sentences applies, or
+ *  null. Theirs are literals in their bundle rather than catalogue ids, so
+ *  these are ours, in the register the rest of this panel's absences use: each
+ *  one says WHICH thing is missing rather than printing a blank row. */
+function tpslBlocked() {
+  const base = tpslBaseline();
+  const sz = Number(paper.draft.size);
+  const needSize = !!paper.draft.tpslNtl && !(isFinite(sz) && sz > 0);
+  if (base == null && needSize) {
+    return "A size and a price to measure from are both still missing, so neither "
+      + "of these can be worked out yet.";
+  }
+  if (base == null) {
+    return paper.draft.type === "limit"
+      ? "Enter a limit price above, and these are measured from it."
+      : "There is no price to measure from until the book has been read.";
+  }
+  if (needSize) {
+    return "In dollars these need a size, because the figure is what the whole "
+      + "position would make. The percentage does not.";
+  }
+  return null;
+}
+
+/** Put the marks the position already carries into the ticket's two boxes.
+ *
+ *  Seeded on a change of position rather than on every pass, the same rule the
+ *  position's own two fields follow, and never under the cursor. The token
+ *  carries the two prices as well as the position's identity, so clearing a
+ *  mark from the fields below reloads the ticket rather than leaving it holding
+ *  a price that is no longer set.
+ */
+function seedTicketLevels() {
+  const ui = paper.ui;
+  if (!ui || !ui.tpTicket) return;
+  const pos = (paper.state && paper.coin) ? paper.state.positions[paper.coin] : null;
+  const token = pos
+    ? `${paper.coin}:${pos.openedAt}:${pos.stopPx}:${pos.targetPx}`
+    : `${paper.coin}:none`;
+  if (paper.tpslSeed === token) return;
+  const els = { stop: ui.slTicket.input, target: ui.tpTicket.input };
+  if (document.activeElement === els.stop || document.activeElement === els.target) return;
+  paper.tpslSeed = token;
+  for (const which of ["stop", "target"]) {
+    const v = pos ? Number(pos[which === "stop" ? "stopPx" : "targetPx"]) : NaN;
+    const text = isFinite(v) && v > 0 ? String(v) : "";
+    if (which === "stop") paper.draft.slPx = text; else paper.draft.tpPx = text;
+    els[which].value = text;
+    // The companion follows the price it belongs to. refreshTicketLevels writes
+    // it too, but only while the block is showing, and the seeding happens
+    // whether or not the box is ticked.
+    const g = tpslGainFromPrice(which, text);
+    const gt = text === "" || g == null ? "" : String(g);
+    if (which === "stop") { paper.draft.slLoss = gt; ui.slTicket.gain.value = gt; }
+    else { paper.draft.tpGain = gt; ui.tpTicket.gain.value = gt; }
+  }
+}
+
+/** The two ticket boxes: the engine's refusal under each, and what closing the
+ *  whole position at that price would realise beside it. */
+function refreshTicketLevels() {
+  const ui = paper.ui;
+  const t = paperTicketLevels();
+  const blocked = tpslBlocked();
+  for (const which of ["target", "stop"]) {
+    const f = which === "target" ? ui.tpTicket : ui.slTicket;
+    const pk = which === "target" ? "tpPx" : "slPx";
+    const gk = which === "target" ? "tpGain" : "slLoss";
+    const d = t[which];
+    const bad = !!(d && d.ok === false);
+    // The row cannot be used at all before there is something to measure from,
+    // which is theirs: they disable both inputs and put the reason in a
+    // tooltip. Ours says it in the line that is already under the row, because
+    // a tooltip on a panel this size is a sentence nobody finds.
+    setText(f.msg, bad ? d.message + (d.detail ? " " + d.detail : "") : (blocked || ""));
+    setShown(f.msg, bad || !!blocked);
+    f.msg.classList.toggle("tp-lvl-wait", !bad && !!blocked);
+    f.box.classList.toggle("tp-lvl-bad", bad);
+    f.gain.disabled = !!blocked;
+    f.unit.disabled = false;   // switching the unit is how one of the blocks is cleared
+
+    // THE COMPANION IS PUT BACK IN AGREEMENT WHEN THE CARET LEAVES IT. Theirs
+    // recomputes the gain from the price whenever the gain field is not the
+    // focused one, so a price that was floored onto the grid ends up quoted by
+    // a gain that matches the price actually held rather than the one asked
+    // for. Nothing is written into a field that has focus.
+    if (document.activeElement !== f.gain) {
+      const g = tpslGainFromPrice(which, paper.draft[pk]);
+      const text = String(paper.draft[pk]).trim() === "" || g == null ? "" : String(g);
+      if (paper.draft[gk] !== text) paper.draft[gk] = text;
+      setVal(f.gain, text);
+    }
+  }
 }
 
 /** Size implied by a percentage of the practice balance, at the current
@@ -1641,18 +2570,62 @@ function levelInput(raw) {
 }
 
 /** Ask the engine what this level would do, against `state`. Pass the probe to
- *  preview, the live state to commit. null when there is nothing to decide. */
-function levelDecision(which, raw, state) {
-  const info = paper.info;
-  if (!state || !info || !state.positions[info.coin]) return null;
+ *  preview, the live state to commit. null when there is nothing to decide.
+ *
+ *  THE MARKET IS AN ARGUMENT NOW, NOT paper.info. This read the market on
+ *  screen and the position on it, which is exactly the assumption that left a
+ *  BTC position's stop unreachable from SOL. It takes the coin and that
+ *  market's rules, so the same engine call answers for a position anywhere. */
+function levelDecision(which, raw, state, coin, info) {
+  if (!state || !info || !coin || !state.positions[coin]) return null;
   const v = levelInput(raw);
   if (v.clear) return null;
   try {
-    return setPositionLevel(state, info, info.coin, which, v.n);
+    return setPositionLevel(state, info, coin, which, v.n);
   } catch (e) {
     return { ok: false, message: "The simulation could not take that level.",
       detail: paperErrorText(e) };
   }
+}
+
+/** Which position the stop and the take profit fields are about.
+ *
+ *  THE DEFECT THIS EXISTS TO FIX. The levels block was drawn only when the
+ *  market on screen had a position on it. Somebody holding BTC and looking at
+ *  SOL was shown nothing at all: no stop, no take profit, no ladder, and no
+ *  sign that any of it existed somewhere else. Holding a position and having no
+ *  route to its stop is the defect, and the route cannot be "go and find the
+ *  right market first", because the panel was not saying which market that was.
+ *
+ *  So the levels follow the position rather than the page:
+ *
+ *    - A position on the market on screen is the one, always. That is the
+ *      prominent position and nothing displaces it.
+ *    - With none here and one elsewhere, that one is it.
+ *    - With several open, a row of coin buttons picks between them, and the
+ *      market on screen is the default when it has one. Every open position is
+ *      then reachable from every market, which is the requirement.
+ *
+ *  ANOTHER MARKET'S RULES COME FROM assetSpecs, which this panel already reads
+ *  once a tick for the other-positions list. No extra request, and the levels
+ *  are checked against the asset's own tick and its own margin tiers rather
+ *  than against whatever market happens to be on screen.
+ */
+function paperLevelTarget() {
+  const st = paper.state;
+  if (!st) return null;
+  const coins = Object.keys(st.positions || {});
+  if (!coins.length) return null;
+  const here = paper.coin && st.positions[paper.coin] ? paper.coin : null;
+  let coin = here;
+  if (!coin) {
+    coin = (paper.levelCoin && st.positions[paper.levelCoin]) ? paper.levelCoin : coins[0];
+  } else if (paper.levelCoin && st.positions[paper.levelCoin]) {
+    coin = paper.levelCoin;
+  }
+  const info = coin === paper.coin ? paper.info : paperSpecFor(coin);
+  return { coin, pos: st.positions[coin], info: info || null,
+           here: coin === paper.coin, coins };
 }
 
 /** A percentage away from entry, signed. The number is the engine's
@@ -1812,14 +2785,17 @@ function paperSpecFor(coin) {
  *  which is why it is allowed to write the field: the focus rule is about what
  *  a TICK may touch, and a tick never reaches this. */
 async function commitLevel(which, raw) {
-  const info = paper.info;
-  const pos = (paper.state && info) ? paper.state.positions[info.coin] : null;
+  // The position the fields are pointing at, which is not always the one on the
+  // market on screen. See paperLevelTarget.
+  const target = paperLevelTarget();
+  const info = target ? target.info : null;
+  const pos = (paper.state && info) ? paper.state.positions[target.coin] : null;
   if (!pos) return;
   const v = levelInput(raw);
   if (v.clear) {
-    try { clearPositionLevel(paper.state, info.coin, which); } catch (e) { /* nothing to clear */ }
+    try { clearPositionLevel(paper.state, target.coin, which); } catch (e) { /* nothing to clear */ }
   } else {
-    const d = levelDecision(which, raw, paper.state);
+    const d = levelDecision(which, raw, paper.state, target.coin, info);
     if (d && d.ok === false) {
       // Refused, so nothing was written and the field keeps what was typed.
       // The engine's own message is rendered under it by the next pass.
@@ -1886,11 +2862,17 @@ function refresh() {
   setShown(ui.price.box, isLimit);
   setShown(ui.postOnly.label, isLimit);
 
-  setText(ui.size.unit, coin);
-  // Before the field is written, because this is what decides what goes in it
-  // when the market has a position open on it already.
+  setText(ui.size.unit, sizeUnitLabel());
+  ui.size.unit.classList.toggle("on", d.sizeUnit === "usd");
+  ui.size.unit.title = d.sizeUnit === "usd"
+    ? `Showing the size in USD. Press to go back to ${coin || "the coin"}.`
+    : "Showing the size in " + (coin || "the coin") + ". Press to enter it in USD.";
+  // Before the strip is written, because this is what decides what the leverage
+  // button reads: a choice made in the modal, the leverage already open on this
+  // market, or the venue's own default for the asset.
   seedTicketLeverage();
-  setVal(ui.leverage, d.leverage);
+  setText(ui.levBtn, `${paperLeverage()}x`);
+  refreshSheets();
   // Two different sentences, one place, and they cannot both be true: the
   // warning is that the number typed is not the number that will be used, and
   // the quiet one is that the number in the box was put there by the position
@@ -1902,6 +2884,18 @@ function refresh() {
   ui.leverageNote.classList.toggle("tp-lev-seeded", !levNote && !!seedNote);
   ui.reduceOnly.input.checked = d.reduceOnly;
   ui.postOnly.input.checked = d.postOnly;
+  ui.tpsl.input.checked = d.tpslOn;
+  setShown(ui.tpslBox, d.tpslOn);
+  // Before the boxes are written, because this is what decides what goes in
+  // them when the market already has marks on its position.
+  seedTicketLevels();
+  setVal(ui.tpTicket.input, d.tpPx);
+  setVal(ui.slTicket.input, d.slPx);
+  setVal(ui.tpTicket.gain, d.tpGain);
+  setVal(ui.slTicket.gain, d.slLoss);
+  setText(ui.tpTicket.unit, d.tpslNtl ? "$" : "%");
+  setText(ui.slTicket.unit, d.tpslNtl ? "$" : "%");
+  if (d.tpslOn) refreshTicketLevels();
 
   // Their two account rows. Neither says "N/A" when it has nothing: one is
   // waiting on the stored account and the other on the venue, and those are
@@ -1945,6 +2939,25 @@ function refresh() {
       + (listedBelow ? ", listed below." : `: ${shownCoins}.`)
     : "");
   setShown(ui.availableNote, heldCoins.length > 0);
+
+  // THEIR Current Position ROW. The size of what is open on the market on
+  // screen, at that market's own lot precision, with a zero when nothing is
+  // open because that is the true size of nothing. The two absences it can be
+  // in are named rather than printed as a zero: no stored account yet, and this
+  // market's rules not read yet, which is the one case the number of decimal
+  // places is not known and so the figure cannot be written the way their form
+  // writes it.
+  const posSzd = (info && info.coin === coin) ? info.szDecimals : null;
+  setText(ui.currentPos, !state
+    ? "not loaded yet"
+    : (posSzd == null
+      ? (pos ? `${pnum(pos.size, 6)} ${coin}, at six places until this market is read`
+             : "waiting on this market's rules")
+      // fmtSz, not pnum. Their row reads "0.00000 BTC", padded to the asset's
+      // lot precision, and pnum drops the trailing zeroes and prints "0 BTC".
+      // The padding is the asset's step size showing, which is worth keeping
+      // and is what their form does.
+      : `${fmtSz(pos ? pos.size : 0, posSzd)} ${coin}`));
 
   // The slider follows the size field, never the other way round inside this
   // function: size is the person's own text and refresh() does not rewrite it.
@@ -2103,7 +3116,7 @@ function refresh() {
 
   refreshPosition(pos, info);
   refreshOthers();
-  refreshLevels(pos, info);
+  refreshLevels(paperLevelTarget());
   refreshResting(state, info);
   refreshEvents(state);
   refreshClosed(state);
@@ -2135,6 +3148,12 @@ function refresh() {
 function refreshPosition(pos, info) {
   const ui = paper.ui;
   setText(ui.posTitle, `Practice position${paper.coin ? " in " + paper.coin : ""}`);
+  // TWO HEADINGS AROUND ONE SENTENCE. With nothing open on the market on
+  // screen, this section was a heading reading "Practice position in SOL" over
+  // a line reading "No open SOL position.", which is the same fact twice and
+  // the second of the two says it better: it names the market and it answers
+  // the question. The heading goes while there is nothing under it.
+  setShown(ui.posTitle, !!pos);
   // HELD IS NOT THE SAME QUESTION AS PRICED. The position is in the practice
   // account whether or not this market has answered; only its prices need the
   // read. Treating the two as one question made a held position vanish from the
@@ -2231,6 +3250,38 @@ function refreshPosition(pos, info) {
 function refreshOthers() {
   const ui = paper.ui;
   const all = Array.isArray(paper.others) ? paper.others : [];
+  // WHICH OF THESE, IF ANY, HAS ITS LADDER ON SCREEN ABOVE.
+  //
+  // The level fields follow the position rather than the page now, so with
+  // nothing open on the market being viewed the ladder above is showing one of
+  // the positions in this list, in full, with its entry and its mark each on
+  // their own rung. That row then printed "in at 84,397, mark 84,355" a second
+  // time, four lines under the rungs carrying the same two prices, which is a
+  // repeat this pass introduced and this removes.
+  //
+  // THE ROW IS NOT DROPPED, AND ITS MONEY FIGURE STAYS. Two separate reasons,
+  // because they cover two different parts of the row.
+  //
+  // The row is the only carrier of the SIZE and the LEVERAGE for a market that
+  // is not on screen: the position table belongs to the market being viewed and
+  // does not render for anything else. That is why the row exists at all.
+  //
+  // The FIGURE is the part that is genuinely duplicated, and it stays for a
+  // different reason. The ladder is only ever showing one position, so on every
+  // other row the figure is the only one there is. Suppressing it on whichever
+  // row happens to be expanded would mean a row that loses its money figure the
+  // moment you point the picker at it and gets it back when you point
+  // elsewhere, which is a row that changes shape as it opens. A number that
+  // appears twice is easier to read than a row that is a different row
+  // depending on what else is on screen.
+  //
+  // Neither of those is the close-everything total, which was a derived sum
+  // whose only term was the row directly above it and which carried nothing of
+  // its own at all.
+  const levelled = (() => {
+    const t = paperLevelTarget();
+    return (t && t.coin && t.coin !== paper.coin) ? t.coin : null;
+  })();
   // The market this page is on is above, in full, with its ladder. It is still
   // in the engine's rows, which are every open position, so it is filtered out
   // here by coin and nowhere else.
@@ -2256,6 +3307,9 @@ function refreshOthers() {
   const sig = rows.map((r) => [
     r.coin, r.side, r.size, r.entryPx, r.markPx, r.leverage,
     r.value ? r.value.realises : "unpriced",
+    // Which row is the one expanded above changes what that row prints, so it
+    // is part of the signature or the list keeps the old wording.
+    r.coin === levelled ? "above" : "",
   ].join(",")).join("|");
 
   syncList(ui.othersList, sig, rows.map((r) => {
@@ -2288,11 +3342,14 @@ function refreshOthers() {
     // the row is not dropped: the side, the size, the entry and the leverage on
     // it are all still true, and a position vanishing because its market could
     // not be read is the invisibility this section exists to end.
+    const shownAbove = r.coin === levelled;
     const away = net == null
       ? `${pesc(size)} ${pesc(r.coin)}, in at ${pesc(px(r.entryPx))}. `
         + pesc((r.unpriced && r.unpriced.message) || unpricedReason())
-      : `${pesc(size)} ${pesc(r.coin)}, in at ${pesc(px(r.entryPx))}, `
-        + `mark ${pesc(px(r.markPx))}`;
+      : (shownAbove
+        ? `${pesc(size)} ${pesc(r.coin)}, on the ladder above`
+        : `${pesc(size)} ${pesc(r.coin)}, in at ${pesc(px(r.entryPx))}, `
+          + `mark ${pesc(px(r.markPx))}`);
     // AN <a> WITH AN href, and the click handler turns it into their own
     // client-side navigation. Left as a link so it reads as one, so the keyboard
     // reaches it, and so a modifier-click still opens the market in a new tab
@@ -2322,9 +3379,15 @@ function refreshOthers() {
   // the moment any row is unpriced, on purpose: a sum quietly missing a leg is
   // the show-a-zero defect one level up, and worse, because nothing on the
   // surface shows the gap. The engine's own sentence goes in its place.
+  //
+  // AND ONLY WHEN THERE ARE TWO OR MORE. With one position open the sum IS that
+  // position's own figure, printed a second time four lines under the first in
+  // a longer sentence. A total restating its only term is not a total. The
+  // count is `all`, every open position including this market's, because that
+  // is what the sentence claims to cover.
   let total = null;
   let totalNote = null;
-  if (typeof closeAllValue === "function") {
+  if (all.length > 1 && typeof closeAllValue === "function") {
     try {
       const sum = closeAllValue(all);
       if (sum && typeof sum.then !== "function") {
@@ -2378,12 +3441,25 @@ function refreshOthers() {
 function seedTicketLeverage() {
   const ui = paper.ui;
   if (!ui || !paper.coin) return;
+  const known = !!(paper.info && paper.info.coin === paper.coin);
+  // A CHOICE MADE IN THE MODAL OUTRANKS BOTH OF THE OTHER TWO, AND IT IS KEPT
+  // PER MARKET. Their app stores a leverage per asset; a 40x chosen on BTC must
+  // not follow you to a market whose maximum is 3, and coming back to BTC must
+  // not throw the choice away. Nothing below runs once this has answered.
+  if (paper.levChoice[paper.coin] != null) {
+    paper.draft.leverage = String(paper.levChoice[paper.coin]);
+    return;
+  }
   const pos = paper.state ? paper.state.positions[paper.coin] : null;
+  // THE THIRD CASE, WHICH IS NEW: no position and no choice is not "leave it
+  // alone", it is the venue's own default for this asset, which is
+  // min(20, maxLeverage). See paperVenueDefaultLeverage for the sweep that
+  // settled that number. Keyed on `default` so it is applied once per market
+  // and the modal can then move it.
   const seed = pos
     ? `${paper.coin}:${pos.openedAt}:${pos.leverage}`
-    : `${paper.coin}:none`;
+    : (known ? `${paper.coin}:default` : `${paper.coin}:unread`);
   if (paper.levSeed === seed) return;
-  if (document.activeElement === ui.leverage) return;
   // THE MAXIMUM HAS TO BE THIS MARKET'S. ticketLeverage clamps into the
   // asset's maximum, so seeding a BTC position against AVAX's info caps 20x at
   // 10x and the box then holds a number nothing on the page explains. The info
@@ -2392,15 +3468,18 @@ function seedTicketLeverage() {
   // Without it the token is left alone rather than advanced, so the seeding
   // happens on the first pass after this market has been read rather than
   // being done once against the wrong rules and never revisited.
-  if (pos && !(paper.info && paper.info.coin === paper.coin)) return;
+  if (pos && !known) return;
   paper.levSeed = seed;
-  // Nothing open on this market, so there is nothing for the ticket to
-  // reflect and the box keeps whatever the person last chose. Snapping it back
-  // to 1x on a market they hold nothing on would be inventing a preference.
-  if (!pos) return;
-  const lev = paperTicketLeverage(pos);
-  if (lev == null) return;
-  paper.draft.leverage = String(lev);
+  if (pos) {
+    const lev = paperTicketLeverage(pos);
+    if (lev != null) paper.draft.leverage = String(lev);
+    return;
+  }
+  // Nothing open and nothing chosen. Until this market's maximum has been read
+  // there is no default to apply, so the control keeps what it has and this
+  // runs again on the pass after the read lands.
+  if (!known) return;
+  paper.draft.leverage = String(paperVenueDefaultLeverage(paperLeverageMax()));
 }
 
 /** The whole number the leverage control can be set to for this position.
@@ -2434,12 +3513,24 @@ function ticketLeverageSeedNote() {
   if (lev == null) return null;
   if (String(paper.draft.leverage).trim() !== String(lev)) return null;
   const running = Number(pos.leverage);
-  // ONE LINE WHEN IT CAN BE, because this sits above the outcome banner and the
-  // Close control in a panel that is 440px tall at 1280, and every line it
-  // takes pushes those further down.
-  if (!isFinite(running) || Math.abs(running - lev) < 0.005) {
-    return `Set to ${lev}x, the leverage already open on ${paper.coin}.`;
-  }
+  // THE PLAIN CASE IS SILENT NOW, AND THAT IS A REMOVAL OF OUR OWN REPEAT.
+  //
+  // It used to read "Set to 20x, the leverage already open on BTC." That was
+  // worth a line when the control was a text box you typed into and nothing
+  // said where the number in it came from. The control is a button that reads
+  // "20x", the position row below reads "0.01 BTC at 20x", and the sentence was
+  // the same number a third time. Hyperliquid's form has no such line, so this
+  // is one of ours, and the rule for this pass is that ours are said once.
+  //
+  // It also cost more than a line. Measured at 1280x813 with a position open,
+  // it pushed the control that closes the position 5px past the bottom of the
+  // panel, which is the one thing that may never go behind a scroll.
+  //
+  // THE CASE THAT REMAINS IS THE ONE THE NUMBERS DO NOT COVER. After an add the
+  // button says 17x and the position is running at 17.11x, and no surface
+  // anywhere carries that gap. It is the reason the control does not simply
+  // show the position's own figure, and it is still said out loud.
+  if (!isFinite(running) || Math.abs(running - lev) < 0.005) return null;
   return `Set to ${lev}x. The ${paper.coin} position is running at `
     + `${pnum(running, 2)}x after being added to, which the control does not take.`;
 }
@@ -2449,11 +3540,39 @@ function ticketLeverageSeedNote() {
  *  NO POSITION, NO LADDER. Everything in here is about a position that is open,
  *  and a scale with nothing on it is a scale that is claiming something.
  */
-function refreshLevels(pos, info) {
+function refreshLevels(target) {
   const ui = paper.ui;
   if (!ui || !ui.levels) return;
+  const pos = target ? target.pos : null;
+  const info = target ? target.info : null;
+  const coin = target ? target.coin : null;
   const has = !!(pos && info);
   setShown(ui.levels, has);
+
+  // WHICH POSITION THESE TWO FIELDS ARE ABOUT, SAID WHENEVER IT IS NOT THE
+  // OBVIOUS ONE. With a position on the market on screen this is silent: the
+  // section heading above already names it. With the fields pointing at a
+  // position held somewhere else, a stop typed into an unlabelled box would go
+  // onto a market the person is not looking at.
+  const elsewhere = has && !target.here;
+  setText(ui.levelsWho, elsewhere
+    ? `Stop loss and take profit on your ${coin} position, which is open on a `
+      + "market this page is not showing."
+    : "");
+  setShown(ui.levelsWho, elsewhere);
+
+  // The picker, and only when there is something to pick between. One open
+  // position needs no chooser; two or more need every one of them reachable
+  // from wherever the page happens to be.
+  const openCoins = target ? target.coins : [];
+  const many = has && openCoins.length > 1;
+  setShown(ui.levelsPick, many);
+  if (many) {
+    syncList(ui.levelsPick, openCoins.join("|") + ">" + coin,
+      openCoins.map((c) => `<button type="button" class="tp-lvl-pick`
+        + `${c === coin ? " on" : ""}" data-act="levelcoin" data-coin="${pesc(c)}"`
+        + ` aria-pressed="${c === coin}">${pesc(c)}</button>`).join(""));
+  }
 
   // Seed the fields from what the engine holds, once per position. Keyed on
   // the position's own identity so a commit does not re-seed and fight the
@@ -2499,7 +3618,7 @@ function refreshLevels(pos, info) {
     const heldN = Number(pos[which === "stop" ? "stopPx" : "targetPx"]);
     const held = isFinite(heldN) && heldN > 0 ? heldN : null;
     const typed = String(paper.draft[which]).trim().replace(/,/g, "");
-    const d = levelDecision(which, paper.draft[which], probe);
+    const d = levelDecision(which, paper.draft[which], probe, coin, info);
     const bad = !!(d && d.ok === false);
     const settled = typed === "" ? held === null : Number(typed) === held;
 
@@ -2701,6 +3820,28 @@ function refreshResting(state, info) {
  *  because at that point the person is describing a new order rather than
  *  reading about the last one, and the event comes back at the top of this
  *  list on the same pass.
+ *
+ *  AND THE SAME RULE AGAIN, AGAINST THE SECTIONS ABOVE THIS ONE.
+ *
+ *  Measured with one position open and two round trips behind it: the open
+ *  BTC position's size and entry were on its row AND in a history line reading
+ *  "Filled 1.20432 BTC at 85,891", and each closed round trip was told three
+ *  times, once in the closed list and twice more here as a separate fill row
+ *  and close row. One round trip, three rows, in two sections.
+ *
+ *  So an event that produced something still on screen is logged by what only
+ *  this list carries, and not by restating it. The position on a row, the round
+ *  trip in the closed list and the resting order in its own section each own
+ *  the side, the size and the prices; this list owns THE FEE AND THE DEPTH,
+ *  which are nowhere else and which are the measurement this panel exists for.
+ *  A refusal has no other home at all, so it is logged in full.
+ *
+ *  Every log line names its market. Two adjacent closes used to read "Closed at
+ *  85,844." and "Closed at 2,766." with nothing saying which was which, so you
+ *  had to infer the coin from the size of the number.
+ *
+ *  The banner keeps the full sentence. It is the answer to "I just pressed
+ *  that" and at that moment nothing else on screen has caught up yet.
  */
 function refreshEvents(state) {
   const ui = paper.ui;
@@ -2710,11 +3851,18 @@ function refreshEvents(state) {
   setShown(ui.evSec, rows.length > 0);
   if (!rows.length) return;
   const sig = rows.map((e) => `${e.at}:${e.message}`).join("|");
-  syncList(ui.evList, sig, rows.map((e) => `
+  syncList(ui.evList, sig, rows.map((e) => {
+    // `log` is the short form for this list, written at the moment the event is
+    // made because that is where the coin and the fee are known. Absent on a
+    // refusal, which has nowhere else to be said and is printed whole.
+    const head = (e.log && e.log.message) ? e.log.message : e.message;
+    const det = e.log ? e.log.detail : e.detail;
+    return `
     <li class="${e.ok ? "tp-ev-ok" : "tp-ev-no"}" data-ev="1">
-      <span class="tp-ev-h">${pesc(e.message)}</span>
-      ${e.detail ? `<span class="tp-ev-d">${pesc(e.detail)}</span>` : ""}
-    </li>`).join(""));
+      <span class="tp-ev-h">${pesc(head)}</span>
+      ${det ? `<span class="tp-ev-d">${pesc(det)}</span>` : ""}
+    </li>`;
+  }).join(""));
 }
 
 function refreshClosed(state) {
@@ -2806,11 +3954,49 @@ function onFieldInput(el) {
     // the way to 81200 and send the ladder somewhere nobody asked it to go.
     paper.draft[f] = el.value;
   } else if (f === "size") {
-    paper.draft.size = el.value;
+    // The box may be showing USD. What is stored is always the coin amount,
+    // and el.value is left exactly as typed.
+    paper.draft.size = coinSizeFrom(el.value);
   } else if (f === "px") {
     paper.draft.px = el.value;
-  } else if (f === "leverage") {
-    paper.draft.leverage = el.value;
+  } else if (f === "levrange") {
+    setLeverageChoice(el.value);
+  } else if (f === "levnum") {
+    setLeverageChoice(el.value);
+    // THE ONE PLACE A FOCUSED FIELD IS WRITTEN, and it is what makes their
+    // out-of-range behaviour visible. The value is ignored when it is outside
+    // the range, so the box has to go back to the value that was kept or the
+    // person is left looking at a number the control did not take. This follows
+    // the person's own keystroke rather than a tick, which is the distinction
+    // the focus rule is actually about. An empty box is left empty: it is the
+    // only way to reach 0, and rewriting it to "0" would make it unclearable.
+    if (String(el.value).trim() !== "") el.value = String(paper.lev.value || "");
+  } else if (f === "tpPx" || f === "slPx") {
+    // TYPING A PRICE RECOMPUTES ITS GAIN ON EVERY KEYSTROKE, which is theirs:
+    // their `ne` sets the price and immediately writes the computed side. The
+    // companion box is not the one with the caret in it, so writing it is not
+    // writing under anybody's hands.
+    paper.draft[f] = el.value;
+    const which = f === "tpPx" ? "target" : "stop";
+    const g = tpslGainFromPrice(which, el.value);
+    const gk = f === "tpPx" ? "tpGain" : "slLoss";
+    paper.draft[gk] = String(el.value).trim() === "" || g == null ? "" : String(g);
+  } else if (f === "tpGain" || f === "slLoss") {
+    // AND THE OTHER DIRECTION, the same way. Their `P` sets the price from the
+    // number typed here and leaves this box holding exactly what was typed for
+    // as long as it has the caret; the price it wrote is floored onto the
+    // asset's grid. refreshTicketLevels puts the rounded price back into this
+    // box once the caret leaves, so the pair ends agreeing with the price that
+    // is actually held rather than with the one that was asked for.
+    paper.draft[f] = el.value;
+    const which = f === "tpGain" ? "target" : "stop";
+    const pk = f === "tpGain" ? "tpPx" : "slPx";
+    const px = tpslPriceFromGain(which, el.value);
+    paper.draft[pk] = String(el.value).trim() === "" || px == null ? "" : String(px);
+    setVal(which === "target" ? paper.ui.tpTicket.input : paper.ui.slTicket.input,
+      paper.draft[pk]);
+  } else if (f === "tpsl") {
+    paper.draft.tpslOn = el.checked;
   } else if (f === "reduceOnly") {
     paper.draft.reduceOnly = el.checked;
   } else if (f === "postOnly") {
@@ -2822,10 +4008,7 @@ function onFieldInput(el) {
     const raw = parseFloat(el.value);
     const pct = Math.max(0, Math.min(100, isFinite(raw) ? raw : 0));
     const sz = sizeFromPct(pct);
-    if (sz != null) {
-      paper.draft.size = sz;
-      setVal(paper.ui.size.input, sz);
-    }
+    if (sz != null) setSizeField(sz);
     if (f === "pct") setVal(paper.ui.pctNum, pct ? String(Math.round(pct)) : "");
     if (f === "pctnum") setVal(paper.ui.range, String(Math.round(pct)));
   }
@@ -2935,14 +4118,62 @@ async function submitPaperOrderInner() {
     leverage: paperLeverage(),
   });
 
+  // THE TICKET'S TWO LEVELS ARE ANSWERED BEFORE THE ORDER GOES, NOT AFTER IT.
+  // Opening a position and only then being told the stop belongs on the other
+  // side of the entry leaves somebody holding something they opened for the
+  // sake of a mark they cannot have. paperTicketLevels asks setPositionLevel
+  // about the position this fill would leave behind, so the refusal here is the
+  // same function's, one step earlier. A decision that is already a refusal
+  // makes this null and falls through to the branch below.
+  const ticketLevels = paperTicketLevels();
+  if (ticketLevels.refusal) {
+    const r = ticketLevels.refusal;
+    pushEvent({ ok: false, at: Date.now(),
+      message: `Not placed. ${r.message}`,
+      detail: (r.detail ? r.detail + " " : "")
+        + "Nothing was opened, because the mark you asked for cannot go on it." });
+    await saveState(paper.state); refresh(); return;
+  }
+
   if (!decision.ok) {
     pushEvent({ ok: false, message: decision.message, detail: decision.detail, at: decision.at });
+    // THEIR ERROR PATH, WHICH IS NOT A DISABLED BUTTON. An order their form
+    // cannot place at the current leverage is not refused at the button: you
+    // press it, you get the error, and the leverage modal opens over the form
+    // in its error state, because the leverage is the thing that would let the
+    // order through. That interaction is copied here for the one refusal this
+    // simulation has that leverage answers.
+    //
+    // THE SENTENCE IS OURS AND NOT THEIRS, because the direction of the fix is
+    // the opposite one. Theirs is a margin-tier cap, where a lower leverage
+    // allows a larger position; the first of those bounds is three million
+    // dollars of notional and a ten thousand dollar practice account never
+    // reaches one. Ours is running out of margin, where a HIGHER leverage puts
+    // up less of it. Printing their words over our arithmetic would tell
+    // somebody to move the slider the wrong way.
+    if (decision.code === "margin") {
+      // Saved first. openSheet renders, and the refusal is already in the
+      // history list by then, so skipping the write would lose it.
+      await saveState(paper.state);
+      openSheet("leverage",
+        "The practice account does not hold the margin this order needs at "
+        + `${paperLeverage()}x. More leverage puts up less margin for the same `
+        + "size, and a smaller size needs less of it.");
+      return;
+    }
   } else if (decision.kind === "rest") {
     paper.state.resting.push(decision.order);
     pushEvent({ ok: true, at: Date.now(),
       message: `Resting ${decision.order.side} ${decision.order.size} ${paper.coin} at ${decision.order.px}.`,
       detail: "It did not cross, so it is on the book. Whether it would fill is not "
-              + "something public data can settle." });
+              + "something public data can settle.",
+      // The order itself is listed under Resting orders with its side, size and
+      // price, and can be cancelled from there. This line is the record that it
+      // did not cross, which is the part that section does not carry.
+      log: {
+        message: `${paper.coin} ${decision.order.side} did not cross, so it rests.`,
+        detail: "Whether it would fill is not something public data can settle.",
+      } });
   } else {
     // NO BALANCE CHECK HERE. There used to be one, and it was wrong twice: it
     // skipped whenever the order closed anything, so a flip that opened a
@@ -2960,6 +4191,55 @@ async function submitPaperOrderInner() {
     // cannot fix this from its own side, because the margin check runs it
     // against a state copy and is not allowed to make a network call.
     await settleAndApplyFill(paper.state, paper.info, f);
+    // THE TICKET'S MARKS GO ONTO THE POSITION HERE, BY THE SAME CALL THE
+    // POSITION'S OWN FIELDS MAKE. They were checked against a copy of this
+    // exact state a few lines above, so a refusal at this point would mean the
+    // fill came out different from its preview; it is still handled, by saying
+    // nothing was marked rather than by claiming something was.
+    // ONLY WHAT THE TICKET ACTUALLY ASKED FOR. `want` is empty for a box that
+    // still holds the mark the position already had, so placing an add without
+    // touching the boxes writes nothing at all. See paperTicketLevels.
+    const marked = { added: [], replaced: [] };
+    if (d.tpslOn) {
+      for (const which of ["stop", "target"]) {
+        const px = ticketLevels.want[which];
+        if (px == null) continue;
+        let r = null;
+        try { r = setPositionLevel(paper.state, paper.info, paper.coin, which, px); }
+        catch (e) { r = null; }
+        if (!r || !r.ok) continue;
+        const word = which === "stop" ? "stop loss" : "take profit";
+        const was = ticketLevels.held[which];
+        // A CHANGE NAMES WHAT IT REPLACED. The seeding above makes the
+        // destructive case rare rather than impossible: somebody can still type
+        // over a mark they had set, and the sentence has to carry the price
+        // that went as well as the one that arrived, or the loss is reported as
+        // a success.
+        //
+        // The two kinds go in two sentences rather than one list. Threading a
+        // replacement through the "is now marked on the position" clause
+        // produced "Your stop loss moved from 83,001 to 83,786 is now marked on
+        // the position", which is not a sentence.
+        if (was != null) {
+          marked.replaced.push(`your ${word} moved from ${ppx(was, paper.info)} `
+            + `to ${ppx(px, paper.info)}`);
+        } else {
+          marked.added.push(`${word} at ${ppx(px, paper.info)}`);
+        }
+      }
+    }
+    const markedParts = [];
+    if (marked.added.length) {
+      markedParts.push(`Your ${marked.added.join(" and ")} `
+        + `${marked.added.length > 1 ? "are" : "is"} now marked on the position.`);
+    }
+    if (marked.replaced.length) {
+      const said = marked.replaced.join(", and ");
+      markedParts.push(said.charAt(0).toUpperCase() + said.slice(1) + ".");
+    }
+    const markedSaid = markedParts.length
+      ? " " + markedParts.join(" ") + " Nothing was sent to the venue."
+      : "";
     const slip = f.slippageVsTouch;
     const depth = f.levels.length > 1
       ? `It took ${f.levels.length} levels of the book, ending at ${pnum(f.worstPx, 6)}. `
@@ -2986,12 +4266,28 @@ async function submitPaperOrderInner() {
     pushEvent({ ok: true, at: f.at,
       message: `Filled ${f.size} ${paper.coin} at ${ppx(f.avgPx, paper.info)}, `
                + `fee ${pmoney(f.fee)}.`,
-      detail: depth + clamped + aged });
+      detail: depth + clamped + aged + markedSaid,
+      // What the history list keeps of this, which is the fee and the depth.
+      // The size and the price are on the position this opened, or in the
+      // closed list if it also closed one, and they are not said twice.
+      log: {
+        message: `${paper.coin} ${d.side} filled, fee ${pmoney(f.fee)}.`,
+        detail: depth + clamped + aged,
+      } });
     // The order went through, so the ticket is cleared the way an order ticket
     // is. This is a deliberate write to the size field and the only one
     // outside the slider: it follows the person's own click, not a tick.
-    paper.draft.size = "";
-    if (paper.ui) paper.ui.size.input.value = "";
+    setSizeField("", true);
+    if (d.tpslOn) {
+      // NOT BLANKED. The boxes are seeded from the position's marks, so after a
+      // fill they reload with whatever the position now carries: the pair just
+      // written, or the pair that was already there if nothing was asked for.
+      // Blanking them would mean the next add started from empty boxes, which
+      // is the state the overwrite came out of. Both seed tokens are dropped so
+      // the ticket and the position's own fields reload together.
+      paper.tpslSeed = null;
+      paper.levelSeed = null;
+    }
   }
   await saveState(paper.state);
   refresh();
@@ -3023,9 +4319,29 @@ async function closePaperPosition() {
     // Settle before applying: this is the close path, which is exactly where
     // an unsettled funding charge would be lost with the position.
     await settleAndApplyFill(paper.state, paper.info, decision.fill);
+    // WHAT THE CLOSE LEG COST IN DEPTH, WHICH WAS NOT SAID ANYWHERE. A fill
+    // that opens a position reports the levels it took and how far the average
+    // ran from the touch; the close leg reported neither, so the more expensive
+    // half of a round trip was the silent one. Same sentence, same function's
+    // numbers, on the leg that was missing it.
+    const cf = decision.fill;
+    const cslip = cf.slippageVsTouch;
+    const cdepth = cf.levels.length > 1
+      ? `It took ${cf.levels.length} levels of the book, ending at ${pnum(cf.worstPx, 6)}. `
+        + `That is ${pnum(Math.abs(cslip), 6)} away from the touch, which is what depth costs.`
+      : "It filled inside the first level of the book.";
     pushEvent({ ok: true, at: Date.now(),
-      message: `Closed at ${ppx(decision.fill.avgPx, paper.info)}.`,
-      detail: "What it would have earned is in the list below. Nobody earned it." });
+      message: `Closed at ${ppx(cf.avgPx, paper.info)}.`,
+      // The banner sits directly under the button, and the closed list is
+      // further down the panel, so "below" is correct from where this is read.
+      detail: "What it would have earned is in the list below. Nobody earned it.",
+      // The round trip is one row in the closed list, with its entry, its exit,
+      // its fees and its funding. This line is the fee on this leg and what the
+      // book cost to get out, neither of which that row separates out.
+      log: {
+        message: `${paper.coin} close, fee ${pmoney(cf.fee)}.`,
+        detail: cdepth,
+      } });
   }
   await saveState(paper.state);
   refresh();
@@ -3140,6 +4456,9 @@ async function tick() {
  *  CLOSED: practice mode covers none of their page until it is asked for. */
 async function setPaperOpen(open) {
   paper.open = !!open;
+  // Hiding the panel with a sheet over it would bring the sheet back on top of
+  // the ticket when it is opened again, which is not where anybody left off.
+  if (!paper.open) clearSheet();
   try { await chrome.storage.local.set({ [PAPER_OPEN_KEY]: paper.open }); } catch (e) {}
   refresh();
   // Scroll BEFORE measuring. Anchoring first and scrolling after would place
@@ -3206,6 +4525,33 @@ function wirePaper(panel) {
     const kind = act.dataset.act;
     if (kind === "shut") {
       await setPaperOpen(false);
+    } else if (kind === "openlev") {
+      openSheet("leverage", null);
+    } else if (kind === "openmargin") {
+      openSheet("margin", null);
+    } else if (kind === "openacct") {
+      openSheet("account", null);
+    } else if (kind === "closesheet") {
+      closeSheet();
+    } else if (kind === "levok") {
+      confirmLeverage();
+    } else if (kind === "tpslunit") {
+      // THE NUMBER CONVERTS, IT IS NOT REINTERPRETED. Theirs recomputes both
+      // gain and loss from their prices the moment the setting flips, so 5%
+      // becomes the dollar figure that same price is worth rather than $5.
+      paper.draft.tpslNtl = !paper.draft.tpslNtl;
+      for (const [which, pk, gk] of [["target", "tpPx", "tpGain"],
+                                     ["stop", "slPx", "slLoss"]]) {
+        const g = tpslGainFromPrice(which, paper.draft[pk]);
+        paper.draft[gk] = g == null ? "" : String(g);
+      }
+      refresh();
+    } else if (kind === "sizeunit") {
+      // The person's own click, so the box is written even if it has focus.
+      // The coin amount behind it does not move: only what is displayed does.
+      paper.draft.sizeUnit = paper.draft.sizeUnit === "usd" ? "coin" : "usd";
+      setSizeField(paper.draft.size, true);
+      refresh();
     } else if (kind === "others") {
       await setPaperOthersOpen(!paper.othersOpen);
     } else if (kind === "goto") {
@@ -3232,6 +4578,13 @@ function wirePaper(panel) {
       await submitPaperOrder();
     } else if (kind === "close") {
       await closePaperPosition();
+    } else if (kind === "levelcoin") {
+      // A different position's stop and take profit. The seed token is dropped
+      // with it so the fields reload from the position being switched to rather
+      // than keeping the last one's numbers under the new one's name.
+      paper.levelCoin = act.dataset.coin;
+      paper.levelSeed = null;
+      refresh();
     } else if (kind === "lvlclear") {
       const k = act.dataset.k;
       paper.draft[k] = "";
@@ -3243,8 +4596,12 @@ function wirePaper(panel) {
       await saveState(paper.state); refresh();
     } else if (kind === "reset") {
       paper.state = await resetState();
-      paper.draft.size = ""; paper.draft.px = "";
-      if (paper.ui) { paper.ui.size.input.value = ""; paper.ui.price.input.value = ""; }
+      paper.draft.px = "";
+      setSizeField("", true);
+      if (paper.ui) paper.ui.price.input.value = "";
+      // The sheet the button lives on has done its job. Left open it would sit
+      // over the panel showing the account it has just emptied.
+      paper.sheet = null;
       // The priced rows are a read of a state that no longer exists. Held on
       // to, they would list positions the reset has just closed for as long as
       // it takes the next tick to come round, which is a panel showing an
@@ -3264,22 +4621,56 @@ function wirePaper(panel) {
   panel.addEventListener("input", onEdit);
   panel.addEventListener("change", onEdit);
 
-  // Leaving the leverage field is when the substitution takes effect, so that
-  // is when the field is made to agree with it. Doing this on every keystroke
-  // instead would make 50 unreachable on a market capped at 40.
+  // THE LEVERAGE BOX SELECTS ITS CONTENTS WHEN IT IS FOCUSED, AND WITHOUT THIS
+  // THE SAME GESTURE PRODUCES A DIFFERENT NUMBER ON THE TWO FORMS.
+  //
+  // Their input primitive does `onFocus: t => { t.target.select() }`, and they
+  // commit per keystroke with no range test on the way in. So on BTC, starting
+  // at 20, clicking the box and typing three nines goes: the click selects 20,
+  // the first 9 REPLACES it and commits, 99 is out of range and is ignored so
+  // the display reverts to 9, the third the same. You end on 9.
+  //
+  // Without the select the first 9 APPENDS, giving 209, which is out of range
+  // and ignored, and so are 2099 and 20999. You end on 20, having touched
+  // nothing. Same finger, different leverage, and the divergence is invisible
+  // to any test whose typing helper clears the field first: clearing is an
+  // accidental emulation of their select, which is how this passed.
+  //
+  // focusin rather than focus, because focus does not bubble and this is one
+  // delegated listener on the panel.
+  panel.addEventListener("focusin", (e) => {
+    const el = e.target;
+    if (!el || !el.dataset || el.dataset.f !== "levnum") return;
+    if (typeof el.select === "function") el.select();
+  });
+
+  // Leaving a level field is when it is committed, which is the one call that
+  // writes to the position rather than to a copy. Committing per keystroke
+  // would store every prefix of the number on the way to it.
+  //
+  // THE LEVERAGE CLAUSE THAT USED TO BE HERE IS GONE with the text box it was
+  // about. It snapped a typed number into range on blur; there is nothing to
+  // snap now, because the slider cannot leave the range and the modal's number
+  // box refuses a value outside it instead of storing one.
   panel.addEventListener("focusout", (e) => {
     const el = e.target;
     if (!el || !el.dataset) return;
-    // Leaving a level field is when it is committed, which is the one call
-    // that writes to the position rather than to a copy. Committing per
-    // keystroke would store every prefix of the number on the way to it.
     if (el.dataset.f === "stop" || el.dataset.f === "target") {
       commitLevel(el.dataset.f, el.value);
       return;
     }
-    if (el.dataset.f !== "leverage") return;
-    const used = String(paperLeverage());
-    if (el.value !== used) { el.value = used; paper.draft.leverage = used; refresh(); }
+    // AN EMPTY LEVERAGE BOX IS LEFT EMPTY. This used to put the kept value back
+    // when the box was blurred blank, which meant the 0 state with Confirm
+    // disabled could not be left standing by clicking away. On their form it
+    // can: their reconciliation guard evaluates false when the committed value
+    // is 0 and the display is blank, so nothing is written back and the box
+    // sits empty with the button refusing. Ours now does the same.
+  });
+
+  // Escape closes whichever sheet is over the panel, which is what a modal
+  // does. It changes nothing: closing is not confirming.
+  panel.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && paper.sheet) { e.preventDefault(); closeSheet(); }
   });
 
   // Enter submits from any text field, which is what an order ticket does.
@@ -3294,6 +4685,14 @@ function wirePaper(panel) {
     e.preventDefault();
     if (f.dataset.f === "stop" || f.dataset.f === "target") {
       await commitLevel(f.dataset.f, f.value);
+      return;
+    }
+    // AND NOT THE LEVERAGE MODAL EITHER. Enter in the box beside the slider is
+    // Confirm, not "place the order behind this sheet". Submitting from inside
+    // a modal the person opened to change a setting is the worst version of
+    // this panel guessing what was meant.
+    if (f.dataset.f === "levnum" || f.dataset.f === "levrange") {
+      confirmLeverage();
       return;
     }
     await submitPaperOrder();
@@ -3377,8 +4776,30 @@ function paperSwitchCoin(c) {
   // assets with different ticks and lot sizes, so they are cleared, and this
   // is a market change rather than a tick so writing the fields is correct.
   paper.draft.px = "";
-  paper.draft.size = "";
-  if (paper.ui) { paper.ui.size.input.value = ""; paper.ui.price.input.value = ""; }
+  setSizeField("", true);
+  if (paper.ui) paper.ui.price.input.value = "";
+  // A sheet open over the ticket is about the market being left. The leverage
+  // one in particular carries that market's maximum and its own unconfirmed
+  // number, so it is closed rather than re-pointed mid-choice, and it is
+  // emptied as well so nothing of the old market is left parked in it.
+  clearSheet();
+  // Arriving at a market shows that market's position's levels when it has one.
+  // A pick made on the market being left would otherwise outrank the one being
+  // arrived at, and the picker is on screen to go back.
+  paper.levelCoin = null;
+  paper.levelSeed = null;
+  // The ticket's two level boxes hold the last market's marks until they are
+  // reseeded, and a price from another asset's grid in them is the one thing
+  // they must never carry into an order.
+  paper.tpslSeed = null;
+  paper.draft.tpPx = ""; paper.draft.slPx = "";
+  paper.draft.tpGain = ""; paper.draft.slLoss = "";
+  if (paper.ui) {
+    paper.ui.tpTicket.input.value = "";
+    paper.ui.slTicket.input.value = "";
+    paper.ui.tpTicket.gain.value = "";
+    paper.ui.slTicket.gain.value = "";
+  }
   // The ticket is about a different market now, so the leverage in it is about
   // to be re-seeded from whatever is open on THIS one. Clearing the token is
   // what lets that happen; without it the ticket would keep the last market's

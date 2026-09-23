@@ -136,37 +136,45 @@
 .tnega-paper .tp-body::-webkit-scrollbar-thumb { background: var(--tp-line); border-radius: 3px; }
 .tnega-paper .tp-body::-webkit-scrollbar-track { background: transparent; }
 
-/* ── Row one: where their Cross | 20x | Unified strip is ──────────────────── */
-/* Three 107px cells inside 342px of inner width leaves 21px of gutter, so 10.5
-   each; flex with gap 11 gives 106.67 at this width and holds when the column
-   is dragged narrower.
+/* ── Row one: their Cross | 20x | Unified strip ───────────────────────────── */
+/* Their desktop row is a grid of repeat(3, 1fr) with a 10px gap, each cell 107px
+   inside 342px of inner width and 33px tall, filled in their control colour.
+   That is what this is. The earlier version of this row drew two of the three
+   as unclickable statements, which was the right fix for a row where two of the
+   three did nothing and the wrong shape for their form, where all three open
+   something. All three of ours open something now, so the fill is back.
 
-   Theirs are three filled buttons and all three of theirs work. Two of ours are
-   statements, so they are not drawn as buttons: no fill, muted text, no pointer.
-   The middle one is the only editable thing in the row and it gets the Size
-   box's outline so it reads as a field. Copying their three filled chips exactly
-   produced two dead controls and hid the one live field inside the middle of
-   them, and a reviewer could not find it without dumping the DOM. */
-.tnega-paper .tp-chips { display: flex; gap: 11px; margin-bottom: 8px; }
-.tnega-paper .tp-chip-static {
-  flex: 1 1 0; min-width: 0; height: 33px;
+   Their phone row has two cells rather than three, because their order type
+   dropdown takes the slot beside them. Ours keeps the order type on its own
+   row at every width, so the grid stays at three. */
+.tnega-paper .tp-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-bottom: 8px;
+}
+.tnega-paper .tp-strip-b {
+  min-width: 0; height: 33px; padding: 0 4px;
   display: flex; align-items: center; justify-content: center;
-  background: transparent; color: var(--tp-muted);
-  border: 0; font-size: 12px; white-space: nowrap; cursor: default;
+  background: var(--tp-ctl); color: var(--tp-fg);
+  border: 0; border-radius: 8px;
+  font: inherit; font-size: 12px; line-height: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer; font-variant-numeric: tabular-nums;
 }
-.tnega-paper .tp-chip-field {
-  flex: 1.5 1 0; min-width: 0; height: 33px;
-  display: flex; align-items: center; gap: 5px; padding: 0 9px;
-  border: 1px solid var(--tp-ctl); border-radius: 8px;
+.tnega-paper .tp-strip-b:hover { color: var(--tp-accent); }
+.tnega-paper .tp-strip-b:focus-visible { outline: 1px solid var(--tp-accent); outline-offset: -1px; }
+
+/* The Size box's unit, which is a control and is painted as one: their chip has
+   a radius of its own at the right end of the box. `on` is the USD state. */
+.tnega-paper .tp-unit {
+  background: transparent; border: 0; border-radius: 8px;
+  padding: 2px 5px; margin: 0; cursor: pointer;
+  font: inherit; font-size: 12px; color: var(--tp-muted);
 }
-.tnega-paper .tp-chip-field:focus-within { border-color: var(--tp-accent); }
-.tnega-paper .tp-chip-field input {
-  flex: 1 1 auto; width: 100%; min-width: 0; padding: 0; margin: 0; height: 31px;
-  text-align: right; background: transparent; color: var(--tp-fg);
-  border: 0; outline: none; font: inherit; font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-/* Said when the number typed is not the number that will be used. */
+.tnega-paper .tp-unit:hover { color: var(--tp-fg); }
+.tnega-paper .tp-unit.on { background: var(--tp-ctl); color: var(--tp-fg); }
+.tnega-paper .tp-unit:focus-visible { outline: 1px solid var(--tp-accent); outline-offset: -1px; }
+
+/* Said when the leverage that will be used is not the one the control holds. */
 .tnega-paper .tp-lev-note {
   color: var(--tp-sell); font-size: 11px; line-height: 1.4; margin: -2px 0 8px;
 }
@@ -784,3 +792,174 @@
   border-left: 0; border-right: 0; border-bottom: 0;
   padding: 8px 12px;
 }
+
+/* ── The sheets the strip opens ─────────────────────────────────────────────
+ *
+ * OVER THE PANEL AND NOTHING ELSE. Their modal covers their whole window with a
+ * scrim. This one covers the panel: it is a guest on somebody's trading page
+ * and it does not get to black out their chart to ask a question about a
+ * practice account.
+ *
+ * It is a child of the panel root rather than of the scrolling body, so it
+ * cannot be scrolled half out of view, and it fills the root under the header
+ * so the sentence saying the money is not there is never covered by a modal.
+ * The sheet scrolls inside itself at the 440px height the placement is clamped
+ * to at 1280x813.
+ */
+/* `top` is overwritten by refreshSheets with the header's measured height. The
+   38 here is that height with the sentence on one line, and it is only what is
+   drawn for the instant before the measurement lands. */
+.tnega-paper .tp-modal {
+  position: absolute; left: 0; right: 0; bottom: 0; top: 38px;
+  display: flex; flex-direction: column;
+  background: var(--tp-card);
+  z-index: 2;
+}
+.tnega-paper .tp-sheet {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+}
+.tnega-paper .tp-sheet::-webkit-scrollbar { width: 6px; }
+.tnega-paper .tp-sheet::-webkit-scrollbar-thumb { background: var(--tp-line); border-radius: 3px; }
+.tnega-paper .tp-sheet-h {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 10px 8px;
+}
+.tnega-paper .tp-sheet-t {
+  flex: 1 1 auto; min-width: 0;
+  color: var(--tp-fg); font-size: 13px; font-weight: 600;
+}
+.tnega-paper .tp-sheet-x {
+  flex: 0 0 auto; cursor: pointer;
+  background: transparent; color: var(--tp-muted);
+  border: 1px solid var(--tp-line); border-radius: 5px;
+  padding: 2px 8px; font: inherit; font-size: 11px; line-height: 16px;
+}
+.tnega-paper .tp-sheet-x:hover { color: var(--tp-fg); border-color: var(--tp-accent); }
+.tnega-paper .tp-sheet-b { flex: 1 1 auto; padding: 0 10px 14px; }
+/* 12px in their muted grey, centred, which is what their explanation line is at
+   desktop width. Theirs goes left-aligned on a phone; this column is 342px at
+   1280 and narrower at 390, so it is left-aligned at both, because centred text
+   that wraps to four lines is harder to read than the one line they get. */
+.tnega-paper .tp-sheet-p {
+  margin: 0 0 10px; color: var(--tp-muted); font-size: 12px; line-height: 1.45;
+}
+.tnega-paper .tp-sheet-dl { margin: 0 0 10px; }
+.tnega-paper .tp-sheet-dl dt {
+  color: var(--tp-fg); font-size: 12px; margin-top: 8px;
+}
+.tnega-paper .tp-sheet-dl dd {
+  margin: 2px 0 0; color: var(--tp-muted); font-size: 11px; line-height: 1.45;
+}
+/* Their alert slot carries exactly one line. */
+.tnega-paper .tp-sheet-alert {
+  margin: 12px 0 10px; color: var(--tp-muted); font-size: 11px; line-height: 1.45;
+}
+.tnega-paper .tp-sheet-alert.tp-alert-err { color: var(--tp-sell); }
+.tnega-paper .tp-sheet-ok {
+  display: block; width: 100%; height: 36px;
+  background: var(--tp-accent); color: var(--tp-btn-fg);
+  border: 0; border-radius: 8px;
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.tnega-paper .tp-sheet-ok:disabled { opacity: .45; cursor: not-allowed; }
+.tnega-paper .tp-sheet-danger {
+  background: transparent; color: var(--tp-sell);
+  border: 1px solid var(--tp-sell);
+}
+.tnega-paper .tp-sheet-foot {
+  margin: 8px 0 0; color: var(--tp-muted); font-size: 10px; line-height: 1.45;
+}
+
+/* Their row is a grid of 1fr and 58px: the slider, then a number box with a
+   literal x after it. */
+.tnega-paper .tp-lev-row {
+  display: grid; grid-template-columns: 1fr 58px;
+  align-items: center; gap: 14px;
+  margin: 14px 0 4px;
+}
+.tnega-paper .tp-lev-track { position: relative; min-width: 0; height: 24px; }
+/* NO TICK MARKS AND NO SNAPPING. Their slider draws no dots and every whole
+   number between 1 and the asset's maximum is reachable by dragging. A track
+   marked every five would say the values between are not available, which is
+   the opposite of what theirs does. */
+.tnega-paper .tp-lev-range {
+  position: absolute; left: 0; top: 0; width: 100%; height: 24px;
+  margin: 0; padding: 0; background: transparent;
+  -webkit-appearance: none; appearance: none; outline: none; cursor: pointer;
+}
+.tnega-paper .tp-lev-range::-webkit-slider-runnable-track {
+  height: 8px; margin-top: 8px; background: var(--tp-ctl); border-radius: 14px;
+}
+.tnega-paper .tp-lev-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 14px; height: 14px; margin-top: 5px;
+  background: var(--tp-accent); border-radius: 50%; border: 0; cursor: pointer;
+}
+.tnega-paper .tp-lev-range::-moz-range-track {
+  height: 8px; background: var(--tp-ctl); border-radius: 14px;
+}
+.tnega-paper .tp-lev-range::-moz-range-thumb {
+  width: 14px; height: 14px;
+  background: var(--tp-accent); border-radius: 50%; border: 0; cursor: pointer;
+}
+.tnega-paper .tp-lev-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 2px var(--tp-card), 0 0 0 3px var(--tp-accent);
+}
+.tnega-paper .tp-lev-box {
+  display: flex; align-items: center; gap: 2px; height: 33px; padding: 0 6px;
+  border: 1px solid var(--tp-ctl); border-radius: 8px; min-width: 0;
+}
+.tnega-paper .tp-lev-box:focus-within { border-color: var(--tp-accent); }
+.tnega-paper .tp-lev-box input {
+  flex: 1 1 auto; width: 100%; min-width: 0; padding: 0; margin: 0; height: 31px;
+  text-align: right; background: transparent; color: var(--tp-fg);
+  border: 0; outline: none; font: inherit; font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.tnega-paper .tp-lev-x { flex: 0 0 auto; color: var(--tp-fg); font-size: 12px; }
+
+/* ── Which position the two level fields are about ─────────────────────────
+ *
+ * Silent in the ordinary case, which is one position on the market on screen.
+ * The line appears when the fields point somewhere else, and the picker when
+ * there is more than one position to point at. See paperLevelTarget.
+ */
+.tnega-paper .tp-lvl-who {
+  color: var(--tp-muted); font-size: 11px; line-height: 1.45; margin: 0 0 8px;
+}
+.tnega-paper .tp-lvl-picks { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.tnega-paper .tp-lvl-pick {
+  cursor: pointer; background: transparent; color: var(--tp-muted);
+  border: 1px solid var(--tp-line); border-radius: 5px;
+  padding: 2px 8px; font: inherit; font-size: 11px; line-height: 16px;
+}
+.tnega-paper .tp-lvl-pick:hover { color: var(--tp-fg); border-color: var(--tp-accent); }
+.tnega-paper .tp-lvl-pick.on {
+  color: var(--tp-on-accent); background: var(--tp-accent); border-color: var(--tp-accent);
+}
+
+/* ── The ticket's take profit and stop loss ────────────────────────────────
+ *
+ * Their layout: a price box on the left and the gain or loss beside it on the
+ * right. What is in the right cell is what closing the whole position there
+ * would realise, from the same function the ladder quotes, rather than a second
+ * percentage measured a different way.
+ */
+.tnega-paper .tp-tpsl { margin: 2px 0 10px; }
+.tnega-paper .tp-tl { margin-bottom: 8px; }
+/* Their grid: the price on the left, the gain or the loss on the right at a
+   fixed 120px, 10px apart. Below their own breakpoint both halves go to 1fr,
+   and this column is narrower than their desktop one at every width, so it
+   uses the phone proportion throughout. */
+.tnega-paper .tp-tl-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: center;
+}
+.tnega-paper .tp-tl-f, .tnega-paper .tp-tl-g { min-width: 0; margin-bottom: 0; }
+.tnega-paper .tp-tl-g input { text-align: right; }
+.tnega-paper .tp-tl-g input:disabled { opacity: .45; }
+/* Waiting on something rather than refused. Not painted as an error: nothing
+   has been rejected, the row simply has nothing to measure from yet. */
+.tnega-paper .tp-lvl-msg.tp-lvl-wait { color: var(--tp-muted); }

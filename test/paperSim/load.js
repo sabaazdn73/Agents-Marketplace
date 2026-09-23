@@ -34,7 +34,7 @@ const EXEMPTION_LINE = "if (notional < MIN_NOTIONAL_USD && !closesExactly) {";
 const EXEMPTION_OFF = "if (notional < MIN_NOTIONAL_USD) {";
 
 /** @param {{storage?: object, failStorage?: boolean, disableExemption?: boolean,
- *           countRequests?: boolean}} opts */
+ *           countRequests?: boolean, venue?: object}} opts */
 function load(opts = {}) {
   const store = opts.storage || {};
   const fail = !!opts.failStorage;
@@ -59,8 +59,76 @@ function load(opts = {}) {
     requests.push(type);
     return fetch(url, init);
   };
+
+  // A VENUE THAT DOES NOT MOVE, for the cases that would otherwise assert what
+  // the market happened to be doing when somebody ran them.
+  //
+  // `opts.venue` is a snapshot from capture-fixture.js. paperSim's own request
+  // path runs unchanged: hlInfo builds the same body, this answers it from the
+  // recording, and the module cannot tell the difference. Nothing is stubbed
+  // inside the module, so what the case exercises is the shipped code.
+  //
+  // AN UNRECORDED REQUEST THROWS. It does not fall through to the live API and
+  // it does not answer with an empty object. Either of those would let a case
+  // that believes it is pinned quietly go back to reading the market, or pass
+  // on an absence, which is the failure this whole change exists to remove. The
+  // message names the request so the fix is to capture it, not to guess.
+  const snapFetch = async (url, init) => {
+    let body = {};
+    try { body = JSON.parse(init && init.body) || {}; } catch (e) { body = {}; }
+    const raw = opts.venue.raw || {};
+    const answer = (() => {
+      switch (body.type) {
+        case "meta": return raw.meta;
+        case "metaAndAssetCtxs": return raw.metaAndAssetCtxs;
+        case "allMids": return raw.allMids;
+        case "userFees": return raw.userFees;
+        case "l2Book": {
+          const a = opts.venue.assets[body.coin];
+          return a ? a.book : undefined;
+        }
+        case "marginTable": {
+          // Every tier table the snapshot's own assets use, read back out of
+          // the recorded meta rather than captured a second time.
+          const pairs = (raw.meta && raw.meta.marginTables) || [];
+          const hit = pairs.find((pair) => Number(pair[0]) === Number(body.id));
+          return hit ? hit[1] : undefined;
+        }
+        // THE WINDOW IS NOT MATCHED, AND THAT IS DELIBERATE. settleFunding asks
+        // for (fundingSettledAt, Date.now()) and for candles over a window one
+        // hour wider, so the request moves every second the clock does and an
+        // exact match would never answer. What makes the result reproducible
+        // instead is that the rows carry their own recorded timestamps and the
+        // module filters them itself: a case sets the position's clock to
+        // `raw.fundingWindow.startTime`, every recorded row is then inside the
+        // window, and the charge is the same arithmetic on every run. The coin
+        // IS matched, because handing BTC's rates to a SOL position would be a
+        // wrong answer rather than a missing one.
+        case "fundingHistory":
+          return body.coin === (raw.fundingWindow || {}).coin ? raw.fundingHistory : undefined;
+        case "candleSnapshot": {
+          const w = raw.fundingWindow || {};
+          const req = body.req || {};
+          return (req.coin === w.coin && req.interval === "1h")
+            ? raw.candleSnapshot : undefined;
+        }
+        default: return undefined;
+      }
+    })();
+    if (answer === undefined) {
+      throw new Error(`the venue snapshot holds no ${body.type} for `
+        + `${JSON.stringify(body).slice(0, 160)}. Capture it in `
+        + "test/paperSim/capture-fixture.js, or run this case live on purpose.");
+    }
+    return {
+      ok: true, status: 200,
+      json: async () => JSON.parse(JSON.stringify(answer)),
+    };
+  };
+
   const sandbox = {
-    console, fetch: opts.countRequests ? countingFetch : fetch,
+    console,
+    fetch: opts.venue ? snapFetch : (opts.countRequests ? countingFetch : fetch),
     setTimeout, clearTimeout, Date, Math, JSON, Number, Promise, Map, Set,
     Array, Object, String, isFinite, parseFloat, parseInt, Error, NaN, Infinity,
     chrome: { storage: { local } },

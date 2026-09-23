@@ -1,19 +1,52 @@
-// Named behaviour cases for paperSim.js, driven against the live venue.
+// Named behaviour cases for paperSim.js.
 //
 //   node test/paperSim/cases.js
 //
-// Live on purpose: refusals have to fire against the book as it is, not against
-// a book chosen to make them fire. The reproducible counting lives in
-// lifecycles.js, which uses a frozen snapshot instead.
+// MOSTLY LIVE, ON PURPOSE, AND THE DISTINCTION THAT MATTERS IS NOT LIVE AGAINST
+// PINNED. It is whether a case asserts something about the CODE or something
+// about the MARKET.
+//
+// Nearly every case here reads the live venue and then asserts what the code
+// does with what it read: given this book, a post-only that crosses is refused;
+// given this tick size, a price off the grid is refused. Live input is the
+// point, because a refusal has to fire against the book as it is rather than
+// against a book chosen to make it fire, and the answer does not depend on
+// which way the market happened to be going.
+//
+// A few cases were not like that. They asserted that the venue had published
+// something: that funding was charged over a six-hour window, and that every
+// asset's mark sat within 100 bp of its own mid. Those pass or fail on the
+// market rather than on the code, and over six runs they failed twice while the
+// code was unchanged. Counting them alongside the rest made a green run partly
+// a weather report, and the pass count is exactly the kind of number that gets
+// over-read by the person who just ran it.
+//
+// They now run against test/paperSim/fixtures/venue-snapshot.json through a
+// sandboxed fetch, so what they assert is the code again. What each one still
+// asserts once the venue is frozen is written above it, because pinning a case
+// that can then only ever pass would be worse than deleting it.
+//
+// THE HEADLINE COUNT therefore covers cases whose outcome is determined by the
+// code, given whatever input they were handed. The section at the end that
+// reads the venue to see whether the snapshot has gone stale is printed
+// separately and counts towards nothing.
 //
 // Exit status is the number of failures, so it can gate anything.
 const { load } = require("./load.js");
+const SNAP = require("./fixtures/venue-snapshot.json");
 
 const rows = [];
 let failures = 0;
 function check(name, outcome, pass, note) {
   rows.push({ name, outcome, pass, note: note || "" });
   if (pass === false) failures++;
+}
+
+// Read from the venue and reported, never counted. Nothing in here can fail the
+// suite, because nothing in here is about paperSim.js.
+const observations = [];
+function observe(name, outcome, note) {
+  observations.push({ name, outcome, note: note || "" });
 }
 const n6 = (x) => (x == null || !isFinite(x) ? String(x) : Number(x).toFixed(6));
 
@@ -825,21 +858,57 @@ const LONG_TAIL = /\d\.\d{8,}/;
   }
 
   // ── funding ───────────────────────────────────────────────────────────────
+  //
+  // PINNED TO THE SNAPSHOT, AND WHY THESE TWO AND NOT THE REST OF THE FILE.
+  //
+  // Most cases here use live data as INPUT and assert something about the code:
+  // given this book, does a post-only that crosses get refused. The answer does
+  // not depend on what the market is doing, only on what the code does with it.
+  //
+  // Two cases in this block were different. They asserted that funding WAS
+  // charged, which is true only when the venue published a rate over the window
+  // they happened to ask about. Over six runs they failed twice: "charged
+  // 0.000000" against a window with nothing in it. A pass was then partly a
+  // statement about the market, and a reader counting passes cannot see which
+  // part is which.
+  //
+  // So they run against the recorded rates. `pin` is the same paperSim module
+  // with a fetch that answers from test/paperSim/fixtures/venue-snapshot.json
+  // and throws on anything unrecorded. Nothing inside the module is stubbed.
+  //
+  // WHAT THEY STILL ASSERT once the venue cannot move. The first: settleFunding
+  // charges the published rates for the hours a position was held across, and
+  // moves the balance by exactly what it says it charged. An implementation
+  // that charges nothing, charges twice, or reports one figure and books
+  // another still fails. The second: the close path settles funding while the
+  // position still exists, so the closed row carries the charge. The plain
+  // applyFill, which deletes the position first, still produces a funding of 0
+  // and still fails. Neither is a tautology, and neither can be made to pass by
+  // the market being kind.
   {
     const HOUR = 3600000;
+    const pin = load({ venue: SNAP }).api;
+    const pinBtc = await pin.assetInfo("BTC");
+    const pinBook = await pin.orderBook("BTC");
+    const pinFees = await pin.feeSchedule();
+    // The position's clock is set to the window the rates were recorded over,
+    // so every recorded row lands inside it. See the note in load.js on why the
+    // window itself is not matched.
+    const windowStart = SNAP.raw.fundingWindow.startTime;
     const s = fresh();
-    const o = decide(s, btc, bookB, { coin: "BTC", side: "buy", type: "market", size: 0.1, leverage: 40 });
-    api.applyFill(s, btc, o.fill);
+    const o = pin.decideOrder(s, pinBtc, pinBook, pinFees,
+      { coin: "BTC", side: "buy", type: "market", size: 0.1, leverage: 40 });
+    pin.applyFill(s, pinBtc, o.fill);
     const p = s.positions.BTC;
-    p.openedAt = p.fundingSettledAt = Date.now() - 6 * HOUR;
+    p.openedAt = p.fundingSettledAt = windowStart;
     const before = s.balance;
-    const paid = await api.settleFunding(s, "BTC");
-    const hist = await api.fundingBetween("BTC", Date.now() - 6 * HOUR, Date.now());
+    const paid = await pin.settleFunding(s, "BTC");
+    const hist = SNAP.raw.fundingHistory;
     const rateSum = hist.reduce((a, r) => a + Number(r.fundingRate), 0);
-    check(`funding over 6h, ${hist.length} published rows`,
+    check(`funding over 6h, ${hist.length} recorded rows`,
       `charged ${n6(paid)}; at entry would be ${n6(rateSum * p.size * o.fill.avgPx)}`,
       paid !== 0 && Math.abs(s.balance - (before - paid)) < 1e-9);
-    check("  settling again charges nothing", String(await api.settleFunding(s, "BTC")), (await api.settleFunding(s, "BTC")) === 0);
+    check("  settling again charges nothing", String(await pin.settleFunding(s, "BTC")), (await pin.settleFunding(s, "BTC")) === 0);
 
     // the boundary bug: less than an hour held, but an hour boundary crossed
     const s2 = fresh();
@@ -871,11 +940,13 @@ const LONG_TAIL = /\d\.\d{8,}/;
 
     // closing settles first
     const s4 = fresh();
-    const o4 = decide(s4, btc, bookB, { coin: "BTC", side: "buy", type: "market", size: 0.1, leverage: 40 });
-    api.applyFill(s4, btc, o4.fill);
-    s4.positions.BTC.openedAt = s4.positions.BTC.fundingSettledAt = Date.now() - 6 * HOUR;
-    const close = decide(s4, btc, bookB, { coin: "BTC", side: "sell", type: "market", size: 0.1, reduceOnly: true, leverage: 40 });
-    await api.settleAndApplyFill(s4, btc, close.fill);
+    const o4 = pin.decideOrder(s4, pinBtc, pinBook, pinFees,
+      { coin: "BTC", side: "buy", type: "market", size: 0.1, leverage: 40 });
+    pin.applyFill(s4, pinBtc, o4.fill);
+    s4.positions.BTC.openedAt = s4.positions.BTC.fundingSettledAt = windowStart;
+    const close = pin.decideOrder(s4, pinBtc, pinBook, pinFees,
+      { coin: "BTC", side: "sell", type: "market", size: 0.1, reduceOnly: true, leverage: 40 });
+    await pin.settleAndApplyFill(s4, pinBtc, close.fill);
     check("settleAndApplyFill charges funding before the close",
       s4.closed[0] ? `closed row funding ${n6(s4.closed[0].funding)}` : "no closed row",
       !!s4.closed[0] && s4.closed[0].funding !== 0, "applyFill alone would delete the position first");
@@ -1158,11 +1229,34 @@ const LONG_TAIL = /\d\.\d{8,}/;
     // come from closeValueAt, and every one of them would be about a different
     // asset. Checked against allMids, which is keyed by coin name and has no
     // index in it at all, so it cannot be misaligned the same way.
+    //
+    // PINNED, AND THE TOLERANCE IS WHY. Run live this compared two responses
+    // read a moment apart and then applied a 100 bp tolerance to the gap, so a
+    // thin asset whose mark had drifted from its own mid failed the case: over
+    // six runs, ACE at 201 bp and again at 109 bp. That is a fact about ACE,
+    // not about the pairing, and it arrived as a failing code case.
+    //
+    // Against the snapshot both sides are one instant recorded twice, back to
+    // back in capture-fixture.js, so the gap is fixed and the tolerance stops
+    // being a question about today's market.
+    //
+    // WHAT IT STILL ASSERTS. That assetSpecs pairs universe[i] with ctxs[i].
+    // allMids is keyed by name and carries no index, so it cannot be misaligned
+    // the same way: shift the pairing by one and almost every asset disagrees
+    // with its own mid by far more than the tolerance and the case fails. It is
+    // not a tautology, and it is the only check on the one thing in assetSpecs
+    // that can be silently wrong.
+    //
+    // WHAT IT STOPS ASSERTING. Anything about the venue right now. If a
+    // recorded asset is genuinely past the tolerance at capture time, this
+    // fails on every run rather than on one in six, which is the point: a
+    // fixture that fails deterministically gets read once instead of reruled.
     {
-      const mids = await api.hlInfo({ type: "allMids" }, 2500);
+      const pinSpecs = await load({ venue: SNAP }).api.assetSpecs();
+      const mids = SNAP.raw.allMids;
       const off = [];
       let compared = 0;
-      for (const [coin, spec] of specs) {
+      for (const [coin, spec] of pinSpecs) {
         const mid = Number(mids[coin]);
         if (!(mid > 0) || !(spec.markPx > 0)) continue;
         compared++;
@@ -1384,6 +1478,59 @@ const LONG_TAIL = /\d\.\d{8,}/;
     check("a working store reports ok", String(fine.api.storageStatus().ok), fine.api.storageStatus().ok === true);
   }
 
+  // ── venue observations, which count towards nothing ───────────────────────
+  //
+  // HOW A STALE SNAPSHOT IS NOTICED. Nothing in the fixture expires on a clock:
+  // a case that fails on a calendar teaches people to re-capture without
+  // reading why. What is checked instead is SHAPE. If the venue renames a
+  // field, changes the arity of a response, or drops an asset the snapshot
+  // still holds, that is printed here the next time anybody runs the suite, and
+  // the fix is `node test/paperSim/capture-fixture.js`.
+  //
+  // Reported rather than asserted, because "the venue changed" is not a defect
+  // in paperSim.js and must not read as one.
+  {
+    const age = (Date.now() - SNAP.capturedAt) / 86400000;
+    observe("venue snapshot age", `${SNAP.capturedIso}, ${age.toFixed(1)} days old`,
+      "re-capture with node test/paperSim/capture-fixture.js");
+    try {
+      const liveCtxs = await api.hlInfo({ type: "metaAndAssetCtxs" }, 0);
+      const liveMids = await api.hlInfo({ type: "allMids" }, 0);
+      const snapUni = SNAP.raw.metaAndAssetCtxs[0].universe.map((a) => a.name);
+      const liveUni = liveCtxs[0].universe.map((a) => a.name);
+      const gone = snapUni.filter((n) => !liveUni.includes(n));
+      const added = liveUni.filter((n) => !snapUni.includes(n));
+      observe("the universe the snapshot recorded against the live one",
+        `${snapUni.length} recorded, ${liveUni.length} live`
+        + (gone.length ? `, delisted since: ${gone.slice(0, 6).join(", ")}` : "")
+        + (added.length ? `, ${added.length} new` : ""),
+        gone.length ? "a delisted asset in the fixture is a reason to re-capture" : "");
+      const keys = ["markPx", "oraclePx", "midPx", "funding"];
+      const missing = keys.filter((k) => !(k in (liveCtxs[1][0] || {})));
+      observe("the fields the snapshot's cases read are still on the response",
+        missing.length ? `MISSING: ${missing.join(", ")}` : `all present: ${keys.join(", ")}`,
+        missing.length ? "re-capture and check what the cases read" : "");
+      // KEYED BY NAME IS NOT THE SAME QUESTION AS "IS AN OBJECT". An allMids
+      // switched to index keys is still a non-array object, and index keying is
+      // exactly the failure the pairing case depends on not happening: it would
+      // make a misaligned assetSpecs agree with a misaligned oracle. So a coin
+      // the snapshot recorded has to be present as a key.
+      const probeCoin = SNAP.raw.metaAndAssetCtxs[0].universe[0].name;
+      const midsObj = typeof liveMids === "object" && liveMids !== null
+        && !Array.isArray(liveMids);
+      const named = midsObj && Object.prototype.hasOwnProperty.call(liveMids, probeCoin);
+      observe("allMids is still keyed by name",
+        named ? `${Object.keys(liveMids).length} keys, ${probeCoin} among them`
+              : (midsObj ? `SHAPE CHANGED: an object, but ${probeCoin} is not a key`
+                         : "SHAPE CHANGED: not an object"),
+        named ? "" : "the pairing case depends on this being name-keyed");
+    } catch (e) {
+      observe("the live venue could not be read for the staleness check",
+        String(e && e.message ? e.message : e),
+        "an observation only; nothing in the count above depends on it");
+    }
+  }
+
   const width = Math.max(...rows.map((r) => r.name.length));
   console.log("\n" + "=".repeat(140));
   for (const r of rows) {
@@ -1392,5 +1539,21 @@ const LONG_TAIL = /\d\.\d{8,}/;
   }
   console.log("=".repeat(140));
   console.log(`${rows.length} cases, ${failures} failing`);
+  // WHAT THE NUMBER ABOVE MEANS, SAID WHERE THE NUMBER IS. The person most
+  // likely to over-read a pass count is the one who just ran it, and this file
+  // used to count three cases that passed or failed on what the venue happened
+  // to be doing.
+  console.log("Every case above is determined by paperSim.js given its input. "
+    + "The three that turned on what the venue had published run against");
+  console.log(`the snapshot of ${SNAP.capturedIso} instead, so this count is `
+    + "about the code and not about the market.");
+  if (observations.length) {
+    console.log("\nVenue observations. Read from the live API, counted towards nothing, "
+      + "and not a statement about paperSim.js:");
+    const ow = Math.max(...observations.map((o) => o.name.length));
+    for (const o of observations) {
+      console.log(`  ${o.name.padEnd(ow)} | ${o.outcome}${o.note ? "   << " + o.note : ""}`);
+    }
+  }
   process.exit(failures);
 })().catch((e) => { console.error("HARNESS ERROR", e); process.exit(70); });

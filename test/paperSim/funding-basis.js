@@ -2,6 +2,23 @@
 //
 //   node test/paperSim/funding-basis.js
 //
+// A LIVE OBSERVATION, NOT A TEST, AND IT HAS NO PASS COUNT ON PURPOSE.
+//
+// Nothing here asserts anything about paperSim.js. It reads what the venue
+// published in the last few hours and derives a fact from it, so every number
+// it prints moves between runs: the worst gap has come out at 78.30 bp, 84.67
+// and 107.53 on three different days with no code change in between.
+//
+// That is correct for what this is and wrong to quote beside a pass count. It
+// was reported next to "252 cases, 0 failing" as though the two were the same
+// kind of number, which is the exact conflation the suite was changed to stop
+// making, so the output now says what it is at the top and at the bottom.
+//
+// Not pinned to the venue snapshot, unlike the three cases in cases.js. Those
+// assert code behaviour and only needed a fixed input; this one exists to read
+// the live venue, and pinning it would leave it deriving a fact about a day in
+// the past and calling it current.
+//
 // A fundingHistory row carries a rate and a time and no price, so the notional
 // it was charged on is not stated anywhere. userFunding rows for a public
 // address do carry szi, the rate and the usdc amount, so the price divides out:
@@ -80,4 +97,9 @@ async function info(body) {
   console.log(`  a rate of ${rate.toExponential(3)} per hour on $84,000 of notional charges`);
   console.log(`    ${(rate * 84000).toFixed(6)} per hour, so the error is ${(rate * 84000 * worst).toExponential(3)} per hour`);
   console.log(`    over six hours: $${(rate * 84000 * worst * 6).toFixed(5)}`);
+  console.log(`\nEvery figure above is an observation of what the venue published in the last`);
+  console.log(`few hours. It moves between runs with no code change and it is not a pass`);
+  console.log(`count: nothing here asserts anything about paperSim.js. The assertions are in`);
+  console.log(`cases.js, and the three of those that turned on the venue are pinned to a`);
+  console.log(`snapshot so their count is about the code.`);
 })();

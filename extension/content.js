@@ -94,7 +94,7 @@ function coreHtml(core) {
       <span>${esc(side)} ${esc(size)} ${esc(p.coin)}</span>
       <b>${esc(sign + "$" + money)}</b>
     </div>
-    <div class="tnega-core-sub">entry ${esc(fmtUsd(p.entry_price))} &middot; mark ${esc(fmtUsd(p.mark_price))}</div>`;
+    <div class="tnega-core-sub">entry ${esc(fmtUsdPrice(p.entry_price))} &middot; mark ${esc(fmtUsdPrice(p.mark_price))}</div>`;
   }).join("");
 
   const flat = positions.length === 0
@@ -110,7 +110,22 @@ function coreHtml(core) {
   </div>`;
 }
 
-function fmtUsd(v) {
+/** RENAMED OUT OF A COLLISION, NOT RESTYLED.
+ *
+ *  This was called fmtUsd, and so is a different function in paperSim.js. Both
+ *  are content scripts on app.hyperliquid.xyz and they share one global lexical
+ *  environment, so the two declarations landed on the same name. Function
+ *  declarations do not throw on redeclaration, so nothing died and nothing said
+ *  anything: paperSim.js is listed after this file in the manifest, so its
+ *  version won and every call here silently got the wrong formatter.
+ *
+ *  The two are not interchangeable. This one answers "n/a" for a missing value
+ *  and gives a price under ten dollars four decimal places. The other answers
+ *  "$0.00" and always gives two, so a position with no entry price printed as
+ *  $0.00, which is a zero in the shape of a reading and is the exact defect
+ *  this project does not ship.
+ */
+function fmtUsdPrice(v) {
   if (v === null || v === undefined) return "n/a";
   return "$" + Number(v).toLocaleString(undefined, {
     maximumFractionDigits: v < 10 ? 4 : 2,
