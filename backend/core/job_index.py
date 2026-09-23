@@ -135,10 +135,14 @@ async def run_index_batch(max_seconds: float = 20.0, recheck_seconds: float = 10
     last checkpoint toward the current job_counter, and (2) re-checks a
     bounded number of previously-indexed jobs whose stored status is still
     non-terminal, so a status change (delivery, settlement, dispute)
-    after the initial index is still picked up. Both halves are genuinely
-    bounded/time-boxed, same discipline as core/full_registry_ingest.py's
-    run_ingest_batch, safe to call repeatedly from the same scheduled
-    trigger without ever risking a hung request."""
+    after the initial index is still picked up. The second pass walks those
+    candidates in job-id order from its own checkpoint, `recheck_next_id`,
+    and wraps at the end, so successive runs advance through the whole
+    candidate set instead of re-reading whichever ids the database happened
+    to return first. Both halves are genuinely bounded/time-boxed, same
+    discipline as core/full_registry_ingest.py's run_ingest_batch, safe to
+    call repeatedly from the same scheduled trigger without ever risking a
+    hung request."""
     db = get_db()
     col = db[JOB_INDEX_COLLECTION]
     progress = await _get_progress()
@@ -175,11 +179,36 @@ async def run_index_batch(max_seconds: float = 20.0, recheck_seconds: float = 10
     # optimistic dispute window closes) happen after the job's own id
     # was first indexed, and the forward pass above never revisits an id
     # once past it.
+    #
+    # Ordered by `_id` and checkpointed in the progress document, the same
+    # pattern the forward pass and run_deliverable_backfill already use, and
+    # wrapping to the start on reaching the end the way the backfill does.
+    #
+    # This selection was `find({"status": {"$nin": terminal}}).limit(1500)`
+    # with no sort and no cursor, and the candidate set it draws from has no
+    # drain: of 28,560 non-terminal jobs, roughly 27,000 sit at SUBMITTED
+    # permanently, because settle() is permissionless after the dispute window
+    # and nobody calls it. They never leave the query, so they held the 1,500
+    # slots. Measured 2026-09-23 before the change: consecutive reads of that
+    # query returned the identical 1,500 ids, 1 to 29,684, while the lowest
+    # status change the index was missing sat at job 56,565. The index held 12
+    # EXPIRED jobs against 35 on chain for that reason.
+    #
+    # The sort is free here. `_id` is not the only index on this collection
+    # (there are three), but it is the one this query is planned on, and the
+    # sort key is the field that index is already ordered by, so the plan is
+    # LIMIT over PROJECTION_SIMPLE over FETCH over IXSCAN on `_id_` with no
+    # SORT stage: 1,500 keys, 1,500 documents, 3ms.
     rechecked = 0
     t1 = time.time()
-    stale_ids = [d["_id"] async for d in col.find(
-        {"status": {"$nin": list(_TERMINAL_STATUSES)}}, {"_id": 1},
-    ).limit(CHUNK * 5)]
+    # From the checkpoint; if that is past the last candidate, from the start.
+    for start in (int(progress.get("recheck_next_id") or 1), 1):
+        stale_ids = [d["_id"] async for d in col.find(
+            {"status": {"$nin": list(_TERMINAL_STATUSES)}, "_id": {"$gte": start}},
+            {"_id": 1},
+        ).sort("_id", 1).limit(CHUNK * 5)]
+        if stale_ids or start == 1:
+            break
     for i in range(0, len(stale_ids), CHUNK):
         if time.time() - t1 > recheck_seconds:
             break
@@ -189,10 +218,15 @@ async def run_index_batch(max_seconds: float = 20.0, recheck_seconds: float = 10
             ops = [UpdateOne({"_id": _job_doc(j)["_id"]}, {"$set": _job_doc(j)}, upsert=True) for j in jobs]
             await col.bulk_write(ops, ordered=False)
             rechecked += len(ops)
+        # Advanced only over chunks actually read, so a time-boxed run resumes
+        # where it stopped rather than skipping what it did not reach.
+        progress["recheck_next_id"] = chunk_ids[-1] + 1
+        await _save_progress(progress)
 
     return {
         "indexed_this_batch": indexed_this_batch, "rechecked_this_batch": rechecked,
         "next_job_id": next_id, "job_counter": job_counter, "reached_end": reached_end,
+        "recheck_next_id": progress.get("recheck_next_id", 1),
         "elapsed_seconds": round(time.time() - t0, 1),
     }
 
@@ -339,10 +373,16 @@ async def get_provider_revenue_jobs(owner_address: str, *,
     # paged afterwards, which bounds the wire and not the memory.
     #
     # Sorted by `_id` rather than `submittedAt` on purpose: `_id` is the job id,
-    # it is monotonic with creation, and it is the only indexed field on this
-    # collection, so this streams in index order instead of an in-memory sort
-    # that would exceed MongoDB's 32MB limit on a tier where allowDiskUse is
-    # unavailable.
+    # it is monotonic with creation, and it is the second key of the index this
+    # query is planned on, so this streams in index order instead of an
+    # in-memory sort that would exceed MongoDB's 32MB limit on a tier where
+    # allowDiskUse is unavailable. Checked rather than assumed: the plan is
+    # IXSCAN on `provider_1__id_-1_status_1_autocreated`, provider equality
+    # then `_id` descending, which is the order asked for. `submittedAt` is in
+    # no index at all. The collection carries three, `_id_`, `provider_1` and
+    # that compound one; an earlier version of this comment called `_id` the
+    # only indexed field, which was wrong and is corrected here rather than
+    # left to be inherited.
     earning = await col.count_documents({"provider": owner,
                                           "status": {"$in": list(EARNING_STATUSES)}})
     total_jobs = await col.count_documents({"provider": owner})

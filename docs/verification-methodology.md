@@ -166,6 +166,123 @@ Both are constants in all but a rounding error, so indexing them would add a
 column with the same value on every row. They stay out, and this paragraph is
 the record of why, so the question does not get reopened as an oversight.
 
+## The re-check pass was starving, and the catch-up was executed (2026-09-23)
+
+`core/job_index.run_index_batch` has two passes. The forward one walks new job
+ids from `next_job_id`; the second re-reads already-indexed jobs whose stored
+status is still non-terminal, which is the only way a status change after the
+first read ever reaches the index. That second pass selected its 1,500 candidates
+with an unsorted, uncheckpointed `find`, and the candidate set it draws from has
+no drain: of 28,560 non-terminal jobs, roughly 27,000 sit at `SUBMITTED`
+permanently because `settle()` is permissionless after the dispute window and
+nobody calls it.
+
+Measured before touching anything, and without writing: the unsorted query was
+read three times in succession and returned the identical 1,500 ids each time, 1
+to 29,684, while the highest indexed id was 56,798. The lowest status change the
+index was missing sat at job 56,565, a `SUBMITTED` to `COMPLETED` move, and
+27,060 of the candidates sat above the ceiling the pass kept returning, none of
+them ever reached. The sort is free: the
+collection carries three indexes, and this query is planned on `_id_`, whose own
+order is the order asked for, so the plan is an `IXSCAN` with no `SORT` stage,
+1,500 keys, 1,500 documents, 3ms. The pass is now sorted by `_id` and carries a
+`recheck_next_id` cursor in the same progress document, wrapping to the start at
+the end, which is the pattern `run_deliverable_backfill` already used.
+[What the verified tier can mean](what-verified-can-mean.md) carries the full
+diagnosis and what it did to the tier.
+
+### The catch-up was executed, and this is the only record of it
+
+Put here rather than only in the commit, for the same reason the deliverable
+backfill's record is here: this is where somebody auditing the index will look.
+
+On 2026-09-23 the fixed `run_index_batch` was driven against the PRODUCTION
+MongoDB, the database named by `MONGODB_URI` in `backend/.env`, from a local
+throwaway loop rather than from a script in this repository: 20 calls to cover
+the candidate set once, and a 21st that wrapped the cursor back to the start and
+confirmed the wrap works. The forward pass indexed nothing, because `jobCounter`
+had not moved past 56,798. The re-check pass read 1,500 job ids per call in 5
+Multicall3 `aggregate3` `eth_call`s of 300 `getJob` reads each, about 11 seconds
+per call, and wrote back the full job document for each id it read.
+
+Two claims about that run, at two different strengths. Unconfirmed, resting on
+one operator's terminal and no durable log: that a further attempt between the
+18th call and the 19th was refused by the RPC provider with HTTP 429 after 18
+back-to-back calls. Nothing was written down at the time, so read it as plausible
+and unverified, and as a reason to expect rate limiting when this pass is driven
+in a tight loop rather than as an established incident. Confirmed, from the
+source rather than from the run: an interrupted call loses nothing, because
+`recheck_next_id` advances only over chunks that were actually read, so the next
+call resumes at the first id the previous one did not reach. At the scheduled
+cadence of one call every six hours, rate limiting of that kind is not in play at
+all.
+
+The four status counts in `erc8183_job_index` before and after:
+
+| Status | Before | After | Chain |
+|---|---|---|---|
+| COMPLETED | 28,220 | 28,259 | 28,259 |
+| SUBMITTED | 27,224 | 27,177 | 27,177 |
+| EXPIRED | 12 | 35 | 35 |
+| REJECTED | 6 | 6 | 6 |
+
+`FUNDED` went 316 to 303 and `OPEN` 1,020 to 1,018 in the same pass. The chain
+column is the full contract read recorded in the field-eleven section above, and
+the index now agrees with it on every status.
+
+The check somebody else can run, because the figures above come from a run only
+one person saw: read the 35 job ids the index now holds at `EXPIRED` straight
+from the contract with `core.agent_performance.fetch_jobs_by_id` and compare each
+status against the stored one. That was 35 ids, 0 mismatches. The cheaper version
+is `core.job_index.get_progress()`, which now carries `recheck_next_id`; a value
+that moves between two scheduled runs is the pass advancing, and a value that
+never moves is this defect returning.
+
+### What it did to the tier, which is the number that had to be watched
+
+`EARNING_STATUSES` is `SUBMITTED` plus `COMPLETED`, so a job moving to `EXPIRED`
+stops earning and an agent can lose the verified tier when the index catches up
+to the chain. Measured before and after: 32 agent listings verified across 29
+owner addresses, both times, the same listings and the same addresses, with no
+change to any verified agent's `delivered_external`. Canary-verified was 0 both
+times. Neither of the two remaining tiers moved either.
+
+Where those last two numbers come from, because it decides whether they can be
+quoted. The verified pair is a property of the job index and holds wherever it is
+read. The other counts are not: they were computed here over a locally rebuilt
+15,000-agent slice, taken from the stored survivor ids in `served_selection` and
+joined against `known_agents`, not over what `/api/agents` actually serves, which
+is a slightly smaller population. So the responding and unproven counts in this
+run are a before-and-after pair on one consistent basis and nothing more. They
+are not the published figures and must not be quoted as them, and the served
+responding count is the subject of its own pass, being looked at separately. What
+this record needs from them is only that they were equal before and after, which
+they were. Neither was produced by probing anything: the tier was read from the
+stored `service_status` exactly as `core/agents_index._tier` reads it.
+
+The reason nothing moved is worth stating, because the safety was not luck. Of
+the 23 jobs that became `EXPIRED`, only 8 came from `SUBMITTED`: all eight are
+provider `0xdfc1761378…`, at ids 56,685, 56,687, 56,688, 56,689, 56,690, 56,691,
+56,697 and 56,713, and all eight are self-funded, so the buyer clause added on
+2026-09-16 had already discounted them. That provider's delivered count went 8 to
+0, which moved two store-wide figures and no tier: `providers_with_delivery` 75
+to 74, `providers_self_funded_only` 13 to 12.
+
+The other 15 expiries all came from `FUNDED`, at ids between 56,598 and 56,781,
+and 2 jobs moved `OPEN` to `FUNDED`. No job went `OPEN` to `EXPIRED`. The four
+transitions in this pass are therefore 39 `SUBMITTED` to `COMPLETED`, 8
+`SUBMITTED` to `EXPIRED`, 15 `FUNDED` to `EXPIRED` and 2 `OPEN` to `FUNDED`, and
+none of the four can move the tier: two are earning to earning or neither to
+neither, and the eight that do leave an earning status are the self-funded ones
+above.
+
+A draft of this section said the 15 came from `FUNDED` (13) and `OPEN` (2). That
+was the net `FUNDED` delta, 316 minus 15 plus 2 equals 303, read as though it
+were a count of transitions, with an `OPEN` to `EXPIRED` pair invented to make it
+sum to 23. It is recorded here because it is the same mistake this page exists to
+catch: a net movement between two counts is not a measurement of what moved, and
+the two agree only when nothing arrives while something leaves.
+
 ## "Verified working": the buyer clause, enforced (2026-09-16)
 
 ### What it meant before

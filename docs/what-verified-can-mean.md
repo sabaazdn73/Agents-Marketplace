@@ -211,58 +211,150 @@ tier's evidence. It is indexed for completeness. The single exception, and the
 only place it says more than `status` does, is 8 of the 35 `EXPIRED` jobs, all
 from one provider, which carry a commitment: submitted, then expired unsettled.
 
-### The job index has no guarantee of catching up, and the gap is growing
+### The job index had no guarantee of catching up, and on 2026-09-23 it was given one
 
 One more thing the backfill exposed, which is about this project rather than the
 contract. Reading every job from the chain gave 28,259 `COMPLETED`, 27,177
 `SUBMITTED` and 35 `EXPIRED`. The stored index at the same moment held 28,220,
 27,224 and 12: 39 completions short, 47 submissions long, 23 expiries short.
 
-The first instinct is to call that a backlog and expect it to clear. It will
-not. `run_index_batch`'s re-check pass selects with
+The first instinct was to call that a backlog and expect it to clear. It would
+not have. `run_index_batch`'s re-check pass selected with
 `find({"status": {"$nin": terminal}}).limit(CHUNK * 5)`, 1,500 ids, and that
-query carries no sort and no checkpoint. The forward pass has `next_job_id` and
-the backfill written on 2026-09-23 has `deliverable_backfill_next_id`; the pass
-sitting between them has neither, so nothing makes any particular id come up a
+query carried no sort and no checkpoint. The forward pass has `next_job_id` and
+the backfill written the same day has `deliverable_backfill_next_id`; the pass
+sitting between them had neither, so nothing made any particular id come up a
 second time.
 
-That would still drain if the candidate set drained. It does not. There are
-28,498 non-terminal jobs, and roughly 27,000 of them are parked at `SUBMITTED`
-forever, because `settle()` is permissionless after the dispute window and
-nobody calls it. They never become terminal, so they never leave the query, and
-they hold the 1,500 slots permanently. The ratio is 19 to 1 today and gets worse
-with every new job that parks at `SUBMITTED`. So the candidate set is not a
-queue that is merely long; it has no drain.
+That would still have drained if the candidate set drained. It does not. The
+index held 28,560 non-terminal jobs, and roughly 27,000 of them are parked at
+`SUBMITTED` permanently, because `settle()` is permissionless after the dispute
+window and nobody calls it. They never become terminal, so they never leave the
+query, and they held the 1,500 slots. The ratio was 19 to 1 and gets worse with
+every new job that parks at `SUBMITTED`. So the candidate set is not a queue
+that is merely long; it has no drain.
 
-The observed pattern fits. Every expiry the index is missing sits at a high job
-id: the eight from `0xdfc1761378…` at ids 56,685 to 56,713, plus singles at
-56,634, 56,647, 56,656, 56,665, 56,666, 56,745, 56,748, 56,776, 56,778, 56,779
-and 56,781. The expiries it does hold are ancient, at ids 29 and 118, or at or
-below 56,681. The lowest 1,500 non-terminal ids span 1 to 29,684, so a pass that
-kept returning that same prefix would never reach the band where every recent
-transition lives.
+The observed pattern fitted. All 23 expiries the index was missing sat between
+ids 56,598 and 56,781, and the lowest status change of any kind that it was
+missing sat at 56,565, a `SUBMITTED` to `COMPLETED` move. The lowest 1,500
+non-terminal ids span 1 to 29,684, and 27,060 candidates sat above that ceiling,
+so a pass that kept returning the same prefix never reached any of them, and that
+is where every recent transition lives.
+
+An earlier draft of this paragraph enumerated 19 of those 23 ids while asserting
+23, and placed the expiries the index did hold at or below 56,681 when two of
+them sat above it. Ranges are given here instead, and the eight ids that carry
+the whole tier argument are enumerated in full in
+[Verification Methodology](verification-methodology.md). A partial list under a
+total is a claim that reads as a measurement, and this page is not entitled to
+one.
+
+Losing that framing costs the diagnosis nothing. The two expiries above 56,681
+were absent from the non-terminal set before the run, so they were already stored
+as `EXPIRED`: the forward pass reached 56,798 and read them after they had
+already expired, which means they entered the index terminal and never needed the
+re-check pass at all. The argument rests on the measured prefix stopping at
+29,684 with 27,060 candidates above it, and that is untouched. The claim that
+everything held was ancient was corroboration, and it was decorative.
 
 Two claims of different strength, kept apart, because this section exists to
 record a number that claimed more than it could support and must not do the same
-thing itself. Certain, from the source: the pass has no sort and no checkpoint,
-so it carries no guarantee that any particular id is ever revisited. Inferred,
-from the ids above: that it is in fact returning the same prefix every run.
-MongoDB leaves the order of an unsorted `find` unspecified, and the pass has not
-been instrumented to confirm which ids come back, so the id evidence is
-consistent with a stable order without establishing one. The absence of a
-guarantee holds either way, and it is the half the fix below addresses.
+thing itself. Certain, from the source: the pass had no sort and no checkpoint,
+so it carried no guarantee that any particular id was ever revisited. Inferred,
+from the ids above: that it was in fact returning the same prefix every run.
+MongoDB leaves the order of an unsorted `find` unspecified, and the pass had not
+been instrumented to confirm which ids came back, so the id evidence was
+consistent with a stable order without establishing one.
 
-Every count this project publishes off the job index inherits this, and it drifts
-in one direction: toward showing delivery as still open after the chain has
-closed it.
+The inferred half was then measured, before the change and without writing
+anything: the unsorted query was read three times in succession and returned the
+identical 1,500 ids each time, 1 to 29,684, same first five and same last five,
+while the highest indexed id was 56,798. Three reads do not turn an unspecified
+order into a guaranteed one, so that moves the claim from inferred to observed
+and no further. What it does settle is the direction: the pass was returning the
+same prefix, and the 27,060 candidates above the ceiling it kept returning were
+never reached.
 
-The fix, named here so it is not rediscovered as a new finding: sort the
-re-check `find` by `_id` and carry a `recheck_next_id` cursor in the same
-progress document, wrapping at the end exactly as the deliverable backfill does.
-That pattern is already written twice in `core/job_index.py`, so it is about ten
-lines. It was deliberately not done on 2026-09-23: it moves every count the
-project publishes, and the pass it would have landed in had the discipline that
-nobody gains or loses the tier.
+The query plan says why, and it was read rather than guessed: the unsorted find
+planned as LIMIT over PROJECTION_SIMPLE over a forward `COLLSCAN`, 29,684
+documents examined and 0 index keys. A forward collection scan stopping at the
+limit is a stable order in practice on a collection nothing deletes from, which
+is the mechanism behind the repeated reads. It is still not a guarantee: the plan
+is the server's choice, not a contract, and it may change with the data or the
+version. The hedge above therefore stands as written.
+
+The starvation reading was confirmed, not refuted.
+
+Every count this project published off the job index inherited this, and it
+drifted in one direction: toward showing delivery as still open after the chain
+had closed it.
+
+The fix: the re-check `find` is sorted by `_id` and carries a `recheck_next_id`
+cursor in the same progress document, wrapping to the start at the end exactly as
+the deliverable backfill does. That pattern was already written twice in
+`core/job_index.py`. It was deliberately not done earlier on 2026-09-23, because
+it moves every count the project publishes and the pass it would have landed in
+had the discipline that nobody gains or loses the tier.
+
+It was run to completion against the production index on 2026-09-23: 20 calls to
+`run_index_batch` to cover the candidate set once, and a 21st that wrapped. The
+four status counts afterwards are 28,259 `COMPLETED`, 27,177 `SUBMITTED`, 35
+`EXPIRED` and 6 `REJECTED`, which is the chain's own reading on all four, delta
+zero where it had been minus 39, plus 47, minus 23 and zero. Sorting by id did not change the size
+or the sign of the deltas, it removed them, so the diagnosis above stands as
+written. The full record of that run, and the check somebody else can run against
+it, is in [Verification Methodology](verification-methodology.md).
+
+Nobody gained or lost the tier. The verified count is 32 agent listings across 29
+owner addresses before and after, the same listings and the same addresses, and
+no verified agent's `delivered_external` count changed at all. That was not a
+foregone conclusion: `EARNING_STATUSES` is `SUBMITTED` plus `COMPLETED`, so a job
+moving to `EXPIRED` stops earning, and 8 jobs did exactly that. All eight are the
+`0xdfc1761378…` ones, and all eight are self-funded, so the buyer clause added on
+2026-09-16 had already discounted them. That provider's delivered count went from
+8 to 0, which moved two store-wide figures and no tier: `providers_with_delivery`
+75 to 74, and `providers_self_funded_only` 13 to 12. The other 15 new expiries
+all came from `FUNDED`, and separately 2 jobs moved `OPEN` to `FUNDED`. No job
+went `OPEN` to `EXPIRED`. None of those 17 was ever in an earning status on
+either side of its move. The buyer clause is what absorbed the whole of it.
+
+A draft of this paragraph said the 15 came from `FUNDED` (13) and `OPEN` (2),
+which was the net `FUNDED` delta read as a count of transitions, with a move that
+never happened invented to make it sum. It is left recorded rather than quietly
+corrected, because a net change between two counts standing in for a measurement
+of what moved is the exact error this page was written about.
+
+One thing the fix does not buy: speed. A full cycle took 20 runs of up to 1,500
+ids each,
+and the trigger in `.github/workflows/full-registry-batch.yml` fires every six
+hours, so a status change at the top of the id range surfaces in five days rather
+than never.
+
+Five days is a floor, not an estimate, and the margin is nil. The endpoint
+defaults to `recheck_seconds = 10.0` and the workflow passes no override, while a
+five-chunk run was measured at about 11 seconds, so 2.2 seconds a chunk. The time
+box is checked at the top of each chunk, so chunk `i` starts at `(i - 1) * c` and
+all five run only while `c` stays under 2.5 seconds. What latency does to the
+cycle:
+
+| Added per chunk | Chunk | Chunks run | Ids per run | Runs | Cycle |
+|---|---|---|---|---|---|
+| +0.3s | 2.5s | 5 | 1,500 | 20 | 5 days |
+| +1.0s | 3.2s | 4 | 1,200 | 24 | 6 days |
+| +2.0s | 4.2s | 3 | 900 | 32 | 8 days |
+
+Two seconds a chunk is not a stressed case, and it costs three days a cycle.
+Nothing errors when a chunk is dropped and nothing logs it; the cycle just
+lengthens. A reader comparing `recheck_next_id` between two runs can see it
+directly, and that is the only place it shows.
+
+Walking the cursor from the low ids upward is also the slowest possible order for
+finding recent transitions, since they all live at the top; a pass that read the
+newest ids first would close that gap. It was deliberately left out of this
+change rather than folded into it: a descending cursor changes which ids are
+re-read first and therefore which counts move first, so landing the two together
+would have left the tier-safety result above unattributable to either. It is
+named here so it is not rediscovered as a new finding.
 
 ## What to re-measure
 
