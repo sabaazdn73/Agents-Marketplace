@@ -438,7 +438,7 @@ async def _agent_half(addr: str) -> dict:
         if has_jobs or has_budgets:
             if has_jobs and has_budgets:
                 note = ("This address has been hired through the ERC-8183 "
-                        "escrow and has had a budget funded to it, but holds "
+                        "escrow and has had a spending budget funded to it, but holds "
                         "no registered agent identity, so there is nothing to "
                         "say about a published service endpoint.")
             elif has_jobs:

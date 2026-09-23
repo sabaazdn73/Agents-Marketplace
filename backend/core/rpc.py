@@ -141,6 +141,39 @@ _GETJOB_SEL = function_signature_to_4byte_selector("getJob(uint256)")
 _JOB_TUPLE = "(uint256,address,address,address,string,uint256,uint256,uint8,address,uint256,bytes32)"
 JOB_STATUS = ["OPEN", "FUNDED", "SUBMITTED", "COMPLETED", "REJECTED", "EXPIRED"]
 
+# Field eleven of the job tuple, the bytes32 a provider passes to submit.
+#
+# What it is: 32 bytes chosen by the provider at submit time. What it is
+# not: evidence of delivery. It does not establish that the bytes are the
+# digest of anything, that whatever they digest was published anywhere, or
+# that the client ever received or read it. Nothing on this contract checks
+# the preimage. A caller that presents this field as proof of work delivered
+# is overstating it.
+#
+# Committing nothing is the case below: submit accepts the zero word, so an
+# all-zero deliverable would be a submission carrying no commitment at all.
+#
+# Measured 2026-09-23 over every job id from 1 to 56,798: no delivered job is
+# the zero word, and no undelivered job is anything else. The field is written
+# by the same call that sets the status to SUBMITTED, so its presence restates
+# the status and adds nothing to it. Do not build a check on "has a
+# commitment"; that is the status column under another name. The constant is
+# kept because the comparison still has to be expressible, and because the 8
+# EXPIRED jobs that do carry one are the single place the field says something
+# the status does not.
+ZERO_DELIVERABLE = "0x" + "00" * 32
+
+
+def deliverable_hex(raw: bytes | None) -> str | None:
+    """The bytes32 deliverable as a lowercase 0x string, or None if the
+    decode did not produce one. None means not read, which is not the same
+    as ZERO_DELIVERABLE, which means read and empty; storage keeps them
+    apart so a gap in the index can never be counted as a commitment to
+    nothing."""
+    if raw is None:
+        return None
+    return "0x" + bytes(raw).hex()
+
 
 async def get_job(job_id: int, client: httpx.AsyncClient | None = None) -> dict | None:
     """Real, single-job on-chain read, the full struct: id, client,
@@ -182,6 +215,10 @@ async def get_job(job_id: int, client: httpx.AsyncClient | None = None) -> dict 
             "description": job[4], "budget": job[5], "expiredAt": job[6],
             "status": JOB_STATUS[job[7]] if job[7] < len(JOB_STATUS) else "UNKNOWN",
             "hook": job[8], "submittedAt": job[9],
+            # Field eleven, decoded since 2026-08-28 and dropped on the way
+            # out until 2026-09-23. See ZERO_DELIVERABLE above for what it
+            # does and does not establish.
+            "deliverable": deliverable_hex(job[10]),
         }
 
     if client is not None:

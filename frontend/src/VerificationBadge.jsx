@@ -16,7 +16,7 @@
 
 import React from 'react';
 import { ShieldCheck, ShieldHalf, Radio } from 'lucide-react';
-import { VERIFICATION_TIER, getVerificationTier, VERIFICATION_LABEL, VERIFICATION_HINT } from './agentVerification';
+import { VERIFICATION_TIER, getVerificationTier, VERIFICATION_LABEL, VERIFICATION_HINT, VERIFIED_MEANING } from './agentVerification';
 
 export default function VerificationBadge({ agent, size = 'sm', className = '' }) {
   const tier = getVerificationTier(agent);
@@ -63,7 +63,22 @@ export default function VerificationBadge({ agent, size = 'sm', className = '' }
 export function VerificationTierDivider({ tier, count, className = '' }) {
   return (
     <div className={`flex items-center gap-3 ${className}`} title={VERIFICATION_HINT[tier]}>
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 whitespace-nowrap">
+      {/* No whitespace-nowrap. Measured rather than assumed: at 11px with
+          tracking-wider (0.05em), "BUYER-FUNDED, MARKED DELIVERED (32)" is
+          248px, 261px with a four-digit count, against 140px for the label it
+          replaced. Usable width inside normal padding at 390px is roughly 326
+          to 334px, and the rule beside the label is flex-1 and shrinks to
+          zero, so 248px does still fit on one line. The label nearly doubling
+          is the reason to look; it is not a reason to claim an overflow that
+          was not measured.
+
+          It comes off anyway, because of what the failure would look like if
+          the fit were ever lost: the wrapper is overflow-hidden, so a label
+          too wide for the row is silently clipped rather than scrollable.
+          Wrapping converts that into a second line, which is visible and
+          harmless. The table view is reached by a user toggle rather than a
+          breakpoint, so this row can be on screen at 390px. */}
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         {VERIFICATION_LABEL[tier]} ({count})
       </span>
       <span className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
@@ -79,8 +94,7 @@ export function VerificationExplainer({ className = '' }) {
     <div className={`flex items-start gap-2 text-[11px] text-indigo-800 dark:text-indigo-300 p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20 ${className}`}>
       <ShieldCheck size={13} className="shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
       <span>
-        <strong>"Verified working"</strong> means this agent has at least one on-chain-confirmed delivered
-        job for a paying buyer other than its own owner, rather than only a health check. Jobs an operator
+        <strong>"Buyer-funded, marked delivered"</strong> is the top tier. {VERIFIED_MEANING} Jobs an operator
         funds for its own agent still count as activity and never as proof of demand. <strong>"Canary-verified"</strong> means no
         buyer job yet, but a small test job we funded ourselves was delivered. That proves delivery works,
         though the demand was ours. <strong>"Responding, unproven"</strong> means its endpoint answered just

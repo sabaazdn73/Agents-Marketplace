@@ -52,6 +52,12 @@ is this project's own contract: a client funds a budget, the agent draws
 against it as it works, and the client can take back the unspent remainder at
 any time. Nothing about it is BNB-specific, so it was deployed to both chains.
 
+It is a spending mechanism and not an escrow. The agent does not have to
+deliver anything to draw, there is no dispute and no window, and the unspent
+remainder is the only part a client can take back. So on the chains where it is
+the only hire path, hiring carries no delivery protection at all, and the chain
+views say so rather than presenting two hire paths as equivalent.
+
 That gives two hire paths with different footprints, which the UI now states
 per chain instead of collapsing into one sentence.
 
@@ -134,7 +140,7 @@ contract.
 
 The concrete hazard was in the market client, which held one global
 `MARKET_ADDRESS`. On Arbitrum its ERC-20 `approve(MARKET_ADDRESS, ...)` would
-have granted the budget escrow a real allowance over a user's tokens. A
+have granted AgentBudgetEscrow an allowance over a user's tokens. A
 successful transaction, the wrong recipient, and nothing to notice at the
 time. `list()` would merely have reverted; the approval would not have.
 

@@ -188,7 +188,7 @@ A bounded-cost fix made while wiring this in: the richer-data reclassification s
 
 ## A scope note on "verification"
 
-The house's "Verified working" tier means an on-chain-confirmed job through this specific house. That's structurally near-meaningless for most of the full registry, which has never been hired through Tnega at all; reporting it here would be accurate (and correctly near-zero) but wouldn't answer a useful question. What this pipeline reports instead is simpler: does each agent's own registered endpoint respond right now, the same independent `service_status` signal already used everywhere else in this project. That's "alive" here; it is never conflated with "has confirmed paid work somewhere."
+The house's top tier, "Buyer-funded, marked delivered", means an on-chain job funded through this specific house by somebody other than the agent's owner, which the agent then marked delivered. That's structurally near-meaningless for most of the full registry, which has never been hired through Tnega at all; reporting it here would be accurate (and correctly near-zero) but wouldn't answer a useful question. What this pipeline reports instead is simpler: does each agent's own registered endpoint respond right now, the same independent `service_status` signal already used everywhere else in this project. That's "alive" here; it is never conflated with "has confirmed paid work somewhere."
 
 ## Recommended refresh schedule: now wired to a scheduler (2026-08-28)
 

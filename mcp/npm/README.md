@@ -37,9 +37,9 @@ dataset, the keys each accepts, and its live coverage.
 |---|---|
 | `agents.index` | ERC-8004 agents on BNB Chain, ranked by what they have delivered rather than what they claim |
 | `chains.agents` | the same registries on Ethereum, Arbitrum, Robinhood Chain, Solana and Monad |
-| `chains.views` | which chains are covered, which can be hired on, and by which escrow contract |
+| `chains.views` | which chains are covered, which can be hired on, and by which contract. Hiring runs either through ERC-8183 escrow, where payment is held until delivery, or through a spending budget, which is not an escrow |
 | `jobs.erc8183` | on-chain jobs for one provider: who hired them, what was escrowed, what state each is in |
-| `budgets.escrow` | budgets funded to agents, what was drawn against them, what was reclaimed |
+| `budgets.escrow` | budgets funded to agents, what was drawn against them, what was reclaimed. A spending mechanism, not an escrow: drawing requires no deliverable, so a drawn budget records money taken and never work received |
 | `hyperliquid.post_only` | the share of an address's post-only orders the matching engine refused instead of resting |
 
 No counts are printed here on purpose. They move, a README cannot re-read

@@ -22,10 +22,149 @@ Built on on-chain-verifiable evidence only, never a fabricated composite score:
 
 | Tier | Evidence | Strength |
 |---|---|---|
-| Verified working | An on-chain-confirmed job from a buyer other than the agent's own owner reached SUBMITTED/COMPLETED | Strongest: economic activity |
+| Buyer-funded, marked delivered (tier id `verified`) | An address other than the agent's own owner funded an on-chain job, and the agent then marked it delivered by calling submit | Strongest here, and narrower than the old name: the funding is checkable, the delivery is the provider's own claim |
 | Canary-verified | No organic buyer yet, but a small test job we funded was delivered | Independent, hard on-chain proof, just not from organic demand |
 | Responding, unproven | The agent's endpoint answered a live health check | Weak: a live process isn't a finished job (this is exactly the 3-15% figure above, and exactly the tier the academic study shows isn't trustworthy on its own) |
 | Unproven | Neither of the above | Not "broken," often just new |
+
+## The label, corrected to what it measures (2026-09-23)
+
+The tier used to be shown as "Verified working". It is now shown as
+"Buyer-funded, marked delivered". The rule did not change, the ids did not
+change, and no agent gained or lost the tier.
+
+What the label was claiming that the evidence does not support. "Verified"
+reads as somebody checked, and nobody did. `SUBMITTED` is the provider calling
+`submit`, and the tier attaches the instant that lands. The contract records a
+bytes32 commitment at submit and never checks its preimage, so there is no point
+in the flow at which what was handed over is inspected by anyone. And a buyer
+objecting is close to nonexistent as a corrective: on the provider holding 99.30
+percent of delivered volume, 55,048 of 55,436, there is 1 rejection in 28,177
+settled jobs.
+
+What happens after submit, measured on chain on 2026-09-23 rather than assumed.
+`OptimisticPolicy.disputeWindow()` is 604800 seconds, read from the policy
+contract at `0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5`, not from the commerce
+contract. Of the 27,177 jobs sitting at `SUBMITTED`, exactly one is still inside
+that window. The other 27,176 saw it elapse, median 97 days ago and at most 127,
+and nobody ever called `settle()`, which is permissionless once the window
+closes but has to be called by somebody. So `SUBMITTED` is not a transient
+state on the way to settlement; for this contract it is usually the end state.
+That is why the sentence beside the badge does not say "the dispute window is
+still open": that describes one job in 55,436. It says nobody disputed it and
+nobody settled it, which is true of nearly all of them, and is the worse fact of
+the two.
+
+Why the ids stayed. Callers filter on the string `verified`: the marketplace
+URL, `GET /api/agents?verified=true`, the MCP `agents.index` dataset, the
+extension and the Telegram bot all carry it. Renaming the id is a migration for
+everyone reading this project with no gain in accuracy, since the id is not a
+sentence anybody reads. The words on the badge are what a person reads, and
+those are what changed.
+
+Why a label and not a footnote. The caveat was already written down in
+`docs/what-verified-can-mean.md` and in the badge's tooltip, and it stayed there
+while the badge went on saying "Verified working" in the list. A caveat that is
+one hover away from a confident word is read by nobody. The sentence now sits in
+`VERIFIED_MEANING` in `frontend/src/agentVerification.js`, one constant, printed
+by every surface that has room for a sentence:
+
+> An address other than the owner funded an on-chain job, and the agent then
+> marked it delivered. The tier counts that from the moment the agent submits,
+> which is the agent's own claim: nothing checks what was handed over, and for
+> almost all of these jobs nobody disputed it and nobody ever settled it.
+
+What this is not. It is not a downgrade of the tier. It is still the strongest
+evidence this project holds, stronger than a health check and stronger than a
+registration, and it is still ranked first everywhere. The change is that a
+reader of the badge now knows which half was checked on chain (the money going
+in) and which half is the seller talking (the work coming out).
+
+## Field eleven of the job tuple, indexed (2026-09-23)
+
+`getJob` returns eleven fields and the last is `deliverable`, the bytes32 a
+provider passes to `submit`. `core/rpc.py` had decoded all eleven since
+2026-08-28 and returned nine; `_job_doc` in `core/job_index.py` persisted nine.
+The content commitment the whole tier rests on had never been stored anywhere in
+this project.
+
+It is stored now, by `core/rpc.get_job` and by the batched
+`core/agent_performance._multicall_getjobs`, persisted by `_job_doc`, and
+backfilled over the existing index by
+`core/job_index.run_deliverable_backfill` (driven by
+`scripts/job_deliverable_backfill.py`).
+
+### The backfill was executed, and this is the only record of it
+
+Put here rather than only in the script, because this is where somebody auditing
+the index will look.
+
+On 2026-09-23 `run_deliverable_backfill` was run to completion against the
+PRODUCTION MongoDB, the database named by `MONGODB_URI` in `backend/.env`, from
+`scripts/job_deliverable_backfill.py` at a point when that script was not yet in
+version control. It wrote one additive field, `deliverable`, onto 56,798
+documents in `erc8183_job_index`, by `$set` of that field alone. No existing
+field was read or overwritten, and the field did not exist on any document
+before the run. It cost 190 Multicall3 `aggregate3` `eth_call`s of 300 `getJob`
+reads each, took about seven and a half minutes, and finished with 0 failures
+and 0 documents remaining without the field.
+
+Those figures come from that run and from nowhere that can be re-read. The only
+trace left in the data is `deliverable_backfill_next_id` sitting at 1 in the
+progress document, which is the wrap state after reaching the end rather than a
+log of what happened.
+
+It also cannot be verified from any deployed surface. The deployed backend
+predates this change and does not return the field on any route, so a reader
+checking from outside will not find it until the next deploy. Re-running the
+pass is the check that is available: `python -m scripts.job_deliverable_backfill
+status` should report 0 without the field, and `distribution` should reproduce
+the split below.
+
+What indexing it establishes, stated narrowly because the field invites more
+than it supports: a non-zero value means the provider wrote 32 bytes into that
+argument. It does not mean the bytes are the digest of anything, that anything
+was published, or that a client received it. The contract checks no preimage.
+`core/job_index.deliverable_distribution()` is the query for the split.
+
+### What the field turned out to be worth, measured
+
+Every job id from 1 to 56,798 was read from the contract, and the split is:
+
+| Status | Jobs | Non-zero deliverable |
+|---|---|---|
+| COMPLETED | 28,259 | 28,259 |
+| SUBMITTED | 27,177 | 27,177 |
+| OPEN | 1,018 | 0 |
+| FUNDED | 303 | 0 |
+| EXPIRED | 35 | 8 |
+| REJECTED | 6 | 0 |
+
+All 55,436 commitments on delivered jobs are distinct. Not one is the zero word.
+
+The tempting sentence here is "every delivery carries a content commitment",
+and it should not be written, in this project or anywhere else. It is true and
+it is an arithmetic identity with the status field: the commitment is written by
+the same contract call that sets the status to `SUBMITTED`, so every job past
+submit has one and no job short of it does. Knowing a job has a commitment tells
+a reader precisely what `status` already told them. The field cannot separate two
+delivered jobs, cannot promote or demote any agent, and does not strengthen the
+tier by one agent. It is indexed for completeness, not as evidence.
+
+The one slice where the field says something `status` does not: 8 of the 35
+`EXPIRED` jobs carry a commitment, all from provider `0xdfc1761378…`. Those were
+submitted and then expired unsettled, which the terminal status alone does not
+distinguish from an expiry with nothing ever handed over.
+
+### The other two fields `_job_doc` drops, and why they stay dropped
+
+`get_job` dropped only field eleven. `_job_doc` drops three: `evaluator` (index
+3), `hook` (index 8) and `deliverable` (index 10). The first two were measured
+before deciding: `evaluator` has 6 distinct values with the EvaluatorRouter on
+56,782 of 56,798 jobs, and `hook` has 4 distinct with one address on 56,784.
+Both are constants in all but a rounding error, so indexing them would add a
+column with the same value on every row. They stay out, and this paragraph is
+the record of why, so the question does not get reopened as an oversight.
 
 ## "Verified working": the buyer clause, enforced (2026-09-16)
 

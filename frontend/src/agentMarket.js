@@ -26,8 +26,8 @@ export const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'; // == contra
 // deployer-nonce coincidence, see chainContracts.js). Reading feeBps() from
 // it on the wrong chain would have quietly returned the ESCROW's 250 and
 // looked perfectly healthy. Worse, the ERC-20 approve() in useBuyAccess
-// would have granted the budget escrow an allowance over the user's tokens
-// -- a real approval, to the wrong contract, with no error to notice.
+// would have granted AgentBudgetEscrow an allowance over the user's tokens
+// -- a working approval, to the wrong contract, with no error to notice.
 //
 // So every hook below gates on being on MARKET_CHAIN_ID, and the address is
 // resolved for that chain explicitly.
@@ -64,7 +64,7 @@ function assertMarketChain(chainId) {
   if (Number(chainId) !== MARKET_CHAIN_ID) {
     throw new Error(
       `Sell Your Agent runs on ${chainName(MARKET_CHAIN_ID)} only. `
-      + `Your wallet is on ${chainName(chainId)} — switch before continuing.`,
+      + `Your wallet is on ${chainName(chainId)}. Switch before continuing.`,
     );
   }
 }
@@ -319,7 +319,7 @@ export function useBuyAccess() {
     setCompletedSteps([]); setSkippedSteps([]); setStepHashes({});
     try {
       // Before any approve(): an ERC-20 approval sent on the wrong chain
-      // would be a real allowance granted to the wrong contract.
+      // would be a working allowance granted to the wrong contract.
       assertMarketChain(chainId);
       const fn = model === MODEL.SUBSCRIPTION ? 'subscribe' : 'buyOneTime';
       if (native) {

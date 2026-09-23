@@ -76,7 +76,7 @@ def _agg3_calldata(job_ids: list[int]) -> str:
 async def _multicall_getjobs(client: httpx.AsyncClient, job_ids: list[int]) -> list[dict]:
     """Read a chunk of jobs via one Multicall3 aggregate3 eth_call. Returns the
     successfully-decoded jobs (reverted/empty entries are skipped honestly)."""
-    from core.rpc import rpc_post
+    from core.rpc import rpc_post, deliverable_hex
     resp = await rpc_post(client, {
         "jsonrpc": "2.0", "id": 1, "method": "eth_call",
         "params": [{"to": MULTICALL3, "data": _agg3_calldata(job_ids)}, "latest"],
@@ -96,6 +96,11 @@ async def _multicall_getjobs(client: httpx.AsyncClient, job_ids: list[int]) -> l
                 "id": job[0], "client": job[1], "provider": job[2],
                 "description": job[4], "budget": job[5], "expiredAt": job[6],
                 "status": job[7], "submittedAt": job[9],
+                # Field eleven, the bytes32 the provider passed to submit.
+                # Carried through so core/job_index.py can persist it; see
+                # core.rpc.ZERO_DELIVERABLE for what it establishes, which
+                # is narrower than the name suggests.
+                "deliverable": deliverable_hex(job[10]),
             })
         except Exception:
             continue # malformed entry, skip honestly

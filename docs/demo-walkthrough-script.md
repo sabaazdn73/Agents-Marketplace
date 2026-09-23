@@ -280,8 +280,9 @@ visible, then click Smart Contracts.*
 ### 9. Smart contracts
 **Docs, Smart Contracts, plus explorer tabs. 6:05 to 7:05**
 
-> Our budget escrow is live on four chains. BNB Chain, Ethereum, Arbitrum and
-> Robinhood Chain.
+> Our spending-budget contract is live on four chains. BNB Chain, Ethereum,
+> Arbitrum and Robinhood Chain. It is called AgentBudgetEscrow and it is not an
+> escrow: the agent draws from a budget without having to deliver anything.
 >
 > Do not take my word for any of it. Every address here links to that chain's own
 > explorer, and what you land on is the contract, not a page we control.

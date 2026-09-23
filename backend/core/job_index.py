@@ -47,7 +47,7 @@ import time
 from pymongo import UpdateOne
 
 from core.agent_performance import fetch_jobs_by_id
-from core.rpc import rpc_post, COMMERCE, JOB_STATUS
+from core.rpc import rpc_post, COMMERCE, JOB_STATUS, ZERO_DELIVERABLE
 from core.db import get_db
 import httpx
 from eth_utils import function_signature_to_4byte_selector
@@ -94,7 +94,7 @@ async def get_progress() -> dict:
 
 def _job_doc(job: dict) -> dict:
     status_label = JOB_STATUS[job["status"]] if 0 <= job["status"] < len(JOB_STATUS) else "OPEN"
-    return {
+    doc = {
         "_id": int(job["id"]),
         "client": (job["client"] or "").lower(),
         "provider": (job["provider"] or "").lower(),
@@ -105,6 +105,29 @@ def _job_doc(job: dict) -> dict:
         "submittedAt": int(job["submittedAt"]),
         "_indexed_at": time.time(),
     }
+    # Field eleven of the job tuple (2026-09-23). The contract has always
+    # returned it and the decoder has always decoded it; it stopped at the
+    # dict boundary and was never stored, so nothing in this project could
+    # tell a submission that committed 32 bytes from one that committed the
+    # zero word.
+    #
+    # What storing it establishes: that a provider passed a value to submit.
+    # What it does not establish: that the value is the digest of anything,
+    # that anything was published, or that a client received it. The contract
+    # checks no preimage. And measured across the whole contract it is written
+    # by the same call that sets SUBMITTED, so it is perfectly correlated with
+    # status and adds no separation between two delivered jobs. Stored for
+    # completeness; never to be read as evidence. Read
+    # core.rpc.ZERO_DELIVERABLE first.
+    #
+    # Written only when the read produced one. A missing key means the job
+    # predates this change or the decode gave nothing back; it must never be
+    # collapsed into ZERO_DELIVERABLE, which is a value the chain actually
+    # holds.
+    deliverable = job.get("deliverable")
+    if deliverable is not None:
+        doc["deliverable"] = deliverable
+    return doc
 
 
 async def run_index_batch(max_seconds: float = 20.0, recheck_seconds: float = 10.0) -> dict:
@@ -172,6 +195,122 @@ async def run_index_batch(max_seconds: float = 20.0, recheck_seconds: float = 10
         "next_job_id": next_id, "job_counter": job_counter, "reached_end": reached_end,
         "elapsed_seconds": round(time.time() - t0, 1),
     }
+
+
+async def run_deliverable_backfill(max_seconds: float = 20.0) -> dict:
+    """One-time, resumable, time-boxed pass that fills `deliverable` on jobs
+    indexed before the field was stored (2026-09-23).
+
+    Needed because neither pass above reaches them. The forward pass never
+    revisits an id once past it, and the re-check pass is scoped to
+    non-terminal statuses, so the 55,000-odd jobs already sitting at
+    SUBMITTED or COMPLETED, which are exactly the ones this field is about,
+    would never have been re-read.
+
+    Same discipline as run_index_batch: bounded by wall clock, checkpointed
+    in the same progress document, safe to call repeatedly. The checkpoint
+    walks job ids upward over documents that are still missing the field;
+    on reaching the end it resets to the start, so a chunk whose RPC read
+    failed is retried on the next run rather than silently skipped forever.
+    `remaining` is what the caller should watch: the pass is finished when
+    it reads zero."""
+    db = get_db()
+    col = db[JOB_INDEX_COLLECTION]
+    progress = await _get_progress()
+    cursor_id = int(progress.get("deliverable_backfill_next_id") or 1)
+
+    t0 = time.time()
+    updated = 0
+    read = 0
+    calls = 0
+    wrapped = False
+    while time.time() - t0 < max_seconds:
+        ids = [d["_id"] async for d in col.find(
+            {"_id": {"$gte": cursor_id}, "deliverable": {"$exists": False}},
+            {"_id": 1},
+        ).sort("_id", 1).limit(CHUNK)]
+        if not ids:
+            # Past the last document missing the field. Back to the start,
+            # so anything left behind by a failed read is picked up next
+            # time instead of needing a manual reset.
+            if cursor_id == 1:
+                break
+            cursor_id = 1
+            wrapped = True
+            progress["deliverable_backfill_next_id"] = cursor_id
+            await _save_progress(progress)
+            continue
+        jobs = await fetch_jobs_by_id(ids)
+        calls += 1
+        read += len(ids)
+        # Only the one field, and only when the read produced it. A $set of
+        # the whole document would rewrite description and budget from a
+        # second read for no reason, and a $set of None would record "no
+        # commitment" for a job whose value was never actually read.
+        ops = [
+            UpdateOne({"_id": int(j["id"])}, {"$set": {"deliverable": j["deliverable"]}})
+            for j in jobs if j.get("deliverable") is not None
+        ]
+        if ops:
+            await col.bulk_write(ops, ordered=False)
+            updated += len(ops)
+        cursor_id = ids[-1] + 1
+        progress["deliverable_backfill_next_id"] = cursor_id
+        await _save_progress(progress)
+        if wrapped:
+            break
+
+    remaining = await col.count_documents({"deliverable": {"$exists": False}})
+    return {
+        "updated_this_batch": updated, "ids_read_this_batch": read,
+        "multicalls_this_batch": calls, "next_id": cursor_id,
+        "remaining": remaining, "elapsed_seconds": round(time.time() - t0, 1),
+    }
+
+
+async def deliverable_distribution() -> dict:
+    """How many indexed jobs carry a non-zero deliverable, how many carry the
+    zero word, and how that splits by provider.
+
+    This counts commitments, not deliveries. A non-zero value means a provider
+    passed 32 bytes to submit and nothing more: no preimage was checked by the
+    contract, nothing was necessarily published, and no client necessarily
+    received anything.
+
+    Measured 2026-09-23, the answer this returns for the delivered statuses is
+    all non-zero and none zero, because the field is written by the same call
+    that sets SUBMITTED. That makes it an identity with status rather than a
+    second signal, which is worth knowing before anybody quotes the number:
+    "every delivery carries a commitment" is true, reads as reassuring, and
+    says nothing that status did not already say."""
+    db = get_db()
+    col = db[JOB_INDEX_COLLECTION]
+    rows = await col.aggregate([
+        {"$match": {"status": {"$in": ["SUBMITTED", "COMPLETED"]}}},
+        {"$group": {
+            "_id": {"provider": "$provider", "status": "$status",
+                    "zero": {"$eq": ["$deliverable", ZERO_DELIVERABLE]},
+                    "missing": {"$not": [{"$ifNull": ["$deliverable", False]}]}},
+            "n": {"$sum": 1},
+        }},
+    ]).to_list(length=None)
+
+    totals = {"non_zero": 0, "zero": 0, "not_indexed": 0}
+    by_provider: dict[str, dict] = {}
+    for r in rows:
+        key = r["_id"]
+        if key["missing"]:
+            bucket = "not_indexed"
+        elif key["zero"]:
+            bucket = "zero"
+        else:
+            bucket = "non_zero"
+        totals[bucket] += r["n"]
+        p = by_provider.setdefault(key["provider"], {"non_zero": 0, "zero": 0,
+                                                     "not_indexed": 0, "delivered": 0})
+        p[bucket] += r["n"]
+        p["delivered"] += r["n"]
+    return {"totals": totals, "by_provider": by_provider}
 
 
 async def get_provider_revenue_jobs(owner_address: str, *,
@@ -260,8 +399,11 @@ async def get_provider_jobs_page(owner_address: str, *, offset: int = 0,
     total = await col.count_documents({"provider": owner})
     jobs = await col.find(
         {"provider": owner},
+        # deliverable added 2026-09-23, the bytes32 the provider passed to
+        # submit. A caller can tell a submission that committed a value from
+        # one that committed the zero word, and nothing more than that.
         {"_id": 1, "status": 1, "client": 1, "budget": 1,
-         "submittedAt": 1, "expiredAt": 1},
+         "submittedAt": 1, "expiredAt": 1, "deliverable": 1},
     ).sort("_id", -1).skip(max(0, offset)).limit(limit).to_list(length=limit)
     return {"jobs": jobs, "total": total}
 

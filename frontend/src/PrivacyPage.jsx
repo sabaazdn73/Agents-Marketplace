@@ -93,7 +93,7 @@ export default function PrivacyPage({ onBack }) {
             something this project has measured. There are two subjects. On a block explorer or on
             8004scan, the panel is about a registered ERC-8004 agent: whether its service answers,
             what on-chain jobs name it, who paid for the work it delivered, and whether a
-            budget funded to it through this project's own escrow was ever drawn against. On app.hyperliquid.xyz, the panel is about post-only
+            budget funded to it through this project's own AgentBudgetEscrow was ever drawn against. On app.hyperliquid.xyz, the panel is about post-only
             order behaviour: how often that address&apos;s post-only orders are refused before they
             rest on the book, or the reason no rate can be stated.
           </p>

@@ -145,7 +145,7 @@ async def handle(message: dict, datasets: dict, headers=None) -> dict | None:
             "serverInfo": SERVER_INFO,
             "instructions":
                 "Measurements from Tnega: agents across five chains, ERC-8183 "
-                "jobs, Hyperliquid post-only rejection, budget escrow, and the "
+                "jobs, Hyperliquid post-only rejection, spending budgets, and the "
                 "chain views. Start with tnega_catalogue. Every response carries "
                 "its coverage, and a measurement with nothing behind it returns "
                 "a withheld_reason rather than a zero. One call at a time: a "

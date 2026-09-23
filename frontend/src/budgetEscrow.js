@@ -40,6 +40,7 @@ import {
   getBudgetEscrowAddress, isBudgetHiringAvailable, chainName, nativeSymbol, CHAIN_META,
   budgetHiringChainIds,
 } from './chainContracts';
+import { checkBudgetLimits } from './budgetLimits';
 
 /**
  * Native gas-token sentinel -- must match the contract's own NATIVE constant.
@@ -341,8 +342,31 @@ export function useBudgetActions() {
   const publicClient = usePublicClient();
   const [pending, setPending] = useState(null);
 
-  const openBudget = useCallback(async ({ agent, token, amount, maxPerDraw, deadline, cooldown }) => {
+  const openBudget = useCallback(async ({
+    agent, token, amount, maxPerDraw, deadline, cooldown,
+    // Set by the caller only when the client has explicitly agreed to a
+    // budget one draw can empty. See budgetLimits.js.
+    acknowledgedSingleDraw = false,
+  }) => {
     if (!configured) throw new Error(`AgentBudgetEscrow is not deployed on ${chainLabel}.`);
+
+    // The floors are enforced HERE, where the transaction is built, and not
+    // only in the form that draws the fields.
+    //
+    // They started life in BudgetHirePanel, which is currently the only
+    // caller, so coverage was total by accident rather than by construction.
+    // A second funding surface would have inherited none of them and nothing
+    // would have said so. Anything that opens a budget through this app now
+    // passes the same check, and a caller that wants the dismissible one
+    // waived has to say so in the arguments rather than by not asking.
+    const refusal = checkBudgetLimits({
+      totalWei: amount,
+      maxPerDrawWei: maxPerDraw,
+      cooldownSeconds: Number(cooldown),
+      acknowledgedSingleDraw,
+    });
+    if (refusal) throw new Error(refusal.message);
+
     setPending('open');
     try {
       const isNative = token.toLowerCase() === NATIVE_SENTINEL.toLowerCase();

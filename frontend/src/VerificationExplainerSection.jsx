@@ -42,7 +42,11 @@ const TIER_COLOR = {
 // tuned to be short enough for a badge tooltip; this is the longer, plain-
 // language version meant to stand on its own).
 const TIER_PLAIN_LANGUAGE = {
-  [VERIFICATION_TIER.VERIFIED]: 'A buyer other than the agent\u2019s own owner hired it, paid into an on-chain job, and the agent delivered. Confirmed on-chain rather than self-reported. Jobs an operator funds for its own agent count as activity and never as proof of demand.',
+  // Rewritten 2026-09-23. The previous version read "and the agent
+  // delivered. Confirmed on-chain rather than self-reported", which had the
+  // two halves the wrong way round: the funding is confirmed on chain, the
+  // delivery is the self-report.
+  [VERIFICATION_TIER.VERIFIED]: 'A buyer other than the agent\u2019s own owner funded an on-chain job, and the agent then marked it delivered. The funding is on chain and anyone can check it. The delivery is the agent\u2019s own claim: nothing here inspects what was handed over, and for almost all of these jobs nobody disputed it and nobody ever settled it. Jobs an operator funds for its own agent count as activity and never as proof of demand.',
   [VERIFICATION_TIER.CANARY_VERIFIED]: "Nobody has hired this agent yet, so we did: a small job we funded ourselves, paid and delivered exactly as a customer's would be. It proves delivery works. The demand was ours, not the market's.",
   [VERIFICATION_TIER.RESPONDING]: "We pinged this agent's registered endpoint just now and it answered. That shows a running process. It doesn't show the agent can finish paid work, and most agents that fail do so at the first paid job rather than here.",
   [VERIFICATION_TIER.UNPROVEN]: "Neither of the above: no completed job, and no endpoint answering right now. Usually the agent is new or its owner hasn't finished setting it up. It doesn't mean anything is broken.",
@@ -123,8 +127,8 @@ export default function VerificationExplainerSection({
               For Trading &amp; DeFi agents, once a hire is delivered, we compare the funding wallet before and right
               after the job using Zerion's portfolio data, then subtract the gas it spent. This works for whichever
               hire path was used. We keep it <strong>separate</strong> from the four verification tiers above on
-              purpose. A "Verified working" agent has shown it can deliver; PnL says whether its trading made or lost
-              money. Wherever it appears it's labelled{' '}
+              purpose. A top-tier agent has been paid for a job it then marked delivered; PnL says whether its trading
+              made or lost money. Wherever it appears it's labelled{' '}
               <strong>"Live/forward-tested PnL, measured from on-chain balances during a hire"</strong>. We never show
               a creator's own backtest or claimed return, and we don't show PnL for agents or hire types it doesn't
               apply to.

@@ -256,9 +256,17 @@ def _hire_paths(chain_ids: list[int]) -> dict:
             "available": bool(budget),
             "chains": names(budget),
             "contract": "AgentBudgetEscrow",
+            # Rendered verbatim by ChainViewShared.jsx, above a chain's
+            # listing, so it is where a lot of people first read what a
+            # budget is. It said what the mechanism does and nothing about
+            # what it does not do, and the contract's name has "Escrow" in
+            # it, which does the rest of the work unaided.
             "note": (
                 "A client funds a budget and the agent draws against it as it "
-                "works. Available wherever AgentBudgetEscrow is deployed."
+                "works. This is a spending mechanism and not an escrow: no "
+                "deliverable is required to draw, there is no dispute and no "
+                "window, and only the undrawn remainder can be taken back. "
+                "Available wherever AgentBudgetEscrow is deployed."
             ),
         },
         "escrow": {

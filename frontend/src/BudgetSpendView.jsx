@@ -12,6 +12,10 @@
 // recomputed from the contract's own `spent`, never accumulated locally
 // from the events we happen to have seen: a missed or duplicated log would
 // otherwise silently misreport how much of someone's money is left.
+//
+// The balance is the only thing `spent` is used for. Every figure that
+// would read as progress goes through budgetDelivery.js, which refuses to
+// derive one from a reclaimed budget. See that file for why.
 
 import React, { useEffect, useRef } from 'react';
 import { Loader2, ArrowDownRight, ShieldAlert, Clock, Undo2 } from 'lucide-react';
@@ -20,6 +24,7 @@ import { addNotification } from './notifications';
 import { useChainId, useSwitchChain } from 'wagmi';
 import { switchToChain } from './ChainSwitchNotice';
 import { formatAmount, budgetTokenSymbol } from './budgetAmounts';
+import { moneyDrawnPercent } from './budgetDelivery';
 
 // Every amount in this component goes through the shared formatter. The local
 // copy that used to live here defaulted the symbol to 'BNB' and switched to
@@ -114,7 +119,12 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
   const total = budget.total;
   const spent = budget.spent;
   const remaining = total - spent;
-  const pct = total > 0n ? Number((spent * 100n) / total) : 0;
+  // Through budgetDelivery.js rather than computed here. The percentage this
+  // used to derive inline was `spent * 100 / total`, which on a reclaimed
+  // budget is 100 by construction, and it drove a bar that filled to the end
+  // for money the client had taken back. moneyDrawnPercent returns null in
+  // that case and the bar is not drawn at all.
+  const drawnPct = moneyDrawnPercent(budget);
   const status = BUDGET_STATUS[budget.status] || 'UNKNOWN';
   const isOpen = status === 'OPEN';
   // On a reclaimed budget the contract sets spent = total, as the
@@ -168,12 +178,18 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
         </div>
       </div>
 
-      {/* Spent vs remaining, from the contract's own `spent`. */}
-      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-1">
-        <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
-      </div>
+      {/* How much of the money has been drawn. A bar about money, not about
+          progress through a job: a budget drawn to the end says the agent
+          took everything it was allowed, and nothing about what arrived.
+          Rendered only when the number describes draws, so a reclaimed
+          budget shows no bar rather than a full one. */}
+      {drawnPct != null && (
+        <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden mb-1">
+          <div className="h-full bg-amber-500 transition-all" style={{ width: `${Math.min(100, drawnPct)}%` }} />
+        </div>
+      )}
       <div className="flex justify-between text-[10px] text-gray-500 mb-3">
-        <span title={reclaimed ? undefined : fmtFull(spent, symbol)}>{reclaimed ? 'Closed, unspent remainder returned to you' : `${fmt(spent, symbol)} spent (${pct}%)`}</span>
+        <span title={reclaimed ? undefined : fmtFull(spent, symbol)}>{reclaimed ? 'Closed, unspent remainder returned to you' : `${fmt(spent, symbol)} drawn (${drawnPct ?? 0}% of the budget)`}</span>
         {isOpen && !expired && <span title={fmtFull(drawable, symbol)}>up to {fmt(drawable, symbol)} in the next draw</span>}
       </div>
 

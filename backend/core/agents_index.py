@@ -62,6 +62,14 @@ TIER_VERIFIED = 3
 
 # The names these ranks carry outside this file. One table, because the page
 # counts and the compact projection both name them and two tables would drift.
+#
+# These are ids, not labels, and they stay as they are: callers filter on the
+# string "verified", the marketplace URL carries it, and the MCP datasets key
+# on it. The label a person reads was changed on 2026-09-23 to "Buyer-funded,
+# marked delivered", in frontend/src/agentVerification.js, which is the
+# definition of record. What the id means in full: an address other than the
+# owner funded an on-chain job, and the agent then marked it delivered, which
+# is counted from SUBMITTED and so from before the dispute window closes.
 TIER_NAMES = {
     TIER_VERIFIED: "verified",
     TIER_CANARY_VERIFIED: "canary_verified",

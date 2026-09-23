@@ -359,8 +359,17 @@ export default function LandingStory({ onEnter }) {
           <h2 id="tn-where">On the site, and on the page you were already reading</h2>
           <p className="tn-lead">
             Hyperliquid, BNB Chain, Ethereum, Solana, Arbitrum, Robinhood Chain and Monad.
-            Hiring runs through ERC-8183 escrow on BNB Chain, Arbitrum and Robinhood Chain.
-            A Chrome extension puts the same readings on the block explorer page you are
+            {/* This said hiring runs through ERC-8183 escrow on all three
+                chains. Wrong twice: ERC-8183 is deployed on BNB Chain only,
+                and the other two hire through AgentBudgetEscrow, which is a
+                spending mechanism rather than an escrow. So the landing page
+                was telling a prospective funder that two of the three paths
+                carried delivery protection they do not have. */}
+            {' '}BNB Chain has two ways to hire: ERC-8183 escrow, where payment is held until
+            the agent delivers, and a spending budget the agent draws from as it works. On
+            Arbitrum and Robinhood Chain the budget is the only way. A budget is not an
+            escrow and carries no delivery protection.
+            {' '}A Chrome extension puts the same readings on the block explorer page you are
             already looking at, without you coming here first.
           </p>
           <div className="tn-cta">

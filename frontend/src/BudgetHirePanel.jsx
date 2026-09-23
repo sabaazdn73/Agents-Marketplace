@@ -14,17 +14,32 @@
 // Defaults are conservative on purpose: a short deadline, a per-draw cap
 // well under the total, and a cooldown -- a buyer who accepts the defaults
 // should end up with a safer budget than one who does not think about it.
+//
+// Two settings are refused outright, with no way past them: a per-draw limit
+// of zero and no wait between draws. Both are permitted by the contract and
+// both are in this form's own history, BSC budgets 1 and 2 having been opened
+// here with cooldown 0. A per-draw limit of zero alone is enough to let one
+// transaction empty a budget, because the contract seeds lastDrawAt at
+// creation, so a cooldown delays the first draw without capping its size.
+//
+// A third refusal, a per-draw limit above half the total, can be dismissed by
+// ticking the acknowledgement it shows. That case is a budget for one fixed
+// purchase, which is legitimate and which the alternatives make worse. The
+// floors and the reasoning behind all three live in budgetLimits.js, and the
+// check itself now also runs in useBudgetActions.openBudget so a future
+// funding surface cannot miss it.
 
 import React, { useState } from 'react';
 import { parseUnits } from 'viem';
 import { Loader2, Wallet, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useBudgetActions, useBudgetEscrowAddress, NATIVE_SENTINEL } from './budgetEscrow';
+import { checkBudgetLimits, COOLDOWN_CHOICES } from './budgetLimits';
 import { getBudgetHireToken } from './chainContracts';
 import { budgetHiringChainIds, hiringOptionsFor, CHAIN_META, chainName, nativeSymbol, getBudgetEscrowAddress } from './chainContracts';
 import ChainSwitchNotice, { switchToChain } from './ChainSwitchNotice';
 import { formatDecimalString } from './budgetAmounts';
 import { useBudgetModeStatus } from './budgetEscrow';
-import { UndeclaredAgentWarning } from './HireModePicker';
+import { UndeclaredAgentWarning, BudgetModeConsequences } from './HireModePicker';
 import { useSwitchChain } from 'wagmi';
 import BudgetSpendView from './BudgetSpendView';
 import { addNotification } from './notifications';
@@ -34,12 +49,8 @@ const HOURS = [
   { label: '24 hours', value: 24 },
   { label: '3 days', value: 72 },
 ];
-const COOLDOWNS = [
-  { label: 'None', value: 0 },
-  { label: '1 min', value: 60 },
-  { label: '10 min', value: 600 },
-  { label: '1 hour', value: 3600 },
-];
+// The wait-between-draws options come from budgetLimits.js, which has no
+// "None". The option used to be here and used to be first in the list.
 
 export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   const { openBudget, pending, connected } = useBudgetActions();
@@ -62,12 +73,31 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   const [cooldown, setCooldown] = useState(600);
   const [budgetId, setBudgetId] = useState(null);
   const [error, setError] = useState(null);
+  // Dismissal of the one refusal that can be dismissed. Reset whenever either
+  // amount changes, so an acknowledgement made about one pair of numbers can
+  // never carry over to a different pair the client has since typed.
+  const [ackSingleDraw, setAckSingleDraw] = useState(false);
 
   const agentAddress = agent?.ownerAddress || agent?.owner_address;
   // Whether THIS agent has said it implements draw(). Checked here rather
   // than in the BNB hire flow, because this panel is what takes the money and
   // it renders on every chain the escrow is deployed to.
   const budgetMode = useBudgetModeStatus(agentAddress);
+
+  // Parsed at render rather than inside submit, so the settings can be judged
+  // while someone is still typing them and the refusal can sit next to the
+  // field it is about instead of appearing after a press.
+  //
+  // A half-typed number is a parse error, not a refusal. It renders as an
+  // empty budget, which the check below already has a sentence for.
+  let totalWei = 0n;
+  let maxWei = 0n;
+  try { totalWei = parseUnits(total || '0', 18); } catch { totalWei = 0n; }
+  try { maxWei = parseUnits(maxPerDraw || '0', 18); } catch { maxWei = 0n; }
+  const refusal = checkBudgetLimits({
+    totalWei, maxPerDrawWei: maxWei, cooldownSeconds: cooldown,
+    acknowledgedSingleDraw: ackSingleDraw,
+  });
 
   // Budget hiring is available wherever AgentBudgetEscrow is deployed, which
   // is now three chains rather than one. Where it is not, say which chain the
@@ -119,10 +149,9 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
         }
       }
 
-      const totalWei = parseUnits(total || '0', 18);
-      const maxWei = parseUnits(maxPerDraw || '0', 18);
-      if (totalWei <= 0n) throw new Error('Enter a total budget.');
-      if (maxWei > totalWei) throw new Error('The per-draw limit cannot exceed the total.');
+      // Checked again here, not only in the disabled state of the button. The
+      // button is the courtesy; this is the one that cannot be got past.
+      if (refusal) throw new Error(refusal.message);
       if (!agentAddress) throw new Error('This agent has no owner address on record.');
 
       const fundedText = `${formatDecimalString(total).text} ${nativeLabel}`;
@@ -137,6 +166,9 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
         maxPerDraw: maxWei,
         deadline: Math.floor(Date.now() / 1000) + hours * 3600,
         cooldown,
+        // The same decision the form made, restated for the guard that
+        // now sits in useBudgetActions rather than only here.
+        acknowledgedSingleDraw: ackSingleDraw,
       });
       // Read out of the transaction's own BudgetOpened event -- see
       // useBudgetActions. If it somehow isn't there, say so rather than
@@ -196,6 +228,15 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
       {/* Shown ABOVE the amount fields on purpose. It is information someone
           needs before deciding how much to commit, not a footnote under the
           button they have already pressed. */}
+      <WhatABudgetIs />
+
+      {/* Moved here from HireModePicker on the same argument that moved
+          UndeclaredAgentWarning: it lived in the picker, which only the BNB
+          hire flow mounts, so the one surface that funds a budget on
+          Arbitrum, Ethereum and Robinhood Chain showed none of it. The panel
+          that takes the money is the surface that has to carry it. */}
+      <BudgetModeConsequences />
+
       {budgetMode.declared === false && <UndeclaredAgentWarning />}
 
       <div className="grid grid-cols-2 gap-3">
@@ -203,7 +244,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
           <span className="text-[11px] font-semibold text-gray-500">Total budget ({nativeLabel})</span>
           <input
             type="number" step="0.001" min="0" value={total}
-            onChange={(e) => setTotal(e.target.value)}
+            onChange={(e) => { setTotal(e.target.value); setAckSingleDraw(false); }}
             className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <span className="text-[10px] text-gray-500">The most you can lose.</span>
@@ -211,11 +252,16 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
         <label className="block">
           <span className="text-[11px] font-semibold text-gray-500">Max per draw ({nativeLabel})</span>
           <input
-            type="number" step="0.001" min="0" value={maxPerDraw}
-            onChange={(e) => setMaxPerDraw(e.target.value)}
-            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            type="number" step="0.001" min="0.000000000000000001" value={maxPerDraw}
+            onChange={(e) => { setMaxPerDraw(e.target.value); setAckSingleDraw(false); }}
+            aria-invalid={refusal?.field === 'maxPerDraw' || undefined}
+            className={`mt-1 w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-[#0F172A] text-sm outline-none focus:ring-2 ${
+              refusal?.field === 'maxPerDraw'
+                ? 'border-red-400 dark:border-red-500 focus:ring-red-500'
+                : 'border-gray-200 dark:border-gray-700 focus:ring-indigo-500'
+            }`}
           />
-          <span className="text-[10px] text-gray-500">Caps any single transaction.</span>
+          <span className="text-[10px] text-gray-500">Caps any single transaction. Half the total at most.</span>
         </label>
       </div>
 
@@ -235,11 +281,41 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
             value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))}
             className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none"
           >
-            {COOLDOWNS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            {COOLDOWN_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
-          <span className="text-[10px] text-gray-500">Gives you time to notice and revoke.</span>
+          <span className="text-[10px] text-gray-500">Your review window. Nothing can be drawn during it.</span>
         </label>
       </div>
+
+      {/* The refusal, next to the fields rather than after the press. It says
+          what the setting would allow, because "invalid" tells nobody
+          anything about their money. */}
+      {refusal && (
+        <div className="space-y-2">
+          <div className="text-[12px] text-red-600 dark:text-red-400 flex items-start gap-1.5 leading-relaxed">
+            <AlertTriangle size={12} className="shrink-0 mt-0.5" /> {refusal.message}
+          </div>
+
+          {/* The one refusal a client may dismiss. It is a checkbox rather
+              than a second button because the sentence is the point: they
+              are agreeing to a specific mechanic, not clicking past a
+              warning. Unchecking is always available, and changing either
+              amount clears it. */}
+          {refusal.acknowledgeable && (
+            <label className="flex items-start gap-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ackSingleDraw}
+                onChange={(e) => setAckSingleDraw(e.target.checked)}
+                className="mt-0.5 shrink-0 accent-amber-600"
+              />
+              <span className="text-[11px] text-gray-700 dark:text-gray-300 leading-relaxed">
+                {refusal.acknowledgement}
+              </span>
+            </label>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="text-[12px] text-red-600 dark:text-red-400 flex items-start gap-1.5">
@@ -249,13 +325,17 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
 
       <button
         onClick={submit}
-        disabled={!connected || pending === 'open' || switching}
+        disabled={!connected || pending === 'open' || switching || !!refusal}
         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-50"
       >
         {(pending === 'open' || switching) ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />}
         {!connected ? 'Connect a wallet first'
           : switching ? `Switching to ${chainName(requiredChainId)}…`
           : pending === 'open' ? 'Funding budget…'
+          // A disabled button with an unchanged label reads as broken. It
+          // names the setting instead, and the sentence above says why.
+          : refusal ? `Adjust the ${refusal.field === 'cooldown' ? 'wait between draws'
+            : refusal.field === 'maxPerDraw' ? 'per-draw limit' : 'total'} to continue`
           : `Fund ${formatDecimalString(total || '0').text} ${nativeLabel} budget`}
       </button>
 
@@ -264,8 +344,55 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
         target="_blank" rel="noopener noreferrer"
         className="text-[10px] text-gray-500 hover:text-indigo-500 inline-flex items-center gap-1"
       >
-        Inspect the escrow contract <ExternalLink size={9} />
+        {/* Named "the escrow contract" until now, in the footer link
+            directly under the Fund button, contradicting the panel's own
+            opening line. The contract's name is AgentBudgetEscrow, so the
+            link names the contract rather than describing it as an escrow. */}
+        Inspect the AgentBudgetEscrow contract <ExternalLink size={9} />
       </a>
+    </div>
+  );
+}
+
+/**
+ * What a budget is, in the words the owner asked for, above the fields that
+ * decide how much of it there will be.
+ *
+ * The register is the one the rest of the site uses: a statement of the
+ * instrument, then the three things that are absent, then where to go for the
+ * alternative. It is not a banner and it does not ask anyone to confirm
+ * anything, because this is a usable feature and the point is that a client
+ * knows what they are buying, not that they are discouraged from buying it.
+ *
+ * The three absences are the specific ones, not a general disclaimer. Each is
+ * a property of the deployed contract: draw() takes an amount and a memo and
+ * checks no deliverable; there is no submit(), no dispute(), no window and no
+ * evaluator anywhere in the source; and reclaim() recovers total - spent, so
+ * what is drawn is drawn.
+ */
+function WhatABudgetIs() {
+  return (
+    <div className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/5">
+      <div className="flex items-center gap-2 mb-1.5">
+        <Wallet size={13} className="text-gray-500 shrink-0" />
+        <span className="text-[12px] font-bold">This is a spending mechanism, not an escrow</span>
+      </div>
+      <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed mb-2">
+        Funding a budget gives the agent permission to take money from it while it works.
+        It buys no delivery protection. Specifically:
+      </p>
+      <ul className="space-y-1 text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed mb-2">
+        <li>No deliverable is required to draw. The contract checks the limits you set and
+        nothing else, so a draw can happen before anything is produced, or instead of it.</li>
+        <li>There is no dispute and no window to raise one in. No arbitration, no evaluator,
+        no review period before money moves.</li>
+        <li>Money already drawn cannot be recovered. Taking the budget back returns what is
+        left, and only that.</li>
+      </ul>
+      <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+        If the agent does not need to spend money to do your job, hire it through locked
+        escrow instead, where payment settles on delivery and a dispute window applies.
+      </p>
     </div>
   );
 }

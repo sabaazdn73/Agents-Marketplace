@@ -6,8 +6,13 @@ commit that packaged 0.2.0.
 
 Everything here is ready to paste. Field names match the Developer Dashboard at
 chrome.google.com/webstore/devconsole, and every claim is one the code supports:
-the package was verified against the working tree before upload, not after. The
-section at the end says which claims a reviewer can check in a minute.
+the package was verified against the working tree as it stood when 0.2.0 was
+packaged, not after. The working tree has since moved ahead of the submitted
+zip: extension/shared.js changed on 2026-09-23 while 0.2.0 was in review, so
+this file describes the tree rather than the package on that one point. The
+change is copy only, naming AgentBudgetEscrow where the text said escrow, and
+it ships in 0.3.0. The section at the end says which claims a reviewer can
+check in a minute.
 
 The Privacy tab's boxes cap each field at 1,000 characters and the versions
 below are written for a reader, so they are two to three times too long to
@@ -252,8 +257,10 @@ install. As it stands the text names three: Hyperliquid, 8004scan and Chrome.
 > few cents and proves nothing about whether the agent answers, delivers, or has
 > ever been paid by anyone. The panel shows what was checked instead. Whether the
 > service endpoint the agent published actually answers, and when that was last
-> checked. What on-chain jobs name it, and how many reached delivery. Where
-> something has not been checked, it says so rather than showing a zero.
+> checked. What on-chain jobs name it, and how many the provider marked
+> delivered, which is the provider calling submit and its own claim rather than
+> anything the chain checked. Where something has not been checked, it says so
+> rather than showing a zero.
 >
 > It also shows who paid for those deliveries, which a job count cannot: how
 > many distinct clients there were, whether the largest of them is the agent's
@@ -263,8 +270,10 @@ install. As it stands the text names three: Hyperliquid, 8004scan and Chrome.
 > single client. A person about to fund the next job has none of that from a
 > count.
 >
-> Where a budget has been funded to an address through this project's own
-> escrow, it shows whether that budget was ever drawn against. This is counted
+> Where a spending budget has been funded to an address through this project's
+> own AgentBudgetEscrow, it shows whether that budget was ever drawn against.
+> That contract is a spending mechanism rather than an escrow: an agent draws
+> from a budget without having to deliver anything. This is counted
 > from the contract's Drawn events rather than from its own spent field, because
 > a client reclaiming their money sets spent to the full amount, so a budget
 > taken back reads as one collected.

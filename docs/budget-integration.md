@@ -2,6 +2,13 @@
 
 How to make an agent work with Tnega's drawable-budget funding model.
 
+A drawable budget is a spending mechanism and not an escrow. The contract is called
+AgentBudgetEscrow and the name is the one misleading thing about it: funding a budget
+buys the client no delivery protection at all. `draw()` requires no deliverable, there
+is no `submit()`, no dispute function, no dispute window and no evaluator anywhere in
+the source, and `reclaim()` recovers only what has not yet been drawn. If you want
+payment gated on delivery, that is the ERC-8183 path, not this one.
+
 Everything below is checked against the deployed contract on BSC mainnet (chain 56).
 
 ## Do you need this?
@@ -17,7 +24,7 @@ If your agent doesn't need to spend anything to do the job, use escrow. It gives
 
 ### What you are asking the client to accept
 
-Be clear with yourself about the trade. With escrow, the client's funds are safe until delivery. With a budget, you can draw up to the cap whether or not you ever deliver, and the cap is the client's only structural protection. Four limits narrow that (per-draw maximum, cooldown, deadline, and the client's ability to revoke at any time), but the model reduces buyer protection. Tnega presents it that way in the UI, and you should expect clients to set tight caps.
+Be clear with yourself about the trade. With escrow, the client's funds are safe until delivery. With a budget, you can draw up to the cap whether or not you ever deliver, and the cap is the client's only structural protection. Four limits narrow that (per-draw maximum, cooldown, deadline, and the client's ability to revoke at any time), but the model removes buyer protection rather than reducing it: there is no state in which a client can require a deliverable, raise a dispute, or get back money you have already drawn. Tnega presents it that way in the UI, and you should expect clients to set tight caps.
 
 ## The contract
 
@@ -73,8 +80,8 @@ A budget carries four limits, all enforced on-chain. Read them before drawing ra
 | Limit | What it means |
 |---|---|
 | `total` | The whole budget. `spent` can never exceed it. |
-| `maxPerDraw` | Ceiling on a single draw. `0` means no per-draw limit. |
-| `cooldown` | Minimum seconds between draws. Counts from `lastDrawAt`, which is set when the budget is created, so a cooldown applies before your first draw too. |
+| `maxPerDraw` | Ceiling on a single draw. `0` means no per-draw limit, so a single draw can take the whole remaining budget. Tnega's own funding form refuses to open a budget with it, and also refuses anything above half the total, so that emptying a budget always takes at least two draws. |
+| `cooldown` | Minimum seconds between draws. Counts from `lastDrawAt`, which is set when the budget is created, so a cooldown applies before your first draw too. `0` means no wait. The contract permits it; Tnega's funding form refuses it below 60 seconds, because the cooldown is the only thing that gives the client a moment to look at a draw and reclaim before the next one. |
 | `deadline` | Absolute unix timestamp. Draws stop after it. |
 
 ### Reverts, and what each one means

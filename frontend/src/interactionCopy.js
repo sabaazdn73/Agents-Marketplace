@@ -58,8 +58,14 @@ const COPY = {
     // reference implementation. The line now describes what the buyer can do
     // and is honest that the other half is unknown. The hire panel carries
     // the full warning.
-    line: 'You can fund a budget here, though this agent has not said whether it can draw from one.',
-    detail: 'Nothing leaves your wallet unless it draws, and you can take back whatever is left at any time.',
+    //
+    // The detail line used to end "and you can take back whatever is left at
+    // any time", which is the true half of the sentence standing in for the
+    // whole one. What is left comes back; what was drawn does not, and this
+    // is the line a buyer reads before they reach the panel.
+    line: 'You can fund a spending budget here, though this agent has not said whether it can draw from one.',
+    detail: 'A budget is not an escrow: the agent can draw from it without delivering anything, and only '
+      + 'the undrawn part can be taken back.',
   },
   running_no_hire_path: {
     line: 'It is running, but it is on a chain this marketplace cannot hire on, so you would use it directly with its owner.',

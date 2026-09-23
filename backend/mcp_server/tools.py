@@ -549,7 +549,7 @@ TOOLS = [
                 "chain_id": {"type": "integer"},
                 "category": {"type": "string"},
                 "search": {"type": "string", "description": "Matches name and description."},
-                "verified": {"type": "boolean", "description": "Only agents with a delivered on-chain job."},
+                "verified": {"type": "boolean", "description": "Only agents where an address other than the owner funded an on-chain job that the agent then marked delivered. The marking is the provider calling submit, which is its own claim; nothing checks what was handed over."},
                 "sort": {"type": "string"},
             },
             "required": ["dataset"], "additionalProperties": False,

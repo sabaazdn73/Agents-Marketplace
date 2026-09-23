@@ -62,6 +62,7 @@
 * [Deletion Audit, 2026-09-10](deletion-audit-2026-09-10.md)
 * [Narrowing to Six Chains, 2026-09-11](chain-removal-2026-09-11.md)
 * [Deploying the Escrow to Ethereum](ethereum-escrow-deploy.md)
+* [EIP-7702 and What a Payout Event Means](eip-7702-payee-delegation.md)
 
 ## Proposals and Future Work
 

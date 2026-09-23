@@ -5,7 +5,7 @@
 // the same real, complete data the agent detail page's "Past Hires" panel
 // already reads one owner at a time). One fetch for the whole marketplace,
 // not one request per agent, the data behind the "Most hired" /
-// "Highest success rate" sort options AND the "Only verified working"
+// "Highest success rate" sort options AND the "Only marked delivered"
 // filter. Shared by web and mobile so both rank agents from the exact same
 // numbers.
 //
@@ -25,7 +25,7 @@
 // marketplace's own diversified listing, not a currently-visible agent.
 //
 // robustness gap found and fixed (2026-08-27): a user reported
-// "Only verified working" showing zero agents, even though a direct, live
+// "Only marked delivered" showing zero agents, even though a direct, live
 // recomputation against the same production API at the same time found 17
 // verified agents, the underlying data was fine. Root cause traced
 // to THIS file: on ANY fetch failure (a real, plausible trigger being this

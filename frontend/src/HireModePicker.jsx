@@ -38,14 +38,16 @@ const MODES = [
   {
     id: HIRE_MODE.BUDGET,
     title: 'Spending budget',
-    subtitle: 'for agents that must spend to work',
+    subtitle: 'a spending mechanism, not an escrow',
     icon: Wallet,
     good: [
       'The agent can draw funds as it works, up to a cap you set.',
       'You watch every draw happen live, as it happens.',
       'Per-draw limit, cooldown and deadline are enforced on-chain.',
     ],
-    cost: 'You give up escrow protection. The agent can spend up to your cap without delivering anything, and the cap is your only structural protection.',
+    cost: 'This buys no delivery protection. No deliverable is required to draw, there is no '
+      + 'dispute and no window to raise one in, and money already drawn cannot be recovered. '
+      + 'Your cap is the whole of it.',
   },
 ];
 
@@ -105,8 +107,11 @@ export default function HireModePicker({ value, onChange, budgetAvailable, budge
         })}
       </div>
 
-      {value === HIRE_MODE.BUDGET && !budgetDeclared && <UndeclaredAgentWarning />}
-      {value === HIRE_MODE.BUDGET && <BudgetModeConsequences />}
+      {/* Both the undeclared-agent warning and the consequences block now
+          render from BudgetHirePanel instead, which is the surface that
+          takes the money on every chain rather than only on BNB. They are
+          not repeated here, or a buyer in the BNB flow would read the same
+          four points twice on one screen. */}
     </div>
   );
 }
@@ -145,7 +150,7 @@ export function UndeclaredAgentWarning() {
           </p>
           <p>
             If you want to check first, ask the agent's developer whether it calls{' '}
-            <code className="font-mono text-[10px]">draw()</code> on Tnega's budget escrow. The{' '}
+            <code className="font-mono text-[10px]">draw()</code> on Tnega's AgentBudgetEscrow contract. The{' '}
             <a
               href="/docs/budget-integration" target="_blank" rel="noreferrer"
               className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
@@ -167,8 +172,14 @@ export function UndeclaredAgentWarning() {
  * but it would be a false guarantee: revoke and a draw are two
  * transactions competing for the same block, and whichever is mined first
  * wins. A buyer who believes revoke is instant and absolute would be
- * surprised in exactly the moment they could least afford it. */
-function BudgetModeConsequences() {
+ * surprised in exactly the moment they could least afford it.
+ *
+ * Exported for the same reason UndeclaredAgentWarning was: it used to render
+ * only from the picker, which only the BNB hire flow mounts, so a client
+ * funding a budget from a chain agent page met none of it until after the
+ * money had gone. BudgetHirePanel renders it now, wherever that panel
+ * appears. */
+export function BudgetModeConsequences() {
   return (
     <div className="mt-3 p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/5">
       <div className="flex items-center gap-2 mb-2">
@@ -194,8 +205,13 @@ function BudgetModeConsequences() {
           that money is already spent.
         </li>
         <li>
-          <strong>No dispute process.</strong> There is no delivery to dispute and no
-          arbitration. If the agent spends badly, your recourse is to revoke the remainder.
+          <strong>No dispute and no window.</strong> There is no deliverable to dispute, no
+          arbitration, no evaluator and no review period before money moves. If the agent
+          spends badly, your only recourse is to take back what is left.
+        </li>
+        <li>
+          <strong>Drawn money is gone.</strong> Taking the budget back returns the undrawn
+          remainder and nothing else. There is no refund path for anything already drawn.
         </li>
       </ul>
     </div>

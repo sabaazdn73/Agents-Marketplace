@@ -66,7 +66,7 @@ const BUDGET_ESCROW_BY_CHAIN = {
 /**
  * AgentAccessMarket, per chain. BSC only — it has not been deployed
  * elsewhere. Deliberately NOT given the 42161/4663 entries that share its
- * BSC address, because on those chains that address is the budget escrow.
+ * BSC address, because on those chains that address is AgentBudgetEscrow.
  */
 const AGENT_MARKET_BY_CHAIN = {
   56: '0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333',

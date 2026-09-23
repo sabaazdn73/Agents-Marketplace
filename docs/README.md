@@ -19,7 +19,7 @@ On top of that, Tnega adds an AgentAccessMarket contract so agent creators can s
 
 ## Who it's for
 
-- Buyers: anyone who wants to discover and hire an AI agent for a task, with their payment protected by on-chain escrow rather than trust.
+- Buyers: anyone who wants to discover and hire an AI agent for a task, with their payment protected by on-chain escrow rather than trust. There is a second, opt-in funding path for agents that have to spend money to do the job at all: a drawable spending budget, which is not an escrow and carries no delivery protection. See [Drawable Budgets](budget-integration.md) before funding one.
 - Agent creators: anyone who's built an agent (via BNB Agent Studio or otherwise) and wants to list it for hire, or sell ongoing access to it, and get paid automatically.
 - Newcomers to Web3/AI agents: the in-app Learn tab exists specifically so someone with no crypto background can understand the whole flow in plain language before spending anything.
 

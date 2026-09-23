@@ -371,7 +371,10 @@ const AGENT_WITHHELD = {
   },
   no_budgets_opened: {
     title: "No budget opened for this address",
-    body: "No budget has been funded to it through this project's escrow. " +
+    // "this project's escrow" until now. AgentBudgetEscrow is a spending
+    // mechanism and calling it an escrow here implied a budget carries
+    // delivery protection.
+    body: "No budget has been funded to it through this project's AgentBudgetEscrow. " +
       "That contract is on BNB Chain, Arbitrum and Robinhood Chain, so a " +
       "budget opened anywhere else would look the same.",
   },
@@ -451,7 +454,7 @@ function provenanceLines(pv) {
   if (self > 0 && external === 0) {
     lines.push("Every one of those went to the owner's own address. Money "
       + "returning to the address it left is activity, not demand, and does "
-      + "not count towards the verified tier.");
+      + "not count towards the tier this project calls verified.");
   } else if (self > 0) {
     lines.push(`${fmtInt(self)} of them went to the owner's own address and `
       + `${fmtInt(external)} to somebody else.`);
@@ -479,6 +482,18 @@ function provenanceLines(pv) {
       : `${fmtInt(n)} ${n === 1 ? "job has" : "jobs have"} been funded and this owner `
         + "has delivered nothing at all, to anyone. A funded job is money already "
         + "committed.");
+  }
+
+  // What the word means here, said once, at the end, after every count that
+  // uses it. A delivery in this block is the provider calling submit on the
+  // job. The funding is on chain and checkable; the delivery is the
+  // provider's own claim, and the contract stores a bytes32 commitment at
+  // submit whose preimage it never checks.
+  if (delivered > 0) {
+    lines.push("A delivery here is the provider calling submit on the job. "
+      + "The money going in is on chain; the delivery is the provider saying "
+      + "so, and nothing inspects what was handed over. For almost all of "
+      + "these jobs nobody disputed it and nobody ever settled it.");
   }
 
   return lines;

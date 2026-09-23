@@ -59,7 +59,7 @@ import { useBudgetModeStatus } from './budgetEscrow';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
-import { getVerificationTier, VERIFICATION_TIER, withVerificationTierFirst } from './agentVerification';
+import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL_SHORT, VERIFIED_MEANING, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
 import DeliveryProvenance from './DeliveryProvenance';
@@ -1141,7 +1141,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       there are more agents out there, we're just not cluttering your view with lookalikes.</>
                     ) },
                     { label: 'On-chain Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'On-chain ERC-8004 feedback entries recorded against these agents. Counts only, no written text and no star rating, so there is nothing to read behind the number. Most of it comes from one automated cluster rather than many independent buyers.' },
-                    { label: 'Verified', value: stats.verified, icon: Users, color: '#7C3AED', hint: "Has at least one on-chain-confirmed delivered job, rather than only being registered (see 'How we verify agents' below)" },
+                    { label: VERIFICATION_LABEL_SHORT[VERIFICATION_TIER.VERIFIED], value: stats.verified, icon: Users, color: '#7C3AED', hint: `${VERIFIED_MEANING} (see 'How we verify agents' below)` },
                   ].map((c) => {
                     const Icon = c.icon;
                     return (
@@ -1207,9 +1207,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
                         : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
                     }`}
-                    title="Only show agents with at least one confirmed delivered job"
+                    title={VERIFIED_MEANING}
                   >
-                    {onlyVerified ? '✓ ' : ''}Only verified working
+                    {onlyVerified ? '✓ ' : ''}Only {VERIFICATION_LABEL_SHORT[VERIFICATION_TIER.VERIFIED].toLowerCase()}
                   </button>
                   <button
                     onClick={() => setOnlyResponding((v) => !v)}
@@ -1337,7 +1337,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <div className="text-center py-14 px-5">
                     <p className="font-semibold mb-1">No agents match these filters</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Try widening them, "Verified working" in particular matches only a small share of agents.
+                      Try widening them, "Only marked delivered" in particular matches only a small share of agents.
                     </p>
                     <button
                       onClick={() => { setActiveGroup('All'); setActiveCategory('All'); setOnlyResponding(false); setOnlyVerified(false); }}
@@ -1407,9 +1407,14 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                         {agent.session ? (
                           <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
+                            {/* Parity with web. "Spent: $undefined" is what
+                                this rendered: `session.spendUtilized` is
+                                assigned nowhere, and on the ERC-8183 path
+                                there is no drawn-down amount to assign,
+                                since the whole sum is held until delivery. */}
                             <div className="flex justify-between text-xs mb-2 text-gray-600 dark:text-gray-400">
-                              <span>Spent: ${agent.session.spendUtilized}</span>
-                              <span>Limit: ${agent.session.spendCap}</span>
+                              <span>On hold until it delivers</span>
+                              <span className="font-medium tabular-nums">${agent.session.spendCap}</span>
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); setAgents(prev => prev.map(a => a.id === agent.id ? { ...a, session: null } : a)); }} className="w-full py-3 rounded-xl text-sm font-bold text-red-600 bg-red-50 dark:bg-red-500/10">
                               Turn off access

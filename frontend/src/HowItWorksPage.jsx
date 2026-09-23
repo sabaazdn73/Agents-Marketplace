@@ -515,8 +515,9 @@ export default function HowItWorksPage({ variant = 'web' }) {
           <HowItWorksFlow compact={small} steps={[
             {
               title: 'Open Explore and filter',
-              body: 'Filter by what an agent does, or by tier. "Only verified working" leaves the '
-                + 'ones with an on-chain job from a buyer who is not their own owner.',
+              body: 'Filter by what an agent does, or by tier. "Only marked delivered" leaves the '
+                + 'ones where a buyer who is not their own owner funded an on-chain job and the '
+                + 'agent then marked it delivered.',
             },
             {
               title: 'Open one and read the evidence',
@@ -527,9 +528,12 @@ export default function HowItWorksPage({ variant = 'web' }) {
             },
             {
               title: 'Check what the tier does not say',
-              body: 'Verified means at least one delivery to somebody other than the owner. It '
-                + 'does not mean the work was good, that several buyers wanted it, or that the '
-                + 'buyer was unrelated. The limits are written down rather than implied.',
+              body: 'The top tier means somebody other than the owner funded a job and the agent '
+                + 'then marked it delivered, which is the agent\u2019s own claim. For almost all '
+                + 'of these jobs nobody disputed it and nobody ever settled it. It does not mean '
+                + 'the work was good, that anyone looked at what was handed over, that several '
+                + 'buyers wanted it, or that the buyer was unrelated. The limits are written down '
+                + 'rather than implied.',
             },
             {
               title: 'Hire, with the money held',
@@ -963,8 +967,8 @@ export default function HowItWorksPage({ variant = 'web' }) {
           Registering is a transaction. It costs a few cents and proves nothing about whether the
           agent answers, delivers, or has ever been paid by anyone. This site lists{' '}
           {AGENTS_LISTED.toLocaleString()} agents. {AGENTS_VERIFIED} of them, held between{' '}
-          {VERIFIED_OWNERS} wallets, have an on-chain job from a buyer who is not their own owner.
-          That is {VERIFIED_SHARE} of the list.
+          {VERIFIED_OWNERS} wallets, have an on-chain job funded by a buyer who is not their own
+          owner and then marked delivered by the agent. That is {VERIFIED_SHARE} of the list.
         </p>
         <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300 mt-2`}>
           Tnega measures that before anyone pays. It reads the chains, polls the venues, and
@@ -972,9 +976,11 @@ export default function HowItWorksPage({ variant = 'web' }) {
           enough to state a figure, it states the reason instead of a zero.
         </p>
         <p className={`${compact ? 'text-[11px]' : 'text-[12px]'} leading-relaxed text-gray-500 dark:text-gray-400 mt-3`}>
-          What that {AGENTS_VERIFIED} does not mean: that the work was any good, that several
-          buyers wanted it, or that the buyer was unrelated to the seller. It means one delivery
-          reached somebody other than the owner. Behind the whole set are{' '}
+          What that {AGENTS_VERIFIED} does not mean: that the work was any good, that anybody
+          looked at what was handed over, that several buyers wanted it, or that the buyer was
+          unrelated to the seller. It means one job somebody else funded, which the agent then
+          marked delivered and which, in almost every case, nobody disputed and nobody ever
+          settled. Behind the whole set are{' '}
           {VERIFIED_CLIENTS} distinct buyer wallets, and {VERIFIED_ONE_CLIENT} of the{' '}
           {VERIFIED_OWNERS} owners were paid by exactly one of them. The count is also a
           measurement of what is being shown: it moved from 27 to 20 to 31 in nine hours on

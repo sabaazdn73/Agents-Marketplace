@@ -242,7 +242,10 @@ def counts_reply(summary: dict) -> str:
             lines.append(f"<i>Categories sum to {total:,}, not {matched:,}. "
                          f"The difference is unclassified rather than missing.</i>")
     lines.append("")
-    lines.append("<i>Verified means one on-chain job from a buyer other than the "
-                 "owner reached SUBMITTED or COMPLETED. It counts wallets that "
-                 "paid, not independent agents.</i>")
+    lines.append("<i>The verified tier means an address other than the owner "
+                 "funded an on-chain job and the agent then marked it "
+                 "delivered. Marking it delivered is the agent's own claim, "
+                 "and for almost all of these jobs nobody disputed it and "
+                 "nobody ever settled it. It counts wallets that paid, not "
+                 "independent agents.</i>")
     return "\n".join(lines)

@@ -137,7 +137,10 @@ def build_router(providers) -> APIRouter:
             rec = await d.get(m.group(1))
             if not rec:
                 return render.withheld_block("not_found")
-            head = f"<b>{render.esc(render.short(m.group(1)))}</b> · Budget escrow\n\n"
+            # "Budget escrow" until now. The dataset id says escrow and the
+            # contract's name says escrow; neither makes it one, and this
+            # header is all a bot reader gets.
+            head = f"<b>{render.esc(render.short(m.group(1)))}</b> · Spending budgets\n\n"
             # sample_too_small is this dataset's withheld reason in all but
             # name: it nulls the rate and says why in a different field. Read
             # both, so the bot cannot be the surface that shows a null rate
@@ -150,7 +153,13 @@ def build_router(providers) -> APIRouter:
             return (head + body + "\n\n"
                     + render.esc(f"Funded {rec.get('budgets_funded', 0)} · "
                                  f"drawn from {rec.get('budgets_drawn_from', 0)} · "
-                                 f"never drawn {rec.get('budgets_never_drawn', 0)}"))
+                                 f"never drawn {rec.get('budgets_never_drawn', 0)}")
+                    # Matches the caveat line the /jobs block already carries.
+                    # A drawn budget is money taken, never work received.
+                    + "\n\n<i>A spending budget is not an escrow: the agent draws "
+                      "without having to deliver, and only the undrawn part can be "
+                      "taken back. Drawn from means money was taken, not that "
+                      "anything arrived.</i>")
 
         if re.match(r"^/counts", t):
             d = datasets.get("agents.index")

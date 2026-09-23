@@ -49,7 +49,7 @@ import { useBudgetModeStatus } from './budgetEscrow';
 import { useAgentPerformanceBulk } from './useAgentPerformanceBulk';
 import { useCanaryStatus } from './useCanaryStatus';
 import { withPerformance, withCanaryStatus, performanceComparator, agentHasRealHistory } from './agentRanking';
-import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, withVerificationTierFirst } from './agentVerification';
+import { getVerificationTier, VERIFICATION_TIER, VERIFICATION_LABEL, VERIFICATION_LABEL_SHORT, VERIFIED_MEANING, withVerificationTierFirst } from './agentVerification';
 import VerificationBadge, { VerificationTierDivider } from './VerificationBadge';
 import VerificationExplainerSection from './VerificationExplainerSection';
 import DeliveryProvenance from './DeliveryProvenance';
@@ -1270,16 +1270,17 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           counts only. They carry no written text and no star rating, so there's
                           nothing to read behind the number. Most of it also comes from one automated
  cluster rather than many independent buyers. For evidence an agent actually
-                          works, use "Verified Agents" instead, which means a completed job.
+                          works, use the "Marked delivered" count instead: a buyer other than the owner funded
+                          an on-chain job and the agent then marked it delivered.
                         </InfoTooltip>
                       </div>
                     </div>
                   </div>
-                  <div title="Has at least one on-chain-confirmed delivered job, not just registered on-chain (see 'How we verify agents' below)" className="px-4 py-3 flex items-center justify-center gap-3">
+                  <div title={`${VERIFIED_MEANING} (see 'How we verify agents' below)`} className="px-4 py-3 flex items-center justify-center gap-3">
                     <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0"><Users size={18} /></div>
                     <div>
                       {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.verified.toLocaleString()}</div> : <StatSkeleton />}
-                      <div className="text-xs text-gray-500 font-medium">Verified Agents</div>
+                      <div className="text-xs text-gray-500 font-medium">{VERIFICATION_LABEL_SHORT[VERIFICATION_TIER.VERIFIED]}</div>
                     </div>
                   </div>
                 </div>
@@ -1326,7 +1327,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     <select
                       value={sortState.key}
                       onChange={(e) => handleSortSelect(e.target.value)}
-                      title="Verified working agents always rank first (see the badges info above). Within that, agents with a hire history come before those without, and the two groups stay separate"
+                      title="Buyer-funded, marked-delivered agents always rank first (see the badges info above). Within that, agents with a hire history come before those without, and the two groups stay separate"
                       className="px-3 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] dark:text-gray-300 outline-none"
                     >
                       <option value="totalScore">Sort: Top score</option>
@@ -1349,9 +1350,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
                         : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
-                    title="Only show agents with at least one confirmed delivered job"
+                    title={VERIFIED_MEANING}
                   >
-                    {onlyVerified ? '✓ ' : ''}Only verified working
+                    {onlyVerified ? '✓ ' : ''}Only {VERIFICATION_LABEL_SHORT[VERIFICATION_TIER.VERIFIED].toLowerCase()}
                   </button>
                   <button
                     onClick={() => setOnlyResponding((v) => !v)}
@@ -1376,7 +1377,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 {perfStatus === 'error' && (
                   <div className="mt-2 flex items-center gap-2 text-[11px] text-amber-700 dark:text-amber-400">
                     <AlertTriangle size={12} className="shrink-0" />
-                    Couldn't load verification and hire-history data, so "Only verified working", "Most hired" and "Highest success rate" may be inaccurate right now.
+                    Couldn't load verification and hire-history data, so "Only marked delivered", "Most hired" and "Highest success rate" may be inaccurate right now.
                     <button onClick={retryPerf} className="underline font-medium">Try again</button>
                   </div>
                 )}
@@ -1538,7 +1539,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <div className="text-center py-16 px-6">
                   <p className="font-semibold mb-1">No agents match these filters</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Try widening them, "Verified working" in particular matches only a small share of agents.
+                    Try widening them, "Only marked delivered" in particular matches only a small share of agents.
                   </p>
                   <button
                     onClick={() => { setActiveGroup('All'); setActiveCategory('All'); setOnlyResponding(false); setOnlyVerified(false); }}
@@ -1723,14 +1724,21 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                             <div className="flex justify-between items-center mb-3 text-xs">
                               <span className="font-semibold flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400"><ShieldAlert size={14} /> You've given this agent access</span>
                             </div>
-                            <div className="mb-4">
-                              <div className="flex justify-between text-[11px] mb-1.5 text-gray-600 dark:text-gray-400">
-                                <span>Money spent so far</span>
-                                <span className="font-medium">${agent.session.spendUtilized} / ${agent.session.spendCap}</span>
-                              </div>
-                              <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(agent.session.spendUtilized / agent.session.spendCap) * 100}%` }} />
-                              </div>
+                            {/* This was a "Money spent so far" meter reading
+                                `session.spendUtilized / session.spendCap`.
+                                `spendUtilized` is assigned nowhere in this
+                                repo, so it rendered "$undefined / $50000"
+                                over a bar of width NaN%. It could not be
+                                fixed by finding the field, because there is
+                                no such quantity to find: this is the
+                                ERC-8183 path, where the whole amount sits in
+                                escrow until delivery and nothing is drawn
+                                down. A utilisation bar describes a budget,
+                                not a job. What is known is the amount on
+                                hold and the state, so that is what it says. */}
+                            <div className="mb-4 flex justify-between text-[11px] text-gray-600 dark:text-gray-400">
+                              <span>On hold until this agent delivers</span>
+                              <span className="font-medium tabular-nums">${agent.session.spendCap}</span>
                             </div>
                             <button onClick={() => handleRevoke(agent.id)} className="w-full py-2.5 rounded-xl text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-500/10 dark:hover:bg-red-500/20 transition-colors">Turn off access</button>
                           </div>

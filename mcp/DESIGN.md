@@ -19,7 +19,7 @@ Six bodies of measurement, all already served by `core/`:
 | Agent evaluation | `core/agent_evaluation.py`, `core/agent_performance.py`, `core/agent_health.py` | per-agent scoring, liveness, provider stats |
 | ERC-8183 jobs | `core/job_index.py` | the job index, provider revenue, per-provider stats |
 | Hyperliquid | `core/hyperliquid/service.py` | post-only rejection, coverage, WebSocket buckets |
-| Budget and escrow | `core/budget_index.py`, `core/escrow_compat_audit.py`, `core/protocol_compat.py` | budget state per chain, escrow compatibility |
+| Spending budgets and escrow | `core/budget_index.py`, `core/escrow_compat_audit.py`, `core/protocol_compat.py` | budget state per chain, escrow compatibility. The budget contract is a spending mechanism; the ERC-8183 one is the escrow |
 | Chain views | `core/chain_views.py`, `core/chain_capabilities.py` | the five chains, Robinhood stock tokens among them |
 
 The REST surface over those is 64 routes. That number is the warning. It grew
@@ -222,7 +222,7 @@ Exposed on day one, read only:
 
 The agent index and its evaluation across five chains, the ERC-8183 job index
 and provider stats, the Hyperliquid post-only measurements and their coverage,
-budget and escrow state, escrow compatibility, the chain views including the
+spending-budget and escrow state, escrow compatibility, the chain views including the
 Robinhood stock token work, and the service status and data source records.
 
 Held back, with the reason:

@@ -268,12 +268,20 @@ def build(providers) -> dict[str, Dataset]:
         get=agents_get,
         list=agents_list,
         summary=agents_summary,
-        caveats=["verified means at least one on-chain job from a buyer other "
-                 "than the agent's own owner reached SUBMITTED or COMPLETED. "
-                 "Settlement is optimistic, so an undisputed SUBMITTED job is a "
-                 "delivery that has not been settled yet: it does not mean a "
-                 "job was completed. The evidence is delivered_external in "
-                 "jobs.erc8183 for the same owner address.",
+        caveats=["the tier id verified reads, in full: an address other than "
+                 "the owner funded an on-chain job, and the agent then marked "
+                 "it delivered. Marking it delivered is the provider calling "
+                 "submit, which is the provider's own claim, and the tier "
+                 "attaches the moment that lands. For almost all of these jobs "
+                 "nobody disputed it and nobody ever settled it: settle is "
+                 "permissionless once the dispute window elapses but nothing "
+                 "calls it, so SUBMITTED is usually the end state rather than a "
+                 "stage. Nothing inspects what was handed over: submit stores a "
+                 "bytes32 commitment and the contract never checks its "
+                 "preimage. The evidence is delivered_external "
+                 "in jobs.erc8183 for the same owner address. The id stays "
+                 "verified so existing filters keep working; the label shown to "
+                 "people reads Buyer-funded, marked delivered.",
                  "Jobs an owner funds for its own agent are counted as activity "
                  "and never as verification. Enforcing that on 2026-09-16 moved "
                  "the BNB verified count from 29 to 27; "
@@ -321,9 +329,20 @@ def build(providers) -> dict[str, Dataset]:
                  "and leaves no trace in fills, so it is invisible in volume.",
                  "coverage.polls_with_gap counts polls where orders happened "
                  "between the end of the previous window and the start of this "
-                 "one, so the sample is not contiguous. It runs around 60% of "
-                 "polls. Rates are pooled counts over what was seen, which a "
-                 "gap makes an undercount of activity rather than a wrong rate.",
+                 "one, so the sample is not contiguous. Measured 2026-09-23 it "
+                 "is 72.6% of polls, 20,803 of 28,648. The figure here read "
+                 "'around 60%' until that date, which was the share when it "
+                 "was written. Rates are pooled counts over what was seen, "
+                 "which a gap makes an undercount of activity rather than a "
+                 "wrong rate.",
+                 "polls_with_gap can only see orders that happened BETWEEN "
+                 "polls. It is computed from the first and last order "
+                 "timestamps in each poll and counted only when positive, so a "
+                 "poll returning exactly the records its predecessor returned "
+                 "moves neither boundary, comes out negative, and is recorded "
+                 "as not gapped. A run of polls that brought back no new "
+                 "orders at all is therefore indistinguishable here from "
+                 "perfect contiguous coverage.",
                  "The series comes from the WebSocket feed, which carries no "
                  "tif. Its denominator is all order updates, not post-only "
                  "orders, so its ratio is not the same quantity as the rate."],
@@ -407,6 +426,10 @@ def build(providers) -> dict[str, Dataset]:
                 "budget": j.get("budget"),
                 "submitted_at": j.get("submittedAt"),
                 "expired_at": j.get("expiredAt"),
+                # The bytes32 passed to submit. None means the index has not
+                # read it for this job yet, which is not the same as the zero
+                # word, which means the provider committed nothing.
+                "deliverable": j.get("deliverable"),
             } for j in page],
             "total": out.get("total"),
             "partial": False,
@@ -428,10 +451,22 @@ def build(providers) -> dict[str, Dataset]:
                  "budget is the amount escrowed for the job in the contract's "
                  "own units, not a settled payment. A job that never completed "
                  "still carries one.",
-                 "completed and submitted are different states. SUBMITTED means "
-                 "the work was delivered and settlement has not happened, which "
-                 "is what the verified tier rests on; it is counted in active "
-                 "as well, so active alone cannot tell delivery from silence.",
+                 "completed and submitted are different states. SUBMITTED "
+                 "means the provider called submit and settlement has not "
+                 "happened, which is what the verified tier rests on; it is "
+                 "counted in active as well, so active alone cannot tell a "
+                 "submission from silence.",
+                 "deliverable is field eleven of the job tuple, the bytes32 "
+                 "passed to submit. It is not evidence of delivery: the "
+                 "contract checks no preimage, so the value need not be the "
+                 "digest of anything, nothing need have been published, and no "
+                 "client need have received it. Nor does its presence add "
+                 "anything to status. Measured over all 56,798 jobs on "
+                 "2026-09-23, every job at SUBMITTED or COMPLETED carries a "
+                 "non-zero value and no job short of submit carries one, "
+                 "because the same call writes both. The exception, and the "
+                 "only place the field says more than status, is 8 EXPIRED "
+                 "jobs that carry a commitment.",
                  "Indexed from chain logs in batches, so the index can trail "
                  "the chain. index_complete describes the last run, whose time "
                  "is in coverage.last_run_at, not this moment."],
@@ -454,7 +489,7 @@ def build(providers) -> dict[str, Dataset]:
 
     datasets.append(Dataset(
         id="budgets.escrow",
-        title="Budget escrow",
+        title="Spending budgets",
         measures="budgets funded to agents, what was drawn against them, and "
                  "what was reclaimed",
         keys=["agent address"],
@@ -463,7 +498,17 @@ def build(providers) -> dict[str, Dataset]:
         caveats=["A rate is withheld below the minimum sample rather than "
                  "computed from a few budgets.",
                  "Spend is counted from Drawn events. The contract's own spent "
-                 "field is overwritten by a reclaim and does not mean delivery."],
+                 "field is overwritten by a reclaim and does not mean delivery.",
+                 # The dataset id and the contract name both say "escrow",
+                 # and a client reading only those would draw the wrong
+                 # conclusion about what a drawn budget implies.
+                 "AgentBudgetEscrow is a spending mechanism and not an escrow, "
+                 "whatever its name suggests. draw() requires no deliverable, "
+                 "there is no dispute function and no window, and reclaim() "
+                 "recovers only what has not been drawn. A budget drawn from "
+                 "records that the agent took money, never that anything was "
+                 "delivered. Delivery-gated payment on this project is the "
+                 "ERC-8183 path in jobs.erc8183, which is BNB Chain only."],
     ))
 
     # ── agents on the other chains ────────────────────────────────────────

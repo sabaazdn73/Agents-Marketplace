@@ -9,7 +9,7 @@ Most of what follows is on BSC mainnet (chain 56), which is where this project s
 | Contract | Address | Role |
 |---|---|---|
 | AgentAccessMarket | [`0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333`](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Tnega's own "Sell Your Agent" contract. Deployed and BscScan source-verified. |
-| AgentBudgetEscrow | [`0x4728f03693DDABbe50E79c7BfFCb930e522D585B`](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Tnega's own drawable-budget contract: a client funds a budget and an agent draws against it as it works. |
+| AgentBudgetEscrow | [`0x4728f03693DDABbe50E79c7BfFCb930e522D585B`](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Tnega's own drawable-budget contract: a client funds a budget and an agent draws against it as it works. A spending mechanism, not an escrow despite the name: drawing requires no deliverable and there is no dispute. |
 
 
 ## The same address is not the same contract
@@ -33,8 +33,8 @@ chain on 2026-09-12: all three answer on all four chains, with the same owner
 and the same 250 / 1000. So a defensive "is our contract here?" probe passes
 while pointing at the wrong contract, and the mistake surfaces only when a
 write reverts, or in the worst case does not. An ERC-20 `approve()` sent to
-that address on Arbitrum would be a real allowance granted to the budget
-escrow rather than the market, with nothing to notice at the time.
+that address on Arbitrum would be a working allowance granted to
+AgentBudgetEscrow rather than the market, with nothing to notice at the time.
 
 **The rule:** every address is resolved per chain, from
 `frontend/src/chainContracts.js` on the client and `BUDGET_HIRE_CHAIN_IDS` /
@@ -64,7 +64,7 @@ Explorer: [BscScan](https://bscscan.com). Native token: BNB.
 | ERC-8183 AgenticCommerce | [`0xEa4DAa31…EBA6`](https://bscscan.com/address/0xEa4DAa3100A767e86FDed867729ae7446476EBA6) | The escrow that holds your payment while an agent works, and releases it when the work is delivered. Altana's contract, not ours. BNB Chain only. |
 | ERC-8183 EvaluatorRouter | [`0x51895229…D6DA`](https://bscscan.com/address/0x51895229E12F9876011789B04f8698af06cCD6DA) | Decides which rule settles a given job. |
 | ERC-8183 OptimisticPolicy | [`0x9C018457…6dE5`](https://bscscan.com/address/0x9C01845705b3078Aa2e8cfF7520a6376FD766dE5) | The default settlement rule: if nobody disputes inside the review window, the work counts as accepted. |
-| AgentBudgetEscrow | [`0x4728f036…585B`](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Ours. A spending limit you set: the agent draws from it as it works and can never take more than you allowed. |
+| AgentBudgetEscrow | [`0x4728f036…585B`](https://bscscan.com/address/0x4728f03693DDABbe50E79c7BfFCb930e522D585B) | Ours. A spending mechanism, not an escrow despite the name: a spending limit you set, which the agent draws from as it works without having to deliver anything. It can never take more than you allowed, and nothing it has already taken can be recovered. |
 | AgentAccessMarket | [`0x9dbA8EbB…1333`](https://bscscan.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Ours. The "Sell Your Agent" contract: list an agent for sale as a one-off licence or a subscription. |
 | `$U` (United Stables) | [`0xcE24439F…6666`](https://bscscan.com/address/0xcE24439F2D9C6a2289F741120FE202248B666666) | The token ERC-8183 settles in. 18 decimals. |
 | USDT (BSC-USD) | [`0x55d39832…7955`](https://bscscan.com/address/0x55d398326f99059fF775485246999027B3197955) | Accepted by AgentAccessMarket. |
@@ -152,9 +152,15 @@ All four AgentBudgetEscrow deployments share one owner,
 | Budget hiring | AgentBudgetEscrow | BNB Chain, Ethereum, Arbitrum, Robinhood Chain | Ours |
 
 The difference in plain terms: escrow hiring pays for one job and holds the
-money until that job is delivered. Budget hiring sets a spending limit the
-agent draws down as it works, which suits an agent that has to spend to do its
-job rather than deliver one result.
+money until that job is delivered, with a dispute window before settlement.
+Budget hiring sets a spending limit the agent draws down as it works, which
+suits an agent that has to spend to do its job rather than deliver one result.
+
+The difference in protection, which matters more when choosing: the ERC-8183
+path gates payment on an on-chain deliverable and gives the buyer a dispute
+function, a window, a neutral evaluator and a refund claim. The budget path has
+none of those. It is a spending mechanism, and a buyer who funds one is buying
+the agent's ability to spend, not a promise of delivery.
 
 BNB testnet (97) is deliberately excluded even though ERC-8183 exists there:
 no testnet value may be reachable from a production path.
@@ -201,6 +207,15 @@ The client opens a budget with a total, a per-draw maximum, a deadline and a
 cooldown between draws. The agent draws as it works. The platform fee is
 taken per draw rather than once up front, so an unused budget generates no
 fee and the client reclaims the whole remainder.
+
+Nothing in the contract asks the agent to deliver. `draw()` checks the four
+limits and the caller's address; it takes an amount and a free-form memo, and
+it records neither a deliverable nor a hash of one. There is no `submit()`,
+no `dispute()`, no window and no evaluator. `reclaim()` returns
+`total - spent`, so what the agent has drawn is not recoverable by anyone. The
+four limits are the buyer's whole position, which is why the funding form
+refuses the two settings that flatten them: `maxPerDraw` of 0 and a `cooldown`
+of 0 together make a budget that empties in a single transaction.
 
 Fees accrue inside the contract and are withdrawn separately through
 `withdrawFees`, callable only by the owner or the fee wallet. Withdrawing

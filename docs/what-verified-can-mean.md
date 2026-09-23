@@ -169,6 +169,101 @@ The general rule, which is the reason this is in this file: a claim that rests
 on somebody else's registry has to name the registry, or the first reader who
 checks somewhere else is entitled to conclude we made it up.
 
+## The badge now says what it measures, and field eleven turned out to be empty of information
+
+Added 2026-09-23. This page predicted that the useful change would be about
+what the badge says rather than about who qualifies for it. That change is now
+made, and a second one that was expected to be uncomfortable turned out to be
+merely null, which is worth recording for the same reason as everything else
+here.
+
+The label. The tier is shown as "Buyer-funded, marked delivered" instead of
+"Verified working". The rule did not change and nobody gained or lost the tier;
+the ids did not change either, because callers filter on the string `verified`
+and nothing keys on the label. Beside it, everywhere there is room for a
+sentence, sits one shared constant: an address other than the owner funded an
+on-chain job, and the agent then marked it delivered; the tier counts that from
+the moment the agent submits, which is the agent's own claim; nothing checks
+what was handed over, and for almost all of these jobs nobody disputed it and
+nobody ever settled it.
+
+That last clause replaced a draft that said the dispute window was still open,
+which is what the tier's shape suggests and not what the chain says. Of 27,177
+jobs at `SUBMITTED`, exactly one is still inside its window. The other 27,176
+saw it elapse, median 97 days ago, and `settle()` was never called by anyone,
+though after the window anyone may call it. So the tier's weakness is not that
+judgment is pending. It is that judgment never comes: `SUBMITTED` is the end
+state, not a stage.
+
+Field eleven. `getJob` returns a `deliverable`, a bytes32 content commitment
+written when a provider calls submit, and this project had never stored it. It
+is stored now and backfilled over all 56,798 jobs. The expected finding was a
+population of submissions committing the zero word, that is, claiming delivery
+while committing to nothing. There are none. Every one of the 55,436 jobs at
+`SUBMITTED` or `COMPLETED` carries a distinct non-zero value, and no job short
+of submit carries one.
+
+That reads as good news and is not news at all. The commitment is written by the
+same contract call that sets the status, so "has a content commitment" and "is
+at SUBMITTED or later" are the same fact said twice. The field cannot separate
+two delivered jobs, cannot move any agent between tiers, and adds nothing to the
+tier's evidence. It is indexed for completeness. The single exception, and the
+only place it says more than `status` does, is 8 of the 35 `EXPIRED` jobs, all
+from one provider, which carry a commitment: submitted, then expired unsettled.
+
+### The job index has no guarantee of catching up, and the gap is growing
+
+One more thing the backfill exposed, which is about this project rather than the
+contract. Reading every job from the chain gave 28,259 `COMPLETED`, 27,177
+`SUBMITTED` and 35 `EXPIRED`. The stored index at the same moment held 28,220,
+27,224 and 12: 39 completions short, 47 submissions long, 23 expiries short.
+
+The first instinct is to call that a backlog and expect it to clear. It will
+not. `run_index_batch`'s re-check pass selects with
+`find({"status": {"$nin": terminal}}).limit(CHUNK * 5)`, 1,500 ids, and that
+query carries no sort and no checkpoint. The forward pass has `next_job_id` and
+the backfill written on 2026-09-23 has `deliverable_backfill_next_id`; the pass
+sitting between them has neither, so nothing makes any particular id come up a
+second time.
+
+That would still drain if the candidate set drained. It does not. There are
+28,498 non-terminal jobs, and roughly 27,000 of them are parked at `SUBMITTED`
+forever, because `settle()` is permissionless after the dispute window and
+nobody calls it. They never become terminal, so they never leave the query, and
+they hold the 1,500 slots permanently. The ratio is 19 to 1 today and gets worse
+with every new job that parks at `SUBMITTED`. So the candidate set is not a
+queue that is merely long; it has no drain.
+
+The observed pattern fits. Every expiry the index is missing sits at a high job
+id: the eight from `0xdfc1761378…` at ids 56,685 to 56,713, plus singles at
+56,634, 56,647, 56,656, 56,665, 56,666, 56,745, 56,748, 56,776, 56,778, 56,779
+and 56,781. The expiries it does hold are ancient, at ids 29 and 118, or at or
+below 56,681. The lowest 1,500 non-terminal ids span 1 to 29,684, so a pass that
+kept returning that same prefix would never reach the band where every recent
+transition lives.
+
+Two claims of different strength, kept apart, because this section exists to
+record a number that claimed more than it could support and must not do the same
+thing itself. Certain, from the source: the pass has no sort and no checkpoint,
+so it carries no guarantee that any particular id is ever revisited. Inferred,
+from the ids above: that it is in fact returning the same prefix every run.
+MongoDB leaves the order of an unsorted `find` unspecified, and the pass has not
+been instrumented to confirm which ids come back, so the id evidence is
+consistent with a stable order without establishing one. The absence of a
+guarantee holds either way, and it is the half the fix below addresses.
+
+Every count this project publishes off the job index inherits this, and it drifts
+in one direction: toward showing delivery as still open after the chain has
+closed it.
+
+The fix, named here so it is not rediscovered as a new finding: sort the
+re-check `find` by `_id` and carry a `recheck_next_id` cursor in the same
+progress document, wrapping at the end exactly as the deliverable backfill does.
+That pattern is already written twice in `core/job_index.py`, so it is about ten
+lines. It was deliberately not done on 2026-09-23: it moves every count the
+project publishes, and the pass it would have landed in had the discipline that
+nobody gains or loses the tier.
+
 ## What to re-measure
 
 The figures at the top, and the figure that matters most, which is the number
