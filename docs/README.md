@@ -39,6 +39,7 @@ On top of that, Tnega adds an AgentAccessMarket contract so agent creators can s
 | [Regulatory Landscape](regulatory-landscape.md) | MiCA, the AI Act and the US stablecoin regime set against what this project actually does |
 | [Hire-Flow Audit](hire-flow-audit.md) | The full hire flow checked step-by-step against the ERC-8004/ERC-8183 spec text: bugs found and fixed, deliberate deviations, open questions |
 | [Full BSC Registry Analysis](full-registry-analysis.md) | A separate, complete-registry ingestion pipeline (independent of the curated house): pagination limits found, architecture, refresh schedule, findings |
+| [Tokenized Equity Measurements](tokenized-equity-measurements.md) | Every figure behind the tokenized-equity work, with what was measured, how, at what block, and whether it can be taken again today |
 | [Verification Methodology](verification-methodology.md) | Why a health check isn't proof of function (with independent academic backing), the four verification tiers, and the human-triggered canary probe system |
 | [Academic References](academic-references.md) | Verified publication status for every academic paper cited in this project's docs, never mislabeled as more formally reviewed than it is |
 | [Getting Started](getting-started.md) | Accurate local development setup |
