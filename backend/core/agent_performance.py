@@ -31,9 +31,11 @@ has no jobs in the window, the response honestly reports zero hires,
 expected for a new marketplace, rather than a fabricated number.
 """
 
+import json
 import os
 import time
 import httpx
+from core import wallet_hash
 from eth_abi import decode as abi_decode, encode as abi_encode
 from eth_utils import function_signature_to_4byte_selector
 
@@ -309,6 +311,42 @@ async def get_provider_jobs(owner_address: str) -> list[dict]:
     owner = (owner_address or "").lower()
     await _ensure_fresh()
     return _cache["by_provider"].get(owner, {}).get("jobs", [])
+
+
+def is_client_address(value: str | None) -> bool:
+    """Whether a value can name a job's client at all. Checked before the
+    scan so a malformed value is refused rather than answered with an empty
+    list that reads as "this wallet hired nobody". The same check as
+    core/wallet_hash.is_address, by delegation, so the two cannot drift."""
+    return wallet_hash.is_address(value)
+
+
+# The largest body parse_my_jobs_body will look at. {"client_address":
+# "0x" + 40 hex} is 62 bytes; this leaves room for whitespace and nothing else.
+MY_JOBS_MAX_BODY_BYTES = 256
+
+
+def parse_my_jobs_body(raw: bytes) -> str | None:
+    """The client address from a POST /api/my-jobs body, or None.
+
+    One answer for every malformed body: not JSON, not an object, a missing,
+    extra or misspelt key, a non-string value, too long, not an address. The
+    route turns None into one fixed 400 so that no rejection repeats what was
+    sent. FastAPI's own validation error would, in its `input` field, and the
+    thing sent here is a visitor's wallet."""
+    if not raw or len(raw) > MY_JOBS_MAX_BODY_BYTES:
+        return None
+    try:
+        body = json.loads(raw)
+    except (ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(body, dict) or set(body) != {"client_address"}:
+        return None
+    value = body["client_address"]
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value if is_client_address(value) else None
 
 
 async def get_my_jobs(client_address: str) -> dict:

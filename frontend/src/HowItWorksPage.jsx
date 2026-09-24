@@ -789,17 +789,22 @@ export default function HowItWorksPage({ variant = 'web' }) {
             shows the post-only rejection rate measured for that address and the number of polls
             behind it, or the reason no rate can be stated: too few polls, no post-only orders seen,
             or a measurement old enough that showing it as current would be showing an assumption.
+            The same extension also draws an agent panel on seven block explorers and on 8004scan,
+            and a practice-trading panel on Hyperliquid&apos;s trading pages. It runs on those 9
+            sites, the ones listed in its manifest, and nowhere else, which is what the browser
+            enforces.
           </p>
           <p>
-            It takes the address from the page&apos;s URL, which already contains it, and sends that
-            one address to this site&apos;s API. To decide where to put the panel it looks through
-            the page for the element whose text is that same address, so it does read text on the
-            page, and none of what it reads there is sent anywhere or kept: the address from the URL
-            is the only thing that leaves the browser. It does not read form fields, balances or
-            wallet state. It stores nothing, on your machine or off it: no cookie, no local storage,
-            no background worker beyond the one that holds the membership list. It runs on
-            the 9 sites listed in its manifest and nowhere else, which is what the
-            browser enforces.
+            On a Hyperliquid address page it takes the address from the page&apos;s URL and sends
+            it to this site&apos;s API, every time: there, unlike on the explorers, it does not
+            first check the address against its local list. To decide where to put the panel it
+            looks through the page for the element whose text is that same address, so it does read
+            text on the page, and none of what it reads there is sent anywhere or kept. Practice
+            mode reads Hyperliquid&apos;s public market data straight from Hyperliquid, never your
+            address, and places no real order. On your machine it keeps the list, where you left
+            each panel, and the practice account, in the extension&apos;s own storage. It sets no
+            cookie. The <a href="/privacy" className="text-indigo-500 hover:underline">privacy
+            page</a> lists every request and everything stored.
           </p>
           <p className="text-[12px] text-gray-500 dark:text-gray-400">
             The panel displays what the API returns and computes nothing itself, so the rule for
@@ -820,15 +825,15 @@ export default function HowItWorksPage({ variant = 'web' }) {
                 // overstating it. activeTab, storage, alarms, and the sites are the
                 // content_scripts matches.
                 body: '3 permissions and no more: activeTab, so the toolbar popup can read '
-                  + 'the address of the tab you clicked, storage for the membership list, '
-                  + 'alarms to refresh it daily, and one host permission for this '
-                  + 'site\u2019s API. The content script runs on 9 sites: Hyperliquid, '
-                  + '8004scan and seven block explorers, and nowhere else.',
+                  + 'the address of the tab you clicked, storage for the list, panel positions '
+                  + 'and the practice account, alarms to refresh the list daily, and one host '
+                  + 'permission for this site\u2019s API. The content scripts run on 9 sites: '
+                  + 'Hyperliquid, 8004scan and seven block explorers, and nowhere else.',
               },
               {
                 title: 'Open an address page on Hyperliquid',
-                body: 'Any /explorer/address/0x… or /address/0x… page. The address is taken from '
-                  + 'the URL, so nothing is typed and nothing is looked up.',
+                body: 'Any /explorer/address/0x… page. The address is taken from the URL, so '
+                  + 'nothing is typed, and it is sent to this site\u2019s API to fetch the panel.',
               },
               {
                 title: 'Read the panel it inserts',

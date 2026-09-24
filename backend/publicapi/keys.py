@@ -28,6 +28,37 @@ picked: see TIERS below for the reasoning behind each one.
 
 The key is hashed at rest. We never store anything that could be replayed, and
 a key is shown to its owner exactly once, at issue.
+
+THE WALLET IS NOT STORED EITHER
+-------------------------------
+Neither collection here holds the wallet address. Both hold
+`address_fingerprint`, the salted stand-in from core/wallet_hash.py, which is
+all "one key per address" and "find this address's challenge" need: each is
+an exact match on a value the caller supplies again. With WALLET_HASH_SALT
+unset, issuing refuses (AddressHashUnavailable) rather than store the address
+raw. There is deliberately no fallback to the raw address, for the reason
+wallet_hash.py gives for having no default salt.
+
+What that fingerprint is worth is stated in wallet_hash.py and not repeated
+generously here: anybody holding the salt can match it against the public,
+small set of candidate addresses. It is a pseudonym as private as the
+environment variable, not an irreversible transform.
+
+The challenge document does not keep the signed message either, because the
+message quotes the address. It is rebuilt from the address the caller sends
+at issue and the stored nonce, by the same function that built it, so the
+signature is checked against exactly the text that was signed.
+
+Revoking a key deletes its document. There is no revoked_at tombstone: a
+revoked key is then simply not found, which verify_key already treats as an
+invalid key, so the rejection is identical and nothing about the wallet
+outlives the key.
+
+Documents written before this change carry a raw `address` and, if revoked,
+a `revoked_at`. scripts/public_api_keys_migrate.py converts them. Until it
+has run, the lookups below also match the legacy `address` field so that one
+key per address still holds across the two shapes, and verify_key still
+refuses a legacy document carrying `revoked_at`.
 """
 
 from __future__ import annotations
@@ -36,7 +67,9 @@ import hashlib
 import hmac
 import secrets
 import time
+from datetime import datetime, timezone
 
+from core import wallet_hash
 from core.db import get_db
 
 COLLECTION = "public_api_keys"
@@ -106,6 +139,54 @@ def _now() -> float:
     return time.time()
 
 
+class AddressHashUnavailable(RuntimeError):
+    """The wallet could not be fingerprinted, so nothing was stored.
+
+    Carries wallet_hash's withheld_reason, whose `code` is
+    `salt_not_configured` or `not_an_address`, for a transport to map to a
+    response. Its message never contains the address."""
+
+    def __init__(self, withheld_reason: dict):
+        self.withheld_reason = withheld_reason
+        super().__init__(withheld_reason.get("code", "address_hash_unavailable"))
+
+
+def _normalise(address: str | None) -> str:
+    return (address or "").strip().lower()
+
+
+def _address_fingerprint(addr: str) -> str:
+    """The stored stand-in for a wallet, or AddressHashUnavailable.
+
+    Raises rather than returning something storable, so there is no path on
+    which an unset salt ends with the raw address in a document."""
+    fp = wallet_hash.fingerprint(addr)
+    if not fp.get("fingerprint"):
+        raise AddressHashUnavailable(fp.get("withheld_reason") or {})
+    return fp["fingerprint"]
+
+
+def _challenge_message(addr: str, nonce: str) -> str:
+    """The text a caller signs. Built here at challenge time and rebuilt here
+    at issue time, so the stored challenge need not keep it."""
+    return (
+        "Tnega API key request\n"
+        f"address: {addr}\n"
+        f"nonce: {nonce}\n"
+        "Signing this proves you control this wallet. It authorises nothing else, "
+        "moves no funds, and grants no access to your wallet."
+    )
+
+
+def _owner_filter(addr: str, fp: str) -> dict:
+    """Every key document belonging to one wallet, in either shape.
+
+    The `address` branch matches documents written before the fingerprint
+    change and is only needed until scripts/public_api_keys_migrate.py has
+    run. It reads the legacy field, it never writes it."""
+    return {"$or": [{"address_fingerprint": fp}, {"address": addr}]}
+
+
 # ─────────────────────────── issuing ───────────────────────────
 
 async def create_challenge(address: str) -> dict:
@@ -113,26 +194,33 @@ async def create_challenge(address: str) -> dict:
 
     Stored rather than derived so it can be burned on use. A stateless HMAC
     challenge would be replayable inside its window, which for key issuance is
-    the one place that matters."""
-    addr = (address or "").strip().lower()
-    if not addr.startswith("0x") or len(addr) != 42:
+    the one place that matters.
+
+    Refuses with AddressHashUnavailable when WALLET_HASH_SALT is unset, before
+    anything is written, so nobody is asked to sign for a key that cannot be
+    issued."""
+    addr = _normalise(address)
+    if not wallet_hash.is_address(addr):
         raise ValueError("address must be a 0x-prefixed 40 character hex address")
+    fp = _address_fingerprint(addr)
     # One outstanding challenge per address. Without this, find_one below picks
     # arbitrarily between several and a caller who requested two would have the
     # wrong message matched against their signature, which presents as an
     # inexplicable rejection rather than as the race it is.
-    await get_db()[CHALLENGE_COLLECTION].delete_many({"address": addr})
+    await get_db()[CHALLENGE_COLLECTION].delete_many({"address_fingerprint": fp})
     nonce = secrets.token_hex(16)
-    message = (
-        "Tnega API key request\n"
-        f"address: {addr}\n"
-        f"nonce: {nonce}\n"
-        "Signing this proves you control this wallet. It authorises nothing else, "
-        "moves no funds, and grants no access to your wallet."
-    )
+    message = _challenge_message(addr, nonce)
+    now = _now()
     await get_db()[CHALLENGE_COLLECTION].insert_one({
-        "_id": nonce, "address": addr, "message": message,
-        "created_at": _now(), "expires_at": _now() + CHALLENGE_TTL_SECONDS,
+        "_id": nonce, "address_fingerprint": fp,
+        "created_at": now, "expires_at": now + CHALLENGE_TTL_SECONDS,
+        # The TTL index is on this field and not on expires_at. MongoDB only
+        # expires a document whose indexed field is a BSON date, and
+        # expires_at is epoch seconds, so an index on it never removed
+        # anything: an abandoned challenge stayed until the same address
+        # asked again. expires_at is kept as the number the check in
+        # issue_key compares against.
+        "purge_at": datetime.fromtimestamp(now + CHALLENGE_TTL_SECONDS, tz=timezone.utc),
     })
     return {"address": addr, "nonce": nonce, "message": message,
             "expires_in": CHALLENGE_TTL_SECONDS}
@@ -147,9 +235,12 @@ async def issue_key(address: str, signature: str) -> dict:
     from eth_account import Account
     from eth_account.messages import encode_defunct
 
-    addr = (address or "").strip().lower()
+    addr = _normalise(address)
+    if not wallet_hash.is_address(addr):
+        raise ValueError("address must be a 0x-prefixed 40 character hex address")
+    fp = _address_fingerprint(addr)
     db = get_db()
-    ch = await db[CHALLENGE_COLLECTION].find_one({"address": addr})
+    ch = await db[CHALLENGE_COLLECTION].find_one({"address_fingerprint": fp})
     if not ch:
         raise LookupError("no challenge for this address, request one first")
     if ch.get("expires_at", 0) < _now():
@@ -158,7 +249,7 @@ async def issue_key(address: str, signature: str) -> dict:
 
     try:
         recovered = Account.recover_message(
-            encode_defunct(text=ch["message"]), signature=signature
+            encode_defunct(text=_challenge_message(addr, ch["_id"])), signature=signature
         )
     except Exception as e:
         raise PermissionError(f"signature could not be verified: {type(e).__name__}")
@@ -169,13 +260,12 @@ async def issue_key(address: str, signature: str) -> dict:
     await db[CHALLENGE_COLLECTION].delete_one({"_id": ch["_id"]})
 
     raw = KEY_PREFIX + secrets.token_urlsafe(32)
-    await db[COLLECTION].delete_many({"address": addr})     # one key per address
+    await db[COLLECTION].delete_many(_owner_filter(addr, fp))   # one key per address
     await db[COLLECTION].insert_one({
         "_id": _hash(raw),
-        "address": addr,
+        "address_fingerprint": fp,
         "tier": DEFAULT_TIER,
         "created_at": _now(),
-        "revoked_at": None,
         "last_used_at": None,
         "label": None,
     })
@@ -194,6 +284,9 @@ async def verify_key(raw: str | None) -> dict | None:
         return None
     digest = _hash(raw)
     rec = await get_db()[COLLECTION].find_one({"_id": digest})
+    # A revoked key's document is deleted, so it arrives here as None. The
+    # revoked_at test is for documents revoked before that change and not yet
+    # removed by scripts/public_api_keys_migrate.py.
     if not rec or rec.get("revoked_at"):
         return None
     if not hmac.compare_digest(rec["_id"], digest):
@@ -212,12 +305,12 @@ async def touch(raw_hash: str) -> None:
 
 
 async def revoke(raw: str) -> bool:
+    """Delete the key's document. Afterwards verify_key finds nothing for this
+    key and returns None, the same answer it gives any unknown key."""
     rec = await verify_key(raw)
     if not rec:
         return False
-    await get_db()[COLLECTION].update_one(
-        {"_id": rec["_id"]}, {"$set": {"revoked_at": _now()}}
-    )
+    await get_db()[COLLECTION].delete_one({"_id": rec["_id"]})
     return True
 
 
@@ -225,11 +318,16 @@ async def set_tier(address: str, tier: str) -> bool:
     """Move a key between tiers. This is the whole upgrade path.
 
     Deliberately by address rather than by key, so it can be done from a record
-    of who asked without ever handling their key."""
+    of who asked without ever handling their key. The address is fingerprinted
+    and matched on that, so AddressHashUnavailable when the salt is unset."""
     if tier not in TIERS:
         raise ValueError(f"unknown tier {tier!r}, known: {sorted(TIERS)}")
+    addr = _normalise(address)
+    fp = _address_fingerprint(addr)
+    # revoked_at: None also matches a document with no such field, which is
+    # every document written since revocation became a delete.
     res = await get_db()[COLLECTION].update_one(
-        {"address": (address or "").strip().lower(), "revoked_at": None},
+        {**_owner_filter(addr, fp), "revoked_at": None},
         {"$set": {"tier": tier}},
     )
     return res.modified_count > 0
@@ -237,7 +335,12 @@ async def set_tier(address: str, tier: str) -> bool:
 
 async def ensure_indexes() -> None:
     """Called at startup. The challenge TTL index is what stops that collection
-    growing without bound from abandoned requests."""
+    growing without bound from abandoned requests.
+
+    Nothing calls this yet: no transport for this package is mounted in
+    server.py. It is on `purge_at`, a BSON date, because a TTL index on a
+    numeric field expires nothing."""
     db = get_db()
-    await db[COLLECTION].create_index("address")
-    await db[CHALLENGE_COLLECTION].create_index("expires_at", expireAfterSeconds=0)
+    await db[COLLECTION].create_index("address_fingerprint")
+    await db[CHALLENGE_COLLECTION].create_index("address_fingerprint")
+    await db[CHALLENGE_COLLECTION].create_index("purge_at", expireAfterSeconds=0)

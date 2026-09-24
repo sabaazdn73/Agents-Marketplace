@@ -54,6 +54,28 @@ _cache: dict = {"data": None, "checked_at": 0.0}
 _CACHE_TTL_SECONDS = 30
 
 
+class _CheckFailed(Exception):
+    """A failure this module describes in its own words.
+
+    Its message is always a literal written in this file, or a literal with
+    an integer interpolated, never text from a provider, an exception or a
+    response body. That is what lets _timed serve it verbatim on a public
+    page. Anything else that is raised, RuntimeError included, since a library
+    can raise one with any text, goes through describe()."""
+
+
+def _rpc_shape_error(body) -> _CheckFailed:
+    """An RPC answer with no result, described without repeating it.
+
+    The body came from a provider and is not served. The JSON-RPC error code
+    is kept when it is an integer, because -32005 (rate limited) and -32601
+    (method not found) are different facts and a number carries no URL."""
+    code = body.get("error", {}).get("code") if isinstance(body, dict) and isinstance(body.get("error"), dict) else None
+    if isinstance(code, int) and not isinstance(code, bool):
+        return _CheckFailed(f"unexpected RPC response: JSON-RPC error {code}")
+    return _CheckFailed("unexpected RPC response: no result field")
+
+
 async def _timed(name: str, coro) -> dict:
     t0 = time.monotonic()
     try:
@@ -67,10 +89,12 @@ async def _timed(name: str, coro) -> dict:
     except Exception as e:
         # Two separate rules, because two separate bugs meet here.
         #
-        # 1. A RuntimeError raised by a check below carries a message this
+        # 1. A _CheckFailed raised by a check below carries a message this
         #    module wrote itself ("INFURA_API_KEY not configured, no backup
         #    exists yet"), which is the useful half of the status page and is
-        #    known not to contain a credential. Kept verbatim.
+        #    known not to contain a credential. Kept verbatim. It is a private
+        #    class rather than RuntimeError because any library can raise a
+        #    RuntimeError, with any text.
         #
         # 2. Everything else, an httpx failure above all, is reduced to a
         #    status code or a class name. httpx builds a raise_for_status()
@@ -84,7 +108,7 @@ async def _timed(name: str, coro) -> dict:
         # 8004scan outage (2026-09-06): httpx's timeout exceptions stringify to
         # the empty string, so the page once said "not ok" and nothing else. A
         # timeout now reads as "ReadTimeout", a rate limit as "HTTP 429".
-        detail = str(e) if isinstance(e, RuntimeError) and str(e) else describe(e)
+        detail = str(e) if isinstance(e, _CheckFailed) and str(e) else describe(e)
         return {
             "name": name,
             "ok": False,
@@ -96,7 +120,7 @@ async def _timed(name: str, coro) -> dict:
 async def _check_8004scan() -> str:
     key = os.environ.get("SCAN_8004_API_KEY")
     if not key:
-        raise RuntimeError("SCAN_8004_API_KEY not set")
+        raise _CheckFailed("SCAN_8004_API_KEY not set")
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
             # host migration 2026-08-27, see adapters/bsc.py's module
@@ -112,7 +136,7 @@ async def _check_8004scan() -> str:
 async def _check_zerion() -> str:
     key = os.environ.get("ZERION_API_KEY")
     if not key:
-        raise RuntimeError("ZERION_API_KEY not set")
+        raise _CheckFailed("ZERION_API_KEY not set")
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
             "https://api.zerion.io/v1/chains/binance-smart-chain",
@@ -143,7 +167,7 @@ async def _check_bsc_rpc() -> str:
         resp.raise_for_status()
         body = resp.json()
         if "result" not in body:
-            raise RuntimeError(f"unexpected RPC response: {body}")
+            raise _rpc_shape_error(body)
         block = int(body["result"], 16)
         return f"block {block:,}"
 
@@ -158,7 +182,7 @@ async def _check_bsc_rpc_backup() -> str:
     from core.rpc import get_bsc_fallback_rpc_url
     url = get_bsc_fallback_rpc_url()
     if not url:
-        raise RuntimeError("INFURA_API_KEY not configured, no backup exists yet")
+        raise _CheckFailed("INFURA_API_KEY not configured, no backup exists yet")
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.post(
             url,
@@ -167,7 +191,7 @@ async def _check_bsc_rpc_backup() -> str:
         resp.raise_for_status()
         body = resp.json()
         if "result" not in body:
-            raise RuntimeError(f"unexpected RPC response: {body}")
+            raise _rpc_shape_error(body)
         block = int(body["result"], 16)
         return f"block {block:,}"
 
@@ -180,6 +204,10 @@ async def _check_explainer_agent() -> str:
 
 
 async def _check_mongodb() -> str:
+    # Said here in this module's words. get_db raises a RuntimeError for the
+    # same condition, and a RuntimeError is no longer served verbatim.
+    if not os.environ.get("MONGODB_URI"):
+        raise _CheckFailed("MONGODB_URI not set")
     db = get_db()
     await db.command("ping")
     return "ping ok"
@@ -196,6 +224,38 @@ async def _check_termix() -> str:
         )
         resp.raise_for_status()
         return f"HTTP {resp.status_code}"
+
+
+# The commit this process was built from, read once at import. Render sets
+# RENDER_GIT_COMMIT on every build and deploy of a Git-backed service. There
+# is no .git directory in the deployed image, so there is nothing to shell out
+# to, and a request must not try.
+_DEPLOYED_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "").strip() or None
+
+
+def deployed_commit() -> dict:
+    """The git commit the running process was built from, or why there is none.
+
+    A deploy is confirmed by reading this and comparing it with the commit
+    that was pushed. An HTTP 200 from /api/status only says that SOME build
+    is answering, which is what the previous build also did."""
+    if _DEPLOYED_COMMIT:
+        return {"commit": _DEPLOYED_COMMIT, "source": "RENDER_GIT_COMMIT",
+                "withheld_reason": None}
+    return {
+        "commit": None,
+        "source": "RENDER_GIT_COMMIT",
+        "withheld_reason": {
+            "code": "commit_not_provided",
+            "detail": (
+                "RENDER_GIT_COMMIT is not set in this process's environment. "
+                "Render sets it for a Git-backed service; its absence means "
+                "this process is running somewhere else, such as locally, or "
+                "was deployed from an image rather than from the repository. "
+                "Which commit is running is unknown, not the latest."
+            ),
+        },
+    }
 
 
 async def get_status(force_refresh: bool = False) -> dict:

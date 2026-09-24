@@ -3,15 +3,15 @@
 # A stored stand-in for a wallet address, for a surface that needs to
 # recognise the same wallet twice without keeping the address.
 #
-# NOTHING CALLS THIS YET
-# ----------------------
-# Deliberately. No code path in this project currently receives a wallet
-# address from a visitor, and the surface that would is still a spec. The
-# function is here so that when that surface arrives the hashing decision has
-# already been made and reviewed, rather than being made in the same hour as
-# the feature. Wiring it in is a separate change, and the thing to check at
-# that point is the paragraph on enumerability below, because it governs what
-# this can and cannot be relied on for.
+# WHO CALLS THIS
+# --------------
+# publicapi/keys.py, for the wallet that signs for an API key: the key table
+# and the challenge table store this fingerprint and never the address, and
+# issuing refuses when this refuses. Its lookups are exact matches on a
+# fingerprint computed from an address the caller supplies again, so the
+# stored value must be stable, which is the next paragraph's point.
+# No route mounts publicapi yet, so in the running service nothing reaches
+# this today; the discipline is in place for when one does.
 #
 # WHY ITS OWN SALT AND NOT FIRST_VISIT_SALT
 # -----------------------------------------
@@ -57,12 +57,26 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 
 # Read once at import. Stable across restarts by necessity: a stand-in that
 # changes when the process restarts does not identify anything.
 _SALT = os.environ.get("WALLET_HASH_SALT") or None
 
 _salt_absence_logged = False
+
+_ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+
+
+def is_address(value: str | None) -> bool:
+    """0x followed by exactly 40 hex characters, either case.
+
+    The one address check for anything that receives a visitor's wallet:
+    fingerprint() below, publicapi/keys.py and POST /api/my-jobs all use it,
+    so "is this an address" cannot mean one thing in one place and another
+    in the next. Length alone is not enough: 0x plus 40 non-hex characters is
+    42 characters long."""
+    return isinstance(value, str) and bool(_ADDRESS_RE.match(value))
 
 
 def _salt() -> str | None:
@@ -131,7 +145,7 @@ def fingerprint(address: str | None) -> dict:
         }
 
     addr = (address or "").strip()
-    if not addr.startswith("0x") or len(addr) != 42:
+    if not is_address(addr):
         # The same code corestate.py uses on the same predicate. The address
         # is not echoed back: this returns to a caller that may log it.
         return {
@@ -139,7 +153,7 @@ def fingerprint(address: str | None) -> dict:
             "withheld_reason": {
                 "code": "not_an_address",
                 "detail": (
-                    "Not a 42-character 0x-prefixed address, so there is "
+                    "Not 0x followed by 40 hex characters, so there is "
                     "nothing to hash."
                 ),
             },

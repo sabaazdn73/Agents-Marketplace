@@ -1342,9 +1342,9 @@ function buildModals(root, ui) {
   ui.acctStart = tpKv(acct.body, "Started with");
   ui.acctHeld = tpKv(acct.body, "Margin on open positions");
   tpEl(acct.body, "p", "tp-sheet-p",
-    "One account, kept in this browser's local storage. It does not sync to any "
-    + "device or account, nothing is sent anywhere, and clearing site data "
-    + "erases it.");
+    "One account, kept in this extension's storage in this browser. It does not "
+    + "sync to any device or account and nothing is sent anywhere. Clearing a "
+    + "site's data does not erase it; the reset below or removing the extension does.");
   const reset = tpEl(acct.body, "button", "tp-sheet-ok tp-sheet-danger",
     "Reset practice account");
   reset.type = "button";

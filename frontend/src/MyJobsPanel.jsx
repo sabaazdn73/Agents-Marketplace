@@ -54,8 +54,24 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
   const load = useCallback(() => {
     if (!isConnected || !address) { setData(null); setLoading(false); return; }
     setLoading(true); setError(null);
-    fetch(`${API_BASE_URL}/api/my-jobs?client_address=${address}`)
-      .then((r) => { if (!r.ok) throw new Error(`Backend returned ${r.status}`); return r.json(); })
+    // POST with the wallet in the body, not the query string: this is the
+    // visitor's own address, and a URL is written to access logs. See
+    // docs/data-handling.md.
+    fetch(`${API_BASE_URL}/api/my-jobs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ client_address: address }),
+    })
+      .then((r) => {
+        // 405: this page is newer than the API, which still only has the old
+        // GET, so a deploy is in progress rather than a fault. Not retried as
+        // a GET, because the GET is what put the address in logs.
+        if (r.status === 405) {
+          throw new Error('The service is updating. Reload in a minute.');
+        }
+        if (!r.ok) throw new Error(`Backend returned ${r.status}`);
+        return r.json();
+      })
       .then((d) => setData(d))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

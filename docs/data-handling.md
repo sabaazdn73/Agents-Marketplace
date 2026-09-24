@@ -6,8 +6,19 @@ is not legal advice and no lawyer has reviewed it.
 
 ## Personal data
 
-The only personal data the backend stores about a site visitor is a salted
-hash used to decide whether someone has visited before.
+The one thing the backend stores about every site visitor is a salted hash
+used to decide whether someone has visited before. One other store holds a
+specific person's data, and only when that person pays: a PayBox session
+keeps the paying wallet raw for 30 minutes. The access log, which is not a
+store of ours but is written by this server, is covered under "Client IP
+addresses" and "Wallet addresses in URLs".
+
+There is also code for an API key table that would hold a salted
+fingerprint of the wallet that signs for each key. That code,
+`backend/publicapi/`, has never been mounted: no commit in this repository's
+history imports it from `server.py` or any other entry point, so no route can
+issue a key and nobody can have signed up. What it will store once mounted is
+described under "Wallet addresses, written".
 
 `backend/core/first_visit.py` takes the client address from
 `X-Forwarded-For`, salts it with `FIRST_VISIT_SALT`, hashes it with SHA-256,
@@ -57,7 +68,11 @@ takes traffic at whatever rate the internet sends it, and a line per request
 would push everything worth reading out of its own log.
 
 `backend/core/wallet_hash.py` applies the same discipline to wallet
-addresses, under its own `WALLET_HASH_SALT`. Nothing calls it yet.
+addresses, under its own `WALLET_HASH_SALT`. Its caller is
+`backend/publicapi/keys.py`, which is not mounted, and with the salt unset
+that module refuses to issue a key rather than store the address raw. The
+running service also uses the module's address check, `is_address`, for
+`POST /api/my-jobs`, which hashes nothing.
 
 ### The stored hashes were deleted, and this is the only record of it
 
@@ -136,29 +151,92 @@ with dashboard access should check it rather than take this page's word.
 ### Wallet addresses in URLs, and therefore in logs
 
 Whatever the access log resolves the client to, it records the path and the
-query string, and several routes carry a wallet address in one or the other.
-Two carry it in the path: `/api/hyperliquid/address/{address}` and
-`/api/hyperliquid/history/{address}`. The rest carry it as a query
-parameter, among them `/api/agent-performance`, `/api/agent-revenue`,
-`/api/agents/wallet-portfolio`, `/api/agent-activity`, `/api/agent-pnl`,
-`/api/agent-onchain-history`, `/api/canary-history`,
-`/api/agent-escrow-compatibility` and `/api/hyperliquid/history-bulk`.
+query string. This list is read from the route decorators in `server.py`,
+every GET route with a path or query parameter that can hold an address.
 
-Almost all of those take an agent's registered `owner_address`, which is
-public registry data, or a tracked leaderboard maker. One does not.
+In the path:
 
-`GET /api/my-jobs?client_address=0x...` takes the visitor's own connected
-wallet. `frontend/src/MyJobsPanel.jsx` calls it with the address the browser
-wallet is connected as, every time the My Agents tab opens. That address is
-in the query string, so it is in uvicorn's access log line, and in whatever
-request logs Render and Cloudflare keep in front of it. Nothing in this
-codebase writes it to a database, and nothing joins it to anything, but it
-is in a log we do not own and cannot purge, for as long as those providers
-retain their logs.
+- `/api/hyperliquid/address/{address}` and
+  `/api/hyperliquid/history/{address}`: a Hyperliquid address.
+- `/api/extension/subject/{identifier}`: an address or an agent id.
+- `/api/token-risk/{contract_address}`: a token contract, not a wallet.
 
-Moving it to a POST body, or to a path segment carrying a fingerprint rather
-than the address, would take it out of the query string. Neither has been
-done. It is recorded here rather than left for somebody to find in a log.
+In the query string:
+
+- `owner_address` on `/api/agents/performance`, `/api/agents/revenue`,
+  `/api/agents/wallet-portfolio`, `/api/agents/activity`,
+  `/api/agents/pnl-summary`, `/api/agents/onchain-performance`,
+  `/api/agents/onchain-history`, `/api/canary/history`,
+  `/api/agents/termix-performance` and `/api/agents/escrow-compatibility`.
+- `owner` on `/api/budget-mode/status` and
+  `/api/chain-agent/{chain_id}/{token_id}/evaluation`.
+- `addresses` on `/api/hyperliquid/history`.
+- `q` on `/api/search/resolve`: whatever was typed into search.
+- `search` on `/api/agents` and `/api/agents/facets`: whatever was typed
+  into the marketplace grid's search box.
+
+The `owner_address` and `owner` routes are called by the frontend with an
+agent's registered owner, which is public registry data, and the Hyperliquid
+history routes with tracked leaderboard makers. Four are different, because
+what they carry is whatever a person chose to look up, which can be their
+own wallet:
+
+- `/api/extension/subject/{identifier}`, from the extension's popup, where an
+  address can be pasted in, and from its explorer and 8004scan panels.
+- `/api/hyperliquid/address/{address}`, which the extension calls for every
+  Hyperliquid address page opened, without consulting its list.
+- `/api/search/resolve?q=`, from the site's search box, and `search` on
+  `/api/agents` and `/api/agents/facets`, from the grid's.
+
+Those put a looked-up address in the access log alongside the client
+address of whoever looked it up. They are read-only and write nothing, but
+the log line is the record. The privacy page says so for the extension.
+
+One route used to carry the visitor's own connected wallet by design, and no
+longer does.
+
+`/api/my-jobs` takes the visitor's own connected wallet.
+`frontend/src/MyJobsPanel.jsx`, which the web and mobile apps both render,
+calls it with the address the browser wallet is connected as, every time the
+My Agents tab opens.
+
+That address used to ride in the query string, `GET
+/api/my-jobs?client_address=0x...`, which put it in uvicorn's access log line
+and in whatever request logs Render and Cloudflare keep in front of it. The
+code now sends `POST /api/my-jobs` with the address in a JSON body,
+`{"client_address": "0x..."}`. The access log line for it carries the client
+address and the status code, as every line does, and the path
+`/api/my-jobs` with no wallet in it. Nothing in this codebase writes the
+wallet to a database or joins it to anything; it is used for the one scan
+and returned in the response body to the caller who sent it.
+
+A malformed body, whatever is wrong with it, gets one fixed 400 that repeats
+nothing that was sent. The body is read by hand, capped at 256 bytes, rather
+than declared as a model, because FastAPI's validation error for a model
+repeats the offending input in its response.
+
+This is what the code does. It is not yet what production does: the
+backend deploys on Render and the frontend on Vercel, separately, and until
+both have shipped, a new page can meet the old API, which answers the POST
+405, or an old tab the new API, which answers its GET 410. The new page
+shows "The service is updating. Reload in a minute." on the 405 and does not
+fall back to the GET, because the GET is the leak. An old tab shows its own
+generic error until it is reloaded.
+
+The GET form was not kept for compatibility. It now answers 410 with a
+sentence naming the POST, declares no parameter and echoes nothing from the
+query string. A surviving GET that still served results would have kept the
+leak open for any caller still using it, and a 410 cannot close it either.
+uvicorn writes the access log line when the response starts, which is after
+the handler has run, but the line carries the request's full path and query
+string whatever the handler answered, so a caller that keeps sending the GET
+keeps putting its address in the log. The only fix for that caller is
+changing it. Every caller in this repository was changed,
+`MyJobsPanel.jsx` and `backend/scripts/api_probe.py`; `extension/` never
+called it.
+
+Addresses logged before the change stay in logs we do not own and cannot
+purge, for as long as those providers retain them.
 
 ### Wallet addresses, written
 
@@ -179,25 +257,82 @@ awkward ones would not be an audit.
 | `canary_tests.owner_address` | The agent being probed | Written, raw | Permanent |
 | Cockroach `hl_poll`, `hl_order_counts`, `hl_ws_buckets`, `hl_ws_coverage`, `hl_targets`, `hl_leaderboard` | Hyperliquid makers from the public leaderboard | Written, raw | Permanent. Cockroach has no TTL construct in this schema |
 
-Three write a wallet that belongs to somebody using this site rather than to
-a public registry, and those are the ones the policy has to be explicit
-about.
+One store in the running service writes a wallet that belongs to somebody
+using this site rather than to a public registry:
 
 | Where | Which address | Exposure | For how long |
 |---|---|---|---|
-| `public_api_challenges.address` | The wallet of whoever is requesting an API key | Written, raw | 5 minutes, by TTL index on `expires_at`, and deleted on use |
-| `public_api_keys.address` | The same wallet, tied to the issued key | Written, raw | Permanent. There is no TTL, and revoking a key sets `revoked_at` rather than deleting the document |
 | `paybox_sessions.settlement.payer` | The buyer's wallet, from the settlement response | Written, raw | 30 minutes, by TTL index on `expires_at` |
 
-`public_api_keys.address` is the sharpest thing in this audit: a raw wallet
-address, stored permanently, identifying a specific person who signed up for
-this project's API. The API key itself is hashed at rest and the address
-beside it is not. Nothing reads that field except an exact-match lookup for
-"one key per address", so a fingerprint would serve every query the code
-makes of it, and `core/wallet_hash.py` exists so that change has somewhere to
-land. It has not been made: changing it invalidates every issued key's
-lookup path and is a migration, not an edit, and it is recorded here as
-outstanding rather than quietly deferred.
+### The API key tables, which are not mounted
+
+`backend/publicapi/` is a service layer, a public schema, and key issuing
+with tiers, added in commit 4990b6f as "stage 1" with no transport. No
+commit has mounted it: `git log --all -S publicapi` finds nothing touching
+`server.py`, `worker.py` or `mcp_server/`. So no route can issue a key, no
+one can have signed up, and nothing below runs today. This section describes
+what `publicapi/keys.py` will write once a route calls it.
+
+| Where | Which address | Exposure | For how long |
+|---|---|---|---|
+| `public_api_challenges.address_fingerprint` | The wallet of whoever requests an API key | A salted fingerprint, not the address. The signed message, which quotes the address, is not stored: it is rebuilt at issue from the address the caller sends again and the stored nonce | Deleted on use. Also meant to expire five minutes after issue, through a TTL index on `purge_at`, but that index exists only once `keys.ensure_indexes()` has run, and nothing calls it yet |
+| `public_api_keys.address_fingerprint` | The same wallet, tied to the issued key | A salted fingerprint, not the address | For the life of the key. Revoking deletes the document |
+
+As first written, `keys.py` would have stored the raw wallet permanently
+beside a key that was itself hashed at rest, which is why this audit called it
+the sharpest thing here, even unmounted. It now stores a fingerprint from
+`core/wallet_hash.py`, in a field named `address_fingerprint`, and the same
+is true of the challenge collection.
+Every read `publicapi/keys.py` makes of either, "one key per address", the
+challenge lookup and `set_tier`, is an exact match on a value the caller
+supplies again, so the fingerprint serves all of them. There is no admin or
+list endpoint over either collection.
+
+With `WALLET_HASH_SALT` unset, `create_challenge`, `issue_key` and `set_tier`
+raise `AddressHashUnavailable` carrying `salt_not_configured`, before any
+write. There is no fallback to the raw address. The salt must never change
+once keys exist, because every stored fingerprint was taken against it.
+
+Revoking a key deletes its document instead of setting `revoked_at`. The key
+lookup, `verify_key`, then finds nothing and returns `None`, which is exactly
+what it returns for a key that was never issued, so a revoked key is rejected
+the same way.
+
+What the fingerprint buys is stated in `core/wallet_hash.py` and is limited:
+the candidate set of addresses is public and small, so anybody holding the
+salt can match every stored value. It is a pseudonym as private as the
+environment variable.
+
+Three things this change does not settle, stated so they are not assumed.
+
+The migration has not been run, and may have nothing to do. Since nothing
+has been mounted, the collections should be empty or absent in production,
+but that has not been read. If any document was written by some other
+means, it would carry a raw `address`, and a revoked one `revoked_at`.
+`backend/scripts/public_api_keys_migrate.py` deletes the revoked documents,
+replaces the raw address with its fingerprint on the rest, and deletes every
+challenge that still holds a raw address. It is a dry run printing counts
+unless given `--apply`, and it must run with the deployment's own
+`WALLET_HASH_SALT`, or the fingerprints it writes will not match the ones the
+service computes. It calls `load_dotenv()`, so `backend/.env`, which names
+the production database, supplies `MONGODB_URI` and the salt unless they are
+set in the shell; unsetting them with `env -u` does not help. Until it runs,
+`keys.py` also matches the legacy `address` field so that one key per address
+holds across both shapes, and still refuses a legacy document carrying
+`revoked_at`.
+
+The TTL index as first written would have expired nothing. It was on
+`expires_at`, which is epoch seconds, and MongoDB only expires documents
+whose indexed field is a date, so an abandoned challenge, with its raw
+address and the message quoting it, would have stayed until the same address
+asked again. Challenges now carry a date in `purge_at`, and
+`keys.ensure_indexes` puts the TTL index there. Nothing calls
+`ensure_indexes`, so whoever mounts this package has to call it at startup,
+or no challenge expires.
+
+`WALLET_HASH_SALT` is not declared in `render.yaml`. That file does not
+declare the backend web service at all, so whether the variable is set on the
+deployment can only be read from the Render dashboard.
 
 ### Wallet addresses, held in memory
 
@@ -263,59 +398,80 @@ in `core/commerce/` interpolates a wallet or an IP into a prompt.
 
 ### Error paths
 
-An exception message is the easiest way for an address to travel somewhere
-nobody decided to put it, and this audit found one place where it does.
+An exception message is the easiest way for an address, or a credential, to
+travel somewhere nobody decided to put it. This audit found two places where
+one did, and both were fixed in commit 773a4b3 through
+`backend/core/safe_errors.py`. Its one function, `describe`, returns
+`HTTP <status>` when an exception carries a response and the exception's
+class name otherwise, and never its message, the request URL or the response
+body.
 
 `adapters/contract_verification.py` calls Etherscan's V2 API with the
-address and the `BSCSCAN_API_KEY` as query parameters, calls
-`resp.raise_for_status()`, and on failure returns
+address and the `BSCSCAN_API_KEY` as query parameters and calls
+`resp.raise_for_status()`. httpx builds that exception's text from the full
+request URL, so a non-2xx, and rate limiting is the ordinary case, used to
+put both the address and the key into the `reason` of
+`GET /api/agents/{agent_id}/contract-verification` and into that module's
+24-hour in-memory cache. The reason is now
+`couldn't reach <explorer>: HTTP 429` or a class name.
 
-    {"reason": f"couldn't reach {explorer}: {e}"}
-
-httpx builds that exception's text from the full request URL including the
-query string. Reproduced against a synthetic 429: the message is
-`Client error '429 Too Many Requests' for url '...?chainid=56&address=0x...&apikey=...'`.
-So any non-2xx from the explorer, and rate limiting is the ordinary case,
-puts both the queried address and the API key into the body of
-`GET /api/agents/{agent_id}/contract-verification`, and into that module's
-24-hour in-memory cache, which then re-serves the same text to every later
-caller asking about that agent. The address is one the caller already
-supplied. The key is not.
-
-`core/status_checks.py` has the same shape without an address.
+`core/status_checks.py` had the same shape without an address.
 `_check_bsc_rpc_backup` posts to an Infura URL with `INFURA_API_KEY` in the
-path and calls `raise_for_status()`; `_timed` sets `detail = str(e) or
-type(e).__name__` and that string is served verbatim in `GET /api/status`,
-which is deliberately unauthenticated. A 401 or a 429 from Infura puts the
-key on a public page.
+path, and `_timed` served `str(e)` in `GET /api/status`, which is
+deliberately unauthenticated. `_timed` now serves verbatim only the text of
+`_CheckFailed`, a class private to that module whose every message is a
+literal written there, at most with an integer JSON-RPC error code
+interpolated. Everything else, a `RuntimeError` from a library included, is
+reduced to `describe(e)`. An RPC answer with no `result` used to be raised
+with the provider's whole response body in its message; it is now described
+as `unexpected RPC response: no result field`, or `JSON-RPC error <code>`
+when the code is an integer, and the body is not served.
 
-Neither has been changed here. Both are one edit: interpolate
-`type(e).__name__` instead of `e`, which is what
-`core/first_visit.check_and_record` and the
-`/api/hyperliquid/history/{address}` handler already do. They are written
-down rather than fixed in passing because a key that may have been exposed
-is a rotation decision, not a code decision.
+The same commit fixed paths this page had not named. `core/rpc.py` fails
+over to the Infura URL for every RPC caller, so any caller that formatted an
+RPC exception could publish that key; the address search in
+`core/universal_search.py` did, and now uses `describe`. `adapters/thegraph.py`
+holds its key in the URL path and interpolated the exception into an error a
+caller sees, and now uses `describe` too. The commit also changed
+`core/agent_health.py`, `core/budget_index.py` and `core/pinned_agents.py`;
+its message has the detail.
+
+Whether the keys that could have been exposed were rotated is the project
+owner's decision and is not recorded here.
+
+`/api/my-jobs` answered a failed scan with
+`Couldn't look up hire history right now: {e}`. The scan reaches the RPC
+providers, and so the Infura failover, so that was the same leak on a public
+route. It now uses `describe` as well. So does `store_cap_runs_error` in
+`GET /api/status`, which served a Mongo driver's message, one that can quote
+the cluster's hosts.
+
+Two interpolations of `e` remain in `contract_verification.py`, reviewed
+rather than missed. `no RPC configured for chain {chain_id}: {e}` quotes a
+`ValueError` that `core/rpc.py` raises with a message it wrote. `couldn't
+reach Sourcify: {e}` is on a request whose URL carries the queried contract
+and no key, and that branch does not call `raise_for_status()`, so what it
+catches are network-level exceptions.
 
 `adapters/zerion.py` puts the wallet in the URL path on five calls and is
 safe today only by accident: it checks `resp.status_code` by hand instead of
 calling `raise_for_status()`, so the exceptions it catches are network-level
 ones, and httpx stringifies those to the empty string. Adding a
-`raise_for_status()` there would make it Finding A again.
+`raise_for_status()` there would recreate the contract-verification leak above.
 
 This codebase also writes exception text into a stored record.
-`core/full_registry_ingest.py` puts
-`f"{type(e).__name__}: {e}"`, truncated to 300 characters, into
-`last_error` on the `full_registry_ingest_progress` document, and the same
-text on `full_registry_skipped_offsets`. Neither has a TTL, and
-`get_skipped_offsets_summary` serves that stored text back out through
-`GET /api/full-registry-progress`, which is also unauthenticated.
-
-No address can reach those fields today. The call inside that `try` goes to
-8004scan with a chain id, a cursor and a page size, so an exception that
-quotes its URL quotes no address. It is listed because the shape is the
-risk: any call added inside that block whose URL carries an address would
-put the address in a permanent Mongo field and on a public endpoint, with
-nothing in the code saying it had.
+`core/full_registry_ingest.py` puts `last_error` on the
+`full_registry_ingest_progress` document, which has no TTL and is served back
+through `GET /api/full-registry-progress`, which is unauthenticated. Since
+773a4b3 that text is `describe(e)`, not the exception message, so a call
+added later whose URL carries an address or a key cannot put either there.
+Text stored before that commit is still in place: the progress document's
+`last_error` is overwritten on the next failure or cleared on the next
+success, and the entries in `full_registry_skipped_offsets` are not
+rewritten. `_record_skipped_offset`, the function that wrote them, has no
+caller in the current code. No address or credential could reach any of that
+stored text: the call inside that `try` goes to 8004scan with a chain id, a
+cursor and a page size, and 8004scan takes its key in a header.
 
 `core/first_visit.check_and_record` deliberately returns the exception TYPE
 and not its text, for the same reason: a driver's message can quote the
@@ -341,14 +497,12 @@ public on a chain.
 
 The attribution cache, for the reasons set out above.
 
-`public_api_keys.address`, which is the one this audit would change next.
-
-The two error paths that interpolate `e` rather than `type(e).__name__`, and
-the `client_address` query parameter on `/api/my-jobs`. All three are
-described above with what the change would be. None of them was changed
-here, because each one is either a migration or a key rotation rather than
-an edit, and a page that quietly fixed them would be a worse record than one
-that names them.
+The two error paths are no longer in this list. They were changed in commit
+773a4b3, described under "Error paths" above. `public_api_keys.address` and
+the `client_address` query parameter on `/api/my-jobs` are no longer in it
+either; both were changed in the code as described above. The `/api/my-jobs`
+change is not live until both the backend and the frontend have deployed.
+`publicapi` is still unmounted, and its migration has not been run.
 
 ## Private keys
 

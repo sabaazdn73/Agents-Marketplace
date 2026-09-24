@@ -18,6 +18,11 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+# Before the core imports: first_visit and wallet_hash read their salts when
+# imported, so a value that exists only in backend/.env must already be in the
+# environment by then. load_dotenv never overrides a variable already set.
+load_dotenv()
+
 # fix, found while investigating the practice-fork 429 outage below:
 # Render's log timestamps for this exact incident (2026-08-25 19:35-19:39)
 # showed print() lines that should be seconds apart (the retry loop's own
@@ -47,6 +52,7 @@ from core import protocol_compat
 from core import escrow_compat_audit
 from core import deliverable_proxy
 from core import status_checks
+from core.safe_errors import describe as describe_error
 from adapters import zerion
 from adapters import coingecko
 from adapters import termix
@@ -69,8 +75,6 @@ from core import agents_index
 from core import first_visit as first_visit_mod
 from core import b402
 from core import paybox
-
-load_dotenv()
 
 app = FastAPI(title="Tnega API")
 
@@ -1557,6 +1561,9 @@ async def status():
     # distinguishable.
     out["store_cap"] = agent_store.last_cap_result()
 
+    # Which build is answering. See status_checks.deployed_commit.
+    out["deployed_commit"] = status_checks.deployed_commit()
+
     # The same question across processes. `store_cap` above is null whenever the
     # cap has not run since THIS worker booted, which is most of the time and is
     # what made the 2026-09-23 tier investigation unable to say whether the cap
@@ -1568,7 +1575,9 @@ async def status():
         out["store_cap_runs"] = await agent_store.recent_cap_runs(limit=10)
     except Exception as e:  # noqa: BLE001
         out["store_cap_runs"] = None
-        out["store_cap_runs_error"] = f"{type(e).__name__}: {e}"
+        # The class name only. A driver's message can quote the cluster's
+        # hosts, and this endpoint is unauthenticated. core/safe_errors.py.
+        out["store_cap_runs_error"] = describe_error(e)
     return out
 
 
@@ -2772,8 +2781,35 @@ def _parse_hired_agent_name(description: str) -> str | None:
     return None
 
 
+_GONE_MY_JOBS = (
+    "GET /api/my-jobs has been removed. Send POST /api/my-jobs with a JSON "
+    'body {"client_address": "0x..."} instead. The address was taken out of '
+    "the URL because a URL, query string included, is written to access logs."
+)
+
+_BAD_MY_JOBS_BODY = (
+    'Expected a JSON body of exactly {"client_address": "0x..."}, where the '
+    "value is a 0x-prefixed 40 character hex address."
+)
+
+
 @app.get("/api/my-jobs")
-async def my_jobs(client_address: str):
+async def my_jobs_gone():
+    """The old query-string form, answered 410 and never served.
+
+    Kept as a route rather than deleted so a caller still using it is told
+    where the endpoint went instead of receiving a bare 405. It declares no
+    parameter and echoes nothing: whatever arrived in the query string stays
+    out of this response. It cannot keep the address out of the access log:
+    uvicorn writes that line when the response starts, after this handler,
+    and the line carries the request's full path and query string whatever
+    the handler answered. The only fix for a remaining GET caller is that
+    caller changing."""
+    raise HTTPException(status_code=410, detail=_GONE_MY_JOBS)
+
+
+@app.post("/api/my-jobs")
+async def my_jobs(request: Request):
     """The backing for the "My Agents" tab: every ERC-8183 job where the
     given wallet is the CLIENT, from the same recent-window on-chain scan
     agent_performance.py already does for providers (see that module's docstring
@@ -2802,11 +2838,34 @@ async def my_jobs(client_address: str):
     picking the name outright. Falls back to owner_address alone only for
     jobs our own flows didn't create (no parseable description), honestly
     a best-effort/ambiguous case in that scenario, same limitation as
-    before, now scoped to only where it's unavoidable."""
+    before, now scoped to only where it's unavoidable.
+
+    POST, with the wallet in the JSON body (2026-09-24). This is the one route
+    that takes the VISITOR's own connected wallet rather than a public
+    registry address, and as a query parameter it was in every access log
+    line for the request. See docs/data-handling.md."""
+    # The body is read by hand, not declared as a model, because FastAPI's
+    # 422 for a model repeats the offending input, and the input here is a
+    # visitor's wallet. Every malformed body gets the same fixed 400. Read
+    # with a cap, so an oversized body is refused without being held.
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw) > agent_performance.MY_JOBS_MAX_BODY_BYTES:
+            raise HTTPException(status_code=400, detail=_BAD_MY_JOBS_BODY)
+    client_address = agent_performance.parse_my_jobs_body(bytes(raw))
+    if client_address is None:
+        raise HTTPException(status_code=400, detail=_BAD_MY_JOBS_BODY)
     try:
         result = await agent_performance.get_my_jobs(client_address)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Couldn't look up hire history right now: {e}")
+        # describe(), not e: the scan reaches RPC providers through core/rpc,
+        # which fails over to a URL holding INFURA_API_KEY, and an httpx
+        # exception's text quotes the URL. See core/safe_errors.py.
+        raise HTTPException(
+            status_code=502,
+            detail=f"Couldn't look up hire history right now: {describe_error(e)}",
+        )
 
     # Look up only the provider wallets this user's jobs actually name.
     #
