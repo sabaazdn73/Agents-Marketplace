@@ -40,7 +40,7 @@ import NativeAgentMarketplace from './NativeAgentMarketplace';
 // AgentMarketplaceApp.web.jsx; `variant` changes type sizes only.
 import HowItWorksPage from './HowItWorksPage';
 import NotificationBell from './NotificationBell';
-import { addNotification, trackJob } from './notifications';
+import { addNotification, trackJob, getActiveWallet } from './notifications';
 import { recordFunded } from './jobTiming';
 import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
@@ -766,6 +766,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       return;
     }
  if (deadlineError) return; // bounds, the button itself is also disabled on this, see below
+    // The hire awaits several confirmations; file its notifications under the
+    // wallet that started it, not whichever is connected when it ends.
+    const owner = getActiveWallet();
     try {
       const useBatch = signOnceForAllSteps && canBatchHire === CAN_BATCH_HIRE_STATUS.supported;
       setActiveHireMode(useBatch ? 'batched' : 'stepwise');
@@ -779,9 +782,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           ? customDescription.trim()
           : `Hire via Tnega: ${selectedAgent.name}`,
       });
-      trackJob(jobId.toString(), 'FUNDED');
+      trackJob(jobId.toString(), 'FUNDED', owner);
       recordFunded(jobId.toString()); // the moment funding confirmed, see jobTiming.js
-      addNotification(`Job #${jobId}: Payment on hold`, `You hired ${selectedAgent.name}, your payment is on hold until the work is done.`);
+      addNotification(`Job #${jobId}: Payment on hold`, `You hired ${selectedAgent.name}, your payment is on hold until the work is done.`, owner);
       setAgents((prev) => prev.map((a) => a.id === selectedAgent.id
         ? { ...a, session: { jobId: jobId.toString(), spendCap: Number(spendCap), status: 'FUNDED' } }
         : a));
@@ -799,6 +802,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           `A step of your hire of ${selectedAgent?.name || 'this agent'} was sent but could not be `
           + 'confirmed in time. It may still confirm. Check it before trying again, '
           + `otherwise you could pay twice: https://bscscan.com/tx/${e.hash}`,
+          owner,
         );
       }
       // hireError from the hook is surfaced in the modal, no silent failure

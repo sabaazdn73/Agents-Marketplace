@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAccount, useWriteContract, usePublicClient, useChainId } from 'wagmi';
 import { ERC8183_ADDRESSES } from '@altananetwork/sdk';
 import { getAgentMarketAddress, chainName } from './chainContracts';
-import { addNotification } from './notifications';
+import { addNotification, getActiveWallet } from './notifications';
 
 export const REGISTRY = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432'; // ERC-8004 AgentIdentity
 export const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'; // == contract NATIVE sentinel
@@ -196,6 +196,7 @@ export function useListAgent() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const listAgent = useCallback(async ({ agentId, token, model, priceRaw, periodSeconds }) => {
+    const owner = getActiveWallet(); // filed under the wallet that started this, see notifications.js
     setBusy(true); setError(null);
     try {
       assertMarketChain(chainId);
@@ -206,6 +207,7 @@ export function useListAgent() {
         model === 1 || model === '1'
           ? 'It is now on sale as a subscription. Buyers can subscribe from its page.'
           : 'It is now on sale as a one-time licence. Buyers can purchase from its page.',
+        owner,
       );
       return hash;
     } catch (e) { setError(e.shortMessage || e.message || String(e)); throw e; }
@@ -251,6 +253,7 @@ export function useCreatorWrites() {
   const [busy, setBusy] = useState(null); // key of the in-flight action
   const [error, setError] = useState(null);
   const _run = useCallback(async (key, fn, args) => {
+    const owner = getActiveWallet(); // filed under the wallet that started this, see notifications.js
     setBusy(key); setError(null);
     try {
       assertMarketChain(chainId);
@@ -259,11 +262,12 @@ export function useCreatorWrites() {
       // Money leaving the contract for the creator's wallet, and offers going
       // on and off sale, are both things worth being able to look up later.
       if (fn === 'withdrawCreatorBalance') {
-        addNotification('Earnings withdrawn', 'Your share of sales has been sent to your wallet.');
+        addNotification('Earnings withdrawn', 'Your share of sales has been sent to your wallet.', owner);
       } else if (fn === 'setOfferActive') {
         addNotification(
           args[2] ? `Agent #${args[0]} is on sale again` : `Agent #${args[0]} taken off sale`,
           args[2] ? 'Buyers can purchase it again.' : 'It stays listed but cannot be bought.',
+          owner,
         );
       }
       return hash;
@@ -307,14 +311,16 @@ export function useBuyAccess() {
 
   // One place, so a native purchase and an ERC-20 purchase cannot end up
   // describing the same event differently.
-  const notifyBought = (agentId, model) => addNotification(
+  const notifyBought = (agentId, model, owner) => addNotification(
     `Access to agent #${agentId} unlocked`,
     model === MODEL.SUBSCRIPTION
       ? 'Your subscription is active. It stays active until the period ends.'
       : 'You bought a one-time licence. Access does not expire.',
+    owner,
   );
 
   const buy = useCallback(async ({ agentId, token, native, model, priceRaw }) => {
+    const owner = getActiveWallet(); // filed under the wallet that started this, see notifications.js
     setBusy(true); setError(null);
     setCompletedSteps([]); setSkippedSteps([]); setStepHashes({});
     try {
@@ -329,7 +335,7 @@ export function useBuyAccess() {
         setStep('buying');
         const hash = await writeAndConfirm('buying', { address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args: [BigInt(agentId), token], value: BigInt(priceRaw) });
         setStep('done');
-        notifyBought(agentId, model);
+        notifyBought(agentId, model, owner);
         return hash;
       }
       const allowance = await publicClient.readContract({ address: token, abi: ERC20_ABI, functionName: 'allowance', args: [address, MARKET_ADDRESS] });
@@ -342,7 +348,7 @@ export function useBuyAccess() {
       setStep('buying');
       const hash = await writeAndConfirm('buying', { address: MARKET_ADDRESS, abi: MARKET_ABI, functionName: fn, args: [BigInt(agentId), token] });
       setStep('done');
-      notifyBought(agentId, model);
+      notifyBought(agentId, model, owner);
       return hash;
     } catch (e) { setError(e.shortMessage || e.message || String(e)); throw e; }
     finally { setBusy(false); }

@@ -42,7 +42,7 @@ import { useBudgetModeStatus } from './budgetEscrow';
 import { UndeclaredAgentWarning, BudgetModeConsequences } from './HireModePicker';
 import { useSwitchChain } from 'wagmi';
 import BudgetSpendView from './BudgetSpendView';
-import { addNotification } from './notifications';
+import { addNotification, getActiveWallet } from './notifications';
 
 const HOURS = [
   { label: '6 hours', value: 6 },
@@ -134,6 +134,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
   }
 
   const submit = async () => {
+    const owner = getActiveWallet(); // filed under the wallet that started this, see notifications.js
     setError(null);
     try {
       // Move to the agent's chain first, if we are not on it. Errors from
@@ -184,6 +185,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
           `${fundedText} funded, budget id unknown`,
           `${agent?.name || 'The agent'} was funded, but the budget id could not be read back. `
           + 'The budget is open. Do not fund again; find it under your budgets.',
+          owner,
         );
         throw new Error(
           'Funded successfully, but we could not read the budget id back from the transaction. '
@@ -201,6 +203,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
         // different rule from every other amount in the flow.
         `Budget #${newId}: ${fundedText} funded`,
         `${agent?.name || 'The agent'} can now draw up to ${perDrawText} at a time. You can take back whatever is left at any point.`,
+        owner,
       );
       setBudgetId(newId);
     } catch (e) {
@@ -217,6 +220,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
           `Your funding transaction for ${agent?.name || 'the agent'} was sent but we could not `
           + 'confirm it in time. It may still confirm. Do not fund again before checking'
           + (ex && e.hash ? `: ${ex}/tx/${e.hash}` : '.'),
+          owner,
         );
       }
       setError(e.shortMessage || e.message);

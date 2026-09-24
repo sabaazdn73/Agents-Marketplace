@@ -20,7 +20,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Loader2, ArrowDownRight, ShieldAlert, Clock, Undo2 } from 'lucide-react';
 import { useBudgetRead, useDrawFeed, useBudgetActions, BUDGET_STATUS, NATIVE_SENTINEL, useBudgetEscrowAddress } from './budgetEscrow';
-import { addNotification } from './notifications';
+import { addNotification, getActiveWallet } from './notifications';
 import { useChainId, useSwitchChain } from 'wagmi';
 import { switchToChain } from './ChainSwitchNotice';
 import { formatAmount, budgetTokenSymbol } from './budgetAmounts';
@@ -142,6 +142,7 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
   const idleHours = Math.floor((Date.now() - openedAt) / 3_600_000);
 
   const doRevoke = async () => {
+    const owner = getActiveWallet(); // filed under the wallet that started this, see notifications.js
     const returned = remaining;
     // Move to the budget's own chain first. Budget ids are per contract, so
     // reclaiming id 1 while the wallet sits on another chain would target a
@@ -156,6 +157,7 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
     addNotification(
       `Budget #${String(budgetId)}: ${fmt(returned, symbol)} returned`,
       'You took back the unspent remainder. The agent can no longer draw from this budget.',
+      owner,
     );
     onRevoked?.();
   };

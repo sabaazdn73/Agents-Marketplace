@@ -13,7 +13,7 @@ import { useCallback } from 'react';
 import { useAccount, useWriteContract, usePublicClient, useChainId, useSwitchChain } from 'wagmi';
 import { bsc } from 'wagmi/chains';
 import { getContracts, AGENTIC_COMMERCE_ABI, OPTIMISTIC_POLICY_ABI, EVALUATOR_ROUTER_ABI } from './erc8183';
-import { addNotification } from './notifications';
+import { addNotification, getActiveWallet } from './notifications';
 
 const RECEIPT_TIMEOUT_MS = 90_000; // same timeout as useHireAgent.js
 
@@ -29,7 +29,9 @@ export function useJobActions() {
   // wallet writes in the app whose outcome was recorded nowhere the user
   // could look for it afterwards. `notice` is supplied per action so the
   // entry says what happened rather than "transaction confirmed".
-  const writeAndConfirm = useCallback(async (params, notice) => {
+  // `owner` is captured by the caller before its first await (the chain
+  // switch can wait on the user), see notifications.js.
+  const writeAndConfirm = useCallback(async (params, notice, owner = getActiveWallet()) => {
     const hash = await writeContractAsync(params);
     try {
       await publicClient.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
@@ -41,6 +43,7 @@ export function useJobActions() {
           `${notice.pending}, not yet confirmed`,
           'It was sent but could not be confirmed in time. It may still go through. '
           + `Check before trying again: https://bscscan.com/tx/${hash}`,
+          owner,
         );
       }
       throw new Error(
@@ -49,7 +52,7 @@ export function useJobActions() {
         `"not found" after a few minutes, it never went through, and it's safe to retry.`
       );
     }
-    if (notice) addNotification(notice.title, notice.body);
+    if (notice) addNotification(notice.title, notice.body, owner);
     return hash;
   }, [writeContractAsync, publicClient]);
 
@@ -61,6 +64,7 @@ export function useJobActions() {
    * inside the dispute window; the contract reverts otherwise. */
   const disputeDirect = useCallback(async (jobId) => {
     if (!address) throw new Error('Connect a wallet first.');
+    const owner = getActiveWallet();
     await ensureChain();
     const contracts = getContracts(bsc.id);
     return writeAndConfirm({
@@ -70,7 +74,7 @@ export function useJobActions() {
       pending: `Job #${jobId}: dispute`,
       title: `Job #${jobId}: disputed`,
       body: 'You flagged this delivery inside the review window. Payment is held while it is resolved.',
-    });
+    }, owner);
   }, [address, ensureChain, writeAndConfirm]);
 
  /** Real, confirmed gap fixed here (full hire-flow audit, 2026-08-28): the
@@ -88,6 +92,7 @@ export function useJobActions() {
    * pre-guessed here, same discipline as claimRefundDirect below. */
   const approveDirect = useCallback(async (jobId) => {
     if (!address) throw new Error('Connect a wallet first.');
+    const owner = getActiveWallet();
     await ensureChain();
     const contracts = getContracts(bsc.id);
     return writeAndConfirm({
@@ -97,7 +102,7 @@ export function useJobActions() {
       pending: `Job #${jobId}: approval`,
       title: `Job #${jobId}: approved and paid`,
       body: 'You released payment early instead of waiting out the review window. The job is now complete.',
-    });
+    }, owner);
   }, [address, ensureChain, writeAndConfirm]);
 
  /** on-chain call to AgenticCommerce.claimRefund(jobId), the
@@ -108,6 +113,7 @@ export function useJobActions() {
    * eligible. */
   const claimRefundDirect = useCallback(async (jobId) => {
     if (!address) throw new Error('Connect a wallet first.');
+    const owner = getActiveWallet();
     await ensureChain();
     const contracts = getContracts(bsc.id);
     return writeAndConfirm({
@@ -117,7 +123,7 @@ export function useJobActions() {
       pending: `Job #${jobId}: refund`,
       title: `Job #${jobId}: refunded`,
       body: 'The deadline passed with nothing delivered, so you took your money back.',
-    });
+    }, owner);
   }, [address, ensureChain, writeAndConfirm]);
 
   return { disputeDirect, approveDirect, claimRefundDirect };

@@ -30,7 +30,7 @@
 // product has (see docs/limitations.md for why the Altana session path
 // was removed 2026-09-03).
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Briefcase, ExternalLink } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import JobStatusPanel from './JobStatusPanel';
@@ -50,6 +50,12 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // A different wallet's jobs must not stay on screen, or keep their status
+  // panels polling, while the new wallet's load is in flight or has failed.
+  const currentAddress = useRef(address);
+  currentAddress.current = address;
+  useEffect(() => { setData(null); }, [address]);
 
   const load = useCallback(() => {
     if (!isConnected || !address) { setData(null); setLoading(false); return; }
@@ -72,9 +78,11 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
         if (!r.ok) throw new Error(`Backend returned ${r.status}`);
         return r.json();
       })
-      .then((d) => setData(d))
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      // A response for a wallet that is no longer connected is dropped, or a
+      // slow reply for the previous wallet would repaint its jobs here.
+      .then((d) => { if (currentAddress.current === address) setData(d); })
+      .catch((e) => { if (currentAddress.current === address) setError(e.message); })
+      .finally(() => { if (currentAddress.current === address) setLoading(false); });
   }, [address, isConnected]);
 
   useEffect(() => { load(); }, [load]);

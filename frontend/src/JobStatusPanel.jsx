@@ -48,7 +48,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, ExternalLink, AlertTriangle, RefreshCw, Coins, FileText, Sparkles, Clock, Hourglass, CheckCircle2, XCircle } from 'lucide-react';
 import { getJobStatus, getDeliverable } from './altana';
-import { trackJob } from './notifications';
+import { trackJob, getActiveWallet } from './notifications';
 import { recordFunded, getStartEstimate, getKnownTypicalDelivery, getActivityWindow, isPastDisputeWindow } from './jobTiming';
 import { extractDeliverableText, parseLightMarkdown } from './deliverableFormat';
 import AgentActivityPanel from './AgentActivityPanel';
@@ -371,10 +371,11 @@ export default function JobStatusPanel({
     // updating this on failure would make repeated failures look like one
  // long-stale check instead of what's happening.
     setLastCheckedAtMs(Date.now());
+    const owner = getActiveWallet(); // before the await, see notifications.js
     try {
       const j = await getJobStatus(jobId);
       setJob(j); setStatus(j.statusName);
-      trackJob(jobId, j.statusName);
+      trackJob(jobId, j.statusName, owner);
 
  // A real, detected change (not the initial load), trigger the
       // visual transition once, driven by an state flip.

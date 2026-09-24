@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, Check } from 'lucide-react';
-import { useNotifications, getTrackedJobs, setJobStatus, addNotification } from './notifications';
+import { useAccount } from 'wagmi';
+import { usePrivy } from '@privy-io/react-auth';
+import {
+  useNotifications, getTrackedJobs, setJobStatus, addNotification,
+  setActiveWallet, getActiveWallet,
+} from './notifications';
 import { getJobStatus } from './altana';
 import { STATUS_DISPLAY_LABEL } from './JobStatusPanel';
 
 // Polls the user's tracked ERC-8183 jobs and raises a notification when a real
 // on-chain status changes (FUNDED → SUBMITTED → COMPLETED/REJECTED/EXPIRED).
 // The bell owns the polling, so it runs wherever a bell is mounted.
-function useJobStatusPolling(intervalMs = 30000) {
+// Polls only the connected wallet's jobs, and nothing while disconnected. A
+// poll that outlives a wallet change stops rather than file its result under
+// the wallet that is connected now.
+function useJobStatusPolling(wallet, intervalMs = 30000) {
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
@@ -16,7 +24,7 @@ function useJobStatusPolling(intervalMs = 30000) {
       for (const [jobId, last] of Object.entries(jobs)) {
         try {
           const j = await getJobStatus(jobId);
-          if (cancelled) return;
+          if (cancelled || getActiveWallet() !== wallet) return;
           if (j.statusName && j.statusName !== last) {
             const plain = STATUS_DISPLAY_LABEL[j.statusName] || j.statusName;
             addNotification(`Job #${jobId}: ${plain}`, `One of your hires just changed status to "${plain}".`);
@@ -25,10 +33,25 @@ function useJobStatusPolling(intervalMs = 30000) {
         } catch { /* transient RPC error, retry next tick */ }
       }
     };
+    if (!wallet) return undefined;
     const id = setInterval(poll, intervalMs);
     poll();
     return () => { cancelled = true; clearInterval(id); };
-  }, [intervalMs]);
+  }, [wallet, intervalMs]);
+}
+
+// The same connected address the header shows: the external wallet if one is
+// connected, otherwise the embedded one. Published to the notification store,
+// which scopes everything it shows and records to that wallet.
+function useNotificationWallet() {
+  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
+  const { ready, authenticated, user } = usePrivy();
+  const embedded = ready && authenticated ? user?.wallet?.address : null;
+  const wallet = ((wagmiConnected ? wagmiAddress : embedded) || '').toLowerCase() || null;
+  // Layout effect, so the list is re-scoped before the next paint rather than
+  // showing the previous wallet's notifications for a frame.
+  useLayoutEffect(() => { setActiveWallet(wallet); }, [wallet]);
+  return wallet;
 }
 
 function timeAgo(ts) {
@@ -41,6 +64,7 @@ function timeAgo(ts) {
 
 // variant: 'dark' (light icon, for the dark web sidebar) | 'light' (default).
 export default function NotificationBell({ variant = 'light' }) {
+  const wallet = useNotificationWallet();
   const { notifications, unread, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -49,7 +73,7 @@ export default function NotificationBell({ variant = 'light' }) {
  // rather than as a child of the bell, so it needs coordinates
   // instead of `absolute right-0`.
   const [pos, setPos] = useState(null);
-  useJobStatusPolling();
+  useJobStatusPolling(wallet);
 
   useEffect(() => {
     // The panel lives outside `ref` now (it is portalled to <body>), so a
