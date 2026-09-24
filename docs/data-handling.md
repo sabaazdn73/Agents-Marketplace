@@ -238,6 +238,53 @@ called it.
 Addresses logged before the change stay in logs we do not own and cannot
 purge, for as long as those providers retain them.
 
+### `/api/wallet/habits`, the visitor's own wallet on Hyperliquid
+
+`POST /api/wallet/habits` backs the signed-in dashboard: what the visitor's
+own Hyperliquid account holds and what its trading habits have cost it,
+measured. It takes the visitor's connected wallet and was built on the
+`/api/my-jobs` pattern from the start.
+
+The wallet is in the JSON body, `{"address": "0x..."}`, never in the URL. The
+body is read by hand and capped at 256 bytes, and every malformed body gets
+one fixed 400 that repeats nothing that was sent. There is no GET form and so
+no 410: no caller ever sent the address in a URL here. A GET gets the
+framework's own 405, which echoes nothing. A caller who puts the address in
+a GET query string anyway still puts it in the access log line, for the
+reason given above for `/api/my-jobs`.
+
+What it reads: Hyperliquid's public info API, with the address in each POST
+body. The reads are `clearinghouseState` (the main perp dex and any
+builder-deployed dex named in the address's own activity),
+`spotClearinghouseState`, `userRole` (only when the account holds nothing),
+`userFills`, `historicalOrders`, `userFees` and up to three pages of
+`userFunding`, read newest first. These are the same public reads anyone can
+make for any address. The server makes one such read at a time, and refuses
+another with a 429 and a retry time rather than queueing it. The route checks no signature and does not prove the caller owns
+the wallet. That is consistent with every `/api/*` route being public, and it
+exposes nothing the venue does not already publish.
+
+What it keeps: an in-process cache of the computed response, keyed by the
+lowercased address, for 5 minutes. It holds compact JSON bytes, at most 128
+answers and 4MB in total, and is cleared when either would be passed. The
+address is not written to any database or file, not logged by this code, and
+not echoed in the response. An answer missing anything for a transient reason
+(a rate limit, an unreachable venue, a deadline) is not cached; one limited only
+by a fixed bound of the read, such as the page cap, is.
+Nothing else is kept.
+
+The post-only figure uses the same definitions as the tracked makers' (the
+same rejection rate, cancels per fill and bands), but it is not withheld by
+the same rules. The tracked address-level rate is withheld on too few polls
+and as `stale_data` when its newest record is over an hour old; the 200
+post-only order floor belongs to the per-market and per-hour rates. One
+reading of a wallet's own orders has no polls to count, so it takes the
+per-market order floor. It is not withheld for age. That is the owner's
+decision of 2026-09-24: a user's own wallet shows the figure labelled with its
+order window and the newest order's age, for example "orders from 3 Sep to
+5 Sep, newest 19 days ago". The rule is one constant,
+`POST_ONLY_WITHHOLD_AFTER_SECONDS` in `core/hyperliquid/wallet_habits.py`.
+
 ### Wallet addresses, written
 
 Most of these are public on-chain data this project deliberately indexes.
@@ -330,9 +377,10 @@ asked again. Challenges now carry a date in `purge_at`, and
 `ensure_indexes`, so whoever mounts this package has to call it at startup,
 or no challenge expires.
 
-`WALLET_HASH_SALT` is not declared in `render.yaml`. That file does not
-declare the backend web service at all, so whether the variable is set on the
-deployment can only be read from the Render dashboard.
+`WALLET_HASH_SALT` is not declared in `render.yaml`, which does not declare the
+backend web service at all. It is set on the Render service: the project owner
+set it there and said so on 2026-09-24. This page records that statement; the
+value is not visible from this repository.
 
 ### Wallet addresses, held in memory
 
@@ -344,6 +392,7 @@ of it is shared between workers.
 |---|---|---|---|
 | `core/hyperliquid/attribution.py` | wallet | 6 hours | 512, cleared entirely when full |
 | `core/hyperliquid/venuerole.py` | wallet | 6 hours | 4096, cleared entirely when full |
+| `core/hyperliquid/wallet_habits.py` | the visitor's own wallet, lowercased, holding the computed response as JSON bytes | 5 minutes | 128 answers and 4MB, cleared entirely when either is reached |
 | `core/hyperliquid/corestate.py` | wallet | 20 seconds | none |
 | `adapters/zerion.py`, three caches | wallet, holding portfolio, activity and PnL | 10 minutes | none |
 | `adapters/contract_verification.py` | wallet or contract | 24 hours | none |
@@ -389,6 +438,7 @@ codebase sends it anywhere.
 | Etherscan and Sourcify | Owner or contract | Query string | Same |
 | Binance Web3 Market | Token contract, not a wallet | Query parameter | |
 | Hyperliquid info API and WebSocket | Tracked maker | POST body or subscription message | Not in a URL |
+| Hyperliquid info API | The visitor's own wallet, from `/api/wallet/habits` | POST body | Not in a URL |
 | HyperEVM, BSC and backup RPC providers | Wallet, ABI-encoded as calldata | POST body | Not in a URL |
 
 8004scan, TheGraph, CoinGecko, DefiLlama and Crossmint receive no address

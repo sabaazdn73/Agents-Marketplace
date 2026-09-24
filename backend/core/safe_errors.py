@@ -32,15 +32,22 @@ why.
 
 from __future__ import annotations
 
+import urllib.error
+
 
 def describe(exc: BaseException) -> str:
     """A short description of a failed request, safe to publish.
 
     An exception carrying a response (httpx's HTTPStatusError, requests'
-    HTTPError) becomes "HTTP 429". Anything else becomes its class name,
+    HTTPError) or a urllib HTTPError becomes "HTTP 429". Anything else becomes its class name,
     "ReadTimeout", "ConnectError", "RuntimeError".
     """
     status = getattr(getattr(exc, "response", None), "status_code", None)
     if isinstance(status, int):
         return f"HTTP {status}"
+    # urllib's HTTPError carries the status as `.code` and no `.response`.
+    # Matched by type rather than by attribute, because other exceptions have
+    # a `.code` that is not an HTTP status.
+    if isinstance(exc, urllib.error.HTTPError) and isinstance(exc.code, int):
+        return f"HTTP {exc.code}"
     return type(exc).__name__

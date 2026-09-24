@@ -2960,6 +2960,61 @@ async def my_jobs(request: Request):
     return result
 
 
+_BAD_WALLET_HABITS_BODY = (
+    'Expected a JSON body of exactly {"address": "0x..."}, where the value is '
+    "a 0x-prefixed 40 character hex address."
+)
+
+
+@app.post("/api/wallet/habits")
+async def wallet_habits(request: Request):
+    """What a signed-in visitor's own Hyperliquid habits have cost them,
+    measured, and what the account holds. Definitions, withholding and the
+    rate budget are in core/hyperliquid/wallet_habits.py.
+
+    The wallet is in the POST body for the reason /api/my-jobs moved there: a
+    URL, query string included, is written to access logs. The body is read by
+    hand with a byte cap and every malformed body gets one fixed 400 that
+    repeats nothing, because FastAPI's 422 for a model echoes its input. There
+    is no GET form, so there is no 410: no caller ever sent the address in a
+    URL here, and a GET is answered by the framework's own 405, which carries
+    no part of the request. See docs/data-handling.md."""
+    from core.hyperliquid import wallet_habits as wh
+
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw) > wh.MAX_BODY_BYTES:
+            raise HTTPException(status_code=400, detail=_BAD_WALLET_HABITS_BODY)
+    address = wh.parse_body(bytes(raw))
+    if address is None:
+        raise HTTPException(status_code=400, detail=_BAD_WALLET_HABITS_BODY)
+    try:
+        result = await wh.get_wallet_habits(address)
+    except wh.Busy as b:
+        # Refused, not queued, and nothing was spent. The reason is one of
+        # wh.BUSY_REASONS and the detail is that reason's own sentence, so
+        # neither carries anything from the request.
+        return JSONResponse(
+            status_code=429,
+            headers={"Retry-After": str(b.retry_after), "Cache-Control": "no-store"},
+            content={"detail": b.detail, "reason": b.reason,
+                     "retry_after_seconds": b.retry_after},
+        )
+    except asyncio.TimeoutError:
+        # The read thread carries on to its own deadline and releases the gate
+        # itself; this only stops waiting for it.
+        raise HTTPException(status_code=504,
+                            detail="The Hyperliquid read did not finish in time.")
+    except Exception as e:
+        # describe(), not e: the class name only, whatever raised.
+        raise HTTPException(
+            status_code=500,
+            detail=f"Couldn't compute wallet habits right now: {describe_error(e)}",
+        )
+    return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
+
+
 # ---------------------------------------------------------------------------
 # Tnega PayBox, B402 (x402-on-BSC) checkout sessions
 # ---------------------------------------------------------------------------
