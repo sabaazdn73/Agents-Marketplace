@@ -18,12 +18,33 @@ Real investigation before building this (2026-08-24), not assumed:
     (a different real question — that decodes ERC-8183 job status, this
     reads a general wallet balance) confirmed they don't overlap; Zerion is
     additive here, not a replacement for anything.
-  - Real, decisive negative confirmed for a DIFFERENT real use case (bStock
-    PnL): two real, on-chain-verified bStock tokens (NVDAB, TSLAB) both come
-    back "fungible not found" from Zerion — likely the newer BEP-8056
-    standard, not plain BEP-20. Not relevant to this module (native BNB +
-    whatever real fungibles Zerion DOES recognize still resolve fine), but
-    worth knowing this integration has a real, not universal, coverage gap.
+  - A decisive negative confirmed for a DIFFERENT use case (bStock PnL): two
+    tokenized-equity tokens on BSC, Binance's bStock NVDAB
+    (0x02fca66c1d1afb4e2a7884261eb00f63598a7436) and TSLAB
+    (0x5b1910eaad6450e50f816082aa078c41f10c292f), both come back "fungible
+    not found" from Zerion. That response proves exactly one thing: Zerion
+    does not index these two tokens. It says nothing about what they are.
+    An earlier version of this comment guessed from it that they were
+    "likely the newer BEP-8056 standard, not plain BEP-20"; two docs pages
+    then restated that hedged guess as settled fact, and also as this
+    project's own tokens, which they are not. Both corrected 2026-09-24
+    (docs/limitations.md, docs/integrations.md). Neither address is used
+    anywhere in this repo; all this project ever did was read a wallet
+    balance for them.
+    The guess was right, and is now read off the contracts rather than
+    inferred from an API failure. On chain, 2026-09-24: both are beacon
+    proxies (EIP-1967 implementation slot zero, beacon slot pointing at
+    0x156d6dce9a4f6139a3406f1f021f1a4880de93a3, whose implementation() is
+    0xcfed6c4679297ea4889f8183bc057b4a86c64e46), and both answer
+    uiMultiplier(), newUIMultiplier(), effectiveAt(), balanceOfUI(address),
+    totalSupplyUI(), toUIAmount(uint256) and fromUIAmount(uint256) with a
+    value and no revert, which is the ERC-8056 scaled-UI-amount surface.
+    NVDAB's multiplier is 1.000778223752807865 and
+    totalSupply * uiMultiplier / 1e18 equals totalSupplyUI to the wei;
+    TSLAB is at exactly 1.0 with the two supplies equal. Not relevant to
+    this module (native BNB plus whatever fungibles Zerion DOES recognize
+    still resolve fine), but worth knowing this integration has a coverage
+    gap that is not universal.
 
 Best-effort, same discipline as bsc_balance.py: any failure (rate limit,
 network, malformed response) is reported honestly as "unavailable", never a

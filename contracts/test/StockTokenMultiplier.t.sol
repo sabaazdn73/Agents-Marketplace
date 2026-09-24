@@ -32,6 +32,49 @@ pragma solidity 0.8.24;
  *    tokens are not rebasing tokens."
  *
  * The escrow contract under test is the mainnet source, unmodified.
+ *
+ * WHAT THE MOCK'S SURFACE MODELS, CHECKED ON CHAIN (2026-09-24)
+ * ------------------------------------------------------------
+ * MockStockToken exposes toUIAmount and fromUIAmount, and the last assertion
+ * in test_MultiplierDoesNotMoveRawBalances calls toUIAmount (it sat at line
+ * 136 before this note was added, and is the only test that touches either
+ * function). Both belong to the ERC-8056 reference surface, so the mock is
+ * faithful to the spec. They are also live on BSC: Binance's
+ * bStock tokenized equities NVDAB
+ * (0x02fca66c1d1afb4e2a7884261eb00f63598a7436) and TSLAB
+ * (0x5b1910eaad6450e50f816082aa078c41f10c292f) answer both with a value and
+ * no revert, as beacon proxies over beacon
+ * 0x156d6dce9a4f6139a3406f1f021f1a4880de93a3 and implementation
+ * 0xcfed6c4679297ea4889f8183bc057b4a86c64e46, whose deployed bytecode
+ * contains all seven scaled-UI selectors.
+ *
+ * They are NOT live on the chain this header names, which is the irony worth
+ * recording. Robinhood Chain's own Stock Tokens are beacon proxies sharing
+ * one beacon (0xe10b6f6b275de231345c20d14ab812db62151b00) and one
+ * implementation (0xb35490d6f9163de4f80d88dc75c3516eb64c5ae2), and that
+ * implementation carries five of the seven: uiMultiplier(),
+ * newUIMultiplier(), effectiveAt(), balanceOfUI(address) and
+ * totalSupplyUI() all return a value. toUIAmount(uint256) (selector
+ * 0x3248d4ff) and fromUIAmount(uint256) (0x65cd9b3c) do not. Both selectors
+ * are absent from the deployed implementation bytecode, and both calls
+ * revert with empty data, which is the signature of no dispatch entry
+ * rather than a rejected call. Checked on chain 4663 against AAPL
+ * (0xaf3d76f1834a1d425780943c99ea8a608f8a93f9), MSFT
+ * (0xe93237c50d904957cf27e7b1133b510c669c2e74), SPY
+ * (0x117cc2133c37b721f49de2a7a74833232b3b4c0c), META
+ * (0xc0d6457c16cc70d6790dd43521c899c87ce02f35), TSM
+ * (0x58ffe4a942d3885baa22d7520691f611ef09e7aa) and GME
+ * (0x1b0e319c6a659f002271b69db8a7df2f911c153e); all six behave identically.
+ *
+ * So the BSC tokens implement more of the scaled-UI interface than the one
+ * deployment this header names. The mock's surface is faithful to the
+ * reference standard and to the BSC bStock surface, and wider than the
+ * Robinhood Chain contract it claims to model. The property these tests
+ * actually depend on, a multiplier that scales a UI view without moving
+ * balanceOf or totalSupply, does hold live on chain 4663, so the tests are
+ * not wrong about their subject; only the mock's extra surface models a
+ * contract that does not exist. Left as is deliberately: narrowing the mock
+ * means changing test logic, which was out of scope for this note.
  */
 
 import {Test} from "forge-std/Test.sol";
