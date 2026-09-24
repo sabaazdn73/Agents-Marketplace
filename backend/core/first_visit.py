@@ -26,6 +26,16 @@
 # TTL index, so this stays a short-lived "seen recently" set rather than
 # becoming a visitor log nobody asked for.
 #
+# IF THE SALT IS UNSET, NOTHING IS HASHED
+# ---------------------------------------
+# There is no fallback salt, and there used to be one. A fallback has to be a
+# constant sitting in this file, and a hash taken against a constant that
+# anybody reading the repository already has is reversible for any address:
+# hash candidates against the known salt until one matches, and the candidate
+# space for an IPv4 address is small enough to walk. That is the whole of the
+# protection gone, so with FIRST_VISIT_SALT unset this module hashes nothing,
+# writes nothing, reads nothing, and says so.
+#
 # WHAT THIS IS NOT
 # ----------------
 # Not identity. X-Forwarded-For is supplied by the client and can be set
@@ -45,12 +55,40 @@ from core.db import get_db
 COLLECTION = "home_first_visit"
 TTL_DAYS = 90
 
-# Without a stable salt the hash would change on every restart and every
-# visitor would look new. Falls back to a fixed string so the feature still
-# works unconfigured; set FIRST_VISIT_SALT in any deployment.
-_SALT = os.environ.get("FIRST_VISIT_SALT") or "tnega-first-visit-v1"
+# Read once at import. The salt has to be stable across restarts or every
+# visitor looks new on every deploy, which rules out generating one at boot
+# as well as committing one. There is deliberately no default: see IF THE
+# SALT IS UNSET at the top of this file.
+_SALT = os.environ.get("FIRST_VISIT_SALT") or None
 
 _ttl_ready = False
+_salt_absence_logged = False
+
+
+def _salt() -> str | None:
+    """The configured salt, or None having said so once.
+
+    Once per process rather than once per request. An unconfigured deployment
+    still takes traffic at whatever rate the internet sends it, and a line per
+    request would be a denial of service against its own log: one repeated
+    sentence pushing out everything worth reading.
+    """
+    global _salt_absence_logged
+    if _SALT:
+        return _SALT
+    if not _salt_absence_logged:
+        _salt_absence_logged = True
+        print(
+            "[first_visit] FIRST_VISIT_SALT is not set. First-visit detection "
+            "is off for the life of this process: no client address is "
+            f"hashed, nothing is written to or read from the {COLLECTION} "
+            "collection, and /api/first-visit answers with "
+            "withheld_reason=salt_not_configured rather than a true or a "
+            "false. Set FIRST_VISIT_SALT to turn it back on. Printed once per "
+            "process, not once per request.",
+            flush=True,
+        )
+    return None
 
 
 def client_ip(headers: dict, fallback: str | None) -> str | None:
@@ -69,8 +107,14 @@ def client_ip(headers: dict, fallback: str | None) -> str | None:
     return (fallback or "").strip() or None
 
 
-def _fingerprint(ip: str) -> str:
-    return hashlib.sha256(f"{_SALT}:{ip}".encode()).hexdigest()[:32]
+def _fingerprint(salt: str, ip: str) -> str:
+    """The stored stand-in for one address.
+
+    The salt is passed in rather than read from the module, so that there is
+    no way to reach this function without having established that a salt
+    exists. A caller cannot accidentally hash against None.
+    """
+    return hashlib.sha256(f"{salt}:{ip}".encode()).hexdigest()[:32]
 
 
 async def _ensure_ttl(coll) -> None:
@@ -89,23 +133,76 @@ async def _ensure_ttl(coll) -> None:
 async def check_and_record(ip: str | None) -> dict:
     """True only the first time an address is seen inside the TTL window.
 
-    Any failure reports first_visit False. The caller shows the Home page
-    only on a clear True, so an error means the marketplace opens, which is
-    the safer way to be wrong.
+    `first_visit` is True, False, or None, and None is never a quieter way of
+    saying False. It means the question was not answered, and
+    `withheld_reason` carries a code a caller can branch on plus a sentence a
+    person can read. That is the shape this project already uses wherever a
+    measurement cannot be made: see core/hyperliquid/corestate.py,
+    core/extension/subject.py and core/agents_index.py, and `store_unavailable`
+    here is the code subject.py already emits on the same predicate.
+
+    Every failure used to report False so that the caller opened the
+    marketplace. That was a manufactured answer to a question nothing had
+    answered, the same defect as a zero standing in for a failed read. A
+    caller that wants the old behaviour treats a null as "not a first visit",
+    which it can now do knowingly rather than being told a false.
     """
+    salt = _salt()
+    if salt is None:
+        return {
+            "first_visit": None,
+            "withheld_reason": {
+                "code": "salt_not_configured",
+                "detail": (
+                    "FIRST_VISIT_SALT is not set on this deployment, so no "
+                    "client address was hashed and no record was written or "
+                    "read. The alternative would be a constant salt committed "
+                    "to this repository, and a hash taken against a salt "
+                    "anybody can read is reversible for any address by trying "
+                    "candidates until one matches."
+                ),
+            },
+        }
+
     if not ip:
-        return {"first_visit": False, "reason": "no client address"}
+        return {
+            "first_visit": None,
+            "withheld_reason": {
+                "code": "no_client_address",
+                "detail": (
+                    "Neither X-Forwarded-For nor the socket peer carried an "
+                    "address, so there is nothing to recognise this visitor "
+                    "by."
+                ),
+            },
+        }
 
     try:
         coll = get_db()[COLLECTION]
         await _ensure_ttl(coll)
-        key = _fingerprint(ip)
+        key = _fingerprint(salt, ip)
         # Atomic: insert only if absent, and report whether it was new.
         res = await coll.update_one(
             {"_id": key},
             {"$setOnInsert": {"seen_at": time.time()}},
             upsert=True,
         )
-        return {"first_visit": bool(res.upserted_id is not None)}
+        return {
+            "first_visit": bool(res.upserted_id is not None),
+            "withheld_reason": None,
+        }
     except Exception as e:
-        return {"first_visit": False, "reason": f"{type(e).__name__}"}
+        # The exception TYPE and nothing else. A driver's message can quote
+        # the connection string, and a DNS or socket failure can quote a host
+        # address, so the text of `e` is not something to put in a response.
+        return {
+            "first_visit": None,
+            "withheld_reason": {
+                "code": "store_unavailable",
+                "detail": (
+                    f"The first-visit store did not answer "
+                    f"({type(e).__name__}). Whether this visitor has been here "
+                    f"before is unknown, which is not the same as false."
+                ),
+            },
+        }

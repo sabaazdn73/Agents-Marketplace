@@ -30,7 +30,8 @@ The values read by `backend/server.py` and its `core`/`adapters` modules (`os.en
 | `AGENT_BUILDS_ROOT` | "Build Your Agent" | Optional, has a default. |
 | `BAG_BIN` | "Build Your Agent" | Optional, has a default; only needed if you're running the `bag` CLI locally. |
 | `BATCH_TRIGGER_SECRET` | The six `/api/admin/*-batch` routes | Checked against the `X-Batch-Secret` header. Without it those routes cannot be triggered. |
-| `FIRST_VISIT_SALT` | First-visit detection | Falls back to a fixed string in source if unset, which removes the protection the hashing exists to provide. See [Data Handling](data-handling.md#personal-data). |
+| `FIRST_VISIT_SALT` | First-visit detection | No fallback. Unset, nothing is hashed and nothing is written: `/api/first-visit` answers `first_visit: null` with `withheld_reason.code` of `salt_not_configured`, and the process logs one line saying so. The fallback string this row used to describe was removed because a hash taken against a constant in this repository is reversible by anyone who reads it. See [Data Handling](data-handling.md#personal-data). |
+| `WALLET_HASH_SALT` | `core/wallet_hash.py` | Nothing calls it yet. Same discipline: no fallback, and unset it returns `fingerprint: null` with `salt_not_configured` rather than hashing against a known constant. Separate from `FIRST_VISIT_SALT` on purpose; the module says why. |
 | `PLATFORM_FEE_WALLET` | Contract deployment scripts | Not read by the running server. See [AgentBudgetEscrow Go-Live](budget-escrow-golive.md). |
 | `REFERENCE_AGENT_ADDRESS` | Escrow compatibility audit | Optional. Currently unset in production. |
 

@@ -3387,9 +3387,12 @@ async def first_visit(request: Request):
     the marketplace. Nothing else depends on it, and it is deliberately
     cheap: one upsert, no read of anything else.
 
-    Never returns an error. On any failure it reports first_visit False, so
-    the marketplace opens. Showing Home when it should not is the more
-    annoying way to be wrong.
+    Never returns an error status. `first_visit` is true, false, or null, and
+    null carries a `withheld_reason` saying why the question was not answered:
+    the salt is unconfigured, no client address arrived, or the store did not
+    respond. It used to report false on every failure; that told the caller
+    something nothing had established. A caller that wants a landing page out
+    of this treats null the same way it treats false, knowing which it got.
     """
     ip = first_visit_mod.client_ip(dict(request.headers), request.client.host if request.client else None)
     return await first_visit_mod.check_and_record(ip)

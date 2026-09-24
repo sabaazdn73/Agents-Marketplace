@@ -35,6 +35,7 @@ from eth_utils import function_signature_to_4byte_selector
 
 from core.db import get_db
 from core.rpc import rpc_post
+from core.safe_errors import describe
 from adapters.bsc import fetch_agent_detail, MAINNET_CHAIN_ID
 
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
@@ -246,8 +247,15 @@ async def classify_address(address: str) -> dict:
     try:
         by_id = await _rpc_batch(calls)
     except Exception as e:
+        # URL-free by construction. _rpc_batch goes through core.rpc.rpc_post,
+        # which fails over to Infura, whose URL holds INFURA_API_KEY in its
+        # path, and raise_for_status() builds its message from that full URL.
+        # This `reason` is returned to the caller and cached for five minutes,
+        # so interpolating the exception published the key. Same defect as
+        # adapters/contract_verification.py; see core/safe_errors.py.
         result = {"input_kind": "address", "found": False,
-                   "reason": f"Couldn't reach a BSC RPC to check this address live: {e}. Try again shortly."}
+                   "reason": f"Couldn't reach a BSC RPC to check this address live: "
+                             f"{describe(e)}. Try again shortly."}
         _cache_set(cache_key, result)
         return result
 

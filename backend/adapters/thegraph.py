@@ -48,6 +48,8 @@ import os
 
 import httpx
 
+from core.safe_errors import describe
+
 GATEWAY = "https://gateway.thegraph.com/api"
 
 # Agent0 subgraph IDs, from thegraph.com/docs/en/subgraphs/guides/agent0/.
@@ -100,7 +102,12 @@ async def query(
     try:
         resp = await client.post(endpoint_for(chain_id), json={"query": gql}, timeout=_TIMEOUT)
     except (httpx.TimeoutException, httpx.TransportError) as e:
-        raise TheGraphError(f"subgraph unreachable: {type(e).__name__}: {e}") from e
+        # URL-free by construction. endpoint_for() puts THEGRAPH_API_KEY in the
+        # request URL's path, and an httpx exception's message can be built
+        # from that URL. A TheGraphError's text is returned to callers (see
+        # core/full_registry_ingest.run_thegraph_backfill_batch), so nothing
+        # derived from the URL goes into it. See core/safe_errors.py.
+        raise TheGraphError(f"subgraph unreachable: {describe(e)}") from e
 
     if resp.status_code != 200:
         raise TheGraphError(f"subgraph HTTP {resp.status_code}: {resp.text[:200]}")

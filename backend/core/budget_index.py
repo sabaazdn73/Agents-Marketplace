@@ -61,6 +61,7 @@ from typing import Any
 import httpx
 
 from core.rpc import get_chain_rpc_url, get_chain_fallback_rpc_url
+from core.safe_errors import describe
 
 # keccak("Drawn(uint256,address,uint256,uint256,uint256,uint256,bytes32)")
 DRAWN_TOPIC = "0x857eef7b9debffbe023f8d5f0d03d0e4f26b954deeef5d68ef6c5ebe33a5aae3"
@@ -129,7 +130,14 @@ async def _rpc_from(client: httpx.AsyncClient, chain_id: int, method: str,
             return body["result"], url
         except Exception as e:  # noqa: BLE001 -- try the failover, then report
             last = e
-    raise RuntimeError(f"chain {chain_id} {method} failed on every RPC: {last}")
+    # describe(), not the exception itself: the failover URL is Infura's, which
+    # holds INFURA_API_KEY in its path, and raise_for_status() builds its
+    # message from that full URL. Same reason _provider_serves_logs below logs
+    # `url.split('/')[2]` rather than `url`. See core/safe_errors.py.
+    raise RuntimeError(
+        f"chain {chain_id} {method} failed on every RPC: "
+        f"{describe(last) if last is not None else 'no endpoint answered'}"
+    )
 
 
 async def _rpc(client: httpx.AsyncClient, chain_id: int, method: str, params: list) -> Any:
@@ -254,7 +262,8 @@ async def _scan(client: httpx.AsyncClient, chain_id: int, topic: str,
                 body = r.json()
                 if "error" in body:
                     raise RuntimeError(
-                        f"chain {chain_id} eth_getLogs {cur}-{end} failed on {alt}: {body['error']}"
+                        f"chain {chain_id} eth_getLogs {cur}-{end} failed on "
+                        f"{alt.split('/')[2]}: {body['error']}"
                     )
                 logs = body["result"]
                 recovered = True
@@ -262,7 +271,7 @@ async def _scan(client: httpx.AsyncClient, chain_id: int, topic: str,
             if not recovered:
                 raise RuntimeError(
                     f"chain {chain_id} eth_getLogs {cur}-{end} returned empty from "
-                    f"{url}, which failed the known-log control at block "
+                    f"{url.split('/')[2]}, which failed the known-log control at block "
                     f"{FIRST_BUDGET_BLOCK.get(chain_id)}, and no other endpoint could "
                     f"be trusted to answer. Refusing to record an empty range as scanned."
                 )

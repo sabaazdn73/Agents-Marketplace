@@ -44,6 +44,8 @@ import time
 
 import httpx
 
+from core.safe_errors import describe
+
 _ETHERSCAN_V2_BASE = "https://api.etherscan.io/v2/api"
 _BSC_CHAIN_ID = 56
 
@@ -220,8 +222,17 @@ async def check_owner_contract_verification(address: str, chain_id: int = _BSC_C
             resp.raise_for_status()
             body = resp.json()
     except Exception as e:
+        # URL-free by construction, and it has to stay that way. The request
+        # above carries BSCSCAN_API_KEY as an `apikey` query parameter, and
+        # httpx builds a raise_for_status() exception's message from the full
+        # request URL including that query string. This `reason` is returned in
+        # the body of GET /api/agents/{id}/contract-verification AND cached for
+        # 24 hours, so interpolating the exception published the key and
+        # re-served it to every later caller for a day. Rate limiting is the
+        # ordinary failure for this provider, so that path was the common one,
+        # not an exotic one. See core/safe_errors.py.
         result = {"is_contract": True, "verified": None,
-                  "reason": f"couldn't reach {_explorer(chain_id)[0]}: {e}"}
+                  "reason": f"couldn't reach {_explorer(chain_id)[0]}: {describe(e)}"}
         _cache[key] = (time.time(), result)
         return result
 

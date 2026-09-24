@@ -130,6 +130,7 @@ from pymongo import UpdateOne
 
 from adapters import bsc
 from core.db import get_db
+from core.safe_errors import describe
 
 FULL_REGISTRY_COLLECTION = "full_agent_registry"
 PROGRESS_COLLECTION = "full_registry_ingest_progress"
@@ -424,7 +425,16 @@ async def run_ingest_batch(
                 timeout=REQUEST_TIMEOUT, max_retries=6,
             )
         except Exception as e:
-            stopped_reason = f"page failed after retries: {type(e).__name__}: {e}"
+            # Safe by construction rather than by luck. This text is written
+            # into PROGRESS_COLLECTION, which has no TTL, and re-served through
+            # the public /api/full-registry-progress endpoint, so anything that
+            # lands here is permanent and public. 8004scan takes its key in an
+            # X-API-Key header rather than in the URL, so no credential reaches
+            # this today, but it is the same shape as the leak fixed in
+            # adapters/contract_verification.py with worse storage, and a
+            # provider that later moves its key into a query string would
+            # publish it here forever. See core/safe_errors.py.
+            stopped_reason = f"page failed after retries: {describe(e)}"
             progress["last_error"] = stopped_reason[:300]
             progress["last_run_at"] = time.time()
             await _save_progress(progress)
@@ -529,12 +539,15 @@ async def _run_single_chain_ingest_batch(
                 timeout=REQUEST_TIMEOUT, max_retries=6,
             )
         except Exception as e:
-            progress["last_error"] = f"{type(e).__name__}: {e}"[:300]
+            # Same reasoning as the sibling handler above: PROGRESS_COLLECTION
+            # has no TTL and /api/full-registry-progress is public, so the
+            # exception message never goes in. See core/safe_errors.py.
+            progress["last_error"] = describe(e)[:300]
             progress["last_run_at"] = time.time()
             await _save_progress(progress)
             return {
                 "pages_done": pages_done, "agents_ingested": agents_this_batch,
-                "cursor": cursor, "stopped_reason": f"error: {type(e).__name__}: {e}",
+                "cursor": cursor, "stopped_reason": f"error: {describe(e)}",
                 "elapsed_seconds": round(time.time() - t0, 1),
             }
 
@@ -691,6 +704,11 @@ async def run_thegraph_backfill_batch(
     except thegraph.TheGraphError as e:
         # Never fatal: this is a fallback, and 8004scan ingestion is
         # unaffected by it failing.
+        #
+        # TheGraphError's own text is URL-free by construction (see
+        # adapters/thegraph.query), which matters here because the gateway URL
+        # holds THEGRAPH_API_KEY in its path and this value is returned to the
+        # caller.
         error = str(e)
 
     return {

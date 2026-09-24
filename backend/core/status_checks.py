@@ -45,6 +45,7 @@ import httpx
 from adapters.bsc_balance import _rpc_url as _bsc_rpc_url
 from core.db import get_db
 from core.ingest_status import get_discovery_status
+from core.safe_errors import describe
 
 _EXPLAINER_AGENT_PING_URL = "https://explainer-agent.onrender.com/ping"
 _TIMEOUT = 10.0
@@ -64,14 +65,26 @@ async def _timed(name: str, coro) -> dict:
             "detail": detail,
         }
     except Exception as e:
-        # bug, found live during an actual 8004scan outage (2026-09-06):
-        # this reported `"detail": ""` for the one service that was actually
-        # down. httpx's timeout exceptions stringify to the empty string, so
-        # `str(e)` erased the reason at exactly the moment the status page
-        # existed to explain it -- the page said "not ok" and nothing else.
-        # Falling back to the exception's class name means a timeout reads as
-        # "ReadTimeout" rather than blank.
-        detail = str(e) or type(e).__name__
+        # Two separate rules, because two separate bugs meet here.
+        #
+        # 1. A RuntimeError raised by a check below carries a message this
+        #    module wrote itself ("INFURA_API_KEY not configured, no backup
+        #    exists yet"), which is the useful half of the status page and is
+        #    known not to contain a credential. Kept verbatim.
+        #
+        # 2. Everything else, an httpx failure above all, is reduced to a
+        #    status code or a class name. httpx builds a raise_for_status()
+        #    exception's message from the full request URL, the Infura backup
+        #    probe requests a URL holding INFURA_API_KEY in its path, and this
+        #    endpoint is deliberately unauthenticated, so `str(e)` served that
+        #    key to anyone who loaded /api/status while Infura was rate
+        #    limiting. See core/safe_errors.py.
+        #
+        # describe() also keeps an earlier fix in place, found live during an
+        # 8004scan outage (2026-09-06): httpx's timeout exceptions stringify to
+        # the empty string, so the page once said "not ok" and nothing else. A
+        # timeout now reads as "ReadTimeout", a rate limit as "HTTP 429".
+        detail = str(e) if isinstance(e, RuntimeError) and str(e) else describe(e)
         return {
             "name": name,
             "ok": False,

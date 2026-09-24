@@ -68,6 +68,8 @@ import httpx
 from eth_abi import decode as abi_decode, encode as abi_encode
 from eth_utils import function_signature_to_4byte_selector
 
+from core.safe_errors import describe
+
 # BSC mainnet ERC-8004 IdentityRegistry, verified live (tokenURI() calls
 # against real, known agents returned real, decodable data).
 IDENTITY_REGISTRY = "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
@@ -468,7 +470,13 @@ async def check_agents_health(agents: list[dict], limit: int | None = None) -> d
                     )
                     uri_by_token.update(chunk_result)
                 except Exception as e:
-                    print(f"[agent_health] tokenURI multicall chunk failed (chain {cid}): {e}")
+                    # describe(), not the exception: chain_rpc_post fails over
+                    # to Infura, whose URL holds INFURA_API_KEY in its path,
+                    # and raise_for_status() builds its message from that full
+                    # URL. A log is a place a credential should not land
+                    # either. See core/safe_errors.py.
+                    print(f"[agent_health] tokenURI multicall chunk failed "
+                          f"(chain {cid}): {describe(e)}")
                     # Real, transient failure for this chunk. The agents keep
                     # whatever health data they already had.
                     #

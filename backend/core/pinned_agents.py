@@ -43,6 +43,7 @@ from eth_utils import function_signature_to_4byte_selector
 
 from core.agent_health import IDENTITY_REGISTRY, _fetch_metadata, _tokenuri_calldata
 from core.rpc import rpc_post
+from core.safe_errors import describe
 
 # Real, on-chain-confirmed agents that 8004scan's own index has never
 # returned for any query (see module docstring). Add a token_id here only
@@ -126,5 +127,9 @@ async def fetch_pinned_agents() -> list[dict]:
                     "cross_chain_versions": None,
                 })
             except Exception as e:
-                print(f"[pinned_agents] fetch failed for token {token_id}: {e}")
+                # describe(), not the exception: rpc_post fails over to Infura,
+                # whose URL holds INFURA_API_KEY in its path, and
+                # raise_for_status() builds its message from that full URL.
+                # See core/safe_errors.py.
+                print(f"[pinned_agents] fetch failed for token {token_id}: {describe(e)}")
     return out

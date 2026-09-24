@@ -58,6 +58,22 @@ import time
 
 import httpx
 
+# NO raise_for_status() IN THIS MODULE, DELIBERATELY
+#
+# Every request below puts the queried wallet in the URL path, and each of the
+# five `except httpx.HTTPError` handlers interpolates the exception into a
+# `reason` that is returned to the caller and cached. That is safe today only
+# because the status code is checked by hand: httpx builds a
+# raise_for_status() exception's message from the full request URL, so adding
+# one here would start publishing the URL, and the pattern that publishes a
+# URL is the one that published BSCSCAN_API_KEY out of Etherscan's `apikey`
+# query parameter (adapters/contract_verification.py, fixed 2026-09-24).
+#
+# The key itself is safe by a second, independent margin: Zerion takes HTTP
+# Basic auth, so ZERION_API_KEY is never in a URL at all. Both properties have
+# to hold together. If a future change moves this module onto
+# raise_for_status(), or moves the key into a query string, the handlers below
+# must switch to core.safe_errors.describe() in the same commit.
 _BASE_URL = "https://api.zerion.io/v1"
 _BSC_CHAIN_ID = "binance-smart-chain"  # Zerion's real, string chain identifier — confirmed live, not "56"
 
