@@ -10,14 +10,20 @@ The six tools do not change: `tnega_catalogue`, `tnega_resolve`, `tnega_get`,
 schema changes, and no handler signature changes. Section 6.1 explains why that
 last clause had to be said out loud.
 
-Fourth revision. Section 13 lists what changed. Three reviews are folded in.
+Fifth revision. Section 13 lists what changed. Three reviews are folded in.
 The second measured the spec against `envelope.CEILINGS` and found the flagship
 call was refused one hundred percent of the time; sections 3.2, 3.3 and 8.1 are
 the result. The third is `docs/tokenized-equity-measurements.md`, a provenance
 record written in parallel, which found that most of the figures this spec was
 serving as measurements cannot be re-derived from anything in this repository.
 Section 2.3 is the rule that follows, and it removed more from this spec than
-either earlier review did.
+either earlier review did. This revision adds two owner decisions: E3, so USD
+references come from on-chain pools against a named stablecoin, and the
+concentration figures committed as a baseline. The end of section 13.2
+records both. Re-measuring the response sizes for this revision found that the
+instrument record and the route form, filled, do not fit their ceiling
+(3.3), and that is recorded rather than smoothed over as E16 and E17. Eleven
+decisions remain open.
 
 ---
 
@@ -149,7 +155,8 @@ which made that claim unverifiable. Reconciled and read on chain 4663,
 2026-09-24:
 
 All class A, read at blocks 71,414,089 to 71,485,925 and recorded with method
-in `docs/tokenized-equity-measurements.md`.
+in `docs/tokenized-equity-measurements.md`, except the USDe and USDC rows,
+which name their own blocks.
 
 | What | Address on chain 4663 | How it was established |
 |---|---|---|
@@ -162,6 +169,8 @@ in `docs/tokenized-equity-measurements.md`.
 | Algebra Integral | at least twelve factories, 199 pools | emits `Pool(address,address,address)`; carries stock pools including WETH against SPY and USDG against NVDA |
 | USDG, a quote asset | `0x5fc5360d0400a0fd4f2af552add042d716f1d168` | `name()` and `symbol()` |
 | WETH, a quote asset | `0x0bd7d308f8e1639fab988df18a8011f41eacad73` | `name()` and `symbol()` |
+| USDe, a quote asset | `0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34` | `name()` and `symbol()` "USDe", 18 decimals, at block 71,615,602; quote asset of 7 V4 stock pools, 5 live, at that block |
+| USDC, too thin to be a reference (4.2.1); whether it quotes any stock pool was not checked | `0x80e0e24718dbfcad49ecaa6f1e6c89a190586ca8` | `name()` "USD Coin", `symbol()` "USDC", 6 decimals, `totalSupply()` 340,536,993 raw at block 71,629,036 |
 
 THE THIRD FAMILY IS NOT ALGEBRA, AND DISPATCH IS ON THE POOL AND NOT ON THE
 FACTORY. Measured at block 71,528,495: Algebra Integral's swap signature
@@ -231,23 +240,27 @@ surface contradicting itself in its own format.
 What that removed when the rule was written: nineteen figures, listed in the
 provenance record, including most of what the earlier revisions led with. A
 later measurement pass converted eight of them to class A and settled the
-denylist, so what stays unserved today is narrower: the concentration figures,
-the Algebra dollar figures, the V3 token-id count, the 309 mints and 17 MSTRx,
-the 0.511 instrument, and the two headline figures in section 1. Section 2.4
-has the conversions.
+denylist. A third converted the concentration figures. So the class C figures
+left are fewer: the Algebra dollar figures, the V3 token-id count, the 309
+mints and 17 MSTRx, the 0.511 instrument, and the two headline figures in
+section 1. Section 2.4 has the conversions.
 
 What it does not remove is the reasoning those figures produced. A design may
 be chosen because of a figure that can no longer be checked, as long as the
 design does not then republish the figure as data. Section 1 is written that
 way, and so is the concentration handling in 4.5, whose structural argument,
 that a V4 position key carries a salt and a V3 one does not, is a property of
-the two protocols and holds whatever the lost counts were.
+the two protocols. It has since been read as well: see 2.4.
 
 Class D figures are served as what they are: the issuer's text, marked
 `not_published` where the issuer is silent, never as a measurement.
 
 A class C figure that someone re-measures moves to class A and becomes
-servable. Several since have.
+servable. Several since have. A class A figure pinned to a past block is a
+different case: once the collector has its own reading of the same quantity,
+that reading is what is served, and the past-block figure is kept as the
+baseline the collector is checked against. The concentration figures are that
+case (2.4, 4.5).
 
 ### 2.4 What the measurement pass converted, and what it deliberately did not
 
@@ -264,7 +277,28 @@ figures:
 | Tickers with depth on both | 98 | 98, exact | A |
 | Instruments behind the beacon | 204 | 204, from the proxies' own upgrade logs | A |
 
-Nothing moved far enough to change a sentence anywhere in this document.
+None of these counts moved far enough to change a sentence built on it. The
+concentration figures below did change sentences: a wording, a definition and
+a field name.
+
+THE CONCENTRATION FIGURES ARE CLASS A AND ARE A BASELINE, NOT A SERVED VALUE.
+The earlier session's stored outputs were recovered from its scratch
+directory, which is due to be deleted. They carried no block, so the block was found by re-reading past
+state until the stored values held. Block 71,435,476 is inferred, not
+recorded: it is a representative block inside a stretch of about 14,500 blocks
+(71,432,452 to 71,446,957) over which the five V4 pools' state is identical.
+There every stored V4 position value reproduces, and the provider counts do
+too: SPY 350 with the
+largest at 10.19 percent, NVDA 157 with the two largest together at 33.46
+percent, GME 2 with one at 99.99999998 percent. The self-check reconciles to
+the unit on all five pools measured. The V3 side, re-derived per pool at its
+own block (SPY 71,436,500, NVDA 71,437,500, GME 71,438,000, QQQ and SPCX
+71,438,500), puts 97.31 to 100 percent of in-range V3 liquidity under the
+positions NFT contract, which is the section 4.5 structural argument read
+rather than argued. The derived values are in
+`docs/data/tokenized-equities-concentration-baseline.json`. The collector's
+first concentration pass is compared against them, and what is served is that
+pass's own reading, per the rule above.
 
 THE IDENTITY IS NOW MEASURED RATHER THAN INFERRED. The count of tickers with V3
 depth and no V4 depth is zero. So all 94 single-venue tickers are V4 tickers,
@@ -322,6 +356,7 @@ owner's name and is kept. Escalation E1.
   "chains": [],
   "issuers": ["robinhood"],
   "sizes_quoted_usd": [1000, 10000],
+  "numeraire": "USDG",
   "quote_staleness_bound_seconds": 900,
   "first_poll": null,
   "last_poll": null,
@@ -335,6 +370,18 @@ owner's name and is kept. Escalation E1.
   "partial": false
 }
 ```
+
+`numeraire` names the unit every USD figure is in. It rides on the responses
+that carry this block, which excludes `tnega_series`: the series has its own
+coverage, and there the legend labels `px` and `liq` as USDG, USD by
+assumption (8). The bare value `"USDG"` does not say that its dollar value is
+assumed. That is stated in `usd_reference.numeraire.usd_value_basis` on every
+instrument record and in the series legend. A `tnega_list` or `tnega_summary`
+caller sees the unit's name and not the assumption, unless they read a record
+or 4.2.1. The field costs 19 bytes on every response that carries it, against
+about 150 for a caveat, and a caveat is charged to every tool including the
+ones already labelled. So no caveat is added, and the gap for list and summary
+callers is recorded here rather than closed.
 
 `scheduled_reads` against `answered_reads` is the denominator that matters.
 `unanswered_our_side` is counted and named separately, because a shared public
@@ -388,7 +435,7 @@ So, seven:
 4. "One token is not one share, and two different multipliers apply:
    shares_per_token is the unit ratio fixed at issue, ui_multiplier is ERC-8056
    display scaling that moves with dividends. Thirteen tokens read across two
-   chains sit between 1.0 and 1.0018, so ignoring ui_multiplier costs up to
+   chains sit between 1.0 and 1.0017, so ignoring ui_multiplier costs up to
    about 17 basis points on those. These are total-return wrappers, so no yield
    is served. See per_share_price_usd, which is already corrected."
 
@@ -408,19 +455,93 @@ Measured as written, these encode to 1,915 bytes.
 
 ### 3.3 The ceiling arithmetic, and the self-check that keeps it true
 
-Per response, encoded, measured rather than estimated:
+Per response, encoded with `envelope.encode` from
+`backend/mcp_server/envelope.py`, the function the server itself uses, over
+filled examples rather than the placeholder JSON in this document. Every figure
+in this section, and the byte figures in 6, 8.1 and 9.1, is printed by
+`backend/scripts/te_response_sizes.py`. The script holds its examples, and
+`--verify` checks each example pool on chain.
 
 | | `tnega_get` instrument | `tnega_get` route form | `tnega_series` | `tnega_list`, 25 rows |
 |---|---|---|---|---|
 | caveats | 1,915 | 1,915 | 1,915 | 1,915 |
-| coverage | 531 | 531 | ~700 with legend | 531 |
-| envelope | 154 | 154 | 154 | 154 |
-| value | ~4,400 | ~3,900 | 118 points at 115 | 25 rows at 204 |
-| total | ~7,000 | ~6,500 | ~16,339 | ~7,700 |
+| coverage | 457 | 457 | 497 with legend | 457 |
+| envelope | 158 | 158 | 161 | 159 |
+| value | 7,744 | 6,730 | 118 points at 116 | 25 rows at 227 |
+| total | 10,274 | 9,260 | 16,380 | 8,232 |
 | ceiling | 8,192 | 8,192 | 16,384 | 32,768 |
 
-Three changes got the instrument record from 4,494 to about 4,400 while also
-absorbing the text that left the caveats:
+How the examples were filled. The instrument is NVDA on chain 4663, and every
+pool in it is real and checked by `--verify`:
+- V4 against USDG, `0x3bb34a44…4bf1`.
+- V4 against USDe, `0x58ca4403…b332`.
+- Uniswap V3 against USDG, `0xd4eb2120…14a3`.
+- A V3-fork pool against USDG, `0xf2852136…b24a`, under factory `0xece6ecd6…`.
+- An Algebra-shaped pool against WETH, `0x8097a501…3dcc`, under factory
+  `0x16494a80…`.
+
+That gives three quote tokens, USDG, USDe and WETH, each with its entry in
+`quote_references`. Four cost entries (1,000 and 10,000, buy and sell), each
+with two alternatives naming family, pool and quote token. The full
+`transfer_control`, and `liquidity_concentration` with its `basis_note`.
+Premium withheld. Coverage as in 3.1, including `numeraire`. Addresses and
+pool ids are full length. The costs, prices and rates in the example are
+illustrative values of realistic length, not measurements.
+
+The route form is identity, the 10,000 buy quote with the references it uses,
+`transfer_control`, and an unsigned route whose swap step is a Universal Router
+`execute` carrying a V4 exact-input single swap with settle and take. That is
+2,186 hex characters of calldata, plus section 9.4's list verbatim. A series
+point is 116 bytes and a list row 227. Longer values move every figure, which
+is why the self-check has to use a worst case rather than this example.
+
+An earlier version of this section measured a SPY-labelled example whose USDe
+reference, V3-fork pool (`0x18ab375a…`, WETH/USDG) and "Algebra" pool
+(`0xabe817af…`, a V3-fork SPY/USDG pool) were not what they were labelled.
+Its figures (7,431 and 9,961) are replaced by these.
+
+The earlier figures in this table (4,494, about 4,400 and 531 for the record
+and coverage, 115 a point, 204 a row) were measured on an example this
+repository does not hold. The placeholder JSON in this document, with one cost
+entry, encodes to 3,372, so they were probably closer to that than to a filled
+record. They are replaced, not reconciled.
+
+AS SPECIFIED, THE INSTRUMENT RECORD AND THE ROUTE FORM DO NOT FIT. `tnega_get`
+on an instrument would be refused with `response_too_large` on every call,
+which is the failure section 3.2 was written to remove, now reached by a
+different route. Measured layouts for the NVDA record, each step cumulative:
+
+| Layout | Record | Response |
+|---|---|---|
+| As specified | 7,744 | 10,274 |
+| Alternatives without `pool` | 7,232 | 9,762 |
+| Then block, age, method and staleness bound once per record, not per entry | 6,885 | 9,415 |
+| Then `transfer_control` by key (`model` plus `issuer/robinhood`, where 4.6 already carries the contract) | 6,296 | 8,826 |
+| Then `basis_note` moved to the descriptor | 6,013 | 8,543 |
+| Instead: venues listed once, carrying `quote_token`; entries and alternatives name a venue by index; per-poll fields once | 5,928 | 8,458 |
+| That, with `transfer_control` by key | 5,339 | 7,869 |
+| That, with `basis_note` in the descriptor | 5,056 | 7,586 |
+
+A leaner instrument does not escape it. A real SPY record has two quote tokens
+(USDG on V4 and the fork pool, WETH on V3 and the Algebra-shaped pool) and one
+alternative per entry. It measures 8,974 as specified, 8,628 with two venues
+instead of four, and 8,039 with two venues and `transfer_control` by key. The
+last is under the ceiling by 153 bytes, and only by dropping venues the
+record exists to compare.
+
+Only the indexed layout fits the NVDA record. It changes what an entry names:
+its quote token through the venue it points at, rather than on the entry itself
+as 4.2 now shows. That is a decision about the record's shape and is E16.
+Until it is made, this dataset cannot register, and the self-check is what says
+so. The route form is 9,260. Without `transfer_control` and without alternatives
+on its one quote it is still over, at 8,224. It fits only at 7,999, which also
+takes off the quote's method, block, age, staleness bound, family and pool.
+The route object already carries the block, age, family and pool. Most of what
+is left is 2,511 bytes of steps and 938 bytes of section 9.4 text, and that
+decision is E17.
+
+Three changes got the instrument record from 4,494 to its earlier figure, and
+they still stand whatever else changes:
 
 - `issuer_structure` moves out of the instrument record to its own key,
   `issuer/<id>`. It is a per-issuer fact that was being repeated on every
@@ -438,10 +559,12 @@ the section 4 rule of DESIGN applied to the response as a whole: the ceiling
 already refuses oversize responses at run time, and this refuses them at
 registration, where the person who wrote the caveat is still in the room.
 
-The margin matters because the numbers above are close. The instrument record
-sits at about 85 percent of its ceiling, and a future field that adds 1,800
-bytes takes it over. The assertion is what turns that from a production
-incident into a failed check.
+The margin matters because the numbers above are close or over. As specified,
+the instrument response is 125 percent of its ceiling. The series sits 4 bytes
+under its ceiling at 118 points, which is why 8.1 sets its default at 117. The
+assertion is what turns that from a production incident into a failed check,
+and it has to be run on a worst-case record, since the example above is one
+realistic record and not the longest one.
 
 ### 3.4 The census, served as an aggregate rather than as caveat text
 
@@ -462,22 +585,29 @@ date and a caveat that travels forever is not.
   "pools_tracked": {"uniswap_v4": 0, "uniswap_v3": 0, "algebra_integral": 0},
   "pools_with_live_liquidity": {"uniswap_v4": 0, "uniswap_v3": 0,
                                 "algebra_integral": 0},
+  "numeraire_check": {"numeraire": "USDG", "against": "USDe", "rate": 0.0,
+                      "pool": "0x...", "block": 0, "impact_bps": 0.0,
+                      "threshold_bps": 10, "withheld_reason": null},
   "counted_at": "the most recent completed collector cycle",
   "prior_census": "Earlier pool counts, ticker splits and concentration "
-                  "figures are not served here. They are class C in "
-                  "docs/tokenized-equity-measurements.md: not re-derivable "
-                  "from this repository. This aggregate counts only what this "
-                  "collector has enumerated itself."
+                  "figures are not served here. Their classes and blocks are "
+                  "in docs/tokenized-equity-measurements.md; concentration is "
+                  "a committed baseline, not a value. This aggregate counts "
+                  "only what this collector has enumerated itself."
 }
 ```
 
 THE CENSUS BLOCK IS GONE. Earlier revisions served the pool counts, the ticker
 splits, the protocol-fee count and the concentration figures here as a dated
 aggregate. Dating them was the error: they were not measured on the date the
-field claimed, and they cannot be measured again from anything in this
-repository. Every count in this aggregate is now produced by this collector's
-own enumeration, so it is empty until the collector has run and it grows from
-there, which is the same discipline section 8 applies to the series.
+field claimed, and when this section was written none could be measured again
+from anything in this repository. Several have since been re-derived, and
+concentration is committed as a baseline, V4 at the representative block
+71,435,476 and V3 at a block per pool. A re-derived
+figure is still an earlier reading and not this collector's. Every count in
+this aggregate is produced by this collector's own enumeration, so it is empty
+until the collector has run and it grows from there, which is the same
+discipline section 8 applies to the series.
 
 One structural note that survived the cull because it is arithmetic rather than
 measurement: in the prior census the best-venue count contained the
@@ -495,7 +625,9 @@ is a recommendation wearing a table. The bands sum to `matched` the way
 
 ## 4. The instrument record
 
-Key `<chain id>/<address>` or `solana/<mint>`. About 4,400 bytes encoded.
+Key `<chain id>/<address>` or `solana/<mint>`. 7,744 bytes encoded when filled
+as specified, which does not fit its ceiling: section 3.3 has the measurement
+and the layouts that would.
 
 ### 4.1 Identity
 
@@ -534,12 +666,18 @@ Key `<chain id>/<address>` or `solana/<mint>`. About 4,400 bytes encoded.
     "quoted_at_block": 0,
     "quote_age_seconds": 0,
     "staleness_bound_seconds": 900,
-    "usd_reference": { "...": "section 4.2.1" },
-    "alternatives": [{"venue_family": "uniswap_v3", "total_cost_bps": 0.0}]
+    "quote_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+    "alternatives": [{"venue_family": "uniswap_v3", "pool": "0x...",
+                      "quote_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
+                      "total_cost_bps": 0.0}]
   }
-]
+],
+"usd_reference": { "...": "section 4.2.1: numeraire and gas token once, quote references keyed by quote_token" }
 ```
 
+- `quote_token` is the address of the pool's quote token, on every entry and
+  every alternative, and it is the key into `usd_reference.quote_references`.
+  One instrument's pools are often quoted in different tokens (4.2.1).
 - `total_cost_bps` is basis points of the notional asked for and is the sum of
   `slippage_bps`, `pool_fee_bps`, `protocol_fee_bps` and `gas_bps`. All four
   are always present alongside it.
@@ -600,20 +738,180 @@ one. The first revision escalated only the third, which put the sourcing
 question on the field we had decided was not the product and left it off the
 field that is.
 
+SETTLED, E3: THE FIRST TWO COME FROM ON-CHAIN POOLS, NOT FROM A PRICE FEED.
+That settles the licensing question for both of them, because a pool's state
+is a chain read and not a licensed price. The third, premium, is covered in
+4.3.
+
+NOTHING ON CHAIN IS A DOLLAR. A pool prices one token against another, so a
+stablecoin's dollar value can only be measured against another stablecoin, and
+that is all an on-chain reference measures. So the record names one
+stablecoin as the numeraire and treats its dollar value as an assumption,
+labelled as one. Every other reference is measured against that numeraire, in
+a named pool, at a named block, with its depth tested. Every field ending in
+`_usd` is in units of the numeraire, and it means dollars only through that
+labelled assumption. A notional of 1,000 USD is 1,000 of the numeraire.
+
+The numeraire is USDG (`0x5fc5360d0400a0fd4f2af552add042d716f1d168`, class A,
+section 2.2). The earlier session's stored pool state puts it on 8,370 of the
+11,340 V4 stock pools then counted. That split has no recorded block and is
+cited with that caveat in `docs/tokenized-equity-measurements.md`. Making the
+most common quote asset the numeraire means most quotes pass through no
+measured rate at all.
+
+USDC exists on this chain and is too thin to be either the numeraire or a
+reference. `0x80e0e24718dbfcad49ecaa6f1e6c89a190586ca8` answers `name()` "USD
+Coin", `symbol()` "USDC" and 6 decimals, with a `totalSupply()` of 340,536,993
+raw units, 340.54 USDC, at block 71,629,036 and unchanged at block 71,635,510
+(class A). The whole supply is about a thirtieth of one 10,000 notional, so no
+pool on the chain can hold enough USDC to pass the depth test below. That is
+part of why the numeraire is USDG.
+
+How each of the three is now sourced:
+
+1. The quote token. Where it is USDG, it IS the numeraire. The record says so
+   with `is_numeraire: true` and asserts no measured 1.0. Where it is native
+   ETH or WETH, its reference is the gas token's. Where it is another
+   stablecoin, it is measured against USDG like any other token. USDe is the
+   live case. At block 71,615,602 it quotes 7 V4 stock pools, 5 of them live.
+   22 V4 pools and 3 pools under the Uniswap V3 factory pair it with USDG, and
+   8 and 2 of those hold liquidity (class A, same block; the V3 forks and the
+   Algebra family were not searched). Of the 8 live V4 pools, walked at block
+   71,627,504, the deepest is
+   `0xa5f23cae4e5c3388c5a8a6b08a83f53e56df8f1a63757e606b362994b68a2361`
+   (fee 100, no hook); the next moves its mid 10 bps at about 5,300 USDG and
+   the other six at under one USDG. The two V3 pools were not walked.
+2. The gas token, ETH, measured against USDG through a named pool. The V3
+   WETH/USDG pool at fee 100, `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca`, is
+   a candidate and not a fixed choice. The pool used is chosen per poll by the
+   depth test below.
+3. The underlying share's reference price, for premium only. It is not on
+   chain, so this settlement does not reach it. Section 4.3.
+
+Each measured reference is the pool's mid-price at the poll's block, and every
+quote entry in the record shares that block. The reference pools join the
+collector's rotation and are stored in `te_pool_state` like any quoted pool.
+The earlier session did otherwise. It sized its quotes with a hard-coded ETH
+rate and with USDG, USDe and syrupUSDG set to 1.0, none of it labelled as an
+assumption (recorded under execution cost in
+`docs/tokenized-equity-measurements.md`). That practice is what this section
+replaces.
+
+ONE INSTRUMENT'S QUOTES SPAN SEVERAL QUOTE TOKENS, so the reference is not one
+object. In the concentration baseline's pools, SPY's deepest V4 pool is
+against USDG and its deepest V3 pool against WETH. GME and QQQ are the other
+way round: V4 against native ETH, V3 against USDG. `numeraire` and `gas_token`
+appear once per record, because there is one of each. `quote_references` is a
+map keyed by quote-token address, with native ETH under the zero address the
+V4 singleton uses for it. Every cost entry and every alternative names its
+`quote_token`, and that is the key a reader follows. `te_quote` stays one row
+per quote with its own reference columns (section 10.1).
+
 ```json
 "usd_reference": {
-  "quote_token": {"symbol": "USDC", "source": "named", "price_usd": 1.0,
-                  "read_at": "2026-09-24T00:00:00Z"},
-  "gas_token": {"symbol": "ETH", "source": "named", "price_usd": 0.0,
-                "read_at": "2026-09-24T00:00:00Z"},
-  "withheld_reason": null
+  "numeraire": {"symbol": "USDG",
+                "address": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+                "usd_value": 1.0, "usd_value_basis": "assumed, not measured"},
+  "gas_token": {"symbol": "ETH", "rate": 0.0,
+                "pool": "0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca",
+                "venue_family": "uniswap_v3", "block": 0,
+                "depth": {"test_size": 10000, "impact_bps": 0.0,
+                          "threshold_bps": 10, "passed": true},
+                "withheld_reason": null},
+  "quote_references": {
+    "0x5fc5360d0400a0fd4f2af552add042d716f1d168":
+      {"symbol": "USDG", "is_numeraire": true},
+    "0x0bd7d308f8e1639fab988df18a8011f41eacad73":
+      {"symbol": "WETH", "same_as": "gas_token"},
+    "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34":
+      {"symbol": "USDe", "rate": 0.0,
+       "pool": "0xa5f23cae4e5c3388c5a8a6b08a83f53e56df8f1a63757e606b362994b68a2361",
+       "venue_family": "uniswap_v4", "block": 0,
+       "depth": {"test_size": 10000, "impact_bps": 0.0,
+                 "threshold_bps": 10, "passed": true},
+       "withheld_reason": null}
+  }
 }
 ```
 
-If either source is unavailable the USD fields are withheld and the basis-point
-fields are still served, because `slippage_bps`, `pool_fee_bps` and
-`protocol_fee_bps` are ratios inside the pool and need no USD reference.
-`gas_bps` and `total_cost_bps` do, and are withheld with it. Escalation E3.
+THE THIN-POOL TEST. A reference pool is used only if a trade of the test size
+through it has an execution impact within the threshold. The walk is the same
+one the quotes use, run in both directions at the poll's block, and the worse
+direction counts. Impact is the execution price against the pre-trade mid,
+excluding the pool fee and the protocol fee. Fees are a cost of trading
+through the pool and say nothing about whether its mid can be trusted, so
+including them would fail every 1 percent pool however deep it was. Among the
+pools pairing a token with USDG, across every family the collector walks, the
+one with the least impact is used and named. If none passes, the reference is
+withheld.
+
+THE TEST SIZE AND THE THRESHOLD ARE DEFAULTS AWAITING THE OWNER'S CONFIRMATION:
+10,000 USDG and 10 basis points. E3 settled that references come from pools
+and are withheld when thin. It did not settle these numbers.
+
+The test size follows E5. It is the largest notional served, so if E5 adds a
+larger size the test size rises with it. A reference that is sound for a
+10,000 quote says nothing about a 250,000 one.
+
+Why 10, as a proxy and not an error bound. Execution impact at the test size is
+not the error in the mid-price. It measures how cheaply the mid could be
+moved, which is what a thin reference risks. The number is scaled against a
+quantity this record already treats as material: `ui_multiplier` moves prices
+by up to about 17 basis points on the thirteen tokens read (4.4, class A), and
+a reference that the largest quoted size could move by more than that would be
+coarser than a correction the record insists on. That comparison picks a scale
+and bounds nothing. The measured impact is stored with every quote (section
+10.1), so a changed threshold can be applied to history without a new chain
+read.
+
+What the defaults mean on today's pools, at block 71,627,504. Every figure
+here, and the pool counts at block 71,615,602 and the USDC read above, is
+printed by `backend/scripts/te_reference_depth.py`. Both figures
+were measured by walking initialised ticks from pool state, 40 ticks each side
+of the current one (`ticks()` on V3, `extsload` on V4). On the USDe pool, the
+walk matched a swap simulated through a quoter under state override to within
+3 parts per billion at 50,000, 100,000, 150,000 and 213,323 USDG, crossing
+ticks.
+
+| Pool | Impact at 10,000 USDG, worse side | USDG that moves the mid 10 bps | USDG for 10 bps execution impact |
+|---|---|---|---|
+| V3 WETH/USDG fee 100, `0x52e65b17…71ca` | 0.36 bps | 139,920 buying ETH, 140,748 selling | about 278,500 |
+| V4 USDe/USDG fee 100, `0xa5f23cae…2361` | 0.40 bps | 107,295 buying USDe, 103,058 selling | about 206,000 |
+
+Both pass the default with room. A 250,000 size under E5 would fail the USDe
+pool and pass the WETH one. Holding liquidity constant at the current tick
+gives about 141,000 and 125,500 for the mid move. That is close for the WETH
+pool and overstates the USDe pool, whose liquidity thins within ten ticks,
+which is why the test walks ticks rather than reading one liquidity word.
+
+What a withheld reference withholds, stated per reference, because the rule
+the previous revision gave does not hold for the quote token:
+
+- Gas token withheld: `gas_usd`, `gas_bps`, `total_cost_bps` and
+  `total_cost_usd` are null on every entry. Where the entry's quote token is
+  USDG, or a stablecoin whose own reference passed, `slippage_bps`,
+  `pool_fee_bps` and `protocol_fee_bps` are still served, because they are
+  ratios inside the pool. Where the entry's quote token is native ETH or WETH,
+  its quote reference IS the gas reference, so the entry is withheld whole, as
+  in the next bullet.
+- Quote token withheld, possible only where it is not USDG: the notional itself
+  cannot be converted into the quote token, so the walk has no size and did not
+  happen. That quote entry carries the withheld reason and no basis-point
+  figures, which is the 4.2 rule that `withheld_reason` on a quote entry marks
+  a read that did not happen. Entries on other quote tokens for the same
+  instrument are unaffected.
+- `token_price_usd` and `per_share_price_usd` are withheld whenever the
+  reference for the pool they are priced from is withheld. The series fields
+  `px` and `liq` follow the same rule (section 8).
+
+The reason is `reference_too_thin`, added under E3 (4.7). A pool read that
+failed outright is `read_failed` and a refusal is `gateway_rate_limited`, as
+elsewhere. Neither is a thin pool.
+
+The numeraire's own peg can be watched, not measured. `tnega_summary` carries
+USDG's rate against USDe through the deepest pool pairing them, with the same
+depth test. Agreement between two stablecoins does not make either one a
+dollar. It does make a divergence visible instead of absorbed.
 
 ### 4.2.2 Precomputed, with no request-time chain read at all
 
@@ -666,7 +964,18 @@ caller reproduce. Escalation E5.
 ```
 
 Never travels without `window`, `samples` and `underlying_market_state`.
-Whether it is served at all is part of escalation E3.
+
+Not served in the first cut, and collected from day one: E3, settled on the
+recommendation. The token side of premium is the token's price in the
+numeraire, which the collector already reads for 4.2.1. The reference side is
+an underlying share price, which is not on chain, so the settlement that moved
+the other two references onto pools does not reach it. The licensing question
+lives here now and only here. Until a source is named, `te_premium` stores the
+token side with `reference_price_usd` and `reference_source` both null. The
+reason belongs in the premium object's `withheld_reason`, which is
+`unestablished_source`, and not
+in a field whose value is meant to name a source. No premium is computed from
+a source nobody has named, and serving premium later starts with naming one.
 
 ### 4.4 Two multipliers, which are different quantities
 
@@ -679,8 +988,8 @@ Whether it is served at all is part of escalation E3.
 | `new_ui_multiplier` | number | the scheduled next value | no change is scheduled |
 | `effective_at` | timestamp | when the next value takes effect | no change is scheduled |
 | `ui_multiplier_read_at_block` | integer | block of the read | never absent when the value is |
-| `per_share_price_usd` | number | USD per underlying share, corrected | withheld with `shares_per_token` or the USD reference |
-| `token_price_usd` | number | USD per whole token | withheld with the USD reference |
+| `per_share_price_usd` | number | USDG per underlying share, corrected; USD by assumption (4.2.1) | withheld with `shares_per_token`, or with the reference for the quote token it is priced from |
+| `token_price_usd` | number | USDG per whole token; USD by assumption (4.2.1) | withheld with the reference for the quote token it is priced from |
 | `total_return` | boolean | always true here | never absent |
 | `distributions.paid_to_holder` | boolean | false | never absent |
 | `distributions.mechanism` | string | reinvested into the multiplier, net of withholding | `not_published` |
@@ -804,24 +1113,38 @@ single `best_venue` would contradict the measurement.
 ```json
 "liquidity_concentration": {
   "basis": "v4_position_salt",
-  "basis_note": "The V4 position key includes a salt, so standing liquidity "
-                "resolves per beneficial owner. Self-checked by summing the "
-                "resolved positions to the pool's own liquidity value, exact "
-                "to the wei; a pool that does not reconcile returns no figure.",
+  "basis_note": "Share of in-range liquidity. The V4 position key includes a "
+                "salt, so a position resolves to its PositionManager NFT "
+                "holder, or to the contract that opened it directly. "
+                "Self-checked: in-range positions sum to the pool's own "
+                "liquidity exactly, or no figure is returned.",
   "providers": 0,
   "largest_share_pct": 0.0,
-  "measured_at": "2026-09-24T00:00:00Z",
+  "measured_at_block": 0,
   "withheld_reason": null
 }
 ```
+
+"Beneficial owner", which earlier revisions said, overstates it. At block
+71,435,476, 13 of SPY's 388 in-range positions were opened directly by a
+contract rather than through the PositionManager, as were 8 of NVDA's 164. An
+NFT holder can itself be a contract. The field counts position owners resolved
+as far as the chain resolves them, and the note says where that stops.
+
+The committed baseline, `docs/data/tokenized-equities-concentration-baseline.json`,
+is what the collector's first pass is checked against (2.4). A first pass that
+differs from it is a finding about the pool between the two blocks, or about
+the collector. It is not a reason to serve the baseline.
 
 `basis` is required whenever a figure is present, and is one of:
 
 - `v4_position_salt`, as above.
 - `v3_positions_nft`: not served. Almost all V3 standing liquidity sits under
-  the positions NFT and the V3 position key carries no salt, so resolving
-  owners needs an index over every positions-NFT token id, which is a nightly
-  job rather than a request-time read. The field is `null` with `withheld_reason:
+  the positions NFT: 97.31 to 100 percent of in-range liquidity on the five V3
+  pools in the baseline, each read at its own block between 71,436,500 and
+  71,438,500. The V3 position key carries no salt, so resolving owners needs
+  an index over every positions-NFT token id, which is a nightly job rather
+  than a request-time read. The field is `null` with `withheld_reason:
   not_in_snapshot`. A V3 share of pool is not the same quantity as a V4 share
   of book and is never returned in the same field as though it were.
 
@@ -892,7 +1215,20 @@ thing; it is distinct from `null` and from a withheld reason.
 | `store_unavailable` | `core/extension/subject.py` | the collector store could not be read |
 | `not_found` | `mcp_server/tools.py` | no record under this key |
 | `no_observations` | `mcp_server/tools.py` | a series key with nothing in the window |
-| `unestablished_source` | proposed, E12 | we have not established where this field's value comes from, or the source we have cannot be reproduced |
+| `unestablished_source` | proposed in section 7.4, not under any escalation; the name is ours to confirm | we have not established where this field's value comes from, or the source we have cannot be reproduced |
+| `reference_too_thin` | added under E3; the name is ours to confirm | a USD reference pool was read and failed the 4.2.1 depth test. A statement about the reference pool |
+
+`reference_too_thin` is a new token, and the existing ones were tried first.
+`read_failed` and the refusal reasons say the read did not happen, and this
+read did. `too_few_polls` names a sample below a minimum and tells the reader
+that waiting will fix it. A thin pool does not deepen because we poll it
+again. `not_significant` names a statistical test, and this is a depth
+threshold. `enough_data: false` is the answer for a thin quoted pool, which is
+a measurement of the venue. A thin reference pool is not a fact about the
+venue being quoted at all. The precedent is `left_rotation` in
+`hyperliquid/service.py`, added because `stale_data` gave a reader the wrong
+instruction on whether to wait or stop looking. The same test applies here,
+and none of the existing tokens passes it.
 
 EVERY REASON IS A BARE STRING. Never an object, never a dict, never a tuple.
 `tools.list_` does `str(page["withheld_reason"])`, so an object reaching that
@@ -968,8 +1304,9 @@ counted there and never listed as versions.
  "quote_age_seconds": 0, "withheld_reason": null}
 ```
 
-204 bytes a row against the 300 byte guidance, 10,686 bytes for a 25-row page
-against a 32,768 ceiling.
+227 bytes a row, filled, against the 300 byte guidance, and 8,232 bytes for a
+25-row page with caveats, coverage and envelope, against a 32,768 ceiling
+(3.3).
 
 `registry.py` states the rule in these words: a dataset should not be able to
 widen the vocabulary the tools speak. The first revision cited that rule to
@@ -1119,15 +1456,23 @@ No backfill exists, so the record begins when collection begins.
  "pr": null, "v": "v4", "liq": 0.0, "blk": 0}
 ```
 
+`px` and `liq` are in USDG, like every USD figure here (4.2.1). They are null,
+never zero, when the reference they need is withheld. `px` needs the
+reference for the quote token of the pool it is priced from. `liq` on a pool
+quoted in native ETH or WETH needs the ETH reference, so a withheld gas
+reference nulls `liq` on those pools even where `px` comes from a USDG pool.
+
 The legend lives in the series `coverage` rather than in a caveat, because it
 is needed only by this tool and a caveat is charged to every tool:
 
 ```json
 "coverage": {
-  "legend": {"t": "bucket start", "c1": "cost bps at 1,000 USD",
-             "c10": "cost bps at 10,000 USD", "px": "token price USD",
+  "legend": {"t": "bucket start", "c1": "cost bps at 1,000 USDG",
+             "c10": "cost bps at 10,000 USDG",
+             "px": "token price in USDG, USD by assumption; null if its reference is withheld",
              "pr": "premium bps", "v": "winning venue family",
-             "liq": "quotable liquidity USD", "blk": "block"},
+             "liq": "quotable liquidity in USDG; null if its reference is withheld",
+             "blk": "block"},
   "scheduled": 0, "answered": 0, "unanswered_our_side": 0,
   "unanswered_venue_side": 0, "stale_block": 0,
   "first_bucket": null, "last_bucket": null, "bucket_seconds": 900
@@ -1146,21 +1491,45 @@ block as it now stands and will be wrong the next time a caveat is edited,
 which is the argument for the self-check computing it rather than a reader
 trusting this paragraph.
 
-With the caveat block at 1,915:
+With the caveat block at 1,915, measured with `envelope.encode` (3.3). The
+USDG labels in the legend add 99 bytes: series coverage goes from 398 to 497.
+That growth comes out of the margin and then out of the count:
 
 ```
 16,384  ceiling
 -1,915  caveats
--  700  coverage with the legend
--  154  envelope
-=13,615  available
-/   115  bytes a point
-=   118  points
+-  497  coverage with the legend (398 before the USDG labels)
+-  161  envelope
+=13,811  available
+-    2  the list's brackets
+/  117  bytes a point: 116 encoded plus its comma
+=   118  points, 13,807 bytes, total 16,380
 ```
 
-The default is 118 points. At a fifteen-minute cadence that is about 29 hours,
-which is a usable default window, and `SERIES_MAX` stays where it is so a
-caller asking for more gets a trim and a caveat rather than a refusal.
+118 points leave 4 bytes. With the old legend the same 118 points came to
+16,281, leaving 103, so the relabel spent 99 of those 103 bytes. A point is 116
+bytes only at the example's values, and a longer `liq` or `px` adds bytes to
+every point. So THE DEFAULT IS 117 POINTS, which leaves 121 bytes, one point's
+worth, rather than 4. At a fifteen-minute cadence 117 points is about 29 hours,
+which is a usable default window.
+
+HOW THE DEFAULT HAS TO BE IMPLEMENTED. The handler cannot carry it as things
+stand. `tools.series` does `_clamp(args.get("limit"), SERIES_MAX, SERIES_MAX)`
+(`backend/mcp_server/tools.py`, line 386), so a caller who sends no limit
+reaches the provider as `limit=200`. The provider cannot tell that from a
+caller who asked for 200. So the provider caps: `te_series` returns at most
+117 points whatever `limit` says, and its coverage says it capped and at what.
+That needs no handler change, and it treats an explicit 200 the same as an
+omitted limit, which is right, since 200 cannot fit either way. The alternative
+is for the handler to pass `None` when no limit was sent, which changes the
+reader contract for every dataset. `SERIES_MAX` stays where it is.
+
+Trimming still applies. 117 is computed at the example's value lengths, and a
+bucket whose `px` or `liq` encodes longer makes every point longer. When that
+happens `envelope.enforce_ceiling` trims from the tail and adds its caveat, so
+the response degrades to fewer points rather than being refused. The self-check
+should compute the cap from a worst-case point so that the trim is the
+exception.
 
 This number is computed by the self-check in section 3.3 rather than
 hand-maintained here, because a hand-maintained constant beside a caveat block
@@ -1188,14 +1557,16 @@ tnega_get(dataset="tokenized_equities", id="4663/0x<token>/for/0x<wallet>")
 
 This key form returns a ROUTE RECORD: identity, the one quote the route is for,
 the eligibility result, and the route. It does not return the instrument record
-as well. Two reasons, and the first is arithmetic: the instrument record at
-about 4,400 bytes plus a route object at 2,852 plus caveats and coverage
-exceeds the 8,192 ceiling, and since the value is a dict it would be refused
-rather than trimmed. The second is that the wallet form asks a different
+as well. Two reasons, and the first is arithmetic: the instrument record plus
+a route object plus caveats and coverage exceeds the 8,192 ceiling many times
+over, and since the value is a dict it would be refused rather than trimmed. The second is that the wallet form asks a different
 question, so it should answer that question. The full record is one call away
 at the plain key.
 
-About 3,900 bytes, and about 5,875 with caveats, coverage and envelope.
+Measured filled (3.3), the route record is 6,730 bytes and 9,260 with caveats,
+coverage and envelope. That is over the ceiling. Real swap calldata is 2,186
+hex characters, and the earlier figure of about 3,900 did not carry it. Until
+E17 is decided, this form cannot be served.
 
 Without the `/for/<wallet>` suffix there is no `unsigned_route` field at all.
 Not null: absent, because a null field invites a caller to look for the
@@ -1393,8 +1764,9 @@ te_pool_state(poll_id, pool_id, family, fee_bps, protocol_fee_bps,
               liquidity, sqrt_price, tick, read_via)
 te_quote(poll_id, instrument, notional_usd, side, venue_family, pool,
          enough_data, filled_fraction, slippage_bps, pool_fee_bps,
-         protocol_fee_bps, gas_usd, total_cost_bps,
-         quote_token_price_usd, gas_token_price_usd, usd_reference_source)
+         protocol_fee_bps, gas_usd, total_cost_bps, numeraire, quote_token,
+         quote_is_numeraire, quote_rate, quote_ref_pool, quote_ref_impact_bps,
+         gas_rate, gas_ref_pool, gas_ref_impact_bps, ref_threshold_bps)
 te_premium(poll_id, instrument, token_price_usd, reference_price_usd,
            premium_bps, reference_source, underlying_market_state)
 te_coverage(instrument, bucket_start, scheduled, polled, answered,
@@ -1414,7 +1786,9 @@ read, which makes E5 reversible.
 
 `te_quote` carries the USD references it used, so a figure can be recomputed
 against a corrected reference and a wrong reference is discoverable after the
-fact rather than baked in.
+fact rather than baked in. It also carries the measured depth impact and the
+threshold in force, so a changed threshold (4.2.1) can be applied to history
+without a new read.
 
 `te_instrument_facts` is versioned by `checked_at` rather than overwritten. A
 `ui_multiplier` that changes is the dividend mechanism working, and losing the
@@ -1539,6 +1913,8 @@ notice when the assumption behind it stops holding.
   different product under the same name.
 - Serve a route against terms it has not read.
 - Present a V3 concentration figure as a V4 one.
+- State a stablecoin's dollar value as a measurement. The numeraire's is an
+  assumption and says so; every other is a rate against it.
 - Return a cost figure that omits the protocol fee.
 - Attribute our own refusal to the venue.
 - Count an unadvanced block as a second observation.
@@ -1552,10 +1928,17 @@ notice when the assumption behind it stops holding.
 
 ## 12. Decisions: settled, and still open
 
-Five are settled by the owner and are recorded here rather than removed, so a
-reader can see what was decided and not only what remains. E4 and E14 collapsed
-rather than being decided, which is section 9.2 doing its work. Nine remain open:
-E1, E3, E5, E6, E7, E8, E9, E10 and E11.
+Four are settled by the owner and are recorded here rather than removed, so a
+reader can see what was decided and not only what remains: E3, E12, E13 and
+E15. E4 and E14 collapsed rather than being decided, which is section 9.2 doing
+its work. Eleven remain open: E1, E2, E5, E6, E7, E8, E9, E10, E11, E16 and
+E17.
+
+E2 is open even though this document recommends the compound key, because a
+recommendation is not the owner's decision and section 6.1 keeps the
+alternative in front of the owner. An earlier revision said five settled and
+nine open, which accounts for sixteen decisions out of fifteen. The count here
+is taken from the list.
 
 E1. The dataset id, undotted where every other is dotted. Recommendation: keep
 `tokenized_equities`, since a rename after publication breaks callers.
@@ -1572,17 +1955,6 @@ the named argument, it requires a handler signature change, a self-check that
 the argument arrives, and DESIGN section 10 amended to read that a dataset adds
 no tool and changes a schema only additively and only where the handler is
 changed to match.
-
-E3. The USD references, which attach to the lead field. Three prices are needed
-and none comes from the pool: the quote token's USD value, the gas token's USD
-value on a chain where gas is denominated in ETH, and the underlying share's
-reference price for premium. The first revision escalated only the third.
-Recommendation: settle the first two before the first cut, since
-`total_cost_usd`, `gas_usd` and the notion of a 1,000 USD notional are the lead
-figure; serve basis points where a USD reference is unavailable. On the third,
-ship without premium and collect it from day one. Trade-off: the first two may
-carry the same licensing question as the third, in which case the lead field is
-affected and not just the secondary one.
 
 E4. WITHDRAWN. `transfer_denied` was proposed for a wallet the denylist denies.
 With the caller-facing check removed in section 9.2 this surface never
@@ -1607,8 +1979,11 @@ E7. The V3 concentration nightly index, over every positions-NFT token id.
 Recommendation: not for the first cut; withhold with `not_in_snapshot`.
 Trade-off: V3 carries depth for a substantial share of tickers, so for those the
 concentration field is empty where cost is populated. The earlier count of
-859,787 token ids is class C and is not the basis for this; the basis is the
-structural one, that a V3 position key carries no salt.
+859,787 token ids is class C and is not the basis for this. `totalSupply()` on
+the positions NFT reads 859,767 at block 71,435,476, which does not reproduce
+it. The basis is the structural one, that a V3 position key carries no salt,
+and the baseline now measures it: the positions NFT holds 97.31 to 100 percent
+of in-range liquidity on all five V3 pools read (2.4).
 
 E8. How often the collector reconciles terms. Not whether to serve a route
 against changed terms, which section 0 already forbids, but how long a false
@@ -1628,14 +2003,65 @@ Solana instrument, and serve none until then. Trade-off: xStocks is the largest
 programme by instrument count and this keeps it out of the first cut, which
 makes E6 narrower than it looks.
 
-E11. The caveat budget, surface-wide. Cutting to six caveats fixed this dataset
-and the underlying property remains: the caveat block is charged against the
-same ceiling as the answer, on every response, for every dataset.
+E11. The caveat budget, surface-wide. The earlier premise, that cutting the
+caveats fixed this dataset, does not survive re-measurement. There are seven
+caveats at 1,915 bytes, and with them a filled instrument response is 10,274
+bytes against 8,192 and the route form 9,260 (3.3). The caveats are 23 percent
+of that ceiling. They are not the whole overrun, since the record alone is
+7,744, but no layout in 3.3 fits without either cutting the record or freeing
+caveat bytes. The underlying property remains: the caveat block is charged
+against the same ceiling as the answer, on every response, for every dataset.
 Recommendation: adopt the section 3.3 self-check now, which is local and
-sufficient, and treat a `caveats_ref` mechanism in the envelope as a separate
+catches the overrun at registration, though it cannot by itself make the
+record fit, and treat a `caveats_ref` mechanism in the envelope as a separate
 proposal. Trade-off: a `caveats_ref` would free several KB per response but
 weakens the rule that the caveat travels with the number, and it changes the
 envelope for every dataset on one dataset's evidence.
+
+E16. The instrument record's layout, because as specified it does not fit
+(3.3: 10,274 bytes against 8,192 for a filled NVDA record). Recommendation:
+list venues once with their `quote_token`, have each cost entry and each
+alternative name a venue by index, state block, age, method and staleness
+bound once per record, and carry `transfer_control` as its model plus the
+`issuer/robinhood` key where 4.6 already holds the contract. That measures
+7,869, 323 bytes under the ceiling. Moving `basis_note` into the descriptor as
+well gives 7,586, 606 under. Trade-off: an entry no longer names its quote
+token itself. A reader follows the index to the venue and then the venue's
+`quote_token` to `quote_references`, two hops where 4.2 now shows none. The
+margin is still thin, so a sixth venue or longer values could push a record
+over. The alternatives that fit without indexing all cut what the record is
+for: fewer venues or fewer entries. A real SPY record gets under, at 8,039,
+only with two venues instead of four.
+
+E17. The route form, because as specified it does not fit (3.3: 9,260
+bytes). Recommendation: drop `transfer_control`, whose model the route
+already carries in `instrument_conditions`. Drop the quote's alternatives,
+and the quote fields the route object repeats or the record states once:
+method, block, age, staleness bound, family and pool. That measures 7,999,
+193 bytes under. Keep the calldata and the section 9.4 list whole, because
+the list is what travels with an object someone may sign. Trade-off: the
+route record stops showing the other venues it was chosen over, and its
+margin is thinner than the instrument record's. Calldata is 2,186 hex
+characters for a single-pool swap, and a multi-hop route would not fit, so
+multi-hop routes would need a decision of their own.
+
+E3. SETTLED. The USD references come from chain. The owner's condition:
+"There is no dollar on chain, so a stablecoin's rate can only be measured
+against another stablecoin. State which one it is measured against, and
+withhold the figure when the reference pool is too thin to trust." Section
+4.2.1 carries it. USDG is the numeraire, and its dollar value is an assumption
+labelled as one. The quote token, where it is not USDG, and the gas token are
+each measured against USDG in a named pool at the poll's block. A reference
+pool that fails the depth test is withheld as `reference_too_thin`. The test's
+size and threshold (10,000 USDG, 10 basis points) are defaults awaiting the
+owner's confirmation, and the size follows E5. USDC exists on the chain but
+with 340.54 in existence it cannot be a reference. Pool reads
+carry no licence, so the licensing question is gone from the lead field.
+Premium goes as recommended: not served in the first cut, collected from day
+one. Its reference is an underlying share price, which is not on chain, so
+the licensing question stays with premium alone. Until a source is named, the
+collector stores the token side only (4.3). That is the one piece of E3 this
+settlement leaves, and serving premium starts with it.
 
 E12. SETTLED AND RETURNED. The transfer control result landed: on Robinhood
 Chain the gate is `isBlocked` on the beacon, 175 addresses are currently denied,
@@ -1677,7 +2103,17 @@ zero-request-time-read property no longer rests on the answer.
 
 ## 13. What changed in this revision
 
-Five changes make it buildable. None touches the design.
+THE FOURTH REVISION'S CHANGELOG, KEPT AS HISTORY AND SUPERSEDED ON SIZE. The
+list below is what the fourth revision said. Its byte figures (`tnega_get`
+at about 7,000, the route form at about 6,500, a series default of 118) came
+from an example this repository does not hold. Section 3.3 replaces them with
+measured figures from `backend/scripts/te_response_sizes.py`: 10,274 for a
+filled instrument response, 9,260 for the route form, and a series default of
+117. The first two are over the 8,192 ceiling, so "buildable" below is not
+true as specified; E16 and E17 are the decisions that would make it so. What
+this revision added is at the end of 13.2.
+
+Five changes made it buildable, by the fourth revision's measure. None touches the design.
 
 1. The caveat block goes from fifteen caveats at 5,351 bytes to seven at
    1,915, with the explanations moved into named record fields where they sit
@@ -1763,7 +2199,8 @@ anti-model.
 
 ### 13.2 What the owner settled, and what it removed from the design
 
-Four decisions, and the first is the one that changed the shape.
+Six decisions. The first is the one that changed the shape, and the last two
+are this, the fifth, revision's.
 
 THE CALLER-FACING ELIGIBILITY CHECK IS GONE, not softened. The route's
 preconditions are now about the instrument and our own state only: do we hold
@@ -1800,6 +2237,70 @@ small, so a salted hash raises the cost of reversal without eliminating it, and
 that is a weaker guarantee than the same construction gives the IP addresses
 the policy was written for. Nothing here assumes hashing succeeds; an unset
 salt is an absence with a reason and the request is still served.
+
+E3 IS SETTLED: THE DOLLAR REFERENCE COMES FROM CHAIN, AGAINST A NAMED
+STABLECOIN. The condition the owner attached is the substance of it: nothing on
+chain is a dollar, so a stablecoin can only be measured against another
+stablecoin. So 4.2.1 now names USDG as the numeraire and labels its peg as an
+assumption. Every other reference is a rate against USDG from a named pool at
+the poll's block, and a pool that fails a depth test withholds the reference
+as `reference_too_thin`, a token added under E3 whose name is ours to confirm
+(4.7). The test's size and threshold, 10,000 USDG and 10 basis points, are
+defaults awaiting the owner's confirmation and not part of what E3 settled.
+Five things changed with it:
+
+- The previous revision's rule, that a missing reference withholds the USD
+  fields and leaves the basis-point fields, holds for the gas token and not for
+  the quote token. Without the quote token's rate the notional has no size in
+  that token, so the walk does not happen. 4.2.1 now states the rule per
+  reference.
+- `usd_reference` is split by what it describes. `numeraire` and `gas_token`
+  appear once per record. `quote_references` is a map keyed by quote-token
+  address, because one instrument's pools are quoted in different tokens (SPY
+  in USDG on V4 and WETH on V3; GME and QQQ in native ETH on V4 and USDG on
+  V3), and every cost entry and alternative names its `quote_token`.
+- Re-measuring for that change, with `backend/scripts/te_response_sizes.py`
+  over a filled NVDA record whose pools are checked on chain, found the record
+  at 7,744 bytes and the `tnega_get` response at 10,274 against 8,192. The
+  route form is 9,260. The earlier 4,400 was not reproducible from anything
+  recorded. Section 3.3 gives the measured figures, the method and the layouts.
+  Only indexing venues fits the instrument record, which is E16. Only dropping
+  the route record's repeated fields fits the route form, which is E17. The
+  series legend now labels `px` and `liq` as USDG, and the 99 bytes it costs
+  take the series default from 118 points to 117 (8.1).
+- USDC exists on chain 4663 at `0x80e0e24718dbfcad49ecaa6f1e6c89a190586ca8`,
+  with 340.54 USDC in existence at block 71,629,036. That is too thin to be a
+  reference, which is part of why USDG is the numeraire. The previous
+  revision's statement that no USDC had been read was wrong and is withdrawn.
+- Premium stays out of the first cut and is collected from day one. Its
+  reference is an off-chain share price, so the licensing question now sits
+  with premium alone, and the collector stores only the token side until a
+  source is named.
+
+THE CONCENTRATION FIGURES ARE KEPT AS A COMMITTED BASELINE. The owner's
+instruction was to keep the data and commit the derived values with their
+blocks. The stored outputs carried no block, so one was established from the
+chain by re-reading past state until the stored values held. For V4, block
+71,435,476 is a representative block inside a stretch of about 14,500 blocks,
+71,432,452 to 71,446,957, over which the five pools' state is identical. It is
+inferred, not recorded, and every stored V4 value reproduces there. The V3
+pools were read one at a time and their state moved between reads, so no one
+block fits all five. Each V3 pool is pinned to its own block: SPY 71,436,500,
+NVDA 71,437,500, GME 71,438,000, QQQ and SPCX 71,438,500. NVDA's and SPCX's
+stored V3 values do not hold at 71,435,476. `backend/scripts/te_concentration_baseline.py`
+re-derives all of it from the chain and compares it with the committed file.
+The figures move from class C to class A. They are committed in
+`docs/data/tokenized-equities-concentration-baseline.json`, and the
+collector's first pass is compared against them. They are not served (2.4,
+4.5). Two corrections came with them. NVDA's published "two at 33.5 percent"
+is the two largest together, at 17.17 and 16.29. And "beneficial owner"
+overstated what the V4 key resolves to, so 4.5 now says NFT holder or opening
+contract, and `measured_at` becomes `measured_at_block`.
+
+Two decisions were added rather than settled. Measuring the responses at
+their filled size showed the instrument record and the route form over the
+ceiling, and the choices that would bring them under are the owner's: E16 and
+E17. With those, eleven decisions remain open (section 12).
 
 ### 13.3 What the measurement pass returned
 

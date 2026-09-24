@@ -1,0 +1,686 @@
+{
+ "what": "Liquidity concentration on chain 4663 for five stock tokens, as a baseline the tokenized_equities collector's first concentration pass is compared against. Not a served figure: section 2.3 of mcp/TOKENIZED-EQUITIES.md governs what is served, and a collector reading of its own is what gets served. Provenance and class are in docs/tokenized-equity-measurements.md, section Concentration.",
+ "chain_id": 4663,
+ "class": "A, at the blocks named per ticker below",
+ "shares_are_of": "in-range liquidity at the named block: positions whose tickLower <= pool tick < tickUpper. Out-of-range positions hold no active liquidity and are excluded from both numerator and denominator.",
+ "block_provenance": {
+  "original_run_recorded_a_block": false,
+  "original_run": "Three scripts in a session scratch directory on 2026-09-24, due to be deleted after this file was written: conc.py (V4 positions and pool state), conc2.py (V4 PositionManager ownerOf), conc_v3.py (V3). Each read state at the tag 'latest'. conc.py fetched eth_blockNumber and used it only as the upper bound of its log query; no block was written to any output.",
+  "file_time_bracket_utc_and_block": {
+   "conc.py last edited": [
+    "2026-09-24T14:16:28Z",
+    71434076
+   ],
+   "V4 output last written": [
+    "2026-09-24T14:18:49Z",
+    71435476
+   ],
+   "conc2.py last edited": [
+    "2026-09-24T14:19:33Z",
+    71435913
+   ],
+   "conc_v3.py last edited": [
+    "2026-09-24T14:20:12Z",
+    71436301
+   ],
+   "V3 output last written": [
+    "2026-09-24T14:24:41Z",
+    71438970
+   ],
+   "method": "file modification time, converted from +0100, mapped to the first block whose timestamp is at or after it. This bounds when the reads ran; it does not name the block they ran at."
+  },
+  "how_the_block_was_established": "By re-reading historical state and finding where the stored values hold. V4: pool liquidity and tick for all five pools equal the stored values at every block sampled from 71,432,452 to 71,446,957 (every 50 blocks inside, every block at both edges), and at no block sampled outside it; the first non-matching block on each side is 71,432,451 (NVDA tick) and 71,446,958 (SPY liquidity). Every stored V4 position value and every ownerOf result was then re-read at 71,435,476 and reproduced. V3: each pool's stored liquidity was bracketed separately, sampled every 10 blocks over 71,435,000 to 71,440,000, and each ticker was then re-derived in full at one block inside its bracket.",
+  "rpc_for_historical_state": "https://robinhood.drpc.org. The public RPC https://rpc.mainnet.chain.robinhood.com returns 'historical state ... is not available' for these blocks, and https://robinhood-rpc.publicnode.com requires a personal token for archive requests. Logs were read from the public RPC.",
+  "representative_block": "71,435,476 is inferred, not recorded. It is a representative block inside a stretch of about 14,500 blocks (71,432,452 to 71,446,957) over which the five V4 pools' liquidity and tick equal the stored values; it was chosen because it is the block at the time the V4 output was last written. The V3 values do not hold at that block for NVDA and SPCX, and each V3 pool is pinned to its own block, named in its record."
+ },
+ "contracts": {
+  "v4_pool_manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+  "v4_position_manager": {
+   "address": "0x58daec3116aae6d93017baaea7749052e8a04fa7",
+   "read": "name() 'Uniswap v4 Positions NFT', symbol() 'UNI-V4-POSM', poolManager() returns the PoolManager above, at block 71,435,476"
+  },
+  "v3_positions_nft": {
+   "address": "0x73991a25c818bf1f1128deaab1492d45638de0d3",
+   "read": "name() 'Uniswap V3 Positions NFT-V1', symbol() 'UNI-V3-POS', factory() returns 0x1f7d7550b1b028f7571e69a784071f0205fd2efa, the V3 factory"
+  },
+  "why_these_addresses_and_no_others": "They are protocol contracts, and the V3 one is the finding: it is what V3 concentration collapses into. Liquidity provider addresses are left out. A baseline needs the counts and shares, and the stored liquidity values below let a re-derivation match rank by rank without naming anyone."
+ },
+ "method": {
+  "v4_position_salt": "Enumerate ModifyLiquidity(bytes32,address,int24,int24,int256,bytes32) on the PoolManager filtered on the pool id, from block 0. Each distinct (sender, tickLower, tickUpper, salt) is a position key: keccak256(sender ++ int24 tickLower ++ int24 tickUpper ++ salt). Read its liquidity with extsload at keccak256(positionKey ++ (poolBase + 6)), where poolBase = keccak256(poolId ++ uint256(6)); the low 128 bits are the liquidity. Pool slot0 is at poolBase, pool liquidity at poolBase + 3. A provider is the ownerOf(salt) on the V4 PositionManager when the sender is the PositionManager, and the sender contract itself otherwise, counted once each.",
+  "v4_self_check": "The sum of in-range position liquidity equals the pool's own liquidity word, to the unit. A pool that does not reconcile yields no figure.",
+  "v3_pool_position_owner": "Enumerate Mint(address,address,int24,int24,uint128,uint256,uint256) on the pool from block 0 up to the named block. The position owner is topics[1], the indexed `owner` argument: the recipient the caller minted to, not the non-indexed `sender` that made the call. Each distinct (owner, tickLower, tickUpper) is a position; read positions(keccak256(owner ++ int24 tickLower ++ int24 tickUpper)) through Multicall3 at the named block. For almost all liquidity the owner is the V3 positions NFT contract. This is not a count of providers and is never the same quantity as the V4 figure.",
+  "v3_self_check": "The same: in-range position liquidity sums to liquidity() at the named block.",
+  "pool_selection": "For each ticker, the pool the original session's quote pass ranked deepest at one million USD, per family. That ranking is a class C cost figure and is not restated; only the pool ids it selected are used here."
+ },
+ "tickers": {
+  "SPY": {
+   "v4": {
+    "basis": "v4_position_salt",
+    "pool_id": "0xfe2a80bb5618fd14984b92ca6d45bf5ba67443ddb1435e28b2e48df2fc1526cd",
+    "stock_token": "0x117cc2133c37b721f49de2a7a74833232b3b4c0c",
+    "quote": "USDG",
+    "lp_fee_hundredths_bip": 3000,
+    "tick_spacing": 60,
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "block": 71435476,
+    "state_unchanged_over_blocks": [
+     71432452,
+     71446957
+    ],
+    "tick": -209909,
+    "pool_liquidity": "6052469089083250783",
+    "positions_with_liquidity": 413,
+    "in_range_positions": 388,
+    "in_range_via_position_manager": 375,
+    "in_range_opened_directly_by_a_contract": 13,
+    "ownerof_unresolved": 0,
+    "providers": 350,
+    "providers_that_are_direct_contracts": 6,
+    "largest_share_pct": 10.19426281,
+    "top2_cumulative_pct": 17.73647131,
+    "top5_cumulative_pct": 37.2965466,
+    "top10": [
+     {
+      "rank": 1,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "617004605576252497",
+      "share_pct": 10.19426281
+     },
+     {
+      "rank": 2,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "456489838206845397",
+      "share_pct": 7.542208502
+     },
+     {
+      "rank": 3,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "437655465101229461",
+      "share_pct": 7.231023549
+     },
+     {
+      "rank": 4,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "401299077350018766",
+      "share_pct": 6.630336668
+     },
+     {
+      "rank": 5,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "344912968020256474",
+      "share_pct": 5.698715069
+     },
+     {
+      "rank": 6,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "343821268899431403",
+      "share_pct": 5.680677817
+     },
+     {
+      "rank": 7,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "341312504380038027",
+      "share_pct": 5.639227551
+     },
+     {
+      "rank": 8,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "249623310447976362",
+      "share_pct": 4.124321938
+     },
+     {
+      "rank": 9,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "229726898825893561",
+      "share_pct": 3.795589791
+     },
+     {
+      "rank": 10,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "180075845974174163",
+      "share_pct": 2.975246025
+     }
+    ],
+    "self_check": {
+     "in_range_position_sum": "6052469089083250783",
+     "pool_liquidity": "6052469089083250783",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "position_values_differing": 0,
+     "of_position_values": 413,
+     "provider_count": true,
+     "top10_liquidity_by_rank": true
+    }
+   },
+   "v3": {
+    "basis": "v3_pool_position_owner",
+    "pool": "0xddcbba3666f578e3f09516f21ff85bfee859ab5e",
+    "quote": "WETH",
+    "fee_hundredths_bip": 500,
+    "block": 71436500,
+    "stored_liquidity_holds_over_blocks": [
+     71435240,
+     71438880
+    ],
+    "mint_events": 7219,
+    "position_keys": 2141,
+    "positions_with_liquidity": 249,
+    "in_range_positions": 226,
+    "pool_level_owners": 1,
+    "share_held_by_v3_positions_nft_pct": 100.0,
+    "shares_pct_by_rank": [
+     100.0
+    ],
+    "self_check": {
+     "in_range_position_sum": "15796720191627762434910",
+     "pool_liquidity": "15796720191627762434910",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "mint_events": true,
+     "position_keys": true,
+     "positions_with_liquidity": true,
+     "pool_liquidity": true,
+     "owners_and_liquidity_by_rank": true
+    }
+   }
+  },
+  "NVDA": {
+   "v4": {
+    "basis": "v4_position_salt",
+    "pool_id": "0x3bb34a44f1b2b5f32c034c38a53065a521a47b199700fa9bd19d60985ff24bf1",
+    "stock_token": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+    "quote": "USDG",
+    "lp_fee_hundredths_bip": 3000,
+    "tick_spacing": 60,
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "block": 71435476,
+    "state_unchanged_over_blocks": [
+     71432452,
+     71446957
+    ],
+    "tick": 222270,
+    "pool_liquidity": "506281920529444552",
+    "positions_with_liquidity": 210,
+    "in_range_positions": 164,
+    "in_range_via_position_manager": 156,
+    "in_range_opened_directly_by_a_contract": 8,
+    "ownerof_unresolved": 0,
+    "providers": 157,
+    "providers_that_are_direct_contracts": 8,
+    "largest_share_pct": 17.16590903,
+    "top2_cumulative_pct": 33.45868605,
+    "top5_cumulative_pct": 64.17534493,
+    "top10": [
+     {
+      "rank": 1,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "86907893893256531",
+      "share_pct": 17.16590903
+     },
+     {
+      "rank": 2,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "82487384447923482",
+      "share_pct": 16.29277703
+     },
+     {
+      "rank": 3,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "80888173624618504",
+      "share_pct": 15.97690345
+     },
+     {
+      "rank": 4,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "42513724343511945",
+      "share_pct": 8.397243239
+     },
+     {
+      "rank": 5,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "32110992518577238",
+      "share_pct": 6.342512189
+     },
+     {
+      "rank": 6,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "31447334610619760",
+      "share_pct": 6.211427534
+     },
+     {
+      "rank": 7,
+      "kind": "direct_contract",
+      "liquidity": "22013924572058141",
+      "share_pct": 4.348155381
+     },
+     {
+      "rank": 8,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "17462051548819710",
+      "share_pct": 3.449076659
+     },
+     {
+      "rank": 9,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "11846986507688414",
+      "share_pct": 2.339997939
+     },
+     {
+      "rank": 10,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "10840022209934902",
+      "share_pct": 2.141103952
+     }
+    ],
+    "self_check": {
+     "in_range_position_sum": "506281920529444552",
+     "pool_liquidity": "506281920529444552",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "position_values_differing": 0,
+     "of_position_values": 210,
+     "provider_count": true,
+     "top10_liquidity_by_rank": true
+    }
+   },
+   "v3": {
+    "basis": "v3_pool_position_owner",
+    "pool": "0xd4eb21209c4d6093f80b5b84f5c45cc093ea14a3",
+    "quote": "USDG",
+    "fee_hundredths_bip": 500,
+    "block": 71437500,
+    "stored_liquidity_holds_over_blocks": [
+     71437070,
+     71437850
+    ],
+    "mint_events": 22940,
+    "position_keys": 6861,
+    "positions_with_liquidity": 949,
+    "in_range_positions": 671,
+    "pool_level_owners": 7,
+    "share_held_by_v3_positions_nft_pct": 99.27250793,
+    "shares_pct_by_rank": [
+     99.27250793,
+     0.4906179209,
+     0.229875806,
+     0.005239086983,
+     0.001759250879,
+     2.918400331e-09,
+     5.460907627e-17
+    ],
+    "self_check": {
+     "in_range_position_sum": "9155987139320883932",
+     "pool_liquidity": "9155987139320883932",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "mint_events": true,
+     "position_keys": true,
+     "positions_with_liquidity": true,
+     "pool_liquidity": true,
+     "owners_and_liquidity_by_rank": true
+    }
+   }
+  },
+  "GME": {
+   "v4": {
+    "basis": "v4_position_salt",
+    "pool_id": "0xca11843fcb588e837565f1b728dfa6832fa25d64d0825147a10843d25f800804",
+    "stock_token": "0x1b0e319c6a659f002271b69db8a7df2f911c153e",
+    "quote": "ETH",
+    "lp_fee_hundredths_bip": 10000,
+    "tick_spacing": 200,
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "block": 71435476,
+    "state_unchanged_over_blocks": [
+     71432452,
+     71446957
+    ],
+    "tick": 47108,
+    "pool_liquidity": "4407957327846326360674",
+    "positions_with_liquidity": 5,
+    "in_range_positions": 4,
+    "in_range_via_position_manager": 4,
+    "in_range_opened_directly_by_a_contract": 0,
+    "ownerof_unresolved": 0,
+    "providers": 2,
+    "providers_that_are_direct_contracts": 0,
+    "largest_share_pct": 99.99999998,
+    "top2_cumulative_pct": 100.0,
+    "top5_cumulative_pct": 100.0,
+    "top10": [
+     {
+      "rank": 1,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "4407957326814218185527",
+      "share_pct": 99.99999998
+     },
+     {
+      "rank": 2,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "1032108175147",
+      "share_pct": 2.341465895e-08
+     }
+    ],
+    "self_check": {
+     "in_range_position_sum": "4407957327846326360674",
+     "pool_liquidity": "4407957327846326360674",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "position_values_differing": 0,
+     "of_position_values": 5,
+     "provider_count": true,
+     "top10_liquidity_by_rank": true
+    }
+   },
+   "v3": {
+    "basis": "v3_pool_position_owner",
+    "pool": "0xe9713f453adb9245b19559790c96f470a18f2fdf",
+    "quote": "USDG",
+    "fee_hundredths_bip": 10000,
+    "block": 71438000,
+    "stored_liquidity_holds_over_blocks": "every block sampled, 71,435,000 to 71,440,000; the edges were not searched",
+    "mint_events": 5075,
+    "position_keys": 1001,
+    "positions_with_liquidity": 94,
+    "in_range_positions": 72,
+    "pool_level_owners": 3,
+    "share_held_by_v3_positions_nft_pct": 97.30764254,
+    "shares_pct_by_rank": [
+     97.30764254,
+     2.591014956,
+     0.1013425059
+    ],
+    "self_check": {
+     "in_range_position_sum": "2243142037175304793",
+     "pool_liquidity": "2243142037175304793",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "mint_events": true,
+     "position_keys": true,
+     "positions_with_liquidity": true,
+     "pool_liquidity": true,
+     "owners_and_liquidity_by_rank": true
+    }
+   }
+  },
+  "QQQ": {
+   "v4": {
+    "basis": "v4_position_salt",
+    "pool_id": "0x7ba2c8a5f53ee4cda9ef07effe81bb8509efafb79a26d0e33b28ada879e5bb52",
+    "stock_token": "0xd5f3879160bc7c32ebb4dc785f8a4f505888de68",
+    "quote": "ETH",
+    "lp_fee_hundredths_bip": 10000,
+    "tick_spacing": 200,
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "block": 71435476,
+    "state_unchanged_over_blocks": [
+     71432452,
+     71446957
+    ],
+    "tick": 12858,
+    "pool_liquidity": "517384290504486175652",
+    "positions_with_liquidity": 21,
+    "in_range_positions": 20,
+    "in_range_via_position_manager": 20,
+    "in_range_opened_directly_by_a_contract": 0,
+    "ownerof_unresolved": 0,
+    "providers": 18,
+    "providers_that_are_direct_contracts": 0,
+    "largest_share_pct": 68.87478088,
+    "top2_cumulative_pct": 81.91696581,
+    "top5_cumulative_pct": 96.07335261,
+    "top10": [
+     {
+      "rank": 1,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "356347296374474221612",
+      "share_pct": 68.87478088
+     },
+     {
+      "rank": 2,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "67478215999473946454",
+      "share_pct": 13.04218494
+     },
+     {
+      "rank": 3,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "48866221355015258329",
+      "share_pct": 9.444859895
+     },
+     {
+      "rank": 4,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "18357673967764839158",
+      "share_pct": 3.548169959
+     },
+     {
+      "rank": 5,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "6019026042525656906",
+      "share_pct": 1.163356939
+     },
+     {
+      "rank": 6,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "5234178201823917274",
+      "share_pct": 1.011661602
+     },
+     {
+      "rank": 7,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "4329569237199390848",
+      "share_pct": 0.8368188437
+     },
+     {
+      "rank": 8,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "4108001420717403431",
+      "share_pct": 0.7939942314
+     },
+     {
+      "rank": 9,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "3459440002408534907",
+      "share_pct": 0.6686403252
+     },
+     {
+      "rank": 10,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "1736795602160604988",
+      "share_pct": 0.3356877343
+     }
+    ],
+    "self_check": {
+     "in_range_position_sum": "517384290504486175652",
+     "pool_liquidity": "517384290504486175652",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "position_values_differing": 0,
+     "of_position_values": 21,
+     "provider_count": true,
+     "top10_liquidity_by_rank": true
+    }
+   },
+   "v3": {
+    "basis": "v3_pool_position_owner",
+    "pool": "0xd60a5d14db690b7afad71f76b108071d7175597d",
+    "quote": "USDG",
+    "fee_hundredths_bip": 500,
+    "block": 71438500,
+    "stored_liquidity_holds_over_blocks": "every block sampled, 71,435,000 to 71,440,000; the edges were not searched",
+    "mint_events": 1309,
+    "position_keys": 549,
+    "positions_with_liquidity": 99,
+    "in_range_positions": 88,
+    "pool_level_owners": 1,
+    "share_held_by_v3_positions_nft_pct": 100.0,
+    "shares_pct_by_rank": [
+     100.0
+    ],
+    "self_check": {
+     "in_range_position_sum": "1371208270501397880",
+     "pool_liquidity": "1371208270501397880",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "mint_events": true,
+     "position_keys": true,
+     "positions_with_liquidity": true,
+     "pool_liquidity": true,
+     "owners_and_liquidity_by_rank": true
+    }
+   }
+  },
+  "SPCX": {
+   "v4": {
+    "basis": "v4_position_salt",
+    "pool_id": "0xcb6ffbcc84359535c2cc0a5688c0a76520ea6e0a4820fddd3ac8d7880e576370",
+    "stock_token": "0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea",
+    "quote": "USDG",
+    "lp_fee_hundredths_bip": 10000,
+    "tick_spacing": 200,
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "block": 71435476,
+    "state_unchanged_over_blocks": [
+     71432452,
+     71446957
+    ],
+    "tick": -226377,
+    "pool_liquidity": "758378581111471133",
+    "positions_with_liquidity": 248,
+    "in_range_positions": 226,
+    "in_range_via_position_manager": 220,
+    "in_range_opened_directly_by_a_contract": 6,
+    "ownerof_unresolved": 0,
+    "providers": 207,
+    "providers_that_are_direct_contracts": 6,
+    "largest_share_pct": 9.276309382,
+    "top2_cumulative_pct": 17.80732971,
+    "top5_cumulative_pct": 37.04255588,
+    "top10": [
+     {
+      "rank": 1,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "70349543470998831",
+      "share_pct": 9.276309382
+     },
+     {
+      "rank": 2,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "64697430900391144",
+      "share_pct": 8.531020326
+     },
+     {
+      "rank": 3,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "52942983187825256",
+      "share_pct": 6.981075746
+     },
+     {
+      "rank": 4,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "51688541594793597",
+      "share_pct": 6.815664746
+     },
+     {
+      "rank": 5,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "41244310521368687",
+      "share_pct": 5.438485678
+     },
+     {
+      "rank": 6,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "33478088640872163",
+      "share_pct": 4.41442961
+     },
+     {
+      "rank": 7,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "25568375722272451",
+      "share_pct": 3.371452776
+     },
+     {
+      "rank": 8,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "20205837407231457",
+      "share_pct": 2.664347057
+     },
+     {
+      "rank": 9,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "18150751968485636",
+      "share_pct": 2.393362948
+     },
+     {
+      "rank": 10,
+      "kind": "position_manager_nft_owner",
+      "liquidity": "18105353044769084",
+      "share_pct": 2.387376634
+     }
+    ],
+    "self_check": {
+     "in_range_position_sum": "758378581111471133",
+     "pool_liquidity": "758378581111471133",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "position_values_differing": 0,
+     "of_position_values": 248,
+     "provider_count": true,
+     "top10_liquidity_by_rank": true
+    }
+   },
+   "v3": {
+    "basis": "v3_pool_position_owner",
+    "pool": "0xc61284332117c3fb23a2a56cceffd07f7af60029",
+    "quote": "USDG",
+    "fee_hundredths_bip": 500,
+    "block": 71438500,
+    "stored_liquidity_holds_over_blocks": [
+     71438030,
+     71439580
+    ],
+    "mint_events": 13183,
+    "position_keys": 4600,
+    "positions_with_liquidity": 612,
+    "in_range_positions": 531,
+    "pool_level_owners": 3,
+    "share_held_by_v3_positions_nft_pct": 99.98333281,
+    "shares_pct_by_rank": [
+     99.98333281,
+     0.01654683257,
+     0.0001203550016
+    ],
+    "self_check": {
+     "in_range_position_sum": "3413614437289739344",
+     "pool_liquidity": "3413614437289739344",
+     "reconciles": true
+    },
+    "reproduces_original_run": {
+     "mint_events": true,
+     "position_keys": true,
+     "positions_with_liquidity": true,
+     "pool_liquidity": true,
+     "owners_and_liquidity_by_rank": true
+    }
+   }
+  }
+ },
+ "v3_positions_nft_total_supply": {
+  "value_at_block_71435476": 859767,
+  "value_at_block_71606550": 861061,
+  "note": "totalSupply() on the V3 positions NFT. Neither equals the 859,787 token ids carried in the record, which stays class C."
+ },
+ "share_precision": "ten significant figures, so that a share below 100 percent never prints as 100",
+ "recorded": "2026-09-24",
+ "reproduce": "backend/scripts/te_concentration_baseline.py re-derives every value in `tickers` from the chain and compares it with this file, and checks the V4 position set against docs/data/tokenized-equities-v4-position-keys.json."
+}

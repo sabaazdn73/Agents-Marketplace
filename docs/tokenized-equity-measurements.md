@@ -32,6 +32,14 @@ public RPC `https://rpc.mainnet.chain.robinhood.com`, chain id confirmed as
 4663 by `eth_chainId` returning `0x1237`, over blocks 71,414,089 to 71,542,170,
 plus reads on BNB Smart Chain at block 123,784,389.
 Method is stated per figure. Anyone with curl can take these again.
+A third pass the same day re-read the concentration figures at named past
+blocks, which the public RPC does not serve ("historical state ... is not
+available"), so those reads went through the archive endpoint
+`https://robinhood.drpc.org`. It also read the USDe pools at block 71,615,602,
+the reference pools' depth at 71,627,504, and USDC at 71,629,036.
+Both are named where they are used. A figure pinned to a past block
+reproduces as a number and not only as a method, which the caution below does
+not have to cover.
 
 B. Already committed to this repository. Read in an earlier session and
 written into a tracked file at the time, so the value and its method both
@@ -64,6 +72,7 @@ weakest provenance in the record.
 | Wrappers agree on price within about twenty basis points across issuers | C | No stored sample, no window, no count of observations, no reference source named. Not re-derivable. The figure cannot even be bounded from here, because nothing records how many pairs were compared or when. |
 | Cost to fill differs by up to five times by name and by size | C | Same. No stored quote set. Not re-derivable. |
 | Cost to fill at 1,000 USD and 10,000 USD per instrument | C | The per-instrument figures are gone with the session. The method (walking initialised ticks against pool state, three families, quoted at a block) is recoverable from the specification text, the outputs are not. |
+| The USD sizing behind those quotes | C, and now known to rest on assumptions | The earlier session's quote scripts survived in its scratch directory until 2026-09-24. `v4rank.py`, `v3price.py` and `algprice.py` each set `ETHUSD=2660.664224` as a constant at line 4, and each values USDG, USDe and syrupUSDG at exactly 1.0. The ETH rate's source and time are not recorded. Every quote those scripts took on an ETH or WETH pool, in all three families, was therefore sized at that constant. The specification now takes these references from pools against a named numeraire (section 4.2.1, E3). |
 | The cheaper venue flips by name and by size | C for the figures, A for the mechanism | The claim that both families quote the same tickers is re-derivable: see the pool counts below, taken again in this pass. The specific flips (SPY, MSTR and META to V4 at one million; NVDA, QQQ and GME to V3) are not. |
 
 Nothing in this repository can currently produce a cost-to-fill figure. There
@@ -139,6 +148,41 @@ which is why they are not given a re-derived number below.
 |---|---|---|
 | USDG, Global Dollar | `0x5fc5360d0400a0fd4f2af552add042d716f1d168` | `name()` and `symbol()` |
 | WETH | `0x0bd7d308f8e1639fab988df18a8011f41eacad73` | `name()` and `symbol()` |
+| USDe | `0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34` | `name()` and `symbol()` both "USDe", 18 decimals, at block 71,615,602. At that block it is the quote asset of 7 V4 stock pools, 5 of them live, and of no V3 stock pool. Found from `Initialize` on the singleton filtered on USDe in either currency slot, with the stock set taken as the 204 `BeaconUpgraded` emitters. |
+| USDC, USD Coin | `0x80e0e24718dbfcad49ecaa6f1e6c89a190586ca8` | `name()` "USD Coin", `symbol()` "USDC", 6 decimals, `totalSupply()` 340,536,993 raw units, 340.54 USDC, at block 71,629,036 and unchanged at 71,635,510, through the archive endpoint. Too little in existence to be a USD reference: the specification's depth test trades 10,000. Whether any stock pool is quoted in it was not checked. |
+
+USDe is not in the pool-count definition below, and the published counts
+included it. The earlier session's stored pool state (no block recorded, class
+C by the definition above, read from its scratch directory, which is due to be
+deleted) splits the published 11,340 as 8,370 USDG, 2,301 native ETH, 662 WETH and 7 USDe. It
+splits the published 2,423 live pools as 1,639, 768, 11 and 5. So the
+re-derived 11,353 and 2,428 are counts under a narrower definition. Part of
+the difference between the published and re-derived counts is definition and
+not the passage of blocks. The re-derived figures stand as what their method
+says they are.
+
+### The USD reference pools' depth (class A)
+
+Measured for the specification's thin-pool test (section 4.2.1, E3) at block
+71,627,504, by `backend/scripts/te_reference_depth.py`, which prints every
+figure in this section and in 4.2.1 and embeds the quoter's source and
+runtime. The method walks initialised ticks from pool state, 40 ticks each
+side of the current tick: `ticks()` on V3, `extsload` on the V4 tick mapping
+at pool base + 4. On the USDe pool the walk was checked against a swap
+simulated through a V4 quoter deployed by state override. At 50,000, 100,000,
+150,000 and 213,323 USDG in, the two agree to within 3 parts per billion.
+Impact excludes the pool fee and the protocol fee.
+
+| Pool | Execution impact at 10,000 USDG, worse side | USDG that moves the mid 10 bps | USDG for 10 bps execution impact |
+|---|---|---|---|
+| V3 WETH/USDG fee 100, `0x52e65b17fb6e5ba00ed806f37afcd2daa50271ca` | 0.3569 bps | 139,920 buying ETH, 140,748 selling | 279,906 buying, 278,469 selling |
+| V4 USDe/USDG fee 100, no hook, `0xa5f23cae4e5c3388c5a8a6b08a83f53e56df8f1a63757e606b362994b68a2361` | 0.3991 bps | 107,295 buying USDe, 103,058 selling | 213,323 buying, 206,039 selling |
+
+Of the other seven live V4 USDe/USDG pools, one moves its mid 10 bps at 5,304
+USDG on its worse side and six at under one USDG. A reviewer's figures of about
+140,500 and 125,500 match holding liquidity constant at the current tick.
+That is close for the WETH pool and overstates the USDe pool, whose liquidity
+thins within ten ticks.
 
 ### Pool counts and ticker counts, re-derived
 
@@ -173,7 +217,9 @@ being used. Reads at blocks 71,521,404 to 71,542,170 on 2026-09-24.
 
 The counts moved by a handful in each case, in the direction a later block
 predicts: more pools created, a few drained. Nothing moved by an amount that
-would change a sentence built on it.
+would change a sentence built on it. For V4, part of the movement is
+definition rather than blocks, because the published counts included 7 USDe
+pools and the re-derived ones do not: see the quote assets above.
 
 Three things are worth stating separately.
 
@@ -238,17 +284,65 @@ stock against quote, and that is not what this hook is deployed over.
 
 ## Concentration
 
+These were class C. The session's stored outputs turned up in its scratch
+directory, which is due to be deleted, and the figures are now class A at named
+blocks. The derived values are committed as a baseline in
+`docs/data/tokenized-equities-concentration-baseline.json`. They are what the
+collector's first concentration pass is compared against. They are not a served
+figure: under section 2.3 of the specification, what gets served is the
+collector's own reading.
+
+The original run recorded no block. Its three scripts read state at the tag
+`latest`, and `conc.py` fetched `eth_blockNumber` but used it only as the upper
+bound of its log query and wrote it nowhere. File times bound the run to blocks
+71,434,076 to 71,438,970. That bounds when the reads ran, not the block they
+ran at, so the block was established from the chain instead. The pool
+liquidity and tick of all five V4 pools equal the stored values at every block
+sampled from 71,432,452 to 71,446,957. The samples were every 50 blocks inside
+that range and every block at both edges. No sample outside the range matches:
+the first mismatch on each side is 71,432,451 (NVDA's tick) and 71,446,958
+(SPY's liquidity). At block 71,435,476, all 897 stored position values were
+re-read with `extsload` and none differs. Every PositionManager `ownerOf` was
+resolved again and the holder counts reproduce, as do the top ten liquidity
+amounts by rank. The V3 pools were read one after another during a busier
+period, so no single block fits all five, and each was re-derived in full at
+its own block. Block 71,435,476 is inferred, not recorded: it is a representative block inside
+the stretch of about 14,500 blocks over which the V4 state is identical,
+chosen because it is the block at the time the V4 output was last written.
+The stored V3 values for NVDA and SPCX do not hold at that block, which is why
+V3 carries a block per pool. Method, blocks and endpoints are in the baseline
+file. `backend/scripts/te_concentration_baseline.py` re-derives every value in
+it from the chain and compares. It also checks the live V4 position set
+against `docs/data/tokenized-equities-v4-position-keys.json`, the 897
+positions and liquidity values the original run stored. Run on 2026-09-24
+against the archive endpoint, it reproduced every compared value, and a fresh
+`ModifyLiquidity` enumeration to 71,435,476 found no live position outside the
+stored set.
+
 | Figure | Class | Provenance and refreshability |
 |---|---|---|
-| SPY: 350 providers, largest at 10.2 percent | C | Not re-derivable. |
-| NVDA: 157 providers, two at 33.5 percent | C | Not re-derivable. |
-| GME: 2 providers, one at 100 percent | C | Not re-derivable. |
-| The method self-checks by summing per-position liquidity to the pool's own liquidity value, exact to the wei | C | The self-check is the strongest thing about these three figures and it is also gone. Nothing here can run it again. Recording the self-check without the ability to repeat it is the correct shape for this row: it says the session did the right thing, and that a reader has to take that on trust. |
-| The same quantity is not obtainable on V3 without a nightly index over 859,787 token ids | C | The count of 859,787 is not re-derivable here. The structural reason is: the V4 position key includes a salt and the V3 position key does not, so V4 resolves per beneficial owner and V3 collapses into the positions NFT. That reason is a property of the two protocols and holds independently of the count. |
+| SPY: 350 providers, largest at 10.2 percent | A | Block 71,435,476, V4 pool `0xfe2a80bb…26cd`, SPY against USDG. Largest share 10.19 percent, 388 in-range positions. Reproduces the published figure. |
+| NVDA: 157 providers, the two largest together at 33.5 percent | A | Block 71,435,476, V4 pool `0x3bb34a44…4bf1`, NVDA against USDG. The published wording, "two at 33.5 percent", reads as though each held that much. The data says the two largest hold 17.17 and 16.29 percent, 33.46 together. The count reproduces and the wording is corrected here. |
+| GME: 2 providers, one at 100 percent | A | Block 71,435,476, V4 pool `0xca11843f…0804`, GME against native ETH. The largest holds 99.99999998 percent and the second holds 2.3 × 10⁻⁸ percent. "100 percent" is a rounding, and the second provider is present. |
+| QQQ: 18 providers, largest at 68.87 percent; SPCX: 207 providers, largest at 9.28 percent | A | Same block and method. Taken by the same run and not published before. They are in the baseline. |
+| The method self-checks by summing per-position liquidity to the pool's own liquidity value, exact to the wei | A | Re-run from the stored per-position values and again against the chain at block 71,435,476. For all five V4 pools the in-range sum equals the pool's liquidity word exactly: SPY 6,052,469,089,083,250,783; NVDA 506,281,920,529,444,552; GME 4,407,957,327,846,326,360,674; QQQ 517,384,290,504,486,175,652; SPCX 758,378,581,111,471,133. The script re-enumerates `ModifyLiquidity` to that block, and the live set equals the stored 897 exactly. |
+| "Provider" means beneficial owner | A, narrowed | Not quite. A provider is the NFT holder for a position opened through the V4 PositionManager (`0x58daec31…4fa7`, `name()` "Uniswap v4 Positions NFT"). A position opened directly by another contract is counted as that contract. 13 of SPY's 388 in-range positions, 8 of NVDA's 164 and 6 of SPCX's 226 were opened directly. One such contract is NVDA's seventh largest provider, at 4.35 percent. An NFT holder can itself be a contract. |
+| V3 collapses into the positions NFT | A | Re-derived in full from `Mint` logs up to each pool's own block: SPY at 71,436,500, NVDA at 71,437,500, GME at 71,438,000, QQQ and SPCX at 71,438,500. The owner of in-range V3 liquidity at the pool is `0x73991a25…e0d3` (`name()` "Uniswap V3 Positions NFT-V1", `factory()` the V3 factory) for 100, 99.27, 97.31, 100 and 99.98 percent of it respectively. The self-check reconciles on all five. This is the structural claim, measured. It is a share of pool-level position owners, not of providers, and it is recorded in its own field. |
+| The same quantity is not obtainable on V3 without a nightly index over 859,787 token ids | C for the count, A for the reason | `totalSupply()` on the V3 positions NFT reads 859,767 at block 71,435,476 and 861,061 at block 71,606,550. Neither is 859,787. That count may be a different quantity (ids minted rather than ids outstanding) or a different block, and nothing records which. The reason is the one above, now read rather than argued. |
+
+The original run chose each pool as the one its quote pass ranked deepest at
+one million USD. That ranking is a cost figure and stays class C. Only the pool
+ids it selected are used here, and a concentration figure does not depend on
+why its pool was chosen.
 
 The V3 and V4 quantities are not interchangeable, and the specification is
-right to refuse to serve them in one field. That refusal is the part of this
-section that does not depend on a lost measurement.
+right to refuse to serve them in one field. The baseline keeps them apart for
+the same reason.
+
+Provider addresses are not in the baseline. Counts, shares and the liquidity
+amount at each rank are enough for a re-derivation to match rank by rank. The
+only addresses kept are the protocol contracts, because the V3 one is the
+finding.
 
 ---
 
@@ -322,7 +416,7 @@ Ten Robinhood stock tokens on chain 4663, `uiMultiplier()` at block 71,485,925:
 | RBLX | `0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8` | exactly 1.0 |
 | TTWO | `0x5e81213613b6b86eab4c6c50d718d34359459786` | exactly 1.0 |
 
-Eleven tokens in all, spread from 1.0 to 1.0018.
+Eleven tokens in all, spread from 1.0 to 1.0017.
 
 ### The factor-of-two claim
 
@@ -330,11 +424,11 @@ Eleven tokens in all, spread from 1.0 to 1.0018.
 |---|---|---|
 | One instrument sits at `shares_per_token: 0.511` | C | Not re-derivable. The instrument is not named in the specification, is not in this repository, and no read of it survives. It is attributed to the session that reported it and is not restated here as established. |
 | A ratio built without applying the multiplier is wrong by up to a factor of two | C | Follows from the 0.511 figure and inherits its class. It is not supported by any multiplier this repository has read. |
-| Applying the multiplier matters | A and B | Supported, at a much smaller magnitude. Thirteen tokens across two chains sit between 1.0 and 1.0018, so ignoring the multiplier costs up to about 17 basis points on those, not a factor of two. |
+| Applying the multiplier matters | A and B | Supported, at a much smaller magnitude. Thirteen tokens across two chains sit between 1.0 and 1.0017, so ignoring the multiplier costs up to about 17 basis points on those, not a factor of two. |
 
 The design conclusion the specification draws, that `per_share_price_usd` should
 be served pre-corrected rather than left to the caller, does not depend on the
-0.511 figure. Thirteen tokens reading between 1.0 and 1.0018 while the field
+0.511 figure. Thirteen tokens reading between 1.0 and 1.0017 while the field
 exists at all is sufficient reason to correct centrally. The conclusion stands;
 the number under it does not.
 
@@ -572,9 +666,12 @@ are gone, with no method, script or stored output surviving in this repository.
 11. SPY's Algebra pools holding about 110,000 dollars and draining at one
     million, and being most traded rather than deepest.
 12. No Algebra pool being best for any ticker at any size.
-13. Concentration for SPY (350 providers, 10.2 percent), NVDA (157, 33.5
-    percent) and GME (2, 100 percent), and the wei-exact self-check behind them.
-14. The 859,787 V3 token ids.
+13. (Removed. Concentration for SPY, NVDA and GME, with the self-check, is
+    class A at block 71,435,476 and committed as a baseline: see the
+    concentration section. NVDA's "two at 33.5 percent" is the two largest
+    together.)
+14. The 859,787 V3 token ids. `totalSupply()` on the positions NFT reads
+    859,767 at block 71,435,476, which does not reproduce it.
 15. (Removed. 204 tokens behind the Robinhood beacon is now class A: see the
     issuer section for the one-query method that reproduces it.)
 16. The contracts not bounding the burn power, which is the half of the
