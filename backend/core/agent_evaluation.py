@@ -183,6 +183,13 @@ async def evaluate_agent(chain_id: int, token_id: int, owner_address: str | None
         else:
             out[name] = res
 
+    # Only the portfolio is Zerion's; quality is 8004scan's, balance and
+    # verification come from the chain and the explorers. The top-level label
+    # says so, and appears only when the portfolio actually carries data.
+    if isinstance(out.get("portfolio"), dict) and out["portfolio"].get("available"):
+        out["source"] = zerion.SOURCE
+        out["source_covers"] = ["portfolio"]
+
     out["chain_id"] = chain_id
     out["token_id"] = token_id
     # Said explicitly rather than left to be inferred from missing keys.

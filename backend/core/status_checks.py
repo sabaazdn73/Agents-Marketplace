@@ -3,7 +3,7 @@ status_checks.py
 
 Backs the public /api/status endpoint (and the frontend /status page):
 real, live, right-now reachability checks against every external
-integration this project actually depends on, 8004scan, Zerion, CoinGecko,
+integration this project actually depends on, 8004scan, Zerion,
 the BSC RPC (primary AND, separately, the Infura backup added
 2026-09-04, see core/rpc.py), the explainer-agent service, MongoDB, and
 TermiX's AACP registry (added 2026-08-28, see adapters/termix.py for what
@@ -18,14 +18,11 @@ Honesty rules, matching this project's standing discipline elsewhere:
   - A check that fails is reported as a failure (ok: False + the real
     error), never silently hidden or downgraded.
 
-CoinGecko note (honest, not swept under the rug): this project doesn't yet
-have a live data-consuming CoinGecko integration anywhere in the codebase,
-checked before writing this (2026-08-25), confirmed absent. It's included
-here as a real, live reachability check against CoinGecko's own public ping
-endpoint anyway, both because a credit commitment was made in their grant
-application (see the "Data Sources" attribution page) and because a status
-page is a reasonable place to track a provider before code depends on it.
-Reported honestly as "reachable", not as "in active use".
+CoinGecko is no longer checked here (removed 2026-09-25). Nothing in the
+backend uses it: the BNB/USD price that was its one consumer is now read on
+chain (core/bnb_usd.py), and a status row for a provider nothing depends on
+would report a dependency that does not exist. See
+docs/coingecko-removal-2026-09-25.md.
 
 Short TTL cache (30s, process-local): a status page is exactly the kind
 of endpoint hackathon judges/visitors might hit repeatedly, and two of these
@@ -142,13 +139,6 @@ async def _check_zerion() -> str:
             "https://api.zerion.io/v1/chains/binance-smart-chain",
             auth=(key, ""),
         )
-        resp.raise_for_status()
-        return f"HTTP {resp.status_code}"
-
-
-async def _check_coingecko() -> str:
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        resp = await client.get("https://api.coingecko.com/api/v3/ping")
         resp.raise_for_status()
         return f"HTTP {resp.status_code}"
 
@@ -274,7 +264,6 @@ async def get_status(force_refresh: bool = False) -> dict:
     results = await asyncio.gather(
         _timed("8004scan", _check_8004scan()),
         _timed("Zerion", _check_zerion()),
-        _timed("CoinGecko", _check_coingecko()),
         _timed("BSC RPC", _check_bsc_rpc()),
         _timed("BSC RPC (Infura backup)", _check_bsc_rpc_backup()),
         _timed("explainer-agent", _check_explainer_agent()),

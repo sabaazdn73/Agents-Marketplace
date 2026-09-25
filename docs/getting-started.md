@@ -64,6 +64,8 @@ and committed. See
 
 The full, current list of routes in `backend/server.py`, 57 of them, generated from the source rather than maintained by hand (2026-09-08). An earlier version of this section listed 34 and predated the studio, commerce, Pay.B402, chain-view, token-risk and per-agent evaluation routes.
 
+Routes marked "site only" serve Zerion data. They answer only requests from the site's own origin, are left out of `/openapi.json` and `/docs`, and are not a public API. See [Data handling](data-handling.md#zerion-data-site-only).
+
 ```
 GET  /api/market/bnb-price
 GET  /api/agents
@@ -83,12 +85,12 @@ GET  /api/build/{slug}/status
 GET  /api/agents/performance
 GET  /api/agents/revenue
 GET  /api/agents/performance/bulk
-GET  /api/agents/wallet-portfolio
-GET  /api/agents/activity
-GET  /api/agents/pnl
-GET  /api/agents/pnl-summary
-GET  /api/agents/onchain-performance
-GET  /api/agents/onchain-history
+GET  /api/agents/wallet-portfolio   site only
+GET  /api/agents/activity   site only
+GET  /api/agents/pnl   site only
+GET  /api/agents/pnl-summary   site only
+GET  /api/agents/onchain-performance   site only
+GET  /api/agents/onchain-history   site only
 GET  /api/canary/candidates
 GET  /api/canary/budget-status
 GET  /api/canary/status-bulk
@@ -119,7 +121,7 @@ GET  /api/chain-views
 GET  /api/chain-view/{view}
 GET  /api/first-visit
 GET  /api/budget-mode/status
-GET  /api/chain-agent/{chain_id}/{token_id}/evaluation
+GET  /api/chain-agent/{chain_id}/{token_id}/evaluation   site only
 GET  /api/commerce/readiness
 POST /api/commerce/run
 ```
@@ -170,7 +172,7 @@ backend/
   server.py                FastAPI app: see the route list above
   core/                     aggregate.py, categorize.py, agent_store.py, agent_health.py,
                             agent_performance.py, db.py, status_checks.py, and more
-  adapters/                 bsc.py (8004scan), zerion.py, coingecko.py, bsc_balance.py,
+  adapters/                 bsc.py (8004scan), zerion.py, bsc_balance.py,
                             multichain_agents.py, defillama.py
 frontend/src/
   AgentMarketplaceApp.web.jsx / .mobile.jsx   the two apps

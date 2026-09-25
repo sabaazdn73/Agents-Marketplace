@@ -35,8 +35,9 @@ version and the build passes.
 
 ## Everything else
 
-Frontend: React, viem, wagmi, RainbowKit, TanStack Query, lucide-react,
-three.js and the rest are MIT, and `@privy-io/react-auth` is Apache-2.0.
+Frontend: React, viem, wagmi, RainbowKit, TanStack Query, three.js and the
+rest are MIT, except lucide-react and qrcode.react, which are ISC, and
+`@altananetwork/sdk`, which is Apache-2.0 as described above.
 
 Backend: FastAPI, pydantic and python-dotenv are MIT; uvicorn, starlette and
 httpx are BSD-3-Clause; motor, pymongo and google-genai are Apache-2.0;
@@ -63,6 +64,11 @@ mark. The provenance of the specific artwork file is not recorded anywhere in
 this repository, which is a gap worth closing before the extension is
 published: a source URL and the terms that URL states, beside the file.
 
-CoinGecko's API terms require the wording "Powered by CoinGecko" where their
-data is displayed. The site currently renders "CoinGecko" in its data sources
-strip, which is the right place and not yet the required wording.
+The site no longer uses CoinGecko's API or GeckoTerminal's. Until 2026-09-25
+CoinGecko supplied the US dollar price of BNB; that price is now read on chain
+from a PancakeSwap v3 pool. GeckoTerminal, run by the same company and under
+the same API terms, supplied the trending pools in one research skill; the
+skill was removed the same day, because those terms do not clearly allow a
+commercial site. Both are recorded in `docs/coingecko-removal-2026-09-25.md`.
+A visitor sees CoinGecko named only in the in-app docs, which record that
+history and earlier investigations.

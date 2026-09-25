@@ -154,7 +154,7 @@ Worth noting: several of these (the full `scores.breakdown` tree, `health_status
 
 ## Sponsor/partner API check for additional agent data
 
-Beyond 8004scan, Zerion, CoinGecko, and TermiX (already integrated; see [Integrations](integrations.md)), checked whether other hackathon partners expose additional agent-relevant data:
+Beyond 8004scan, Zerion, CoinGecko, and TermiX (integrated at the time; CoinGecko was removed on 2026-09-25, see [CoinGecko Removed](coingecko-removal-2026-09-25.md)), checked whether other hackathon partners expose additional agent-relevant data:
 
 - PancakeSwap: a live, keyless public API exists (`api.pancakeswap.info/api/v2/*`, tokens/pairs by reserves, no key required). Usable, but not agent-registry-aware: it's a general token/pair pricing and liquidity API, the same category of data DefiLlama (already integrated) already provides. Using it would need a currently-nonexistent mapping from "this agent" to "its own token's PancakeSwap pair," which nothing in 8004scan's own data establishes. Usable in principle, not meaningfully additive without building that mapping layer first.
 - AltLayer: confirmed directly against their own docs: AltLayer's other products are rollup/restaking infrastructure (Restaked Rollup Framework, VITAL/MACH/SQUAD, a RaaS Launchpad). 8004scan (already fully integrated) IS their agent-discovery product; there is no separate, additional AltLayer agent API.

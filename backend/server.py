@@ -12,7 +12,7 @@ import os
 import sys
 import json
 import httpx
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,9 +52,9 @@ from core import protocol_compat
 from core import escrow_compat_audit
 from core import deliverable_proxy
 from core import status_checks
+from core import bnb_usd
 from core.safe_errors import describe as describe_error
 from adapters import zerion
-from adapters import coingecko
 from adapters import termix
 from adapters import bsc
 from adapters import contract_verification
@@ -132,6 +132,39 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+# ── Site-only routes: the ones that serve Zerion data (2026-09-25) ───────────
+#
+# The owner's decision: Zerion data may be shown in Tnega's own frontend, which
+# Zerion's API licence allows, and nothing Zerion-sourced goes out through MCP
+# or any public API unless Zerion agrees in writing. The routes below serve the
+# site, and until now anyone could call them. They now answer only a request
+# whose Origin header is one of the site's (the CORS list above, including any
+# CORS_ALLOWED_ORIGINS addition), and they are left out of /openapi.json and
+# /docs.
+#
+# The site is on a different origin from this API (Vercel front end, Render
+# back end), so a browser sends Origin on every one of its fetches here, GETs
+# included. A request with no Origin, or with any other, gets the same fixed
+# 403 and the handler does not run, so no Zerion call is made for it.
+#
+# WHAT THIS DOES NOT DO. Origin is a header the client writes. Browsers will
+# not let a page forge it, so this stops other sites from using these routes
+# from their visitors' browsers, and it stops casual use from a script that
+# does not bother. It does not stop a determined server-side caller, who can
+# send `Origin: https://www.tnega.app` with curl. Closing that fully needs a
+# credential the page holds and a script does not: for example a short-lived
+# token signed by this server and issued to the page on load (bound to a
+# timestamp and checked here), which a scraper would then have to fetch and
+# refresh, and which can be rate limited per token. Not built here.
+_SITE_ORIGINS = frozenset(ALLOWED_ORIGINS)
+_SITE_ONLY_DETAIL = "This route serves the Tnega site only. It is not part of a public API."
+
+
+def _site_only(request: Request) -> None:
+    if request.headers.get("origin") not in _SITE_ORIGINS:
+        raise HTTPException(status_code=403, detail=_SITE_ONLY_DETAIL)
 
 
 import time
@@ -716,12 +749,11 @@ async def _background_refresh():
 
 @app.get("/api/market/bnb-price")
 async def bnb_price():
-    """Real, live BNB/USD price from CoinGecko's public endpoint (5-min
-    server-side cache), backs the USD context shown next to every agent's
-    owner-wallet BNB balance. {"usd": null} (never a fabricated number) if
-    CoinGecko couldn't be reached and no prior price is cached yet."""
-    price = await coingecko.get_bnb_usd_price()
-    return {"usd": price}
+    """BNB/USD as a 30-minute TWAP of the PancakeSwap v3 WBNB/USDT pool, read
+    on chain, labelled "USD via USDT (BSC-USD)" with its pool, block and
+    window. `usd` is null with a withheld_reason when the read fails; it is
+    never an earlier or invented price. See core/bnb_usd.py."""
+    return await bnb_usd.get_bnb_usd()
 
 
 @app.get("/api/agents")
@@ -2090,7 +2122,7 @@ async def agent_perf_bulk():
     return stats
 
 
-@app.get("/api/agents/wallet-portfolio")
+@app.get("/api/agents/wallet-portfolio", include_in_schema=False, dependencies=[Depends(_site_only)])
 async def agent_wallet_portfolio(owner_address: str):
     """Real, OPT-IN wallet portfolio via Zerion (core/adapters/zerion.py),
     every token this owner address holds on BSC, with USD values,
@@ -2106,7 +2138,7 @@ async def agent_wallet_portfolio(owner_address: str):
     return await zerion.get_wallet_portfolio(owner_address)
 
 
-@app.get("/api/agents/activity")
+@app.get("/api/agents/activity", include_in_schema=False, dependencies=[Depends(_site_only)])
 async def agent_activity(owner_address: str, min_mined_at: int, max_mined_at: int):
     """Real, opt-in "what is this agent actually doing" transparency view
     for one job, the agent owner's on-chain activity (via Zerion,
@@ -2125,7 +2157,7 @@ async def agent_activity(owner_address: str, min_mined_at: int, max_mined_at: in
     return await zerion.get_wallet_activity(owner_address, min_mined_at, max_mined_at)
 
 
-@app.get("/api/agents/pnl")
+@app.get("/api/agents/pnl", include_in_schema=False, dependencies=[Depends(_site_only)])
 async def agent_pnl(job_id: int):
     """Real, on-chain-balance Profit & Loss for one completed job,
     see core/pnl.py's own module docstring for the full methodology,
@@ -2184,7 +2216,7 @@ async def _resolve_agent(owner_address: str | None, agent_id: str | None) -> dic
     return None
 
 
-@app.get("/api/agents/pnl-summary")
+@app.get("/api/agents/pnl-summary", include_in_schema=False, dependencies=[Depends(_site_only)])
 async def agent_pnl_summary(owner_address: str, agent_id: str | None = None):
     """Real, aggregate on-chain PnL across one agent's own recent,
     PnL-eligible jobs, see core/pnl.py's own compute_agent_pnl_summary
@@ -2202,7 +2234,7 @@ async def agent_pnl_summary(owner_address: str, agent_id: str | None = None):
     return await pnl.compute_agent_pnl_summary(owner_address, category=category)
 
 
-@app.get("/api/agents/onchain-performance")
+@app.get("/api/agents/onchain-performance", include_in_schema=False, dependencies=[Depends(_site_only)])
 async def agent_onchain_performance(owner_address: str, agent_id: str | None = None):
     """Real, standalone "Historical on-chain performance" signal, see
     core/onchain_pnl.py's own module docstring for the full real
@@ -2224,7 +2256,7 @@ async def agent_onchain_performance(owner_address: str, agent_id: str | None = N
     return await onchain_pnl.get_historical_onchain_performance(owner_address, category=category, token_id=token_id)
 
 
-@app.get("/api/agents/onchain-history")
+@app.get("/api/agents/onchain-history", include_in_schema=False, dependencies=[Depends(_site_only)])
 async def agent_onchain_history(owner_address: str):
     """Real "Full on-chain history", every transaction type this
     agent's developer wallet has genuinely made on BSC (sends, receives,
@@ -3527,7 +3559,7 @@ async def budget_mode_status(owner: str = ""):
     return budget_agents.budget_mode_status(owner or None, for_agent=True)
 
 
-@app.get("/api/chain-agent/{chain_id}/{token_id}/evaluation")
+@app.get("/api/chain-agent/{chain_id}/{token_id}/evaluation", include_in_schema=False, dependencies=[Depends(_site_only)])
 async def chain_agent_evaluation(chain_id: int, token_id: int, owner: str = ""):
     """Everything genuinely retrievable about ONE non-BSC agent.
 
@@ -3544,7 +3576,7 @@ async def chain_agent_evaluation(chain_id: int, token_id: int, owner: str = ""):
     try:
         return await agent_evaluation.evaluate_agent(chain_id, token_id, owner or None)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Couldn't evaluate this agent: {e}")
+        raise HTTPException(status_code=502, detail=f"Couldn't evaluate this agent: {describe_error(e)}")
 
 
 # ─────────────────── Multi-agent commerce pipeline ────────────────────────

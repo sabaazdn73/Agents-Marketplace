@@ -41,9 +41,9 @@ Altana itself was not removed. It still powers the Skills Registry (the list of 
 
 This project moved from an earlier Vercel subdomain to `tnega.app`. WebAuthn passkeys are cryptographically scoped to the domain (`rpId`) they were created under, by the browser/OS itself, not by anything this codebase controls. A passkey created under an old domain will not be discoverable under a new one, and the account isn't recoverable through that passkey afterward. There is no code fix for this; it's how WebAuthn is designed to work. Still relevant to the passkey wallets that remain (Skills Registry recovery, x402), even though the house hire flow's own use of Altana passkeys was removed.
 
-## CoinGecko rate-limiting on shared infrastructure
+## BNB/USD is one pool, priced in USDT
 
-The BNB/USD price feature depends on CoinGecko's free, anonymous API tier, which is IP-scoped. This project's Render deployment shares an outbound IP range with other tenants, and does get rate-limited (`HTTP 429`) at times as a result, visible on [`/status`](https://tnega.app/status) when it happens rather than silently failing. This is a structural limitation of using a free, shared-infrastructure tier, not a bug that can be "fixed" without either a paid CoinGecko plan (against this project's own no-paid-infrastructure rule) or dedicated infrastructure.
+The dollar value beside a BNB balance is a 30-minute average of one PancakeSwap v3 pool's WBNB price in USDT (BSC-USD). It is not a cross-venue index, and it takes USDT at one dollar, which is why it is labelled "USD via USDT (BSC-USD)" rather than "USD". If USDT trades away from a dollar, the figure moves with it. A 30-minute average also trails a fast move in the market by design. If the pool cannot be read, no dollar value is shown. Until 2026-09-25 this came from CoinGecko's free API, which was rate limited on shared hosting and whose terms, on the owner's reading, did not cover this use; see [CoinGecko Removed, BNB/USD on Chain](coingecko-removal-2026-09-25.md).
 
 ## BscScan: configured but not wired for data
 

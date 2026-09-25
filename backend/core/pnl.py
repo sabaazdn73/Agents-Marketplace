@@ -266,6 +266,8 @@ async def compute_job_pnl(job_id: int, category: str | None) -> dict:
     return {
         "available": True,
         "applicable": True,
+        # Start and end values are Zerion chart points; see adapters/zerion.SOURCE.
+        "source": zerion.SOURCE,
         "pnl_usd": round(pnl_usd, 2),
         "start_value_usd": round(start_value, 2),
         "end_value_usd": round(end_value, 2),
@@ -322,7 +324,7 @@ async def compute_agent_pnl_summary(owner_address: str, category: str | None) ->
                           f"yet, no hire outcome to measure PnL against yet."}
 
     total_pnl = round(sum(j["pnl_usd"] for j in computed), 2) if computed else None
-    return {
+    out = {
         "applicable": True,
         "jobs": eligible_jobs,
         "jobs_checked": len(checked_ids),
@@ -332,3 +334,7 @@ async def compute_agent_pnl_summary(owner_address: str, category: str | None) ->
                                          "PnL for any of them yet (see each job's own reason, "
                                          "often simply not delivered yet).",
     }
+    # Labelled only when a figure computed from Zerion's data is in it.
+    if computed:
+        out["source"] = zerion.SOURCE
+    return out

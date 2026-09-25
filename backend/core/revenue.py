@@ -56,7 +56,8 @@ token's own real `symbol()`/`decimals()` are read live too. Every real
 amount is shown in that token's own units, deliberately NO USD
 conversion anywhere in this module: there is no real, current, honest
 exchange rate this project has integrated for $U (unlike BNB, which
-CoinGecko actually prices), so converting would mean inventing one. The
+core/bnb_usd.py prices from a PancakeSwap v3 pool), so converting would
+mean inventing one. The
 existing UI copy elsewhere ("$U is worth about $1") is informal,
 approximate context for a human reading a tooltip, not a rate this
 code will silently apply to a number presented as a fact.

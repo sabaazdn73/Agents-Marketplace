@@ -23,19 +23,22 @@ What Tnega uses it for: opt-in, on-demand wallet-portfolio enrichment on an agen
 Current details:
 - Tier: `demo`, 1 request/second, 300 requests/day (confirmed live from rate-limit headers).
 - Deliberately not used for house-wide enrichment: at 300/day, that budget can't cover 1,400+ agents, so this is scoped to one agent's detail page, on request, with a 10-minute per-address cache.
+- Terms, as the owner decided them on 2026-09-25: Zerion data may be shown in Tnega's own frontend, which the API licence allows. It is never stored beyond a short in-memory cache (10 minutes, at most 256 entries per cache, gone on restart), and nothing Zerion-sourced goes through MCP or any public API unless Zerion agrees in writing. The key stays on the server. Every backend response carrying Zerion data, and only those, has `source: "via the Zerion API"`, and the site says "Data via the Zerion API. Tnega is not a Zerion app." on the seven panels that show it.
+- The routes that serve Zerion data answer only requests from the site's own origin and are left out of the published API schema. See [Data handling](data-handling.md#zerion-data-site-only).
 - A confirmed coverage gap, in two halves that are sourced separately. Half one: two tokenized-equity tokens on BSC, Binance's bStock NVDAB (`0x02fca66c1d1afb4e2a7884261eb00f63598a7436`) and TSLAB (`0x5b1910eaad6450e50f816082aa078c41f10c292f`), are not recognized by Zerion, confirmed via a decisive "fungible not found" response, not assumed. That response is evidence about Zerion's coverage, and about nothing else. Half two, a separate read: on chain, 2026-09-24, both tokens expose the ERC-8056 scaled-UI-amount interface rather than plain BEP-20 (`uiMultiplier()`, `newUIMultiplier()`, `effectiveAt()`, `balanceOfUI(address)`, `totalSupplyUI()`, `toUIAmount(uint256)` and `fromUIAmount(uint256)` each answer with a value and no revert), both as beacon proxies over beacon `0x156d6dce9a4f6139a3406f1f021f1a4880de93a3` and implementation `0xcfed6c4679297ea4889f8183bc057b4a86c64e46`. Correction (2026-09-24): this bullet used to call them "Tnega's own bStock tokens" and to give the standard as fact on the strength of Zerion's failure alone. They are Binance's (neither address appears anywhere in this repository; this project only ever read a wallet balance for them), and the standard was a hedged guess until those reads. See [Known Limitations](limitations.md).
 - An undocumented detail confirmed live before shipping the activity view: the transactions endpoint's `filter[min_mined_at]`/`filter[max_mined_at]` take Unix milliseconds, not seconds. A query in seconds against a known-good transaction (job #56646's submit() call) silently returned empty; the same query in milliseconds correctly returned it.
 
-## CoinGecko
+## PancakeSwap v3 pool (BNB/USD)
 
-What it is: the standard crypto market-data API.
+What it is: the WBNB/USDT pool at the 0.01% fee tier on PancakeSwap v3, BNB Chain, `0x172fcd41e0913e95784454622d1c3724f546f849`. Read through the same RPC layer as every other on-chain read (bloXroute, with Infura as backup). No API, no key and no licence: it is public chain state.
 
-What Tnega uses it for: a live BNB/USD price, shown alongside every agent's owner-wallet BNB balance for USD context.
+What Tnega uses it for: the BNB/USD price shown beside an agent owner's BNB balance, served by `GET /api/market/bnb-price`. It is a 30-minute time-weighted average from the pool's own `observe()`, labelled "USD via USDT (BSC-USD)", because USDT is taken at one dollar. Each response carries the pool, fee tier, block and window it rests on.
 
 Current details:
-- Public, anonymous endpoint, no API key.
-- A known, ongoing limitation: this project's Render deployment shares an outbound IP range with other tenants, and does get rate-limited (`429`) by CoinGecko's anonymous tier at times, visible on `/status` when it happens, never papered over. The backend backs off for a cooldown period after any attempt (success or failure) rather than hammering CoinGecko harder while already rate-limited.
-- Credited on [`/data-sources`](https://tnega.app/data-sources) per a commitment made in CoinGecko's own grant application, independent of this specific feature.
+- Chosen over its three sibling pools because it is the deepest across price bands, not only at the current tick: moving its price 0.5% takes about $437k against about $313k in the 0.05% pool, and 2% takes about $1.39M against $1.26M (measured by the supervising review at block ~123,964,4xx). It also has the largest observation ring, 4,500 against 900.
+- A ring of 4,500 covers at least 4,500 seconds, since a pool records at most one observation per second, so the 1,800-second window is always inside it. How much more it covers depends on trading activity: 28,957 seconds on the first read on 2026-09-25, 12,445 seconds at block 123,965,911 the same day.
+- A failed read returns `usd: null` with a reason, never an older price. Cached in memory for 30 seconds.
+- Replaced CoinGecko's free API on 2026-09-25. See [CoinGecko Removed, BNB/USD on Chain](coingecko-removal-2026-09-25.md).
 
 ## BscScan / bloXroute / Infura (BSC RPC)
 

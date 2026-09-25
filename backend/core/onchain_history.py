@@ -56,6 +56,9 @@ async def get_full_onchain_history(owner_address: str) -> dict:
     txs = result["transactions"]
     base = {
         "available": True,
+        # Built from Zerion's answer, including an empty one: "no
+        # transactions" is Zerion's finding too. See adapters/zerion.SOURCE.
+        "source": zerion.SOURCE,
         "pages_fetched": result["pages_fetched"],
         "has_more": result["has_more"],
         "wallet": (owner_address or "").lower(),

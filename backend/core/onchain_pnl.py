@@ -229,6 +229,9 @@ async def get_historical_onchain_performance(
     base = {
         "wallet": wallet, "attribution_confidence": resolved["confidence"], "wallet_source": resolved["source"],
         "transactions_checked": len(txs),
+        # Everything from here on is read from Zerion's transaction list,
+        # including a finding of no DeFi activity. See adapters/zerion.SOURCE.
+        "source": zerion.SOURCE,
     }
 
     if not defi_txs:

@@ -58,22 +58,34 @@ import time
 
 import httpx
 
+from core.safe_errors import describe
+
+# The attribution every Zerion-derived result carries, so the frontend can show
+# it beside the data: "Data via the Zerion API. Tnega is not a Zerion app."
+# Owner's decision, 2026-09-25: Zerion data may be shown in Tnega's own
+# frontend, which the API licence allows; it is never stored beyond the short
+# in-memory cache below, and never served through MCP or any public API unless
+# Zerion agrees in writing. server.py gates the routes that serve it to the
+# site's own origin for that reason.
+SOURCE = "via the Zerion API"
+
 # NO raise_for_status() IN THIS MODULE, DELIBERATELY
 #
-# Every request below puts the queried wallet in the URL path, and each of the
-# five `except httpx.HTTPError` handlers interpolates the exception into a
-# `reason` that is returned to the caller and cached. That is safe today only
-# because the status code is checked by hand: httpx builds a
-# raise_for_status() exception's message from the full request URL, so adding
-# one here would start publishing the URL, and the pattern that publishes a
+# Every request below puts the queried wallet in the URL path. The five
+# `except httpx.HTTPError` handlers pass the exception through
+# core.safe_errors.describe() before it goes into a `reason` (since
+# 2026-09-25; they used to interpolate it whole). The status code is also
+# checked by hand rather than with raise_for_status(): httpx builds that
+# exception's message from the full request URL, so using it here would put the
+# URL one careless edit away from a response, and the pattern that publishes a
 # URL is the one that published BSCSCAN_API_KEY out of Etherscan's `apikey`
 # query parameter (adapters/contract_verification.py, fixed 2026-09-24).
 #
 # The key itself is safe by a second, independent margin: Zerion takes HTTP
 # Basic auth, so ZERION_API_KEY is never in a URL at all. Both properties have
 # to hold together. If a future change moves this module onto
-# raise_for_status(), or moves the key into a query string, the handlers below
-# must switch to core.safe_errors.describe() in the same commit.
+# raise_for_status(), or moves the key into a query string, check that every
+# handler still goes through core.safe_errors.describe().
 _BASE_URL = "https://api.zerion.io/v1"
 _BSC_CHAIN_ID = "binance-smart-chain"  # Zerion's real, string chain identifier — confirmed live, not "56"
 
@@ -116,6 +128,28 @@ def zerion_chain_slug(chain_id: int) -> str | None:
 # elsewhere in this project (agent_performance.py's _cache).
 _TTL_SECONDS = 10 * 60
 _cache: dict[str, tuple[float, dict]] = {}
+
+# Memory only, and bounded (2026-09-25). No Zerion response is written to
+# Mongo, to disk or to a log by this module or any caller of it; these dicts
+# are the only place one is held, they are lost on every restart, and an entry
+# older than its TTL is never served. Before this, an expired entry stayed in
+# memory until the same key was asked for again, so the dicts grew for the
+# life of the process and held responses long after they could be used. Now
+# every write drops every expired entry, so no response outlives its TTL by
+# more than the time until the next write, and if a dict is still over
+# _CACHE_MAX_ENTRIES the oldest go too. The sweep is a scan of at most 256
+# entries, which costs nothing next to the HTTP call that precedes it.
+_CACHE_MAX_ENTRIES = 256
+
+
+def _remember(cache: dict, key, result: dict, ttl: float) -> None:
+    now = time.time()
+    for k in [k for k, (t, _) in cache.items() if now - t >= ttl]:
+        del cache[k]
+    cache[key] = (now, result)
+    if len(cache) > _CACHE_MAX_ENTRIES:
+        for k, _ in sorted(cache.items(), key=lambda kv: kv[1][0])[: len(cache) - _CACHE_MAX_ENTRIES]:
+            del cache[k]
 
 
 def _get_key() -> str | None:
@@ -169,17 +203,17 @@ async def get_wallet_portfolio(address: str, chain_id: int = 56) -> dict:
                 auth=(key, ""),  # real Zerion auth scheme: HTTP Basic, key as username, empty password
             )
     except httpx.HTTPError as e:
-        result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
-        _cache[ckey] = (time.time(), result)
+        result = {"available": False, "reason": f"couldn't reach Zerion: {describe(e)}"}
+        _remember(_cache, ckey, result, _TTL_SECONDS)
         return result
 
     if resp.status_code == 429:
         result = {"available": False, "reason": "rate limited — try again later"}
-        _cache[ckey] = (time.time(), result)
+        _remember(_cache, ckey, result, _TTL_SECONDS)
         return result
     if not resp.is_success:
         result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
-        _cache[ckey] = (time.time(), result)
+        _remember(_cache, ckey, result, _TTL_SECONDS)
         return result
 
     body = resp.json()
@@ -203,8 +237,8 @@ async def get_wallet_portfolio(address: str, chain_id: int = 56) -> dict:
     # actually hold", led by whatever's worth the most.
     positions.sort(key=lambda p: p["usd_value"] or 0, reverse=True)
 
-    result = {"available": True, "total_usd_value": round(total_usd, 2), "positions": positions}
-    _cache[ckey] = (time.time(), result)
+    result = {"available": True, "source": SOURCE, "total_usd_value": round(total_usd, 2), "positions": positions}
+    _remember(_cache, ckey, result, _TTL_SECONDS)
     return result
 
 
@@ -315,25 +349,25 @@ async def get_wallet_activity(address: str, min_mined_at_ms: int, max_mined_at_m
                 auth=(key, ""),
             )
     except httpx.HTTPError as e:
-        result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
-        _activity_cache[cache_key] = (time.time(), result)
+        result = {"available": False, "reason": f"couldn't reach Zerion: {describe(e)}"}
+        _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
         return result
 
     if resp.status_code == 429:
         result = {"available": False, "reason": "rate limited — try again later"}
-        _activity_cache[cache_key] = (time.time(), result)
+        _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
         return result
     if not resp.is_success:
         result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
-        _activity_cache[cache_key] = (time.time(), result)
+        _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
         return result
 
     body = resp.json()
     transactions = [_parse_transaction_attrs(item.get("attributes", {}) or {}) for item in body.get("data", []) or []]
     # Real, already-descending order from Zerion (confirmed live) — kept as-is.
 
-    result = {"available": True, "transactions": transactions}
-    _activity_cache[cache_key] = (time.time(), result)
+    result = {"available": True, "source": SOURCE, "transactions": transactions}
+    _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
     return result
 
 
@@ -393,25 +427,25 @@ async def get_wallet_chart(address: str, period: str) -> dict:
                 auth=(key, ""),
             )
     except httpx.HTTPError as e:
-        result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
-        _activity_cache[cache_key] = (time.time(), result)
+        result = {"available": False, "reason": f"couldn't reach Zerion: {describe(e)}"}
+        _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
         return result
 
     if resp.status_code == 429:
         result = {"available": False, "reason": "rate limited — try again later"}
-        _activity_cache[cache_key] = (time.time(), result)
+        _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
         return result
     if not resp.is_success:
         result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
-        _activity_cache[cache_key] = (time.time(), result)
+        _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
         return result
 
     body = resp.json()
     points = (body.get("data", {}) or {}).get("attributes", {}).get("points", []) or []
     # Real [timestamp_seconds, balance_usd] pairs, straight from Zerion —
     # kept as tuples, no reshaping that could silently drop precision.
-    result = {"available": True, "points": [(p[0], p[1]) for p in points if isinstance(p, list) and len(p) == 2]}
-    _activity_cache[cache_key] = (time.time(), result)
+    result = {"available": True, "source": SOURCE, "points": [(p[0], p[1]) for p in points if isinstance(p, list) and len(p) == 2]}
+    _remember(_activity_cache, cache_key, result, _ACTIVITY_TTL_SECONDS)
     return result
 
 
@@ -488,28 +522,29 @@ async def get_wallet_pnl(address: str, since_ms: int | None = None, till_ms: int
         async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
             resp = await client.get(f"{_BASE_URL}/wallets/{addr}/pnl", params=params, auth=(key, ""))
     except httpx.HTTPError as e:
-        result = {"available": False, "reason": f"couldn't reach Zerion: {e}"}
-        _pnl_cache[cache_key] = (time.time(), result)
+        result = {"available": False, "reason": f"couldn't reach Zerion: {describe(e)}"}
+        _remember(_pnl_cache, cache_key, result, _PNL_CACHE_TTL_SECONDS)
         return result
 
     if resp.status_code == 429:
         result = {"available": False, "reason": "rate limited — try again later"}
-        _pnl_cache[cache_key] = (time.time(), result)
+        _remember(_pnl_cache, cache_key, result, _PNL_CACHE_TTL_SECONDS)
         return result
     if not resp.is_success:
         result = {"available": False, "reason": f"Zerion returned HTTP {resp.status_code}"}
-        _pnl_cache[cache_key] = (time.time(), result)
+        _remember(_pnl_cache, cache_key, result, _PNL_CACHE_TTL_SECONDS)
         return result
 
     try:
         a = (resp.json().get("data") or {}).get("attributes") or {}
     except Exception:
         result = {"available": False, "reason": "Zerion returned an unexpected response shape"}
-        _pnl_cache[cache_key] = (time.time(), result)
+        _remember(_pnl_cache, cache_key, result, _PNL_CACHE_TTL_SECONDS)
         return result
 
     result = {
         "available": True,
+        "source": SOURCE,
         "methodology": "FIFO (First In, First Out) cost-basis matching, per Zerion's own real, published methodology",
         "total_pnl_usd": a.get("total_gain"),
         "realized_pnl_usd": a.get("realized_gain"),
@@ -518,7 +553,7 @@ async def get_wallet_pnl(address: str, since_ms: int | None = None, till_ms: int
         "net_invested_usd": a.get("net_invested"),
         "total_fees_usd": a.get("total_fee"),
     }
-    _pnl_cache[cache_key] = (time.time(), result)
+    _remember(_pnl_cache, cache_key, result, _PNL_CACHE_TTL_SECONDS)
     return result
 
 
@@ -568,7 +603,7 @@ async def get_wallet_full_history(address: str) -> dict:
                 has_more = True
     except httpx.HTTPError as e:
         if pages_fetched == 0:
-            return {"available": False, "reason": f"couldn't reach Zerion: {e}"}
+            return {"available": False, "reason": f"couldn't reach Zerion: {describe(e)}"}
         # real, honest partial result from whatever pages already succeeded
 
-    return {"available": True, "transactions": transactions, "pages_fetched": pages_fetched, "has_more": has_more}
+    return {"available": True, "source": SOURCE, "transactions": transactions, "pages_fetched": pages_fetched, "has_more": has_more}

@@ -251,6 +251,77 @@ def check_transport_boundary() -> None:
           ", ".join(reaches_back) or "clean")
 
 
+# ── 3b. nothing Zerion-sourced behind MCP or the public API ──────────────────
+#
+# The owner's decision, 2026-09-25: Zerion data is shown in Tnega's own
+# frontend only; nothing Zerion-sourced goes through MCP or any public API
+# unless Zerion agrees in writing. Checked as an import closure rather than a
+# grep, so that a dataset reaching Zerion through core/pnl.py or
+# core/agent_evaluation.py is caught as surely as one importing it directly.
+
+_ZERION_CONSUMERS = {"adapters.zerion", "core.pnl", "core.onchain_pnl",
+                     "core.onchain_history", "core.agent_evaluation"}
+
+
+def _import_closure(starts: list[str]) -> dict:
+    import ast
+    root = Path(__file__).resolve().parent.parent
+
+    def modfile(m):
+        f = root / (m.replace(".", "/") + ".py")
+        if f.exists():
+            return f
+        f = root / m.replace(".", "/") / "__init__.py"
+        return f if f.exists() else None
+
+    def imports_of(m):
+        f = modfile(m)
+        if not f:
+            return set()
+        pkg = m if f.name == "__init__.py" else m.rpartition(".")[0]
+        out = set()
+        for n in ast.walk(ast.parse(f.read_text())):
+            if isinstance(n, ast.Import):
+                out.update(a.name for a in n.names)
+            elif isinstance(n, ast.ImportFrom):
+                base = n.module or ""
+                if n.level:
+                    parts = pkg.split(".")
+                    parts = parts[:len(parts) - n.level + 1] if n.level > 1 else parts
+                    base = ".".join(parts + ([base] if base else []))
+                out.add(base)
+                out.update(f"{base}.{a.name}" for a in n.names)
+        return {o for o in out if modfile(o)}
+
+    parent: dict = {}
+    stack = [(s, None) for s in starts]
+    while stack:
+        m, via = stack.pop()
+        if m in parent:
+            continue
+        parent[m] = via
+        stack.extend((i, m) for i in imports_of(m))
+    return parent
+
+
+def check_zerion_boundary() -> None:
+    print("\nzerion boundary")
+    root = Path(__file__).resolve().parent.parent
+    for pkg in ("mcp_server", "publicapi"):
+        starts = [f"{pkg}.{p.stem}" if p.stem != "__init__" else pkg
+                  for p in (root / pkg).glob("*.py")]
+        closure = _import_closure(starts)
+        hits = sorted(_ZERION_CONSUMERS & set(closure))
+        chains = []
+        for h in hits:
+            chain = [h]
+            while closure.get(chain[-1]):
+                chain.append(closure[chain[-1]])
+            chains.append(" <- ".join(chain))
+        check(not hits, f"{pkg}/ reaches no Zerion call chain",
+              "; ".join(chains) or f"{len(closure)} modules, clean")
+
+
 # ── 4. the envelope ──────────────────────────────────────────────────────────
 
 def check_envelope() -> None:
@@ -555,6 +626,7 @@ def main() -> int:
     check_encoder()
     check_one_encoder()
     check_transport_boundary()
+    check_zerion_boundary()
     check_envelope()
     check_ceilings()
     datasets = check_tools()
