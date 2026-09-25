@@ -3,14 +3,13 @@ import ReactDOM from 'react-dom/client';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, lightTheme, darkTheme } from '@rainbow-me/rainbowkit';
-import { PrivyProvider } from '@privy-io/react-auth';
-import { bsc, arbitrum, robinhood } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
 
 import { installApiRetry } from './apiRetry';
 import { wagmiConfig } from './wagmiConfig';
 import App from './App';
 import { ThemeProvider, useTheme } from './theme/ThemeProvider';
+import { SignInProvider } from './wallet/SignInProvider';
 import './index.css';
 
 // Installed before anything renders, so every backend call in the app is
@@ -35,47 +34,32 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     {/* Outermost, so every provider and page below it, including the
         wallet modal and the standalone routes, reads one theme. */}
     <ThemeProvider>
-    {/* Two independent providers for the hybrid wallet flow:
-        - PrivyProvider: Face ID / email login, creates an embedded wallet
-        - WagmiProvider + RainbowKitProvider: direct wallet-connect for
-          crypto-native users (MetaMask, Trust Wallet, WalletConnect)
-        Both target the same chain (bsc mainnet, this project is
-        mainnet-only). They are NOT bridged via @privy-io/wagmi (that
-        would need wagmiConfig.js rebuilt around Privy's own createConfig,
- a bigger change than this fix). bug found 2026-08-17: plain
-        wagmi's WagmiProvider defaults reconnectOnMount to true, so on
-        every mount it silently tries to reconnect/re-verify the
-        previously-authorized injected connector AT THE SAME TIME Privy's
-        own SDK is independently probing window.ethereum for its
-        embeddedWallets.createOnLogin check, two uncoordinated systems
-        touching the same injected provider is exactly what Privy's own
-        docs (docs.privy.io/wallets/connectors/ethereum/integrations/wagmi)
-        say their bridged WagmiProvider sets reconnectOnMount=false to
-        avoid. Disabling it here (without the full bridge) removes that
-        race: a returning user just clicks "Connect a wallet" again
-        instead of it silently firing on mount. */}
-    <PrivyProvider
-      appId={import.meta.env.VITE_PRIVY_APP_ID}
-      config={{
-        loginMethods: ['email', 'passkey'],
-        defaultChain: bsc,
-        // Must list every chain the app can switch to, for the same reason
-        // wagmiConfig does: an unlisted chain fails before the wallet is
-        // asked. See the 2026-09-10 note in wagmiConfig.js.
-        supportedChains: [bsc, arbitrum, robinhood],
-        embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
-        },
-      }}
-    >
-      <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
+    {/* One wallet path: wagmi with RainbowKit's connect modal, for a wallet
+        the visitor already has. There is no login provider. The site used
+        to load Privy for email and passkey sign-up with a wallet Privy
+        created. That is gone, so the site no longer sends anyone to a login
+        provider. Accounts created through Privy before the removal are held
+        by Privy, not by this project, and removing the SDK does not delete
+        them; see docs/data-handling.md.
+
+        reconnectOnMount is back to wagmi's default. It had been turned off
+        (2026-08-17) because wagmi's reconnect and Privy's own probe of
+        window.ethereum ran in the same tick and produced a double wallet
+        prompt; App.jsx then re-ran the reconnect by hand once Privy was
+        ready. With Privy gone there is nothing to race, and the manual
+        stagger went with it.
+
+        SignInProvider sits inside wagmi and RainbowKit because it reads the
+        connected account and opens RainbowKit's connect modal. */}
+      <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
           <ThemedRainbowKit>
-            <App />
+            <SignInProvider>
+              <App />
+            </SignInProvider>
           </ThemedRainbowKit>
         </QueryClientProvider>
       </WagmiProvider>
-    </PrivyProvider>
     </ThemeProvider>
   </React.StrictMode>
 );

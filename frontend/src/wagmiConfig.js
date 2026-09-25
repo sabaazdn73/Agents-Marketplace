@@ -1,7 +1,8 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { createStorage } from 'wagmi';
 import { http, fallback } from 'viem';
 import { bsc, arbitrum, robinhood } from 'wagmi/chains';
-import { getBscTransport } from './rpcTransport';
+import { getBscTransport, MAINNET_READ_RPC, HAS_BSC_BACKUP } from './rpcTransport';
 
 // Adapted from OnChain Oversight's wagmiConfig.js: same wagmi/RainbowKit
 // pattern, only the `chains` array changes. Get a free WalletConnect
@@ -47,7 +48,45 @@ import { getBscTransport } from './rpcTransport';
 // transport altana.js uses, see rpcTransport.js for the failover
 // logic and why this exists.
 
+const ARBITRUM_RPCS = ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.drpc.org'];
+const ROBINHOOD_RPCS = ['https://rpc.mainnet.chain.robinhood.com', 'https://robinhood-rpc.publicnode.com'];
+const host = (url) => { try { return new URL(url).host; } catch { return url; } };
+
+// Who receives a read on each chain, named for people rather than for code.
+// Built from the same URLs the transports below use, so the name on screen
+// cannot drift from where the request actually goes. Read by the sign-in
+// modal, which has to say who checks a contract wallet's signature.
+export const RPC_PROVIDER_NAMES = {
+  [bsc.id]: `${host(MAINNET_READ_RPC).includes('blxrbdn') ? `bloXroute (${host(MAINNET_READ_RPC)})` : host(MAINNET_READ_RPC)}${HAS_BSC_BACKUP ? ', with Infura as a backup' : ''}`,
+  [arbitrum.id]: `Arbitrum's public endpoint (${host(ARBITRUM_RPCS[0])}), with dRPC as a backup`,
+  [robinhood.id]: `Robinhood Chain's public endpoint (${host(ROBINHOOD_RPCS[0])}), with PublicNode as a backup`,
+};
+
+// wagmi's storage, with the store's absence survived rather than thrown.
+//
+// wagmi's default storage reads window.localStorage when the config is
+// created, which is at import, before anything renders. In a browser with site
+// data blocked that read throws a SecurityError, and the whole site failed to
+// mount: a blank page, for the visitor least likely to be tracked. Found
+// 2026-09-25 by loading every route with localStorage throwing on access.
+// Every touch of the store is now inside a try, and a blocked store behaves as
+// an empty one: nothing is remembered between loads, and everything else works.
+function tolerantLocalStorage() {
+  let store = null;
+  try {
+    store = typeof window !== 'undefined' ? window.localStorage : null;
+  } catch {
+    store = null;
+  }
+  return {
+    getItem: (key) => { try { return store ? store.getItem(key) : null; } catch { return null; } },
+    setItem: (key, value) => { try { if (store) store.setItem(key, value); } catch { /* blocked or full */ } },
+    removeItem: (key) => { try { if (store) store.removeItem(key); } catch { /* blocked */ } },
+  };
+}
+
 export const wagmiConfig = getDefaultConfig({
+  storage: createStorage({ storage: tolerantLocalStorage() }),
   appName: 'Tnega',
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
   // Every chain the app can switch to. bsc for hiring and Sell Your Agent,
@@ -76,12 +115,12 @@ export const wagmiConfig = getDefaultConfig({
     // incident was about, which makes it useless as a backup here. drpc was
     // at the same block height and did serve that receipt.
     [arbitrum.id]: fallback([
-      http('https://arb1.arbitrum.io/rpc'),
-      http('https://arbitrum.drpc.org'),
+      http(ARBITRUM_RPCS[0]),
+      http(ARBITRUM_RPCS[1]),
     ], { rank: false }),
     [robinhood.id]: fallback([
-      http('https://rpc.mainnet.chain.robinhood.com'),
-      http('https://robinhood-rpc.publicnode.com'),
+      http(ROBINHOOD_RPCS[0]),
+      http(ROBINHOOD_RPCS[1]),
     ], { rank: false }),
   },
   ssr: false,

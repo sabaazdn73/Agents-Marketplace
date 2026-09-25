@@ -85,7 +85,9 @@ const ThemeContext = createContext({
 export function ThemeProvider({ children }) {
   const [mode, setModeState] = useState(readStoredMode);
   const [prefersDark, setPrefersDark] = useState(systemPrefersDark);
-  const [persisted, setPersisted] = useState(true);
+  // False when site data is blocked: index.html then swaps in an in-memory
+  // store, so writes succeed but do not outlast the page.
+  const [persisted, setPersisted] = useState(() => !(typeof window !== 'undefined' && window.__storageBlocked));
 
   // Follow the OS while it can matter. The listener stays on in every mode so
   // that switching back to system picks up the current OS value at once.
@@ -117,7 +119,7 @@ export function ThemeProvider({ children }) {
   const setMode = useCallback((next) => {
     if (!THEME_MODES.includes(next)) return;
     setModeState(next);
-    setPersisted(writeStoredMode(next));
+    setPersisted(writeStoredMode(next) && !window.__storageBlocked);
   }, []);
 
   const value = useMemo(() => ({ mode, dark, setMode, persisted }), [mode, dark, setMode, persisted]);

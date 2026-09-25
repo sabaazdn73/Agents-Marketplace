@@ -4,7 +4,12 @@
 // their own SKILL.md ("session permits no onchain calls"). Real
 // public endpoints, exactly as documented.
 
-// ── DexScreener Token Radar ──
+// ── Trending BNB Chain pools, from GeckoTerminal ──
+// The skills registry lists this as "DexScreener Token Radar", and the panel
+// keys it by that id (dexscreener-token-radar), but the data comes from
+// GeckoTerminal's public API, not DexScreener's. The output is credited to
+// GeckoTerminal where it is shown (AltanaSkillsPanel.jsx), as CoinGecko's API
+// Terms ask.
 export async function getTrendingBscTokens() {
   const res = await fetch('https://api.geckoterminal.com/api/v2/networks/bsc/trending_pools');
   if (!res.ok) throw new Error(`GeckoTerminal didn't respond properly (status ${res.status}).`);

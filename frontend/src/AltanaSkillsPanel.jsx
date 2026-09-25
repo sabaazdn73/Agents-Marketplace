@@ -35,6 +35,7 @@ import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeS
 import { detectLeaderTrades } from './copyTradeSkill';
 import { payOnce } from './x402Skill';
 import { getTrendingBscTokens, getRecentWalletSwaps } from './researchSkills';
+import { GeckoTerminalAttribution } from './shell/DataAttribution';
 
 // Single source of truth for the backend base URL, matching the main app
 // (web/mobile both read VITE_API_BASE_URL). Default suits local dev.
@@ -100,6 +101,8 @@ const SKILL_EXEC = {
   // ── Read-only / detection skills (no wallet, no transactions) ──
   // These make no on-chain writes, so a wallet doesn't apply.
   // `run` gets a BSC mainnet read client and returns data for display.
+  // Registry id says DexScreener; the data is GeckoTerminal's. See
+  // researchSkills.js getTrendingBscTokens.
   'dexscreener-token-radar': {
     play: 'trending-scan', kind: 'read',
     ready: () => true,
@@ -494,6 +497,9 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
 
       {step === 'done' && execResult && execResult.kind && (
         <div className={`mb-4 p-3 rounded-xl border ${mutedBorder} text-[11px]`}>
+          {/* GeckoTerminal's data, credited above the output as CoinGecko's
+              API Terms ask. */}
+          {execResult.kind === 'trending' && <GeckoTerminalAttribution className="block mb-1.5" />}
           <div className="font-semibold mb-1 opacity-70">Result</div>
           <pre className="whitespace-pre-wrap break-all max-h-64 overflow-auto opacity-80">
 {JSON.stringify(execResult, (k, val) => (typeof val === 'bigint' ? val.toString() : val), 2)}

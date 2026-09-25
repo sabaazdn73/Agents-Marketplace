@@ -32,7 +32,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, Briefcase, ExternalLink } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { useConnectedWallet, shortAddress } from './wallet/useConnectedWallet';
+import { useSignIn } from './wallet/SignInProvider';
 import JobStatusPanel from './JobStatusPanel';
 import MyBudgetsList from './MyBudgetsList';
 import { useJobActions } from './useJobActions';
@@ -42,7 +43,10 @@ import { agentShareUrl } from './shareLink';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-gray-200 dark:border-gray-800' }) {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useConnectedWallet();
+  // Only the wording depends on this. The jobs and budgets are public and are
+  // read the same way whether or not the wallet has signed.
+  const { status: signInStatus } = useSignIn();
   const { disputeDirect, approveDirect, claimRefundDirect } = useJobActions();
   // Read once here and pass down, so this panel and the budget list agree
   // on how many budgets exist without enumerating the contract twice.
@@ -107,6 +111,11 @@ export default function MyJobsPanel({ accent = '#6366F1', mutedBorder = 'border-
 
   return (
     <div className="space-y-4">
+      <p className="text-label text-muted">
+        Jobs and budgets where {signInStatus === 'signed' ? 'your wallet' : 'this address'}{' '}
+        (<span className="figure text-fg">{shortAddress(address)}</span>) is the client.
+        {signInStatus !== 'signed' && ' Sign in to have the site call it your wallet; the figures are the same either way.'}
+      </p>
       <MyBudgetsList
         loading={budgetState.loading}
         budgets={budgets}

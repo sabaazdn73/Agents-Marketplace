@@ -7,8 +7,13 @@
 //   - The Graph:   backend/adapters/thegraph.py, Agent0 ERC-8004 subgraph,
 //                  the registry coverage fallback (docs/thegraph-integration.md)
 //   - Zerion:      backend/adapters/zerion.py, opt-in wallet portfolio enrichment
-//   - CoinGecko:   credited per a commitment made in their grant
-//                  application; tracked live on /status. Market & pricing data.
+//   - CoinGecko:   market and pricing data (the BNB/USD price behind the dollar
+//                  value beside owner balances). Credited because CoinGecko's
+//                  API Terms require attribution wherever their data is shown:
+//                  a visible "Powered by CoinGecko" or "Data provided by
+//                  CoinGecko", linked to coingecko.com/en/api
+//                  (shell/DataAttribution.jsx). Also credited per a commitment
+//                  in their grant application. Tracked live on /status.
 //   - DexScreener: frontend/src/researchSkills.js, live token/pool search
 //   - GeckoTerminal: frontend/src/researchSkills.js, trending BSC pools
 //   - BscScan:     explorer links throughout the app (altana.js, JobStatusPanel, etc.)
@@ -106,9 +111,11 @@ export const DATA_SOURCES = [
     inFooter: true,
     status: 'live',
     statusNote: 'Checked live on /status.',
-    url: 'https://www.coingecko.com',
+    // The API page, not the home page: that is where CoinGecko's attribution
+    // terms ask the credit to link.
+    url: 'https://www.coingecko.com/en/api',
     logo: 'https://www.coingecko.com/favicon.ico',
-    description: 'Market and pricing data.',
+    description: 'Powered by CoinGecko API. Market and pricing data, including the US dollar price of BNB shown beside owner wallet balances.',
   },
   {
     name: 'DexScreener',

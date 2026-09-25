@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Bell, Check } from 'lucide-react';
-import { useAccount } from 'wagmi';
-import { usePrivy } from '@privy-io/react-auth';
+import { useConnectedWallet } from './wallet/useConnectedWallet';
 import {
   useNotifications, getTrackedJobs, setJobStatus, addNotification,
   setActiveWallet, getActiveWallet,
@@ -40,14 +39,12 @@ function useJobStatusPolling(wallet, intervalMs = 30000) {
   }, [wallet, intervalMs]);
 }
 
-// The same connected address the header shows: the external wallet if one is
-// connected, otherwise the embedded one. Published to the notification store,
-// which scopes everything it shows and records to that wallet.
+// The same connected address the header shows, from the one shared source
+// (wallet/useConnectedWallet.js). Published to the notification store, which
+// scopes everything it shows and records to that wallet.
 function useNotificationWallet() {
-  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
-  const { ready, authenticated, user } = usePrivy();
-  const embedded = ready && authenticated ? user?.wallet?.address : null;
-  const wallet = ((wagmiConnected ? wagmiAddress : embedded) || '').toLowerCase() || null;
+  const { address } = useConnectedWallet();
+  const wallet = (address || '').toLowerCase() || null;
   // Layout effect, so the list is re-scoped before the next paint rather than
   // showing the previous wallet's notifications for a frame.
   useLayoutEffect(() => { setActiveWallet(wallet); }, [wallet]);

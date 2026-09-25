@@ -149,7 +149,6 @@ Grepped directly from `import.meta.env.VITE_*` usage across `frontend/src`:
 | `VITE_MAINNET_READ_RPC` | Every on-chain read the frontend makes (connected-wallet reads via wagmiConfig.js, deliverable-URL lookup, copy-trade/wallet-tracker skills, all via `rpcTransport.js`) | Defaults to a tested bloXroute endpoint; the SDK's default public RPC refuses the `getLogs` calls the read-only skills need. |
 | `VITE_INFURA_API_KEY` | Automatic RPC backup only | Optional. `rpcTransport.js`'s `getBscTransport()` tries the primary above first (viem's `fallback()`, in order, never ranked), falling back to Infura's BSC endpoint only on a primary failure. Without it, every read still works exactly as before, just with no backup. |
 | `VITE_SKILL_SCAN_BLOCKS` | Copy-trade / wallet-tracker skills | How many blocks back to scan; defaults to 1000. |
-| `VITE_PRIVY_APP_ID` | Passkey/email login (Privy) | Get one at dashboard.privy.io. |
 | `VITE_WALLETCONNECT_PROJECT_ID` | RainbowKit wallet connections | Get one free at cloud.walletconnect.com. |
 | `VITE_BUDGET_ESCROW_ADDRESS` | Drawable budgets | The deployed `AgentBudgetEscrow` address. Currently unset in production, so the budget surface falls back to its default. See [Drawable Budgets](budget-integration.md). |
 

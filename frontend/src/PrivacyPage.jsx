@@ -94,7 +94,7 @@ export default function PrivacyPage({ onBack }) {
 
         <h1 className="text-2xl font-bold mb-1">Privacy</h1>
         <p className="text-sm text-muted mb-8">
-          For the Chrome extension, Tnega, and for the two routes on the website that receive your own wallet address. Last updated {UPDATED}.
+          For the Chrome extension, Tnega, and for the website&apos;s wallet sign-in and the two routes on the website that receive your own wallet address. Last updated {UPDATED}.
         </p>
 
         <Section title="What the extension is">
@@ -440,6 +440,39 @@ export default function PrivacyPage({ onBack }) {
             looked up by the address, so that a second view in that time does not read Hyperliquid
             again. It is not written to disk, and it is gone when the server restarts. The website
             page that will call this route is still being built; nothing on the site calls it yet.
+          </p>
+          <p>
+            Signing in on the website is a signature from your wallet over a short message that
+            moves no funds and approves nothing. For an ordinary wallet, such as MetaMask, it is
+            checked in your browser and the signature is not sent anywhere. A contract wallet (a
+            smart account or a multisig) can only be checked by its contract, so for one of those the
+            address, the message and the signature are sent to the public RPC provider of the chain
+            the message names: bloXroute on BNB Chain, with Infura as a backup where it is
+            configured; Arbitrum&apos;s public endpoint on Arbitrum, with dRPC as a backup; and
+            Robinhood Chain&apos;s public endpoint on Robinhood Chain, with PublicNode as a backup. A
+            backup receives the same request when the first provider does not answer. If a signature
+            does not match, the browser asks that provider whether the address is a contract,
+            sending the address alone.
+          </p>
+          <p>
+            The signed message is kept in your browser&apos;s own storage for 24 hours, or until you
+            sign out, disconnect or switch account. It is not sent to our server, and there is no
+            account, email address or password, and no login provider holding anything about you.
+            Signing changes only how the site describes the address, as your wallet rather than this
+            address; everything it shows for an address is public and readable without signing.
+          </p>
+        </Section>
+
+        <Section title="Market data from CoinGecko">
+          <p>
+            Some prices on the website, such as the US dollar value shown beside a BNB balance, come
+            from the CoinGecko API, and trending pool data in the research skills comes from
+            GeckoTerminal, which CoinGecko runs. The dollar value is fetched by our server, so
+            CoinGecko does not see your browser for it. The trending pool lookup is fetched by your
+            browser directly from GeckoTerminal, so GeckoTerminal receives your IP address and the
+            request, as with any site your browser contacts. The CoinGecko API and its data are the
+            property of CoinGecko. CoinGecko has no liability for this website or for anything shown
+            on it.
           </p>
         </Section>
 

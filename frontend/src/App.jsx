@@ -1,6 +1,4 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { useReconnect } from 'wagmi';
-import { usePrivy } from '@privy-io/react-auth';
 import { Loader2 } from 'lucide-react';
 import AgentMarketplaceApp from './AgentMarketplaceApp.web.jsx';
 import AgentMarketplaceMobileApp from './AgentMarketplaceApp.mobile.jsx';
@@ -106,34 +104,10 @@ function useIsMobile() {
   return isMobile;
 }
 
-// fix, 2026-08-18: WagmiProvider's reconnectOnMount is set to false
-// (main.jsx) specifically to stop wagmi from touching window.ethereum at
-// the same React-mount tick Privy's own SDK independently probes it, that
-// simultaneous double-touch was the cause of the double MetaMask
-// prompt on connect (see main.jsx's comment for the full trace). But
-// reconnectOnMount is ALSO the only thing that restores a previously-
-// connected wagmi wallet after a page refresh, so turning it off entirely
-// silently broke that persistence as a side effect, not a separate bug,
-// the documented behavior of that flag.
-//
-// fix: don't leave it off. Trigger the same reconnect manually, once,
-// but sequenced to run only after Privy's own `ready` has settled instead
-// of at the same mount tick RainbowKit fires it automatically, same end
-// result (the wallet comes back after a refresh), the two systems just
-// never touch window.ethereum in the same instant. wagmi's reconnect()
-// uses eth_accounts for an injected connector (a silent, non-prompting
-// read of already-authorized accounts, not eth_requestAccounts), so
-// staggering it doesn't introduce a prompt of its own to worry about.
-function useStaggeredWalletReconnect() {
-  const { ready } = usePrivy();
-  const { reconnect } = useReconnect();
-  const [done, setDone] = useState(false);
-  useEffect(() => {
-    if (!ready || done) return;
-    setDone(true);
-    reconnect();
-  }, [ready, done, reconnect]);
-}
+// The manual, staggered wallet reconnect that lived here (2026-08-18) is
+// gone with Privy: it existed only to keep wagmi's reconnect from racing
+// Privy's probe of window.ethereum. wagmi's own reconnectOnMount now restores
+// a previously connected wallet after a reload. See main.jsx.
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -150,8 +124,6 @@ export default function App() {
   // The first-visit check is gone rather than inverted. It existed to decide
   // between two landings and there is only one now, so keeping it would be a
   // network round trip on every cold load that changes nothing.
-
-  useStaggeredWalletReconnect();
 
  // per-route title/description/canonical (seoMeta.js). Docs pages
   // are deliberately excluded here, DocsPage.jsx sets its own,

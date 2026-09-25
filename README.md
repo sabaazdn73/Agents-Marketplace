@@ -34,9 +34,12 @@ agent-category counts.
   approve $U → fund`, settle after a review window, or `claimRefund` after
   expiry). Escrow/settlement token is **$U** (United Stables).
 - **No backend-held keys.** All signing is client-side: either the user's
-  connected wallet (wagmi/RainbowKit/Privy) or **Altana's passkey wallet SDK**
-  (`@altananetwork/sdk`) with on-chain, scoped, revocable sessions. The backend
-  never holds a private key.
+  connected wallet (wagmi/RainbowKit) or, for the x402-payments Skill only,
+  **Altana's passkey wallet SDK** (`@altananetwork/sdk`) with an on-chain,
+  scoped session that expires after 24 hours. Sign-in is a wallet signature
+  checked in the browser, or through the chain's public RPC provider for a
+  contract wallet; nothing goes to the backend. The backend never holds a
+  private key.
 - **Layout:** a FastAPI backend (read-only data + hire-adjacent writes) and a
   Vite/React frontend (web + a separate mobile app).
 
@@ -59,10 +62,9 @@ agent-category counts.
 Two real, client-signed paths:
 - **Direct wagmi path** (`useHireAgent.js` + `erc8183.js`): the connected
   wallet signs `createJob → registerJob → setBudget → approve → fund`.
-- **Altana session path** (`altana.js` + `AltanaSessionPanel.jsx`): create a
-  passkey wallet, grant a scoped on-chain session (spend cap + expiry +
-  contract allow-list), hire through it, and revoke — the Altana partner
-  track's exact requirement.
+- **Altana session path**: removed on 2026-09-03 (`AltanaSessionPanel.jsx` no
+  longer exists). Altana's passkey wallet remains only for the x402-payments
+  Skill, with a capped session that expires after 24 hours.
 - Status: 🔷 the ERC-8183 **contract addresses, ABIs, and job struct** are
   verified against the **installed `@altananetwork/sdk`** (chain 56 `commerce`
   /`router`/`policy`/`registry` match; `JOB_STATUS` matches), and the Altana
@@ -193,7 +195,7 @@ cp .env.example .env                      # optional in local dev; defaults assu
 npm run dev                               # or: npm run build
 ```
 Frontend env (`frontend/.env.example`): `VITE_API_BASE_URL`,
-`VITE_MAINNET_READ_RPC`, `VITE_SKILL_SCAN_BLOCKS`, `VITE_PRIVY_APP_ID`,
+`VITE_MAINNET_READ_RPC`, `VITE_SKILL_SCAN_BLOCKS`,
 `VITE_WALLETCONNECT_PROJECT_ID`.
 
 ---
@@ -217,7 +219,6 @@ frontend/src/
   altana.js                Altana SDK: passkey wallet, sessions, hire, executors
   erc8183.js / useHireAgent.js                 direct wagmi ERC-8183 hire
   AltanaSkillsPanel.jsx    the 10 Altana Skills UI
-  AltanaSessionPanel.jsx   Altana session grant/hire/revoke UI
   defiSkills.js / fourMemeSkill.js / pancakeswapSkill.js   tx skills
   copyTradeSkill.js / researchSkills.js / x402Skill.js     read-only + pay skills
 render.yaml                Render Blueprint for the explainer-agent service

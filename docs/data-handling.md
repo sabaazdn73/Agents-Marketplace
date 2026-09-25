@@ -430,6 +430,78 @@ in `localStorage` so the site can reconnect on reload. That is the visitor's
 own browser and their own address, it is first-party, and nothing in this
 codebase sends it anywhere.
 
+### Sign-in, checked on the visitor's side
+
+Signing in is a wallet signature over an EIP-4361 message, built and checked
+on the visitor's side (`frontend/src/wallet/siwe.js` and
+`SignInProvider.jsx`). The message names the site, its origin, the address, the
+chain, a nonce of 16 random bytes from the browser's cryptographic generator,
+the time it was issued and an expiry 24 hours later, and says that signing
+moves no funds and approves nothing. A message naming another site, another
+origin or a chain the site does not use is refused.
+
+Where the signature is checked depends on the wallet, and the sign-in modal
+says which before anyone signs:
+
+- An ordinary wallet (a private key, which is what MetaMask and most wallets
+  are): the signer is recovered from the signature in the browser and
+  compared with the address. No request of any kind is made.
+- A contract wallet (a smart account, a multisig, or an ERC-6492 account not
+  yet deployed): recovery cannot check it, so the address, the message and the
+  signature are sent to the public RPC provider of the chain the message names,
+  which asks the contract. On BNB Chain that is bloXroute, with Infura as a
+  backup when configured; on Arbitrum, Arbitrum's public endpoint with dRPC as
+  a backup; on Robinhood Chain, its public endpoint with PublicNode as a
+  backup.
+- A signature that does not recover to the address: before calling it wrong,
+  the browser asks the same RPC provider whether the address is a contract.
+  That request carries the address only.
+
+The first version got this wrong. It used the public client's
+`verifyMessage`, which in viem's default mode makes an `eth_call` to a
+verifier contract, so every sign-in, ordinary wallet or not, sent the
+address, the message hash and the signature to the chain's RPC provider,
+while the page said the check happened in the browser. Found on review before
+it shipped, 2026-09-25.
+
+A stored proof is checked again on each load and is deleted when the check
+shows a defect in the proof itself (expired, a bad signature, another address,
+site or chain). A network failure during the check leaves it in place. On
+load, proofs stored for any address other than the connected one are deleted.
+
+What is kept, and where:
+
+| What | Where | For how long |
+|---|---|---|
+| The signed message and the signature | The visitor's own `localStorage`, under `tnega_signin_v1:<address>` | Until the message expires (24 hours), or sooner on sign-out, disconnect or a switch to another account |
+
+Nothing about a sign-in reaches our server. There is no session, no cookie,
+no token and no account: the backend holds no keys, signs nothing and could
+not tell a signed-in visitor from anyone else. That is also the limit of what
+signing proves. It convinces the page in that browser that the visitor
+controls the address, and nobody else. It changes how the page describes an
+address ("your wallet" rather than "this address"), not what can be read:
+every figure the site shows for a wallet is public data keyed by a public
+address. With site data blocked, `index.html` puts an in-memory store in place of
+`localStorage` before anything loads, so the signature is not kept and a
+sign-in lasts until the page is closed.
+
+### The login provider that was removed
+
+Until 2026-09-25 the site loaded Privy's SDK (`@privy-io/react-auth`), which
+offered sign-up by email or passkey and created a wallet for people who did
+not have one. It is gone: the package, the provider and every call to it were
+removed, and the site now connects only to a wallet the visitor already has,
+through RainbowKit and wagmi. The site therefore sends no one to a login
+provider, and no email address or login credential passes through it.
+
+Two things did not end with the code, and are stated here rather than left
+out. Accounts created through Privy before the removal are held by Privy under
+its own terms, not by this project, and removing the SDK does not delete them;
+deleting them is done in Privy's dashboard by the project owner. And a wallet
+Privy created for someone is reachable through Privy, not through this site
+any more.
+
 ### Wallet addresses, transmitted
 
 | Third party | Which address | Where it rides | Note |
@@ -440,11 +512,18 @@ codebase sends it anywhere.
 | Hyperliquid info API and WebSocket | Tracked maker | POST body or subscription message | Not in a URL |
 | Hyperliquid info API | The visitor's own wallet, from `/api/wallet/habits` | POST body | Not in a URL |
 | HyperEVM, BSC and backup RPC providers | Wallet, ABI-encoded as calldata | POST body | Not in a URL |
+| BNB Chain, Arbitrum and Robinhood Chain RPC providers, from the browser | The visitor's own wallet at sign-in: for a contract wallet the address, message and signature; for a signature that does not recover, the address alone. An ordinary wallet that signs correctly sends nothing | POST body | Not in a URL. See "Sign-in, checked on the visitor's side" |
 
 8004scan, TheGraph, CoinGecko, DefiLlama and Crossmint receive no address
 from this project. Owner addresses arrive in 8004scan's and TheGraph's
 responses; none is ever sent as a request parameter. No model API call built
 in `core/commerce/` interpolates a wallet or an IP into a prompt.
+
+One third-party call is made by the visitor's browser rather than by our
+server: the research Skill's trending-pools lookup fetches
+`api.geckoterminal.com` directly (`frontend/src/researchSkills.js`). It sends
+no wallet address, but GeckoTerminal receives the visitor's IP address and the
+request, as with any host a browser contacts. The privacy page says so.
 
 ### Error paths
 

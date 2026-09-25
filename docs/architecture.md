@@ -12,8 +12,8 @@ flowchart TB
     end
 
     subgraph Wallets["Client-side signing, no key ever leaves the browser"]
-        Wagmi["wagmi / RainbowKit / Privy<br/>(direct EOA signing for hires, disputes, claims, listings, buys)"]
-        Altana["Altana passkey wallet<br/>(Face ID / WebAuthn, on-chain sessions, x402 Skill and wallet creation/recovery only)"]
+        Wagmi["wagmi / RainbowKit<br/>(the visitor's own wallet: signs hires, disputes, claims, listings, buys, and the sign-in message)"]
+        Altana["Altana passkey wallet<br/>(Face ID / WebAuthn, a capped 24-hour session; the x402-payments Skill only, which creates or recovers it)"]
     end
 
     Backend["FastAPI backend<br/>Render Web Service"]

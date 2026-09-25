@@ -2,12 +2,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ShieldAlert, ShieldCheck, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, Store, ArrowUpDown, ChevronRight,
-  Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
+  Loader2, AlertTriangle, Wallet, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
 } from 'lucide-react';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useDisconnect } from 'wagmi';
-import { usePrivy } from '@privy-io/react-auth';
 // Header mark. Uses the filter-free variant deliberately: the full
 // icon_v2.svg is a 512px launcher icon carrying two SVG drop-shadow
 // filters applied eight times, and SVG filter regions are rasterised
@@ -122,6 +119,10 @@ import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
 import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
+import { CoinGeckoAttribution } from './shell/DataAttribution';
+import WalletIdentity from './wallet/WalletIdentity';
+import { useConnectedWallet } from './wallet/useConnectedWallet';
+import { useSignIn } from './wallet/SignInProvider';
 import { useTheme } from './theme/ThemeProvider';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
@@ -221,7 +222,7 @@ const SRC = {
 
 const LEARN_TOPICS = [
   { title: 'Start here: the words we use, in plain English', body: [
-    { h: 'A wallet', p: 'A wallet is just an account that can hold crypto and sign approvals, like an online account that can also say "yes, spend this." Here you can create one with Face ID / a passkey, so there\'s no seed phrase to write down.', plain: 'Think: a bank-card + signature, combined, that only you control.', src: SRC.altana },
+    { h: 'A wallet', p: 'A wallet is just an account that can hold crypto and sign approvals, like an online account that can also say "yes, spend this." You connect one you already use, such as MetaMask or any wallet that works with WalletConnect. This site does not create wallets and never holds a wallet\'s keys.', plain: 'Think: a bank-card + signature, combined, that only you control.' },
     { h: 'Gas', p: 'Gas is the tiny network fee paid to record a transaction on the blockchain, like a stamp on a letter. Registering an agent here is gas-free: a "paymaster" called MegaFuel covers it, so you don\'t need to hold gas tokens.', plain: 'You don\'t pay a stamp to list an agent, the network sponsors it.', src: SRC.sdk },
  { h: 'Mainnet', p: "Mainnet is BNB Chain's live network, where money moves. Everything on this site runs on mainnet rather than a test network.", plain: 'This is the live network. Nothing here is a simulation.' },
     { h: 'Escrow', p: 'Escrow is a neutral on-chain vault. When you hire an agent, your payment is locked there; the agent is paid only when the work is accepted, and you can reclaim it if they never deliver.', plain: 'Your money is held by the rules, not by the agent, until the job is done.', src: SRC.sdk },
@@ -247,7 +248,7 @@ const LEARN_TOPICS = [
   ], src: SRC.sdk },
   { title: 'Ready-made Skills', body: [
     { h: 'Skills = pre-built, fork-tested know-how', p: 'Instead of building an agent, you can use a ready-made Skill from Altana\'s public registry (PancakeSwap trading, Venus/Aave lending, Lista staking, four.meme, copy-trade, and more). Each Skill\'s exact contracts and steps are published and fork-tested.', plain: 'Skills are recipes an agent can run for you, no building required.', src: SRC.skills },
-    { h: 'A passkey wallet + a scoped session', p: 'To run a Skill you create a passkey wallet (Face ID / Touch ID) and grant a session: a spend cap, an expiry, and an allow-list of exactly which contracts it may touch. The Skill can act only inside those limits, and you can revoke it.', plain: 'You hand the agent a prepaid card with a limit and an expiry, not your whole wallet.', src: SRC.altana },
+    { h: 'Your wallet, or a scoped session', p: 'Most Skills run through your own connected wallet: every transaction is shown to you and you sign it yourself. The x402-payments Skill is the exception. It uses a separate passkey wallet made through Altana\'s SDK, and you grant it a session: a spend cap, an expiry, and an allow-list of exactly which contracts it may touch. It can act only inside those limits, and the session expires after 24 hours.', plain: 'Either you sign each step, or you hand one Skill a prepaid card with a limit and an expiry, not your whole wallet.', src: SRC.altana },
   ]},
   { title: 'How agents are built', body: [
  { h: 'Single agent', p: 'One agent handles the whole task itself, start to finish, reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here use, including our own explainer agent on the Advantage Report tab.', Diagram: SingleAgentDiagram },
@@ -274,7 +275,7 @@ const BUILD_STEPS = [
 
 const KID_FRIENDLY_FAQ = [
   { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences; to build a custom agent you mostly edit one instruction paragraph, and to use a ready-made Skill you just fill in a form.', src: SRC.studioQuick },
-  { q: 'What is a passkey wallet?', a: 'A crypto wallet you unlock with Face ID / Touch ID instead of a seed phrase. It signs approvals for you, and for Skills you grant it only a capped, expiring, contract-limited session.', src: SRC.altana },
+  { q: 'What is a passkey wallet?', a: 'A crypto wallet you unlock with Face ID or Touch ID instead of a seed phrase. On this site only the x402-payments Skill uses one, made through Altana\'s SDK, and you grant it only a capped, expiring, contract-limited session. Everything else uses the wallet you connect.', src: SRC.altana },
   { q: 'Can it spend my money without asking?', a: 'No. Hiring funds one specific job you set and fund yourself; a Skill session has a spend cap, an expiry, and an allow-list of contracts. Neither is a standing permission it can redraw from.', src: SRC.sdk },
   { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes, but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
  { q: 'Do I need my own cloud hosting account to build one?', a: "No. The \"Build it for real\" button uses a free trial (about 2 days) on a temporary practice wallet, with no hosting account and no money involved. Hosting it yourself long-term is optional, and only if you want to later.", src: SRC.studio },
@@ -417,8 +418,13 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             confused with one another. */}
         <div className="mt-4 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
           <span className="text-xs text-muted flex items-center gap-1.5" title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now, checked live, this instant."><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
-          <span className="font-mono text-sm font-semibold">
-            {agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">not available</span>}
+          <span className="flex flex-col items-end gap-0.5">
+            <span className="font-mono text-sm font-semibold">
+              {agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-muted font-normal">not available</span>}
+            </span>
+            {/* The dollar value is CoinGecko's price; their API Terms ask for
+                a visible credit beside it. Shown only when a dollar value is. */}
+            {agent.ownerBnbBalance != null && bnbUsdPrice != null && <CoinGeckoAttribution />}
           </span>
         </div>
  {/* Real, final, unified "Metrics" presentation, interaction
@@ -440,48 +446,6 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         {agent.tokenId != null && <BuyAccessPanel agentId={String(agent.tokenId)} />}
       </div>
     </div>
-  );
-}
-
-function HybridWalletConnect({ accent }) {
-  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
-  const { disconnect: wagmiDisconnect } = useDisconnect();
-  const { ready, authenticated, user, logout } = usePrivy();
-  const privyConnected = ready && authenticated;
-  const activeAddress = wagmiConnected ? wagmiAddress : user?.wallet?.address;
-  const isConnected = wagmiConnected || privyConnected;
-  const shortAddress = activeAddress ? `${activeAddress.slice(0, 6)}...${activeAddress.slice(-4)}` : null;
-
-  // A header control now, not a card in a rail. Connected, it shows the
-  // address and a way out; not connected, one button. Browsing needs no
-  // wallet, so nothing here asks for one before it is wanted.
-  return isConnected ? (
-    <div className="flex items-center gap-1 h-8 pl-2.5 pr-1 rounded-md border border-line bg-inset">
-      <span className="w-1.5 h-1.5 rounded-full bg-pos" aria-hidden="true" />
-      <span className="figure text-label text-fg ml-1">{shortAddress}</span>
-      <button
-        type="button"
-        onClick={() => (wagmiConnected ? wagmiDisconnect() : logout())}
-        title="Disconnect"
-        aria-label="Disconnect wallet"
-        className="w-6 h-6 ml-0.5 rounded flex items-center justify-center text-muted hover:text-fg transition-colors"
-      >
-        <LogOut size={13} />
-      </button>
-    </div>
-  ) : (
-    <ConnectButton.Custom>
-      {({ openConnectModal }) => (
-        <button
-          type="button"
-          onClick={openConnectModal}
-          title="Browsing needs no wallet. Connect one to hire or to see your own jobs."
-          className="h-8 px-3 rounded-md bg-accent text-accent-fg text-label font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5 whitespace-nowrap"
-        >
-          <Wallet size={14} aria-hidden="true" /> Connect wallet
-        </button>
-      )}
-    </ConnectButton.Custom>
   );
 }
 
@@ -763,9 +727,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   );
   const PERFORMANCE_SORT_KEYS = new Set(['hireCount', 'winRate']);
 
-  const { isConnected: wagmiConnected } = useAccount();
-  const { ready, authenticated } = usePrivy();
-  const walletConnected = wagmiConnected || (ready && authenticated);
+  // Hiring needs a connected wallet, not a signed-in one: the wallet signs
+  // each hire transaction itself, which is a stronger proof than sign-in.
+  const { isConnected: walletConnected } = useConnectedWallet();
+  const { openSignIn } = useSignIn();
 
   // Soft Indigo replacing the old high-contrast colors
   const accent = '#6366F1'; 
@@ -790,15 +755,23 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // PROGRESS is described by.
   const [activeHireMode, setActiveHireMode] = useState('stepwise');
 
-  const handleHireClick = (agent) => {
-    if (!walletConnected) {
-      alert('Connect a wallet first to hire this agent, use Connect a wallet in the sidebar.');
-      return;
-    }
+  // The hire itself, without the wallet check, so "Continue to hire" in the
+  // connect modal can carry on with the same agent once a wallet is connected.
+  const startHire = (agent) => {
     setSelectedAgent(agent);
     setHiring(true);
     setSpendCapTouched(false); // fresh agent, let its price (if any) pre-fill again
     setDeadlineMinutes(DEADLINE_DEFAULT_MINUTES); // fresh agent, don't carry a prior custom deadline over
+  };
+
+  const handleHireClick = (agent) => {
+    if (!walletConnected) {
+      // Opens on connecting, says hiring needs a connected wallet only, and
+      // offers "Continue to hire" once connected. Signing in stays optional.
+      openSignIn({ purpose: 'hire', onContinue: () => startHire(agent) });
+      return;
+    }
+    startHire(agent);
   };
 
   const deadlineError = validateDeadlineMinutes(deadlineMinutes);
@@ -1050,7 +1023,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             <NotificationBell />
             <ThemeToggle className="ml-1" />
             <div className="ml-2">
-              <HybridWalletConnect accent={accent} />
+              {/* Sign in, "this address" or "your wallet". Shared with the
+                  mobile menu sheet: wallet/WalletIdentity.jsx. */}
+              <WalletIdentity layout="bar" />
             </div>
           </div>
         </div>

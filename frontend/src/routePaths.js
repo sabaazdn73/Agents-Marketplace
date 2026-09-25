@@ -12,7 +12,7 @@
 // Pulled into its own plain module (no JSX/React import) specifically so
 // it can be verified directly in a headless test against the tab ids
 // NAV_ITEMS uses in AgentMarketplaceApp.web.jsx/.mobile.jsx, without
-// having to bundle the whole app (wagmi/Privy/RainbowKit) just to check a
+// having to bundle the whole app (wagmi/RainbowKit) just to check a
 // lookup table.
 //
 // '/skills' added 2026-08-29 alongside NAV_ITEMS' own new 'skills' tab,

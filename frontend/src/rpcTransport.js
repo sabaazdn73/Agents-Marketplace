@@ -33,6 +33,9 @@ const BACKUP_RPC = INFURA_API_KEY ? `https://bsc-mainnet.infura.io/v3/${INFURA_A
 const PRIMARY_TIMEOUT_MS = 5_000;
 
 export const MAINNET_READ_RPC = PRIMARY_RPC;
+// Whether the Infura backup is configured in this build, for places that name
+// who receives a request (wagmiConfig.js RPC_PROVIDER_NAMES).
+export const HAS_BSC_BACKUP = !!BACKUP_RPC;
 
 /** The real, shared BSC mainnet transport every read in this app should
  * use. Without a real `VITE_INFURA_API_KEY` configured, this is exactly

@@ -52,6 +52,32 @@
          them together. -->
     <style>html{background:#F4F5F7;color-scheme:light}html.dark{background:#171820;color-scheme:dark}</style>
     <script>
+      // SITE DATA BLOCKED. Reading localStorage then throws a SecurityError,
+      // and several libraries (RainbowKit's recent-wallet list, WalletConnect)
+      // read it with no try around the read, which left the whole site blank.
+      // So when the store cannot be read, an in-memory store takes its place
+      // before any module loads: everything works, nothing survives the page,
+      // which is what blocking site data asks for. window.__storageBlocked lets
+      // the app say so where it matters (the theme control).
+      (function () {
+        var blocked = false;
+        try { window.localStorage.getItem('tnega_probe'); } catch (e) { blocked = true; }
+        if (!blocked) return;
+        var mem = {};
+        var has = function (k) { return Object.prototype.hasOwnProperty.call(mem, k); };
+        var shim = {
+          getItem: function (k) { k = String(k); return has(k) ? mem[k] : null; },
+          setItem: function (k, v) { mem[String(k)] = String(v); },
+          removeItem: function (k) { delete mem[String(k)]; },
+          clear: function () { mem = {}; },
+          key: function (i) { var ks = Object.keys(mem); return i < ks.length ? ks[i] : null; },
+          get length() { return Object.keys(mem).length; }
+        };
+        try {
+          Object.defineProperty(window, 'localStorage', { value: shim, configurable: true });
+          window.__storageBlocked = true;
+        } catch (e) {}
+      })();
       (function () {
         var mode = 'system';
         try {

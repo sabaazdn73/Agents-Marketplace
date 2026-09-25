@@ -21,7 +21,7 @@ import { Wallet, MessageSquare, Cpu, ShieldCheck, Link2 } from 'lucide-react';
 import AgentIllustration from './AgentIllustration';
 
 const STEPS = [
-  { icon: Wallet, title: 'Connect', body: 'Connect your own wallet, or set up a passkey wallet with Face ID or a fingerprint, no seed phrase to write down.' },
+  { icon: Wallet, title: 'Connect', body: 'Connect a wallet you already use, such as MetaMask or any wallet that works with WalletConnect. This site never holds its keys.' },
   { icon: MessageSquare, title: 'Describe what you want', body: 'Tell the agent the job, or just hit "Hire", it already knows what it does.' },
   { icon: Cpu, title: 'The agent prepares the action', body: 'It works out the exact steps and the price before anything gets signed.' },
   { icon: ShieldCheck, title: 'You approve it', body: "Every step is shown to you first, and you sign it yourself, in your own wallet." },

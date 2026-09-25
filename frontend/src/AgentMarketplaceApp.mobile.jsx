@@ -2,13 +2,10 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ShieldAlert, ShieldCheck, FileBarChart, CheckCircle2, XCircle,
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
-  Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
+  Wallet, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu,
   ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
 } from 'lucide-react';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useDisconnect } from 'wagmi';
-import { usePrivy } from '@privy-io/react-auth';
 // Header mark. Uses the filter-free variant deliberately: the full
 // icon_v2.svg is a 512px launcher icon carrying two SVG drop-shadow
 // filters applied eight times, and SVG filter regions are rasterised
@@ -77,6 +74,10 @@ import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
+import { CoinGeckoAttribution } from './shell/DataAttribution';
+import WalletIdentity from './wallet/WalletIdentity';
+import { useConnectedWallet } from './wallet/useConnectedWallet';
+import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
 import { useTheme } from './theme/ThemeProvider';
 import AgentStudioPage from './AgentStudioPage';
@@ -114,7 +115,7 @@ const SRC = {
 // kept in sync in spirit with web's LEARN_TOPICS, condensed to one card
 // per topic for mobile's layout.
 const LEARN_TOPICS = [
-  { h: 'A wallet', p: 'An account that holds your crypto and approves payments, like a bank card, but only you control it. Here you can make one with Face ID, no password to write down.', tech: 'A wallet signs on-chain approvals. This app supports passkey wallets (WebAuthn/Face ID), so there\'s no seed phrase.', src: SRC.altana },
+  { h: 'A wallet', p: 'An account that holds your crypto and approves payments, like a bank card, but only you control it. You connect one you already use; this site does not create one for you.', tech: 'A wallet signs on-chain approvals. This site connects to a wallet you already have, such as MetaMask or any wallet that works with WalletConnect, and never holds its keys.' },
   { h: 'Gas', p: "The tiny fee normally paid to record something permanently, like a stamp on a letter. Registering an agent here is free; we cover that fee for you.", tech: 'A "paymaster" (MegaFuel) sponsors registration gas on BNB Chain.', src: SRC.sdk },
  { h: 'Mainnet', p: "Mainnet is the live network, where money moves for real. Everything on this site runs on mainnet, not a test network.", tech: 'This is the live network. Nothing here is a simulation.' },
   { h: 'Escrow', p: 'When you hire an agent, your payment is held by the system, not the agent, it only gets paid once the work is accepted, and you can get it back if nothing is delivered.', tech: 'Your payment sits in an on-chain vault (AgenticCommerce) until settlement.', src: SRC.sdk },
@@ -125,7 +126,7 @@ const LEARN_TOPICS = [
   { h: 'The stages a hire goes through', p: 'Not paid yet → Payment on hold → Delivered → Finished (paid), or Refunded, if you cancel, dispute successfully, or the deadline passes with nothing delivered.', tech: 'OPEN → FUNDED → SUBMITTED → COMPLETED, or REJECTED / EXPIRED.', src: SRC.sdk },
   { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry, always available, guaranteed by the contract.', src: SRC.sdk },
   { h: "If something looks wrong", p: "You get a short window after delivery to flag a problem before payment is automatically released.", tech: 'Call dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
-  { h: 'Ready-made Skills', p: "Skills are pre-built recipes an agent can run for you, no building required, just a passkey wallet and a spending limit you set.", tech: "Fork-tested Skills from Altana's public registry, run via a passkey wallet + a capped, expiring session.", src: SRC.skills },
+  { h: 'Ready-made Skills', p: "Skills are pre-built recipes you can run, no building required. Most run through your own connected wallet, which signs each step after showing it to you. The x402-payments Skill is the exception: it uses Altana's passkey wallet with a capped session that expires.", tech: "Fork-tested Skills from Altana's public registry. Most run through your connected wallet; the x402-payments Skill uses an Altana passkey wallet with a capped, expiring session.", src: SRC.skills },
  { h: 'How agents are built: single agent', p: 'One agent handles the whole task itself, start to finish, reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here use, including our own explainer agent on the Advantage Report tab.', Diagram: SingleAgentDiagram, src: SRC.adk },
   { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another, each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
   { h: 'How agents are built: parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
@@ -285,18 +286,19 @@ const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.
 function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
                             onOpenEcosystem, onShowOnboarding,
                             onOpenDataSources }) {
-  const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
-  const { disconnect: wagmiDisconnect } = useDisconnect();
-  const { ready, authenticated, user, logout } = usePrivy();
-  const privyConnected = ready && authenticated;
-  const activeAddress = wagmiConnected ? wagmiAddress : user?.wallet?.address;
-  const isConnected = wagmiConnected || privyConnected;
-  const shortAddress = activeAddress ? `${activeAddress.slice(0, 6)}...${activeAddress.slice(-4)}` : null;
-
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-h-[90dvh] overflow-y-auto bg-surface text-fg border-t border-line rounded-t-xl p-5 pb-10" onClick={e => e.stopPropagation()}>
         <div className="w-10 h-1 bg-line-strong rounded-full mx-auto mb-5" />
+        {/* The wallet first: signing in is the one thing in this sheet a
+            visitor may have come here to do. Same control as the web
+            header (wallet/WalletIdentity.jsx), laid out for the width. The
+            sheet closes before the sign-in modal opens so the two never
+            stack. */}
+        <div className="mb-5">
+          <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Wallet</h3>
+          <WalletIdentity layout="sheet" onBeforeOpen={onClose} />
+        </div>
         {/* The three controls that left the header on 2026-09-18. They are
             here rather than gone: a control moved out of sight has to land
             somewhere a person can find it, and this sheet is where the other
@@ -354,36 +356,6 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
           </div>
         )}
 
-        <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Wallet</h3>
-        
-        {isConnected ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-inset rounded-md p-3 border border-line">
-              <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-pos" aria-hidden="true" />
-                <span className="figure text-body text-fg">{shortAddress}</span>
-              </div>
-            </div>
-            <button 
-              onClick={() => { wagmiConnected ? wagmiDisconnect() : logout(); onClose(); }} 
-              className="w-full flex justify-center items-center gap-2 border border-line text-neg h-11 rounded-md text-body font-semibold"
-            >
-              <LogOut size={18} /> Disconnect
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <ConnectButton.Custom>
-              {({ openConnectModal }) => (
-                <button onClick={() => { openConnectModal(); onClose(); }} className="w-full flex justify-between items-center bg-accent text-accent-fg text-body font-semibold h-11 px-4 rounded-md">
-                  <span>Connect wallet</span>
-                  <Wallet size={20} />
-                </button>
-              )}
-            </ConnectButton.Custom>
-          </div>
-        )}
-
         {/* The walkthrough used to be its own labelled row here. It is now
             the YouTube icon in SiteLinks below, which both apps share, so
             keeping this too would list the same video twice in one sheet.
@@ -413,8 +385,9 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
 // continue.
 //
 // The "Continue with Face ID" button was removed 2026-09-04. It worked, but
-// it was misleading: it promised biometrics and opened Privy's
-// passkey/email modal. What that label implies -- an OS-level biometric
+// it was misleading: it promised biometrics and opened the login provider's
+// passkey/email modal (that provider, Privy, was removed from the site on
+// 2026-09-25). What that label implies -- an OS-level biometric
 // unlock of the app itself -- is not something a web app can do, so the
 // fix was to stop offering it rather than to reword it.
 function SplashScreen({ onUnlock }) {
@@ -559,7 +532,11 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
             confused with one another. */}
         <div className="mt-3 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
           <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-muted flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
-          <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
+          <span className="flex flex-col items-end gap-0.5">
+            <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-muted font-normal">n/a</span>}</span>
+            {/* CoinGecko's price, credited beside it as their API Terms ask. */}
+            {agent.ownerBnbBalance != null && bnbUsdPrice != null && <CoinGeckoAttribution />}
+          </span>
         </div>
  {/* Real, final, unified "Metrics" presentation, see the matching
             comment on AgentDetail (web) / AgentMetrics.jsx's own header
@@ -738,16 +715,29 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       .catch(() => {});
   }, [agents]);
 
-  const { isConnected: wagmiConnected } = useAccount();
-  const { ready, authenticated } = usePrivy();
-  const walletConnected = wagmiConnected || (ready && authenticated);
+  // Hiring needs a connected wallet, not a signed-in one: the wallet signs
+  // each hire transaction itself. Same gate as web: open the sign-in modal
+  // on its connect step.
+  const { isConnected: walletConnected } = useConnectedWallet();
+  const { openSignIn } = useSignIn();
 
-  const handleHireClick = (agent) => {
-    if (!walletConnected) { setWalletSheetOpen(true); return; }
+  // The hire itself, without the wallet check, so "Continue to hire" in the
+  // connect modal can carry on with the same agent once a wallet is connected.
+  const startHire = (agent) => {
     setSelectedAgent(agent);
     setHiring(true);
     setSpendCapTouched(false); // fresh agent, let its price (if any) pre-fill again
     setDeadlineMinutes(DEADLINE_DEFAULT_MINUTES); // fresh agent, don't carry a prior custom deadline over
+  };
+
+  const handleHireClick = (agent) => {
+    if (!walletConnected) {
+      // Opens on connecting, says hiring needs a connected wallet only, and
+      // offers "Continue to hire" once connected. Signing in stays optional.
+      openSignIn({ purpose: 'hire', onContinue: () => startHire(agent) });
+      return;
+    }
+    startHire(agent);
   };
 
  // Real, last-chance escrow-compatibility gate, parity with web, see

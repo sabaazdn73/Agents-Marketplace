@@ -2,7 +2,7 @@
 //
 // The hire flow, user-signed. Every step below is a real
 // transaction the connected wallet (MetaMask/Trust Wallet via
-// RainbowKit, or Privy's embedded wallet) signs directly, wagmi
+// RainbowKit) signs directly, wagmi
 // broadcasts it, nothing is simulated and nothing runs through a
 // backend-held key.
 //
