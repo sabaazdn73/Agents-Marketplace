@@ -34,9 +34,10 @@ that nothing from Chainlink's feeds is served until Chainlink Labs confirms in
 writing that it may be (E22). A fifth measurement pass read those feeds
 against the chain, and section 4.3 now describes the premium record for the
 case where that confirmation arrives. Re-measuring under E16 found that an
-xStocks instrument still does not fit its ceiling, which is raised as E23. Two
-questions about how far the new decisions reach are E24 and E25. Twelve
-decisions remain open.
+xStocks instrument built on a chain 4663 stand-in does not fit its ceiling,
+the real single-venue TSLAx record built from chain reads does, and a
+multi-venue xStocks record is unmeasured; that is E23, and it stays open. The owner then settled E24 and E25, on how far E22 and E20
+reach, and E26, on LI.FI quotes. Ten decisions remain open.
 
 ---
 
@@ -386,6 +387,7 @@ fifth, the supply key, was added under E16 (4.8). It follows the form the
 route key already uses: the instrument key, then a fixed segment. `te_get`
 tells the two apart by that segment, `for` with a wallet after it or `supply`
 with nothing after it, so no key form is ambiguous and no handler changes.
+LI.FI quotes have no key form: they are on the site only (9.7, E26).
 
 The id diverges from the dotted convention every other dataset uses. It is the
 owner's name and is kept. Escalation E1.
@@ -513,8 +515,8 @@ As adopted under E16 and E17, which the owner settled on 2026-09-25:
 | caveats | 1,915 | 1,915 | 1,915 | 1,915 | 1,915 |
 | coverage | 457 | 457 | 457 | 497 with legend | 457 |
 | envelope | 158 | 158 | 158 | 161 | 159 |
-| value | 5,376 | 5,469 | 2,734 | 118 points at 116 | 25 rows at 227 |
-| total | 7,906 | 7,999 | 5,264 | 16,380 | 8,232 |
+| value | 5,376 | 5,469 | 3,092 | 118 points at 116 | 25 rows at 227 |
+| total | 7,906 | 7,999 | 5,622 | 16,380 | 8,232 |
 | ceiling | 8,192 | 8,192 | 8,192 | 16,384 | 32,768 |
 
 The instrument figure is the NVDA record below in the E16 layout, the route
@@ -602,30 +604,30 @@ whole.
 THE SUPPLY KEY FITS WITH ROOM. `<instrument key>/supply` carries an xStocks
 instrument's supply per chain and every exclusion behind its circulating
 figure (4.8). For TSLAx, eleven chains and eleven exclusions from the issuer's
-list, the record is 2,734 bytes and the response 5,264.
+list, with the scope label E25 added to its total, the record is 3,092 bytes
+and the response 5,622.
 
-AN xSTOCKS INSTRUMENT STILL DOES NOT FIT, AND THIS IS STATED RATHER THAN
-FORCED. With per-chain supply and exclusions moved out, what stays on the
-instrument is the circulating figure with the key its working lives at, the
-issuer links and the verdicts: 1,243 bytes once E20's permission arrives
-(`circulating_measured` 217, `issuer_links` 264, `reconciliation` 703), and
-694 while E20 stands, when every issuer comparison reads `awaiting_permission`.
-On the adopted NVDA record as a stand-in body, the response is 9,071 after
-permission and 8,522 now. Both are over 8,192. Three further moves were
-measured, cumulatively, and none is adopted:
+THE xSTOCKS STAND-IN DOES NOT FIT; A REAL xSTOCKS RECORD DOES. With per-chain
+supply and exclusions moved out, what stays on an xStocks instrument is the
+circulating figure with the key its working lives at, the issuer links and
+the verdicts: 1,266 bytes once E20's permission arrives (`circulating_measured`
+217, `issuer_links` 287 with E25's unchecked product link, `reconciliation`
+703), and 777 while E20 stands. Carried on the adopted NVDA record as a
+stand-in body, a chain 4663 record with five venues, the response is 9,094
+after permission and 8,605 now, both over 8,192. Three further moves were
+measured on that stand-in, cumulatively, and none is adopted:
 
-| Option, after permission | Record | Response |
+| Option, on the stand-in, after permission | Record | Response |
 |---|---|---|
-| `basis_note` in the descriptor | 6,258 | 8,788 |
-| Then each verdict's tolerance, check time and `explained_by` at the supply key, leaving quantity and verdict | 5,854 | 8,384 |
-| Then the three fixed issuer links on `issuer/xstocks`, leaving the product link | 5,680 | 8,210 |
+| `basis_note` in the descriptor | 6,281 | 8,811 |
+| Then each verdict's tolerance, check time and `explained_by` at the supply key, leaving quantity and verdict | 5,877 | 8,407 |
+| Then the three fixed issuer links on `issuer/xstocks`, leaving the product link | 5,703 | 8,233 |
 
-The last is 18 bytes over. The supply key carrying the verdict detail would
-be 5,785, well under. So no measured layout fits an xStocks instrument, and
-the remaining levers are the caveat block (E11) or fewer venues. The stand-in
-body is a chain 4663 record, because no xStocks venue is specified, so a real
-xStocks record may be larger or smaller. This does not block the first cut,
-because no xStocks instrument is served until E10 is settled. It is E23.
+A real xStocks record was then built from chain reads, as the owner asked
+under E23: TSLAx on Ethereum. It measures 6,347 bytes while E20 stands and
+6,836 after permission, with 1,845 and 1,356 bytes of margin. It fits because
+only one pool was found for it, and a thin one. E23 records what in it is
+real and what is a placeholder, and stays open.
 
 A leaner instrument does not escape the general problem. A real SPY record has
 two quote tokens (USDG on V4 and the fork pool, WETH on V3 and the
@@ -723,7 +725,9 @@ is a recommendation wearing a table. The bands sum to `matched` the way
 
 Key `<chain id>/<address>` or `solana/<mint>`. In the layout E16 settled, a
 filled NVDA record encodes to 5,376 bytes and its response to 7,906, 286 under
-the ceiling. An xStocks instrument does not fit yet (3.3, E23).
+the ceiling. For xStocks, the chain 4663 stand-in does not fit, the real
+single-venue TSLAx record does (6,347 and 6,836 bytes), and a multi-venue
+xStocks record is unmeasured (3.3, E23).
 
 ### 4.1 Identity
 
@@ -1085,7 +1089,7 @@ THE FORMULA DEPENDS ON THE VENUE, BECAUSE THE FEEDS QUOTE DIFFERENT THINGS.
 
 | Venue | Premium | Why |
 |---|---|---|
-| Robinhood Chain | pool / feed − 1, with no multiplier applied | The feed is per token with the multiplier already in. For NVDA and MSFT this is class A: paired against the underlying 24/5 feed, the rounds that match exactly do so at the `uiMultiplier()` in effect, within 3e-7 bp, before and after each multiplier's effective date, and none matches the other value. Robinhood's documentation says the same for every token (class D) |
+| Robinhood Chain | pool / feed − 1, with no multiplier applied | The feed is per token with the multiplier already in. For NVDA and MSFT this is class A: paired against the underlying 24/5 feed, the rounds that match exactly (within the test's 1e-4 bp) do so at the `uiMultiplier()` in effect, before and after each multiplier's effective date, and none matches the other value. Robinhood's documentation says the same for every token (class D) |
 | BNB Smart Chain, Arbitrum, Ethereum, Optimism | pool / (underlying × multiplier in effect at the feed's `updatedAt`) − 1 | Chainlink's directory lists these as the underlying share's feeds (class D). For the Ethereum and Optimism 24/5 feeds the Robinhood matches above show them without a multiplier (class A); the BNB Smart Chain and Arbitrum feeds were not tested that way. So the multiplier (4.4) is applied to the reference, at the value in effect when the reference was taken |
 | Ink, wNVDAx | not computed | The feed's ratio to the underlying equals the v1 xStocks wrapper's rate on Ethereum (0.99175 NVDAx per wrapped token). On Ink the v1 address holds no code, and the issuer's address list names only the v2 wrapper there, whose rate is 1.0017. A v2 token priced against the feed would read a premium of about +100 bp that no one paid |
 | Ink, wSPYx and wQQQx | not computed | Not established, on the pair counts. The v1 wrappers on Ink are deployed but empty (supply 0), so their `convertToAssets` answers are an empty-vault artefact and not a rate; only the v2 wrappers hold supply on Ink (wSPYx about 1,477.7). Each feed matched the v2 rate exactly once: wSPYx in 4 pairs, wQQQx in 8, and neither ever matched Ethereum's v1 rate. One match does not establish the relation |
@@ -1094,9 +1098,8 @@ WHERE THE FEED-TO-TOKEN RELATION IS NOT ESTABLISHED, NO PREMIUM IS SERVED. On
 Robinhood Chain the formula above is applied only to a token whose feed has
 been shown, by exact matches, to equal the underlying times the multiplier in
 effect, with the other multiplier as a control that does not match. NVDA and
-MSFT pass. GOOGL does not yet: its nearest pairs after its multiplier's
-effective date come within 0.010 bp of the multiplier and never within 1e-4
-bp of either value. AAPL and QQQ are unresolved, and the measurements record
+MSFT pass. GOOGL does not yet: after its multiplier's effective date no pair
+matches either value. AAPL and QQQ are unresolved, and the measurements record
 says how. For those three, and for a token with no feed listed at all, the
 premium is withheld with `unestablished_source`. Robinhood's documentation
 says every stock token has its own feed. Chainlink's directory lists 35 on
@@ -1624,13 +1627,34 @@ issuer's API until Backed gives written permission, and is asking Backed
 figure, and the exclusion list is itself read from that API. So until
 permission arrives:
 
-- The supply key serves supply per chain, with block or slot, for the
-  deployments this project already holds. Those are chain reads. Which chains
-  an asset is deployed on is itself the issuer's list, though, so while E20
-  stands the set cannot be refreshed, and no total is stated as the asset's
-  total: `total_supply_measured` is null with `awaiting_permission`. A sum
-  over a set that may be missing a chain would count the missing chain as 0.
-  Serving it as a scoped measurement instead is E25.
+- The supply key serves supply per chain, with block or slot, and
+  `total_supply_measured` as a scoped measurement (E25, settled). Which chains
+  an asset is deployed on is itself the issuer's list, and while E20 stands
+  that list cannot be read again, so the total says what it covers rather than
+  claiming to be the asset's total:
+
+  ```json
+  "total_supply_measured": {
+    "value": 548254.007222,
+    "scope": {
+      "evm": "EVM deployments from the issuer's list as fetched 2026-09-24, each confirmed by code at the token's address at the block named",
+      "non_evm": "Solana, TON and Tron deployments from the issuer's list as fetched on 2026-09-24, class D",
+      "list_as_of": "2026-09-24",
+      "note": "a chain the issuer adds later is not included and is not detected"
+    }
+  }
+  ```
+
+  Code at an address shows that something is deployed there, not that it is
+  the issuer's token: TSLAx's address holds the same 2,138 bytes of proxy
+  code on Ethereum, Arbitrum and Ink (`eth_getCode`, 2026-09-25), and the
+  wrappers read by `te_chainlink_reads.py` are the same size, so the code
+  alone does not identify the issuer. Reading the proxy's implementation slot
+  and matching it to the issuer's implementation would close that, and is not
+  yet done.
+
+  A deployment the scope cannot establish is left out and the scope says
+  so; it is never counted as 0.
 - `circulating_measured` is null with `withheld_reason: "awaiting_permission"`,
   because the list its exclusions come from is not read. The addresses this
   project already recorded as on the list are not reused as a stand-in: a list
@@ -1638,12 +1662,12 @@ permission arrives:
 - `total_supply`, `circulating_supply` and `ui_multiplier` carry the verdict
   `awaiting_permission`. `backing` and `withholding_rate` stay
   `no_chain_counterpart`, which needs no fetch.
-- `issuer_links` carries the three fixed documentation pages. The product-page
-  check is an automated request to the issuer's own site, and the terms clause
-  E20 turns on, §3(4), is written about "the Site or Services" and not only the
-  API. So the check is suspended with the API reads, and the product link is
-  absent until permission covers it. That reading of §3(4) is this document's,
-  and serving the link unchecked instead is E25.
+- `issuer_links` carries the three fixed documentation pages and the product
+  link unchecked, as `"product": {"url": "https://assets.backed.fi/products/tesla-xstock",
+  "checked": false}` (E25, settled). The check is an automated request to the
+  issuer's own site, and §3(4), which E20 turns on, is written about "the Site
+  or Services", so the check stays suspended. Serving a link makes no request.
+  `checked: false` says the link may answer 404.
 - The collector makes no request to any issuer host, and
   `backend/scripts/te_xstocks_reads.py` refuses to run without
   `--call-issuer-api` (STORAGE, below).
@@ -1712,8 +1736,8 @@ At `1/0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0/supply`:
 
 The supply record is the same under every deployment's key for one xStocks
 asset, because the circulating figure is across every chain the issuer lists.
-Measured filled for TSLAx, eleven chains and eleven exclusions, it is 2,734
-bytes and its response 5,264 (3.3).
+Measured filled for TSLAx, eleven chains and eleven exclusions, it is 3,092
+bytes and its response 5,622 (3.3).
 
 The reconcile vocabulary, closed:
 
@@ -2317,6 +2341,89 @@ project exists not to make. What holds:
   self-check assertion that no reachable dataset reader performs a send.
 - No second route, no batch form, no prepare-and-submit pair.
 
+### 9.7 LI.FI quotes: on the site only, labelled, and not in this dataset
+
+SETTLED, E26. LI.FI's quotes are not issuer figures and E18 does not apply to
+them. The owner's words: "not E18. Serve quotes labelled as LI.FI quotes with
+the time taken. No key needed; if one is added, server-side only."
+
+LI.FI QUOTES ARE SITE-ONLY FOR NOW, AND THIS DATASET DOES NOT SERVE THEM. The
+owner has said that a later phase replaces Zerion and LI.FI for MCP with
+this project's own chain reads: execution cost simulated on pools, through
+Quoter contracts on EVM chains and from Raydium pool state on Solana.
+Jupiter is not used (licence; see docs/deferred.md). So
+`tokenized_equities` gets its cost to fill from its own pool simulation
+(4.2), and has no LI.FI key form and no LI.FI field. What follows
+is the shape the site shows, and the constraints that bind it.
+
+THE DELIVERY PATH. The site fetches LI.FI quotes in the visitor's browser,
+directly from LI.FI and without a key, so each quote is drawn from that
+visitor's own keyless budget of 75 `/quote` requests per two hours (LI.FI's
+rate-limit documentation, `https://docs.li.fi/api-reference/rate-limits`,
+read 2026-09-25; the quotes taken returned `ratelimit-limit: 75`). No backend
+route of ours requests or serves them, so "site-only" holds without any
+public API of ours carrying a LI.FI figure.
+
+Size was measured anyway, with `backend/scripts/te_response_sizes.py` filled
+from a real quote, and it points the same way: one quote encodes to 499
+bytes. Four of them (1,000 and 10,000, buy and sell) inside the adopted NVDA
+instrument record give a response of 9,926, and one inside the adopted route
+record gives 8,512, both over 8,192. A separate key would have fitted, at
+4,674. None of that is built.
+
+The quote as the site shows it. The example was taken keyless, like the
+site's, for an address that is not a visitor's:
+
+```json
+{"provider": "LI.FI", "quoted_at": "2026-09-25T10:28:24Z",
+ "notional_usd": 1000, "side": "buy",
+ "tool": "fly", "tool_name": "Fly", "steps": ["feeCollection", "fly"],
+ "from_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168", "from_amount": "1000000000",
+ "to_token": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+ "to_amount": "4405467010752403181", "to_amount_min": "4383439675698641165",
+ "slippage": 0.005,
+ "lifi_fee": {"name": "LIFI Fixed Fee", "fraction": 0.0025, "included": true},
+ "gas_limit": 1994954,
+ "transaction_request": null}
+```
+
+The values are from a real keyless `GET https://li.quest/v1/quote` taken at
+10:28:24 UTC on 2026-09-25: 1,000 USDG to NVDA on chain 4663, routed through
+LI.FI's `fly` tool. A second, 1,000 USDC to TSLAx on Ethereum, routed through
+`lifiIntentsDex`. Both carried a fee named "LIFI Fixed Fee" at 0.0025 of the
+amount, marked as included in the quote.
+
+- `provider` is always `"LI.FI"` and `quoted_at` is the time the quote was
+  taken, so a reader never mistakes it for this project's own pool
+  simulation. Where both appear on the site they are side by side, never
+  merged and never ranked against each other.
+- `tool` and `tool_name` are LI.FI's names for the venue or aggregator it
+  routed through, and `steps` the included steps in order, as LI.FI returns
+  them.
+- `lifi_fee` is LI.FI's own service fee, not an integrator fee: LI.FI's fees
+  FAQ (`https://docs.li.fi/faqs/fees-monetization`, read 2026-09-25) says
+  "LI.FI charges a 0.25% service fee on each transaction", and the
+  quotes carry it as `feeCosts` "LIFI Fixed Fee", `included: true`. This
+  project adds no integrator fee.
+- Amounts are LI.FI's, in the tokens' base units. LI.FI's own USD valuations
+  are not served: every USD figure in this dataset comes from the pools
+  against the numeraire (4.2.1), and a second dollar source in the same record
+  would make two figures look comparable when they are not. The site follows
+  the same rule.
+- THE TRANSACTION REQUEST. LI.FI returns a `transactionRequest`: unsigned
+  calldata built for the address the quote was requested for, which is the
+  sender and, by default, the recipient. We never sign, broadcast or submit
+  it, and no server of ours sees it, because the request goes from the
+  visitor's browser to LI.FI. `transaction_request` is null in the shape
+  above because nothing in this project stores or forwards one.
+
+NO REQUEST-TIME OR SERVER-SIDE CALL FROM US. No MCP tool call makes a
+request to LI.FI (4.2.2), and no server of ours calls it for the site. A
+server-side cadence, precomputing quotes for every instrument, would need a
+key, which under E26 would be held server-side only, and a delivery path that
+keeps the quotes on the site and out of this dataset. Neither exists, and
+none is specified here.
+
 ---
 
 ## 10. The collector
@@ -2517,6 +2624,8 @@ notice when the assumption behind it stops holding.
 - Read a dynamic fee flag as a fee.
 - Serve, store or derive anything from a Chainlink feed while E22 stands, or
   read the issuer's API while E20 stands.
+- Serve LI.FI quotes, which are on the site only (9.7), or call LI.FI or any
+  other outside service at request time.
 - State a gap between our figure and an issuer's as a difference from the
   issuer's number.
 - Execute, sign, broadcast, relay, hold or custody anything.
@@ -2525,15 +2634,14 @@ notice when the assumption behind it stops holding.
 
 ## 12. Decisions: settled, and still open
 
-Eleven are settled by the owner and are recorded here rather than removed, so
-a reader can see what was decided and not only what remains: E3, E12, E13,
-E15, E16, E17, E18, E19, E20, E21 and E22. E4 and E14 collapsed rather than
-being decided, which is section 9.2 doing its work. Twelve remain open: E1,
-E2, E5, E6, E7, E8, E9, E10, E11, E23, E24 and E25. The last three are new in
-this revision. E23: settling E16 moved per-chain supply off the xStocks
-instrument record, and the record measured again still does not fit its
-ceiling. E24 and E25 ask how far E22 and E20 reach, which only the owner can
-say.
+Fourteen are settled by the owner and are recorded here rather than removed,
+so a reader can see what was decided and not only what remains: E3, E12, E13,
+E15, E16, E17, E18, E19, E20, E21, E22, E24, E25 and E26. E4 and E14 collapsed rather than
+being decided, which is section 9.2 doing its work. Ten remain open: E1, E2,
+E5, E6, E7, E8, E9, E10, E11 and E23. In E23 the xStocks stand-in does not
+fit its ceiling, the real single-venue TSLAx record does (6,347 and 6,836
+bytes), and a multi-venue xStocks record is unmeasured; the owner asked for
+a real measurement before deciding. E24, E25 and E26 are settled.
 
 E2 is open even though this document recommends the compound key, because a
 recommendation is not the owner's decision and section 6.1 keeps the
@@ -2672,8 +2780,8 @@ caveats fixed this dataset, does not survive re-measurement. There are seven
 caveats at 1,915 bytes, 23 percent of the 8,192 ceiling. With E16 and E17
 settled, the NVDA instrument response is 7,906 and the route form 7,999, both
 under, with margins of 286 and 193 bytes (3.3). An xStocks instrument is not:
-the leanest layout measured is 18 bytes over (E23), and freeing caveat bytes
-is one of the two levers left for it. The underlying property remains: the
+the stand-in measured over in every layout tried, while a real TSLAx record
+fits with 1,356 bytes to spare after permission (E23). The underlying property remains: the
 caveat block is charged
 against the same ceiling as the answer, on every response, for every dataset.
 Recommendation: adopt the section 3.3 self-check now, which is local and
@@ -2683,62 +2791,131 @@ proposal. Trade-off: a `caveats_ref` would free several KB per response but
 weakens the rule that the caveat travels with the number, and it changes the
 envelope for every dataset on one dataset's evidence.
 
-E23. The xStocks instrument record, because under E16 it still does not fit
-(3.3). With per-chain supply and exclusions at the supply key, what stays on
-the instrument is the circulating figure, the links and the verdicts, 1,243
-bytes once E20's permission arrives. On the adopted NVDA record as a stand-in
-body the response is 9,071, and 8,522 while E20 stands. Measured options,
-cumulative: `basis_note` in the descriptor, 8,788; then each verdict's
-tolerance, check time and `explained_by` moved to the supply key, leaving
-quantity and verdict, 8,384; then the three fixed issuer links moved to
-`issuer/xstocks`, leaving the product link, 8,210. All over, the last by 18
-bytes. Not blocking: no xStocks instrument is served until E10 is settled, and
-E10 now waits on E20. Recommendation: none yet. The stand-in body is a chain
-4663 record, and a real xStocks record's size depends on venues that are not
-specified, so the question should be measured on one before it is decided. The
-remaining levers are freeing caveat bytes (E11), fewer venues per record, or
-moving the whole of 4.8 to the supply key and keeping only a verdict summary
-on the instrument. Trade-off of the last: a caller learns from the instrument
-that a circulating verdict exists and needs a second call to see which way it
-went.
+E23. The xStocks instrument record's layout. OPEN. The owner's position, in
+the owner's words: "no decision yet. Measure on a real xStocks record first."
 
-E24. Whether figures derived from Chainlink feed answers may stay in the
-published measurements record while E22 withholds premium. The record
-reproduces no feed answer, but it does publish figures computed from them:
-AAPL's median ratio to its underlying feed, 1.000377; the Ink wNVDAx feed's
-median distance from the underlying times the v2 wrapper rate, −99.32 bp
-(Ethereum) and −98.22 bp (Optimism), and from the v1 rate, +1.11 bp
-(Optimism); the GOOGL and AAPL closest-pair distances; and the counts of
-exact matches. Premium is withheld partly on the Foundation terms' ban on
-derivative works (§2, first list, item (vi)), and the Data Streams terms bar
-"publishing or otherwise making available to the public any analysis of the
-Data" (§4(v)); which of the two governs these feeds is not established. Not
-every number in that section comes from a feed: the +100.31 bp between the
-v2 and v1 wrapper rates, the multipliers, and every round time and round id
-are token reads or block data. Recommendation: withdraw the feed-derived
-medians and distances until E22 is answered, and keep the exact-match counts,
-the wrapper and multiplier reads and the round times, which state how a feed
-relates to on-chain quantities without giving a price or a price movement.
-Trade-off: the AAPL and Ink findings then rest on counts alone, which a reader
-can re-derive with the script but cannot see the size of on the page. Until
-the owner decides, the figures stay as written, so that what is being decided
-is visible.
+On the stand-in, the adopted NVDA record from chain 4663 with the 4.8 part
+added, the response is 9,094 bytes after E20's permission and 8,605 while it
+stands, and the leanest of three further moves is 8,233, all over 8,192
+(3.3).
 
-E25. How far E20 reaches, on two points that do not read the issuer's API.
-(a) Whether `total_supply_measured` may be served as a scoped measurement
-instead of being withheld (4.8): the EVM deployment set established on chain,
-by code at the token's address at a stated block on each chain, and the
-non-EVM deployments taken from the issuer's list as fetched on 2026-09-24,
-labelled class D with that date. Every supply figure would still be a chain
-read. (b) Whether the product link may be served without the automated check,
-as `{"url": ..., "checked": false}`: a link is not a read, and the only
-request the check made was to the issuer's site. Recommendation: both, each
-labelled. Trade-offs: (a) reuses an issuer list fetched before E20 and can
-miss a chain the issuer adds later, which the scope label states but does not
-detect; (b) can serve a link that answers 404, which `checked: false` states.
-This document's current reading, that §3(4) covers the site and not only the
-API, is the conservative one and is what 4.8 applies until the owner says
-otherwise.
+THE REAL RECORD. TSLAx on Ethereum, `1/0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0`,
+built from chain reads only, with no read of the issuer's API (E20). It is in
+`backend/scripts/te_response_sizes.py` as `tslax_record`, and
+`--verify-xstocks` re-derives every chain value below. Measured, it is 3,817
+bytes and a response of 6,347 while E20 stands, and 4,306 and 6,836 after
+permission: 1,845 and 1,356 bytes under the ceiling.
+
+What is real, from the verify run at Ethereum block 26,054,900 and BNB Smart
+Chain block 123,960,519:
+- The venue. Uniswap V3's factory was asked for a TSLAx pool against USDC,
+  USDT and WETH at fees 100, 500, 3,000 and 10,000 on Ethereum, Arbitrum and
+  Optimism. Only one exists: `0xa7fd774e0ad54a6d2ceafb4103615f473e589cc6`,
+  TSLAx against USDC at 0.3 percent, liquidity 12,678,597,425,878, holding
+  0.359 TSLAx and 91.99 USDC. It is the record's only venue, with its real
+  fee, liquidity, factory and quote token. On BNB Smart Chain, which is a
+  different instrument key, PancakeSwap V3 has a TSLAx/USDT pool at 0.25
+  percent holding 0.035 TSLAx and an empty one at 1 percent.
+- The multiplier: `getCurrentMultiplier()` reads 1.0 at block 26,054,901.
+- The 4.8 part: our circulating figure, the supply key's per-chain supply and
+  exclusions (from the 2026-09-24 21:19 UTC run of the xStocks script), the
+  unchecked product link and the verdicts, in both the current and the
+  after-permission form.
+- The identity, `issuer_source` unestablished (no beacon for xStocks on EVM,
+  and E10 is open), `transfer_control` unestablished by key, and V3
+  concentration withheld as `not_in_snapshot`.
+
+What is a placeholder:
+- Every cost figure, since no walk was run. The entries are shaped as the
+  real answer would be, `enough_data: false` with `total_cost_bps` null, and
+  their filled fractions are bounds from what the pool held: neither side of
+  either size can fill.
+- The numeraire. On Ethereum none is specified; USDC stands in, labelled as
+  assumed, and the ETH reference pool and rate are placeholders.
+- The block and age in `quote_basis`, the gas figure and the token price.
+
+What a fuller enumeration could add, and was not done: Uniswap V4 on Ethereum
+holds TSLAx in its PoolManager, 5.35 at block 26,054,901, so V4 pools with
+TSLAx exist and are not in the record. The Initialize-log scan that would
+name them failed on every chunk on the free endpoint tried, and was not
+repeated. Solana pools, where xStocks mostly trade, were not enumerated: the
+public endpoints refused the indexed request needed. So the real record fits
+largely because TSLAx has almost no EVM liquidity where it was looked for. A
+TSLAx record with its V4 pools, or a Solana record with several pools, is
+unmeasured.
+
+Recommendation: none yet, as the owner asked. The next measurement is a
+record with more than one real venue, Solana first, once a way to enumerate
+its pools without a key is found. Trade-off of waiting: none for the first
+cut, since no xStocks instrument is served until E10 is settled.
+
+E24. SETTLED. Whether figures derived from Chainlink feed answers may stay in
+the published measurements record while E22 withholds premium. The record
+reproduced no feed answer, but it published figures computed from them:
+median ratios, median distances in basis points against a wrapper's rate,
+and the distances of the closest pairs from each candidate factor. The
+recommendation was to withdraw those and keep the exact-match counts, the
+token, wrapper and multiplier reads, and the round times.
+
+The owner's decision, in the owner's words: "take the recommendation.
+Chainlink Foundation Terms v6.0, section 2, item (vi) bars derivative works of
+the Services. Withdraw the feed-derived medians and distances; keep counts,
+wrapper and multiplier reads, and round times."
+
+What it changed: the measurements record no longer publishes any median,
+distance or ratio computed from a feed answer, and neither does this
+document. It keeps the counts of pairs and of exact matches, the token,
+wrapper and multiplier reads, and the round times and ids. The difference
+between the v2 and v1 NVDA wrapper rates, +100.31 bp, stays: it is one
+wrapper's on-chain rate over another's and involves no feed. The exact-match
+test is described by its threshold, 1e-4 bp, and not by the deviations it
+found. `backend/scripts/te_chainlink_reads.py` still computes the withdrawn
+figures, because the test needs them, and marks each such line in its output
+as local only and not for publication.
+
+E25. SETTLED. How far E20 reaches, on two points that do not read the
+issuer's API. (a) Whether `total_supply_measured` may be served as a scoped
+measurement rather than withheld. (b) Whether the product link may be served
+without the automated check.
+
+The owner's decision, in the owner's words: "take the recommendation on (a)
+and (b), each labelled".
+
+What it changed (4.8): `total_supply_measured` is served while E20 stands,
+with a `scope` object saying what it covers: the EVM deployments
+from the issuer's list as fetched on 2026-09-24, each confirmed by code at
+the token's address at the block named, and the non-EVM deployments from the
+same list, labelled class D with that date. Code at an address shows that
+something is deployed there, not that it is the issuer's token; an
+implementation-slot check would close that. Every supply in it is still a
+chain read. The scope label says, and does not detect, that a chain the
+issuer adds later is missing until the list can be read again. The product
+link is served as `{"url": ..., "checked": false}`: a link is not a read, and
+serving it makes no request to the issuer. It can answer 404, which
+`checked: false` states. The circulating figure stays withheld, because its
+exclusions are the issuer's wallet list, which only the API gives.
+
+E26. SETTLED. Whether LI.FI's quotes are served, and whether they fall under
+E18. LI.FI is a route aggregator, not an issuer; its quotes are its own
+figures about a route it would take.
+
+The owner's decision, in the owner's words: "not E18. Serve quotes labelled
+as LI.FI quotes with the time taken. No key needed; if one is added,
+server-side only."
+
+What it changed: section 9.7. LI.FI quotes are site-only for now. The owner
+has also said that a later phase replaces Zerion and LI.FI for MCP with
+this project's own chain reads, execution cost simulated on pools (Quoter
+contracts on EVM, Raydium pool state on Solana); Jupiter is not used
+(licence; see docs/deferred.md), so this dataset gets its cost from its
+own pool simulation and serves no LI.FI quote and has no LI.FI key. On the site each quote carries `provider: "LI.FI"`, `quoted_at`,
+the tool and steps, and LI.FI's 0.25 percent service fee as included in the
+quote. The site fetches them in the visitor's browser, keyless, from that
+visitor's own budget of 75 `/quote` requests per two hours, so no backend
+route of ours serves them. The `transactionRequest` goes from LI.FI to the
+visitor's browser and is never signed, submitted or stored by us. Measured
+inside this dataset's records they would not have fitted the ceiling (9.7),
+which is consistent with keeping them out.
 
 E16. SETTLED. The instrument record's layout. As first specified the NVDA
 record's response was 10,312 bytes against 8,192 as measured at the time,
@@ -2759,11 +2936,12 @@ and carries `transfer_control` on the instrument by key. The fifth key form,
 route key's compound form (section 3, 6.1) and serves per-chain supply and
 every exclusion (4.8). Re-measured with `backend/scripts/te_response_sizes.py`:
 the NVDA instrument response is 7,906, 286 under the ceiling, and the supply
-key's is 5,264. Moving `basis_note` into the descriptor was measured (7,623)
+key's is 5,622 with E25's scope label. Moving `basis_note` into the descriptor was measured (7,623)
 and was not part of the recommendation taken, so it is held in reserve. The
 trade-off is accepted as stated: an entry reaches its quote token in two hops,
-and a caller needs two calls to check a circulating verdict. The xStocks
-instrument still does not fit, which is E23.
+and a caller needs two calls to check a circulating verdict. For xStocks the
+stand-in does not fit, the real single-venue TSLAx record does (6,347 and
+6,836 bytes), and a multi-venue record is unmeasured: E23.
 
 E17. SETTLED. The route form. As first specified it was 9,260 bytes. The
 recommendation was to drop `transfer_control`, whose model the route already
@@ -2871,7 +3049,7 @@ circulating figure is withheld with the same reason, because the exclusion
 list is read from that API too. Chain measurements and the fixed
 documentation links are served regardless (4.8). The product-page check is
 suspended as well, on this document's reading that §3(4) covers the site and
-not only the API; serving the link unchecked instead is E25. `backend/scripts/te_xstocks_reads.py`
+not only the API; the link itself is served unchecked (E25). `backend/scripts/te_xstocks_reads.py`
 is a manual one-off check, not the collector. §3(4) names manual processes, so
 the recommendation is that it stays unrun until permission exists, and it now
 refuses to make any network call without `--call-issuer-api`. E10 now waits on
@@ -2923,9 +3101,10 @@ What it changed: premium stays unserved and its withheld reason is
 record for when, and only if, the confirmation arrives, including per-venue
 formulas, a session label that keeps a weekend reading from passing as
 current, and the exclusion of Ink's wNVDAx feed. The measurements record
-cites the script's blocks, times, counts and ratios and does not reproduce the
-feed answers, the same rule E18 applied to the issuer's numbers. Whether the
-ratios computed from feed answers may stay published is E24.
+cites the script's blocks, times, counts and token and wrapper reads, and
+does not reproduce the feed answers, the same rule E18 applied to the
+issuer's numbers. Under E24, settled, ratios and distances computed from feed
+answers are withdrawn from it as well.
 
 E3. SETTLED. The USD references come from chain. The owner's condition:
 "There is no dollar on chain, so a stablecoin's rate can only be measured
@@ -3284,13 +3463,13 @@ fourteen open at the end of that pass. Section 12 has the current count.
 
 ### 13.5 What the owner settled on 2026-09-25, and what the Chainlink pass returned
 
-Six decisions, each recorded in section 12 in the owner's words.
+Nine decisions, each recorded in section 12 in the owner's words.
 
 - E16 and E17: the recommended layouts, and per-chain supply and exclusions at
   their own key. The NVDA instrument response is 7,906 bytes and the route
   record's 7,999, both under 8,192. The new key form is
   `<chain id>/<token address>/supply` or `solana/<mint>/supply`, and its
-  TSLAx response is 5,264. All three figures are printed by
+  TSLAx response is 5,622. All three figures are printed by
   `backend/scripts/te_response_sizes.py`.
 - E19: a gap is stated as the chain quantity that accounts for it, never as a
   difference from the issuer's figure. `does_not_reconcile` carries
@@ -3304,14 +3483,20 @@ Six decisions, each recorded in section 12 in the owner's words.
   holding and that the issuer does not list it.
 - E22: nothing from Chainlink's feeds is served until Chainlink Labs confirms
   in writing. The owner is asking them.
+- E24: figures computed from feed answers are withdrawn from the published
+  record; counts, token, wrapper and multiplier reads, and round times stay.
+- E25: `total_supply_measured` is served as a labelled, scoped measurement,
+  and the product link unchecked with `checked: false`.
+- E26: LI.FI quotes are not issuer figures. They are labelled with the time
+  taken, and for now they are on the site only: this dataset takes its cost
+  from its own pool simulation (9.7).
 
-Three questions were raised. Re-measured under E16, an xStocks instrument is
-still over the ceiling, 9,071 bytes after permission and 8,522 now, and the
-leanest of three further options measured is 18 bytes over. That is E23.
-Whether figures derived from feed answers may stay in the published
-measurements record is E24. Whether total supply can be served as a scoped
-measurement, and the product link unchecked, under E20, is E25. So eleven
-decisions are settled and twelve are open.
+One question stays open from this revision. Re-measured under E16, the
+xStocks stand-in is over the ceiling, 9,094 bytes after permission and 8,605
+now. A real TSLAx record built from chain reads fits, at 6,836 after
+permission, but only one thin pool was found for it. That is E23, and the
+owner has asked for a real measurement before deciding. So fourteen decisions
+are settled and ten are open.
 
 The Chainlink pass read the equity feeds on chain 4663, Ethereum, Optimism,
 BNB Smart Chain and Ink with `backend/scripts/te_chainlink_reads.py`, eth_call

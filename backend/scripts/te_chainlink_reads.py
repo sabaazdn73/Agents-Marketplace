@@ -7,9 +7,11 @@ Run: ./venv/bin/python scripts/te_chainlink_reads.py [--ink-only]
 NOTHING FROM THESE FEEDS IS SERVED. The owner decided that no feed value is
 served until Chainlink Labs confirms in writing that it may be (the spec, E22).
 This script exists so that every class A statement the measurements record
-makes about the feeds can be taken again. It prints feed answers for the person
-running it. The committed documents cite its blocks, times, counts and ratios,
-and do not reproduce the answers.
+makes about the feeds can be taken again. It prints feed answers, and figures
+computed from them, for the person running it. Lines carrying figures computed
+from feed answers are marked LOCAL ONLY: under E24 they are not published. The
+committed documents cite its blocks, times, counts, and token and wrapper
+reads, and nothing marked LOCAL ONLY.
 
 What it reads:
 
@@ -254,6 +256,12 @@ def bp(x: float) -> float:
 # first may match.
 EXACT_BP = 1e-4
 
+# E24, settled: figures computed from feed answers (medians, distances, the
+# ratio of a single pair) are not published. The test still needs them, so
+# they are computed and printed here on lines carrying this mark, for the
+# person running the script only.
+LOCAL = "LOCAL ONLY, not for publication (E24):"
+
 
 def exact_bp_report(label, sub, m, mname, alt, altname):
     rat = [p[0]["answer"] / p[1]["answer"] for p in sub]
@@ -261,14 +269,15 @@ def exact_bp_report(label, sub, m, mname, alt, altname):
     dev_alt = [bp(r / alt) for r in rat]
     hits = [(p, d) for p, d in zip(sub, dev_m) if abs(d) < EXACT_BP]
     span = f"{iso(min(p[0]['updatedAt'] for p in sub))} to {iso(max(p[0]['updatedAt'] for p in sub))}"
-    print(f"    {label}: {len(sub)} pairs within {PAIR_WINDOW_S} s, {span}; median ratio {st.median(rat)!r}")
+    print(f"    {label}: {len(sub)} pairs within {PAIR_WINDOW_S} s, {span}")
     print(f"      equal to {mname} ({m!r}) within {EXACT_BP:g} bp: {len(hits)};"
-          f" equal to {altname} ({alt!r}) within {EXACT_BP:g} bp: {sum(abs(d) < EXACT_BP for d in dev_alt)};"
-          f" closest to {mname} {min(abs(d) for d in dev_m):.3e} bp, closest to {altname}"
-          f" {min(abs(d) for d in dev_alt):.3e} bp")
+          f" equal to {altname} ({alt!r}) within {EXACT_BP:g} bp: {sum(abs(d) < EXACT_BP for d in dev_alt)}")
     for p, d in hits:
         print(f"      exact: {iso(p[0]['updatedAt'])} and {iso(p[1]['updatedAt'])}"
-              f" ({p[1]['updatedAt'] - p[0]['updatedAt']:+d} s), {d:+.2e} bp")
+              f" ({p[1]['updatedAt'] - p[0]['updatedAt']:+d} s)")
+    print(f"      {LOCAL} median ratio {st.median(rat)!r}; closest to {mname} {min(abs(d) for d in dev_m):.3e} bp,"
+          f" closest to {altname} {min(abs(d) for d in dev_alt):.3e} bp; exact-match deviations"
+          f" {[f'{d:+.2e}' for _, d in hits]} bp")
 
 
 def block_before(url: str, t: int, hi: int) -> int:
@@ -328,7 +337,7 @@ def section_robinhood(pins):
                 for d, r in near:
                     rb = min(b, key=lambda x: abs(x["updatedAt"] - r["updatedAt"]))
                     print(f"    nearest from effectiveAt: RH {iso(r['updatedAt'])} and {net} {iso(rb['updatedAt'])},"
-                          f" {d} s apart, ratio {r['answer'] / rb['answer']!r}")
+                          f" {d} s apart; {LOCAL} ratio {r['answer'] / rb['answer']!r}")
 
 
 # ------------------------------------------------------------------ section 2
@@ -365,7 +374,8 @@ def section_weekend(pins):
     rows, note = walk("bsc", FEED[("bsc", "NVDA")], pins["bsc"][0], ts("2026-09-18T19:00:00Z"))
     win = [r for r in rows if ts("2026-09-18T19:00:00Z") <= r["updatedAt"] <= ts("2026-09-21T14:00:00Z")]
     for r in win:
-        print(f"    round {r['rid']}  updatedAt {iso(r['updatedAt'])}  answer {r['answer']!r}")
+        print(f"    round {r['rid']}  updatedAt {iso(r['updatedAt'])}  LOCAL ONLY, not for publication"
+              f" (E22/E24): answer {r['answer']!r}")
     fri = [r for r in win if r["updatedAt"] < FRI_POST_END]
     sat = [r for r in win if ts("2026-09-19T00:00:00Z") <= r["updatedAt"] < ts("2026-09-20T00:00:00Z")]
     sun = [r for r in win if ts("2026-09-20T00:00:00Z") <= r["updatedAt"] < SUN_REOPEN]
@@ -433,7 +443,7 @@ def section_ink(pins):
         if v1 is None or v2 is None:
             print("    a wrapper rate could not be read; no test")
             continue
-        print(f"    v2 rate over v1 rate {bp(v2 / v1):+.2f} bp")
+        print(f"    v2 rate over v1 rate (wrapper reads only, no feed) {bp(v2 / v1):+.2f} bp")
         for net in ("ethereum", "optimism"):
             b, note_b = walk(net, FEED[(net, und)], pins[net][0], since)
             ps = pairs(a, b)
@@ -444,7 +454,8 @@ def section_ink(pins):
             med = st.median([p[0]["answer"] / p[1]["answer"] for p in ps])
             exact_bp_report("Ink feed over underlying", ps, v1, "the v1 wrapper rate on Ethereum",
                             v2, "the v2 wrapper rate")
-            print(f"      median against the v2 rate {bp(med / v2):+.2f} bp, against the v1 rate {bp(med / v1):+.4f} bp")
+            print(f"      {LOCAL} median against the v2 rate {bp(med / v2):+.2f} bp,"
+                  f" against the v1 rate {bp(med / v1):+.4f} bp")
 
 
 def main() -> int:

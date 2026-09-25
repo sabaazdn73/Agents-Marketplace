@@ -788,11 +788,15 @@ from these feeds is served until Chainlink Labs confirms in writing that it may
 be, and is asking them (E22 in the specification). This record is published,
 so it follows the same rule E18 applied to the issuer's numbers: it states
 round times, round ids, counts, which answers equal which, and ratios between
-feeds, and the script prints the answers for whoever runs it. Reading a value
-on chain does not by itself permit republishing it. Whether the figures below
-that are computed from feed answers (median ratios, distances in basis points)
-may stay published is an open question for the owner, E24 in the
-specification; they stay as written until it is decided.
+feeds only where the ratio equals an on-chain quantity exactly, and the script
+prints the answers for whoever runs it. Reading a value on chain does not by
+itself permit republishing it. Figures computed from feed answers, such as
+median ratios and distances in basis points, are not published here: the
+owner withdrew them under E24, on the Chainlink Foundation Terms' ban on
+derivative works of the Services (§2, first list, item (vi)). What stays is
+the counts of exact matches, the token, wrapper and multiplier reads, and the
+round times and ids. The script still computes the withdrawn figures and
+marks them in its output as local only.
 
 ### What Chainlink's directory and Robinhood's documentation say (class D)
 
@@ -841,11 +845,11 @@ search the chain for one.
 
 The test. Each Robinhood Chain round is paired with the underlying 24/5 feed's
 round nearest in `updatedAt`, where the two are within 20 seconds. Most such
-pairs differ by several basis points, because the price moved between the two
-updates, so a median over them measures that movement and not the relation.
+pairs do not match exactly, because the price moved between the two updates,
+so an average over them would measure that movement and not the relation.
 What tests the relation is an exact match: a pair whose ratio equals a
-candidate factor to within 1e-4 bp, which is far below the movement and far
-above 8-decimal quantisation. Each pair is tested against the token's
+candidate factor to within 1e-4 bp, which is far above 8-decimal
+quantisation. Each pair is tested against the token's
 `uiMultiplier()` in effect at the Robinhood round's `updatedAt`, and, as a
 control, against the other value. The value before `effectiveAt()` was read at
 the last block before it through the archive endpoint. It was 1.0 for all five
@@ -867,19 +871,17 @@ tokens' own: NVDA `0xd0601ce1…9eec`, MSFT `0xe93237c5…2e74`, GOOGL
 and 63,752,472 before each `effectiveAt`.
 
 For NVDA and MSFT the relation holds. Before the effective date the exact
-matches are at 1.0, deviation 0 bp. After it they are at the multiplier, with
-deviations of magnitude between 2.7e-8 and 2.5e-7 bp. No pair on either side matches the
-other value. The exact pairs are between 0 and 18 seconds apart. So for these
+matches are at 1.0. After it they are at the multiplier. No pair on either
+side matches the other value. The exact pairs are between 0 and 18 seconds apart. So for these
 two, the Robinhood Chain feed equals the underlying 24/5 feed times the
 multiplier in effect at every pair that matches exactly, and at no pair does
 the other value match. That is what Robinhood's documentation says the feed
 carries.
 
 GOOGL is not established after its effective date. Before it, one Optimism
-pair matches 1.0 exactly. After it, no pair matches either value. The nearest
-come within 0.010 bp (Optimism) and 0.025 bp (Ethereum) of the multiplier,
-against 0.196 and 0.178 bp of 1.0. That fits the multiplier better than it
-fits 1.0, and it is not an exact match, so it is recorded as not shown.
+pair matches 1.0 exactly. After it, in 24 pairs across the two underlying
+feeds, no pair matches either value, so the relation is recorded as not
+shown.
 
 ### AAPL and QQQ: unresolved (class A for the reads)
 
@@ -887,20 +889,16 @@ AAPL, feed `0x6B22A786bAa607d76728168703a39Ea9C99f2cD0`, multiplier
 1.0005660800610925 effective 2026-08-14 15:12:46 UTC (1.0 at block 36,351,131
 before it), against the Optimism AAPL 24/5 feed: 29 pairs within 20 s, all
 after the effective date, from 2026-09-02 21:23:47 to 2026-09-23 13:28:22 UTC.
-None matches the multiplier or 1.0 exactly. Their median ratio is 1.000377,
-which fits neither. The nearest come within 0.158 bp of the multiplier and
-0.203 bp of 1.0.
+None matches the multiplier or 1.0 exactly, so the relation is not shown
+either way.
 
 QQQ, feed `0x80901d846d5D7B030F26B480776EE3b29374C2ae`, multiplier
 1.0007007912414054 effective 2026-09-22 00:10:34 UTC (1.0 at block 69,216,815
 before it). Before the effective date, one Optimism pair matches 1.0 exactly.
 After it there is no pair within 20 seconds against either the Ethereum or the
 Optimism QQQ feed. The nearest is 41 seconds apart, the Robinhood round at
-2026-09-24 16:41:06 against Ethereum's at 16:41:47, and its ratio is 0.99999,
-closer to 1.0 than to the multiplier, which is the opposite of what
-Robinhood's documentation says. One pair 41 seconds apart, when pairs 20
-seconds apart differ by several basis points, does not settle it. QQQ is
-unresolved.
+2026-09-24 16:41:06 against Ethereum's at 16:41:47, outside the test window.
+With no pair to test after the effective date, QQQ is unresolved.
 
 `oraclePaused()` read false on all five tokens at block 72,121,324.
 
@@ -964,11 +962,8 @@ the v2 wrapper for NVDAx on Ink (class D).
 
 Against the Ethereum NVDA 24/5 feed: 21 pairs within 20 seconds, from
 2026-09-21 00:00:41 to 2026-09-24 16:42:30 UTC. Four match the v1 wrapper's
-rate exactly, with deviations of magnitude between 2.1e-7 and 4.3e-7 bp, and
-none matches the v2 rate. The median pair sits 99.32 bp below the underlying
-times the v2 rate. Against the Optimism NVDA 24/5 feed: 18 pairs, no exact
-match to either rate, median 98.22 bp below the v2 rate and 1.11 bp above the
-v1 rate.
+rate exactly, and none matches the v2 rate. Against the Optimism NVDA 24/5
+feed: 18 pairs, no exact match to either rate.
 
 So the feed's ratio to the underlying is the v1 wrapper's rate, while the
 wrapper on Ink is v2, whose rate is 100.31 bp higher. A v2 wNVDAx on Ink priced

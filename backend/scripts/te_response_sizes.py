@@ -299,7 +299,7 @@ def instrument_issuer_part():
         "circulating_measured": {"value": circulating_value(), "method": CIRC_METHOD,
                                  "detail_key": f"1/{TSLAX_ETH}/supply"},
         "issuer_links": {"proof_of_reserves": "https://defi.xstocks.fi/proof-of-reserves",
-                         "product": "https://assets.backed.fi/products/tesla-xstock",
+                         "product": {"url": "https://assets.backed.fi/products/tesla-xstock", "checked": True},
                          "system_wallets": "https://docs.xstocks.fi/apis/openapi/system",
                          "corporate_actions": "https://docs.xstocks.fi/apis/openapi/corporate-actions"},
         "reconciliation": [
@@ -324,6 +324,7 @@ def instrument_issuer_part_now():
         "circulating_measured": {"value": None, "withheld_reason": "awaiting_permission",
                                  "detail_key": f"1/{TSLAX_ETH}/supply"},
         "issuer_links": {"proof_of_reserves": "https://defi.xstocks.fi/proof-of-reserves",
+                         "product": {"url": "https://assets.backed.fi/products/tesla-xstock", "checked": False},
                          "system_wallets": "https://docs.xstocks.fi/apis/openapi/system",
                          "corporate_actions": "https://docs.xstocks.fi/apis/openapi/corporate-actions"},
         "reconciliation": [{"quantity": q, "verdict": "awaiting_permission"}
@@ -340,7 +341,15 @@ def supply_record():
         "key": f"1/{TSLAX_ETH}/supply", "instrument_key": f"1/{TSLAX_ETH}", "issuer": "xstocks",
         "symbol": "TSLAx",
         "supply_measured": [{"chain": c, "supply": s, "read_at": r} for c, s, _, r in XS_CHAINS],
-        "total_supply_measured": round(sum(s for _, s, _, _ in XS_CHAINS), 6),
+        # E25: served as a scoped measurement, labelled with what it covers.
+        "total_supply_measured": {
+            "value": round(sum(s for _, s, _, _ in XS_CHAINS), 6),
+            "scope": {"evm": "EVM deployments from the issuer's list as fetched 2026-09-24, each confirmed by "
+                             "code at the token's address at the block named",
+                      "non_evm": "Solana, TON and Tron deployments from the issuer's list as fetched on "
+                                 "2026-09-24, class D",
+                      "list_as_of": "2026-09-24",
+                      "note": "a chain the issuer adds later is not included and is not detected"}},
         "circulating_measured": {
             "value": circulating_value(), "method": CIRC_METHOD,
             "exclusions": [{"chain": c, "address": LISTED_BY_CHAIN.get(c, LISTED_EVM), "held": h, "read_at": r,
@@ -353,6 +362,158 @@ def with_issuer_part(r, part):
     r["reconciliation"] = []  # replaced by the part's own list
     r.update(part)
     return r
+
+
+# ------------------------------------------------ E23: a real xStocks record
+# TSLAx on Ethereum, built from chain reads only (E20: no issuer API). Venue
+# discovery was by factory lookup: Uniswap V3 getPool for TSLAx against USDC,
+# USDT and WETH at fees 100, 500, 3000 and 10000 on Ethereum, Arbitrum and
+# Optimism, and on BNB Smart Chain Uniswap V3 and PancakeSwap V3 against USDT,
+# USDC and WBNB. `--verify-xstocks` repeats the lookup and every read below.
+# One Ethereum pool was found. Uniswap V4 on Ethereum was not enumerated: its
+# PoolManager holds TSLAx, so V4 pools exist, but the Initialize-log scan
+# failed on every free endpoint tried. Solana pools were not enumerated: the
+# public endpoints refused the indexed requests needed. So this record may
+# lack venues a full enumeration would find, and the cost figures are
+# placeholders because no walk was run.
+TSLAX_POOL = "0xa7fd774e0ad54a6d2ceafb4103615f473e589cc6"
+ETH_USDC = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+ETH_WETH_USDC_REF = "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640"  # placeholder reference pool
+UNI_V3_FACTORY_ETH = "0x1f98431c8ad98523631ae4a59f267346ea31f984"
+
+
+def tslax_record(part):
+    def entry(n, side, frac):
+        return {"notional_usd": n, "side": side, "venue": 0, "enough_data": False, "filled_fraction": frac,
+                "slippage_bps": None, "pool_fee_bps": 30.0, "protocol_fee_bps": 0.0, "gas_usd": 1.8412,
+                "gas_bps": None, "total_cost_bps": None, "total_cost_usd": None, "alternatives": []}
+    r = {
+        "key": f"1/{TSLAX_ETH}", "chain_id": 1, "token_address": TSLAX_ETH, "symbol": "TSLAx",
+        "underlying_key": "underlying/TSLA", "issuer": "xstocks",
+        "issuer_source": {"method": "unestablished", "withheld_reason": "unestablished_source"},
+        "issuer_structure_key": "issuer/xstocks", "canonical": None, "decimals": 18,
+        "quote_basis": {"method": "tick_walk_against_pool_state", "quoted_at_block": 26053927,
+                        "quote_age_seconds": 312, "staleness_bound_seconds": 900},
+        # Placeholders, bounded by what the pool held at Ethereum block 26,054,900
+        # (0.359 TSLAx and 91.99 USDC): neither side of either size can fill.
+        "cost_to_fill": [entry(1000, "buy", 0.1437), entry(1000, "sell", 0.0920),
+                         entry(10000, "buy", 0.0144), entry(10000, "sell", 0.0092)],
+        "usd_reference": {"numeraire": {"symbol": "USDC", "address": ETH_USDC, "usd_value": 1.0,
+                                        "usd_value_basis": "assumed, not measured"},
+                          "gas_token": {"symbol": "ETH", "rate": 4012.371843, "pool": ETH_WETH_USDC_REF,
+                                        "venue_family": "uniswap_v3", "block": 26053927, "depth": depth(0.0712),
+                                        "withheld_reason": None},
+                          "quote_references": {ETH_USDC: {"symbol": "USDC", "is_numeraire": True}}},
+        "premium": {"value_bps": None, "withheld_reason": "awaiting_permission"},
+        "shares_per_token": 1.0, "shares_per_token_source": "on_chain",
+        "shares_per_token_convention": "one cumulative multiplier, applied inside balanceOf()",
+        "ui_multiplier": 1.0, "new_ui_multiplier": None, "effective_at": None,
+        "ui_multiplier_read_at_block": 26053927, "per_share_price_usd": None, "token_price_usd": 401.2817,
+        "total_return": True,
+        "distributions": {"paid_to_holder": False, "mechanism": "not_published"},
+        "transfer_control": {"model": "unestablished", "detail_key": "issuer/xstocks"},
+        "venues": [{"family": "uniswap_v3", "walker": "v3", "pool": TSLAX_POOL, "fee_bps": 30,
+                    "liquidity": "12678597425878", "live": True, "factory": UNI_V3_FACTORY_ETH,
+                    "quote_token": ETH_USDC}],
+        "best_venue_by_size": {"1000": "uniswap_v3", "10000": "uniswap_v3"},
+        "liquidity_concentration": {"basis": "v3_positions_nft", "providers": None, "largest_share_pct": None,
+                                    "measured_at_block": None, "withheld_reason": "not_in_snapshot"},
+    }
+    r.update(copy.deepcopy(part))
+    return r
+
+
+def verify_xstocks() -> int:
+    """Re-derive the chain values the TSLAx record uses. Reads only."""
+    import httpx
+    import time
+    nets = {"ethereum": (os.environ.get("TE_RPC_ETHEREUM", "https://ethereum-rpc.publicnode.com"),
+                         {"uniswap_v3": UNI_V3_FACTORY_ETH},
+                         {"USDC": ETH_USDC, "USDT": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+                          "WETH": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"}),
+            "arbitrum": (os.environ.get("TE_RPC_ARBITRUM", "https://arbitrum-one-rpc.publicnode.com"),
+                         {"uniswap_v3": UNI_V3_FACTORY_ETH},
+                         {"USDC": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+                          "USDT": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+                          "WETH": "0x82af49447d8a07e3bd95bd0d56f35241523fbab1"}),
+            "optimism": (os.environ.get("TE_RPC_OPTIMISM", "https://optimism-rpc.publicnode.com"),
+                         {"uniswap_v3": UNI_V3_FACTORY_ETH},
+                         {"USDC": "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+                          "WETH": "0x4200000000000000000000000000000000000006"}),
+            "bsc": (os.environ.get("TE_RPC_BSC", "https://bsc-rpc.publicnode.com"),
+                    {"uniswap_v3": "0xdb1d10011ad0ff90774d0c6bb92e5c5c8b4461f7",
+                     "pancakeswap_v3": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865"},
+                    {"USDT": "0x55d398326f99059ff775485246999027b3197955",
+                     "USDC": "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d",
+                     "WBNB": "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"})}
+    client = httpx.Client(timeout=60, headers={"User-Agent": "tnega-te-sizes"})
+
+    def rpc(url, method, params):
+        for k in range(5):
+            try:
+                j = client.post(url, json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).json()
+                if "result" in j:
+                    return j["result"]
+                if "revert" in str(j.get("error", "")).lower():
+                    return None
+            except (httpx.HTTPError, ValueError):
+                pass
+            time.sleep(2 * (k + 1))
+        raise RuntimeError(f"{method} unanswered via {urlsplit(url).hostname}")
+
+    def call(url, to, sig, types=(), args=(), blk="latest"):
+        data = "0x" + (keccak(text=sig)[:4] + (encode(list(types), list(args)) if types else b"")).hex()
+        r = rpc(url, "eth_call", [{"to": to, "data": data}, blk])
+        return int(r[2:66], 16) if r and len(r) >= 66 else None
+
+    print("E23 verify: TSLAx pools by factory lookup, and the reads the TSLAx record uses")
+    for net, (url, facs, quotes) in nets.items():
+        blk = rpc(url, "eth_blockNumber", [])
+        found = 0
+        for fname, fac in facs.items():
+            fees = (100, 500, 2500, 3000, 10000) if fname == "pancakeswap_v3" else (100, 500, 3000, 10000)
+            for qn, q in quotes.items():
+                for fee in fees:
+                    pool = call(url, fac, "getPool(address,address,uint24)", ("address", "address", "uint24"),
+                                (TSLAX_ETH, q, fee), blk)
+                    if not pool:
+                        continue
+                    pa = "0x" + pool.to_bytes(20, "big").hex()
+                    liq = call(url, pa, "liquidity()", blk=blk)
+                    held = call(url, TSLAX_ETH, "balanceOf(address)", ("address",), (pa,), blk)
+                    qheld = call(url, q, "balanceOf(address)", ("address",), (pa,), blk)
+                    found += 1
+                    print(f"  {net} block {int(blk, 16)}: {fname} TSLAx/{qn} fee {fee} pool {pa} liquidity {liq}"
+                          f" TSLAx held {held / 1e18 if held is not None else None} {qn} held raw {qheld}")
+        print(f"  {net}: {found} pools found")
+    url = nets["ethereum"][0]
+    blk = rpc(url, "eth_blockNumber", [])
+    mult = call(url, TSLAX_ETH, "getCurrentMultiplier()", blk=blk)
+    pm = call(url, TSLAX_ETH, "balanceOf(address)", ("address",),
+              ("0x000000000004444c5dc75cB358380D2e3dE08A90",), blk)
+    print(f"  ethereum block {int(blk, 16)}: TSLAx getCurrentMultiplier {mult / 1e18 if mult else None};"
+          f" TSLAx held by the V4 PoolManager {pm / 1e18 if pm is not None else None}")
+    return 0
+
+
+# ------------------------------------------------------------- LI.FI (E26)
+# One precomputed LI.FI quote, filled from a real keyless /quote response
+# (chain 4663, 1,000 USDG to NVDA, taken 2026-09-25 10:28:24 UTC). The
+# transactionRequest is null: nothing in this project stores or forwards one.
+# LI.FI quotes are site-only (E26); this is measured for reference.
+def lifi_quote(notional=1000, side="buy"):
+    return {"provider": "LI.FI", "quoted_at": "2026-09-25T10:28:24Z", "notional_usd": notional, "side": side,
+            "tool": "fly", "tool_name": "Fly", "steps": ["feeCollection", "fly"],
+            "from_token": USDG, "from_amount": "1000000000",
+            "to_token": NVDA, "to_amount": "4405467010752403181", "to_amount_min": "4383439675698641165",
+            "slippage": 0.005, "lifi_fee": {"name": "LIFI Fixed Fee", "fraction": 0.0025, "included": True},
+            "gas_limit": 1994954, "transaction_request": None}
+
+
+def lifi_record(token=NVDA):
+    return {"key": f"4663/{token}/lifi", "instrument_key": f"4663/{token}",
+            "quotes": [lifi_quote(n, sd) for n, sd in ((1000, "buy"), (1000, "sell"), (10000, "buy"),
+                                                        (10000, "sell"))]}
 
 
 # ----------------------------------------------------------------- route
@@ -480,6 +641,7 @@ def verify() -> int:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--verify", action="store_true")
+    ap.add_argument("--verify-xstocks", action="store_true")
     args = ap.parse_args()
 
     cav, cov = caveats(), coverage()
@@ -554,6 +716,27 @@ def main() -> int:
     print(f"    supply key record carrying the verdict detail: record {enc(sup2)},"
           f" response {response('tnega_get', sup2)}  ceiling 8192")
 
+    print("E23, a real xStocks record (TSLAx on Ethereum; which fields are real is in the spec's E23):")
+    for name, pt in (("while E20 stands", instrument_issuer_part_now()), ("after permission", instrument_issuer_part())):
+        tr = tslax_record(pt)
+        print(f"  {name}: record {enc(tr)}, response {response('tnega_get', tr)}  ceiling 8192,"
+              f" margin {8192 - response('tnega_get', tr)}")
+    print("E26, LI.FI quotes: site only, not in this dataset; measured for reference")
+    lq = lifi_quote()
+    print(f"  one quote {enc(lq)}")
+    rr_l = copy.deepcopy(rr3)
+    rr_l["lifi_quote"] = lq
+    print(f"  in the adopted route record: record {enc(rr_l)}, response {response('tnega_get', rr_l)}  ceiling 8192")
+    f_l = copy.deepcopy(f)
+    f_l["lifi_quotes"] = lifi_record()["quotes"]
+    print(f"  four quotes in the adopted NVDA instrument record: record {enc(f_l)},"
+          f" response {response('tnega_get', f_l)}  ceiling 8192")
+    lr = lifi_record()
+    print(f"  own key {lr['key']}: record {enc(lr)}, response {response('tnega_get', lr)}  ceiling 8192")
+    f_k = copy.deepcopy(f)
+    f_k["lifi_key"] = lr["key"]
+    print(f"  instrument record carrying only the key: record {enc(f_k)}, response {response('tnega_get', f_k)}")
+
     print("real SPY record: two quote tokens (USDG, WETH), one alternative per entry (response bytes):")
     s4 = spy_record(4, 1)
     s2 = spy_record(2, 1)
@@ -573,7 +756,10 @@ def main() -> int:
     print(f"  series envelope {env_series}")
     print(f"section 6, list: row {enc(LIST_ROW)}, 25-row page {response('tnega_list', [LIST_ROW] * 25)}")
 
-    return verify() if args.verify else 0
+    bad = verify() if args.verify else 0
+    if args.verify_xstocks:
+        bad += verify_xstocks()
+    return bad
 
 
 if __name__ == "__main__":
