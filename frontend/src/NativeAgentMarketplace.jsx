@@ -28,27 +28,14 @@
 // stays inside the simple, direct-wallet, single-transaction pattern
 // (unlike the investigated-and-rejected Avantis perpetuals concept).
 //
-// Lending/Borrowing, Perpetuals, and Web2 Agents + PayBox are real,
-// intentional "Coming Soon" placeholders, visible so the real, full
-// scope of the vision reads clearly, but none of the three is wired to
-// any execution path yet.
-//
-// Web2 Agents + PayBox (added 2026-09-10): a vision/roadmap card only,
-// no code behind it, see docs/future-tnega-paybox.md for the research this
-// summarises (Anthropic's open-source Commerce Agents blueprint, and B402
-// as the settlement rail). Corrected 2026-09-08: this used to name MoonPay
-// as the rail. MoonPay declined partner onboarding on country and industry
-// grounds and nothing is built against it. B402 settles x402 natively on
-// BSC and is what shipped instead. Explicitly two
-// parts of very different scope: a near-term-demonstrable Web2
-// shopping-agent + PayBox settlement concept, and a genuinely separate,
-// much larger "describe an agent in a prompt, get one built and wired to
-// payment automatically" platform, comparable in scope to BNB Agent
-// Studio or Claude Code itself, not attempted here or anywhere in this
-// codebase.
+// No placeholders are shown (owner's rule, 2026-09-25: deferred items are not
+// shown in the app). The Lending / Borrowing, Perpetuals, Tokenized Assets and
+// Web2 Agents + PayBox cards that used to sit here as "Coming Soon" were
+// removed; each is recorded in docs/deferred.md (section 13) with what would
+// unblock it.
 
 import React, { useState, useEffect } from 'react';
-import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, TrendingUp, Lock, Info, Building2, ArrowRightLeft, AlertTriangle, ShoppingBag, Scale, Grid3x3, HeartPulse } from 'lucide-react';
+import { Bot, Sparkles, Loader2, CheckCircle2, ChevronRight, Wallet, Landmark, Info, ArrowRightLeft, AlertTriangle, Scale, Grid3x3, HeartPulse } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { fetchWalletBalanceSnapshot, getMainnetReadClient } from './altana';
 import { useDirectWalletExecutor } from './useDirectWalletExecutor';
@@ -568,26 +555,6 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
   );
 }
 
-function ComingSoonAgentCard({ icon: Icon, title, blurb, accent, surface, mutedBorder, learnMoreHref }) {
-  return (
-    <div className={`rounded-2xl border p-5 opacity-70 ${mutedBorder}`} style={{ background: surface }}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-gray-500/10"><Icon size={16} className="opacity-60" /></div>
-          <span className="font-bold text-sm">{title}</span>
-        </div>
-        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-gray-500/15 text-gray-500 flex items-center gap-1"><Lock size={9} /> Coming Soon</span>
-      </div>
-      <p className="text-xs opacity-60">{blurb}</p>
-      {learnMoreHref && (
-        <a href={learnMoreHref} className="text-xs font-semibold mt-2 inline-block hover:underline" style={{ color: accent }}>
-          Read the full research →
-        </a>
-      )}
-    </div>
-  );
-}
-
 export default function NativeAgentMarketplace({ accent, surface, mutedBorder, darkMode }) {
   return (
     <div>
@@ -629,46 +596,12 @@ export default function NativeAgentMarketplace({ accent, surface, mutedBorder, d
         />
       </div>
 
+      {/* One agent outside the four categories, so one full-width card under a
+          singular heading rather than half of a two-column grid. */}
       <h3 className="text-[11px] font-bold uppercase tracking-wider opacity-40 mb-2">
-        Other native agents
+        Spot trading
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <TradingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
- {/* finding, 2026-09-04: checked Avantis's own docs + Base's
-            official MCP plugin docs directly. The earlier "no bridge from
-            BSC" blocker is stale -- Base is a standard chain a connected
- wallet can just switch to. The blocker found instead:
-            Avantis trades aren't self-encodable (calldata is built via a
-            live call to their own tx-builder.avantisfi.com, not a known,
-            fixed ABI) and don't settle atomically (a signed order fills
- asynchronously, "usually within seconds," and genuinely
-            expires unfilled after ~15-30s) -- a materially different,
-            more complex integration shape than every other Native Agent
-            here, not a smaller version of the same pattern. Not built;
- copy below states this honestly instead of the old, now-wrong
-            reasoning. */}
-        <ComingSoonAgentCard icon={Bot} title="Perpetuals Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
- blurb="Investigated (2026-09-04): Avantis (Base) trades require a live call to their own off-chain calldata-builder API and settle asynchronously, filling within seconds or expiring unfilled -- a real, structurally different pattern than the direct, atomic, single-transaction agents here. Not built; a plain positions dashboard remains a real, smaller, option if wanted later." />
-        {/* Tokenized RWA data feasibility, checked live 2026-09-02 against
- CoinGecko's API (no key, public tier): /rwas/list,
-            /rwas/markets, /rwas/{id}, /rwas/issuers/list, and
- /rwas/issuers/{id} all returned 200 with data (647 tracked
-            assets, 34 issuers) with no API key at all. Only /tickers and
- /market_chart (historical) returned a real 401, "exclusive to
-            Basic plan or above", confirmed directly, not assumed. A future
-            comparison agent (asset name/price/market cap/issuer) is
- genuinely buildable on the free tier; only deep history/venue-
-            level tickers would need a paid upgrade, and those are
-            secondary, not blockers for a useful first version. */}
-        <ComingSoonAgentCard icon={Building2} title="Tokenized Assets Agent" accent={accent} surface={surface} mutedBorder={mutedBorder}
- blurb="Discover and compare tokenized real-world assets, stocks, commodities, pre-IPO shares, bridging crypto-native users into traditional markets and back. Data source checked and free-tier feasible; not built yet." />
-        {/* Vision/roadmap card only, no code behind this one, unlike
-            Staking/Trading above. See this file's own top-of-file comment
-            and docs/future-tnega-paybox.md for the full research. */}
-        <ComingSoonAgentCard icon={ShoppingBag} title="Web2 Agents + PayBox" accent={accent} surface={surface} mutedBorder={mutedBorder}
-          learnMoreHref="/docs/future-tnega-paybox"
-          blurb="An agent that decides, pays on-chain, and delivers to your door. Web2 shopping agents, like Anthropic's open-source Commerce Agents blueprint, already build a complete tailored cart (age, size, culture, event) and then stop at checkout without ever paying. PayBox connects that last step to on-chain settlement over B402, which settles x402 natively on BSC, with other chains later. Describing an agent in a prompt and having one built and wired to payment automatically is a separate, much larger project, not scoped here." />
-      </div>
+      <TradingNativeAgentCard accent={accent} surface={surface} mutedBorder={mutedBorder} darkMode={darkMode} />
     </div>
   );
 }

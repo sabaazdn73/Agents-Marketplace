@@ -4,7 +4,7 @@ Status, updated 2026-09-04: the settlement rail is now built and live-tested. Ev
 
 The original research framing is kept intact rather than rewritten, because the constraints it documents are still true of MetaMask Card and MoonPay, B402 didn't resolve them, it went around them.
 
-Surfaced in-app as a "Web2 Agents + PayBox" Coming Soon card in the Native Agent House, a vision/roadmap summary only, no code behind it, linking back here for the full research. That card also names a second, separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own much larger future project, comparable in scope to BNB Agent Studio or Claude Code itself, not scoped here or anywhere in this codebase; noted for the record, not researched.
+Nothing in the app shows it. The "Web2 Agents + PayBox" Coming Soon card that once summarised this page in the Native Agent House was removed, and the item is recorded in [Deferred work](deferred.md). That card also named a second, separate idea this page doesn't cover: a "describe an agent in a prompt, get one built and wired to payment automatically" platform. That's its own much larger future project, not scoped here or anywhere in this codebase; noted for the record, not researched.
 
 ## The idea in one paragraph
 

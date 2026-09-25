@@ -1,8 +1,10 @@
 // SolanaView.jsx
 //
-// Solana is marked Coming Soon deliberately, and the distinction matters:
-// the data is and already ingested (~1,465 agents), but Solana is not
-// an EVM chain. None of this project's on-chain reads, escrow, wallet
+// Solana is shown as what it is today, a read-only sample of stored agents
+// and one behaviour study, and nothing is promised about it (owner's rule,
+// 2026-09-25: nothing deferred is shown; Solana support is phase 5 in
+// docs/deferred.md). The agents are indexed and stored, but Solana is not an
+// EVM chain, and none of this project's on-chain reads, escrow, wallet
 // connection or signing paths apply to it, so presenting the agents as if
 // they behaved like the EVM views would overstate what the app can do.
 //
@@ -16,7 +18,7 @@
 // long analysis unfurled on load would bury that.
 
 import React, { useState } from 'react';
-import { Clock, FlaskConical, ChevronDown } from 'lucide-react';
+import { Info, FlaskConical, ChevronDown } from 'lucide-react';
 import BehaviourStudy from '../BehaviourStudy';
 import { useChainView } from './useChainView';
 import { ChainAgentCard, ChainViewStates, UnverifiedStatusNote, ChainCapabilities } from './ChainViewShared';
@@ -34,14 +36,13 @@ export default function SolanaView({ mutedBorder = 'border-gray-200 dark:border-
     <div>
       <div className="p-4 rounded-xl border border-indigo-500/25 bg-indigo-500/5 mb-4">
         <div className="flex items-center gap-2 mb-1.5">
-          <Clock size={15} className="text-indigo-500" />
-          <span className="font-semibold text-sm">Solana, coming soon</span>
+          <Info size={15} className="text-accent" />
+          <span className="font-semibold text-sm">Solana, read only</span>
         </div>
-        <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
-          These agents are already indexed and stored. Solana is not an EVM chain, so
-          this app's wallet connection, on-chain reads and escrow do not apply to it
-          yet, which is why this is a preview rather than a browsable view. A sample
-          of what is stored is shown below.
+        <p className="text-[12px] text-muted leading-relaxed">
+          These agents are indexed and stored. Solana is not an EVM chain, and this
+          site's wallet connection, on-chain reads and escrow do not cover it, so this
+          is a sample of what is stored rather than a browsable view.
         </p>
       </div>
       <UnverifiedStatusNote note={statusNote} verifiedChains={verifiedChains} unverifiedChains={unverifiedChains} />

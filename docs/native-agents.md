@@ -276,8 +276,14 @@ context.
 
 ### Investigated and not built
 
-Three cards exist as coming-soon entries with the reason stated, rather than
-being left off the page.
+None of these is shown in the app. Each is recorded in
+[Deferred work](deferred.md), with what blocks it.
+
+Lending and borrowing. Checked on 2026-08-31: non-custodial borrowing is
+feasible on Venus and Aave, but it needs its own collateral-enablement step
+and a live health-factor and liquidation-risk display, more than a supply
+form. It was left to be built as its own complete piece rather than half
+finished inside another.
 
 Perpetuals. Avantis on Base was checked on 2026-09-04. The earlier reasoning
 about there being no bridge from BSC was stale, since Base is a chain a
@@ -295,11 +301,12 @@ on the public tier with no key: `/rwas/list`, `/rwas/markets`, `/rwas/{id}`,
 647 tracked assets across 34 issuers. Only `/tickers` and `/market_chart`
 returned 401 as paid-plan endpoints. A comparison agent covering asset name,
 price, market cap and issuer is feasible on the free tier. It is not built.
+That was research, not a licence check: on 2026-09-25 this project stopped
+using CoinGecko because, on the owner's reading, its free keyless tier's
+terms do not cover this use, so building the agent on it would first need a plan whose terms do.
 
-Web2 agents and PayBox. A vision card with no code behind it, unlike Staking
-and Trading. The research is in
-[Future: Tnega PayBox](future-tnega-paybox.md). Note that the card's own
-copy still names MoonPay as the near-term rail, which is out of date:
-MoonPay declined partner onboarding, nothing is built against it, and B402
-is the rail that was implemented instead. See
-[Payment Rails](payment-rails.md#b402).
+Web2 agents and PayBox. A vision with no code behind it, unlike Staking and
+Trading. The research is in [Future: Tnega PayBox](future-tnega-paybox.md).
+MoonPay, once named as its near-term rail, declined partner onboarding;
+nothing is built against it, and B402 is the rail that was implemented
+instead. See [Payment Rails](payment-rails.md#b402).

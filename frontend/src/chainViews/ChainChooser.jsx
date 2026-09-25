@@ -34,8 +34,9 @@ function capability(view) {
   // No coming_soon branch. It used to read "Indexing not started here yet",
   // which the browser showed sitting directly under "1,490 agents" on Solana:
   // the flag means hiring is not wired up there, not that nothing is indexed.
-  // The Soon chip in the corner already carries the flag, and the line below
-  // describes what you can do, which is the thing the flag is actually about.
+  // The line below describes what you can do, which is the thing the flag is
+  // actually about. There is no Soon chip (removed 2026-09-25: nothing
+  // deferred is shown in the app).
   //
   // NOT LOADED IS NOT "NO HIRING PATH", caught in the browser 2026-09-19.
   //
@@ -102,11 +103,6 @@ export default function ChainChooser({ views, onChoose, onSkip, skipLabel }) {
                 <span className="text-[15px] font-bold text-gray-900 dark:text-gray-100 truncate">
                   {v.label}
                 </span>
-                {v.coming_soon && (
-                  <span className="ml-auto shrink-0 text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-500">
-                    Soon
-                  </span>
-                )}
               </div>
               {count && (
                 <div className="text-[13px] font-semibold tabular-nums text-gray-700 dark:text-gray-300 mt-2">

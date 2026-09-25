@@ -81,7 +81,7 @@ export default function SellYourAgentForm() {
     // Models 1 & 2, on-chain listing.
  if (!ownership.isOwner) return setLocalErr("Only this agent's owner can list it, this wallet isn't it.");
     if (!price.trim() || Number(price) <= 0) return setLocalErr('Enter a price above 0.');
-    if (!configured) return setLocalErr("Paid listings aren't turned on for this house yet, check back soon.");
+    if (!configured) return setLocalErr("Paid listings aren't turned on for this site.");
     try {
       const priceRaw = toRawUnits(price, 18);
       const periodSeconds = model === MODEL.SUBSCRIPTION ? Math.max(1, Math.floor(Number(periodDays) * 86400)) : 0;

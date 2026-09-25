@@ -233,9 +233,10 @@ export default function ChainViewTabs({ mutedBorder, children }) {
 
           Tightened again 2026-09-10 when Arbitrum and Robinhood Chain took
           their own tabs and the strip went from four to six. The count moved
-          from sm+ to md+ and the Soon chip to sm+, because on a phone those
-          two are the least useful characters in the strip and the most
-          expensive: the chain name is what a person is looking for. */}
+          from sm+ to md+, because on a phone it is the least useful part of the
+          strip and the most expensive: the chain name is what a person is
+          looking for. There is no "Soon" chip any more (owner's rule,
+          2026-09-25: nothing deferred is shown in the app). */}
       {/* Scrolls on a phone, wraps from sm up. Six tabs do not fit one row
           at every desktop width either, and a clipped last tab reads as
           broken rather than as scrollable, so above the phone breakpoint
@@ -271,11 +272,6 @@ export default function ChainViewTabs({ mutedBorder, children }) {
               {t.count != null && t.kind !== 'venue' && (
                 <span className="hidden md:inline text-[10px] font-medium text-muted">
                   {compactCount(t.count)}
-                </span>
-              )}
-              {t.coming_soon && (
-                <span className="hidden sm:inline text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">
-                  Soon
                 </span>
               )}
             </button>

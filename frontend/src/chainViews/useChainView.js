@@ -39,13 +39,12 @@ export function useChainViewIndex() {
 
 /** One view's agents, paginated. `loadMore()` appends the next page.
  *
- * Returns `hireable` and `comingSoon` from the backend rather than deriving
- * them locally: whether a chain can be hired from is a backend fact (escrow
+ * Returns `hireable` from the backend rather than deriving it locally: whether a chain can be hired from is a backend fact (escrow
  * is deployed on BSC only), and a view should not be able to disagree with
  * it by accident. */
 export function useChainView(viewId) {
   const [agents, setAgents] = useState([]);
-  const [meta, setMeta] = useState({ hireable: false, comingSoon: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null, hire_paths: null, total: null, statusCounts: null });
+  const [meta, setMeta] = useState({ hireable: false, label: '', statusNote: '', verifiedChains: [], unverifiedChains: [], capabilities: null, hire_paths: null, total: null, statusCounts: null });
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -66,7 +65,6 @@ export function useChainView(viewId) {
     const d = await res.json();
     setMeta({
       hireable: !!d.hireable,
-      comingSoon: !!d.coming_soon,
       label: d.label || '',
       statusNote: d.status_note || '',
  // Which of this view's chains are genuinely health-checked. Comes
