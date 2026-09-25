@@ -24,8 +24,8 @@ const queryClient = new QueryClient();
 function ThemedRainbowKit({ children }) {
   const { dark } = useTheme();
   const theme = dark
-    ? darkTheme({ accentColor: 'rgb(150, 160, 252)', accentColorForeground: 'rgb(12, 5, 30)', borderRadius: 'small' })
-    : lightTheme({ accentColor: 'rgb(79, 70, 229)', accentColorForeground: 'white', borderRadius: 'small' });
+    ? darkTheme({ accentColor: 'rgb(208, 164, 255)', accentColorForeground: 'rgb(24, 8, 40)', borderRadius: 'small' })
+    : lightTheme({ accentColor: 'rgb(118, 40, 200)', accentColorForeground: 'white', borderRadius: 'small' });
   return <RainbowKitProvider theme={theme}>{children}</RainbowKitProvider>;
 }
 

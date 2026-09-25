@@ -56,30 +56,30 @@ DOCS_DIR = ROOT / "docs"
 # for; it was the one missing from the hand-written file.
 STATIC = [
     ("/", "daily", "1.0"),
-    # Added 2026-09-25 with the wallet page, which Home now leads with.
-    ("/wallet", "monthly", "0.8"),
+    # The product pages, 2026-09-25. The old tabs (/wallet, /native-agents,
+    # /skills, /how-it-works, /learn, /report, /build, /sell) are gone from
+    # this list: each now redirects (frontend/src/routePaths.js REDIRECTS),
+    # and a sitemap lists pages, not redirects.
+    ("/stocks", "daily", "0.9"),
+    ("/vaults", "daily", "0.9"),
+    ("/my-etfs", "monthly", "0.7"),
+    ("/ai", "monthly", "0.8"),
+    # Explore, reached from the footer now, and still where every agent page
+    # below hangs from.
     ("/market", "daily", "0.9"),
-    ("/native-agents", "weekly", "0.8"),
-    ("/skills", "weekly", "0.8"),
-    # Added 2026-09-17 with the Connect tab. Static prose, one page, and the
-    # address a reader is given for the MCP server, so it is worth indexing.
-    # The page a visitor with no context should land on, so it outranks the
-    # rest of the tabs. /connect still resolves to it and is deliberately not
-    # listed: two URLs for one page, each canonicalising itself, is what the
-    # sitemap exists to avoid.
-    ("/how-it-works", "monthly", "0.9"),
-    ("/learn", "monthly", "0.7"),
     ("/docs", "weekly", "0.7"),
-    ("/report", "monthly", "0.6"),
-    ("/build", "monthly", "0.6"),
-    ("/sell", "monthly", "0.6"),
     ("/ecosystem", "monthly", "0.5"),
     ("/data-sources", "monthly", "0.4"),
     ("/partners", "monthly", "0.4"),
+    # These two were in the committed sitemap.xml but not in this list, so a
+    # regeneration would have dropped them. Added 2026-09-25.
+    ("/chain/hyperliquid", "daily", "0.6"),
+    ("/privacy", "yearly", "0.3"),
     ("/status", "weekly", "0.4"),
 ]
 # Deliberately absent: /my-agents is per-wallet and shows nothing to a
-# crawler, and /canary is disallowed in robots.txt.
+# crawler, /signin has nothing to index, and /canary is disallowed in
+# robots.txt.
 
 # Chains whose agents get their own /chain-agent/ URL, and the BSC route.
 CHAIN_VIEW_IDS = (42161, 4663)

@@ -20,7 +20,9 @@ async function _fetchOnce() {
   return res.json();
 }
 
-export function useCanaryStatus() {
+// `enabled` (default true): while false, nothing is requested; see
+// useMarketplacePage in marketplaceQuery.js.
+export function useCanaryStatus({ enabled = true } = {}) {
   const [state, setState] = useState(() =>
     _cached ? { status: 'ready', byOwner: _cached.by_owner } : { status: 'loading', byOwner: null }
   );
@@ -51,7 +53,7 @@ export function useCanaryStatus() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => (enabled ? load() : undefined), [load, enabled]);
 
   return { byOwner: state.byOwner, status: state.status, retry: load };
 }

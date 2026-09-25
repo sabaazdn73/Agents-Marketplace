@@ -36,15 +36,24 @@ export default function HireableChainView({ view, label }) {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  // Every address change here is announced as a popstate, so App.jsx re-reads
+  // the address: without it App kept the previous path, and with it the
+  // previous page's canonical URL (a missing agent's, after Back to Explore).
+  // The listeners in this view and in ChainViewTabs read the same address and
+  // arrive at the state set here.
+  const announce = () => { try { window.dispatchEvent(new PopStateEvent('popstate', { state: {} })); } catch { /* non-fatal */ } };
+
   function openAgent(agent) {
     const path = chainAgentPath(agent.chainId, agent.tokenId);
     window.history.pushState({}, '', path);
+    announce();
     setRoute({ chainId: agent.chainId, tokenId: String(agent.tokenId) });
     window.scrollTo({ top: 0 });
   }
 
   function backToMarketplace() {
     window.history.pushState({}, '', '/market');
+    announce();
     setRoute(null);
     window.scrollTo({ top: 0 });
   }

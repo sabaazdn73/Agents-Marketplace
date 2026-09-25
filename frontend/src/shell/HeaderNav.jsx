@@ -31,12 +31,23 @@ import { ChevronDown } from 'lucide-react';
 
 const GAP = 4; // gap-1 between tabs
 
+// The page you are on is in the foreground colour and the rest are muted,
+// with no underline: the current page is marked by colour alone. Both states
+// use one weight, so a tab does not change width when it becomes current and
+// the fit below cannot shift.
+//
+// Words only, no icon, in the header row. The 16px icons and their gaps cost
+// about 120px across five tabs, which at 1280 with a wallet connected was the
+// difference between all five pages showing and two of them in More. The
+// icons stay in the More menu, where the width is free.
 function tabClass(active) {
-  return `relative shrink-0 h-full flex items-center gap-1.5 px-2.5 text-body whitespace-nowrap transition-colors ${
-    active ? 'text-fg font-semibold' : 'text-muted font-medium hover:text-fg'}`;
+  return `relative shrink-0 h-full flex items-center px-2.5 text-body font-medium whitespace-nowrap transition-colors ${
+    active ? 'text-fg' : 'text-muted hover:text-fg'}`;
 }
 
-export default function HeaderNav({ items, active, onSelect }) {
+// `align="end"` puts the tabs at the right of the space they are given, as
+// the product header does; the fit is the same either way.
+export default function HeaderNav({ items, active, onSelect, align = 'start' }) {
   const boxRef = useRef(null);
   const measureRef = useRef(null);
   const moreMeasureRef = useRef(null);
@@ -144,17 +155,14 @@ export default function HeaderNav({ items, active, onSelect }) {
   };
 
   return (
-    <div ref={boxRef} className="relative flex-1 min-w-0 h-full flex items-stretch">
+    <div ref={boxRef} className={`relative flex-1 min-w-0 h-full flex items-stretch ${align === 'end' ? 'justify-end' : ''}`}>
       {/* The measuring row: every tab at its widest, never seen or read. */}
       <div ref={measureRef} aria-hidden="true" className="absolute left-0 top-0 h-0 overflow-hidden invisible flex gap-1 pointer-events-none">
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <span key={item.id} className={tabClass(true)}>
-              <Icon size={15} /><span>{item.label}</span>
-            </span>
-          );
-        })}
+        {items.map((item) => (
+          <span key={item.id} className={tabClass(true)}>
+            <span>{item.label}</span>
+          </span>
+        ))}
       </div>
       <span ref={moreMeasureRef} aria-hidden="true" className="absolute left-0 top-0 h-0 overflow-hidden invisible flex items-center gap-1 px-2.5 text-body font-medium pointer-events-none">
         More <ChevronDown size={14} />
@@ -162,7 +170,6 @@ export default function HeaderNav({ items, active, onSelect }) {
 
       <nav className="h-full flex items-stretch gap-1 min-w-0 overflow-hidden" aria-label="Main">
         {visible.map((item) => {
-          const Icon = item.icon;
           const on = active === item.id;
           return (
             <button
@@ -172,9 +179,7 @@ export default function HeaderNav({ items, active, onSelect }) {
               aria-current={on ? 'page' : undefined}
               className={tabClass(on)}
             >
-              <Icon size={15} aria-hidden="true" className={on ? 'text-accent' : ''} />
               <span>{item.label}</span>
-              {on && <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-accent" aria-hidden="true" />}
             </button>
           );
         })}
@@ -202,7 +207,7 @@ export default function HeaderNav({ items, active, onSelect }) {
               role="menu"
               aria-label="More pages"
               onKeyDown={onMenuKey}
-              className="absolute right-0 top-full mt-1 z-40 min-w-[200px] py-1 rounded-md border border-line bg-surface shadow-lg"
+              className="absolute right-0 top-full mt-1 z-40 min-w-[200px] py-1 rounded border border-line bg-surface"
             >
               {overflow.map((item) => {
                 const Icon = item.icon;

@@ -30,6 +30,7 @@ import BudgetHirePanel from '../BudgetHirePanel';
 import InteractionLine from '../InteractionLine';
 import BudgetRecord from '../BudgetRecord';
 import { copyShareLink } from '../shareLink';
+import { setNoIndex } from '../seoMeta';
 import { normalizeChainAgent } from './normalizeChainAgent';
 import { ChainCapabilities, EXPLORER_BASE } from './ChainViewShared';
 import { chainName, nativeSymbol } from '../chainContracts';
@@ -72,17 +73,23 @@ export default function ChainAgentDetail({ chainId, tokenId, onBack }) {
     if (isRefresh) setRefreshing(true); else setState((s) => ({ ...s, loading: true }));
     try {
       const res = await fetch(`${API_BASE_URL}/api/chain-agent/${chainId}/${tokenId}`);
-      if (!res.ok) throw new Error(res.status === 404 ? 'This agent is not in our store.' : `HTTP ${res.status}`);
+      if (!res.ok) throw Object.assign(new Error(res.status === 404 ? 'This agent is not in our store.' : `HTTP ${res.status}`), { notFound: res.status === 404 });
       const d = await res.json();
-      setState({ loading: false, agent: d, error: null });
+      setState({ loading: false, agent: d, error: null, notFound: false });
     } catch (e) {
-      setState({ loading: false, agent: null, error: e.message });
+      setState({ loading: false, agent: null, error: e.message, notFound: Boolean(e.notFound) });
     } finally {
       setRefreshing(false);
     }
   }
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [chainId, tokenId]);
+
+  // An id the store does not hold (a 404, not a failed request) is shown with
+  // its explanation below, under an address that names nothing. The address
+  // is marked noindex for as long as that is on screen, so it is never kept
+  // as a page of its own.
+  useEffect(() => setNoIndex(Boolean(state.notFound)), [state.notFound]);
 
   const onShare = async () => {
     const ok = await copyShareLink(`${window.location.origin}${chainAgentPath(chainId, tokenId)}`);

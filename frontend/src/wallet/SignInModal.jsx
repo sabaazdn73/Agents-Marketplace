@@ -19,6 +19,7 @@ import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { Check, Copy, Loader2, PenLine, ShieldCheck, Wallet, X } from 'lucide-react';
 import { useSignIn, rpcProviderName } from './SignInProvider';
 import { shortAddress } from './useConnectedWallet';
+import { SIGN_IN_BUTTON } from './signInButton';
 
 function Step({ n, title, state, children }) {
   // state: 'done' | 'current' | 'waiting'
@@ -164,7 +165,7 @@ export default function SignInModal({ onClose, purpose = 'signin', onContinue = 
                       ref={primaryRef}
                       type="button"
                       onClick={() => openConnectModal?.()}
-                      className="h-9 px-3 rounded-md bg-accent text-accent-fg text-label font-semibold hover:opacity-90 inline-flex items-center gap-1.5"
+                      className={`h-9 px-3 text-label inline-flex items-center gap-1.5 ${SIGN_IN_BUTTON}`}
                     >
                       <Wallet size={14} aria-hidden="true" /> Connect a wallet
                     </button>
@@ -202,8 +203,8 @@ export default function SignInModal({ onClose, purpose = 'signin', onContinue = 
                         type="button"
                         onClick={signIn}
                         disabled={pending}
-                        className={`h-9 px-3 rounded-md text-label font-semibold disabled:opacity-60 inline-flex items-center gap-1.5 ${
-                          forHire ? 'border border-line-strong text-fg hover:bg-inset' : 'bg-accent text-accent-fg hover:opacity-90'}`}
+                        className={`h-9 px-3 text-label inline-flex items-center gap-1.5 ${
+                          forHire ? 'rounded font-bold border border-line-strong text-fg hover:bg-inset disabled:opacity-60' : SIGN_IN_BUTTON}`}
                       >
                         {pending ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <PenLine size={14} aria-hidden="true" />}
                         {pending ? 'Waiting for your wallet' : 'Sign the message'}

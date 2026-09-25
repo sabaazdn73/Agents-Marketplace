@@ -6,47 +6,25 @@ import {
   Activity, Users, MessageSquare, Menu,
   ExternalLink, Zap, Coins, Search, Briefcase, Globe, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
 } from 'lucide-react';
-// Header mark. Uses the filter-free variant deliberately: the full
-// icon_v2.svg is a 512px launcher icon carrying two SVG drop-shadow
-// filters applied eight times, and SVG filter regions are rasterised
-// without reliably tracking devicePixelRatio -- which is what makes a
-// filtered SVG look pixelated on a high-DPI phone even though the source
-// is vector. At the 32px this renders at, those shadows are sub-pixel and
-// contribute nothing anyway. Same artwork, same gradients, same viewBox.
-// The clay app mark, the same file the home-screen and dock icons are
-// generated from, so the in-app logo and the installed icon match.
-import iconLogo from './assets/app-icon.png';
-// The mark, with the clay tile removed. The same file the Chrome extension
-// ships as its icon, so the panel on a Hyperliquid page and the header on this
-// site carry one mark rather than two versions of one. app-icon.png is the
-// tiled original and is still what the installed PWA and the QR code use,
-// where a solid tile is what the surface expects.
-import appMark from './assets/app-mark.png';
 
 import { useNavSync, useOverlayHistory } from './useViewHistory';
-import agentsHero from './assets/agents.jpg';
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
 import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, DEADLINE_PRESETS, formatDeadline, validateDeadlineMinutes } from './hireDeadline';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
-import AdvantageReport from './AdvantageReport';
-import AltanaSkillsPanel from './AltanaSkillsPanel';
-import NativeAgentMarketplace from './NativeAgentMarketplace';
 // The How It Works page's whole body, shared verbatim with
 // AgentMarketplaceApp.web.jsx; `variant` changes type sizes only.
-import HowItWorksPage from './HowItWorksPage';
 import NotificationBell from './NotificationBell';
 import { addNotification, trackJob, getActiveWallet } from './notifications';
 import { recordFunded } from './jobTiming';
-import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import {
-  useMarketplaceInfinite, useMarketplaceFacets, fetchAgentById,
+  useMarketplaceInfinite, useMarketplaceFacets, fetchAgentById, useLatch,
   groupCountsFromFacets, hackathonCountsFromFacets,
 } from './marketplaceQuery';
 import ChainViewTabs from './chainViews/ChainViewTabs';
@@ -63,7 +41,6 @@ import DeliveryProvenance from './DeliveryProvenance';
 import InfoTooltip from './InfoTooltip';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
-import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import UniversalSearchFallback from './UniversalSearchFallback';
 import AgentMetrics from './AgentMetrics';
@@ -76,91 +53,26 @@ import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
 import { BnbPriceSource } from './shell/DataAttribution';
 import WalletIdentity from './wallet/WalletIdentity';
-import WalletHome from './wallet/WalletHome';
 import { useConnectedWallet } from './wallet/useConnectedWallet';
 import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
+import Wordmark from './shell/Wordmark';
+import TopSearch from './shell/TopSearch';
+import { PRODUCT_NAV, PRODUCT_PAGE_IDS } from './shell/productNav';
+import Dashboard from './pages/Dashboard';
+import Stocks from './pages/Stocks';
+import Vaults from './pages/Vaults';
+import MyEtfs from './pages/MyEtfs';
+import UseWithAi from './pages/UseWithAi';
 import { useTheme } from './theme/ThemeProvider';
-import AgentStudioPage from './AgentStudioPage';
-import MultiAgentIcon from './MultiAgentIcon';
 import { ChainCardBadge } from './chainViews/chainMarks';
 import { resetChainChoice } from './chainViews/ChainViewTabs';
-import PartnerMarquee from './PartnerMarquee';
-import './partnerMarquee.css';
-import SessionModesExplainer from './SessionModesExplainer';
 import { useBnbQuote, labelledBnbUsd, formatBnbWithUsd } from './useBnbPrice';
-import OnboardingTour from './OnboardingTour';
-import { hasSeenOnboarding } from './onboarding';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const CHAIN_LABELS = { 56: 'BNB Smart Chain' }; // mainnet-only
 
-// Source: docs.bnbchain.org/developer-kit, matches web's Learn content.
-// Confirmed-source URLs (each verified to resolve). Same set as web.
-const SRC = {
-  sdk: { label: 'BNB Agent SDK docs', url: 'https://docs.bnbchain.org/developer-kit/bnbagent-sdk/' },
-  studio: { label: 'BNB Agent Studio docs', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/' },
-  studioQuick: { label: 'Studio, Quickstart', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/quickstart/' },
-  studioArch: { label: 'Studio, Architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/architecture/' },
-  altana: { label: 'Altana SDK docs', url: 'https://docs.altana.network' },
-  skills: { label: 'Altana Skills Registry', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json' },
-  venusSkill: { label: 'venus-lending SKILL.md', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/skills/venus-lending/SKILL.md' },
-  adk: { label: "Google's Agent Development Kit, multi-agent patterns", url: 'https://developers.googleblog.com/developers-guide-to-multi-agent-patterns-in-adk/' },
-};
-
-// Copy audit (2026-08-23): this array previously had NO plain-language
-// layer at all, just condensed jargon (raw function-call chains, contract
-// names) for what's meant to be the beginner glossary. Rewritten with a
-// real `p` (plain, leads) + `tech` (secondary, for anyone curious) split,
-// kept in sync in spirit with web's LEARN_TOPICS, condensed to one card
-// per topic for mobile's layout.
-const LEARN_TOPICS = [
-  { h: 'A wallet', p: 'An account that holds your crypto and approves payments, like a bank card, but only you control it. You connect one you already use; this site does not create one for you.', tech: 'A wallet signs on-chain approvals. This site connects to a wallet you already have, such as MetaMask or any wallet that works with WalletConnect, and never holds its keys.' },
-  { h: 'Gas', p: "The tiny fee normally paid to record something permanently, like a stamp on a letter. Registering an agent here is free; we cover that fee for you.", tech: 'A "paymaster" (MegaFuel) sponsors registration gas on BNB Chain.', src: SRC.sdk },
- { h: 'Mainnet', p: "Mainnet is the live network, where money moves for real. Everything on this site runs on mainnet, not a test network.", tech: 'This is the live network. Nothing here is a simulation.' },
-  { h: 'Escrow', p: 'When you hire an agent, your payment is held by the system, not the agent, it only gets paid once the work is accepted, and you can get it back if nothing is delivered.', tech: 'Your payment sits in an on-chain vault (AgenticCommerce) until settlement.', src: SRC.sdk },
-  { h: 'The agent\'s ID card (ERC-8004)', p: "Every agent gets a permanent, public identity anyone can look up, like an ID card. Free to register.", tech: 'An on-chain ERC-721 identity token + a discoverable profile (name, description, endpoints).', src: SRC.sdk },
-  { h: 'The payment rulebook (ERC-8183)', p: "A set of automatic rules that hold the money and enforce the deal, so neither you nor the agent has to just trust the other.", tech: 'Three contracts: AgenticCommerce (job + escrow), EvaluatorRouter (routes to a settlement policy), OptimisticPolicy (silence past the review window = approved).', src: SRC.sdk },
-  { h: 'Hiring = one job, not a subscription', p: "You fund one specific job, once. The agent can never dip into your wallet again on its own.", tech: 'createJob → registerJob → setBudget → approve $U → fund, each signed by your wallet.', src: SRC.sdk },
-  { custom: SessionModesExplainer },
-  { h: 'The stages a hire goes through', p: 'Not paid yet → Payment on hold → Delivered → Finished (paid), or Refunded, if you cancel, dispute successfully, or the deadline passes with nothing delivered.', tech: 'OPEN → FUNDED → SUBMITTED → COMPLETED, or REJECTED / EXPIRED.', src: SRC.sdk },
-  { h: 'The guaranteed exit', p: "If a job's deadline passes with nothing delivered, you can get your money back, anytime, no one's permission needed.", tech: 'claimRefund() after expiry, always available, guaranteed by the contract.', src: SRC.sdk },
-  { h: "If something looks wrong", p: "You get a short window after delivery to flag a problem before payment is automatically released.", tech: 'Call dispute() during the review window instead of letting it auto-settle.', src: SRC.sdk },
-  { h: 'Ready-made Skills', p: "Skills are pre-built recipes you can run, no building required. Most run through your own connected wallet, which signs each step after showing it to you. The x402-payments Skill is the exception: it uses Altana's passkey wallet with a capped session that expires.", tech: "Fork-tested Skills from Altana's public registry. Most run through your connected wallet; the x402-payments Skill uses an Altana passkey wallet with a capped, expiring session.", src: SRC.skills },
- { h: 'How agents are built: single agent', p: 'One agent handles the whole task itself, start to finish, reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here use, including our own explainer agent on the Advantage Report tab.', Diagram: SingleAgentDiagram, src: SRC.adk },
-  { h: 'How agents are built: sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another, each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
-  { h: 'How agents are built: parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
-  { h: 'How agents are built: hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
- { h: "What's here right now", p: 'Fewer than 2% of the agents listed on this house mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
-];
-
-// bag CLI workflow. v0.0.1 is seller-only. Steps reflect our tested
-// pipeline (agent_builder.py): there is NO handle_fulfill, you edit the
-// agent's instruction string in main.py.
-// Copy audit (2026-08-23): each step now leads with a plain-language
-// explanation (`p`); the technical detail moves to `tech`, shown
-// smaller/secondary, kept in sync with the equivalent BUILD_STEPS array
-// in AgentMarketplaceApp.web.jsx (that one keeps the original field names
-// body/plain for its own historical reasons; same content here, mobile's
-// own naming).
-const BUILD_STEPS = [
-  { h: '1. Describe your agent, in plain English', p: 'You type a sentence describing what you want; a tool writes the starter code for you.', tech: 'Tell Claude Code or Cursor what you want, e.g. "a BNB agent that sells weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a working project.', src: SRC.studioQuick },
- { h: '2. It builds two things, not one', p: 'The part that holds the keys to money stays private; a separate public part takes requests from the outside world.', tech: 'Layer A (the Agent) holds the wallet + LLM and is the only thing that ever signs. Layer B (the Service) is public, keyless, and just relays requests.', src: SRC.studioArch },
-  { h: '3. You edit the instructions, not the plumbing', p: "You rewrite one paragraph telling the agent its job, not the technical wiring around it.", tech: 'Wallet setup and the on-chain registration/payment wiring are already there. What you change is the instruction string in main.py describing what it should do when a funded job asks it to work.', src: SRC.studioArch },
- { h: '4. Test it before it touches money', p: 'Run it on your own computer first, with a free AI model, before deploying or spending anything.', tech: 'bag dev runs both layers on your machine. You can hit the live negotiate step, get a signed price quote, and confirm the whole flow first.', src: SRC.studioQuick },
- { h: '5. Register, then publish it', p: 'Try it free for about 2 days with one click, or host it yourself permanently later.', tech: 'bag erc8004 register makes your agent discoverable. The one-click "Build it for real" button uses a free trial (no cloud hosting account needed).', src: SRC.studioArch },
-];
-
-// Beginner FAQ, mirrors the web app's, kept in sync.
-const KID_FRIENDLY_FAQ = [
-  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences; to build a custom agent you mostly edit one instruction paragraph, and to use a ready-made Skill you just fill in a form.', src: SRC.studioQuick },
-  { q: 'Can it spend my money without asking?', a: "No. Hiring funds one specific job you set and fund yourself; a Skill's spending permission has a cap, an expiry, and a limited list of what it can touch. Neither is a standing permission it can dip into freely.", src: SRC.sdk },
-  { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes, but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
-  { q: 'Do I need my own cloud hosting account to build one?', a: 'No. The build button uses a free trial (about 2 days) on a temporary practice wallet, no hosting account, no money involved.', src: SRC.studio },
-  { q: 'What kind of agent can I build?', a: "Pretty much anything you can describe in a sentence: trading, research, writing, customer support, data analysis, games, you're not limited to a preset list.", src: SRC.studioQuick },
-  { q: 'Can it sell to people, not just other agents?', a: "Yes. Any buyer, a person or another agent, can hire it. It's not limited to agent-to-agent deals.", src: SRC.studioArch },
-];
 // Bumped to v2 alongside the web app, see AgentMarketplaceApp.web.jsx's
 // CACHE_KEY comment for the reason (a stale-client-cache theory from
 // investigating a reported web-only missing-button bug that a real
@@ -218,78 +130,17 @@ function StatSkeleton() {
   return <div className="h-5 w-10 mx-auto rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />;
 }
 
-const NAV_ITEMS = [
-  { id: 'landing', label: 'Home', icon: Sparkles },
-  // Mirrors web: the wallet page next to Home, and first in the bottom bar.
-  { id: 'wallet', label: 'Wallet', icon: Wallet },
-  // Connect above the listing (2026-09-17), mirroring web's identical
-  // NAV_ITEMS change; see that file's comment for why it sits above.
-    // How It Works sits directly after Home (2026-09-18). It was called Connect
-  // and listed the ways in; it now opens with what this project measures and
-  // why, then the four ways to use it, each with the sequence to follow. A
-  // visitor who has never seen the site had nowhere to start before this. The
-  // tab id stays 'connect' because every `nav === 'connect'` check reads it,
-  // and /connect still resolves alongside /how-it-works.
-  { id: 'connect', label: 'How It Works', icon: Compass },
-  // Renamed 2026-09-17, mirroring web. The id and the path stay 'market' and
-  // /market so shared links and every `nav === 'market'` check keep working.
-  //
-  // `barLabel` exists only for this one item. The bottom bar gives each
-  // primary tab 72px and a 10px label, which the full name cannot occupy
-  // without running to three lines inside a 56px button. The menu sheet,
-  // where there is width, shows the full name like everywhere else. The
-  // short form drops the venue word and keeps the subject, so the bar and
-  // the page do not name two different things.
-  { id: 'market', label: 'Explore', barLabel: 'Explore', icon: Store },
- // Real, deliberate placement (2026-08-29, product/UX audit), mirrors
-  // web's identical NAV_ITEMS change; see that file's own comment for the
-  // full reasoning. A Skill isn't a registered ERC-8004 agent being hired
- // for delivered work, it's a real, direct, self-executed on-chain
-  // action, promoted out of the "Build" tab (a different feature) into
-  // its own top-level tab.
- // Real, own top-level tab (2026-09-01), mirrors web's identical
-  // NAV_ITEMS change; see that file's own comment for the full reasoning.
-  // Ordered ahead of Skills (2026-09-02, explicit tab-order request).
-  { id: 'native', label: 'Native Agents', icon: Bot },
-  // Under Native Agents: both are about agents doing the work, and this
-  // one is where several of them do it together.
-  { id: 'studio', label: 'MultiAgents', icon: MultiAgentIcon },
-  // My Agents ahead of Skills (2026-09-07, explicit tab-order request):
-  // what you already hired outranks what you could run yourself.
-  { id: 'skills', label: 'Skills', icon: Zap },
-  { id: 'build', label: 'Build', icon: Hammer },
-  { id: 'sell', label: 'Sell', icon: Coins },
-  { id: 'report', label: 'Report', icon: FileBarChart },
-  { id: 'learn', label: 'Learn', icon: GraduationCap },
-];
-
-// bottom-bar trim (2026-09-04): eight tabs in a phone-width bar left
-// each one ~40px wide with a 10px label -- crowded and hard to hit
-// accurately. The bar now carries only the three genuinely primary
-// destinations and everything else moves into the existing menu sheet, so
-// nothing becomes unreachable, it just stops competing for thumb space.
-//
-// Which three, and why these: Explore is the app's whole reason to exist
-// (browsing and hiring registered agents); Native Agents is Tnega's own
-// first-party execution surface, the thing that is not just a directory
-// listing; How It Works is where somebody who has not seen this before
-// starts. The rest are either occasional (Report, Learn), one-off setup
-// (Build, Sell), or a secondary execution path (Skills).
-//
-// My Agents was the third until 2026-09-18, when it moved to the header
-// beside the bell. It was left in this list after that move, and because
-// this list filters NAV_ITEMS by id, naming a tab that no longer exists
-// silently produced a two-item bar rather than an error. A person's own
-// jobs are still one tap away, from the briefcase at the top.
-// Wallet joined the bar on 2026-09-25: it is where a signed-in visitor lands.
-const PRIMARY_NAV_IDS = ['wallet', 'market', 'native', 'connect'];
+// The main navigation, shared with the web header through shell/productNav.js
+// so the two cannot drift. All five product pages fit in the bottom bar, each
+// with its short `barLabel`; Explore agents and My agents are reached from the
+// footer links, in the menu sheet and at the foot of each page.
+const NAV_ITEMS = PRODUCT_NAV;
+const PRIMARY_NAV_IDS = ['dashboard', 'stocks', 'vaults', 'my-etfs', 'ai'];
 const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((i) => PRIMARY_NAV_IDS.includes(i.id));
-const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.id));
 
-// Mobile-optimized Wallet Modal / Sheet
-function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
-                            onOpenEcosystem, onShowOnboarding,
-                            onOpenDataSources }) {
+// The menu sheet: the wallet, the theme, and the footer links. Every product
+// page is in the bottom bar, so the sheet holds no navigation of its own.
+function MobileWalletSheet({ onClose, onNavigate, path }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-h-[90dvh] overflow-y-auto bg-surface text-fg border-t border-line rounded-t-xl p-5 pb-10" onClick={e => e.stopPropagation()}>
@@ -297,133 +148,25 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
         {/* The wallet first: signing in is the one thing in this sheet a
             visitor may have come here to do. Same control as the web
             header (wallet/WalletIdentity.jsx), laid out for the width. The
-            sheet closes before the sign-in modal opens so the two never
-            stack. */}
+            sheet closes before the sign-in page or modal opens. */}
         <div className="mb-5">
           <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Wallet</h3>
-          <WalletIdentity layout="sheet" onBeforeOpen={onClose} />
+          <WalletIdentity
+            layout="sheet"
+            onBeforeOpen={onClose}
+            onOpenSignInPage={onNavigate ? () => onNavigate('/signin') : undefined}
+          />
         </div>
-        {/* The three controls that left the header on 2026-09-18. They are
-            here rather than gone: a control moved out of sight has to land
-            somewhere a person can find it, and this sheet is where the other
-            secondary things already are. */}
-        {/* Theme first: the one setting in this sheet, and it has to be
-            reachable without a wallet. Three positions, system by default. */}
+        {/* Three positions, system by default, reachable without a wallet. */}
         <div className="mb-4">
           <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Theme</h3>
           <ThemeToggle labels />
         </div>
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          {[
-            onOpenEcosystem && { key: 'eco', icon: Globe, label: 'Ecosystem',
-              onClick: () => { onOpenEcosystem(); onClose(); } },
-            onShowOnboarding && { key: 'help', icon: HelpCircle, label: 'How this works',
-              onClick: () => { onShowOnboarding(); onClose(); } },
-          ].filter(Boolean).map((b) => {
-            const Icon = b.icon;
-            return (
-              <button
-                key={b.key}
-                onClick={b.onClick}
-                className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-md border border-line bg-inset text-muted hover:text-fg"
-              >
-                <Icon size={18} />
-                <span className="text-[11px] font-medium">{b.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Secondary destinations, moved out of the bottom bar (2026-09-04).
-            Reachable in one tap from the menu the header already had. */}
-        {onNavigate && (
-          <div className="mb-5">
-            <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Go to</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {SECONDARY_NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const active = nav === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => { onNavigate(item.id); onClose(); }}
-                    className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-md border transition-colors ${active
-                      ? 'border-accent bg-accent-soft text-accent'
-                      : 'border-line bg-inset text-muted hover:text-fg'}`}
-                  >
-                    <Icon size={18} />
-                    <span className="text-[11px] font-medium">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* The walkthrough used to be its own labelled row here. It is now
-            the YouTube icon in SiteLinks below, which both apps share, so
-            keeping this too would list the same video twice in one sheet.
-            Ecosystem is not added here: mobile already has it as a header
-            button, and SiteLinks only renders it when handed a callback. */}
-
-        {/* Docs, GitHub and LinkedIn, plus the walkthrough. Previously a
-            single line at the very bottom of the page, under two footers. */}
-        {/* The rule and its spacing moved into SiteLinks, which now draws
-            its own, so both surfaces get the same footer rather than the
-            sheet drawing one line and the sidebar none. Keeping it here as
-            well would stack two rules a few pixels apart. */}
         <SiteLinks
-          onOpenDocs={onOpenDocs ? () => { onOpenDocs(); onClose(); } : undefined}
-          onOpenDataSources={
-            onOpenDataSources ? () => { onOpenDataSources(); onClose(); } : undefined
-          }
-          variant="light"
+          onNavigate={onNavigate ? (to) => { onClose(); onNavigate(to); } : undefined}
+          activePath={path}
           className="mt-6"
         />
-      </div>
-    </div>
-  );
-}
-
-// Full-screen launch splash. Shown before the app UI; tap anywhere to
-// continue.
-//
-// The "Continue with Face ID" button was removed 2026-09-04. It worked, but
-// it was misleading: it promised biometrics and opened a login provider's
-// passkey/email modal (the site has no login provider now). What that label
-// implies -- an OS-level biometric
-// unlock of the app itself -- is not something a web app can do, so the
-// fix was to stop offering it rather than to reword it.
-function SplashScreen({ onUnlock }) {
-  const [showControls, setShowControls] = useState(false);
-
-  // Show the hero for a beat, then reveal the unlock controls.
-  useEffect(() => {
-    const t = setTimeout(() => setShowControls(true), 1200);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <div
-      onClick={showControls ? onUnlock : undefined}
-      className="fixed inset-0 z-50 bg-page text-fg flex flex-col items-center justify-between p-8 select-none"
-      role="button"
-      aria-label="Tap to continue"
-    >
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full">
-        <img src={agentsHero} alt="Tnega" className="w-full max-w-xs rounded-lg border border-line object-cover" />
-        {!showControls ? (
-          <div className="flex items-center gap-2 text-muted text-sm"><Loader2 size={16} className="animate-spin" /> Loading…</div>
-        ) : (
-          <p className="text-label text-muted">Tap anywhere to continue</p>
-        )}
-      </div>
-
-      <div className="w-full flex flex-col items-center gap-2 pb-4 min-h-[48px] justify-end">
-        <div className="flex items-center gap-2">
-          <img src={appMark} alt="" className="w-11 h-11" />
-          <h1 className="text-h1 font-bold tracking-tight">Tnega</h1>
-        </div>
       </div>
     </div>
   );
@@ -561,14 +304,14 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
   );
 }
 
-// Default export: the splash gate wrapping the app.
-export default function AgentMarketplaceMobileRoot({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
-  const [unlocked, setUnlocked] = useState(false);
-  if (!unlocked) return <SplashScreen onUnlock={() => setUnlocked(true)} />;
-  return <AgentMarketplaceMobile onOpenEcosystem={onOpenEcosystem} onOpenDataSources={onOpenDataSources} onOpenPartners={onOpenPartners} onOpenDocs={onOpenDocs} initialNav={initialNav} onNavChange={onNavChange} />;
+// The mobile shell. The tap-to-continue splash that used to gate it (the
+// agents artwork) was removed on 2026-09-25: it stood between every phone
+// visitor and the Dashboard, and its picture belonged to the agents product.
+export default function AgentMarketplaceMobileRoot(props = {}) {
+  return <AgentMarketplaceMobile {...props} />;
 }
 
-function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
+function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, onNavigate, path = '/', query = '', initialNav, onNavChange } = {}) {
  // bug found and fixed (2026-08-27, full mobile/web parity audit):
   // this file referenced an undefined `REPORT_ACCENT` (never defined or
   // imported anywhere in the codebase) on AltanaSkillsPanel, a guaranteed
@@ -580,12 +323,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // The theme is the site's, not this component's: see theme/ThemeProvider.jsx.
   // `darkMode` is still handed to the few panels that take it as a prop.
   const { dark: darkMode } = useTheme();
- // first-visit orientation, see AgentMarketplaceApp.web.jsx's
-  // matching comment and onboarding.js for the reasoning.
-  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
+  // The first-visit tour is no longer opened here; see the matching note in
+  // AgentMarketplaceApp.web.jsx.
  // per-tab URL routing, see the matching comment in
   // AgentMarketplaceApp.web.jsx; identical mechanism here.
-  const [nav, setNav] = useState(initialNav || 'market');
+  const [nav, setNav] = useState(initialNav || 'dashboard');
   useEffect(() => {
     if (initialNav && initialNav !== nav) setNav(initialNav);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -610,8 +352,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
  // history sorts first and no-history agents are listed after,
   // never mixed in).
   const [sortKey, setSortKey] = useState('default');
-  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, storeWideTotals: perfStoreWide, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
-  const { byOwner: canaryByOwner } = useCanaryStatus();
+  // Explore's data is requested only once Explore has been shown, as on web:
+  // the Dashboard on "/" has no use for it.
+  const exploreShown = useLatch(nav === 'market');
+  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, storeWideTotals: perfStoreWide, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk({ enabled: exploreShown });
+  const { byOwner: canaryByOwner } = useCanaryStatus({ enabled: exploreShown });
   const [selectedAgent, setSelectedAgent] = useState(null);
   const [detailAgent, setDetailAgent] = useState(null); // full-screen agent detail push
  // Back-button support (2026-09-04). Opening an agent pushes a real
@@ -632,37 +377,6 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // mean THIS agent can draw from it. Defaults to unavailable while it
   // loads, so a possible dead end is never offered before it is ruled out.
   const budgetMode = useBudgetModeStatus(selectedAgent?.ownerAddress || selectedAgent?.owner_address);
- // deep-link from the agent guidance panel's "Try it yourself",
-  // switches to Build and pre-opens that specific skill's guided form.
-  // Mirrors web's identical handleTrySkill.
-  const [pendingSkillId, setPendingSkillId] = useState(null);
-  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('skills'); setPendingSkillId(skillId); onNavChange?.('skills'); };
-  const [buildDescription, setBuildDescription] = useState('');
-  const [showBuildCommand, setShowBuildCommand] = useState(false);
-  const [buildStatus, setBuildStatus] = useState(null);
-
-  const handleRealBuild = async () => {
-    if (!buildDescription.trim()) return;
-    setBuildStatus({ step: 'queued' });
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/build?description=${encodeURIComponent(buildDescription.trim())}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
-      const { slug } = await res.json();
-      const poll = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`${API_BASE_URL}/api/build/${slug}/status`);
-          const status = await statusRes.json();
-          setBuildStatus(status);
-          if (status.step === 'done' || status.step === 'error') clearInterval(poll);
-        } catch (e) {
-          setBuildStatus({ step: 'error', error: e.message });
-          clearInterval(poll);
-        }
-      }, 4000);
-    } catch (e) {
-      setBuildStatus({ step: 'error', error: e.message });
-    }
-  };
   const [spendCap, setSpendCap] = useState(50000);
   const [spendCapTouched, setSpendCapTouched] = useState(false);
  // Real, user-facing job deadline, see the matching comment in
@@ -686,7 +400,16 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   const [showManualHire, setShowManualHire] = useState(false);
   const [manualAddress, setManualAddress] = useState('');
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
-  const facets = useMarketplaceFacets();
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Tab changes from the header, the bottom bar and the sheet go through one
+  // function, as on web, so they cannot drift in what they reset.
+  const goTo = (id) => {
+    dismissAgentDetail();
+    // Explore opens on its chain list, as on web.
+    if (id === 'market') resetChainChoice();
+    setNav(id); setHiring(false); onNavChange?.(id);
+  };
+  const facets = useMarketplaceFacets({ enabled: exploreShown });
   // One page at a time, appended by "Load more". Every filter is part of the
   // request, so changing one asks the server for a new selection rather than
   // re-filtering rows already downloaded.
@@ -697,7 +420,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     categoryView, activeGroup, activeCategory, activeHackathon,
     searchQuery, showUnclassified: true, onlyResponding, onlyVerified,
     sortKey: sortKey === 'default' ? null : sortKey, sortDir: 'desc',
-  }, mapAgent, 12);
+  }, mapAgent, 12, { enabled: exploreShown });
  // bug fix, 2026-08-26: this used to sit up near `sortKey` (right
   // after the state declarations, before `agents` itself existed yet),
   // `agents` is a `const` from useMarketplaceAgents() below, and JS's
@@ -719,7 +442,14 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     if (deepLinkHandledRef.current || !deepLinkIdRef.current) return;
     deepLinkHandledRef.current = true;
     fetchAgentById(deepLinkIdRef.current)
-      .then((raw) => { if (raw) { setNav('market'); setDetailAgent(mapAgent(raw)); } })
+      .then((raw) => {
+        if (raw) { setNav('market'); setDetailAgent(mapAgent(raw)); return; }
+        // No such agent. Its address would otherwise stay in the bar and be
+        // published as the canonical URL of a page that does not exist, so
+        // it is replaced with Explore's own. A failed request (the catch)
+        // leaves the address alone: the agent may well exist.
+        onNavigate?.('/market', { replace: true });
+      })
       .catch(() => {});
   }, [agents]);
 
@@ -884,60 +614,46 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
   return (
     <div className="relative flex flex-col h-[100dvh] font-sans bg-page text-fg">
-      {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
 
-      {/* App Header (Sticky) */}
-      {/* Header spacing tightened 2026-09-05. Five controls at the 44px
-          touch-target floor plus the logo and title left almost no room on a
-          360px phone. This is arrangement only -- every control is still here
-          and still 44x44. What changed is the gap between them and the
- padding around them, which is where the space was. */}
+      {/* The header, following the reference's phone layout: the wordmark
+          on the left; search, the bell and the menu on the right, each a 44px
+          target. Search opens a row under the header with the same field as
+          the web header (shell/TopSearch.jsx). */}
       <header className="shrink-0 bg-surface border-b border-line z-20 pt-safe">
-        <div className="h-14 flex items-center justify-between gap-2 px-3">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="h-14 flex items-center justify-between gap-2 pl-4 pr-2">
           <a
-            href="https://f2f-uzh.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="F2F Hub, all three projects in this portfolio"
-            className="w-9 h-9 block shrink-0"
+            href="/"
+            onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
+            className="min-w-0 text-fg"
           >
-            <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
+            <Wordmark className="text-[24px]" />
           </a>
-          <h1 className="text-title font-bold tracking-tight truncate">Tnega</h1>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setSearchOpen((v) => !v)}
+              aria-label="Search stocks, ETFs or vaults"
+              aria-expanded={searchOpen}
+              className={`w-11 h-11 flex items-center justify-center rounded ${searchOpen ? 'text-fg bg-inset' : 'text-fg hover:bg-inset'}`}
+            >
+              <Search size={20} />
+            </button>
+            <NotificationBell />
+            <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded text-fg hover:bg-inset">
+              <Menu size={20} />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
-          {/* Beside the bell, for the reason given in the web shell: a
-              person's own jobs belong next to the thing that tells them a job
-              moved, not in the list of places to browse. */}
-          <button
-            onClick={() => {
-              dismissAgentDetail();
-              setNav('my-agents');
-              setHiring(false);
-              onNavChange?.('my-agents');
-            }}
-            aria-label="My Agents"
-            title="My Agents, the jobs you have hired"
-            className={`w-11 h-11 flex items-center justify-center rounded-md transition-colors ${
-              nav === 'my-agents'
-                ? 'bg-accent-soft text-accent'
-                : 'text-muted hover:text-fg'}`}
-          >
-            <Briefcase size={16} />
-          </button>
-          <NotificationBell />
-          {/* Three buttons here, not six. A 390px header carrying a logo, a
-              title and six 44px targets rendered the title as "T..", and the
-              three that left are the ones nobody presses mid-task: the
-              ecosystem view, the tour and the theme. They are in the sheet
-              behind this menu button, one tap away, grouped rather than
-              competing with the jobs and notifications a person checks. */}
-          <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded-md text-fg hover:bg-inset">
-            <Menu size={20} />
-          </button>
-        </div>
-        </div>
+        {searchOpen && (
+          <div className="px-4 pb-3">
+            <TopSearch
+              key={query}
+              initial={query}
+              autoFocus
+              onSearch={(to) => { setSearchOpen(false); dismissAgentDetail(); setHiring(false); onNavigate?.(to); }}
+            />
+          </div>
+        )}
       </header>
 
       {/* Main Scrollable Content */}
@@ -1127,11 +843,23 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             agent={detailAgent}
             onBack={closeAgentDetail}
             onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
-            onTrySkill={handleTrySkill}
           />
+        ) : PRODUCT_PAGE_IDS.includes(nav) ? (
+          // The product pages, the same components web renders; `layout`
+          // changes spacing only.
+          <>
+            {nav === 'dashboard' && <Dashboard layout="mobile" />}
+            {nav === 'stocks' && <Stocks layout="mobile" query={query} />}
+            {nav === 'vaults' && <Vaults layout="mobile" />}
+            {nav === 'my-etfs' && <MyEtfs layout="mobile" />}
+            {nav === 'ai' && <UseWithAi layout="mobile" />}
+          </>
         ) : (
           <div className="p-5">
-                        {nav === 'market' && (
+            {/* The page's one h1, as on web: the visible headings below
+                belong to whichever chain view is open. */}
+            {nav === 'market' && <h1 className="sr-only">Explore agents</h1>}
+            {nav === 'market' && (
               <ChainViewTabs mutedBorder="border-line">
                 {/* BNB Chain view below is the original mobile marketplace,
                     unchanged; ChainViewTabs renders it as-is on the BNB tab. */}
@@ -1458,195 +1186,22 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'my-agents' && (
               <div className="space-y-5">
                 <div>
-                  <h2 className="text-h1 font-bold mb-1">My Agents</h2>
+                  <h1 className="text-h1 font-bold mb-1">My Agents</h1>
                   <p className="text-sm text-muted">Every agent you've hired through here, and where things stand right now.</p>
                 </div>
                 <MyJobsPanel accent="#4F46E5" mutedBorder="border-line" />
               </div>
             )}
 
-            {nav === 'report' && (
-              <div className="space-y-5">
-                <div>
-                  <h2 className="text-h1 font-bold mb-1">Advantage Report</h2>
-                  <p className="text-sm text-muted">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
-                </div>
-                <AdvantageReport />
-              </div>
-            )}
-
-            {nav === 'wallet' && <div className="p-4"><WalletHome layout="mobile" /></div>}
-            {nav === 'sell' && <SellYourAgentForm />}
-            {nav === 'studio' && <AgentStudioPage accent="#4F46E5" />}
-
-            {/* Connect Tab, the same shared component web renders. */}
-            {nav === 'connect' && <HowItWorksPage variant="mobile" />}
-
-            {nav === 'learn' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-h1 font-bold mb-1">Learn</h2>
-                  <p className="text-sm text-muted">What each agent does, and what you're granting.</p>
-                </div>
-
-                <div className="space-y-3">
-                  {LEARN_TOPICS.map((item, i) => (
-                    item.custom ? (
-                      <item.custom key={i} />
-                    ) : (
-                    <div key={i} className="bg-surface rounded-md p-4 border border-line">
-                      <div className="font-bold text-sm mb-1">{item.h}</div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{item.p}</div>
-                      {item.tech && <div className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {item.tech}</div>}
-                      {item.Diagram && (
-                        <div className="mt-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-line">
-                          <item.Diagram compact />
-                        </div>
-                      )}
-                      {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
-                    </div>
-                    )
-                  ))}
-                </div>
-              </div>
-            )}
-
- {/* Real, own top-level tab (2026-08-29), see NAV_ITEMS' own
-                comment above for the full reasoning this was moved out of
-                "Build" for. Same AltanaSkillsPanel web uses, verbatim. */}
-            {nav === 'skills' && (
-              <div className="space-y-4">
-                <h2 className="text-h1 font-bold mb-1">Skills</h2>
-                <p className="text-sm text-muted">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
-                <p className="text-[11px] text-gray-400">Different from hiring an agent from Explore: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
-
-                <div className="bg-surface rounded-md p-4 border border-line">
-                  <AltanaSkillsPanel accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
-                </div>
-              </div>
-            )}
-
- {/* Real, own top-level tab (2026-09-01), mirrors web's
-                identical NativeAgentMarketplace section, verbatim. */}
-            {nav === 'native' && (
-              <div className="space-y-4">
-                <h2 className="text-h1 font-bold mb-1">Native Agent Marketplace</h2>
-                <p className="text-sm text-muted">Tnega's own designed agents: autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
-                <p className="text-[11px] text-gray-400">Each agent evaluates candidate protocols itself (liquidity/risk first, yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
-
-                <div className="bg-surface rounded-md p-4 border border-line">
-                  <NativeAgentMarketplace accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} />
-                </div>
-              </div>
-            )}
-
-            {nav === 'build' && (
-              <div className="space-y-4">
-                <h2 className="text-h1 font-bold mb-1">Build Your Agent</h2>
-
-                <div className="bg-indigo-600 text-white p-6 rounded-3xl shadow-lg shadow-indigo-600/20">
-                  <Sparkles size={24} className="mb-3" />
-                  <h3 className="font-bold text-lg mb-2">No code required</h3>
-                  <p className="text-sm text-indigo-100 mb-4 leading-relaxed">Describe what you want in plain English. Powered by BNB Agent Studio.</p>
-                  <a href="https://docs.bnbchain.org/developer-kit" target="_blank" rel="noreferrer" className="text-xs text-indigo-200 underline">Source: docs.bnbchain.org/developer-kit →</a>
-                </div>
-                <div className="space-y-3">
-                  {BUILD_STEPS.map((step, i) => (
-                    <div key={i} className="bg-surface rounded-md p-4 border border-line">
-                      <div className="font-bold text-sm mb-1">{step.h}</div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{step.p}</div>
-                      {step.tech && <div className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {step.tech}</div>}
-                      {step.src && <a href={step.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {step.src.label} →</a>}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-2">
-                  <div className="text-xs font-bold uppercase text-gray-500 mb-1">Questions a beginner would ask</div>
-                  {KID_FRIENDLY_FAQ.map((item, i) => (
-                    <div key={i} className="bg-surface rounded-md p-4 border border-line">
-                      <div className="font-bold text-sm mb-1">{item.q}</div>
-                      <div className="text-sm text-muted leading-relaxed">{item.a}</div>
-                      {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-line">
-                  <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Good to know</span></div>
- <p className="text-xs text-muted">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in Explore spends money on mainnet.</p>
-                </div>
-
-                <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">
-                  <textarea
-                    value={buildDescription}
-                    onChange={(e) => setBuildDescription(e.target.value)}
-                    placeholder='e.g. "an agent that sells weather forecasts"'
-                    rows={2}
-                    disabled={buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error'}
-                    className="w-full p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-field text-sm mb-3 outline-none disabled:opacity-50"
-                  />
-                  <button
-                    onClick={handleRealBuild}
-                    disabled={!buildDescription.trim() || (buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error')}
-                    className="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm disabled:opacity-40 mb-2"
-                  >
- Build it for real (free trial, ~2 days)
-                  </button>
-                  <button
-                    onClick={() => setShowBuildCommand(true)}
-                    disabled={!buildDescription.trim()}
-                    className="w-full py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-500/30 text-indigo-700 dark:text-indigo-400 font-semibold text-xs disabled:opacity-40"
-                  >
-                    Or just show me the command
-                  </button>
-
-                  {buildStatus && (
-                    <div className="mt-4 p-4 rounded-xl bg-field border border-indigo-100 dark:border-indigo-500/30">
-                      <div className="flex items-center gap-2 mb-1">
-                        {buildStatus.step !== 'done' && buildStatus.step !== 'error' && <Loader2 size={14} className="animate-spin text-indigo-500" />}
-                        {buildStatus.step === 'done' && <CheckCircle2 size={14} className="text-green-500" />}
-                        {buildStatus.step === 'error' && <XCircle size={14} className="text-red-500" />}
-                        <span className="font-semibold text-xs">
-                          {{
-                            queued: 'In line...', scaffolding: "Setting up your agent's files...", creating_wallet: 'Creating a practice wallet...',
-                            writing_logic: "Writing your agent's instructions...", activating_llm: 'Turning on its AI (free to start)...',
-                            deploying: 'Publishing it live for your free trial...', done: "Done! It's live for the next 2 days.", error: 'Build failed',
-                          }[buildStatus.step] || buildStatus.step}
-                        </span>
-                      </div>
-                      {buildStatus.step === 'done' && buildStatus.address && (
-                        <p className="text-[10px] text-gray-500 mt-1 font-mono">{buildStatus.address}</p>
-                      )}
-                      {buildStatus.step === 'error' && (
-                        <p className="text-[10px] text-red-500 mt-1 font-mono whitespace-pre-wrap">{buildStatus.error}</p>
-                      )}
-                    </div>
-                  )}
-
-                  {showBuildCommand && buildDescription.trim() && (
-                    <div className="mt-4 font-mono text-[10px] p-4 rounded-xl bg-field border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-x-auto">
-{`# Run in your own terminal:
-pip install bnbagent-studio
-bag skills install --target both --scope user
-
-# In Claude Code or Cursor, say:
-"Create a BNB agent named ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20)} on testnet that ${buildDescription.trim()}."
-
-# Or scaffold directly:
-bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20)} --network bsc-testnet`}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
 
-        {/* Replaces the old partner footer. Outside the px-5 wrapper so it
-            spans the full width. */}
-        <PartnerMarquee />
+        {/* The footer links, the same component the web shell and the menu
+            sheet use. */}
+        <div className="px-4 pb-6">
+          <SiteLinks onNavigate={(to) => { dismissAgentDetail(); onNavigate?.(to); }} activePath={path} className="mt-4" />
+        </div>
       </main>
 
       {/* App-like Bottom Navigation */}
@@ -1683,12 +1238,7 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  dismissAgentDetail();
-                  // Same as web: Explore opens on its chain list.
-                  if (item.id === 'market') resetChainChoice();
-                  setNav(item.id); setHiring(false); onNavChange?.(item.id);
-                }}
+                onClick={() => goTo(item.id)}
                 aria-current={active ? 'page' : undefined}
                 className={`flex flex-col items-center justify-center flex-1 max-w-[88px] h-14 rounded-md transition-colors ${active ? 'text-accent' : 'text-muted hover:text-fg'}`}
               >
@@ -1704,12 +1254,8 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
       {walletSheetOpen && (
         <MobileWalletSheet
           onClose={() => setWalletSheetOpen(false)}
-          nav={nav}
-          onOpenDocs={onOpenDocs}
-          onOpenEcosystem={onOpenEcosystem}
-          onOpenDataSources={onOpenDataSources}
-          onShowOnboarding={() => setShowOnboarding(true)}
-          onNavigate={(id) => { dismissAgentDetail(); setNav(id); setHiring(false); onNavChange?.(id); }}
+          onNavigate={(to) => { dismissAgentDetail(); setHiring(false); onNavigate?.(to); }}
+          path={path}
         />
       )}
       

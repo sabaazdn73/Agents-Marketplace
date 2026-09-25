@@ -5,36 +5,21 @@ import {
   Loader2, AlertTriangle, Wallet, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
 } from 'lucide-react';
-// Header mark. Uses the filter-free variant deliberately: the full
-// icon_v2.svg is a 512px launcher icon carrying two SVG drop-shadow
-// filters applied eight times, and SVG filter regions are rasterised
-// without reliably tracking devicePixelRatio -- which is what makes a
-// filtered SVG look pixelated on a high-DPI phone even though the source
-// is vector. At the 32px this renders at, those shadows are sub-pixel and
-// contribute nothing anyway. Same artwork, same gradients, same viewBox.
-// The clay app mark, the same file the home-screen and dock icons are
-// generated from, so the in-app logo and the installed icon match.
+// The clay app mark, used by the QR code below (QrToMobile).
 import iconLogo from './assets/app-icon.png';
-// The mark, with the clay tile removed. The same file the Chrome extension
-// ships as its icon, so the panel on a Hyperliquid page and the header on this
-// site carry one mark rather than two versions of one. app-icon.png is the
-// tiled original and is still what the installed PWA and the QR code use,
-// where a solid tile is what the surface expects.
-import appMark from './assets/app-mark.png';
 
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
 import { addNotification, trackJob, getActiveWallet } from './notifications';
 import { recordFunded } from './jobTiming';
-import SellYourAgentForm from './SellYourAgentForm';
 import BuyAccessPanel from './BuyAccessPanel';
 import PasskeyBadge from './PasskeyBadge';
 import ServiceHealthBadge, { serviceRank } from './ServiceHealthBadge';
 import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import {
-  useMarketplacePage, useMarketplaceFacets, fetchAgentById,
+  useMarketplacePage, useMarketplaceFacets, fetchAgentById, useLatch,
   groupCountsFromFacets, hackathonCountsFromFacets,
 } from './marketplaceQuery';
 import { updatePageMeta } from './seoMeta';
@@ -52,7 +37,6 @@ import DeliveryProvenance from './DeliveryProvenance';
 import { CATEGORY_GROUPS, groupForCategory } from './categoryGroups';
 import { HACKATHON_CATEGORIES, hackathonForCategory } from './hackathonCategories';
 import InfoTooltip from './InfoTooltip';
-import { SingleAgentDiagram, SequentialDiagram, ParallelDiagram, HierarchicalDiagram } from './AgentArchitectureDiagrams';
 import { useHireFlowEscrowGate, useEscrowCompatibility } from './EscrowCompatibilityWarning';
 import UniversalSearchFallback from './UniversalSearchFallback';
 import AgentMetrics from './AgentMetrics';
@@ -101,17 +85,9 @@ function QrToMobile() {
 }
 import { useHireAgent, buildHireStepList, buildBatchHireStepList, useAgentQuote, useBatchHireCapability, CAN_BATCH_HIRE_STATUS } from './useHireAgent';
 import { DEADLINE_MIN_MINUTES, DEADLINE_MAX_MINUTES, DEADLINE_DEFAULT_MINUTES, DEADLINE_PRESETS, formatDeadline, validateDeadlineMinutes } from './hireDeadline';
-import SessionModesExplainer from './SessionModesExplainer';
-import AltanaSkillsPanel from './AltanaSkillsPanel';
-import NativeAgentMarketplace from './NativeAgentMarketplace';
-// The How It Works page's whole body. One component shared with
-// AgentMarketplaceApp.mobile.jsx so three cards of prose are not maintained in
-// two places; see HowItWorksPage.jsx.
-import HowItWorksPage from './HowItWorksPage';
 import StepChecklist from './StepChecklist';
 import GetULink from './GetULink';
 import MyJobsPanel from './MyJobsPanel';
-import AdvantageReport from './AdvantageReport';
 import AgentAvatar from './AgentAvatar';
 import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
@@ -119,20 +95,21 @@ import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
 import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
+import Wordmark from './shell/Wordmark';
+import TopSearch from './shell/TopSearch';
+import { PRODUCT_NAV } from './shell/productNav';
+import Dashboard from './pages/Dashboard';
+import Stocks from './pages/Stocks';
+import Vaults from './pages/Vaults';
+import MyEtfs from './pages/MyEtfs';
+import UseWithAi from './pages/UseWithAi';
 import { BnbPriceSource } from './shell/DataAttribution';
 import WalletIdentity from './wallet/WalletIdentity';
-import WalletHome from './wallet/WalletHome';
 import { useConnectedWallet } from './wallet/useConnectedWallet';
 import { useSignIn } from './wallet/SignInProvider';
 import { useTheme } from './theme/ThemeProvider';
-import AgentStudioPage from './AgentStudioPage';
-import MultiAgentIcon from './MultiAgentIcon';
 import { ChainCardBadge } from './chainViews/chainMarks';
-import PartnerMarquee from './PartnerMarquee';
-import './partnerMarquee.css';
 import { useBnbQuote, labelledBnbUsd, formatBnbWithUsd } from './useBnbPrice';
-import OnboardingTour from './OnboardingTour';
-import { hasSeenOnboarding } from './onboarding';
 
 const CATEGORIES = ['All', 'Rebalancing', 'Grid Trading', 'Yield Optimisation', 'Health Factor Monitoring', 'Unclassified'];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -204,85 +181,6 @@ const AGENT_FETCH_RETRY_MS = [1500, 4000, 11000];
 function StatSkeleton() {
   return <div className="h-7 w-14 rounded-md bg-gray-200 dark:bg-gray-700 animate-pulse" />;
 }
-
-// Source: docs.bnbchain.org/developer-kit (BNB Agent SDK + BNB Agent Studio),
-// provided directly, not searched, every term below matches the docs.
-// Confirmed-source URLs (each verified to resolve, this session). Every
-// factual claim below links to one of these next to the claim itself.
-const SRC = {
-  sdk: { label: 'BNB Agent SDK docs', url: 'https://docs.bnbchain.org/developer-kit/bnbagent-sdk/' },
-  sdkArch: { label: 'BNB Agent SDK, architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbagent-sdk/architecture/' },
-  studio: { label: 'BNB Agent Studio docs', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/' },
-  studioQuick: { label: 'BNB Agent Studio, Quickstart', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/quickstart/' },
-  studioArch: { label: 'BNB Agent Studio, Architecture', url: 'https://docs.bnbchain.org/developer-kit/bnbchain-studio/architecture/' },
-  altana: { label: 'Altana SDK docs', url: 'https://docs.altana.network' },
-  skills: { label: 'Altana Skills Registry', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/index.json' },
-  venusSkill: { label: 'venus-lending SKILL.md', url: 'https://raw.githubusercontent.com/altananetwork/skills/main/skills/venus-lending/SKILL.md' },
-  adk: { label: "Google's Agent Development Kit, multi-agent patterns", url: 'https://developers.googleblog.com/developers-guide-to-multi-agent-patterns-in-adk/' },
-};
-
-const LEARN_TOPICS = [
-  { title: 'Start here: the words we use, in plain English', body: [
-    { h: 'A wallet', p: 'A wallet is just an account that can hold crypto and sign approvals, like an online account that can also say "yes, spend this." You connect one you already use, such as MetaMask or any wallet that works with WalletConnect. This site does not create wallets and never holds a wallet\'s keys.', plain: 'Think: a bank-card + signature, combined, that only you control.' },
-    { h: 'Gas', p: 'Gas is the tiny network fee paid to record a transaction on the blockchain, like a stamp on a letter. Registering an agent here is gas-free: a "paymaster" called MegaFuel covers it, so you don\'t need to hold gas tokens.', plain: 'You don\'t pay a stamp to list an agent, the network sponsors it.', src: SRC.sdk },
- { h: 'Mainnet', p: "Mainnet is BNB Chain's live network, where money moves. Everything on this site runs on mainnet rather than a test network.", plain: 'This is the live network. Nothing here is a simulation.' },
-    { h: 'Escrow', p: 'Escrow is a neutral on-chain vault. When you hire an agent, your payment is locked there; the agent is paid only when the work is accepted, and you can reclaim it if they never deliver.', plain: 'Your money is held by the rules, not by the agent, until the job is done.', src: SRC.sdk },
-  ]},
-  { title: 'The two standards every agent here uses', body: [
-    { h: 'ERC-8004, Identity', p: 'Every agent gets an on-chain identity token (an ERC-721 agentId), a discoverable profile (name, description, endpoints), and metadata. Registration is sponsored by the MegaFuel paymaster on BNB Chain, so it costs no gas.', plain: 'It\'s the agent\'s ID card, and putting it on-chain is free.', src: SRC.sdk },
-    { h: 'ERC-8183, Commerce', p: 'A trustless job protocol. A client (you) and a provider (the agent) transact through three contracts: AgenticCommerce (owns job state + escrow), EvaluatorRouter (routes each job to a settlement policy), and OptimisticPolicy (the default rule: silence past the review window counts as approval).', plain: 'Three small programs that hold the money and enforce the deal so neither side has to trust the other.', src: SRC.sdk },
-  ]},
-  { title: 'What "hiring" means here', body: [
-    { h: 'A job, not a subscription', p: "Hiring creates an ERC-8183 job: five wallet-signed steps, createJob, registerJob, setBudget, approve $U, fund. Payment is in $U (United Stables, a crypto dollar). Once funded, the budget sits in on-chain escrow; it is NOT a standing permission an agent can draw from repeatedly.", plain: 'You fund one specific job, once. The agent can never dip into your wallet again on its own.', src: SRC.sdk },
-    { h: 'Provider submits, you get a receipt', p: 'The agent submits a deliverable; only a pointer/hash goes on-chain (the content is stored off-chain and looked up by URL). ', plain: 'The chain records the proof-of-delivery, not the file itself.', src: SRC.sdkArch },
-    { h: 'Settlement is automatic, or disputable', p: 'Settling a job is permissionless, anyone can trigger it once the review window passes, releasing escrow to the provider. If the delivered work looks wrong, you dispute() during that window instead.', plain: 'Do nothing and the agent gets paid after the review window; object in time and it\'s contested.', src: SRC.sdk },
-    { h: 'The safety net: claimRefund', p: "If a job is never settled (agent went dark, nothing delivered) and its deadline passes, you call claimRefund() and get your escrowed funds back. It's the guaranteed exit, always available after expiry.", plain: 'Worst case, you wait out the deadline and take your money back.', src: SRC.sdk },
-  ]},
-  { custom: SessionModesExplainer },
-  { title: 'The stages a hire goes through, one by one', body: [
-    { h: 'OPEN', p: 'Job created, no budget escrowed yet.', plain: "You've started a job, but haven't paid for it yet." },
-    { h: 'FUNDED', p: 'Budget escrowed. The provider can now start work.', plain: 'Your payment is on hold and the agent can now start the work.' },
-    { h: 'SUBMITTED', p: 'Provider delivered a result, waiting out the review window.', plain: "The agent says it's done, you get a short window to check the work before it gets paid." },
-    { h: 'COMPLETED', p: 'Verdict = approve (silence, or a resolved dispute). Payment released to the provider, minus platform fees.', plain: 'The job is finished and the agent has been paid (a small platform fee comes out first).' },
-    { h: 'REJECTED', p: 'Either you cancelled before funding, or a dispute resolved against the provider. You get refunded.', plain: "Either you cancelled before paying, or you successfully disputed bad work, either way, you get your money back." },
-    { h: 'EXPIRED', p: 'No settlement ever reached, past the deadline. Reclaim your funds anytime with claimRefund().', plain: 'The deadline passed with nothing delivered. You can get your money back anytime after that.' },
-  ], src: SRC.sdk },
-  { title: 'Ready-made Skills', body: [
-    { h: 'Skills = pre-built, fork-tested know-how', p: 'Instead of building an agent, you can use a ready-made Skill from Altana\'s public registry (PancakeSwap trading, Venus/Aave lending, Lista staking, four.meme, copy-trade, and more). Each Skill\'s exact contracts and steps are published and fork-tested.', plain: 'Skills are recipes an agent can run for you, no building required.', src: SRC.skills },
-    { h: 'Your wallet, or a scoped session', p: 'Most Skills run through your own connected wallet: every transaction is shown to you and you sign it yourself. The x402-payments Skill is the exception. It uses a separate passkey wallet made through Altana\'s SDK, and you grant it a session: a spend cap, an expiry, and an allow-list of exactly which contracts it may touch. It can act only inside those limits, and the session expires after 24 hours.', plain: 'Either you sign each step, or you hand one Skill a prepaid card with a limit and an expiry, not your whole wallet.', src: SRC.altana },
-  ]},
-  { title: 'How agents are built', body: [
- { h: 'Single agent', p: 'One agent handles the whole task itself, start to finish, reads what it needs, does the work, hands back a result. This is the simplest pattern, and the one most agents listed here use, including our own explainer agent on the Advantage Report tab.', Diagram: SingleAgentDiagram },
-    { h: 'Sequential (chained steps)', p: 'The task moves through a fixed pipeline of steps, one after another, each step\'s output becomes the next step\'s input. Good for work that has a natural order, like "research, then draft, then check."', Diagram: SequentialDiagram },
-    { h: 'Parallel (specialists working at once)', p: 'The task is split across several specialists that all work at the same time, and their results get combined into one answer. Good when different parts of a task don\'t depend on each other and can happen simultaneously.', Diagram: ParallelDiagram },
-    { h: 'Hierarchical (an orchestrator delegating)', p: 'One orchestrator agent breaks the task into pieces and hands each piece to a sub-agent underneath it, then assembles what comes back. Good for complex work that benefits from a manager coordinating specialists.', Diagram: HierarchicalDiagram },
- { h: 'What\'s here right now', p: 'Fewer than 2% of the agents listed on this house mention multi-agent or orchestration language in their own description; the large majority present as single agents, like our own explainer agent. That\'s not a shortcoming of this marketplace: the other three patterns are valid ways to build an agent, just not yet common among what\'s registered here today.' },
-  ], src: SRC.adk },
-];
-
-// bag CLI workflow, from BNB Agent Studio docs. v0.0.1 is seller-only:
-// this builds agents that EARN by fulfilling jobs, not buyer-side apps.
-// Steps below reflect what our tested pipeline (backend/core/agent_builder.py)
-// runs, notably: there is NO handle_fulfill (that was a doc-summary
-// myth we disproved by reading a generated project); the edit point
-// is the agent's instruction string in main.py.
-const BUILD_STEPS = [
-  { title: '1. Describe your agent, in plain English', body: 'Open Claude Code or Cursor and describe what you want: "Create a BNB agent that sells 3-day weather forecasts." BNB Agent Studio\'s "bag" tool reads that and scaffolds a working project for you, no blank file.', plain: 'You type a sentence; the tool writes the starter code.', src: SRC.studioQuick },
-  { title: '2. It builds two things, not one', body: 'Layer A (the Agent, app/agent) holds the wallet + LLM and is the ONLY thing that ever signs. Layer B (the Service, app/service) is public, keyless, and just relays requests. The split exists because the Agent runtime (AWS Bedrock AgentCore) isn\'t publicly reachable, so a keyless relay (EC2/Fargate) fronts it.', plain: 'The part that holds keys stays private; a separate public part takes requests.', src: SRC.studioArch },
-  { title: '3. You edit the agent\'s instructions, not plumbing', body: 'Wallet setup, ERC-8004 registration, and the ERC-8183 negotiate/fund/settle wiring are already there. What you change is the agent\'s instruction string in main.py, the plain description of what it should DO when a funded job asks it to "fulfill."', plain: 'You rewrite one paragraph telling the agent its job, not the wiring around it.', src: SRC.studioArch },
- { title: '4. Test locally before it touches money', body: 'bag dev runs both layers on your machine. You can hit the live /negotiate endpoint, get a signed price quote, and confirm the whole flow before deploying or spending anything. The default Pieverse LLM needs no funds.', plain: 'Run it on your laptop first; the default AI model is free.', src: SRC.studioQuick },
- { title: '5. Register, then deploy', body: 'bag erc8004 register makes your agent discoverable (the same identity every agent here shows). The one-click "Build it for real" button uses the free ~48h platform trial (no AWS account needed). To run it yourself instead, self-host Layer A on AWS Bedrock AgentCore and Layer B on EC2/Fargate.', plain: 'Try it free for 48h with one click, or host it yourself later.', src: SRC.studioArch },
-];
-
-const KID_FRIENDLY_FAQ = [
-  { q: 'Do I need to know how to code?', a: 'No. You describe what you want in normal sentences; to build a custom agent you mostly edit one instruction paragraph, and to use a ready-made Skill you just fill in a form.', src: SRC.studioQuick },
-  { q: 'What is a passkey wallet?', a: 'A crypto wallet you unlock with Face ID or Touch ID instead of a seed phrase. On this site only the x402-payments Skill uses one, made through Altana\'s SDK, and you grant it only a capped, expiring, contract-limited session. Everything else uses the wallet you connect.', src: SRC.altana },
-  { q: 'Can it spend my money without asking?', a: 'No. Hiring funds one specific job you set and fund yourself; a Skill session has a spend cap, an expiry, and an allow-list of contracts. Neither is a standing permission it can redraw from.', src: SRC.sdk },
-  { q: 'What if the agent never delivers?', a: "You're guaranteed to get your money back once the deadline passes, but it's not automatic. You'll need to come back and claim it yourself with one click. That guarantee is a built-in rule of the whole system, not a favor the agent has to grant you.", src: SRC.sdk },
- { q: 'Do I need my own cloud hosting account to build one?', a: "No. The \"Build it for real\" button uses a free trial (about 2 days) on a temporary practice wallet, with no hosting account and no money involved. Hosting it yourself long-term is optional, and only if you want to later.", src: SRC.studio },
-  { q: 'What kind of agent can I build?', a: "Pretty much anything you can describe in a sentence: trading, research, writing, customer support, data analysis, games, you're not limited to a preset list. The category shown here is just how we label it afterward.", src: SRC.studioQuick },
-  { q: 'Can it sell to people, not just other agents?', a: "Yes. Any buyer, a person or another agent, can hire it. It's not limited to agent-to-agent deals.", src: SRC.studioArch },
-];
 
 // Styled exactly like the "WEB3 WALLET MANAGER" from the provided image
 const BSCSCAN = 'https://bscscan.com';
@@ -463,78 +361,19 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
   );
 }
 
-const NAV_ITEMS = [
-  { id: 'landing', label: 'Home', icon: Sparkles },
-  // The wallet page sits next to Home, which now leads with it.
-  { id: 'wallet', label: 'Wallet', icon: Wallet },
-  // How It Works sits directly after Home (2026-09-18). It was called Connect
-  // and listed the ways in; it now opens with what this project measures and
-  // why, then the four ways to use it, each with the sequence to follow. A
-  // visitor who has never seen the site had nowhere to start before this. The
-  // tab id stays 'connect' because every `nav === 'connect'` check reads it,
-  // and /connect still resolves alongside /how-it-works.
-  { id: 'connect', label: 'How It Works', icon: Compass },
-  // Renamed 2026-09-17. Bots were already in scope, the Solana behaviour
-  // study is about one, and "Marketplace" named half of what is here. The id
-  // and the path stay 'market' and /market: every shared link points at that
-  // URL and every `nav === 'market'` check in this file reads that id.
-  { id: 'market', label: 'Explore', icon: Store },
- // Real, deliberate placement (2026-08-29, product/UX audit), see
-  // docs/skills-vs-marketplace.md for the full reasoning. A Skill (Venus
-  // Lending, PancakeSwap, etc.) isn't a registered ERC-8004 agent being
- // hired for delivered work, it's a real, direct, self-executed on-chain
-  // action, with no counterparty to evaluate and no job/delivery cycle.
-  // Used to live buried inside the "Build Your Agent" tab, under a header
-  // entirely about a different feature (scaffolding a NEW custom agent),
-  // with no presence in the marketplace's own primary navigation.
-  // Promoted to its own top-level tab, a peer of Marketplace rather than a
-  // sub-panel of Build, so "hire someone" vs "run this yourself" reads as
- // the real, first-level choice it is.
- // Real, own top-level tab (2026-09-01), Tnega's own-designed,
- // autonomous, fee-bearing agents (multi-factor comparison +
-  // routing), distinct from both hiring a third-party agent
-  // (Marketplace) and running a third-party protocol's own know-how for
-  // free (Skills). See NativeAgentMarketplace.jsx. Ordered ahead of
-  // Skills (2026-09-02, explicit tab-order request) since it's Tnega's
-  // own higher-value-add offering.
-  { id: 'native', label: 'Native Agents', icon: Bot },
-  // Under Native Agents: both are about agents doing the work, and this
-  // one is where several of them do it together.
-  { id: 'studio', label: 'MultiAgents', icon: MultiAgentIcon },
-  // My Agents ahead of Skills (2026-09-07, explicit tab-order request):
-  // what you already hired outranks what you could run yourself.
-  { id: 'build', label: 'Build Your Agent', icon: Hammer },
-  { id: 'sell', label: 'Sell Your Agent', icon: Coins },
-];
+// The main navigation is the product's five pages, shared with the mobile
+// bottom bar through shell/productNav.js so the two cannot drift. Explore
+// (/market) and My Agents (/my-agents) are still tabs of this component, and
+// are reached from the footer (SiteLinks.jsx).
+const NAV_ITEMS = PRODUCT_NAV;
 
-// Real routes, but they live in the sidebar's links row rather than the tab
-// list. Both are things you read once rather than places you work: the
-// report is a one-off comparison, Learn is reference. As full-width labelled
-// tabs they sat at the bottom of the list taking ~84px between them, below
-// every tab someone actually returns to. As icons in a row that already
-// exists they cost nothing vertically, and the tab list above stays a list
-// of places you go back to.
-//
-// Still routes, so these navigate through the same setNav path as any tab
-// and still show an active state.
-// No icon field any more: the footer's nav row is words, so these were
-// three glyphs nobody could name. FileBarChart and GraduationCap were
-// imported for this list alone and went with it.
-const SIDEBAR_FOOTER_ITEMS = [
-  { id: 'skills', label: 'Skills' },
-  { id: 'report', label: 'Advantage Report' },
-  { id: 'learn', label: 'Learn' },
-];
-
-export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
+export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, onNavigate, path = '/', query = '', initialNav, onNavChange } = {}) {
   // The theme is the site's, not this component's: see theme/ThemeProvider.jsx.
   // `darkMode` is still handed to the few panels that take it as a prop.
   const { dark: darkMode } = useTheme();
- // first-visit orientation, shows automatically once per browser
-  // (localStorage-gated, see onboarding.js), reopenable anytime via the "?"
-  // header button. Lazy-init so it doesn't flash open-then-closed for a
-  // returning visitor.
-  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
+  // The first-visit tour (OnboardingTour.jsx) is no longer opened here: it
+  // walked through the agent tabs (Learn, Report, Build, Sell), which left the
+  // navigation on 2026-09-25, so it pointed at pages that now redirect.
  // per-tab URL routing: `nav` still lives here (every existing
   // `nav === '...'` check throughout this file keeps working unchanged),
   // but it's now seeded from, and kept in sync with, the URL App.jsx
@@ -543,7 +382,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  // handler) is what pushes that choice into a real, bookmarkable URL.
   // Browser back/forward changes `initialNav` from outside, which the
   // effect below resyncs onto `nav`.
-  const [nav, setNav] = useState(initialNav || 'market');
+  const [nav, setNav] = useState(initialNav || 'dashboard');
   useEffect(() => {
     if (initialNav && initialNav !== nav) setNav(initialNav);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -564,9 +403,6 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // by useState at mount, so without this the address bar moved but the
   // view did not -- the core of the "Back exits the site" bug.
   useNavSync(initialNav, nav, setNav);
- // deep-link from the agent guidance panel's "Try it yourself",
-  // switches to Build and pre-opens that specific skill's guided form.
-  const [pendingSkillId, setPendingSkillId] = useState(null);
   // An open agent is its own page as far as search is concerned, so it says
   // so. Without this every agent inherited the homepage's title, description
   // and canonical URL, which told Google that ~14,900 distinct pages were all
@@ -595,35 +431,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     });
   }, [detailAgent]);
 
-  const handleTrySkill = (skillId) => { setDetailAgent(null); setNav('skills'); setPendingSkillId(skillId); onNavChange?.('skills'); };
   const [hiring, setHiring] = useState(false);
-  const [buildDescription, setBuildDescription] = useState('');
-  const [showBuildCommand, setShowBuildCommand] = useState(false);
-  const [buildStatus, setBuildStatus] = useState(null);
-
-  const handleRealBuild = async () => {
-    if (!buildDescription.trim()) return;
-    setBuildStatus({ step: 'queued' });
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/build?description=${encodeURIComponent(buildDescription.trim())}`, { method: 'POST' });
-      if (!res.ok) throw new Error(`Backend returned ${res.status}`);
-      const { slug } = await res.json();
-
-      const poll = setInterval(async () => {
-        try {
-          const statusRes = await fetch(`${API_BASE_URL}/api/build/${slug}/status`);
-          const status = await statusRes.json();
-          setBuildStatus(status);
-          if (status.step === 'done' || status.step === 'error') clearInterval(poll);
-        } catch (e) {
-          setBuildStatus({ step: 'error', error: e.message });
-          clearInterval(poll);
-        }
-      }, 4000);
-    } catch (e) {
-      setBuildStatus({ step: 'error', error: e.message });
-    }
-  };
   const [spendCap, setSpendCap] = useState(50000);
   const [spendCapTouched, setSpendCapTouched] = useState(false);
  // Real, user-facing job deadline (2026-09-09), previously hardcoded to
@@ -667,7 +475,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // Catalogue-wide counts for the stat cards and the category chips. One
   // small request, unfiltered, because everything it feeds describes the whole
   // marketplace rather than the current view.
-  const facets = useMarketplaceFacets();
+  //
+  // Explore's data (this, the page of agents, the performance and canary
+  // bulks) is requested only once Explore has been shown. The Dashboard on
+  // "/" used to download all four on every visit and show none of them.
+  const exploreShown = useLatch(nav === 'market');
+  const facets = useMarketplaceFacets({ enabled: exploreShown });
 
   // Deep link: ?agent=<tokenId|id> opens that agent's detail, so a creator's
   // shared link lands a client straight on their agent. Resolved by its own
@@ -679,7 +492,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     if (deepLinkHandledRef.current || !deepLinkIdRef.current) return;
     deepLinkHandledRef.current = true;
     fetchAgentById(deepLinkIdRef.current)
-      .then((raw) => { if (raw) { setNav('market'); setDetailAgent(mapAgent(raw)); } })
+      .then((raw) => {
+        if (raw) { setNav('market'); setDetailAgent(mapAgent(raw)); return; }
+        // No such agent. Its address would otherwise stay in the bar and be
+        // published as the canonical URL of a page that does not exist, so
+        // it is replaced with Explore's own. A failed request (the catch)
+        // leaves the address alone: the agent may well exist.
+        onNavigate?.('/market', { replace: true });
+      })
       .catch(() => {});
   }, []);
 
@@ -718,15 +538,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     categoryView, activeGroup, activeCategory, activeHackathon,
     searchQuery, showUnclassified, onlyResponding, onlyVerified,
     sortKey: sortState.key, sortDir: sortState.dir, page,
-  }, mapAgent);
+  }, mapAgent, { enabled: exploreShown });
 
  // Real, marketplace-wide on-chain track record (agent_performance.py via
   // the bulk endpoint), one fetch, merged onto every agent so "Most
   // hired" / "Highest success rate" can sort the whole list. See
  // agentRanking.js for the tiering (history first, no-history
   // agents after, never silently mixed in).
-  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, storeWideTotals: perfStoreWide, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk();
-  const { byOwner: canaryByOwner } = useCanaryStatus();
+  const { byOwner: perfByOwner, indexComplete: perfIndexComplete, storeWideTotals: perfStoreWide, status: perfStatus, retry: retryPerf } = useAgentPerformanceBulk({ enabled: exploreShown });
+  const { byOwner: canaryByOwner } = useCanaryStatus({ enabled: exploreShown });
   const agentsWithPerf = useMemo(
     () => withCanaryStatus(withPerformance(agents, perfByOwner), canaryByOwner),
     [agents, perfByOwner, canaryByOwner]
@@ -972,66 +792,61 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
   return (
     <div className="min-h-screen font-sans flex flex-col bg-page text-fg">
-      {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
 
-      {/* THE SHELL, 2026-09-24. A top header over one content column, where
-          there used to be a 384px dark rail down the left. The rail spent a
-          quarter of a 1440 screen on a picture and eight rows of navigation;
-          the header holds the same navigation in 56px and hands the width to
-          the page. The picture is no longer in the app shell; it appears on
-          the home page and on the mobile launch splash.
+      {/* THE HEADER, following the reference dashboard (2026-09-25): the
+          wordmark on the left, the search beside it, the pages on the right,
+          then the bell, the theme and the wallet. 56px on the surface colour
+          with a 1px rule under it, sticky, capped at the same 1440 width and
+          gutters as the content, so the wordmark lines up with the first
+          card. The tabs that do not fit go into a More menu
+          (shell/HeaderNav.jsx); under 1280px the search becomes an icon that
+          opens Stocks & ETFs.
 
-          Sticky, on the surface colour with a hairline under it, so the page
-          scrolls beneath a solid bar in both themes. Everything inside is
-          capped at the same width and gutter as the content below, so the
-          wordmark lines up with the left edge of the first card. */}
+          WIDTH BUDGET. All five pages show at 1280 and up, a connected wallet
+          included (its badge is about 250px). What pays for it: the tabs are
+          words without icons, the theme control is one 32px button, and the
+          search field shows from 1280, 244px wide (the width at which its
+          placeholder is not cut off) and 260px from 1440, with an icon button
+          in its place below 1280. Measured at 1280 with a connected, unsigned
+          wallet (the widest badge, 298px): all five tabs and 15px
+          to spare. If a platform's fonts are wider, the last tab moves to
+          More rather than anything overlapping. */}
       <header className="sticky top-0 z-30 bg-surface border-b border-line">
-        <div className="max-w-[1440px] mx-auto h-14 px-6 xl:px-14 flex items-center gap-4">
+        <div className="max-w-[1440px] mx-auto h-14 px-6 xl:px-14 flex items-center gap-3">
           <a
-            href="https://f2f-uzh.vercel.app"
-            target="_blank"
-            rel="noopener noreferrer"
-            title="F2F Hub, all three projects in this portfolio"
-            className="w-8 h-8 block shrink-0"
+            href="/"
+            onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
+            className="shrink-0 text-fg"
           >
-            <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
+            <Wordmark className="text-[22px]" />
           </a>
-          <span className="text-title font-bold tracking-tight shrink-0 -ml-2">Tnega</span>
 
-          {/* Primary navigation. The tabs that fit are shown; the rest are
-              in a More menu, and the current tab is always one of the shown
-              ones. See shell/HeaderNav.jsx for how the fit is measured. */}
-          <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} />
+          <TopSearch
+            key={query}
+            initial={query}
+            onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
+            className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-2"
+          />
+          <button
+            type="button"
+            onClick={() => goTo('stocks')}
+            aria-label="Search stocks, ETFs or vaults"
+            title="Search stocks, ETFs or vaults"
+            className="xl:hidden w-8 h-8 shrink-0 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-inset"
+          >
+            <Search size={16} />
+          </button>
+
+          <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} align="end" />
 
           <div className="flex items-center gap-1 shrink-0">
-            {/* A person's own things sit together: their jobs, their
-                notifications, and the explanation of the place. */}
-            <button
-              type="button"
-              onClick={() => goTo('my-agents')}
-              title="My Agents, the jobs you have hired"
-              aria-label="My Agents"
-              aria-current={nav === 'my-agents' ? 'page' : undefined}
-              className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${
-                nav === 'my-agents' ? 'text-accent bg-accent-soft' : 'text-muted hover:text-fg hover:bg-inset'}`}
-            >
-              <Briefcase size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowOnboarding(true)}
-              title="How this works"
-              aria-label="How this works"
-              className="w-8 h-8 rounded-md flex items-center justify-center text-muted hover:text-fg hover:bg-inset transition-colors"
-            >
-              <HelpCircle size={16} />
-            </button>
             <NotificationBell />
-            <ThemeToggle className="ml-1" />
-            <div className="ml-2">
-              {/* Sign in, "this address" or "your wallet". Shared with the
-                  mobile menu sheet: wallet/WalletIdentity.jsx. */}
-              <WalletIdentity layout="bar" />
+            <ThemeToggle />
+            <div className="ml-1.5">
+              {/* "Sign in" opens /signin with no wallet connected, and the
+                  sign-in modal once one is. Shared with the mobile sheet:
+                  wallet/WalletIdentity.jsx. */}
+              <WalletIdentity layout="bar" onOpenSignInPage={() => onNavigate?.('/signin')} />
             </div>
           </div>
         </div>
@@ -1041,16 +856,26 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           1440 window that is a 1328px column, 56px either side. */}
       <main className="flex-1 flex flex-col w-full max-w-[1440px] mx-auto px-6 xl:px-14 pt-6 pb-8 overflow-x-hidden">
         <div className="w-full flex-1">
-          
-                    {nav === 'market' && detailAgent && !hiring && (
+          {/* The product pages. One component each, shared with the mobile
+              app; `layout` changes spacing and never content. */}
+          {nav === 'dashboard' && <Dashboard layout="web" />}
+          {nav === 'stocks' && <Stocks layout="web" query={query} />}
+          {nav === 'vaults' && <Vaults layout="web" />}
+          {nav === 'my-etfs' && <MyEtfs layout="web" />}
+          {nav === 'ai' && <UseWithAi layout="web" />}
+
+          {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail
               agent={detailAgent}
               onBack={closeAgentDetail}
               onHire={(a) => { setDetailAgent(null); handleHireClick(a); }}
-              onTrySkill={handleTrySkill}
             />
           )}
 
+          {/* The page's one h1, for screen readers and search: the visible
+              headings below belong to whichever chain view is open, so none
+              of them can stand for the page. Same in the mobile app. */}
+          {nav === 'market' && !hiring && !detailAgent && <h1 className="sr-only">Explore agents</h1>}
           {nav === 'market' && !hiring && !detailAgent && (
             <ChainViewTabs mutedBorder="border-line">
               {/* The BNB Chain view below is the original marketplace,
@@ -1825,242 +1650,22 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               found afterward. See MyJobsPanel.jsx for the backing. */}
           {nav === 'my-agents' && (
             <div className="w-full">
-              <h2 className="text-h1 font-bold mb-2">My Agents</h2>
+              <h1 className="text-h1 font-bold mb-2">My Agents</h1>
               <p className="text-muted mb-8">Every agent you've hired through here, and where things stand right now.</p>
               <MyJobsPanel accent={accent} mutedBorder="border-line" />
             </div>
           )}
 
- {/* Report Tab, real, same-task comparisons (AdvantageReport.jsx),
-              not a fabricated array. */}
-          {/* Centred, not left-hugged. The outer column is max-w-[1400px]
-              mx-auto, and a narrow box inside it without mx-auto pins its text
-              to the left edge of that column with the whole remainder empty on
-              the right. Every text tab now centres in the same way, so moving
-              between tabs does not move the text. */}
-          {nav === 'report' && (
-            <div className="w-full">
-              <h2 className="text-h1 font-bold mb-2">Advantage Report</h2>
-              <p className="text-muted mb-8">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
-              <AdvantageReport />
-            </div>
-          )}
-
- {/* Sell Your Agent Tab, creator listing flow (on-chain models 1&2
-              via AgentAccessMarket + x402 config for model 3). Shared component,
-              identical on web and mobile. */}
-          {nav === 'wallet' && <WalletHome layout="web" />}
-          {nav === 'sell' && <SellYourAgentForm />}
-          {nav === 'studio' && <AgentStudioPage accent={accent} />}
-
-          {/* Connect Tab. Shared component, identical on web and mobile;
-              `variant` changes type sizes and nothing else. */}
-          {nav === 'connect' && <HowItWorksPage variant="web" />}
-
-          {/* Learn Tab */}
-          {nav === 'learn' && (
-            <div className="w-full">
-              <h2 className="text-h1 font-bold mb-2">Learn</h2>
-              <p className="text-muted mb-6">What each agent does, and what authority you're granting when you hire one.</p>
-
-              <div className="space-y-6">
-                {LEARN_TOPICS.map((topic, i) => (
-                  topic.custom ? (
-                    <topic.custom key={i} />
-                  ) : (
-                  <div key={i} className="bg-surface rounded-md border border-line overflow-hidden">
-                    <div className="px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-line">
-                      <h3 className="font-bold text-lg">{topic.title}</h3>
-                      {topic.src && <a href={topic.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline">Source: {topic.src.label} →</a>}
-                    </div>
-                    <div className="divide-y divide-line/50">
-                      {topic.body.map((item, j) => (
-                        <div key={j} className="p-8 flex gap-4">
-                          <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                            <ChevronRight size={16} className="text-indigo-500" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-sm mb-2">{item.h}</div>
-                            {/* Copy audit (2026-08-23): plain-language version now
-                                leads, used to be the small italic afterthought
-                                below the jargon-heavy paragraph, which undercut a
-                                section literally titled "in plain English". */}
-                            <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{item.plain || item.p}</p>
-                            {item.plain && <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {item.p}</p>}
-                            {item.Diagram && (
-                              <div className="mt-3 p-4 rounded-2xl bg-gray-50 dark:bg-gray-900/40 border border-line">
-                                <item.Diagram />
-                              </div>
-                            )}
-                            {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  )
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Build Tab */}
- {/* Real, own top-level tab (2026-08-29), see NAV_ITEMS' own
-              comment above for the full reasoning this was moved out of
-              "Build Your Agent" for. */}
-          {nav === 'skills' && (
-            <div className="w-full">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Zap size={24} /></div>
-                <h2 className="text-h1 font-bold">Skills</h2>
-              </div>
-              <p className="text-muted mb-2">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
-              <p className="text-xs text-gray-400 mb-10">Different from hiring an agent from Explore: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
-
-              <AltanaSkillsPanel accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
-            </div>
-          )}
-
-          {/* Native Agent Marketplace Tab */}
-          {nav === 'native' && (
-            <div className="w-full">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Bot size={24} /></div>
-                <h2 className="text-h1 font-bold">Native Agent Marketplace</h2>
-              </div>
-              <p className="text-muted mb-2">Tnega's own designed agents: autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
-              <p className="text-xs text-gray-400 mb-10">Each agent evaluates candidate protocols itself (liquidity/risk first, yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
-
-              <NativeAgentMarketplace accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} />
-            </div>
-          )}
-
-          {nav === 'build' && (
-            <div className="w-full">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Sparkles size={24} /></div>
-                <h2 className="text-h1 font-bold">Build Your Agent</h2>
-              </div>
-              <p className="text-muted mb-2">No coding required. If you can describe what you want in a sentence, you can build this.</p>
-              <p className="text-xs text-gray-400 mb-1">Built on BNB Agent Studio (bnbagent-studio) and the ERC-8004/ERC-8183 standards.</p>
-              <a href="https://docs.bnbchain.org/developer-kit" target="_blank" rel="noreferrer" className="text-xs text-indigo-500 underline mb-10 inline-block">Source: docs.bnbchain.org/developer-kit →</a>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                {BUILD_STEPS.map((step, i) => (
-                  <div key={i} className="bg-surface p-8 rounded-md border border-line">
-                    <h3 className="font-bold mb-3">{step.title}</h3>
-                    {/* Copy audit (2026-08-23): the beginner-friendly explanation
-                        now leads and reads at full size, it used to be the
-                        secondary, italicized afterthought below the technical
-                        paragraph, backwards for a "2 to 80" readability bar. */}
-                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{step.plain || step.body}</p>
-                    {step.plain && <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-2">Technical details, if you want them: {step.body}</p>}
-                    {step.src && <a href={step.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-2 inline-block">Source: {step.src.label} →</a>}
-                  </div>
-                ))}
-              </div>
-
-              <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-3xl p-8 mb-8">
-                <div className="flex items-center gap-2 mb-4 text-indigo-700 dark:text-indigo-400">
-                  <Sparkles size={18} />
-                  <h3 className="font-bold text-sm uppercase tracking-wide">Describe your agent</h3>
-                </div>
-                <textarea
-                  value={buildDescription}
-                  onChange={(e) => setBuildDescription(e.target.value)}
-                  placeholder='e.g. "an agent that sells 3-day weather forecasts"'
-                  rows={2}
-                  disabled={buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error'}
-                  className="w-full p-4 rounded-2xl border border-indigo-200 dark:border-indigo-500/30 bg-field text-sm mb-4 outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                />
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleRealBuild}
-                    disabled={!buildDescription.trim() || (buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error')}
-                    className="px-6 py-3 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
- Build it for real (free trial, live ~2 days)
-                  </button>
-                  <button
-                    onClick={() => setShowBuildCommand(true)}
-                    disabled={!buildDescription.trim()}
-                    className="px-6 py-3 rounded-xl font-semibold text-indigo-700 dark:text-indigo-400 bg-white dark:bg-transparent border border-indigo-200 dark:border-indigo-500/30 disabled:opacity-40"
-                  >
-                    Or just show me the command
-                  </button>
-                </div>
-
-                {buildStatus && (
-                  <div className="mt-6 p-5 rounded-2xl bg-field border border-indigo-100 dark:border-indigo-500/30">
-                    <div className="flex items-center gap-2 mb-2">
-                      {buildStatus.step !== 'done' && buildStatus.step !== 'error' && <Loader2 size={16} className="animate-spin text-indigo-500" />}
-                      {buildStatus.step === 'done' && <CheckCircle2 size={16} className="text-green-500" />}
-                      {buildStatus.step === 'error' && <XCircle size={16} className="text-red-500" />}
-                      <span className="font-semibold text-sm">
-                        {{
-                          queued: 'In line...', scaffolding: "Setting up your agent's project files...",
-                          creating_wallet: 'Creating a practice wallet for it...', writing_logic: "Writing your agent's instructions...",
-                          activating_llm: 'Turning on its AI (free to start)...', deploying: 'Publishing it live for your free trial...',
-                          done: "Done! It's live now, for the next 2 days.", error: 'Build failed',
-                        }[buildStatus.step] || buildStatus.step}
-                      </span>
-                    </div>
-                    {buildStatus.step === 'done' && buildStatus.address && (
-                      <p className="text-xs text-muted mt-2">Wallet: <span className="font-mono">{buildStatus.address}</span>, a temporary practice wallet made just for this trial. It can't hold or lose any money.</p>
-                    )}
-                    {buildStatus.step === 'error' && (
-                      <p className="text-xs text-red-500 mt-2 font-mono whitespace-pre-wrap">{buildStatus.error}</p>
-                    )}
-                  </div>
-                )}
-
-                {showBuildCommand && buildDescription.trim() && (
-                  <div className="mt-6 font-mono text-xs p-5 rounded-2xl bg-field border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-{`# Or run this yourself, in your own terminal (Claude Code or Cursor):
-
-pip install bnbagent-studio
-bag skills install --target both --scope user
-
-# Then, in your IDE, just say:
-"Create a new BNB agent named ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20)} on testnet that ${buildDescription.trim()}."
-
-# Or scaffold it directly:
-bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20)} --network bsc-testnet`}
-                  </div>
-                )}
-              </div>
-              
-              <h3 className="text-xl font-bold mb-6">Questions a total beginner would ask</h3>
-              <div className="space-y-4 mb-10">
-                {KID_FRIENDLY_FAQ.map((item, i) => (
-                  <div key={i} className="bg-surface p-6 rounded-md border border-line">
-                    <div className="font-bold text-sm mb-2">{item.q}</div>
-                    <div className="text-sm text-muted">{item.a}</div>
-                    {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-2 inline-block">Source: {item.src.label} →</a>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
         </div>
 
-        {/* The site footer: secondary pages, legal, sources, the social
-            marks. It used to sit in the rail under the wallet card. It is
-            inside main so it shares the content column's width. */}
+        {/* The site footer: the secondary pages (Explore agents, My agents,
+            Docs, Status, Data sources, Privacy), where the figures come from,
+            and the social marks. Shared with the mobile sheet. */}
         <SiteLinks
-          onOpenDocs={onOpenDocs}
-          onOpenEcosystem={onOpenEcosystem}
-          onOpenDataSources={onOpenDataSources}
-          routeLinks={SIDEBAR_FOOTER_ITEMS.map((item) => ({
-            key: item.id,
-            label: item.label,
-            active: nav === item.id,
-            onClick: () => goTo(item.id),
-          }))}
-          className="mt-10"
+          onNavigate={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
+          activePath={path}
+          className="mt-12"
         />
-        <PartnerMarquee />
       </main>
     </div>
   );

@@ -32,14 +32,14 @@ function CopyLine({ text, label }) {
       .catch(() => {});
   };
   return (
-    <div className="relative mt-1.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0F172A] pr-8">
+    <div className="relative mt-1.5 rounded border border-line bg-inset pr-8">
       {/* The copy button lives in a gutter OUTSIDE the scroll box, not on top
           of it. It was absolutely positioned over a `pre` whose `pr-*` padding
           sits at the end of the scrollable content, so at rest the button
           covered the middle of a long line: the endpoint rendered as
           "…onrender." [button] "/m" on a phone. The gutter is on the wrapper,
           so nothing can scroll under it at any width. */}
-      <pre className="overflow-x-auto px-2.5 py-2 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 font-mono whitespace-pre">
+      <pre className="overflow-x-auto px-2.5 py-2 text-[11px] leading-relaxed text-fg font-mono whitespace-pre">
 {text}
       </pre>
       <button
@@ -47,7 +47,7 @@ function CopyLine({ text, label }) {
         onClick={copy}
         aria-label={copied ? 'Copied' : `Copy ${label || 'the command'}`}
         title={copied ? 'Copied' : `Copy ${label || 'the command'}`}
-        className="absolute top-1.5 right-1.5 p-1 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+        className="absolute top-1.5 right-1.5 p-1 rounded border border-line bg-surface text-muted hover:text-fg transition-colors"
       >
         {copied ? <Check size={11} /> : <Copy size={11} />}
       </button>
@@ -71,23 +71,23 @@ export default function HowItWorksFlow({ steps, compact = false }) {
             {!last && (
               <span
                 aria-hidden="true"
-                className="absolute left-[11px] top-6 bottom-0 w-px bg-gray-200 dark:bg-gray-700"
+                className="absolute left-[11px] top-6 bottom-0 w-px bg-line-strong"
               />
             )}
             <span
               aria-hidden="true"
               className={`relative z-10 shrink-0 w-[23px] h-[23px] rounded-full border flex items-center justify-center font-bold ${
                 compact ? 'text-[10px]' : 'text-[11px]'
-              } border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400`}
+              } border-accent/40 bg-accent-soft text-accent`}
             >
               {i + 1}
             </span>
             <div className="min-w-0 flex-1">
-              <div className={`font-semibold text-gray-900 dark:text-gray-100 ${compact ? 'text-[12px]' : 'text-[13px]'}`}>
+              <div className={`font-semibold text-fg ${compact ? 'text-[12px]' : 'text-[13px]'}`}>
                 {s.title}
               </div>
               {s.body && (
-                <div className={`${compact ? 'text-[11px]' : 'text-[12px]'} leading-relaxed text-gray-600 dark:text-gray-400 mt-0.5`}>
+                <div className={`${compact ? 'text-[11px]' : 'text-[12px]'} leading-relaxed text-muted mt-0.5`}>
                   {s.body}
                 </div>
               )}

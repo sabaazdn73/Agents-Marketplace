@@ -1,41 +1,20 @@
 // SiteLinks.jsx
 //
-// The site footer, shared by the desktop sidebar and the mobile menu sheet.
+// The site footer, shared by the web shell and the mobile menu sheet, so the
+// two list the same secondary pages in the same order.
 //
-// These used to be one "Full documentation" line at the bottom of the page,
-// below the partner and data-source footers, where almost nobody scrolled.
-// Moving them under the wallet area puts them where someone is already
-// looking when they arrive.
+// WHAT IS IN IT (2026-09-25)
+// The main navigation carries the five product pages. Everything else a
+// visitor may still want is here, small: Explore agents (/market) and My
+// agents (/my-agents, the hire flow), which left the navigation when the
+// product changed; then Docs, Status, Data sources and Privacy. Every entry
+// is a real link with an href, so it can be opened in a new tab and a crawler
+// can follow it; `onNavigate` turns a plain click into an in-app navigation
+// without a reload.
 //
-// Docs opens the in-app documentation section through the same callback the
-// old footer used, so the route does not change. The rest are external and
-// open in a new tab.
-//
-// STRUCTURE
-// ---------
-// Built as a footer rather than as a strip of links, in the shape a reader
-// already knows from other sites: a rule, a row of named destinations, a
-// second rule, then a baseline with the copyright on one side and the
-// social marks and controls on the other.
-//
-// What it replaced was two rows that did not agree with each other. The
-// first was labelled links, Docs and GitHub and LinkedIn and X; the second
-// was five bare icons, Skills and the report and Learn and Ecosystem and
-// the walkthrough, with no labels at all. So half the footer's destinations
-// were named and half were glyphs to guess at, and Ecosystem and the
-// walkthrough had been put in the icon row purely because they arrived
-// later. The theme toggle then sat on a third line of its own, pushed to
-// the right against nothing.
-//
-// Now the split carries meaning instead of history. Everything in this app
-// is a named link in the nav row. The social accounts are marks in the
-// baseline, which is the one place an icon needs no label, because GitHub
-// and LinkedIn and X are recognised by their marks and the row they sit in
-// says what they are. The theme toggle keeps them company rather than
-// floating alone.
-//
-// The `variant` prop only changes colour, because the sidebar sits on a
-// dark panel and the mobile sheet does not.
+// Under the links, one line naming where the figures come from, beside the
+// link to the full list. Then the baseline: copyright on the left, the social
+// marks and any trailing control (the theme toggle, on web) on the right.
 
 import React from 'react';
 import { Github, Linkedin } from 'lucide-react';
@@ -69,108 +48,68 @@ export function XMark({ size = 13, className = '' }) {
   );
 }
 
+// The secondary pages, once. Paths are the app's own routes (routePaths.js
+// and the standalone routes in App.jsx).
+export const FOOTER_LINKS = [
+  { key: 'market', label: 'Explore agents', path: '/market' },
+  { key: 'my-agents', label: 'My agents', path: '/my-agents' },
+  { key: 'docs', label: 'Docs', path: '/docs' },
+  { key: 'status', label: 'Status', path: '/status' },
+  { key: 'sources', label: 'Data sources', path: '/data-sources' },
+  { key: 'privacy', label: 'Privacy', path: '/privacy' },
+];
+
+export const SOURCES_LINE = 'Figures come from chain reads, and from LI.FI quotes for the cost to buy.';
+
 export default function SiteLinks({
-  onOpenDocs,
-  onOpenEcosystem,
-  // The attribution page. It used to be reached from a Sources block at the
-  // foot of the page which listed fifteen provider names beside the link.
-  // That block is gone: the names were a credit line nobody read, repeated
-  // in full on the page behind the link, and they sat below two other
-  // footers. The link itself still belongs somewhere, so it is here, with
-  // the rest of the site's named destinations.
-  onOpenDataSources,
-  // Real in-app routes rendered here as named links rather than as tabs.
-  // Each is { key, label, Icon, onClick, active }. Passed in rather than
-  // imported, so this component stays a footer and does not need to know
-  // the app's route table. `Icon` is accepted and ignored: the nav row is
-  // words, not glyphs. Mobile passes none and those entries simply do not
-  // appear.
-  routeLinks = [],
-  // The theme toggle, or anything else the host wants sitting with the
-  // social marks. Optional: mobile has its own toggle in the header.
+  // (path) => void. Called for a plain left click; modified clicks (new tab,
+  // new window) are left to the browser.
+  onNavigate,
+  // The current path, so the page you are on is marked.
+  activePath = null,
+  // The theme toggle, or anything else the host wants beside the marks.
   trailing = null,
-  variant = 'dark',
   className = '',
 }) {
-  // Theme roles, so the footer follows the site theme wherever it sits.
-  // `variant` is kept in the signature for existing callers and no longer
-  // changes anything: the dark rail it existed for is gone.
-  void variant;
-  const base = 'text-muted hover:text-fg';
-  const active = 'text-fg';
-  const rule = 'border-line';
-  const quiet = 'text-muted';
+  const link = 'text-label font-medium text-muted hover:text-fg transition-colors';
+  const mark = 'inline-flex items-center justify-center p-1 -m-1 rounded transition-colors text-muted hover:text-fg';
 
-  const link = `text-xs font-medium transition-colors ${base}`;
-  // The marks get a hit area rather than sitting flush against each other,
-  // so they are tappable on a phone as well as clickable.
-  const mark = `inline-flex items-center justify-center p-1 -m-1 rounded transition-colors ${base}`;
-
-  // Every named destination in one list, so the row is built in one place
-  // and a new entry cannot land in some other row by accident. Docs first
-  // because it is the one that explains the rest; the walkthrough last
-  // because it leaves the site.
-  const items = [
-    onOpenDocs && { key: 'docs', label: 'Docs', onClick: onOpenDocs },
-    ...routeLinks,
-    onOpenEcosystem && { key: 'ecosystem', label: 'Ecosystem', onClick: onOpenEcosystem },
-    // Same tab, not a new one: it is a page of this site, and the Chrome Web
-    // Store listing links to it, so it has to be reachable from the site
-    // itself rather than only from the store. `internal` is what keeps it out
-    // of the target="_blank" branch below.
-    { key: 'privacy', label: 'Privacy', href: '/privacy', internal: true },
-    onOpenDataSources && {
-      key: 'sources', label: 'Data sources', onClick: onOpenDataSources,
-    },
-    { key: 'demo', label: 'Walkthrough', href: DEMO_VIDEO_URL },
-  ].filter(Boolean);
+  const go = (e, path) => {
+    if (!onNavigate || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    onNavigate(path);
+  };
 
   return (
-    <footer className={`border-t ${rule} pt-3 ${className}`}>
-      {/* Separated by spacing, not by dots. The row wraps in a 384px rail,
-          and an interpunct belongs to neither the link before it nor the one
-          after: with a dot between every pair, "Learn ." sat at the end of
-          the first line with nothing following it, which reads as a
-          rendering fault rather than punctuation. gap-x-4 is four times the
-          word space inside "Advantage Report", so the links still separate
-          cleanly, and a wrap leaves nothing stranded. */}
-      <nav
-        className="flex flex-wrap items-center gap-x-4 gap-y-2 px-2"
-        aria-label="Site links"
-      >
-        {items.map((item) => (
-          item.href ? (
+    <footer className={`border-t border-line pt-4 ${className}`}>
+      {/* Separated by spacing, not by dots: a wrapped row leaves no
+          punctuation stranded at a line end. */}
+      <nav className="flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Site links">
+        {FOOTER_LINKS.map((item) => {
+          const on = activePath === item.path;
+          return (
             <a
               key={item.key}
-              href={item.href}
-              target={item.internal ? undefined : '_blank'}
-              rel={item.internal ? undefined : 'noreferrer'}
-              className={link}
+              href={item.path}
+              onClick={(e) => go(e, item.path)}
+              aria-current={on ? 'page' : undefined}
+              className={`${link} ${on ? 'text-fg' : ''}`}
             >
               {item.label}
             </a>
-          ) : (
-            <button
-              key={item.key}
-              type="button"
-              onClick={item.onClick}
-              className={`${link} ${item.active ? active : ''}`}
-              aria-current={item.active ? 'page' : undefined}
-            >
-              {item.label}
-            </button>
-          )
-        ))}
+          );
+        })}
       </nav>
+      <p className="mt-3 text-micro text-muted">
+        {SOURCES_LINE}{' '}
+        <a href="/data-sources" onClick={(e) => go(e, '/data-sources')} className="underline underline-offset-2 hover:text-fg">
+          Every source
+        </a>
+      </p>
 
-      {/* The baseline. Copyright on the left, marks and controls on the
-          right, which is the arrangement a reader has seen a thousand
-          times and does not have to work out.
-
-          The year is read from the clock rather than typed in. A hard-coded
-          one is wrong every January and nothing fails to tell you. */}
-      <div className={`mt-3 pt-3 border-t ${rule} px-2 flex items-center justify-between gap-2`}>
-        <span className={`text-[11px] ${quiet}`}>
+      {/* The year is read from the clock: a typed one is wrong every January. */}
+      <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2">
+        <span className="text-micro text-muted">
           &copy; {new Date().getFullYear()} Tnega
         </span>
         <span className="flex items-center gap-2.5">

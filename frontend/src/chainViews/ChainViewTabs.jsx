@@ -70,6 +70,8 @@ const DEFAULT_VIEW = 'bnb';
 // its tab is active, so on a cold load nothing ever looked at the URL and the
 // agent page could not survive a refresh. The lesson is that the tab strip is
 // part of the routing, not just a control above it.
+// routePaths.js serves /chain-agent/<chainId>/ only for the chain ids below
+// (CHAIN_AGENT_CHAIN_IDS there); add a chain in both places.
 const CHAIN_TO_VIEW = {
   42161: 'arbitrum',
   4663: 'robinhood',
@@ -99,9 +101,10 @@ const FALLBACK_TABS = [
 // tracked set. Without it the tab had no address at all and could only be
 // reached by clicking it.
 //
-// Unknown view ids are ignored rather than trusted, and App.jsx already
-// resolves any path it does not recognise to the marketplace, so a stale or
-// mistyped link lands on the marketplace instead of on nothing.
+// Unknown view ids are ignored rather than trusted. App.jsx never gets here
+// with one: routePaths.js serves /chain/<view> only for the ids below and
+// sends any other path to "/", so a stale or mistyped link lands on the
+// Dashboard instead of on nothing.
 function viewFromLocation() {
   const path = window.location.pathname;
   const direct = path.match(/^\/chain\/([a-z-]+)\/?$/);
