@@ -11,7 +11,6 @@
 //                  (backend/core/bnb_usd.py): the 30-minute average of the
 //                  WBNB/USDT pool's own oracle. It replaced CoinGecko, whose
 //                  free API terms do not cover this site, on 2026-09-25.
-//   - DexScreener: frontend/src/researchSkills.js, live token/pool search
 //   - BscScan:     explorer links throughout the app (altana.js, JobStatusPanel, etc.)
 //   - bloXroute:   the BSC mainnet RPC this project's backend reads through
 //                  (adapters/bsc_balance.py, /api/status)
@@ -110,15 +109,6 @@ export const DATA_SOURCES = [
     url: 'https://pancakeswap.finance',
     logo: 'https://pancakeswap.finance/favicon.ico',
     description: 'The BNB/USD price shown beside BNB balances: the 30-minute average of the WBNB/USDT pool (0.01% fee tier), read from the pool on chain, in USDT taken at one US dollar.',
-  },
-  {
-    name: 'DexScreener',
-    inFooter: true,
-    status: 'live',
-    statusNote: 'Token and pool search inside the research skills.',
-    url: 'https://dexscreener.com',
-    logo: 'https://dexscreener.com/favicon.ico',
-    description: 'Live token and trading-pair search.',
   },
   {
     name: 'BscScan',

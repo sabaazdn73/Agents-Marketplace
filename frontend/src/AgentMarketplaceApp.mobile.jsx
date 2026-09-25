@@ -599,18 +599,17 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
     });
   }, [visible]);
 
-  // Same stat cards as web (Agents Shown / Feedback / Verified).
-  //
- // bug found and fixed (2026-08-27), matching web: `verified` used
-  // isVerified (8004scan's own raw is_verified field, confirmed always
-  // false across the registry, always showed 0). Fixed to use
-  // agentVerification.js's getVerificationTier over agentsWithPerf (has the
- // jobsCompleted/jobsSubmitted signal merged in).
+  // Same stat cards as web (Listed / Feedback / Verified), from the same
+  // source: /api/agents/facets, which counts the whole chain catalogue on the
+  // server. These were reduced over agentsWithPerf, which holds only the pages
+  // loaded so far, so "Listed" read 12 (one page) instead of the chain total,
+  // and Feedback and Verified were page counts too. The verification tier is
+  // still agentVerification.js's definition, applied server-side.
   const stats = useMemo(() => ({
-    total: agentsWithPerf.length,
-    verified: agentsWithPerf.filter((a) => getVerificationTier(a) === VERIFICATION_TIER.VERIFIED).length,
-    totalFeedbacks: agentsWithPerf.reduce((sum, a) => sum + (a.totalFeedbacks || 0), 0),
-  }), [agentsWithPerf]);
+    total: facets.total,
+    verified: facets.tiers?.verified ?? 0,
+    totalFeedbacks: facets.totalFeedbacks,
+  }), [facets]);
 
   return (
     <div className="relative flex flex-col h-[100dvh] font-sans bg-page text-fg">
@@ -890,7 +889,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
  {/* fix (2026-08-27): only render the real,
                             confirmed-fresh count, a skeleton until then,
                             never a stale cached number that later jumps. */}
-                        {confirmedFresh ? <div className="text-lg font-bold">{c.value.toLocaleString()}</div> : <StatSkeleton />}
+                        {confirmedFresh && facets.loaded ? <div className="text-lg font-bold">{c.value.toLocaleString()}</div> : <StatSkeleton />}
                         <div className="text-[10px] text-gray-500 flex items-center justify-center gap-0.5">
                           {c.label}
                           {c.info && <InfoTooltip label="" size={11} align="right">{c.info}</InfoTooltip>}

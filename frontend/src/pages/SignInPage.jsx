@@ -1,7 +1,7 @@
 // SignInPage.jsx
 //
-// /signin. A split screen at 40/60: on the left the wordmark, "Welcome back"
-// and the wallet buttons; on the right a headline over a frame for a picture
+// /signin. A split screen at 40/60: on the left the wordmark, the "Sign in"
+// heading and the wallet buttons; on the right a headline over a frame for a picture
 // of the dashboard. Below 1024px only the left panel shows. It is a
 // standalone route (App.jsx), so one component serves every width.
 //
@@ -155,12 +155,12 @@ function Showcase() {
       <div aria-hidden="true" className="relative mt-auto mb-[9vh] w-full max-w-[680px]">
         <div className="relative w-[88%]">
           <div className="rounded-t-[14px] border border-[#3a3a3c] border-t-[#7a52c7] bg-[#0c0c0d] p-[10px] pb-[14px]">
-            <div className="rounded-[4px] border border-[#2b2b2c] bg-[#1a1a1b]" style={{ aspectRatio: '16 / 10' }} />
+            <div className="rounded-[4px] border border-[#262628] bg-[#1a1a1b]" style={{ aspectRatio: '16 / 10' }} />
           </div>
           <div className="-mx-[4%] h-[12px] rounded-b-[12px] border border-t-0 border-[#3a3a3c] bg-[#161617]" />
         </div>
         <div className="absolute right-0 -bottom-[4%] w-[25%] rounded-[24px] border border-[#3a3a3c] border-t-[#7a52c7] bg-[#0c0c0d] p-[6px]">
-          <div className="rounded-[18px] border border-[#2b2b2c] bg-[#1a1a1b]" style={{ aspectRatio: '9 / 19' }} />
+          <div className="rounded-[18px] border border-[#262628] bg-[#1a1a1b]" style={{ aspectRatio: '9 / 19' }} />
         </div>
       </div>
     </div>
@@ -201,7 +201,7 @@ export default function SignInPage({ navigate }) {
           </InternalLink>
 
           <main className="flex-1 flex flex-col justify-center py-10">
-            <h1 className="text-h1 font-bold text-center">Welcome back</h1>
+            <h1 className="text-h1 font-bold text-center">Sign in</h1>
             <div className="mt-9">
               {status === 'connected' ? (
                 <Connected

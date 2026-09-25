@@ -40,7 +40,7 @@
          current by the inline script and by theme/ThemeProvider.jsx. See public/icon_v2_maskable.svg for why the maskable
          icon is a separate file rather than reusing icon_v2.svg. -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#F9F9F9" />
+    <meta name="theme-color" content="#F4F4F5" />
 
     <!-- THEME BEFORE FIRST PAINT. The visitor's mode is in
          localStorage['tnega_theme'] (system, light or dark; system when
@@ -51,7 +51,7 @@
          The two page colours below repeat --page from src/index.css so the
          first frame is right even before that stylesheet arrives. Change
          them together. -->
-    <style>html{background:#F9F9F9;color-scheme:light}html.dark{background:#000000;color-scheme:dark}</style>
+    <style>html{background:#F4F4F5;color-scheme:light}html.dark{background:#000000;color-scheme:dark}</style>
     <script>
       // SITE DATA BLOCKED. Reading localStorage then throws a SecurityError,
       // and several libraries (RainbowKit's recent-wallet list, WalletConnect)
@@ -93,7 +93,7 @@
         root.setAttribute('data-theme-mode', mode);
         root.style.colorScheme = dark ? 'dark' : 'light';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', dark ? '#000000' : '#F9F9F9');
+        if (meta) meta.setAttribute('content', dark ? '#000000' : '#F4F4F5');
       })();
     </script>
 
@@ -115,33 +115,25 @@
     <meta property="og:title" content="Tnega: Tokenized Stocks, ETFs and Vaults" />
     <!-- Must say what PAGE_META['/'] says in App.jsx: social scrapers read
          this static tag, search crawlers run the app and read that one. It
-         says "being built" until the pages hold something live. The banner
-         image below still shows the agents artwork; replacing it is a
-         separate change. -->
+         says "being built" until the pages hold something live. -->
     <meta property="og:description" content="Being built: pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet." />
     <!-- X and Facebook key a cached preview on the image URL, so the ?v=
          forces a refetch when the file changes under the same name. Bump it
-         whenever the banner does.
+         whenever the card does.
 
-         JPEG, not PNG: this is photographic artwork, and at 1200x630 the
-         PNG weighs 1,067KB against the JPEG's 158KB. Scrapers give up on
-         slow images. -->
-    <meta property="og:image" content="https://www.tnega.app/banner.jpg?v=6" />
+         public/og-card.png is the wordmark card: the Wordmark component
+         (shell/Wordmark.jsx) rendered white on the dark page colour with a
+         glow and a rule in our violet, captured at 1200x630 by headless
+         Chromium. PNG because it is flat colour and text, which PNG keeps
+         sharp at about 140KB. It replaced the agents artwork banner. -->
+    <meta property="og:image" content="https://www.tnega.app/og-card.png?v=1" />
     <!-- Declared dimensions let a scraper commit to the large-image card
-         before it has downloaded the file. Must match the real file:
-         public/banner.jpg is 1200x630, the 1.91:1 every platform expects.
-
-         Reached by scaling the whole frame down and letterboxing it, NOT by
-         cropping. An earlier version cut 601px off the right to make the
-         ratio, which deleted the Arbitrum robot outright: content thrown
-         away to hit a number, when setting the ratio here is precisely what
-         stops a platform cropping it. The bars are exactly 60px top and
-         bottom, and they carry the headline and the call to action, so the
-         artwork keeps every pixel and nothing sits on top of it. -->
+         before it has downloaded the file. Must match the file: 1200x630,
+         the 1.91:1 every platform expects. -->
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="The Tnega wordmark, white on black, with a violet glow." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -149,8 +141,8 @@
     <meta name="twitter:creator" content="@SabaAzadegan" />
     <meta name="twitter:title" content="Tnega: Tokenized Stocks, ETFs and Vaults" />
     <meta name="twitter:description" content="Being built: pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet." />
-    <meta name="twitter:image" content="https://www.tnega.app/banner.jpg?v=6" />
-    <meta name="twitter:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
+    <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=1" />
+    <meta name="twitter:image:alt" content="The Tnega wordmark, white on black, with a violet glow." />
     <!-- Structured data. There was none, so Google had only the raw text
          of a JavaScript-rendered page to work from and nothing telling it
          what this site IS. Organization ties the name, logo and accounts

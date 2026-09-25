@@ -907,7 +907,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  {/* fix (2026-08-27): only ever render the real,
                           confirmed-fresh count, a skeleton until then,
                           never a stale cached number that later jumps. */}
-                      {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.total.toLocaleString()}</div> : <StatSkeleton />}
+                      {confirmedFresh && facets.loaded ? <div className="text-xl font-bold leading-tight">{stats.total.toLocaleString()}</div> : <StatSkeleton />}
                       <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
                         Agents Listed
                         <InfoTooltip label="" size={12}>
@@ -934,7 +934,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <div className="px-4 py-3 flex items-center justify-center gap-3">
                     <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0"><MessageSquare size={18} /></div>
                     <div>
-                      {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.totalFeedbacks.toLocaleString()}</div> : <StatSkeleton />}
+                      {confirmedFresh && facets.loaded ? <div className="text-xl font-bold leading-tight">{stats.totalFeedbacks.toLocaleString()}</div> : <StatSkeleton />}
                       <div className="text-xs text-gray-500 font-medium flex items-center gap-1">
                         On-chain Feedback
                         <InfoTooltip label="" size={12}>
@@ -951,7 +951,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   <div title={`${VERIFIED_MEANING} (see 'How we verify agents' below)`} className="px-4 py-3 flex items-center justify-center gap-3">
                     <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0"><Users size={18} /></div>
                     <div>
-                      {confirmedFresh ? <div className="text-xl font-bold leading-tight">{stats.verified.toLocaleString()}</div> : <StatSkeleton />}
+                      {confirmedFresh && facets.loaded ? <div className="text-xl font-bold leading-tight">{stats.verified.toLocaleString()}</div> : <StatSkeleton />}
                       <div className="text-xs text-gray-500 font-medium">{VERIFICATION_LABEL_SHORT[VERIFICATION_TIER.VERIFIED]}</div>
                     </div>
                   </div>

@@ -1,12 +1,12 @@
 {
-  "name": "Tnega \u2014 Multichain Agents House",
+  "name": "Tnega",
   "short_name": "Tnega",
-  "description": "Browse, verify and hire ERC-8004 agents across BNB Chain, Ethereum, Arbitrum and Robinhood Chain.",
+  "description": "Tnega is being built: connect a wallet, pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet. EVM chains, Solana and Hyperliquid.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#F9F9F9",
-  "background_color": "#F9F9F9",
+  "theme_color": "#F4F4F5",
+  "background_color": "#F4F4F5",
   "icons": [
     {
       "src": "/app-icon-512.png",
