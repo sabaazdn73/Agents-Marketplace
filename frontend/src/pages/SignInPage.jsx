@@ -154,12 +154,12 @@ function Showcase() {
           photographing: a desktop, and a phone overlapping its lower right. */}
       <div aria-hidden="true" className="relative mt-auto mb-[9vh] w-full max-w-[680px]">
         <div className="relative w-[88%]">
-          <div className="rounded-t-[14px] border border-[#3a3a3c] border-t-[#7a52c7] bg-[#0c0c0d] p-[10px] pb-[14px]">
+          <div className="rounded-t-[14px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] p-[10px] pb-[14px]">
             <div className="rounded-[4px] border border-[#262628] bg-[#1a1a1b]" style={{ aspectRatio: '16 / 10' }} />
           </div>
-          <div className="-mx-[4%] h-[12px] rounded-b-[12px] border border-t-0 border-[#3a3a3c] bg-[#161617]" />
+          <div className="-mx-[4%] h-[12px] rounded-b-[12px] border border-t-0 border-[#414144] bg-[#161617]" />
         </div>
-        <div className="absolute right-0 -bottom-[4%] w-[25%] rounded-[24px] border border-[#3a3a3c] border-t-[#7a52c7] bg-[#0c0c0d] p-[6px]">
+        <div className="absolute right-0 -bottom-[4%] w-[25%] rounded-[24px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] p-[6px]">
           <div className="rounded-[18px] border border-[#262628] bg-[#1a1a1b]" style={{ aspectRatio: '9 / 19' }} />
         </div>
       </div>

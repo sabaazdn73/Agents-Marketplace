@@ -36,6 +36,12 @@ const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:800
 
 export const PAGE_SIZE = 24;
 
+// The backend's read cap on the catalogue it serves (SERVE_LIMIT in
+// backend/core/agent_store.py). The served set stops here, so a count at or
+// near it is the size of what we serve, not the size of the registry. Shown
+// beside the Listed figure on web and mobile. Change both together.
+export const SERVE_READ_CAP = 15_000;
+
 // Same backoff discipline the old full-list fetch used, and for the same
 // reason: the backend is OOM-killed and restarts in seconds, so a single fetch
 // that lands in one of those windows should retry rather than render an error.
@@ -243,10 +249,12 @@ export async function fetchAgentById(agentId) {
  * Catalogue-wide counts: the stat cards, the group and category chips, and
  * which categories exist at all.
  *
- * Fetched once and unfiltered, because everything it feeds describes the whole
- * marketplace rather than the current view. `real_names_only=false` keeps these
- * numbers identical to what the client produced when it counted the raw array
- * itself, so this change moves bytes without moving any number on the page.
+ * Fetched once, with no chain, category or search filter, because everything
+ * it feeds describes the whole marketplace rather than the current view. It
+ * takes the grid's default name filter (no `real_names_only` parameter), so
+ * the Listed card, the grid's "of N" and the chain chip count the same set.
+ * Passing `real_names_only=false` here once made Listed larger than the grid
+ * total it sits above.
  */
 export function useMarketplaceFacets({ enabled = true } = {}) {
   const [facets, setFacets] = useState({
@@ -257,7 +265,7 @@ export function useMarketplaceFacets({ enabled = true } = {}) {
   useEffect(() => {
     if (!enabled) return undefined;
     let cancelled = false;
-    fetchWithRetry(`${API_BASE_URL}/api/agents/facets?real_names_only=false`, () => cancelled)
+    fetchWithRetry(`${API_BASE_URL}/api/agents/facets`, () => cancelled)
       .then((d) => {
         if (cancelled || d == null) return;
         setFacets({

@@ -30,6 +30,14 @@ export default {
         neg: role('neg'),
         warn: role('warn'),
         'chart-baseline': role('chart-baseline'),
+        // Two stock greys moved so that no neutral on the site sits within
+        // 12 summed RGB units of the reference dashboard's greys: stock
+        // gray-50 (#f9fafb) was 3 from #f9f9f9 and gray-100 (#f3f4f6) was 7
+        // from #f2f2f2. The other stock greys already clear 25 or more.
+        gray: {
+          50: '#fdfdfe',
+          100: '#ecedf0',
+        },
       },
       // System faces only. No web-font host: fetching a font from a third
       // party would send every visitor's IP to it, which the privacy page

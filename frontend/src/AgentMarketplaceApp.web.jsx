@@ -20,7 +20,7 @@ import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import {
   useMarketplacePage, useMarketplaceFacets, fetchAgentById, useLatch,
-  groupCountsFromFacets, hackathonCountsFromFacets,
+  groupCountsFromFacets, hackathonCountsFromFacets, SERVE_READ_CAP,
 } from './marketplaceQuery';
 import { updatePageMeta } from './seoMeta';
 import ChainViewTabs, { resetChainChoice } from './chainViews/ChainViewTabs';
@@ -913,9 +913,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         <InfoTooltip label="" size={12}>
                           This is a varied mix, not every agent that exists. Most agents here were created in a few
                           big signup batches and look nearly identical, so we limit how many near-duplicates show up,
-                          there are more agents out there, we're just not cluttering your view with lookalikes.
+                          there are more agents out there, we're just not cluttering your view with lookalikes. The count is
+                          also bounded by our read cap: we serve at most {SERVE_READ_CAP.toLocaleString()} agents, so this is the size of
+                          what we serve, not of the registry.
                         </InfoTooltip>
                       </div>
+                      {/* Beside the number, not only in the tooltip: the served
+                          set stops at the backend read cap, so without this the
+                          figure reads as a registry total. */}
+                      <div className="text-[11px] text-muted leading-tight">served, read capped at {SERVE_READ_CAP.toLocaleString()}</div>
                     </div>
                   </div>
                   {/* Label corrected 2026-09-04. This was "Reviews", with a

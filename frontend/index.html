@@ -40,7 +40,7 @@
          current by the inline script and by theme/ThemeProvider.jsx. See public/icon_v2_maskable.svg for why the maskable
          icon is a separate file rather than reusing icon_v2.svg. -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#F4F4F5" />
+    <meta name="theme-color" content="#EDEDEF" />
 
     <!-- THEME BEFORE FIRST PAINT. The visitor's mode is in
          localStorage['tnega_theme'] (system, light or dark; system when
@@ -51,7 +51,7 @@
          The two page colours below repeat --page from src/index.css so the
          first frame is right even before that stylesheet arrives. Change
          them together. -->
-    <style>html{background:#F4F4F5;color-scheme:light}html.dark{background:#000000;color-scheme:dark}</style>
+    <style>html{background:#EDEDEF;color-scheme:light}html.dark{background:#000000;color-scheme:dark}</style>
     <script>
       // SITE DATA BLOCKED. Reading localStorage then throws a SecurityError,
       // and several libraries (RainbowKit's recent-wallet list, WalletConnect)
@@ -93,7 +93,7 @@
         root.setAttribute('data-theme-mode', mode);
         root.style.colorScheme = dark ? 'dark' : 'light';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', dark ? '#000000' : '#F4F4F5');
+        if (meta) meta.setAttribute('content', dark ? '#000000' : '#EDEDEF');
       })();
     </script>
 

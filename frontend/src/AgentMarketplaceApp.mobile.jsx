@@ -25,7 +25,7 @@ import { CATEGORY_HINTS } from './categoryHints';
 import { agentShareUrl, copyShareLink, readDeepLinkAgentId, matchesDeepLink, agentPath } from './shareLink';
 import {
   useMarketplaceInfinite, useMarketplaceFacets, fetchAgentById, useLatch,
-  groupCountsFromFacets, hackathonCountsFromFacets,
+  groupCountsFromFacets, hackathonCountsFromFacets, SERVE_READ_CAP,
 } from './marketplaceQuery';
 import ChainViewTabs from './chainViews/ChainViewTabs';
 import HireModePicker, { HIRE_MODE } from './HireModePicker';
@@ -877,8 +877,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     { label: 'Listed', value: stats.total, icon: Activity, color: '#2563EB', info: (
                       <>This is a varied mix, not every agent that exists. Most agents here were created in a few
                       big signup batches and look nearly identical, so we limit how many near-duplicates show up,
-                      there are more agents out there, we're just not cluttering your view with lookalikes.</>
-                    ) },
+                      there are more agents out there, we're just not cluttering your view with lookalikes. The count
+                      is also bounded by our read cap: we serve at most {SERVE_READ_CAP.toLocaleString()} agents, so this is the size
+                      of what we serve, not of the registry.</>
+                    ), caption: `served, read capped at ${SERVE_READ_CAP.toLocaleString()}` },
                     { label: 'On-chain Feedback', value: stats.totalFeedbacks, icon: MessageSquare, color: '#059669', hint: 'On-chain ERC-8004 feedback entries recorded against these agents. Counts only, no written text and no star rating, so there is nothing to read behind the number. Most of it comes from one automated cluster rather than many independent buyers.' },
                     { label: VERIFICATION_LABEL_SHORT[VERIFICATION_TIER.VERIFIED], value: stats.verified, icon: Users, color: '#7C3AED', hint: `${VERIFIED_MEANING} (see 'How we verify agents' below)` },
                   ].map((c) => {
@@ -894,6 +896,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                           {c.label}
                           {c.info && <InfoTooltip label="" size={11} align="right">{c.info}</InfoTooltip>}
                         </div>
+                        {/* Beside the number, as on web: the served set stops
+                            at the backend read cap. */}
+                        {c.caption && <div className="text-[10px] text-muted leading-tight mt-0.5">{c.caption}</div>}
                       </div>
                     );
                   })}
