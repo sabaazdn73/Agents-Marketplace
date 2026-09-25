@@ -61,6 +61,7 @@
 * [Venus Lending Investigation](venus-skill-revert-investigation.md)
 * [Deletion Audit, 2026-09-10](deletion-audit-2026-09-10.md)
 * [Narrowing to Six Chains, 2026-09-11](chain-removal-2026-09-11.md)
+* [CoinGecko Removed, BNB/USD on Chain, 2026-09-25](coingecko-removal-2026-09-25.md)
 * [Deploying the Escrow to Ethereum](ethereum-escrow-deploy.md)
 * [EIP-7702 and What a Payout Event Means](eip-7702-payee-delegation.md)
 * [Tokenized Equity Measurements and Their Provenance](tokenized-equity-measurements.md)
@@ -69,6 +70,7 @@
 
 * [Proposal: ERC-8004 Interaction Model](erc-8004-interaction-model.md)
 * [Future: Tnega PayBox](future-tnega-paybox.md)
+* [Deferred Work](deferred.md)
 
 ## Business
 

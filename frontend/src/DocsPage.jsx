@@ -22,11 +22,22 @@
 // regardless of that setting.)
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StandaloneBar from './shell/StandaloneBar';
+import { GITHUB_URL } from './SiteLinks';
 import { Menu, X, ExternalLink } from 'lucide-react';
 import { parseDocsMarkdown } from './docsMarkdown';
 import { updatePageMeta } from './seoMeta.js';
 
-const docModules = import.meta.glob('../../docs/*.md', { eager: true, query: '?raw', import: 'default' });
+// Pages kept in the repo and in SUMMARY.md, for the docs as read on GitHub,
+// but not bundled here. deferred.md lists work that is not offered in the app,
+// so it is not published as an in-app page. Kept out at the glob, so it adds
+// nothing to the download; it has no sidebar entry, and a link to it from
+// another page opens it on GitHub.
+// Keep this list and the negative patterns below in step (import.meta.glob
+// takes literals only), and backend/scripts/build_sitemap.py leaves the same
+// pages out of sitemap.xml.
+const NOT_IN_APP = new Set(['deferred.md']);
+const docModules = import.meta.glob(['../../docs/*.md', '!../../docs/deferred.md'], { eager: true, query: '?raw', import: 'default' });
+const REPO_DOCS_URL = `${GITHUB_URL}/blob/main/docs`;
 
 // Screenshots live in docs/images/, beside the markdown that uses them, and
 // are referenced relatively: ![alt](images/foo.png).
@@ -116,7 +127,8 @@ const NAV_SECTIONS = (() => {
     if (b.type === 'list') {
       for (const inline of b.items) {
         const link = inline.find((p) => p.t === 'link');
-        if (link) current.items.push({ title: link.v, filename: link.href, slug: filenameToSlug(link.href) });
+        // A page not bundled here has no in-app route, so no sidebar entry.
+        if (link && !NOT_IN_APP.has(link.href)) current.items.push({ title: link.v, filename: link.href, slug: filenameToSlug(link.href) });
       }
     }
   }
@@ -219,6 +231,13 @@ function InlineContent({ parts, onNavigate }) {
       // "features.md#advantage-report"), resolved within /docs, not left
       // to 404 or point at GitHub.
       const docMatch = p.href.match(/^([\w-]+\.md)(#[\w-]*)?$/i);
+      if (docMatch && NOT_IN_APP.has(docMatch[1])) {
+        return (
+          <a key={i} href={`${REPO_DOCS_URL}/${docMatch[1]}${docMatch[2] || ''}`} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-0.5">
+            {p.v} <ExternalLink size={11} aria-hidden="true" />
+          </a>
+        );
+      }
       if (docMatch) {
         const slug = filenameToSlug(docMatch[1]);
         const hash = (docMatch[2] || '').slice(1);

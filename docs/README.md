@@ -44,6 +44,7 @@ On top of that, Tnega adds an AgentAccessMarket contract so agent creators can s
 | [Academic References](academic-references.md) | Verified publication status for every academic paper cited in this project's docs, never mislabeled as more formally reviewed than it is |
 | [Getting Started](getting-started.md) | Accurate local development setup |
 | [Known Limitations](limitations.md) | Current gaps, nothing hidden |
+| [Deferred Work](deferred.md) | What is blocked, what blocks it, what unblocks it, and the research already done; none of it is shown in the app |
 | [Hackathon Context](hackathon.md) | The tracks and partners this was built for |
 
 ## A note on accuracy

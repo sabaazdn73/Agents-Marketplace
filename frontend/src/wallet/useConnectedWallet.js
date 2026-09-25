@@ -5,10 +5,9 @@
 // the sign-in state) reads it here rather than asking wagmi, or anything
 // else, for itself.
 //
-// There used to be two sources: wagmi for a browser wallet, and Privy for an
-// email or passkey account with a wallet Privy created. Each caller merged the
-// two slightly differently. Privy is gone, so there is one source, and this
-// hook is where a second one would have to be added if one ever came back.
+// There is one source, wagmi, for an EVM wallet the visitor already has. A
+// wallet of another chain family (a Solana wallet, planned for phase 5) will
+// be a separate hook, so this one's callers only ever receive an EVM address.
 
 import { useAccount } from 'wagmi';
 

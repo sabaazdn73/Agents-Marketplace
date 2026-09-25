@@ -35,19 +35,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         wallet modal and the standalone routes, reads one theme. */}
     <ThemeProvider>
     {/* One wallet path: wagmi with RainbowKit's connect modal, for a wallet
-        the visitor already has. There is no login provider. The site used
-        to load Privy for email and passkey sign-up with a wallet Privy
-        created. That is gone, so the site no longer sends anyone to a login
-        provider. Accounts created through Privy before the removal are held
-        by Privy, not by this project, and removing the SDK does not delete
-        them; see docs/data-handling.md.
+        the visitor already has. There is no login provider; see
+        docs/deferred.md for what was considered and why it is not built.
 
-        reconnectOnMount is back to wagmi's default. It had been turned off
-        (2026-08-17) because wagmi's reconnect and Privy's own probe of
-        window.ethereum ran in the same tick and produced a double wallet
-        prompt; App.jsx then re-ran the reconnect by hand once Privy was
-        ready. With Privy gone there is nothing to race, and the manual
-        stagger went with it.
+        reconnectOnMount is wagmi's default: a previously connected wallet
+        is restored after a reload with no extra code here.
 
         SignInProvider sits inside wagmi and RainbowKit because it reads the
         connected account and opens RainbowKit's connect modal. */}

@@ -34,7 +34,6 @@ function check(name, cond, detail = '') {
 
 const src = new URL('../src/', import.meta.url).pathname;
 const wagmiSrc = readFileSync(`${src}wagmiConfig.js`, 'utf8');
-const mainSrc = readFileSync(`${src}main.jsx`, 'utf8');
 
 // The chains the app can ask a wallet to switch to. Budget hiring is the only
 // thing that switches chains, so its chain list IS the requirement.
@@ -45,13 +44,8 @@ const configured = (() => {
   const m = wagmiSrc.match(/chains:\s*\[([^\]]*)\]/);
   return m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
 })();
-const supported = (() => {
-  const m = mainSrc.match(/supportedChains:\s*\[([^\]]*)\]/);
-  return m ? m[1].split(',').map((s) => s.trim()).filter(Boolean) : [];
-})();
 
-console.log(`wagmiConfig chains:      ${configured.join(', ') || '(none)'}`);
-console.log(`Privy supportedChains:   ${supported.join(', ') || '(none)'}\n`);
+console.log(`wagmiConfig chains:      ${configured.join(', ') || '(none)'}\n`);
 
 // Map viem chain export names to ids so the check compares ids, not spelling.
 const nameToId = Object.fromEntries(
@@ -61,14 +55,12 @@ const nameToId = Object.fromEntries(
 );
 
 const configuredIds = configured.map((n) => nameToId[n]).filter((x) => x != null);
-const supportedIds = supported.map((n) => nameToId[n]).filter((x) => x != null);
 
 for (const id of required) {
   const chainEntry = Object.values(chains).find((c) => c?.id === id);
   check(`chain ${id} (${chainEntry?.name ?? '?'}) is in wagmiConfig chains`,
     configuredIds.includes(id),
     'a switch to it would throw ChainNotConfiguredError before reaching the wallet');
-  check(`chain ${id} is in Privy supportedChains`, supportedIds.includes(id));
 }
 
 check('every configured chain name resolved to a real viem chain',
