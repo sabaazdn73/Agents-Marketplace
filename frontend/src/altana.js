@@ -84,8 +84,8 @@ const client = createClient({ chains: [BNB] });
 // moment, strictly better than a hard failure either way.
 const _mainnetPublicClient = createPublicClient({ chain: bsc, transport: getBscTransport() });
 
-/** A BSC mainnet read client, for the read-only/detection skills (Token Radar,
- * Wallet Tracker, Copy Trade detection) that make no transactions. */
+/** A BSC mainnet read client, for the read-only/detection skills
+ * (Wallet Tracker, Copy Trade detection) that make no transactions. */
 export function getMainnetReadClient() {
   return _mainnetPublicClient;
 }

@@ -18,6 +18,7 @@
 // be drawn as a zero the agent didn't earn.
 
 import React, { useEffect, useState } from 'react';
+import { ZerionSourceLine } from './shell/DataAttribution';
 import { Loader2, ShieldCheck, ShieldAlert, Wallet, Gauge, AlertTriangle, Info } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -108,11 +109,14 @@ export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress })
             <Row label="Native balance" value={`${Number(balance.balance).toFixed(6)} ${balance.symbol}`} />
           ) : <Unavailable reason={balance.reason} />}
           {portfolio?.available ? (
-            <Row
-              label="Portfolio on this chain"
-              value={`$${Number(portfolio.total_usd_value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
-              hint={`${(portfolio.positions || []).length} position(s), via Zerion`}
-            />
+            <>
+              <Row
+                label="Portfolio on this chain"
+                value={`$${Number(portfolio.total_usd_value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+                hint={`${(portfolio.positions || []).length} position(s)`}
+              />
+              <ZerionSourceLine />
+            </>
           ) : <Unavailable reason={portfolio?.reason} />}
         </div>
       </Section>

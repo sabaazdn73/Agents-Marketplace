@@ -46,7 +46,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Volume2, VolumeX, ChevronDown } from 'lucide-react';
 import './agentHero.css';
 import LandingStory from './LandingStory';
-import ThemeToggle from './theme/ThemeToggle';
+import LandingWallet from './LandingWallet';
 
 const HERO_VIDEO = '/agent-hero/multiagents.mp4';
 // A frame taken from the clip itself, so the still and the motion are the
@@ -63,7 +63,7 @@ function storedSoundPref() {
   try { return localStorage.getItem(SOUND_KEY) === 'on'; } catch { return false; }
 }
 
-export default function LandingPage({ onEnterMarketplace, animate = true }) {
+export default function LandingPage({ onEnterMarketplace, onOpenWallet, animate = true }) {
   const videoRef = useRef(null);
   // Honoured as a real preference, not an inference from screen width.
   const reduceMotion = typeof window !== 'undefined'
@@ -118,6 +118,9 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
 
   return (
     <div className="agent-hero">
+      {/* The wallet story leads (owner's decision, 2026-09-25). The agent
+          hero and story below are unchanged and follow it. */}
+      <LandingWallet onOpenWallet={() => onOpenWallet?.()} onExplore={() => onEnterMarketplace?.()} />
       <section className="hero">
         <div className="stage">
           <video
@@ -164,11 +167,8 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
             one remaining exit from the hero for anyone who wants it. */}
         <a className="skip" href="/market">Skip to Explore</a>
 
-        {/* The theme control. This page renders outside both app shells, so
-            it carries its own copy of the one control rather than none. */}
-        <div className="absolute top-3.5 right-3.5 z-20">
-          <ThemeToggle />
-        </div>
+        {/* The theme control moved up into the wallet section's bar, which
+            is now the top of this page. */}
 
         {/* The page scrolls now, and nothing about a full-bleed hero says so.
             Without this the story below it is found by accident or not at

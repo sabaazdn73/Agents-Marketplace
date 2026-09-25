@@ -240,10 +240,20 @@ purge, for as long as those providers retain them.
 
 ### `/api/wallet/habits`, the visitor's own wallet on Hyperliquid
 
-`POST /api/wallet/habits` backs the signed-in dashboard: what the visitor's
-own Hyperliquid account holds and what its trading habits have cost it,
-measured. It takes the visitor's connected wallet and was built on the
+`POST /api/wallet/habits` backs the wallet page, `/wallet`: what the
+visitor's own Hyperliquid account holds and what its trading habits have cost
+it, measured. It takes the visitor's connected wallet and was built on the
 `/api/my-jobs` pattern from the start.
+
+Who calls it, and when: `frontend/src/wallet/useHabits.js`, when the wallet
+page opens with a wallet connected, for the connected address, and again when
+the visitor presses Read again. The page keeps the answer for five minutes
+(the route's own cache time), so reopening it inside that time sends nothing.
+A connected wallet that has not signed in triggers the call too: signing in
+changes how the page describes the address, not what is read. With no wallet
+connected the page sends nothing. On a 429 the page shows the route's own
+sentence and the Retry-After wait, and retries only when the visitor presses
+the button after that wait; it never retries by itself.
 
 The wallet is in the JSON body, `{"address": "0x..."}`, never in the URL. The
 body is read by hand and capped at 256 bytes, and every malformed body gets
@@ -394,7 +404,7 @@ of it is shared between workers.
 | `core/hyperliquid/venuerole.py` | wallet | 6 hours | 4096, cleared entirely when full |
 | `core/hyperliquid/wallet_habits.py` | the visitor's own wallet, lowercased, holding the computed response as JSON bytes | 5 minutes | 128 answers and 4MB, cleared entirely when either is reached |
 | `core/hyperliquid/corestate.py` | wallet | 20 seconds | none |
-| `adapters/zerion.py`, three caches | wallet, holding portfolio, activity and PnL | 10 minutes | none |
+| `adapters/zerion.py`, three caches | wallet, holding portfolio, activity and PnL | 10 minutes | 256 per cache: every write drops every expired entry, then the oldest if the cache is still over 256 |
 | `adapters/contract_verification.py` | wallet or contract | 24 hours | none |
 | `core/universal_search.py` | whatever was typed into search, which can be a pasted address | 5 minutes | 5000 |
 | `core/agent_performance.py` | one slot holding every client and provider address in the most recent 1,500 jobs | 30 minutes | one slot |
@@ -417,13 +427,24 @@ hours, with no path to storage. That is judged acceptable, and the
 judgement is written down here so the page is not claiming a cleanliness the
 code does not have.
 
-Three of these caches are unbounded, which is a separate and smaller point:
-`corestate.py`, the three in `adapters/zerion.py` and the one in
-`adapters/contract_verification.py` have no cap, so they grow by one entry
-per distinct address queried and are only ever overwritten. Everything the
+Two of these caches are unbounded, which is a separate and smaller point:
+`corestate.py` and the one in `adapters/contract_verification.py` have no
+cap, so they grow by one entry per distinct address queried and are only
+ever overwritten. The three in `adapters/zerion.py` were in the same state
+until 2026-09-25, when they were bounded, because they hold Zerion's own
+responses and the owner's rule is that those are kept only as a short cache
+(see "Zerion data, site only" below). Everything the
 paragraph above says about memory-only and restart still applies, but this
 project's own pattern elsewhere is to cap a cache keyed by caller-supplied
 input, and these do not.
+
+The wallet page also reads balances from the browser, not through our
+server: the native coin and a named list of stablecoins on BNB Chain, Arbitrum
+and Robinhood Chain (`frontend/src/wallet/evmTokens.js` lists them, and the
+page says that any other token is not read). Those reads send the visitor's
+address, ABI-encoded in the request body, to each chain's public RPC provider,
+the same ones named under sign-in below. Nothing about them reaches our server
+or is stored.
 
 In the browser, wagmi's default storage keeps the connected wallet address
 in `localStorage` so the site can reconnect on reload. That is the visitor's
@@ -486,21 +507,9 @@ address. With site data blocked, `index.html` puts an in-memory store in place o
 `localStorage` before anything loads, so the signature is not kept and a
 sign-in lasts until the page is closed.
 
-### The login provider that was removed
+### No login provider
 
-Until 2026-09-25 the site loaded Privy's SDK (`@privy-io/react-auth`), which
-offered sign-up by email or passkey and created a wallet for people who did
-not have one. It is gone: the package, the provider and every call to it were
-removed, and the site now connects only to a wallet the visitor already has,
-through RainbowKit and wagmi. The site therefore sends no one to a login
-provider, and no email address or login credential passes through it.
-
-Two things did not end with the code, and are stated here rather than left
-out. Accounts created through Privy before the removal are held by Privy under
-its own terms, not by this project, and removing the SDK does not delete them;
-deleting them is done in Privy's dashboard by the project owner. And a wallet
-Privy created for someone is reachable through Privy, not through this site
-any more.
+The site connects only to a wallet the visitor already has, through RainbowKit and wagmi, so no email address or login credential passes through it; sign-in by email or social account, embedded wallets and a fiat onramp are not offered, and the research on them is kept in [Deferred work](deferred.md).
 
 ### Wallet addresses, transmitted
 
@@ -512,18 +521,19 @@ any more.
 | Hyperliquid info API and WebSocket | Tracked maker | POST body or subscription message | Not in a URL |
 | Hyperliquid info API | The visitor's own wallet, from `/api/wallet/habits` | POST body | Not in a URL |
 | HyperEVM, BSC and backup RPC providers | Wallet, ABI-encoded as calldata | POST body | Not in a URL |
-| BNB Chain, Arbitrum and Robinhood Chain RPC providers, from the browser | The visitor's own wallet at sign-in: for a contract wallet the address, message and signature; for a signature that does not recover, the address alone. An ordinary wallet that signs correctly sends nothing | POST body | Not in a URL. See "Sign-in, checked on the visitor's side" |
+| BNB Chain, Arbitrum and Robinhood Chain RPC providers, from the browser | The visitor's own wallet on the wallet page, in `eth_getBalance` and `balanceOf` reads for the named tokens. And at sign-in: for a contract wallet the address, message and signature; for a signature that does not recover, the address alone. An ordinary wallet that signs correctly sends nothing | POST body | Not in a URL. See "Sign-in, checked on the visitor's side" |
 
-8004scan, TheGraph, CoinGecko, DefiLlama and Crossmint receive no address
-from this project. Owner addresses arrive in 8004scan's and TheGraph's
+8004scan, TheGraph, DefiLlama and Crossmint receive no address from this
+project. CoinGecko received none either, and since 2026-09-25 receives no
+call at all: the BNB/USD price is read from a PancakeSwap v3 pool through the
+BSC RPC (`core/bnb_usd.py`), and that read carries no wallet, only the pool's
+address and its `observe()` arguments. Owner addresses arrive in 8004scan's and TheGraph's
 responses; none is ever sent as a request parameter. No model API call built
 in `core/commerce/` interpolates a wallet or an IP into a prompt.
 
-One third-party call is made by the visitor's browser rather than by our
-server: the research Skill's trending-pools lookup fetches
-`api.geckoterminal.com` directly (`frontend/src/researchSkills.js`). It sends
-no wallet address, but GeckoTerminal receives the visitor's IP address and the
-request, as with any host a browser contacts. The privacy page says so.
+The research Skill's trending-pools lookup, which the visitor's browser sent
+to GeckoTerminal's API, was removed on 2026-09-25 with the skill
+(`docs/coingecko-removal-2026-09-25.md`).
 
 ### Error paths
 
@@ -582,11 +592,14 @@ reach Sourcify: {e}` is on a request whose URL carries the queried contract
 and no key, and that branch does not call `raise_for_status()`, so what it
 catches are network-level exceptions.
 
-`adapters/zerion.py` puts the wallet in the URL path on five calls and is
-safe today only by accident: it checks `resp.status_code` by hand instead of
-calling `raise_for_status()`, so the exceptions it catches are network-level
-ones, and httpx stringifies those to the empty string. Adding a
-`raise_for_status()` there would recreate the contract-verification leak above.
+`adapters/zerion.py` puts the wallet in the URL path on five calls. It
+checks `resp.status_code` by hand instead of calling `raise_for_status()`,
+and since 2026-09-25 its five `except httpx.HTTPError` handlers pass the
+exception through `core.safe_errors.describe()` rather than interpolating it,
+so a status code or a class name is all that reaches a `reason`. Before that
+it was safe only because the exceptions it caught were network-level ones,
+which httpx stringifies to the empty string. The key is not in any URL:
+Zerion takes it as HTTP Basic auth.
 
 This codebase also writes exception text into a stored record.
 `core/full_registry_ingest.py` puts `last_error` on the
@@ -659,6 +672,68 @@ while an environment variable can be changed by a deploy config. Browser
 profiles, which persist a user's logged-in session at a merchant, are never
 created, and an existing profile id is only ever used when the caller states
 that the user authorised it in that session.
+
+## Zerion data, site only
+
+The owner's decision, 2026-09-25: Zerion data may be shown in Tnega's own
+frontend, which Zerion's API licence allows. There is no stored history of
+Zerion responses, only a short cache for speed. Nothing Zerion-sourced goes
+through MCP or any public API unless Zerion agrees in writing. The site says
+the data comes via the Zerion API and that Tnega is not a Zerion app. The key
+stays on the server.
+
+How the code holds to it, as audited on 2026-09-25:
+
+- Storage. `adapters/zerion.py` holds responses in three module-level
+  dictionaries, for 10 minutes, bounded at 256 entries each (see "Wallet
+  addresses, held in memory" above). Its callers, `core/pnl.py`,
+  `core/onchain_pnl.py`, `core/onchain_history.py`,
+  `core/agent_evaluation.py` and the routes in `server.py`, write nothing to
+  Mongo, to disk or to a log. None of them calls `get_db()`, opens a file or
+  prints a response.
+- MCP and the public API. Neither `mcp_server/` nor `publicapi/` imports
+  anything that reaches `adapters/zerion.py`, directly or through those four
+  modules. The agents index MCP serves is built by the aggregate refresh,
+  which never calls Zerion. `scripts/mcp_selfcheck.py` checks this as an
+  import closure, so a dataset that later reaches Zerion through one of those
+  modules fails the check.
+- The routes. Seven GET routes serve Zerion data to the site:
+  `/api/agents/wallet-portfolio`, `/api/agents/activity`, `/api/agents/pnl`,
+  `/api/agents/pnl-summary`, `/api/agents/onchain-performance`,
+  `/api/agents/onchain-history` and
+  `/api/chain-agent/{chain_id}/{token_id}/evaluation`. The two PnL routes
+  were not on the first list; they are here because `core/pnl.py` reads
+  Zerion's chart and transaction endpoints. Each now answers only a request
+  whose `Origin` header is one of the site's (the CORS allowlist in
+  `server.py`, plus anything added through `CORS_ALLOWED_ORIGINS`), and
+  returns one fixed 403 otherwise, before any Zerion call is made. None of
+  them is in `/openapi.json` or `/docs`.
+- What the origin check does not do. A browser sends `Origin` on every
+  cross-origin fetch and a page cannot forge it, so this stops other sites
+  from using these routes through their visitors' browsers, and it stops
+  anyone who does not bother to set the header. It does not stop a determined
+  server-side caller, who can send `Origin: https://www.tnega.app` with curl.
+  Closing that fully needs a credential the page holds and a script does not
+  have, for example a short-lived token signed by this server and issued to
+  the page, checked on each of these routes and rate limited per token. That
+  is not built.
+- Attribution. A response carries `source: "via the Zerion API"` when, and
+  only when, it carries Zerion data: an adapter result that read something,
+  a history or on-chain performance answer built from Zerion's transaction
+  list, a PnL figure computed from Zerion's chart, or, on the per-agent
+  evaluation, a portfolio that was read (there it comes with
+  `source_covers: ["portfolio"]`, since the other parts come from 8004scan
+  and the chain). A body saying Zerion could not be read is not labelled.
+  The site shows "Data via the Zerion API. Tnega is not a Zerion app." on the
+  seven panels that display this data (`ZerionSourceLine` in the frontend).
+- The key. `ZERION_API_KEY` is read with `os.environ.get` in
+  `adapters/zerion.py` and `core/status_checks.py` only, sent as HTTP Basic
+  auth, never put in a URL, a response or a log line. It does not appear in
+  any tracked file or in the frontend build.
+
+The `/status` page still makes one Zerion call, to
+`/v1/chains/binance-smart-chain`, and reports only its HTTP status and
+latency. No Zerion data is in that response.
 
 ## Third-party marks
 

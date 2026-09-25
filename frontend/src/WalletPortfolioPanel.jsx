@@ -35,6 +35,7 @@
 // states below are drawn from that investigation, not invented.
 
 import React, { useState } from 'react';
+import { ZerionSourceLine } from './shell/DataAttribution';
 import { Wallet, Loader2, ChevronDown, ShieldCheck, CircleDashed } from 'lucide-react';
 import { DATA_SOURCES } from './dataSources';
 
@@ -171,10 +172,11 @@ export default function WalletPortfolioPanel({ ownerAddress, category }) {
           ))}
         </div>
       )}
-      <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1.5">
+      <p className="text-[10px] text-muted mt-2 flex items-center gap-1.5">
         <ZerionLogo />
- data from Zerion, checked just now, every priced token this wallet holds on BNB Chain, not just BNB.
+        Checked just now: every priced token this wallet holds on BNB Chain, not just BNB.
       </p>
+      <ZerionSourceLine className="mt-1" />
     </div>
   );
 }

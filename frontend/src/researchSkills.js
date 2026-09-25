@@ -1,27 +1,12 @@
 // researchSkills.js
 //
-// The two read-only skills: no Altana session needed at all, per
-// their own SKILL.md ("session permits no onchain calls"). Real
-// public endpoints, exactly as documented.
-
-// ── Trending BNB Chain pools, from GeckoTerminal ──
-// The skills registry lists this as "DexScreener Token Radar", and the panel
-// keys it by that id (dexscreener-token-radar), but the data comes from
-// GeckoTerminal's public API, not DexScreener's. The output is credited to
-// GeckoTerminal where it is shown (AltanaSkillsPanel.jsx), as CoinGecko's API
-// Terms ask.
-export async function getTrendingBscTokens() {
-  const res = await fetch('https://api.geckoterminal.com/api/v2/networks/bsc/trending_pools');
-  if (!res.ok) throw new Error(`GeckoTerminal didn't respond properly (status ${res.status}).`);
-  const data = await res.json();
-  return (data.data || []).map((p) => ({
-    name: p.attributes?.name,
-    priceUsd: p.attributes?.base_token_price_usd,
-    liquidityUsd: p.attributes?.reserve_in_usd,
-    volume24h: p.attributes?.volume_usd?.h24,
-    priceChange24h: p.attributes?.price_change_percentage?.h24,
-  }));
-}
+// The read-only skills: no Altana session needed at all, per their own
+// SKILL.md ("session permits no onchain calls"). Public endpoints, exactly as
+// documented.
+//
+// The trending-pools lookup behind Token Radar was removed on 2026-09-25: its
+// data source's terms do not clearly allow a commercial site. What would
+// replace it is recorded in docs/deferred.md.
 
 export async function searchToken(query) {
   const res = await fetch(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(query)}`);

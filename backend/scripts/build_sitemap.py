@@ -56,6 +56,8 @@ DOCS_DIR = ROOT / "docs"
 # for; it was the one missing from the hand-written file.
 STATIC = [
     ("/", "daily", "1.0"),
+    # Added 2026-09-25 with the wallet page, which Home now leads with.
+    ("/wallet", "monthly", "0.8"),
     ("/market", "daily", "0.9"),
     ("/native-agents", "weekly", "0.8"),
     ("/skills", "weekly", "0.8"),
@@ -96,10 +98,11 @@ async def main() -> None:
     # Slugs are lowercased by DocsPage.filenameToSlug, and README maps to the
     # empty slug -- it IS /docs, so listing /docs/README would submit a second
     # URL for a page already in the static list. SUMMARY is the GitBook table
-    # of contents and has no route.
+    # of contents and has no route. DEFERRED is kept out of the site's docs
+    # bundle (frontend/src/DocsPage.jsx, NOT_IN_APP), so it has no route either.
     docs = sorted(
         p.stem.lower() for p in DOCS_DIR.glob("*.md")
-        if p.stem.upper() not in {"SUMMARY", "README"}
+        if p.stem.upper() not in {"SUMMARY", "README", "DEFERRED"}
     )
     for slug in docs:
         rows.append(url_el(f"{BASE}/docs/{slug}", "monthly", "0.5", today))

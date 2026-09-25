@@ -6,7 +6,7 @@ The category-native evaluation framework (see [Category-Aware Evaluation](catego
 
 ## What was checked
 
-How many Skills exist, and where did they live? 10 distinct Skills, confirmed live against `GET /api/skills-registry`: PancakeSwap Trading, Four.meme Trading, PancakeSwap Liquidity, Copy Trade, Venus Lending, x402 API Payments, Lista Liquid Staking, Aave V3 Lending, Token Radar, Wallet Tracker. All 10 are wired and executable (`AltanaSkillsPanel.jsx`'s own `SKILL_EXEC` map).
+How many Skills exist, and where did they live? 10 distinct Skills are listed by `GET /api/skills-registry`: PancakeSwap Trading, Four.meme Trading, PancakeSwap Liquidity, Copy Trade, Venus Lending, x402 API Payments, Lista Liquid Staking, Aave V3 Lending, Token Radar, Wallet Tracker. Nine are offered and executable (`AltanaSkillsPanel.jsx`'s `SKILL_EXEC` map). Token Radar was removed on 2026-09-25, because the GeckoTerminal data it used is not clearly licensed for a commercial site; see docs/coingecko-removal-2026-09-25.md.
 
 They lived inside the "Build Your Agent" tab, a mismatch. That tab's own header text ("No coding required. If you can describe what you want in a sentence, you can build this... Built on BNB Agent Studio") is entirely about scaffolding a brand-new custom agent via the `bag` CLI, a completely different feature. `AltanaSkillsPanel` sat above that content under a small "Or build something custom" divider; a user looking to run Venus Lending themselves had no reason to think to click a tab called "Build Your Agent" to find it. The only existing discovery path into Skills was indirect: `AgentGuidancePanel`'s "Try it yourself" suggestion, shown only on an agent's detail page when that agent has no track record yet.
 

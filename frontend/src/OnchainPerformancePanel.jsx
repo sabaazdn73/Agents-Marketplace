@@ -24,6 +24,7 @@
 // without that label alongside it.
 
 import React, { useState } from 'react';
+import { ZerionSourceLine } from './shell/DataAttribution';
 import { History, Loader2, ChevronDown, TrendingUp, TrendingDown, ShieldCheck, ShieldQuestion, AlertTriangle } from 'lucide-react';
 import { groupForCategory } from './categoryGroups';
 
@@ -185,6 +186,9 @@ export default function OnchainPerformancePanel({ ownerAddress, category }) {
           </span>
         </div>
       )}
+      {/* The activity, the positions and both PnL figures all come from
+          Zerion's API. */}
+      <ZerionSourceLine className="mt-2" />
     </div>
   );
 }

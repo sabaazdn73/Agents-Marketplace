@@ -21,6 +21,7 @@
 // rate-budget discipline. Shared by web + mobile.
 
 import React, { useState } from 'react';
+import { ZerionSourceLine } from './shell/DataAttribution';
 import { ChevronDown, ChevronUp, ExternalLink, Loader2, Radar } from 'lucide-react';
 import { useAgentActivity } from './useAgentActivity';
 
@@ -118,6 +119,9 @@ export default function AgentActivityPanel({ ownerAddress, window, className = '
               too, not a failed check.
             </p>
           )}
+          {/* Shown with any Zerion answer, including an empty one: "nothing in
+              this window" is still Zerion's data. */}
+          {state.status === 'ready' && state.data.available && <ZerionSourceLine className="mt-2" />}
           {state.status === 'ready' && !state.data.available && (
             <p className="text-xs text-gray-400">
  Couldn't check on-chain activity for this job{state.data.reason ? `, ${state.data.reason}` : '.'}

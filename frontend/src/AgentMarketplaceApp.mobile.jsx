@@ -74,8 +74,9 @@ import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
-import { CoinGeckoAttribution } from './shell/DataAttribution';
+import { BnbPriceSource } from './shell/DataAttribution';
 import WalletIdentity from './wallet/WalletIdentity';
+import WalletHome from './wallet/WalletHome';
 import { useConnectedWallet } from './wallet/useConnectedWallet';
 import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
@@ -87,7 +88,7 @@ import { resetChainChoice } from './chainViews/ChainViewTabs';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
 import SessionModesExplainer from './SessionModesExplainer';
-import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
+import { useBnbQuote, labelledBnbUsd, formatBnbWithUsd } from './useBnbPrice';
 import OnboardingTour from './OnboardingTour';
 import { hasSeenOnboarding } from './onboarding';
 
@@ -219,6 +220,8 @@ function StatSkeleton() {
 
 const NAV_ITEMS = [
   { id: 'landing', label: 'Home', icon: Sparkles },
+  // Mirrors web: the wallet page next to Home, and first in the bottom bar.
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
   // Connect above the listing (2026-09-17), mirroring web's identical
   // NAV_ITEMS change; see that file's comment for why it sits above.
     // How It Works sits directly after Home (2026-09-18). It was called Connect
@@ -278,7 +281,8 @@ const NAV_ITEMS = [
 // this list filters NAV_ITEMS by id, naming a tab that no longer exists
 // silently produced a two-item bar rather than an error. A person's own
 // jobs are still one tap away, from the briefcase at the top.
-const PRIMARY_NAV_IDS = ['market', 'native', 'connect'];
+// Wallet joined the bar on 2026-09-25: it is where a signed-in visitor lands.
+const PRIMARY_NAV_IDS = ['wallet', 'market', 'native', 'connect'];
 const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((i) => PRIMARY_NAV_IDS.includes(i.id));
 const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.id));
 
@@ -385,9 +389,9 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
 // continue.
 //
 // The "Continue with Face ID" button was removed 2026-09-04. It worked, but
-// it was misleading: it promised biometrics and opened the login provider's
-// passkey/email modal (that provider, Privy, was removed from the site on
-// 2026-09-25). What that label implies -- an OS-level biometric
+// it was misleading: it promised biometrics and opened a login provider's
+// passkey/email modal (the site has no login provider now). What that label
+// implies -- an OS-level biometric
 // unlock of the app itself -- is not something a web app can do, so the
 // fix was to stop offering it rather than to reword it.
 function SplashScreen({ onUnlock }) {
@@ -431,7 +435,10 @@ const BSCSCAN = 'https://bscscan.com';
 // everything the aggregated data holds for one agent.
 function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
   const [copied, setCopied] = useState(false);
-  const bnbUsdPrice = useBnbPrice();
+  const bnbQuote = useBnbQuote();
+  // A dollar value only when the answer is the labelled on-chain average;
+  // otherwise the balance is shown in BNB alone.
+  const bnbUsdPrice = labelledBnbUsd(bnbQuote);
   const onShare = async () => {
     const ok = await copyShareLink(agentShareUrl(agent));
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
@@ -534,8 +541,9 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-muted flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="flex flex-col items-end gap-0.5">
             <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-muted font-normal">n/a</span>}</span>
-            {/* CoinGecko's price, credited beside it as their API Terms ask. */}
-            {agent.ownerBnbBalance != null && bnbUsdPrice != null && <CoinGeckoAttribution />}
+            {/* What the dollar figure is: the on-chain BNB/USD average, its
+                label, window and block. Shown only when a dollar value is. */}
+            {agent.ownerBnbBalance != null && bnbUsdPrice != null && <BnbPriceSource quote={bnbQuote} className="text-right" />}
           </span>
         </div>
  {/* Real, final, unified "Metrics" presentation, see the matching
@@ -1467,6 +1475,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               </div>
             )}
 
+            {nav === 'wallet' && <div className="p-4"><WalletHome layout="mobile" /></div>}
             {nav === 'sell' && <SellYourAgentForm />}
             {nav === 'studio' && <AgentStudioPage accent="#4F46E5" />}
 

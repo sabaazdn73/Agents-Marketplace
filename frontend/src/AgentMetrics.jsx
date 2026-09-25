@@ -46,6 +46,7 @@
 // Shared verbatim by web and mobile.
 
 import React, { useState } from 'react';
+import { ZerionSourceLine } from './shell/DataAttribution';
 import {
   Activity, Coins, TrendingUp, TrendingDown, ShieldQuestion, ShieldCheck, AlertTriangle,
   ChevronDown, Loader2, Radio, Blocks, ExternalLink, Zap, BarChart3,
@@ -360,6 +361,9 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
             The wallet that funded {d.jobs.filter((j) => j.available).length > 1 ? 'these hires' : 'this hire'}, balance before vs. after, never a creator-submitted or backtested number.
           </p>
           {d.reason && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">{d.reason}</p>}
+          {/* Only when a figure was computed: each job's PnL comes from
+              Zerion's balance charts, and a job with no figure used none. */}
+          {d.jobs.some((j) => j.available) && <ZerionSourceLine className="mt-1" />}
         </div>
       )}
 
@@ -384,6 +388,7 @@ function FinancialTrackRecord({ ownerAddress, agentId, category }) {
               )}
             </p>
           )}
+          {onchain.data?.has_activity && <ZerionSourceLine className="mt-1" />}
         </div>
       )}
     </div>

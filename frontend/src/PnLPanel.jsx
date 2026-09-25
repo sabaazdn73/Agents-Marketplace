@@ -21,6 +21,7 @@
 // Zerion API response for a real, specific, already-completed job.
 
 import React, { useState } from 'react';
+import { ZerionSourceLine } from './shell/DataAttribution';
 import { TrendingUp, TrendingDown, Loader2, ChevronDown, LineChart, AlertTriangle } from 'lucide-react';
 import { groupForCategory } from './categoryGroups';
 
@@ -156,6 +157,8 @@ export default function PnLPanel({ ownerAddress, category }) {
         {data.jobs.map((j) => <JobRow key={j.job_id} job={j} />)}
       </div>
       {data.reason && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-2">{data.reason}</p>}
+      {/* The balances behind each job's figure are Zerion's charts. */}
+      {data.jobs.some((j) => j.available) && <ZerionSourceLine className="mt-2" />}
     </div>
   );
 }

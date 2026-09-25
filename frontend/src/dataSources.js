@@ -7,15 +7,11 @@
 //   - The Graph:   backend/adapters/thegraph.py, Agent0 ERC-8004 subgraph,
 //                  the registry coverage fallback (docs/thegraph-integration.md)
 //   - Zerion:      backend/adapters/zerion.py, opt-in wallet portfolio enrichment
-//   - CoinGecko:   market and pricing data (the BNB/USD price behind the dollar
-//                  value beside owner balances). Credited because CoinGecko's
-//                  API Terms require attribution wherever their data is shown:
-//                  a visible "Powered by CoinGecko" or "Data provided by
-//                  CoinGecko", linked to coingecko.com/en/api
-//                  (shell/DataAttribution.jsx). Also credited per a commitment
-//                  in their grant application. Tracked live on /status.
+//   - PancakeSwap v3: the BNB/USD price, read on BNB Chain by the backend
+//                  (backend/core/bnb_usd.py): the 30-minute average of the
+//                  WBNB/USDT pool's own oracle. It replaced CoinGecko, whose
+//                  free API terms do not cover this site, on 2026-09-25.
 //   - DexScreener: frontend/src/researchSkills.js, live token/pool search
-//   - GeckoTerminal: frontend/src/researchSkills.js, trending BSC pools
 //   - BscScan:     explorer links throughout the app (altana.js, JobStatusPanel, etc.)
 //   - bloXroute:   the BSC mainnet RPC this project's backend reads through
 //                  (adapters/bsc_balance.py, /api/status)
@@ -107,15 +103,13 @@ export const DATA_SOURCES = [
     description: 'EIP-5792 atomic batch transaction support for the direct-wallet Skill/hire path.',
   },
   {
-    name: 'CoinGecko',
+    name: 'PancakeSwap v3',
     inFooter: true,
     status: 'live',
-    statusNote: 'Checked live on /status.',
-    // The API page, not the home page: that is where CoinGecko's attribution
-    // terms ask the credit to link.
-    url: 'https://www.coingecko.com/en/api',
-    logo: 'https://www.coingecko.com/favicon.ico',
-    description: 'Powered by CoinGecko API. Market and pricing data, including the US dollar price of BNB shown beside owner wallet balances.',
+    statusNote: 'Read on BNB Chain by our server; no API key needed.',
+    url: 'https://pancakeswap.finance',
+    logo: 'https://pancakeswap.finance/favicon.ico',
+    description: 'The BNB/USD price shown beside BNB balances: the 30-minute average of the WBNB/USDT pool (0.01% fee tier), read from the pool on chain, in USDT taken at one US dollar.',
   },
   {
     name: 'DexScreener',
@@ -125,15 +119,6 @@ export const DATA_SOURCES = [
     url: 'https://dexscreener.com',
     logo: 'https://dexscreener.com/favicon.ico',
     description: 'Live token and trading-pair search.',
-  },
-  {
-    name: 'GeckoTerminal',
-    inFooter: true,
-    status: 'live',
-    statusNote: 'Trending BNB Chain pools inside the research skills.',
-    url: 'https://www.geckoterminal.com',
-    logo: 'https://www.geckoterminal.com/favicon.ico',
-    description: 'Trending BNB Chain liquidity pools.',
   },
   {
     name: 'BscScan',

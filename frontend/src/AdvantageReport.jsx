@@ -147,7 +147,7 @@ export default function AdvantageReport() {
 
       {/* Task 1, COMPLETE */}
       <TaskCard icon={ShieldAlert} title="Task 1, Security/trading risk check" statusLabel="Complete" statusColor="#10B981">
-        <Side label="With an agent (Token Radar skill)">
+        <Side label="With an agent (Token Radar skill, removed from the site on 2026-09-25)">
           <Row label="Target" value="犇犇/WBNB" />
           <Row label="Time taken" value="0.216s" />
           <Row label="Cost" value="$0 (just looked something up)" />

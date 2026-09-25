@@ -43,12 +43,8 @@ export const CATEGORY_TO_SKILLS = {
   'Payments & Settlement': [
     { skillId: 'x402-api-payments', label: 'x402 API Payments' },
   ],
-  'Data Analysis': [
-    { skillId: 'dexscreener-token-radar', label: 'Token Radar' },
-  ],
-  'Research': [
-    { skillId: 'dexscreener-token-radar', label: 'Token Radar' },
-  ],
+  // Data Analysis and Research pointed at Token Radar, which was removed on
+  // 2026-09-25 (docs/deferred.md), so they have no skill suggestion now.
 };
 
 /** signals-in-plain-language for one agent, from data already on the

@@ -34,8 +34,7 @@ import { venusSupply, venusSupplyPreflight, aaveSupply, listaStake, pancakeAddLi
 import { buyOnCurve, TOKEN_MANAGER_2, TOKEN_MANAGER_HELPER_3 } from './fourMemeSkill';
 import { detectLeaderTrades } from './copyTradeSkill';
 import { payOnce } from './x402Skill';
-import { getTrendingBscTokens, getRecentWalletSwaps } from './researchSkills';
-import { GeckoTerminalAttribution } from './shell/DataAttribution';
+import { getRecentWalletSwaps } from './researchSkills';
 
 // Single source of truth for the backend base URL, matching the main app
 // (web/mobile both read VITE_API_BASE_URL). Default suits local dev.
@@ -101,16 +100,6 @@ const SKILL_EXEC = {
   // ── Read-only / detection skills (no wallet, no transactions) ──
   // These make no on-chain writes, so a wallet doesn't apply.
   // `run` gets a BSC mainnet read client and returns data for display.
-  // Registry id says DexScreener; the data is GeckoTerminal's. See
-  // researchSkills.js getTrendingBscTokens.
-  'dexscreener-token-radar': {
-    play: 'trending-scan', kind: 'read',
-    ready: () => true,
-    run: async (_pc, v) => {
-      const tokens = await getTrendingBscTokens();
-      return { kind: 'trending', tokens: tokens.slice(0, Number(v.count) || 5) };
-    },
-  },
   'wallet-tracker': {
     play: 'profile-wallet', kind: 'read',
     ready: (v) => v.wallet,
@@ -147,6 +136,12 @@ const SKILL_EXEC = {
 // Friendly copy for the user-facing error, the technical detail (status
 // code, message) still goes to the console for anyone debugging
 // it, never shown raw in the UI.
+// Registry skills this site does not offer. dexscreener-token-radar (Token
+// Radar, trending BNB Chain pools) was removed on 2026-09-25: its data source's
+// terms do not clearly allow a commercial site (docs/deferred.md). It is taken
+// out of the list, so there is no card and no button that cannot run.
+const NOT_OFFERED = new Set(['dexscreener-token-radar']);
+
 const SKILLS_LOAD_FRIENDLY_ERROR = "Couldn't load the skills list right now. This sometimes happens, give it another try.";
 
 function useAltanaSkills() {
@@ -162,7 +157,7 @@ function useAltanaSkills() {
     setError(null);
     fetch(SKILLS_INDEX_URL)
       .then((r) => { if (!r.ok) throw new Error(`Registry returned ${r.status}`); return r.json(); })
-      .then((data) => { if (!cancelled) { setSkills(data.skills || []); setLoading(false); } })
+      .then((data) => { if (!cancelled) { setSkills((data.skills || []).filter((s) => !NOT_OFFERED.has(s.id))); setLoading(false); } })
       .catch((e) => {
         if (cancelled) return;
         console.error('[AltanaSkillsPanel] skills registry load failed:', e.message || e);
@@ -219,8 +214,8 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
   const [walletSnapshot, setWalletSnapshot] = useState(null);
   const directExecutor = useDirectWalletExecutor();
 
-  // Execution config for this skill. All 10 registry skills are wired; a
-  // skill id not in SKILL_EXEC (shouldn't happen for the registry) is
+  // Execution config for this skill. Every offered registry skill is wired
+  // (Token Radar is filtered out as NOT_OFFERED); a skill id not in SKILL_EXEC is
   // disclosed as not-yet-executable. `kind`: 'tx' (on-chain writes, always
   // the user's own connected wallet), 'read' (read-only/detection, no
   // wallet), 'pay' (x402, the one skill still using an Altana session).
@@ -497,9 +492,6 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
 
       {step === 'done' && execResult && execResult.kind && (
         <div className={`mb-4 p-3 rounded-xl border ${mutedBorder} text-[11px]`}>
-          {/* GeckoTerminal's data, credited above the output as CoinGecko's
-              API Terms ask. */}
-          {execResult.kind === 'trending' && <GeckoTerminalAttribution className="block mb-1.5" />}
           <div className="font-semibold mb-1 opacity-70">Result</div>
           <pre className="whitespace-pre-wrap break-all max-h-64 overflow-auto opacity-80">
 {JSON.stringify(execResult, (k, val) => (typeof val === 'bigint' ? val.toString() : val), 2)}

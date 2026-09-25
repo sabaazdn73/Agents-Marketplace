@@ -10,6 +10,7 @@ import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
 import CanaryTestingPanel from './CanaryTestingPanel.jsx';
 import { EcosystemBoundary, EcosystemFallback, hasWebGL } from './shell/EcosystemFallback.jsx';
+import { useSignIn } from './wallet/SignInProvider';
 import { MAIN_TAB_PATHS, NAV_TO_PATH } from './routePaths.js';
 import { updatePageMeta } from './seoMeta.js';
 
@@ -37,6 +38,7 @@ const PAGE_META = {
   // Renamed 2026-09-17: the tab is Explore. The path stays
   // /market, because every shared link, the sitemap and the Chrome Web Store
   // listing point at it, and a rename that changes a URL breaks all of them.
+  '/wallet': { title: 'Your wallet', description: 'What a wallet holds, and what its trading habits on Hyperliquid have cost it: fees as maker and taker, funding, post-only refusals. Measured from public records, each figure with its window.' },
   '/market': { title: 'Explore', description: 'Browse and hire verified AI agents and bots across BNB Chain, Ethereum, Arbitrum and Robinhood Chain, with payment held on-chain until the work is delivered.' },
   // Added 2026-09-17, following /skills and /native-agents: an entry here, a
   // path in routePaths.js, a nav item in both apps, a line in
@@ -84,7 +86,11 @@ function useRoute() {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-  const navigate = (to) => { window.history.pushState({}, '', to); setPath(to); };
+  const navigate = (to, { replace = false } = {}) => {
+    if (replace) window.history.replaceState({}, '', to);
+    else window.history.pushState({}, '', to);
+    setPath(to);
+  };
   return [path, navigate];
 }
 
@@ -104,14 +110,27 @@ function useIsMobile() {
   return isMobile;
 }
 
-// The manual, staggered wallet reconnect that lived here (2026-08-18) is
-// gone with Privy: it existed only to keep wagmi's reconnect from racing
-// Privy's probe of window.ethereum. wagmi's own reconnectOnMount now restores
-// a previously connected wallet after a reload. See main.jsx.
+// wagmi's own reconnectOnMount restores a previously connected wallet after a
+// reload; nothing here needs to re-run it. See main.jsx.
 
 export default function App() {
   const isMobile = useIsMobile();
   const [path, navigate] = useRoute();
+  const { status: signInStatus } = useSignIn();
+
+  // A SIGNED-IN VISITOR ARRIVING AT "/" GOES TO /wallet. A redirect, not only
+  // a prominent link, because the owner's decision is that the page a
+  // signed-in visitor lands on is their own wallet. It is a replace, so Back
+  // does not bounce between the two.
+  //
+  // Only the bare "/" redirects. Choosing Home from the navigation goes to
+  // /home, which always shows the home page, so a signed-in visitor can still
+  // read it. The sign-in check runs in the browser in a few milliseconds
+  // after the wallet reconnects, so the home page can show for a moment first.
+  useEffect(() => {
+    if (path === '/' && signInStatus === 'signed') navigate('/wallet', { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, signInStatus]);
 
   // "/" IS HOME, FOR EVERYONE, changed 2026-09-19.
   //
@@ -160,7 +179,7 @@ export default function App() {
  // below are the only way out and both are links rather than
   // JS-only handlers.
   if (path === '/home' || path === '/') {
-    return <LandingPage onEnterMarketplace={() => navigate('/market')} />;
+    return <LandingPage onEnterMarketplace={() => navigate('/market')} onOpenWallet={() => navigate('/wallet')} />;
   }
 
   // WHERE "BACK TO EXPLORE" GOES, IN ONE PLACE.

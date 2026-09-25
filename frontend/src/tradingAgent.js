@@ -142,7 +142,7 @@ export async function quoteBestAcrossDexes(publicClient, tokenAddress, usdtAmoun
 // plain contract address, no key. A genuinely untracked token returns an
 // empty `{"coins":{}}`, not a fabricated 0%, handled below as
 // `null`, same "never fabricate, just show nothing" discipline as
-// useBnbPrice.js's own CoinGecko integration. No new API key
+// useBnbPrice.js. No new API key
 // needed; this is the same free source core/aggregate.py etc. already
 // use elsewhere in this project for TVL, a different endpoint on
 // the same real, already-trusted provider.

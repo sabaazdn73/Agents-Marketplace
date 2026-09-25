@@ -32,6 +32,7 @@
 // mobile.
 
 import React, { useState } from 'react';
+import { ZerionSourceLine } from './shell/DataAttribution';
 import { Blocks, Loader2, ChevronDown, ExternalLink, ShieldAlert } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -113,6 +114,7 @@ export default function OnchainHistoryPanel({ ownerAddress }) {
     return (
       <div className="mt-2 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40">
         <p className="text-[11px] text-gray-400">No on-chain activity found for this wallet on BSC.</p>
+        {data.available !== false && <ZerionSourceLine className="mt-1" />}
       </div>
     );
   }
@@ -169,6 +171,7 @@ export default function OnchainHistoryPanel({ ownerAddress }) {
           </div>
         ))}
       </div>
+      <ZerionSourceLine className="mt-2" />
     </div>
   );
 }

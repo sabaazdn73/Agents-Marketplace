@@ -28,6 +28,10 @@ export const MAIN_TAB_PATHS = {
   // A destination, not the entry point: '/' still resolves to the
   // main agent listing, and this is reachable from the nav or its own URL.
   '/home': 'landing',
+  // The connected wallet's own page (2026-09-25): holdings, and what its
+  // Hyperliquid habits cost, measured. A signed-in visitor arriving at "/" is
+  // sent here; see App.jsx.
+  '/wallet': 'wallet',
   // The tab is now called Explore. The path is not: /market is
   // in shared links, in the sitemap, and in the Chrome Web Store listing, and
   // renaming a path breaks every one of them for nothing. The id stays

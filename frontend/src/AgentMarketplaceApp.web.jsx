@@ -119,8 +119,9 @@ import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
 import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
-import { CoinGeckoAttribution } from './shell/DataAttribution';
+import { BnbPriceSource } from './shell/DataAttribution';
 import WalletIdentity from './wallet/WalletIdentity';
+import WalletHome from './wallet/WalletHome';
 import { useConnectedWallet } from './wallet/useConnectedWallet';
 import { useSignIn } from './wallet/SignInProvider';
 import { useTheme } from './theme/ThemeProvider';
@@ -129,7 +130,7 @@ import MultiAgentIcon from './MultiAgentIcon';
 import { ChainCardBadge } from './chainViews/chainMarks';
 import PartnerMarquee from './PartnerMarquee';
 import './partnerMarquee.css';
-import { useBnbPrice, formatBnbWithUsd } from './useBnbPrice';
+import { useBnbQuote, labelledBnbUsd, formatBnbWithUsd } from './useBnbPrice';
 import OnboardingTour from './OnboardingTour';
 import { hasSeenOnboarding } from './onboarding';
 
@@ -308,7 +309,10 @@ function DetailBadge({ children, icon: Icon, hint }) {
 // the hire-flow navigation pattern.
 function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
   const [copied, setCopied] = useState(false);
-  const bnbUsdPrice = useBnbPrice();
+  const bnbQuote = useBnbQuote();
+  // A dollar value only when the answer is the labelled on-chain average;
+  // otherwise the balance is shown in BNB alone.
+  const bnbUsdPrice = labelledBnbUsd(bnbQuote);
   const onShare = async () => {
     const ok = await copyShareLink(agentShareUrl(agent));
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
@@ -422,9 +426,9 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             <span className="font-mono text-sm font-semibold">
               {agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-muted font-normal">not available</span>}
             </span>
-            {/* The dollar value is CoinGecko's price; their API Terms ask for
-                a visible credit beside it. Shown only when a dollar value is. */}
-            {agent.ownerBnbBalance != null && bnbUsdPrice != null && <CoinGeckoAttribution />}
+            {/* What the dollar figure is: the on-chain BNB/USD average, its
+                label, window and block. Shown only when a dollar value is. */}
+            {agent.ownerBnbBalance != null && bnbUsdPrice != null && <BnbPriceSource quote={bnbQuote} className="text-right" />}
           </span>
         </div>
  {/* Real, final, unified "Metrics" presentation, interaction
@@ -461,6 +465,8 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
 
 const NAV_ITEMS = [
   { id: 'landing', label: 'Home', icon: Sparkles },
+  // The wallet page sits next to Home, which now leads with it.
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
   // How It Works sits directly after Home (2026-09-18). It was called Connect
   // and listed the ways in; it now opens with what this project measures and
   // why, then the four ways to use it, each with the sequence to follow. A
@@ -1843,6 +1849,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  {/* Sell Your Agent Tab, creator listing flow (on-chain models 1&2
               via AgentAccessMarket + x402 config for model 3). Shared component,
               identical on web and mobile. */}
+          {nav === 'wallet' && <WalletHome layout="web" />}
           {nav === 'sell' && <SellYourAgentForm />}
           {nav === 'studio' && <AgentStudioPage accent={accent} />}
 

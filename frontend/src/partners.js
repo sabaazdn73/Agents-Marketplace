@@ -14,7 +14,8 @@
 // pixel dimensions, and rejected anything that came back as HTML or as an
 // error page with a 200 status.
 //
-// Four ETHGlobal, CoinGecko, DexScreener and Crossmint icons all came back
+// The ETHGlobal, DexScreener and Crossmint icons (and CoinGecko's, before it
+// was removed on 2026-09-25) all came back
 // at exactly 15406 bytes, which looked like a shared placeholder. Hashing
 // them showed four different files. 15406 is just the common size of a
 // multi-resolution .ico bundle, so they are distinct marks.
@@ -83,9 +84,7 @@ export const PARTNERS = [
   { name: 'BscScan', kind: PARTNER_KIND.SERVICE, url: 'https://bscscan.com', logo: 'https://bscscan.com/favicon.ico' },
   { name: 'bloXroute', kind: PARTNER_KIND.SERVICE, url: 'https://bloxroute.com', logo: 'https://bloxroute.com/favicon.ico' },
   { name: 'DefiLlama', kind: PARTNER_KIND.SERVICE, url: 'https://defillama.com', logo: 'https://defillama.com/favicon.ico' },
-  { name: 'CoinGecko', kind: PARTNER_KIND.SERVICE, url: 'https://www.coingecko.com', logo: 'https://www.coingecko.com/favicon.ico' },
   { name: 'DexScreener', kind: PARTNER_KIND.SERVICE, url: 'https://dexscreener.com', logo: 'https://dexscreener.com/favicon.ico' },
-  { name: 'GeckoTerminal', kind: PARTNER_KIND.SERVICE, url: 'https://www.geckoterminal.com', logo: 'https://www.geckoterminal.com/favicon.ico' },
   // Hyperliquid, added 2026-09-15 with the tab of the same name. A service
   // rather than a chain: the two collectors read its REST and WebSocket
   // APIs, and nothing here is hired or settled on it, which is what the

@@ -438,8 +438,22 @@ export default function PrivacyPage({ onBack }) {
             is not written to any database or to any log by our code, and it is not returned in the
             answer. The computed answer is kept in the server&apos;s memory for up to five minutes,
             looked up by the address, so that a second view in that time does not read Hyperliquid
-            again. It is not written to disk, and it is gone when the server restarts. The website
-            page that will call this route is still being built; nothing on the site calls it yet.
+            again. It is not written to disk, and it is gone when the server restarts.
+          </p>
+          <p>
+            The wallet page (/wallet) calls that route when you open it with a wallet connected, for
+            the connected address, and again when you press Read again. Opening the page again
+            within five minutes reuses the answer it already has instead of asking. A connected
+            wallet that has not signed in triggers it too: signing in changes only whether the page
+            calls the address your wallet, not what is read. With no wallet connected, the page
+            sends nothing.
+          </p>
+          <p>
+            The same page reads your balances on BNB Chain, Arbitrum and Robinhood Chain from your
+            browser, not through our server: the native coin and a short named list of stablecoins
+            on each chain. For that, your browser sends the address, inside each request, to the same
+            public RPC providers named below for sign-in. Those reads are not sent to our server and
+            nothing about them is stored.
           </p>
           <p>
             Signing in on the website is a signature from your wallet over a short message that
@@ -463,16 +477,12 @@ export default function PrivacyPage({ onBack }) {
           </p>
         </Section>
 
-        <Section title="Market data from CoinGecko">
+        <Section title="The BNB price">
           <p>
-            Some prices on the website, such as the US dollar value shown beside a BNB balance, come
-            from the CoinGecko API, and trending pool data in the research skills comes from
-            GeckoTerminal, which CoinGecko runs. The dollar value is fetched by our server, so
-            CoinGecko does not see your browser for it. The trending pool lookup is fetched by your
-            browser directly from GeckoTerminal, so GeckoTerminal receives your IP address and the
-            request, as with any site your browser contacts. The CoinGecko API and its data are the
-            property of CoinGecko. CoinGecko has no liability for this website or for anything shown
-            on it.
+            The US dollar value shown beside a BNB balance is read on BNB Chain by our server: the
+            30-minute average price of the PancakeSwap v3 WBNB/USDT pool, taken from the pool&apos;s
+            own oracle, in USDT counted as one US dollar. Your browser asks our server for the figure
+            and sends nothing about you to do so; no market data provider is involved.
           </p>
         </Section>
 

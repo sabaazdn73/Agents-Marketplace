@@ -16,7 +16,7 @@ Built for BNB Chain's "Smart Money Era" hackathon. Full documentation: **[docs/]
 
 **Live pages:** [`/status`](https://tnega.app/status) —
 live pass/fail checks (not cached uptime history) against every
-external integration this project depends on (8004scan, Zerion, CoinGecko,
+external integration this project depends on (8004scan, Zerion,
 the BSC RPC, the explainer-agent service, MongoDB). [`/ecosystem`](https://tnega.app/ecosystem) —
 a standalone visual identity page, a rotating 3D globe sized by live
 agent-category counts.
@@ -90,7 +90,7 @@ own `SKILL.md` and BscScan this session.
 | Four.meme | tx (buy-on-curve) | ✅ live: 0.05 BNB → 649,166 "Binance AI" tokens (pre-graduation token `0x54D6…4444`) |
 | Copy Trade | detection-only (mirroring not connected) | ✅ live: detected a real wallet's actual swaps on mainnet |
 | Wallet Tracker | read-only (detection) | ✅ live: returned a real wallet's recent swaps |
-| Token Radar (DexScreener) | read-only | ✅ live: returned 20 trending BSC tokens |
+| Token Radar (trending pools) | read-only | removed 2026-09-25: its data source's terms do not clearly allow a commercial site (`docs/deferred.md`) |
 | x402 API Payments | pay (real session) | 🔷 wiring verified; **live payment settlement not tested** (needs a real x402-protected URL + facilitator) |
 
 - The six **tx** skills were each verified with **real before/after balance
@@ -98,7 +98,7 @@ own `SKILL.md` and BscScan this session.
   real forked copy of BSC mainnet used only for that verification pass (not
   a live product feature).
 - **Copy Trade is wired detection-only (mirroring not connected)**; Wallet
-  Tracker and Token Radar are read-only by design. They detect/read a wallet's
+  Tracker is read-only by design. They detect/read a wallet's
   trades from RPC logs. Copy Trade and Wallet Tracker were fixed this session (a
   viem `getLogs` filter bug) and verified live returning data. They issue
   address-less topic `getLogs`, so they need a read RPC that permits it — set
