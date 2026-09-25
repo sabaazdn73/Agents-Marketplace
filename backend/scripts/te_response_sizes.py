@@ -4,9 +4,9 @@ Run: ./venv/bin/python scripts/te_response_sizes.py            (sizes only, offl
      ./venv/bin/python scripts/te_response_sizes.py --verify   (also checks every
                                                                 example pool on chain)
 
-Every byte figure mcp/TOKENIZED-EQUITIES.md cites in 3.3, 6, 8.1 and 9.1 is printed
-here, encoded with envelope.encode, the function the server itself uses. The
-examples are held in this file. They are filled records, not the placeholder
+Every byte figure mcp/TOKENIZED-EQUITIES.md cites in 3.3, 4, 4.8, 6, 8.1, 9.1
+and E16, E17 and E23 is printed here, encoded with envelope.encode, the
+function the server itself uses. The examples are held in this file. They are filled records, not the placeholder
 JSON in the spec: full-length addresses and pool ids, and numbers at realistic
 precision.
 
@@ -175,7 +175,7 @@ def record(sym, token, venues, primary, alt_idx, conc, ui):
                          enumerate([(1000, "buy"), (1000, "sell"), (10000, "buy"), (10000, "sell")])],
         "usd_reference": usd_reference(quotes),
         "premium": {"value_bps": None, "window": None, "samples": 0, "underlying_market_state": None,
-                    "reference_source": None, "withheld_reason": "unestablished_source"},
+                    "reference_source": None, "withheld_reason": "awaiting_permission"},
         "shares_per_token": 1.0, "shares_per_token_source": "issuer_publication",
         "shares_per_token_convention": "not_published", "ui_multiplier": ui, "new_ui_multiplier": None,
         "effective_at": None, "ui_multiplier_read_at_block": BLK, "per_share_price_usd": 181.3918,
@@ -261,12 +261,19 @@ def venue_index(r, venues):
 
 
 # ------------------------------------------------ section 4.8, issuer figures
-# The shape an xStocks instrument adds (spec 4.8): our supply per chain, our
-# circulating figure with every exclusion named, links to the issuer's pages,
-# and a reconcile verdict per quantity. Values are TSLAx from the 2026-09-24
-# reads in backend/scripts/te_xstocks_reads.py, all chain measurements. No
-# issuer number appears, by construction (E18).
+# The shape an xStocks instrument adds (spec 4.8), as it would be served once
+# E20's permission arrives, which is the worst case for size. Values are TSLAx
+# from the 2026-09-24 21:19 UTC run of backend/scripts/te_xstocks_reads.py, all
+# chain measurements. No issuer number appears, by construction (E18).
+#
+# E16, settled: per-chain supply and every exclusion move to their own key,
+# <instrument key>/supply. The instrument keeps the circulating figure, the
+# links and the verdicts. E21, settled: there is no named exclusion list, so
+# the exclusions are the issuer's list only, and 9U76 appears in the
+# circulating verdict as the wallet the figures reconcile only if excluded.
 LISTED_EVM = "0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad"
+TSLAX_ETH = "0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0"
+UNLISTED_SOL = "9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd"
 XS_CHAINS = [  # chain, supply, listed balance, read_at (block, or slot, or time for TON)
     ("ethereum", 45000.0, 41485.492098, 26049954), ("bsc", 20000.0, 19981.854958, 123827815),
     ("arbitrum", 48649.0, 48646.977371, 508564347), ("mantle", 10000.0, 8457.589609, 101077237),
@@ -277,20 +284,20 @@ XS_CHAINS = [  # chain, supply, listed balance, read_at (block, or slot, or time
 ]
 LISTED_BY_CHAIN = {"solana": "S7vYFFWH6BjJyEsdrPQpqpYTqLTrPRK6KW3VwsJuRaS",
                    "ton": "EQCVLU9-UVFfm9Sct863y50nsF03Jr6uBn1tJm4n9g8QLeQX", "tron": "TCq5ut4WNk9EWya4bAyeoCe7yEd7RRkExc"}
+CIRC_METHOD = ("total supply on every listed chain minus every balance held by an address on the issuer's "
+               "public system-wallet list")
 
 
-def issuer_figures_block():
+def circulating_value() -> float:
+    return round(sum(s for _, s, _, _ in XS_CHAINS) - sum(h for _, _, h, _ in XS_CHAINS), 6)
+
+
+def instrument_issuer_part():
+    """What stays on the instrument record under E16: the circulating figure,
+    the key its working lives at, the links, and the verdicts."""
     return {
-        "supply_measured": [{"chain": c, "supply": s, "read_at": r} for c, s, _, r in XS_CHAINS],
-        "circulating_measured": {
-            "value": 189117.782209,
-            "method": "total supply on every listed chain minus every balance held by an address on the issuer's "
-                      "public system-wallet list or on the named exclusion list",
-            "exclusions": [{"chain": c, "address": LISTED_BY_CHAIN.get(c, LISTED_EVM), "held": h, "read_at": r,
-                            "basis": "on_issuer_system_wallet_list"} for c, _, h, r in XS_CHAINS]
-                          + [{"chain": "solana", "address": "9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd",
-                              "held": 5380.34209129, "read_at": 450148454, "basis": "named_exclusion_list"}],
-        },
+        "circulating_measured": {"value": circulating_value(), "method": CIRC_METHOD,
+                                 "detail_key": f"1/{TSLAX_ETH}/supply"},
         "issuer_links": {"proof_of_reserves": "https://defi.xstocks.fi/proof-of-reserves",
                          "product": "https://assets.backed.fi/products/tesla-xstock",
                          "system_wallets": "https://docs.xstocks.fi/apis/openapi/system",
@@ -298,9 +305,10 @@ def issuer_figures_block():
         "reconciliation": [
             {"quantity": "total_supply", "verdict": "reconciles", "tolerance": "1e-9 of total supply",
              "issuer_checked_at": "2026-09-24T21:20:16Z"},
-            {"quantity": "circulating_supply", "verdict": "reconciles_after_exclusion",
+            {"quantity": "circulating_supply", "verdict": "reconciles_only_if_excluded",
              "tolerance": "1e-9 of total supply", "issuer_checked_at": "2026-09-24T21:20:16Z",
-             "explained_by": ["9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd"]},
+             "explained_by": [{"chain": "solana", "address": UNLISTED_SOL, "held": 5380.34209129,
+                               "read_at_slot": 450148454, "on_issuer_system_wallet_list": False}]},
             {"quantity": "ui_multiplier", "verdict": "reconciles", "tolerance": "1e-12 relative",
              "issuer_checked_at": "2026-09-24T21:19:35Z"},
             {"quantity": "backing", "verdict": "no_chain_counterpart"},
@@ -309,9 +317,41 @@ def issuer_figures_block():
     }
 
 
-def with_issuer_figures(r):
+def instrument_issuer_part_now():
+    """The same, as served while E20 stands: no issuer figure is fetched, so
+    the list the exclusions come from is not read either."""
+    return {
+        "circulating_measured": {"value": None, "withheld_reason": "awaiting_permission",
+                                 "detail_key": f"1/{TSLAX_ETH}/supply"},
+        "issuer_links": {"proof_of_reserves": "https://defi.xstocks.fi/proof-of-reserves",
+                         "system_wallets": "https://docs.xstocks.fi/apis/openapi/system",
+                         "corporate_actions": "https://docs.xstocks.fi/apis/openapi/corporate-actions"},
+        "reconciliation": [{"quantity": q, "verdict": "awaiting_permission"}
+                           for q in ("total_supply", "circulating_supply", "ui_multiplier")]
+                          + [{"quantity": "backing", "verdict": "no_chain_counterpart"},
+                             {"quantity": "withholding_rate", "verdict": "no_chain_counterpart"}],
+    }
+
+
+def supply_record():
+    """tnega_get on <instrument key>/supply (E16): per-chain supply and every
+    exclusion behind the circulating figure, each with its block or slot."""
+    return {
+        "key": f"1/{TSLAX_ETH}/supply", "instrument_key": f"1/{TSLAX_ETH}", "issuer": "xstocks",
+        "symbol": "TSLAx",
+        "supply_measured": [{"chain": c, "supply": s, "read_at": r} for c, s, _, r in XS_CHAINS],
+        "total_supply_measured": round(sum(s for _, s, _, _ in XS_CHAINS), 6),
+        "circulating_measured": {
+            "value": circulating_value(), "method": CIRC_METHOD,
+            "exclusions": [{"chain": c, "address": LISTED_BY_CHAIN.get(c, LISTED_EVM), "held": h, "read_at": r,
+                            "basis": "on_issuer_system_wallet_list"} for c, _, h, r in XS_CHAINS]},
+    }
+
+
+def with_issuer_part(r, part):
     r = copy.deepcopy(r)
-    r.update(issuer_figures_block())  # replaces the base record's reconciliation list
+    r["reconciliation"] = []  # replaced by the part's own list
+    r.update(part)
     return r
 
 
@@ -464,6 +504,8 @@ def main() -> int:
         rr3["quote"].pop(f)
     print(f"  and without the quote fields the route object repeats or the record states once "
           f"(method, block, age, staleness bound, family, pool) {enc(rr3)}, response {response('tnega_get', rr3)}")
+    print(f"  E17 settled: the adopted route record is the last of these, response {response('tnega_get', rr3)},"
+          f" ceiling 8192, margin {8192 - response('tnega_get', rr3)}")
 
     print("layouts, instrument record, cumulative (record, response):")
     a = alts_without_pool(rec)
@@ -479,13 +521,38 @@ def main() -> int:
                     ("that, with basis_note in the descriptor", g)]:
         print(f"  {name:44} {enc(r):5} {response('tnega_get', r):5}")
 
-    blk48 = issuer_figures_block()
-    print("section 4.8, the issuer-figures block an xStocks instrument adds (TSLAx, eleven chains, twelve exclusions):")
-    print("  " + ", ".join(f"{k} {enc(v)}" for k, v in blk48.items()) + f"; block total {enc(blk48)}")
-    for name, r in [("NVDA record as specified, plus 4.8", with_issuer_figures(rec)),
-                    ("E16 layout (venue index, transfer_control by key), plus 4.8", with_issuer_figures(f)),
-                    ("E16 layout with basis_note in the descriptor, plus 4.8", with_issuer_figures(g))]:
-        print(f"  {name:62} record {enc(r):5} response {response('tnega_get', r):5}  ceiling 8192")
+    print("E16 settled: the adopted instrument layout is 'that, with transfer_control by key' above")
+    print(f"  NVDA record {enc(f)}, response {response('tnega_get', f)}, ceiling 8192,"
+          f" margin {8192 - response('tnega_get', f)}")
+    print("section 4.8 under E16 and E21 (TSLAx, eleven chains, the issuer's list only):")
+    part, now_part, sup = instrument_issuer_part(), instrument_issuer_part_now(), supply_record()
+    print("  instrument part, once E20's permission arrives: "
+          + ", ".join(f"{k} {enc(v)}" for k, v in part.items()) + f"; total {enc(part)}")
+    print("  instrument part while E20 stands: " + ", ".join(f"{k} {enc(v)}" for k, v in now_part.items())
+          + f"; total {enc(now_part)}")
+    for name, r in [("adopted NVDA layout plus the 4.8 part, after permission", with_issuer_part(f, part)),
+                    ("adopted NVDA layout plus the 4.8 part, while E20 stands", with_issuer_part(f, now_part))]:
+        print(f"  {name:58} record {enc(r):5} response {response('tnega_get', r):5}  ceiling 8192")
+    print(f"  supply key record ({sup['key']}): supply_measured {enc(sup['supply_measured'])},"
+          f" circulating_measured {enc(sup['circulating_measured'])}; record {enc(sup)},"
+          f" response {response('tnega_get', sup)}  ceiling 8192")
+    print(f"  circulating value, issuer's list only: {circulating_value()}")
+    # Still over the ceiling after E16, so the options are measured here and
+    # none is adopted: that is the owner's decision (E23 in the spec).
+    lean = copy.deepcopy(part)
+    detail = [{k: v for k, v in e.items() if k not in ("quantity", "verdict")} | {"quantity": e["quantity"]}
+              for e in lean["reconciliation"] if len(e) > 2]
+    lean["reconciliation"] = [{"quantity": e["quantity"], "verdict": e["verdict"]} for e in lean["reconciliation"]]
+    sup2 = dict(sup, reconciliation_detail=detail)
+    lean2 = copy.deepcopy(lean)
+    lean2["issuer_links"] = {"product": part["issuer_links"]["product"], "detail_key": "issuer/xstocks"}
+    print("  options for an xStocks instrument after permission, cumulative (none adopted; E23):")
+    for name, r in [("basis_note in the descriptor", with_issuer_part(g, part)),
+                    ("then verdict detail at the supply key", with_issuer_part(g, lean)),
+                    ("then fixed issuer links on issuer/xstocks", with_issuer_part(g, lean2))]:
+        print(f"    {name:44} record {enc(r):5} response {response('tnega_get', r):5}  ceiling 8192")
+    print(f"    supply key record carrying the verdict detail: record {enc(sup2)},"
+          f" response {response('tnega_get', sup2)}  ceiling 8192")
 
     print("real SPY record: two quote tokens (USDG, WETH), one alternative per entry (response bytes):")
     s4 = spy_record(4, 1)

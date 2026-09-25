@@ -10,8 +10,9 @@ The six tools do not change: `tnega_catalogue`, `tnega_resolve`, `tnega_get`,
 schema changes, and no handler signature changes. Section 6.1 explains why that
 last clause had to be said out loud.
 
-Sixth revision: the fifth, plus the xStocks measurement pass (13.4). Section 13
-lists what changed. Three reviews are folded in.
+Seventh revision: the sixth, plus the owner's answers of 2026-09-25 and the
+Chainlink measurement pass (13.5). Section 13 lists what changed. Three
+reviews are folded in.
 The second measured the spec against `envelope.CEILINGS` and found the flagship
 call was refused one hundred percent of the time; sections 3.2, 3.3 and 8.1 are
 the result. The third is `docs/tokenized-equity-measurements.md`, a provenance
@@ -28,7 +29,14 @@ fourth measurement pass read xStocks for the first time. It named the 0.511
 instrument, gave E10 the evidence it was waiting on, and led to E18, which the
 owner settled: issuer-published figures are linked and reconciled, never
 served (4.8, 13.4). The same pass raised three questions for the owner, E19 to
-E21. Fourteen decisions remain open.
+E21. On 2026-09-25 the owner settled E16, E17, E19, E20 and E21, and decided
+that nothing from Chainlink's feeds is served until Chainlink Labs confirms in
+writing that it may be (E22). A fifth measurement pass read those feeds
+against the chain, and section 4.3 now describes the premium record for the
+case where that confirmation arrives. Re-measuring under E16 found that an
+xStocks instrument still does not fit its ceiling, which is raised as E23. Two
+questions about how far the new decisions reach are E24 and E25. Twelve
+decisions remain open.
 
 ---
 
@@ -232,10 +240,10 @@ into four classes:
 
 | Class | Meaning |
 |---|---|
-| A | Re-read on 2026-09-24 and 2026-09-25 with the method recorded, against chain 4663, BNB Smart Chain and, in the xStocks pass, Solana, Ethereum, Arbitrum, Mantle, Ink, X Layer, Optimism, HyperEVM, TON and Tron. Anyone can take it again |
+| A | Re-read on 2026-09-24 and 2026-09-25 with the method recorded, against chain 4663, BNB Smart Chain and, in the xStocks pass, Solana, Ethereum, Arbitrum, Mantle, Ink, X Layer, Optimism, HyperEVM, TON and Tron; in the Chainlink pass, the feeds on chain 4663, Ethereum, Optimism, BNB Smart Chain and Ink. Anyone can take it again |
 | B | Read in an earlier session and committed to a tracked file, so value and method both survive |
 | C | Carried from a session whose working files are gone. No method, no script, no stored output |
-| D | The issuer's own published statement or figure, including figures from its API. Evidence about what the issuer says, and nothing else. An issuer's number is never reproduced or served; it is linked, and reconciled against a chain read where one exists (E18). Terms text is still served as what it is, as `distributions` and `total_return` are |
+| D | The issuer's own published statement or figure, including figures from its API. Evidence about what the issuer says, and nothing else. An issuer's number is never stated or served; it is linked, and reconciled against a chain read where one exists (E18). Terms text is still served as what it is, as `distributions` and `total_return` are |
 
 THE RULE: THIS DATASET SERVES CLASS A AND B FIGURES, AND FIGURES ITS OWN
 COLLECTOR PRODUCES. IT DOES NOT SERVE CLASS C FIGURES AS VALUES.
@@ -246,6 +254,14 @@ numbers rather than only to the venues'. A figure with no window, no sample
 count and no way to take it again fails that rule on its face, and serving it
 inside an envelope whose whole purpose is to carry denominators would be the
 surface contradicting itself in its own format.
+
+A CLASS SAYS WHETHER A FIGURE CAN BE TAKEN AGAIN, NOT WHETHER WE MAY PUBLISH IT.
+A Chainlink feed's answer is read on chain and anyone can read it again, so a
+statement about it is class A. It is still not served, and the measurements
+record does not reproduce the answers, because the owner has decided that
+nothing from the feeds is served until Chainlink Labs confirms in writing that
+it may be (E22). Reading a value on chain does not by itself permit
+republishing it.
 
 What that removed when the rule was written: nineteen figures, listed in the
 provenance record, including most of what the earlier revisions led with. A
@@ -263,7 +279,7 @@ way, and so is the concentration handling in 4.5, whose structural argument,
 that a V4 position key carries a salt and a V3 one does not, is a property of
 the two protocols. It has since been read as well: see 2.4.
 
-An issuer's number is never reproduced or served. Class D terms, the issuer's
+An issuer's number is never stated or served. Class D terms, the issuer's
 statement of what the instrument is, are served as what they are:
 `total_return`, `distributions.paid_to_holder` and `distributions.mechanism`
 state the issuer's terms, not a measurement, and are labelled that way. Where
@@ -351,7 +367,10 @@ datasets.append(Dataset(
           "underlying/<ticker>, which lists every token version",
           "issuer/<id>, for the side-by-side issuer structure",
           "chain id/token address/for/wallet address, which adds the "
-          "eligibility check and an unsigned route for that wallet"],
+          "eligibility check and an unsigned route for that wallet",
+          "chain id/token address/supply, or solana/<mint>/supply, for an "
+          "xStocks instrument's supply per chain and every exclusion "
+          "behind its circulating figure"],
     example_filters={"chain_id": 4663},
     coverage=te_coverage,
     get=te_get,
@@ -362,7 +381,11 @@ datasets.append(Dataset(
 ))
 ```
 
-Four key forms, one `get` handler, one positional argument. Section 6.1.
+Five key forms, one `get` handler, one positional argument. Section 6.1. The
+fifth, the supply key, was added under E16 (4.8). It follows the form the
+route key already uses: the instrument key, then a fixed segment. `te_get`
+tells the two apart by that segment, `for` with a wallet after it or `supply`
+with nothing after it, so no key form is ambiguous and no handler changes.
 
 The id diverges from the dotted convention every other dataset uses. It is the
 owner's name and is kept. Escalation E1.
@@ -483,14 +506,21 @@ in this section, and the byte figures in 6, 8.1 and 9.1, is printed by
 `backend/scripts/te_response_sizes.py`. The script holds its examples, and
 `--verify` checks each example pool on chain.
 
-| | `tnega_get` instrument | `tnega_get` route form | `tnega_series` | `tnega_list`, 25 rows |
-|---|---|---|---|---|
-| caveats | 1,915 | 1,915 | 1,915 | 1,915 |
-| coverage | 457 | 457 | 497 with legend | 457 |
-| envelope | 158 | 158 | 161 | 159 |
-| value | 7,782 | 6,730 | 118 points at 116 | 25 rows at 227 |
-| total | 10,312 | 9,260 | 16,380 | 8,232 |
-| ceiling | 8,192 | 8,192 | 16,384 | 32,768 |
+As adopted under E16 and E17, which the owner settled on 2026-09-25:
+
+| | `tnega_get` instrument | `tnega_get` route form | `tnega_get` supply key | `tnega_series` | `tnega_list`, 25 rows |
+|---|---|---|---|---|---|
+| caveats | 1,915 | 1,915 | 1,915 | 1,915 | 1,915 |
+| coverage | 457 | 457 | 457 | 497 with legend | 457 |
+| envelope | 158 | 158 | 158 | 161 | 159 |
+| value | 5,376 | 5,469 | 2,734 | 118 points at 116 | 25 rows at 227 |
+| total | 7,906 | 7,999 | 5,264 | 16,380 | 8,232 |
+| ceiling | 8,192 | 8,192 | 8,192 | 16,384 | 32,768 |
+
+The instrument figure is the NVDA record below in the E16 layout, the route
+figure the route record in the E17 layout, and the supply key figure TSLAx
+(4.8). An xStocks instrument record is not in this table because it does not
+fit: see below, and E23.
 
 How the examples were filled. The instrument is NVDA on chain 4663, and every
 pool in it is real and checked by `--verify`:
@@ -507,7 +537,9 @@ with two alternatives naming family, pool and quote token. The full
 `transfer_control`, and `liquidity_concentration` with its `basis_note`.
 Premium withheld. Coverage as in 3.1, including `numeraire`. Addresses and
 pool ids are full length. The costs, prices and rates in the example are
-illustrative values of realistic length, not measurements.
+illustrative values of realistic length, not measurements. That is the record
+as first specified. The script derives the adopted layouts from it by the
+steps the layout table below names, so the two cannot drift apart.
 
 The route form is identity, the 10,000 buy quote with the references it uses,
 `transfer_control`, and an unsigned route whose swap step is a Universal Router
@@ -527,54 +559,81 @@ repository does not hold. The placeholder JSON in this document, with one cost
 entry, encodes to 3,372, so they were probably closer to that than to a filled
 record. They are replaced, not reconciled.
 
-AS SPECIFIED, THE INSTRUMENT RECORD AND THE ROUTE FORM DO NOT FIT. `tnega_get`
-on an instrument would be refused with `response_too_large` on every call,
-which is the failure section 3.2 was written to remove, now reached by a
-different route. Measured layouts for the NVDA record, each step cumulative:
+AS FIRST SPECIFIED, NEITHER THE INSTRUMENT RECORD NOR THE ROUTE FORM FITTED.
+`tnega_get` on an instrument would have been refused with `response_too_large`
+on every call, which is the failure section 3.2 was written to remove, reached
+by a different route. The layouts measured for the NVDA record, each step
+cumulative, are kept here because they are the evidence E16 was settled on:
 
 | Layout | Record | Response |
 |---|---|---|
-| As specified | 7,782 | 10,312 |
-| Alternatives without `pool` | 7,270 | 9,800 |
-| Then block, age, method and staleness bound once per record, not per entry | 6,923 | 9,453 |
-| Then `transfer_control` by key (`model` plus `issuer/robinhood`, where 4.6 already carries the contract) | 6,334 | 8,864 |
-| Then `basis_note` moved to the descriptor | 6,051 | 8,581 |
-| Instead: venues listed once, carrying `quote_token`; entries and alternatives name a venue by index; per-poll fields once | 5,966 | 8,496 |
-| That, with `transfer_control` by key | 5,377 | 7,907 |
-| That, with `basis_note` in the descriptor | 5,094 | 7,624 |
+| As first specified | 7,781 | 10,311 |
+| Alternatives without `pool` | 7,269 | 9,799 |
+| Then block, age, method and staleness bound once per record, not per entry | 6,922 | 9,452 |
+| Then `transfer_control` by key (`model` plus `issuer/robinhood`, where 4.6 already carries the contract) | 6,333 | 8,863 |
+| Then `basis_note` moved to the descriptor | 6,050 | 8,580 |
+| Instead: venues listed once, carrying `quote_token`; entries and alternatives name a venue by index; per-poll fields once | 5,965 | 8,495 |
+| That, with `transfer_control` by key: ADOPTED, E16 | 5,376 | 7,906 |
+| That, with `basis_note` in the descriptor | 5,093 | 7,623 |
 
 These figures moved by 38 bytes in the xStocks pass, when
 `distributions.withholding_rate_bps` was replaced by a section 4.8 verdict
-(`reconciliation`, with `withholding_rate` as `not_published` for this issuer).
-The earlier figures were 7,744 and 10,274 as specified, and 7,869 and 7,586 for
-the last two layouts.
+(`reconciliation`, with `withholding_rate` as `not_published` for this issuer),
+and by one byte in this revision, when premium's withheld reason became
+`awaiting_permission` (4.3). Before the xStocks pass they were 7,744 and 10,274
+as specified, and 7,869 and 7,586 for the last two layouts.
 
-AN xSTOCKS INSTRUMENT DOES NOT FIT UNDER ANY LAYOUT ABOVE. Section 4.8 adds our
-supply per chain, our circulating figure with every exclusion named, the
-issuer links and the reconcile verdicts. For TSLAx, with eleven chains and
-twelve exclusions, that block encodes to 3,603 bytes: `supply_measured` 644,
-`circulating_measured` 2,027, `issuer_links` 264 and `reconciliation` 590. On
-the NVDA record as a stand-in body, the response is 13,837 as specified,
-11,432 with the E16 layout, and 11,149 with `basis_note` in the descriptor as
-well. All are over 8,192. Section 4.8's block is folded into E16.
+THE ADOPTED LAYOUT IS THE ONE E16 RECOMMENDED: venues listed once with their
+`quote_token`, each cost entry and alternative naming a venue by index, the
+per-poll fields once per record, and `transfer_control` as its model plus the
+`issuer/robinhood` key. 7,906 bytes, 286 under the ceiling. `basis_note` stays
+on the record. Moving it to the descriptor would free another 283 bytes and
+was not part of the recommendation the owner took, so it is held in reserve
+and not applied. Section 4.2 shows the adopted shape.
 
-A leaner instrument does not escape it. A real SPY record has two quote tokens
-(USDG on V4 and the fork pool, WETH on V3 and the Algebra-shaped pool) and one
-alternative per entry. It measures 9,012 as specified, 8,666 with two venues
-instead of four, and 8,077 with two venues and `transfer_control` by key. The
-last is under the ceiling by 115 bytes, and only by dropping venues the
-record exists to compare.
+THE ROUTE FORM IS THE ONE E17 RECOMMENDED. As first specified it was 9,260.
+Without `transfer_control` and without alternatives on its one quote it was
+still over, at 8,224. Adopted: that, and also without the quote's method,
+block, age, staleness bound, family and pool, which the route object already
+carries or the record states once. 7,999 bytes, 193 under. Most of what is
+left is 2,511 bytes of steps and 938 bytes of section 9.4 text, both kept
+whole.
 
-Only the indexed layout fits the NVDA record. It changes what an entry names:
-its quote token through the venue it points at, rather than on the entry itself
-as 4.2 now shows. That is a decision about the record's shape and is E16.
-Until it is made, this dataset cannot register, and the self-check is what says
-so. The route form is 9,260. Without `transfer_control` and without alternatives
-on its one quote it is still over, at 8,224. It fits only at 7,999, which also
-takes off the quote's method, block, age, staleness bound, family and pool.
-The route object already carries the block, age, family and pool. Most of what
-is left is 2,511 bytes of steps and 938 bytes of section 9.4 text, and that
-decision is E17.
+THE SUPPLY KEY FITS WITH ROOM. `<instrument key>/supply` carries an xStocks
+instrument's supply per chain and every exclusion behind its circulating
+figure (4.8). For TSLAx, eleven chains and eleven exclusions from the issuer's
+list, the record is 2,734 bytes and the response 5,264.
+
+AN xSTOCKS INSTRUMENT STILL DOES NOT FIT, AND THIS IS STATED RATHER THAN
+FORCED. With per-chain supply and exclusions moved out, what stays on the
+instrument is the circulating figure with the key its working lives at, the
+issuer links and the verdicts: 1,243 bytes once E20's permission arrives
+(`circulating_measured` 217, `issuer_links` 264, `reconciliation` 703), and
+694 while E20 stands, when every issuer comparison reads `awaiting_permission`.
+On the adopted NVDA record as a stand-in body, the response is 9,071 after
+permission and 8,522 now. Both are over 8,192. Three further moves were
+measured, cumulatively, and none is adopted:
+
+| Option, after permission | Record | Response |
+|---|---|---|
+| `basis_note` in the descriptor | 6,258 | 8,788 |
+| Then each verdict's tolerance, check time and `explained_by` at the supply key, leaving quantity and verdict | 5,854 | 8,384 |
+| Then the three fixed issuer links on `issuer/xstocks`, leaving the product link | 5,680 | 8,210 |
+
+The last is 18 bytes over. The supply key carrying the verdict detail would
+be 5,785, well under. So no measured layout fits an xStocks instrument, and
+the remaining levers are the caveat block (E11) or fewer venues. The stand-in
+body is a chain 4663 record, because no xStocks venue is specified, so a real
+xStocks record may be larger or smaller. This does not block the first cut,
+because no xStocks instrument is served until E10 is settled. It is E23.
+
+A leaner instrument does not escape the general problem. A real SPY record has
+two quote tokens (USDG on V4 and the fork pool, WETH on V3 and the
+Algebra-shaped pool) and one alternative per entry. It measures 9,011 as first
+specified, 8,665 with two venues instead of four, and 8,076 with two venues and
+`transfer_control` by key. That last figure is 116 bytes under the ceiling,
+and only by dropping venues the record exists to compare. The adopted layout
+is what makes a four-venue record fit.
 
 Three changes got the instrument record from 4,494 to its earlier figure, and
 they still stand whatever else changes:
@@ -595,8 +654,9 @@ the section 4 rule of DESIGN applied to the response as a whole: the ceiling
 already refuses oversize responses at run time, and this refuses them at
 registration, where the person who wrote the caveat is still in the room.
 
-The margin matters because the numbers above are close or over. As specified,
-the instrument response is 125 percent of its ceiling. The series sits 4 bytes
+The margin matters because the numbers above are close. The adopted instrument
+response is 96.5 percent of its ceiling and the route form 97.6 percent, and
+an xStocks instrument is over. The series sits 4 bytes
 under its ceiling at 118 points, which is why 8.1 sets its default at 117. The
 assertion is what turns that from a production incident into a failed check,
 and it has to be run on a worst-case record, since the example above is one
@@ -661,9 +721,9 @@ is a recommendation wearing a table. The bands sum to `matched` the way
 
 ## 4. The instrument record
 
-Key `<chain id>/<address>` or `solana/<mint>`. 7,782 bytes encoded when filled
-as specified, which does not fit its ceiling: section 3.3 has the measurement
-and the layouts that would.
+Key `<chain id>/<address>` or `solana/<mint>`. In the layout E16 settled, a
+filled NVDA record encodes to 5,376 bytes and its response to 7,906, 286 under
+the ceiling. An xStocks instrument does not fit yet (3.3, E23).
 
 ### 4.1 Identity
 
@@ -682,14 +742,23 @@ and the layouts that would.
 
 ### 4.2 Cost to fill, the lead
 
+The layout is the one E16 settled (3.3): venues are listed once in `venues`
+(4.5), each carrying its `quote_token`, and a cost entry or an alternative
+names its venue by index. The fields every entry shares, because every entry
+comes from the same poll, are stated once in `quote_basis`.
+
 ```json
+"quote_basis": {
+  "method": "tick_walk_against_pool_state",
+  "quoted_at_block": 0,
+  "quote_age_seconds": 0,
+  "staleness_bound_seconds": 900
+},
 "cost_to_fill": [
   {
     "notional_usd": 1000,
     "side": "buy",
-    "venue_family": "uniswap_v4",
-    "pool": "0x...",
-    "method": "tick_walk_against_pool_state",
+    "venue": 0,
     "enough_data": true,
     "filled_fraction": 1.0,
     "slippage_bps": 0.0,
@@ -699,27 +768,26 @@ and the layouts that would.
     "gas_bps": 0.0,
     "total_cost_bps": 0.0,
     "total_cost_usd": 0.0,
-    "quoted_at_block": 0,
-    "quote_age_seconds": 0,
-    "staleness_bound_seconds": 900,
-    "quote_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
-    "alternatives": [{"venue_family": "uniswap_v3", "pool": "0x...",
-                      "quote_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73",
-                      "total_cost_bps": 0.0}]
+    "alternatives": [{"venue": 2, "total_cost_bps": 0.0}]
   }
 ],
 "usd_reference": { "...": "section 4.2.1: numeraire and gas token once, quote references keyed by quote_token" }
 ```
 
-- `quote_token` is the address of the pool's quote token, on every entry and
-  every alternative, and it is the key into `usd_reference.quote_references`.
-  One instrument's pools are often quoted in different tokens (4.2.1).
+- `venue` is an index into `venues` (4.5), on every entry and every
+  alternative. The venue carries `family`, `pool` and `quote_token`, and
+  `quote_token` is the key into `usd_reference.quote_references`. So a reader
+  reaches an entry's quote token in two hops, entry to venue to reference,
+  which is the trade-off E16 accepted to fit the ceiling. One instrument's
+  pools are often quoted in different tokens (4.2.1).
 - `total_cost_bps` is basis points of the notional asked for and is the sum of
   `slippage_bps`, `pool_fee_bps`, `protocol_fee_bps` and `gas_bps`. All four
   are always present alongside it.
-- `quote_age_seconds` and `staleness_bound_seconds` are on the quote, not only
-  on the route. Everything here is precomputed, so age is a property of every
-  figure. Past the bound the entry is withheld rather than served stale.
+- `quote_age_seconds` and `staleness_bound_seconds` are in `quote_basis`, once
+  per record, and they apply to every entry: all of them come from one poll at
+  one block (4.2.1). Everything here is precomputed, so age is a property of
+  every figure. Past the bound the entries are withheld rather than served
+  stale.
 - `protocol_fee_bps` is read from the pool, not assumed, and the V4
   `protocolFeeController` in section 2.2 is what makes it a chain fact rather
   than a claim.
@@ -840,7 +908,8 @@ way round: V4 against native ETH, V3 against USDG. `numeraire` and `gas_token`
 appear once per record, because there is one of each. `quote_references` is a
 map keyed by quote-token address, with native ETH under the zero address the
 V4 singleton uses for it. Every cost entry and every alternative names its
-`quote_token`, and that is the key a reader follows. `te_quote` stays one row
+venue, the venue names its `quote_token`, and that is the key a reader
+follows (4.2, E16). `te_quote` stays one row
 per quote with its own reference columns (section 10.1).
 
 ```json
@@ -988,30 +1057,203 @@ caller reproduce. Escalation E5.
 
 ### 4.3 Premium
 
+NOTHING FROM CHAINLINK'S FEEDS IS SERVED, AND THE COLLECTOR DOES NOT READ THEM.
+The owner decided on 2026-09-25 that nothing from the feeds is served until
+Chainlink Labs confirms in writing that it may be, and the owner is asking
+them (E22). Until then every premium object is:
+
+```json
+"premium": {"value_bps": null, "withheld_reason": "awaiting_permission"}
+```
+
+The token side, the token's price in the numeraire, is already read for 4.2.1
+and `te_premium` keeps storing it, so no history is lost on that side. The
+reference columns stay null. What the terms say, and why reading a feed on
+chain settles nothing about republishing it, is E22 and the Chainlink section
+of `docs/tokenized-equity-measurements.md`.
+
+The rest of this section is the record for when, and only if, that
+confirmation arrives. It is written now because the Chainlink measurement pass
+(`backend/scripts/te_chainlink_reads.py`, run 2026-09-25 09:30:59 to 09:31:24
+UTC, and its Ink section again at 10:02:11) found three ways a naive premium would be wrong, and a shape that does not
+carry the fields below would make all three silently. The confirmation has to
+cover a figure derived from a feed and not only display of the feed, because
+the Foundation terms forbid derivative works of the Services (§2, first list,
+item (vi), quoted in the measurements record).
+
+THE FORMULA DEPENDS ON THE VENUE, BECAUSE THE FEEDS QUOTE DIFFERENT THINGS.
+
+| Venue | Premium | Why |
+|---|---|---|
+| Robinhood Chain | pool / feed − 1, with no multiplier applied | The feed is per token with the multiplier already in. For NVDA and MSFT this is class A: paired against the underlying 24/5 feed, the rounds that match exactly do so at the `uiMultiplier()` in effect, within 3e-7 bp, before and after each multiplier's effective date, and none matches the other value. Robinhood's documentation says the same for every token (class D) |
+| BNB Smart Chain, Arbitrum, Ethereum, Optimism | pool / (underlying × multiplier in effect at the feed's `updatedAt`) − 1 | Chainlink's directory lists these as the underlying share's feeds (class D). For the Ethereum and Optimism 24/5 feeds the Robinhood matches above show them without a multiplier (class A); the BNB Smart Chain and Arbitrum feeds were not tested that way. So the multiplier (4.4) is applied to the reference, at the value in effect when the reference was taken |
+| Ink, wNVDAx | not computed | The feed's ratio to the underlying equals the v1 xStocks wrapper's rate on Ethereum (0.99175 NVDAx per wrapped token). On Ink the v1 address holds no code, and the issuer's address list names only the v2 wrapper there, whose rate is 1.0017. A v2 token priced against the feed would read a premium of about +100 bp that no one paid |
+| Ink, wSPYx and wQQQx | not computed | Not established, on the pair counts. The v1 wrappers on Ink are deployed but empty (supply 0), so their `convertToAssets` answers are an empty-vault artefact and not a rate; only the v2 wrappers hold supply on Ink (wSPYx about 1,477.7). Each feed matched the v2 rate exactly once: wSPYx in 4 pairs, wQQQx in 8, and neither ever matched Ethereum's v1 rate. One match does not establish the relation |
+
+WHERE THE FEED-TO-TOKEN RELATION IS NOT ESTABLISHED, NO PREMIUM IS SERVED. On
+Robinhood Chain the formula above is applied only to a token whose feed has
+been shown, by exact matches, to equal the underlying times the multiplier in
+effect, with the other multiplier as a control that does not match. NVDA and
+MSFT pass. GOOGL does not yet: its nearest pairs after its multiplier's
+effective date come within 0.010 bp of the multiplier and never within 1e-4
+bp of either value. AAPL and QQQ are unresolved, and the measurements record
+says how. For those three, and for a token with no feed listed at all, the
+premium is withheld with `unestablished_source`. Robinhood's documentation
+says every stock token has its own feed. Chainlink's directory lists 35 on
+chain 4663 against the 204 tokens behind the beacon. The two disagree, and
+nothing read on chain resolves which is right, so the directory is not taken
+as complete and the documentation is not taken as confirmed.
+
+The record, for the case where E22 permits it. The example is NVDA on chain
+4663 polled on Saturday 2026-09-19, so the market is closed and the reference
+is the Robinhood Chain feed's last round before the weekend, round
+18446744073709552677 at 19:55:32 UTC on Friday, which falls in Friday's
+regular session. Its age at the last poll, 15:45 UTC on Saturday, is counted
+from that session's end at 20:00 UTC on Friday: 71,100 seconds. Sixteen polls
+at the fifteen-minute cadence fall in the window. The premium came out inside
+the feed's deviation band, so no number is served:
+
 ```json
 "premium": {
-  "value_bps": 0.0,
-  "window": "2026-09-24T13:30Z to 2026-09-24T20:00Z",
-  "samples": 0,
-  "underlying_market_state": "open",
-  "reference_source": "string naming the price used",
+  "value_bps": null,
+  "deviation_band": "within",
+  "formula": "pool_over_feed",
+  "window": "2026-09-19T12:00Z to 2026-09-19T15:45Z",
+  "samples": 16,
+  "reference": {
+    "chain_id": 4663,
+    "feed": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15",
+    "round_id": "18446744073709552677",
+    "updated_at": "2026-09-18T19:55:32Z",
+    "reference_session": {"session": "regular", "date": "2026-09-18"},
+    "reference_age_s": 71100,
+    "reference_basis": "per_token_multiplier_included",
+    "reference_deviation_bound_bps": 50,
+    "reference_heartbeat_s": 86400,
+    "multiplier": {"value": 1.0007751591646306, "effective_at": "2026-09-10T00:00:30Z"},
+    "wrapper_rate": null
+  },
+  "market_state": "closed",
+  "oracle_paused": false,
+  "multiplier_changed_since_reference": false,
+  "reference_answer_implausible": false,
+  "sequencer": {"uptime_feed": null, "basis": "no uptime feed listed for 4663; block advance only (10.4)"},
+  "halts": "not_flagged_by_feed",
   "withheld_reason": null
 }
 ```
 
-Never travels without `window`, `samples` and `underlying_market_state`.
+Checked against the rules below: the session is Friday's regular session
+because `updated_at` precedes 20:00 UTC; the age counts from that session's
+end, not from `updated_at` (which would give 71,368); the market is closed on
+a Saturday; no multiplier took effect between Friday 20:00 UTC and the poll
+(NVDA's took effect on 2026-09-10); `oraclePaused()` was false; and a premium
+inside the band carries no number.
 
-Not served in the first cut, and collected from day one: E3, settled on the
-recommendation. The token side of premium is the token's price in the
-numeraire, which the collector already reads for 4.2.1. The reference side is
-an underlying share price, which is not on chain, so the settlement that moved
-the other two references onto pools does not reach it. The licensing question
-lives here now and only here. Until a source is named, `te_premium` stores the
-token side with `reference_price_usd` and `reference_source` both null. The
-reason belongs in the premium object's `withheld_reason`, which is
-`unestablished_source`, and not
-in a field whose value is meant to name a source. No premium is computed from
-a source nobody has named, and serving premium later starts with naming one.
+- `formula` is `pool_over_feed` or `pool_over_underlying_times_multiplier`, per
+  the table. It is never inferred from the feed's name.
+- `reference_deviation_bound_bps` and `reference_heartbeat_s` are the deviation
+  threshold and heartbeat Chainlink's directory lists for the feed the
+  reference comes from (class D), carried per feed and never as a constant.
+  For the Robinhood Chain feeds and the Ethereum and Optimism 24/5 feeds the
+  directory lists 0.5 percent and 86,400 seconds; for Ink's wrapped-xStocks
+  feeds 0.1 percent and 3,600 seconds; for the BNB Smart Chain NVDA feed 0.5
+  percent and 86,400 seconds. A feed posts a new round when its value moves by
+  more than the threshold or the heartbeat passes, so between rounds the
+  answer can sit up to the threshold away from what the feed would now report:
+  up to about 50 bp on most of these feeds. That is an error bound on the
+  reference, and the premium inherits it. Under the second formula the bound
+  is the underlying feed's.
+- `deviation_band`: a premium whose magnitude is within
+  `reference_deviation_bound_bps` is not measurable against this reference.
+  It is served as `"within"`, with `value_bps` null and no withheld reason,
+  because that is the answer and not an absence (the `enough_data: false`
+  pattern in 4.2). Outside the bound, `value_bps` carries the number and
+  `deviation_band` is `"outside"`, with the bound beside it. A premium of a few
+  basis points is therefore never served from a feed with a 50 bp threshold.
+- `updated_at` is the feed's own `updatedAt`, raw, and is never what the record
+  calls the reference's time. It is kept so a reader can check the feed.
+- `reference_session` is the session and date the reference value belongs to,
+  from our own NYSE calendar and not from the feed. For a 24/5 feed it is the
+  session containing `updated_at`. For an NYSE-hours feed it is the most recent
+  regular session that ended at or before `updated_at`: no later session had
+  happened, so the value cannot be from one.
+- `reference_age_s` is measured from the end of `reference_session`, not from
+  `updated_at`. On BNB Smart Chain the NVDA feed posted rounds on Saturday
+  2026-09-19 at 19:55:24 UTC and Sunday at 19:55:26 UTC, with no NYSE session
+  in between. Measured from `updated_at`, the Sunday round would read as a few
+  hours old on Sunday evening. Its value can be from no session later than
+  Friday's, so measured from Friday's close it reads as two days old, which is
+  the most that can be said for it.
+- THE WEEKEND RULE: A READING TAKEN WHILE THE MARKET IS CLOSED IS LABELLED AS
+  THE PRIOR SESSION'S VALUE AND NEVER AS CURRENT. `market_state` says the
+  market is closed, `reference_session` names the session, and
+  `reference_age_s` counts from its end. On the NYSE-hours feeds `updated_at`
+  makes a Friday price look like Saturday's or Sunday's, and the Saturday and
+  Sunday rounds carry values and timestamps that differ from Friday's last
+  round, so a reader cannot tell from the feed alone that nothing traded. The
+  24/5 feeds posted no round at all between Friday 20:00 ET and Sunday 20:00
+  ET that weekend (19 feeds on three chains), so there the reading is simply
+  Friday's.
+- `reference_basis` is one of `per_token_multiplier_included` (Robinhood
+  Chain), `underlying_24_5` (the feeds Chainlink's directory lists under market
+  hours `us_equities_24/5`, which its documentation describes as applying
+  session-aware smoothing, and whose directory path names contain `kalman`,
+  class D; the method is not established here) and `underlying_nyse_regular` (the feeds it lists
+  under `NYSE`). `multiplier` carries the value applied or already included and
+  its `effective_at`. `wrapper_rate` carries a wrapper's `convertToAssets` rate
+  where the token is a wrapper, which is how the Ink exclusion was found.
+- `market_state` is the underlying market's state at the poll, from our own
+  calendar: `regular`, `pre_market`, `post_market`, `overnight` or `closed`.
+- `oracle_paused` is `oraclePaused()` on the Robinhood token at the poll's
+  block. Robinhood's documentation says the feed holds its last value while it
+  is true. A paused oracle is the answer, like `enough_data: false` in 4.2:
+  `value_bps` is null, `oracle_paused` is true, and there is no withheld reason.
+  It was false on NVDA, MSFT, GOOGL, AAPL and QQQ at block 72,121,324.
+- `multiplier_changed_since_reference` is true when the multiplier's
+  `effective_at` falls after the end of `reference_session` and at or before
+  the poll. It is measured from the session's end and not from `updated_at`,
+  because an NYSE-hours feed restamps a Friday value on Saturday and Sunday: a
+  multiplier that took effect on Saturday would otherwise fall before the
+  Sunday round's `updated_at` and go unflagged, although the value it
+  qualifies is Friday's. The pool then trades on the new multiplier and the
+  reference carries the old one, so the step would read as premium.
+  `value_bps` is null when it is true. The five
+  effective times the Chainlink pass read fall both overnight (NVDA on
+  2026-09-10 at 00:00:30 UTC, QQQ on 2026-09-22 at 00:10:34) and inside the
+  regular session (AAPL on 2026-08-14 at 15:12:46, MSFT on 2026-09-11 at
+  15:10:30, GOOGL on 2026-09-15 at 15:10:27), so a step can land between a
+  reference and a poll at any hour.
+- THE EX-DIVIDEND GAP IS A STATED LIMIT, NOT A CHECK. A reinvested dividend
+  moves the share price at the ex-date's open and the multiplier at its own
+  effective time, and nothing read here says the two coincide. Between them
+  the reference and the token disagree by about the dividend's size, which
+  would read as premium of that size. This was not tested. The record would
+  withhold across that window if the ex-date were known, but this dataset
+  names no source for ex-dates, and a source would be exchange or issuer data
+  with its own terms. So the limit is stated here, and a premium near a
+  multiplier change should be read with it.
+- `sequencer`: Chainlink's directory lists no L2 sequencer uptime feed for
+  chain 4663, and Robinhood's documentation recommends checking one. So the
+  record cannot tell a sequencer outage from a feed that simply has not
+  updated. What it has is the collector's own block-advance check (10.4), which
+  says blocks are being produced and not that the sequencer is healthy. A poll
+  whose block did not advance serves no premium. Whether an uptime feed is
+  listed for the other L2 chains was not checked in this pass.
+- `halts` is always `not_flagged_by_feed`. Chainlink's documentation says these
+  feeds do not flag exchange holidays, trading halts or other closures, and
+  this record has no licensed halt source of its own. A premium during a halt
+  is not detected as one, and the field says so rather than implying a check.
+- `reference_answer_implausible`: an answer of zero or below is not a price.
+  The same documentation warns that the extended and overnight sessions can
+  carry such answers with a fresh timestamp. That is a finding about the feed's
+  answer, not a failed read, so it is carried like `oracle_paused`: the flag is
+  true, `value_bps` is null, and there is no withheld reason. `read_failed`
+  would have said our read did not work, which is untrue here. No other
+  plausibility band is set in this revision; one would be the owner's to set,
+  and until then only answers at or below zero are flagged.
+
+Never travels without `window`, `samples` and `market_state`.
 
 ### 4.4 Two multipliers, which are different quantities
 
@@ -1088,6 +1330,16 @@ No yield field exists anywhere in this record.
 
 ### 4.5 Transfer control, venues, concentration
 
+Under E16 the instrument record carries `transfer_control` by key only:
+
+```json
+"transfer_control": {"model": "denylist", "detail_key": "issuer/robinhood"}
+```
+
+The full object below is served on the issuer record (4.6), where the control
+contract already lives, because it is the same for every instrument behind one
+beacon. The table after it, one `model` per venue, is unchanged.
+
 ```json
 "transfer_control": {
   "model": "denylist",
@@ -1145,17 +1397,24 @@ A result where the controls passed is discarded and the field stays
 ```json
 "venues": [
   {"family": "uniswap_v4", "walker": "v4", "pool": "0x...", "fee_bps": 0,
-   "protocol_fee_bps": 10, "liquidity": "0", "live": true, "read_via": "extsload"},
+   "protocol_fee_bps": 10, "liquidity": "0", "live": true, "read_via": "extsload",
+   "quote_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168"},
   {"family": "uniswap_v3", "walker": "v3", "pool": "0x...", "fee_bps": 0,
-   "live": true, "factory": "0x..."},
+   "live": true, "factory": "0x...",
+   "quote_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73"},
   {"family": "v3_fork", "walker": "v3", "pool": "0x...", "fee_bps": 0,
    "live": true, "factory": "0xece6ecd61177336ea6fb9b17937ac439d85ee20b",
-   "surface": "PoolCreated, Swap with protocol-fee fields"},
+   "surface": "PoolCreated, Swap with protocol-fee fields",
+   "quote_token": "0x5fc5360d0400a0fd4f2af552add042d716f1d168"},
   {"family": "algebra_integral", "walker": "algebra", "pool": "0x...",
-   "fee_bps": 0, "live": false, "surface": "Pool(address,address,address)"}
+   "fee_bps": 0, "live": false, "surface": "Pool(address,address,address)",
+   "quote_token": "0x0bd7d308f8e1639fab988df18a8011f41eacad73"}
 ],
 "best_venue_by_size": {"1000": "uniswap_v4", "10000": "uniswap_v3"}
 ```
+
+`venues` is the list cost entries and alternatives index into (4.2). Its order
+is fixed for the life of a record, and each venue carries its `quote_token`.
 
 `best_venue_by_size` exists as its own field because the flip is the finding. A
 single `best_venue` would contradict the measurement.
@@ -1267,6 +1526,7 @@ thing; it is distinct from `null` and from a withheld reason.
 | `no_observations` | `mcp_server/tools.py` | a series key with nothing in the window |
 | `unestablished_source` | proposed in section 7.4, not under any escalation; the name is ours to confirm | we have not established where this field's value comes from, or the source we have cannot be reproduced |
 | `reference_too_thin` | added under E3; the name is ours to confirm | a USD reference pool was read and failed the 4.2.1 depth test. A statement about the reference pool |
+| `awaiting_permission` | added under E20 and E22; the name is ours to confirm | a read or a figure this dataset has decided not to make until a third party gives the owner written permission: the issuer's API (E20), Chainlink's feeds (E22). A statement about us. Also a 4.8 verdict |
 
 `reference_too_thin` is a new token, and the existing ones were tried first.
 `read_failed` and the refusal reasons say the read did not happen, and this
@@ -1279,6 +1539,17 @@ venue being quoted at all. The precedent is `left_rotation` in
 `hyperliquid/service.py`, added because `stale_data` gave a reader the wrong
 instruction on whether to wait or stop looking. The same test applies here,
 and none of the existing tokens passes it.
+
+`awaiting_permission` is new for the same reason, and the existing tokens were
+tried first. `issuer_unavailable` and `venue_unreachable` say someone else's
+service did not answer, and here we did not ask: filing our own decision under
+them attributes it to the other side, which 4.7.1 forbids. `not_tracked` and
+`not_covered` say the thing is outside our rotation or our scope, which tells a
+reader to stop looking, when the figure is in scope and is being asked for.
+`unestablished_source` says we do not know where the value comes from, and we
+do. `too_few_polls` tells a reader that waiting fixes it, and polling again
+fixes nothing: a letter does. One token covers both decisions because the
+reader's instruction is the same for both.
 
 EVERY REASON IS A BARE STRING. Never an object, never a dict, never a tuple.
 `tools.list_` does `str(page["withheld_reason"])`, so an object reaching that
@@ -1324,68 +1595,159 @@ issuer's value.
 1. Our chain measurements: supply per chain with its block or slot,
    multipliers per chain, the balances of the addresses we exclude, the
    authorities, and a chain-derived circulating figure with every exclusion
-   named. The exclusions are the issuer's published system-wallet list, read
-   each cycle, plus a named exclusion list this project keeps. An address goes
-   on the named list only with the owner's approval, and every entry is
-   re-tested each cycle: the collector checks that the circulating verdict still
-   needs it, and reports an entry that has stopped explaining anything. Today
-   the named list would hold one address, `9U76…`, which the issuer's
-   circulating figure excludes and its wallet list does not name. Putting it
-   on the list is E21, the owner's decision.
+   named. The exclusions are the addresses on the issuer's published
+   system-wallet list and nothing else. THERE IS NO NAMED EXCLUSION LIST (E21,
+   settled): an address the issuer's circulating figure leaves out and its
+   list does not name is not subtracted from ours. It appears in the
+   circulating verdict instead, as the wallet the two figures reconcile only
+   if excluded, with the statement that the issuer does not list it. Under
+   E16, per-chain supply and the exclusions are served at their own key,
+   `<instrument key>/supply`, and the instrument keeps the circulating figure
+   and a `detail_key` pointing there.
 2. `issuer_links`: the issuer's human-facing page for the figure. For proof of
    reserves that is `https://defi.xstocks.fi/proof-of-reserves`, the page the
-   issuer's own FAQ points to. For an instrument, its product page on
-   `https://assets.backed.fi/products/<slug>` when the collector finds one that
-   answers 200 (a missing slug answers 404, so the check means something). The
-   issuer's system-wallet list is linked through its documentation page,
+   issuer's own FAQ points to. The issuer's system-wallet list is linked
+   through its documentation page,
    `https://docs.xstocks.fi/apis/openapi/system`, and its corporate actions
-   through `https://docs.xstocks.fi/apis/openapi/corporate-actions`. A link to
-   an API path is not used as a human-facing page.
+   through `https://docs.xstocks.fi/apis/openapi/corporate-actions`. An
+   instrument's product page on `https://assets.backed.fi/products/<slug>` is
+   linked only when the collector has found one that answers 200 (a missing
+   slug answers 404, so the check means something). A link to an API path is
+   not used as a human-facing page.
 3. `reconciliation`: per quantity, whether our measurement and the issuer's
-   figure agree, and where they do not, the checkable fact that explains it.
+   figure agree, and where they do not, the chain quantity that accounts for
+   the difference.
 
-The example below ASSUMES E21 IS APPROVED, so `9U76…` is on the named
-exclusion list and is subtracted alongside the issuer's list. Until E21 is
-decided, `circulating_measured` excludes the issuer's list only (194,498.124301
-in the same run) and the circulating verdict cannot cite the named list.
+WHAT IS SERVED WHILE E20 STANDS. The owner has decided that nothing reads the
+issuer's API until Backed gives written permission, and is asking Backed
+(E20). Every verdict that compares against an issuer figure needs that
+figure, and the exclusion list is itself read from that API. So until
+permission arrives:
+
+- The supply key serves supply per chain, with block or slot, for the
+  deployments this project already holds. Those are chain reads. Which chains
+  an asset is deployed on is itself the issuer's list, though, so while E20
+  stands the set cannot be refreshed, and no total is stated as the asset's
+  total: `total_supply_measured` is null with `awaiting_permission`. A sum
+  over a set that may be missing a chain would count the missing chain as 0.
+  Serving it as a scoped measurement instead is E25.
+- `circulating_measured` is null with `withheld_reason: "awaiting_permission"`,
+  because the list its exclusions come from is not read. The addresses this
+  project already recorded as on the list are not reused as a stand-in: a list
+  that is not refreshed stops being the issuer's list without saying so.
+- `total_supply`, `circulating_supply` and `ui_multiplier` carry the verdict
+  `awaiting_permission`. `backing` and `withholding_rate` stay
+  `no_chain_counterpart`, which needs no fetch.
+- `issuer_links` carries the three fixed documentation pages. The product-page
+  check is an automated request to the issuer's own site, and the terms clause
+  E20 turns on, §3(4), is written about "the Site or Services" and not only the
+  API. So the check is suspended with the API reads, and the product link is
+  absent until permission covers it. That reading of §3(4) is this document's,
+  and serving the link unchecked instead is E25.
+- The collector makes no request to any issuer host, and
+  `backend/scripts/te_xstocks_reads.py` refuses to run without
+  `--call-issuer-api` (STORAGE, below).
+
+None of this is reached in the first cut, because no xStocks instrument is
+served until E10 is settled. It is stated now so that the shape is right when
+one is.
+
+The shape below is the one served once permission arrives. The values are
+TSLAx from the 21:19 UTC run of the script on 2026-09-24, all ours. Our
+circulating figure excludes the issuer's list only, 194,498.124301.
+
+A reader can subtract the holding in `explained_by` from `circulating_measured`
+and arrive at the issuer's circulating figure. That is by design and settled.
+The owner's ruling of 2026-09-24, in the owner's words: "Derivable figures:
+keep them. Our circulating figure and the wallet's balance are both chain
+reads. A reader subtracting them is doing their own arithmetic on our
+numbers, not reading theirs." What no field does is state the issuer's number
+or a difference from it (E18, E19).
+
+On the instrument:
 
 ```json
 "circulating_measured": {
-  "value": 189117.782209,
-  "method": "total supply on every listed chain minus every balance held by an address on the issuer's public system-wallet list or on the owner-approved named exclusion list",
-  "exclusions": [{"chain": "ethereum", "address": "0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad",
-                  "held": 41485.492098, "read_at_block": 26049954,
-                  "basis": "on_issuer_system_wallet_list"}, "..."]
+  "value": 194498.124301,
+  "method": "total supply on every listed chain minus every balance held by an address on the issuer's public system-wallet list",
+  "detail_key": "1/0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0/supply"
 },
 "issuer_links": {"proof_of_reserves": "https://defi.xstocks.fi/proof-of-reserves",
-                 "product": "https://assets.backed.fi/products/tesla-xstock"},
+                 "product": "https://assets.backed.fi/products/tesla-xstock",
+                 "system_wallets": "https://docs.xstocks.fi/apis/openapi/system",
+                 "corporate_actions": "https://docs.xstocks.fi/apis/openapi/corporate-actions"},
 "reconciliation": [
   {"quantity": "total_supply", "verdict": "reconciles", "tolerance": "1e-9 of total supply",
    "issuer_checked_at": "2026-09-24T21:20:16Z"},
-  {"quantity": "circulating_supply", "verdict": "reconciles_after_exclusion",
-   "tolerance": "1e-9 of total supply",
+  {"quantity": "circulating_supply", "verdict": "reconciles_only_if_excluded",
+   "tolerance": "1e-9 of total supply", "issuer_checked_at": "2026-09-24T21:20:16Z",
    "explained_by": [{"chain": "solana", "address": "9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd",
                      "held": 5380.34209129, "read_at_slot": 450148454,
-                     "basis": "named_exclusion_list", "on_issuer_system_wallet_list": false}],
-   "issuer_checked_at": "2026-09-24T21:20:16Z"},
+                     "on_issuer_system_wallet_list": false}]},
+  {"quantity": "ui_multiplier", "verdict": "reconciles", "tolerance": "1e-12 relative",
+   "issuer_checked_at": "2026-09-24T21:19:35Z"},
   {"quantity": "backing", "verdict": "no_chain_counterpart"},
   {"quantity": "withholding_rate", "verdict": "no_chain_counterpart"}
 ]
 ```
 
-The values above are TSLAx from the 21:19 UTC run of the script, all ours. The
-reconcile vocabulary, closed:
+At `1/0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0/supply`:
+
+```json
+{
+  "key": "1/0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0/supply",
+  "instrument_key": "1/0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0",
+  "issuer": "xstocks", "symbol": "TSLAx",
+  "supply_measured": [{"chain": "ethereum", "supply": 45000.0, "read_at": 26049954}, "..."],
+  "total_supply_measured": 548254.007222,
+  "circulating_measured": {
+    "value": 194498.124301,
+    "method": "total supply on every listed chain minus every balance held by an address on the issuer's public system-wallet list",
+    "exclusions": [{"chain": "ethereum", "address": "0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad",
+                    "held": 41485.492098, "read_at": 26049954,
+                    "basis": "on_issuer_system_wallet_list"}, "..."]
+  }
+}
+```
+
+The supply record is the same under every deployment's key for one xStocks
+asset, because the circulating figure is across every chain the issuer lists.
+Measured filled for TSLAx, eleven chains and eleven exclusions, it is 2,734
+bytes and its response 5,264 (3.3).
+
+The reconcile vocabulary, closed:
 
 | Verdict | Means | Carries |
 |---|---|---|
 | `reconciles` | our measurement and the issuer's figure agree within the stated tolerance | tolerance, time of the issuer check |
-| `reconciles_after_exclusion` | they agree once further addresses are excluded, and those addresses are named | `explained_by`: chain, address, our balance with its block or slot, and whether the address is on the issuer's list. Nothing about who controls the address is asserted beyond what is read |
-| `does_not_reconcile` | they have differed beyond tolerance on every cycle of the persistence window, and nothing on the named exclusion list explains it | the time of each check, the tolerance, the name of the issuer quantity compared (its name, never its value), the sign of the gap (ours above or below theirs), and the link. Not the magnitude, pending E19 |
+| `reconciles_only_if_excluded` | they agree only if addresses the issuer's list does not name are excluded from ours. We do not exclude them (E21) | `explained_by`: chain, address, our balance with its block or slot, and `on_issuer_system_wallet_list: false`. Nothing about who controls the address is asserted beyond what is read |
+| `does_not_reconcile` | they have differed beyond tolerance on every cycle of the persistence window, and no address explains it the way the verdict above requires | the time of each check, the tolerance, the name of the issuer quantity compared (its name, never its value), the sign of the gap (ours above or below theirs), the link, and `accounted_for_by`: the chain quantities the collector found that account for the gap, each a wallet with what it holds or a movement between two reads, with chain, address, amount and block or slot. Never a numeric difference from the issuer's figure (E19). Where nothing is found, `accounted_for_by` is empty and the sign is all that is stated |
 | `pending_recheck` | they differ beyond tolerance on this cycle but not yet for the whole persistence window | the time of the first differing check; nothing else |
 | `chain_incomplete` | at least one listed deployment's supply, or one balance the comparison needs, could not be read this cycle, so no comparison is made | the chains that were not read. A failed read is unknown, never 0, and no reconcile verdict is issued on a partial read |
 | `no_chain_counterpart` | the issuer publishes a figure no chain read can measure (shares held in custody, the custodian, withholding rates) | the link only |
 | `issuer_unavailable` | the issuer's figure could not be fetched this cycle | nothing further; our reading is served regardless, because a failed issuer fetch must never hide a chain read |
+| `awaiting_permission` | the issuer's figure was not fetched, by our decision, because the issuer has not yet given written permission (E20) | nothing further; our reading is served regardless |
 | `not_published` | the issuer publishes no such figure | nothing |
+
+`reconciles_only_if_excluded` replaces `reconciles_after_exclusion`, the name
+the previous revision used. That name read as though our figure had been
+reduced by the address, which under E21 it is not. The vocabulary does not
+grow: one token was renamed. The script `backend/scripts/te_xstocks_reads.py`
+still prints the old name, and its runs cited in the measurements record used
+it.
+
+THE GAP IS STATED AS THE CHAIN QUANTITY THAT ACCOUNTS FOR IT, NEVER AS A
+DIFFERENCE FROM THE ISSUER'S NUMBER (E19, settled). A subtraction from their
+number is their number, so no field carries one. What a reader gets instead is
+something they can check on chain: that this wallet holds this much at this
+slot, or that this balance moved by this much between these two blocks. In
+the TSLAx case of 21:04 UTC on 2026-09-24 that would have been two entries, the
+listed wallet's HyperEVM balance rising by 0.04 between the 20:43 and 21:04
+runs, and Solana supply falling by 0.000044 over the same interval (the
+measurements record has both). The collector finds an entry by testing, in
+memory, whether our figure with that quantity applied comes within tolerance
+of the issuer's. The test uses the issuer's figure and neither it nor the
+test's arithmetic is stored.
 
 Tolerances are relative. Total and circulating supply are both compared
 against one part in 1e9 of the token's total supply. The base is the total
@@ -1415,14 +1777,18 @@ published only by the issuer, so any ratio built on it is the issuer's number,
 whatever denominator we supply. What is served for backing is
 `no_chain_counterpart` and the link.
 
-STORAGE. The collector reads the issuer's figure in memory, computes the
-verdict, and discards it. The issuer's number is not stored at all: not in a
-`te_` table, not in a log line, not in an error message. What is stored is the
-verdict, the tolerance, the time and host of the issuer fetch, and the
-`explained_by` entries, which are our reads. The cost is that a past verdict
-cannot be re-audited from our store. It can only be re-checked live, against
-the issuer's figure as it then stands, which is what
-`backend/scripts/te_xstocks_reads.py` does by hand.
+STORAGE. Once permission arrives, the collector reads the issuer's figure in
+memory, computes the verdict, and discards it. The issuer's number is not
+stored at all: not in a `te_` table, not in a log line, not in an error
+message. What is stored is the verdict, the tolerance, the time and host of
+the issuer fetch, and the `explained_by` and `accounted_for_by` entries, which
+are our reads. The cost is that a past verdict cannot be re-audited from our
+store. It can only be re-checked live, against the issuer's figure as it then
+stands. `backend/scripts/te_xstocks_reads.py` did that by hand. It is a manual
+one-off check and not the collector, but the issuer's §3(4) names "any other
+manual or automatic device or process", so a manual run is inside the same
+question. It now refuses to run without `--call-issuer-api`, and the
+recommendation is that it stays unrun until Backed's permission exists.
 
 PRICE DATA IS NEVER SERVED. This is settled fact rather than a decision, and it
 is recorded here so that no later revision reopens it by accident. The issuer's
@@ -1773,10 +2139,20 @@ over, and since the value is a dict it would be refused rather than trimmed. The
 question, so it should answer that question. The full record is one call away
 at the plain key.
 
-Measured filled (3.3), the route record is 6,730 bytes and 9,260 with caveats,
-coverage and envelope. That is over the ceiling. Real swap calldata is 2,186
-hex characters, and the earlier figure of about 3,900 did not carry it. Until
-E17 is decided, this form cannot be served.
+In the layout E17 settled, the route record carries identity, the one quote
+without alternatives and without the fields the route object repeats or the
+record states once (method, block, age, staleness bound, family, pool), the USD
+references that quote uses, and the route. No `transfer_control` object: the
+route's `instrument_conditions` already carries the model. Measured filled
+(3.3), it is 5,469 bytes and 7,999 with caveats, coverage and envelope, 193
+under the ceiling. As first specified it was 9,260. Real swap calldata is 2,186
+hex characters, and the earlier figure of about 3,900 did not carry it. The
+calldata and the section 9.4 list stay whole, because the list is what travels
+with an object someone may sign. A multi-hop route would not fit, and would
+need a decision of its own.
+
+The route record no longer shows the other venues its quote was chosen over.
+They are one call away at the plain instrument key.
 
 Without the `/for/<wallet>` suffix there is no `unsigned_route` field at all.
 Not null: absent, because a null field invites a caller to look for the
@@ -2000,6 +2376,13 @@ fact rather than baked in. It also carries the measured depth impact and the
 threshold in force, so a changed threshold (4.2.1) can be applied to history
 without a new read.
 
+`te_premium` stores the token side from the first cycle. Its reference columns
+stay null while E22 stands, because the collector does not read the feeds at
+all. If the confirmation arrives, the table gains the reference fields 4.3
+names (feed, round id, raw `updatedAt`, reference session, basis, multiplier
+and its effective time, wrapper rate, oracle pause) before the first reference
+is read, so no premium is ever stored without them.
+
 `te_instrument_facts` is versioned by `checked_at` rather than overwritten. A
 `ui_multiplier` that changes is the dividend mechanism working, and losing the
 previous value would erase the evidence of it.
@@ -2132,17 +2515,25 @@ notice when the assumption behind it stops holding.
   are not values in any response.
 - Treat `algebra_integral` as one deployment. Three factories are live.
 - Read a dynamic fee flag as a fee.
+- Serve, store or derive anything from a Chainlink feed while E22 stands, or
+  read the issuer's API while E20 stands.
+- State a gap between our figure and an issuer's as a difference from the
+  issuer's number.
 - Execute, sign, broadcast, relay, hold or custody anything.
 
 ---
 
 ## 12. Decisions: settled, and still open
 
-Five are settled by the owner and are recorded here rather than removed, so a
-reader can see what was decided and not only what remains: E3, E12, E13, E15
-and E18. E4 and E14 collapsed rather than being decided, which is section 9.2 doing
-its work. Fourteen remain open: E1, E2, E5, E6, E7, E8, E9, E10, E11, E16,
-E17, E19, E20 and E21.
+Eleven are settled by the owner and are recorded here rather than removed, so
+a reader can see what was decided and not only what remains: E3, E12, E13,
+E15, E16, E17, E18, E19, E20, E21 and E22. E4 and E14 collapsed rather than
+being decided, which is section 9.2 doing its work. Twelve remain open: E1,
+E2, E5, E6, E7, E8, E9, E10, E11, E23, E24 and E25. The last three are new in
+this revision. E23: settling E16 moved per-chain supply off the xStocks
+instrument record, and the record measured again still does not fit its
+ceiling. E24 and E25 ask how far E22 and E20 reach, which only the owner can
+say.
 
 E2 is open even though this document recommends the compound key, because a
 recommendation is not the owner's decision and section 6.1 keeps the
@@ -2269,13 +2660,21 @@ supply but are not listed, as seven in the sample are. Serving none until then
 keeps xStocks, the largest programme by instrument count, out of the first
 cut, which makes E6 narrower than it looks.
 
+E10 NOW ALSO WAITS ON E20. Measuring the coverage of (a) or (b) over the
+listed mints needs the issuer's asset list, and (c) is that list. All three
+are read from the issuer's API, which nothing reads until Backed gives written
+permission. So E10 cannot be settled on the measurement it recommends before
+that permission arrives, unless the owner chooses to decide it without the
+measurement.
+
 E11. The caveat budget, surface-wide. The earlier premise, that cutting the
 caveats fixed this dataset, does not survive re-measurement. There are seven
-caveats at 1,915 bytes, and with them a filled instrument response is 10,312
-bytes against 8,192 and the route form 9,260 (3.3). The caveats are 23 percent
-of that ceiling. They are not the whole overrun, since the record alone is
-7,782, but no layout in 3.3 fits without either cutting the record or freeing
-caveat bytes. The underlying property remains: the caveat block is charged
+caveats at 1,915 bytes, 23 percent of the 8,192 ceiling. With E16 and E17
+settled, the NVDA instrument response is 7,906 and the route form 7,999, both
+under, with margins of 286 and 193 bytes (3.3). An xStocks instrument is not:
+the leanest layout measured is 18 bytes over (E23), and freeing caveat bytes
+is one of the two levers left for it. The underlying property remains: the
+caveat block is charged
 against the same ceiling as the answer, on every response, for every dataset.
 Recommendation: adopt the section 3.3 self-check now, which is local and
 catches the overrun at registration, though it cannot by itself make the
@@ -2284,49 +2683,106 @@ proposal. Trade-off: a `caveats_ref` would free several KB per response but
 weakens the rule that the caveat travels with the number, and it changes the
 envelope for every dataset on one dataset's evidence.
 
-E16. The instrument record's layout, because as specified it does not fit
-(3.3: 10,312 bytes against 8,192 for a filled NVDA record). Recommendation:
-list venues once with their `quote_token`, have each cost entry and each
-alternative name a venue by index, state block, age, method and staleness
-bound once per record, and carry `transfer_control` as its model plus the
-`issuer/robinhood` key where 4.6 already holds the contract. That measures
-7,907, 285 bytes under the ceiling. Moving `basis_note` into the descriptor as
-well gives 7,624, 568 under. Trade-off: an entry no longer names its quote
-token itself. A reader follows the index to the venue and then the venue's
-`quote_token` to `quote_references`, two hops where 4.2 now shows none. The
-margin is still thin, so a sixth venue or longer values could push a record
-over. The alternatives that fit without indexing all cut what the record is
-for: fewer venues or fewer entries. A real SPY record gets under, at 8,077,
-only with two venues instead of four.
+E23. The xStocks instrument record, because under E16 it still does not fit
+(3.3). With per-chain supply and exclusions at the supply key, what stays on
+the instrument is the circulating figure, the links and the verdicts, 1,243
+bytes once E20's permission arrives. On the adopted NVDA record as a stand-in
+body the response is 9,071, and 8,522 while E20 stands. Measured options,
+cumulative: `basis_note` in the descriptor, 8,788; then each verdict's
+tolerance, check time and `explained_by` moved to the supply key, leaving
+quantity and verdict, 8,384; then the three fixed issuer links moved to
+`issuer/xstocks`, leaving the product link, 8,210. All over, the last by 18
+bytes. Not blocking: no xStocks instrument is served until E10 is settled, and
+E10 now waits on E20. Recommendation: none yet. The stand-in body is a chain
+4663 record, and a real xStocks record's size depends on venues that are not
+specified, so the question should be measured on one before it is decided. The
+remaining levers are freeing caveat bytes (E11), fewer venues per record, or
+moving the whole of 4.8 to the supply key and keeping only a verdict summary
+on the instrument. Trade-off of the last: a caller learns from the instrument
+that a circulating verdict exists and needs a second call to see which way it
+went.
 
-E16 now also covers the section 4.8 block, which no layout above absorbs. An
-xStocks instrument carrying it measures 11,149 bytes at best (3.3), 2,957
-over. The block is 3,603 bytes, and 2,027 of that is the exclusions list: one
-entry per chain for the listed wallet, plus the named exclusions. Options, none
-measured yet: list the listed-wallet exclusions once on the issuer structure
-record (4.6) and keep only named exclusions on the instrument; serve per-chain
-supply and exclusions at their own key (`<instrument>/supply`) and keep only
-the circulating figure and the verdicts on the instrument; or drop the
-per-chain `supply_measured` list, keeping its total. Recommendation: the second,
-because the per-chain reads are what make the verdict checkable and a
-separate key keeps them whole. Trade-off: a caller needs two calls to check a
-circulating verdict, and the instrument record states a figure whose working
-lives elsewhere.
+E24. Whether figures derived from Chainlink feed answers may stay in the
+published measurements record while E22 withholds premium. The record
+reproduces no feed answer, but it does publish figures computed from them:
+AAPL's median ratio to its underlying feed, 1.000377; the Ink wNVDAx feed's
+median distance from the underlying times the v2 wrapper rate, −99.32 bp
+(Ethereum) and −98.22 bp (Optimism), and from the v1 rate, +1.11 bp
+(Optimism); the GOOGL and AAPL closest-pair distances; and the counts of
+exact matches. Premium is withheld partly on the Foundation terms' ban on
+derivative works (§2, first list, item (vi)), and the Data Streams terms bar
+"publishing or otherwise making available to the public any analysis of the
+Data" (§4(v)); which of the two governs these feeds is not established. Not
+every number in that section comes from a feed: the +100.31 bp between the
+v2 and v1 wrapper rates, the multipliers, and every round time and round id
+are token reads or block data. Recommendation: withdraw the feed-derived
+medians and distances until E22 is answered, and keep the exact-match counts,
+the wrapper and multiplier reads and the round times, which state how a feed
+relates to on-chain quantities without giving a price or a price movement.
+Trade-off: the AAPL and Ink findings then rest on counts alone, which a reader
+can re-derive with the script but cannot see the size of on the page. Until
+the owner decides, the figures stay as written, so that what is being decided
+is visible.
 
-E17. The route form, because as specified it does not fit (3.3: 9,260
-bytes). Recommendation: drop `transfer_control`, whose model the route
-already carries in `instrument_conditions`. Drop the quote's alternatives,
-and the quote fields the route object repeats or the record states once:
-method, block, age, staleness bound, family and pool. That measures 7,999,
-193 bytes under. Keep the calldata and the section 9.4 list whole, because
-the list is what travels with an object someone may sign. Trade-off: the
-route record stops showing the other venues it was chosen over, and its
-margin is thinner than the instrument record's. Calldata is 2,186 hex
-characters for a single-pool swap, and a multi-hop route would not fit, so
-multi-hop routes would need a decision of their own.
+E25. How far E20 reaches, on two points that do not read the issuer's API.
+(a) Whether `total_supply_measured` may be served as a scoped measurement
+instead of being withheld (4.8): the EVM deployment set established on chain,
+by code at the token's address at a stated block on each chain, and the
+non-EVM deployments taken from the issuer's list as fetched on 2026-09-24,
+labelled class D with that date. Every supply figure would still be a chain
+read. (b) Whether the product link may be served without the automated check,
+as `{"url": ..., "checked": false}`: a link is not a read, and the only
+request the check made was to the issuer's site. Recommendation: both, each
+labelled. Trade-offs: (a) reuses an issuer list fetched before E20 and can
+miss a chain the issuer adds later, which the scope label states but does not
+detect; (b) can serve a link that answers 404, which `checked: false` states.
+This document's current reading, that §3(4) covers the site and not only the
+API, is the conservative one and is what 4.8 applies until the owner says
+otherwise.
 
-E18. SETTLED. Issuer-published figures are not served, and are not reproduced
-in the repository. The question: xStocks publishes figures about itself (shares
+E16. SETTLED. The instrument record's layout. As first specified the NVDA
+record's response was 10,312 bytes against 8,192 as measured at the time,
+and an xStocks instrument
+carrying section 4.8's block was worse. The recommendation was to list venues
+once with their `quote_token`, have each cost entry and alternative name a
+venue by index, state block, age, method and staleness bound once per record,
+and carry `transfer_control` as its model plus the `issuer/robinhood` key; and,
+for 4.8, to serve per-chain supply and exclusions at their own key.
+
+The owner's decision, in the owner's words: "take the worker's recommendation
+and move per-chain supply and exclusions to their own key."
+
+What it changed: 4.2 shows the indexed layout, with `quote_basis` once per
+record and each entry naming a `venue`. 4.5 gives each venue its `quote_token`
+and carries `transfer_control` on the instrument by key. The fifth key form,
+`<chain id>/<token address>/supply` or `solana/<mint>/supply`, follows the
+route key's compound form (section 3, 6.1) and serves per-chain supply and
+every exclusion (4.8). Re-measured with `backend/scripts/te_response_sizes.py`:
+the NVDA instrument response is 7,906, 286 under the ceiling, and the supply
+key's is 5,264. Moving `basis_note` into the descriptor was measured (7,623)
+and was not part of the recommendation taken, so it is held in reserve. The
+trade-off is accepted as stated: an entry reaches its quote token in two hops,
+and a caller needs two calls to check a circulating verdict. The xStocks
+instrument still does not fit, which is E23.
+
+E17. SETTLED. The route form. As first specified it was 9,260 bytes. The
+recommendation was to drop `transfer_control`, whose model the route already
+carries in `instrument_conditions`, drop the quote's alternatives, and drop the
+quote fields the route object repeats or the record states once: method,
+block, age, staleness bound, family and pool. Calldata and the section 9.4 list
+stay whole.
+
+The owner's decision, given for E16 and E17 together, in the owner's words:
+"take the worker's recommendation and move per-chain supply and exclusions to
+their own key."
+
+What it changed: 9.1 describes the adopted route record. Re-measured, it is
+7,999 bytes, 193 under. The route record no longer shows the venues its quote
+was chosen over, and a multi-hop route, whose calldata would not fit, needs a
+decision of its own if one is ever wanted.
+
+E18. SETTLED. Issuer-published figures are not served, and are not stated in
+the repository. The question: xStocks publishes figures about itself (shares
 held in custody, the custodian, circulating supply, withholding rates) through
 a public API whose use is governed by its site terms. The operative clauses
 (`https://xstocks.fi/documents/xstocks-terms-of-service.pdf`), each quoted
@@ -2366,45 +2822,110 @@ both sides of it are checkable, but their number stays on their page."
 What it changed: section 4.8 carries the shape. An xStocks instrument has our
 chain measurements, `issuer_links` to the issuer's human-facing pages, and a
 `reconciliation` verdict from a closed vocabulary. No served field and no
-committed file holds an issuer number. The collector reads the issuer's figure
+committed file states an issuer number. Some of our figures let a reader
+derive one: our circulating figure less the holding of the wallet in a
+`reconciles_only_if_excluded` verdict equals the issuer's circulating figure
+(4.8). Those figures are kept, by the owner's ruling of 2026-09-24, in the
+owner's words: "Derivable figures: keep them. Our circulating figure and the
+wallet's balance are both chain reads. A reader subtracting them is doing
+their own arithmetic on our numbers, not reading theirs." The collector reads the issuer's figure
 in memory to compute a verdict and does not store it. A backing ratio is not
 served, because its numerator is issuer-only. Withholding is a 4.8 verdict,
 not a field that could hold a rate. The measurements record follows the same rule, because
 the repository's docs are published.
 
-E19. Whether `does_not_reconcile` carries the size of the gap. Section 4.8
-serves the sign (ours above or below theirs) and not the magnitude, because our
-figure plus the magnitude reproduces the issuer's number. Recommendation: carry
-it. The owner's own E18 wording says "the disagreement is ours to state because
-both sides of it are checkable", and a disagreement stated without its size is
-half stated. The owner has already ruled that our chain figures stay even when
-a reader can subtract them to get the issuer's, which is the same arithmetic.
-Trade-off: with the magnitude, a caller can recover the issuer's number from
-one served record, where today it takes the issuer's page.
+E19. SETTLED. Whether `does_not_reconcile` carries the size of the gap. The
+previous revision served the sign and not the magnitude, because our figure
+plus the magnitude reproduces the issuer's number, and recommended carrying
+the magnitude.
 
-E20. Automated retrieval from the issuer's API. E18 settled what is served, not
-how the collector fetches. §3(4) of the issuer's terms forbids using "any robot,
-spider, site search or retrieval application, or any other manual or automatic
-device or process to retrieve, index, data-mine, or in any way reproduce or
-circumvent the navigational structure or presentation of the Site or
-Services". The collector's reconcile check is such a process, and
-`backend/scripts/te_xstocks_reads.py --all-mints` makes about 1,200 calls in
-one run. The API documentation invites integrators to call it and grants no
-licence of its own. Recommendation: ask Backed for written permission covering
-the reconcile check's cadence and volume, and until then run the reconcile
-check once per cycle on the served instruments only, with no bulk runs beyond
-this pass. Trade-off: fewer verdicts, and a question the terms do not answer
-cleanly left open until Backed does.
+The owner's decision, in the owner's words: "yes, but state the gap as the
+chain quantity that accounts for it, such as the wallet and what it holds,
+never as a difference from their figure. A subtraction from their number is
+their number."
 
-E21. Whether `9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd` goes on the named
-exclusion list (4.8). It is what the issuer's circulating figure excludes
+What it changed: `does_not_reconcile` carries `accounted_for_by`, the chain
+quantities the collector found that account for the gap, each a wallet and
+what it holds, or a movement between two reads, with chain, address, amount
+and block or slot. With them go the time of each check, the tolerance, the
+quantity's name and the sign. No field carries a numeric difference from the
+issuer's figure, and where nothing on chain accounts for the gap the sign is
+all that is stated (4.8). `backend/scripts/te_xstocks_reads.py` was checked
+for the same rule: it prints the sign of a gap and never its size.
+
+E20. SETTLED. Automated retrieval from the issuer's API. §3(4) of the issuer's
+terms forbids using "any robot, spider, site search or retrieval application,
+or any other manual or automatic device or process to retrieve, index,
+data-mine, or in any way reproduce or circumvent the navigational structure or
+presentation of the Site or Services". The previous revision recommended
+asking Backed for written permission and, meanwhile, running the reconcile
+check once per cycle on served instruments only.
+
+The owner's decision, in the owner's words: "no automated reads of their API
+until Backed gives written permission. I will ask them."
+
+What it changed: the collector does not read the issuer's API, and the owner
+is asking Backed. Every verdict that compares against an issuer figure reads
+`awaiting_permission`, a token added for this and for E22 (4.7), and the
+circulating figure is withheld with the same reason, because the exclusion
+list is read from that API too. Chain measurements and the fixed
+documentation links are served regardless (4.8). The product-page check is
+suspended as well, on this document's reading that §3(4) covers the site and
+not only the API; serving the link unchecked instead is E25. `backend/scripts/te_xstocks_reads.py`
+is a manual one-off check, not the collector. §3(4) names manual processes, so
+the recommendation is that it stays unrun until permission exists, and it now
+refuses to make any network call without `--call-issuer-api`. E10 now waits on
+this as well, since its measurement needs the issuer's asset list.
+
+E21. SETTLED. Whether `9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd` goes on a
+named exclusion list. It is what the issuer's circulating figure excludes
 beyond its published wallet list, for TSLAx, AZNx and SPYx alike. It is an
-ordinary key, not on the issuer's list, and nothing on chain says whose it is.
-Recommendation: approve it, labelled as excluded because the issuer's figure
-excludes it and for no other reason. Trade-off: our circulating figure then
-follows the issuer's definition for an address the issuer does not name. Not
-approving it leaves our figure on the published list alone, and the
-circulating verdict reads `does_not_reconcile` with the address unexplained.
+ordinary key, not on the issuer's list, and nothing on chain says whose it
+is. The previous revision recommended approving it.
+
+The owner's decision, in the owner's words: "do not approve 9U76 as an
+exclusion. It is not on their wallet list, so the record says the figures
+reconcile only if that wallet is excluded, and that the issuer does not list
+it."
+
+What it changed: the named exclusion list is removed as a mechanism, not left
+empty. Our circulating figure subtracts the issuer's list and nothing else.
+The circulating verdict for these three is `reconciles_only_if_excluded`,
+carrying `9U76…`, its holding with its slot, and
+`on_issuer_system_wallet_list: false`. The token replaces
+`reconciles_after_exclusion`, whose name read as though the exclusion had been
+applied (4.8). The 4.8 example no longer assumes an approval.
+
+E22. SETTLED. Whether anything from Chainlink's feeds is served. The Chainlink
+pass read the feeds on chain 4663, Ethereum, Optimism, BNB Smart Chain and Ink
+(`backend/scripts/te_chainlink_reads.py`) and read the terms that govern them.
+The Chainlink Foundation Terms of Service, version 6.0, effective 18 August
+2026, define the Services to include data provided "via data feeds" (§1),
+forbid distributing them or permitting a third party to use them (§3), forbid
+derivative works of them (§2, first list, item (vi)), and forbid unauthorised
+use of data or breaches of third-party provider terms (§2, second list, item
+(iii)). The Data
+Streams Terms, version 2.1, confine data to the user's own applications and
+forbid publishing analysis of it or creating derivative works (§3, §4(v),
+§4(vi)). Chainlink's tokenized-equity documentation says "all developers must
+reach out to Chainlink Labs prior to integrating these feeds". No clause read
+expressly permits display. Whether any upstream exchange licence applies was
+not established, and the Chainlink Labs Terms of Service, which the Data
+Streams terms incorporate, were not read. The clauses are quoted whole in the
+measurements record.
+
+The owner's decision, in the owner's words: "serve nothing from the feeds
+until I have written confirmation from Chainlink Labs. I will ask them too."
+
+What it changed: premium stays unserved and its withheld reason is
+`awaiting_permission`. The collector does not read the feeds, and
+`te_premium` keeps only the token side (4.3, 10.1). Section 4.3 describes the
+record for when, and only if, the confirmation arrives, including per-venue
+formulas, a session label that keeps a weekend reading from passing as
+current, and the exclusion of Ink's wNVDAx feed. The measurements record
+cites the script's blocks, times, counts and ratios and does not reproduce the
+feed answers, the same rule E18 applied to the issuer's numbers. Whether the
+ratios computed from feed answers may stay published is E24.
 
 E3. SETTLED. The USD references come from chain. The owner's condition:
 "There is no dollar on chain, so a stablecoin's rate can only be measured
@@ -2422,7 +2943,9 @@ Premium goes as recommended: not served in the first cut, collected from day
 one. Its reference is an underlying share price, which is not on chain, so
 the licensing question stays with premium alone. Until a source is named, the
 collector stores the token side only (4.3). That is the one piece of E3 this
-settlement leaves, and serving premium starts with it.
+settlement leaves, and serving premium starts with it. E22 has since
+settled what happens to the one candidate source read so far, Chainlink's
+feeds: nothing from them is served until Chainlink Labs confirms in writing.
 
 E12. SETTLED AND RETURNED. The transfer control result landed: on Robinhood
 Chain the gate is `isBlocked` on the beacon, 175 addresses are currently denied,
@@ -2470,9 +2993,10 @@ at about 7,000, the route form at about 6,500, a series default of 118) came
 from an example this repository does not hold. Section 3.3 replaces them with
 measured figures from `backend/scripts/te_response_sizes.py`: 10,274 for a
 filled instrument response, 9,260 for the route form, and a series default of
-117. The first two are over the 8,192 ceiling, so "buildable" below is not
-true as specified; E16 and E17 are the decisions that would make it so. What
-this revision added is at the end of 13.2.
+117. The first two were over the 8,192 ceiling, so "buildable" below was not
+true as then specified. E16 and E17 were the decisions that would make it so,
+and the owner settled both on 2026-09-25 (13.5). What the fifth revision added
+is at the end of 13.2.
 
 Five changes made it buildable, by the fourth revision's measure. None touches the design.
 
@@ -2755,8 +3279,65 @@ values with their slots and blocks. This section records what changed here.
   figure", in both documents, and said to be widened. It was widened by the
   writer of this pass, not by an owner decision.
 
-With E18 settled and E19 to E21 raised, five decisions are settled and
-fourteen remain open (section 12).
+With E18 settled and E19 to E21 raised, five decisions were settled and
+fourteen open at the end of that pass. Section 12 has the current count.
+
+### 13.5 What the owner settled on 2026-09-25, and what the Chainlink pass returned
+
+Six decisions, each recorded in section 12 in the owner's words.
+
+- E16 and E17: the recommended layouts, and per-chain supply and exclusions at
+  their own key. The NVDA instrument response is 7,906 bytes and the route
+  record's 7,999, both under 8,192. The new key form is
+  `<chain id>/<token address>/supply` or `solana/<mint>/supply`, and its
+  TSLAx response is 5,264. All three figures are printed by
+  `backend/scripts/te_response_sizes.py`.
+- E19: a gap is stated as the chain quantity that accounts for it, never as a
+  difference from the issuer's figure. `does_not_reconcile` carries
+  `accounted_for_by`.
+- E20: nothing reads the issuer's API until Backed gives written permission.
+  Issuer comparisons read `awaiting_permission`, the circulating figure is
+  withheld because its exclusion list comes from that API, and
+  `te_xstocks_reads.py` refuses to run without `--call-issuer-api`.
+- E21: `9U76…` is not excluded. The named exclusion list is gone, and the
+  circulating verdict is `reconciles_only_if_excluded`, naming the wallet, its
+  holding and that the issuer does not list it.
+- E22: nothing from Chainlink's feeds is served until Chainlink Labs confirms
+  in writing. The owner is asking them.
+
+Three questions were raised. Re-measured under E16, an xStocks instrument is
+still over the ceiling, 9,071 bytes after permission and 8,522 now, and the
+leanest of three further options measured is 18 bytes over. That is E23.
+Whether figures derived from feed answers may stay in the published
+measurements record is E24. Whether total supply can be served as a scoped
+measurement, and the product link unchecked, under E20, is E25. So eleven
+decisions are settled and twelve are open.
+
+The Chainlink pass read the equity feeds on chain 4663, Ethereum, Optimism,
+BNB Smart Chain and Ink with `backend/scripts/te_chainlink_reads.py`, eth_call
+and block reads only, no key. The measurements record has every figure with
+its block and time. What it changed here:
+
+- Section 4.3 now describes the premium record for when, and only if, E22's
+  confirmation arrives: a formula per venue, the raw `updatedAt` beside a
+  session label from our own NYSE calendar, age measured from the end of that
+  session, the oracle pause, a sequencer field that says what cannot be
+  checked on chain 4663, and a halts field that says halts are not detected.
+- The weekend rule: a reading taken while the market is closed is labelled as
+  the prior session's value and never as current. On BNB Smart Chain the NVDA
+  feed posted rounds on Saturday and Sunday whose values and timestamps differ
+  from Friday's last round, so `updatedAt` makes a Friday price look like a
+  weekend one. The 24/5 feeds posted nothing from Friday 20:00 ET to Sunday
+  20:00 ET.
+- Ink's wNVDAx feed is excluded from premium. Its ratio to the underlying
+  equals the v1 wrapper's rate on Ethereum, while on Ink the v1 address holds
+  no code and the issuer's list names only the v2 wrapper, whose rate is about
+  100 bp higher.
+- On Robinhood Chain the per-token formula is applied only where the feed's
+  relation to the underlying is shown by exact matches: NVDA and MSFT. GOOGL,
+  AAPL and QQQ are not shown, and Robinhood's documentation and Chainlink's
+  directory disagree on how many tokens have a feed at all.
+- Class A is said not to imply permission to publish (2.3).
 ---
 
 ## 14. Appendix: what the outside advice got wrong

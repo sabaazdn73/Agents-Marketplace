@@ -31,6 +31,23 @@ further explanation: the issuer's circulating supply excludes one wallet it
 does not list, and the issuer labels one corporate action differently in its
 two histories. See the xStocks section.
 
+A fifth pass, on 2026-09-25, read Chainlink's equity feeds on Robinhood Chain,
+Ethereum, Optimism, BNB Smart Chain and Ink, to find out what a premium
+computed from them would actually compare. It found that the answer depends
+on the chain, that a weekend reading on one kind of feed carries a weekend
+timestamp, and that one feed on Ink would print a premium of about one percent
+that nobody paid. The owner has decided that nothing from these feeds is
+served until Chainlink Labs confirms in writing that it may be (E22 in the
+specification). So this record states what was read, with blocks and times,
+and does not reproduce the feeds' answers. See the Chainlink section.
+
+The same day the owner decided that nothing reads the xStocks issuer's API
+until Backed gives written permission (E20). The script that re-reads the
+xStocks figures depends on that API for its asset and wallet lists, so it now
+refuses to run without an explicit flag, and it is to stay unrun until the
+permission exists. The xStocks figures below therefore stand as read, and
+cannot be taken again from this repository until then.
+
 So this file is not a summary of the findings. It is a provenance record. Every
 figure below says what was measured, how, at what block or in what window, and
 whether a reader can take it again today. A figure marked not re-derivable is
@@ -58,7 +75,18 @@ endpoints with no key. The first reads were taken from 19:47 UTC on
 2026-09-24. The figures this record cites come from runs of the script between
 20:43 UTC that day and 09:00 UTC on 2026-09-25, and each figure names its run.
 Every one of them is re-read by `backend/scripts/te_xstocks_reads.py`, which prints each with its slot
-or block and never prints more of an endpoint than its host.
+or block and never prints more of an endpoint than its host. Since E20 that
+script makes no network call unless it is given `--call-issuer-api`, because
+it takes its asset and wallet lists from the issuer's API, and the owner's
+decision is that it stays unrun until Backed permits it in writing.
+The fifth pass, on the Chainlink feeds, read Robinhood Chain, Ethereum,
+Optimism, BNB Smart Chain and Ink through public endpoints with no key, and
+past Robinhood Chain state through `https://robinhood.drpc.org`. Every figure
+it contributes comes from the run of `backend/scripts/te_chainlink_reads.py`
+from 09:30:59 to 09:31:24 UTC on 2026-09-25, pinned at Robinhood Chain block
+72,121,324, Ethereum 26,053,583, Optimism 157,364,941, BNB Smart Chain
+123,925,276 and Ink 56,830,247, except the Ink figures, which come from its
+`--ink-only` run from 10:02:11 to 10:02:17 UTC the same day.
 
 B. Already committed to this repository. Read in an earlier session and
 written into a tracked file at the time, so the value and its method both
@@ -74,7 +102,7 @@ exposed on.
 D. Issuer-published, not measured. An issuer's own published statement or
 figure: its terms text, and any number the issuer publishes about itself,
 including through its own API. It is evidence about what the issuer says, and
-about nothing else. An issuer's number is never reproduced in this record and
+about nothing else. An issuer's number is never stated in this record and
 never served (E18 in the specification, settled): it is linked where the issuer
 publishes it. Terms text is still quoted where it is the evidence, as with the
 issuers' entities in the issuer comparison and the terms quoted in E18. Where the same quantity can be read on chain, the chain read is
@@ -495,8 +523,10 @@ a key and were not called. What the issuer publishes is class D. Under E18,
 which the owner settled, the issuer's numbers are not reproduced here. For each
 quantity the chain also records, this section gives our chain reading, a link
 to the issuer's page, and a verdict from the specification's reconcile
-vocabulary (section 4.8 there): `reconciles`, `reconciles_after_exclusion`,
-`does_not_reconcile`, `no_chain_counterpart`.
+vocabulary (section 4.8 there): `reconciles`, `reconciles_only_if_excluded`,
+`does_not_reconcile`, `no_chain_counterpart`. The script's runs cited here
+printed the second of those under its earlier name,
+`reconciles_after_exclusion`, which the owner's decision on E21 replaced.
 
 ### The multiplier: AZNx is the 0.511 instrument
 
@@ -676,13 +706,14 @@ here links them beyond the matching amount and time.
 
 Circulating supply against the issuer's circulating-supply figure. Our
 circulating figure is total supply minus every balance held by an address on
-the issuer's wallet list:
+the issuer's wallet list, and nothing else: the owner decided under E21 that
+an address the list does not name is not excluded.
 
-| Token | Our circulating figure | Verdict | Explained by |
+| Token | Our circulating figure | Verdict | Reconciles only if this is excluded |
 |---|---|---|---|
-| AZNx | 11,945.313951 | `reconciles_after_exclusion` | `9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd` on Solana holds 10,718.11398839 at slot 450,305,328 |
-| TSLAx | 194,506.002655 | `reconciles_after_exclusion` | the same wallet holds 5,380.42354242 at slot 450,305,224 |
-| SPYx | 89,737.353178 | differed on this single check, ours below theirs after the exclusion; `pending_recheck` under section 4.8, not a finding | the same wallet holds 2,830.43737267 at slot 450,305,422 |
+| AZNx | 11,945.313951 | `reconciles_only_if_excluded` | `9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd` on Solana, which holds 10,718.11398839 at slot 450,305,328 and is not on the issuer's list |
+| TSLAx | 194,506.002655 | `reconciles_only_if_excluded` | the same wallet, which holds 5,380.42354242 at slot 450,305,224 |
+| SPYx | 89,737.353178 | differed on this single check, ours below theirs even with that wallet excluded; `pending_recheck` under section 4.8, not a finding | the same wallet holds 2,830.43737267 at slot 450,305,422 |
 
 The same address explains the gap for all three whenever the verdict
 reconciles. That holds for AZNx and TSLAx in this run, and for AZNx, TSLAx and
@@ -707,6 +738,14 @@ when a gap persists across three collector cycles.
 `9U76…` is an ordinary key: at slot 450,305,468 it is owned by the System
 Program and it is on the ed25519 curve. It is not on the issuer's wallet list. In other words, the issuer's
 circulating figure leaves out a wallet that its published list does not name.
+The owner decided not to exclude it from ours (E21): the record says the
+figures reconcile only if that wallet is excluded, and that the issuer does
+not list it. A reader can subtract that wallet's holding from our circulating
+figure and arrive at the issuer's. This record states no issuer number, and
+it keeps both figures by the owner's ruling of 2026-09-24, in the owner's
+words: "Derivable figures: keep them. Our circulating figure and the wallet's
+balance are both chain reads. A reader subtracting them is doing their own
+arithmetic on our numbers, not reading theirs."
 Whether that wallet is the issuer's own inventory is not published. For AZNx
 it holds 89.7 percent of the supply outside the listed wallets
 (10,718.11 of 11,945.31).
@@ -726,7 +765,347 @@ The issuer's price-data endpoint is documented as sourced partly from Nasdaq.
 Specification section 4.8 records, as settled fact, that it is never served,
 raw or derived, and quotes the Nasdaq agreement and policies that bind that.
 The issuer's site terms, and the owner's decision that follows from them, are
-E18 in the specification.
+E18 in the specification. How the issuer's API may be read at all is E20:
+nothing reads it until Backed gives written permission, and
+`backend/scripts/te_xstocks_reads.py` makes no network call without
+`--call-issuer-api`.
+
+---
+
+## Chainlink's equity feeds, read against the chain
+
+Read on 2026-09-25 to settle what a premium computed from these feeds would
+compare. Every class A figure below comes from the run of
+`backend/scripts/te_chainlink_reads.py` from 09:30:59 to 09:31:24 UTC, pinned
+at Robinhood Chain block 72,121,324, Ethereum 26,053,583, Optimism
+157,364,941, BNB Smart Chain 123,925,276 and Ink 56,830,247, except the Ink
+subsections, which name their own run. Reads only:
+`eth_call`, block headers and one `eth_getCode`, through public endpoints with
+no key, and past Robinhood Chain state through `https://robinhood.drpc.org`.
+
+THE FEEDS' ANSWERS ARE NOT REPRODUCED HERE. The owner has decided that nothing
+from these feeds is served until Chainlink Labs confirms in writing that it may
+be, and is asking them (E22 in the specification). This record is published,
+so it follows the same rule E18 applied to the issuer's numbers: it states
+round times, round ids, counts, which answers equal which, and ratios between
+feeds, and the script prints the answers for whoever runs it. Reading a value
+on chain does not by itself permit republishing it. Whether the figures below
+that are computed from feed answers (median ratios, distances in basis points)
+may stay published is an open question for the owner, E24 in the
+specification; they stay as written until it is decided.
+
+### What Chainlink's directory and Robinhood's documentation say (class D)
+
+Chainlink's reference data directory, the per-network files at
+`https://reference-data-directory.vercel.app/feeds-<network>.json`, downloaded
+on 2026-09-24 at about 21:37 UTC. The files carry no version. Ten network files
+parsed; the one requested for `ethereum-mainnet-robinhood-1` answered "not
+found". TON and Tron were not in the set and were not scanned.
+
+- 35 equity and ETF feeds with a proxy address are listed for Robinhood Chain.
+- Matching feed names against the symbols of the 204 tokens behind the
+  Robinhood beacon, 38 of the 204 have a feed with a proxy on at least one
+  listed network. For PFE, NFLX and MRNA that feed is an underlying-share feed
+  on BNB Smart Chain and nothing else.
+- No feed of any kind is listed for AZN, the underlying of AZNx.
+- Proof of reserve for xStocks appears only as Data Streams entries, ten of
+  them, named `<symbol>x/POR-Datalink-ProofOfReserves` in the Arbitrum file,
+  with no proxy address, so none is readable on chain. No publisher is
+  attributed to them here: the directory's `issuer` field on all ten names a
+  different programme, so it is not evidence of who publishes them.
+- Ethereum lists feeds for SPCX, among them `SPCX-USD (24/5)`.
+- Data Streams entries named `TotalReturnMultiplier` exist for several xStocks
+  symbols. They are Data Streams, not on-chain feeds.
+- The directory's `path` for the Ethereum and Optimism 24/5 feeds and for
+  Ink's wrapped-xStocks feeds contains `kalman`, for example
+  `nvda-usd-kalman-24-5`. That is the directory's naming, class D. The feeds'
+  method is not established here beyond the documentation's description of
+  "session-aware smoothing".
+- Deviation threshold and heartbeat: 0.5 percent and 86,400 seconds for the
+  Robinhood Chain feeds, the Ethereum and Optimism 24/5 feeds and the BNB Smart
+  Chain NVDA feed read here; 0.1 percent and 3,600 seconds for Ink's wNVDAx,
+  wSPYx and wQQQx feeds.
+
+Robinhood's documentation, fetched 2026-09-24 at about 21:39 UTC:
+`https://docs.robinhood.com/chain/oracles-and-price-feeds/` says "Each Stock
+Token on Robinhood Chain has its own Chainlink price feed." and
+`https://docs.robinhood.com/chain/building-with-stock-tokens/` says "The
+Chainlink price already includes the corporate-action multiplier (dividends,
+splits), so the value you read is the token's full price — don't apply the
+multiplier yourself." The first conflicts with the directory's 35 against 204
+tokens. Nothing read on chain settles which is right: a feed that exists and
+is not listed would not be found by a directory search, and this pass did not
+search the chain for one.
+
+### Robinhood Chain feeds carry the multiplier: established for NVDA and MSFT (class A)
+
+The test. Each Robinhood Chain round is paired with the underlying 24/5 feed's
+round nearest in `updatedAt`, where the two are within 20 seconds. Most such
+pairs differ by several basis points, because the price moved between the two
+updates, so a median over them measures that movement and not the relation.
+What tests the relation is an exact match: a pair whose ratio equals a
+candidate factor to within 1e-4 bp, which is far below the movement and far
+above 8-decimal quantisation. Each pair is tested against the token's
+`uiMultiplier()` in effect at the Robinhood round's `updatedAt`, and, as a
+control, against the other value. The value before `effectiveAt()` was read at
+the last block before it through the archive endpoint. It was 1.0 for all five
+tokens below.
+
+| Token | Multiplier now, effective | Underlying feed | Before: pairs, exact at 1.0, exact at the new value | After: pairs, exact at the multiplier, exact at 1.0 |
+|---|---|---|---|---|
+| NVDA | 1.0007751591646306, 2026-09-10 00:00:30 UTC | Ethereum `0x2c47b8CD…52d4` | 8, 1, 0 | 23, 2, 0 |
+| NVDA | same | Optimism `0xe04E47A9…B911` | 2, 0, 0 | 25, 1, 0 |
+| MSFT | 1.000412952576206, 2026-09-11 15:10:30 UTC | Optimism `0xab975826…52a6` (no Ethereum 24/5 MSFT feed is listed) | 17, 3, 0 | 30, 6, 0 |
+| GOOGL | 1.0001939244141127, 2026-09-15 15:10:27 UTC | Ethereum `0x4720bcC6…240E` | 8, 0, 0 | 11, 0, 0 |
+| GOOGL | same | Optimism `0x367d706b…BCc4` | 16, 1, 0 | 13, 0, 0 |
+
+The Robinhood Chain feeds are NVDA `0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15`,
+MSFT `0x45C3C877C15E6BA2EBB19eA114Ea508d14C1Af2E` and GOOGL
+`0xF6f373a037c30F0e5010d854385cA89185AE638b`. The multiplier reads are the
+tokens' own: NVDA `0xd0601ce1…9eec`, MSFT `0xe93237c5…2e74`, GOOGL
+`0x2e0847e8…4fe3`, at block 72,121,324, and at blocks 58,958,492, 60,351,978
+and 63,752,472 before each `effectiveAt`.
+
+For NVDA and MSFT the relation holds. Before the effective date the exact
+matches are at 1.0, deviation 0 bp. After it they are at the multiplier, with
+deviations of magnitude between 2.7e-8 and 2.5e-7 bp. No pair on either side matches the
+other value. The exact pairs are between 0 and 18 seconds apart. So for these
+two, the Robinhood Chain feed equals the underlying 24/5 feed times the
+multiplier in effect at every pair that matches exactly, and at no pair does
+the other value match. That is what Robinhood's documentation says the feed
+carries.
+
+GOOGL is not established after its effective date. Before it, one Optimism
+pair matches 1.0 exactly. After it, no pair matches either value. The nearest
+come within 0.010 bp (Optimism) and 0.025 bp (Ethereum) of the multiplier,
+against 0.196 and 0.178 bp of 1.0. That fits the multiplier better than it
+fits 1.0, and it is not an exact match, so it is recorded as not shown.
+
+### AAPL and QQQ: unresolved (class A for the reads)
+
+AAPL, feed `0x6B22A786bAa607d76728168703a39Ea9C99f2cD0`, multiplier
+1.0005660800610925 effective 2026-08-14 15:12:46 UTC (1.0 at block 36,351,131
+before it), against the Optimism AAPL 24/5 feed: 29 pairs within 20 s, all
+after the effective date, from 2026-09-02 21:23:47 to 2026-09-23 13:28:22 UTC.
+None matches the multiplier or 1.0 exactly. Their median ratio is 1.000377,
+which fits neither. The nearest come within 0.158 bp of the multiplier and
+0.203 bp of 1.0.
+
+QQQ, feed `0x80901d846d5D7B030F26B480776EE3b29374C2ae`, multiplier
+1.0007007912414054 effective 2026-09-22 00:10:34 UTC (1.0 at block 69,216,815
+before it). Before the effective date, one Optimism pair matches 1.0 exactly.
+After it there is no pair within 20 seconds against either the Ethereum or the
+Optimism QQQ feed. The nearest is 41 seconds apart, the Robinhood round at
+2026-09-24 16:41:06 against Ethereum's at 16:41:47, and its ratio is 0.99999,
+closer to 1.0 than to the multiplier, which is the opposite of what
+Robinhood's documentation says. One pair 41 seconds apart, when pairs 20
+seconds apart differ by several basis points, does not settle it. QQQ is
+unresolved.
+
+`oraclePaused()` read false on all five tokens at block 72,121,324.
+
+### The weekend of 2026-09-18 (class A)
+
+In September New York is on EDT, UTC−4. The NYSE close at 16:00 ET is 20:00
+UTC, the end of post-market at 20:00 ET is 00:00 UTC, and Sunday 20:00 ET is
+00:00 UTC Monday.
+
+THE 24/5 FEEDS POSTED NOTHING FROM FRIDAY 20:00 ET TO SUNDAY 20:00 ET. Nineteen
+feeds were read: on Robinhood Chain NVDA, MSFT, GOOGL, AAPL, QQQ, TSLA and SPY;
+on Ethereum the 24/5 NVDA, GOOGL, QQQ, TSLA and SPY; on Optimism the 24/5 NVDA,
+MSFT, GOOGL, AAPL, QQQ, TSLA and SPY. Between Saturday 2026-09-19 00:00 UTC and
+Monday 2026-09-21 00:00 UTC there were zero rounds across all nineteen. Each
+posted its next round between Monday 00:00:20 and 00:00:51 UTC, which is
+Sunday 20:00 ET. Four rounds fell in Friday's post-market, between 20:00 and
+24:00 UTC: Robinhood Chain GOOGL at 20:11:48, Robinhood Chain MSFT at
+20:41:53, Optimism MSFT at 20:42:03, and Optimism TSLA at 22:53:27. The last is
+the only one more than 45 minutes after the close.
+
+ON AN NYSE-HOURS FEED, `updatedAt` MAKES A FRIDAY PRICE LOOK LIKE A WEEKEND ONE.
+BNB Smart Chain NVDA / USD, `0xea5c2Cbb5cD57daC24E26180b19a929F3E9699B8`, which
+the directory lists under market hours `NYSE` with a heartbeat of 86,400
+seconds (class D):
+
+| Round | `updatedAt` (UTC) | Answer against the round before |
+|---|---|---|
+| 36893488147419112418 | Fri 2026-09-18 19:55:19 | |
+| 36893488147419112419 | Sat 2026-09-19 19:55:24 | differs from Friday's |
+| 36893488147419112420 | Sun 2026-09-20 19:55:26 | equal to Saturday's |
+| 36893488147419112421 | Mon 2026-09-21 13:37:07 | differs from Sunday's |
+
+No NYSE session took place between Friday's close and Monday's open, so the
+Saturday and Sunday answers can be from no session later than Friday's. Yet
+they carry Saturday and Sunday timestamps, and Saturday's value is not the one
+Friday's last round carried, so neither the time nor the value tells a reader
+that nothing traded. Why the Saturday answer differs from Friday's last round
+is not established here. The specification's premium record labels any
+reading taken while the market is closed as the prior session's value and
+measures its age from that session's end (4.3 there).
+
+### Ink's wNVDAx feed tracks the v1 wrapper's rate, not the v2 wrapper's (class A)
+
+The Ink figures come from a separate run of the same script with `--ink-only`,
+from 10:02:11 to 10:02:17 UTC on 2026-09-25, pinned at Ethereum block
+26,053,738, Optimism 157,365,877 and Ink 56,832,119. Its wNVDAx figures agree
+with the full run's.
+
+`wNVDAx-USD (Calculated)` on Ink, `0x2328B6602e93d07f69099a8b120846409B9D3047`,
+529 rounds from 2026-09-18 23:08:24 to 2026-09-25 09:45:58 UTC.
+
+| Read | Chain, block | Value |
+|---|---|---|
+| v1 wrapper `0x93e62845c1dd5822ebc807ab71a5fb750decd15a`, `convertToAssets(1e18)` | Ethereum 26,053,738 | 0.9917527513057378; `asset()` is NVDAx |
+| v2 wrapper `0xa8ddb5cd96b5222afe198316e9a57caa642850d5`, `convertToAssets(1e18)` | Ethereum 26,053,738 and Ink 56,832,119 | 1.001701196801074 on both; `asset()` is NVDAx |
+| NVDAx `0xc845b2894dbddd03858fd2d643b4ef725fe0849d`, `getCurrentMultiplier()` | Ethereum and Ink, same blocks | 1.001701196801074 on both |
+| `eth_getCode` at the v1 wrapper's address | Ink 56,832,119 | 0 bytes |
+
+The issuer's address list, read in the xStocks pass on 2026-09-24, names only
+the v2 wrapper for NVDAx on Ink (class D).
+
+Against the Ethereum NVDA 24/5 feed: 21 pairs within 20 seconds, from
+2026-09-21 00:00:41 to 2026-09-24 16:42:30 UTC. Four match the v1 wrapper's
+rate exactly, with deviations of magnitude between 2.1e-7 and 4.3e-7 bp, and
+none matches the v2 rate. The median pair sits 99.32 bp below the underlying
+times the v2 rate. Against the Optimism NVDA 24/5 feed: 18 pairs, no exact
+match to either rate, median 98.22 bp below the v2 rate and 1.11 bp above the
+v1 rate.
+
+So the feed's ratio to the underlying is the v1 wrapper's rate, while the
+wrapper on Ink is v2, whose rate is 100.31 bp higher. A v2 wNVDAx on Ink priced
+against this feed would show a premium of about one percent that no trade
+produced. Why the feed tracks the v1 rate is not established here.
+
+### Ink's wSPYx and wQQQx feeds: not established (class A for the reads)
+
+Same run. Both tokens have a v1 and a v2 wrapper with code on Ink, unlike
+NVDAx. The v1 wrappers on Ink are deployed but empty: `totalSupply()` is 0 and
+`totalAssets()` is 2 and 1 wei. An empty ERC-4626 vault answers
+`convertToAssets` from its virtual share and asset, (totalAssets + 1) /
+(totalSupply + 1) scaled, so their answers of 3.0 and 2.0 are an artefact of
+being empty and not a rate. The script now prints supply and assets beside
+every rate and labels a zero-supply vault as empty. On Ink only the v2
+wrappers hold supply.
+
+| | wSPYx | wQQQx |
+|---|---|---|
+| Ink feed | `0x713e7F6f38779DC38a64B26862f2CfF1C10cADbf`, 163 rounds from 2026-09-18 23:12:19 UTC | `0x36E2BeFa7Ec599Bd30536c5F0f699818FDFE1Dd7`, 245 rounds from 2026-09-18 23:42:55 UTC |
+| v1 wrapper on Ethereum | `0xc88fcd8b874fdb3256e8b55b3decb8c24eab4c02`: rate 1.004710432023643, supply 724.33 | `0xdbd9232fee15351068fe02f0683146e16d9f2cea`: rate 1.0032475146176754, supply 0.24 |
+| v1 wrapper on Ink | same address: supply 0, empty, no rate | same address: supply 0, empty, no rate |
+| v2 wrapper | `0xe7e553cd128f0011777323a0b44a7b96ea1cb540`: rate 1.005714560286254 on both chains; supply 1,477.71 on Ink | `0x4c1ae29c159838fc1b224636e28e086eb69101f7`: rate 1.0034560758968376 on both chains; supply 965.70 on Ink |
+| Token `getCurrentMultiplier()` | 1.005714560286254 on both | 1.0034560758968376 on both |
+| v2 rate over Ethereum v1 rate | +9.99 bp | +2.08 bp |
+| Pairs within 20 s, Ethereum and Optimism 24/5 together | 4 | 8 |
+| Exact matches to the v2 rate | 1 (against Ethereum) | 1 (against Optimism) |
+| Exact matches to Ethereum's v1 rate | 0 | 0 |
+
+The wrapper on Ink that holds supply is v2, and the one exact match each
+feed has is to the v2 rate, so nothing here points the other way. But one
+exact match in four pairs, and one in eight, does not establish the relation,
+so these two stay not established on the pair counts. For wNVDAx, by
+contrast, the v1 wrapper's address holds no code on Ink at all, and the
+feed's four exact matches are all to Ethereum's v1 rate.
+
+### What is not established
+
+- AAPL and QQQ on Robinhood Chain, and GOOGL after its effective date: above.
+- Ink's wSPYx and wQQQx feeds: one exact match to the v2 rate each, in 4 and 8
+  pairs. Above.
+- Whether every Robinhood stock token has a feed, as Robinhood's documentation
+  says, or 35 do, as Chainlink's directory lists.
+- Any L2 sequencer uptime feed for Robinhood Chain: the directory's file for
+  it, 58 entries, lists none. Robinhood's documentation recommends checking
+  one. Whether one is listed for the other L2 chains was not checked.
+- Whether an upstream exchange licence attaches to these feeds. The Chainlink
+  Labs Terms of Service, which the Data Streams terms incorporate, were not
+  read.
+- Which of the terms below governs the on-chain equity feeds as against the
+  Data Streams entries. Both are quoted because the directory lists both kinds
+  for these instruments.
+
+### The terms (class D)
+
+Chainlink Foundation Terms of Service, version 6.0, effective 18 August 2026,
+published at `https://chain.link/terms` and read on 2026-09-24 from the legal
+centre that page embeds.
+
+- §1, the definition: "The Foundation enables users to access documentation,
+  content, tools and services, including (without limitation): data, consensus
+  and computation services provided by decentralized networks of node
+  operators that are providing such services via data feeds, APIs and various
+  other capabilities directly to smart contracts integrating Chainlink
+  software (“ Chainlink Network ”), developer platform tools, including
+  (without limitation) interfaces allowing users to generate draft transaction
+  messages, software development kits, simulators, toolkits and plugins, and
+  information, documentation, reference contracts, code, tutorials and other
+  resources for the Chainlink Network community. Collectively such
+  documentation, content, tools and services are referred to as the
+  “ Services ”."
+- §2, first list, opening and item (vi): "As a condition to accessing or using
+  the Services or the Website, you represent, warrant and agree that you: […]
+  (vi) will not copy, replicate, or create derivative works of the Services or
+  any component thereof, or attempt to reconstruct the Services to circumvent
+  licensing, intellectual property, or contractual restrictions;". This is the
+  operative clause for a premium, which is a figure derived from a feed.
+- §2, second list, opening and item (iii): "As a condition to accessing or
+  using the Website or the Services, you represent, warrant and agree that you
+  will not: […] (iii) infringe on or misappropriate any third-party
+  intellectual property rights or other third-party rights, including any
+  unauthorized use of data, breaches of Chainlink Network third-party service
+  provider terms, or committing a tort while using the Website or the
+  Services;"
+- §3, first paragraph: "Excluding any open source software or third-party
+  software that the Website or the Services incorporates, as between you and
+  Foundation, the Foundation owns the Website and the Services, including all
+  technology, content and other materials used, displayed or provided on the
+  Website (including all intellectual property rights), and hereby grants you
+  a limited, revocable, non-transferable license to access and use those
+  portions of the Website and the Services that are proprietary to the
+  Foundation in accordance with their intended uses and using their designated
+  public interfaces."
+- §3, second paragraph: "Certain of the Services are governed by the most
+  recent version of the open source license , commonly known as the MIT
+  License, and any other applicable licensing terms for the Website and the
+  Services in these Terms (collectively, the “ Foundation License ”). You
+  acknowledge that the Website, the Services or the Chainlink Network may use,
+  incorporate or link to certain open-source components and that your use of
+  the Website, Services and/or the Chainlink Network is subject to, and you
+  will comply with any, applicable open-source licenses that govern any such
+  open-source components (collectively, “ Open-Source Licenses ”). Without
+  limiting the generality of the foregoing, you may not resell, lease, lend,
+  share, distribute or otherwise permit any third party to use the Website or
+  the Services or otherwise use the Website or the Services in a manner that
+  violates the Foundation License or any other Open-Source Licenses."
+
+Chainlink Data Streams Terms of Service, version 2.1, effective 27 July 2026,
+between the user and Chainlink Labs, read on 2026-09-24 from Chainlink's
+legal centre.
+
+- §3, third paragraph: "You acknowledge and agree that you are being provided
+  access to the Services in order to receive the Data solely for your use in
+  connection with your applications, services, or automated workflows,
+  including for use cases such as trading or analytics (the “ Purpose ”). You
+  must not use the Data or the Services for any purpose other than the
+  Purpose, subject to the Data Use Restrictions below. For clarity, you may
+  use the Data within your applications, services, or automated workflows
+  provided that you do not make the underlying Data itself available to third
+  parties."
+- §4, opening and items (v) and (vi): "You agree not to […] (v) access or use
+  the Data for benchmarking or similar competitive analysis purposes, for
+  publishing or otherwise making available to the public any analysis of the
+  Data, or for the purpose of building a competitive product or service; (vi)
+  modify, translate or create derivative works based on the Data;"
+
+Chainlink's documentation, `https://docs.chain.link/data-feeds/tokenized-equity-feeds`,
+fetched 2026-09-24 at about 21:39 UTC: "Given the specialized nature of these feeds, all
+developers must reach out to Chainlink Labs prior to integrating these feeds
+and also review the key differences and risks sections to understand how these
+characteristics may affect your application." The same page says the feeds
+"do not explicitly flag" exchange holidays, trading halts or other closures,
+which the specification's premium record carries as a field.
+
+No clause read expressly permits display of a feed's value or of a figure
+derived from one.
+
 ---
 
 ## The permission model

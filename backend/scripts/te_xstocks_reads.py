@@ -1,7 +1,17 @@
 """The xStocks figures the measurements record cites, read from chain, and
 whether each reconciles with what the issuer publishes for the same quantity.
 
-Run: ./venv/bin/python scripts/te_xstocks_reads.py [--all-mints] [--mint-coverage]
+Run: ./venv/bin/python scripts/te_xstocks_reads.py --call-issuer-api [--all-mints] [--mint-coverage]
+
+DO NOT RUN THIS UNTIL BACKED HAS GIVEN WRITTEN PERMISSION. The owner decided on
+2026-09-25 that nothing reads the issuer's API until Backed permits it in
+writing (E20 in mcp/TOKENIZED-EQUITIES.md). This is a manual one-off check, not
+the collector, but the issuer's terms (section 3(4)) cover "any other manual or
+automatic device or process", so a manual run is inside the question too. Every
+section below depends on the issuer's API, at least for the asset list and the
+system-wallet list, so without --call-issuer-api the script makes no network
+call of any kind and exits with status 2. The flag is there so that the check
+can be run again once permission exists, and never by accident before.
 
 Every chain value is printed with the slot or block it was read at. The
 issuer's figures are fetched from its public API only to compute a
@@ -854,6 +864,12 @@ def section_withholding_shape():
 
 def main() -> int:
     sys.stdout.reconfigure(line_buffering=True)
+    if "--call-issuer-api" not in sys.argv:
+        # E20: no read of the issuer's API until Backed gives written permission.
+        print("te_xstocks_reads.py reads the issuer's API, and the owner has decided that nothing does until"
+              " Backed gives written permission (E20 in mcp/TOKENIZED-EQUITIES.md). No network call was made."
+              " Pass --call-issuer-api only once that permission exists.")
+        return 2
     print(f"started {now()}")
     print("endpoints (host only):", host(SOLANA_RPC), host(TON_API), host(TRON_API), host(XSTOCKS_API),
           *[f"{k}={host(v)}" for k, v in EVM_RPC.items()])
