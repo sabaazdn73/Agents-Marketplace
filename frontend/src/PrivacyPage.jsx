@@ -56,7 +56,7 @@
 import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 
-const UPDATED = '24 September 2026';
+const UPDATED = '25 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
 const CONTACT = 'sabaazad93@gmail.com';
 
@@ -99,7 +99,7 @@ export default function PrivacyPage({ onBack }) {
 
         <h1 className="text-2xl font-bold mb-1">Privacy</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-          For the Chrome extension, Tnega. Last updated {UPDATED}.
+          For the Chrome extension, Tnega, and for the two routes on the website that receive your own wallet address. Last updated {UPDATED}.
         </p>
 
         <Section title="What the extension is">
@@ -423,6 +423,28 @@ export default function PrivacyPage({ onBack }) {
             There are no other permissions. The extension holds no scripting, cookies, webRequest,
             history, bookmarks, downloads or clipboard permission, and it does not request access to
             all sites.
+          </p>
+        </Section>
+
+        <Section title="Your wallet address on the website">
+          <p>
+            Two routes on our server receive the address of a wallet you connect to the website.
+            Both take it in the body of the request, never in the web address, so it does not appear
+            in our server&apos;s access log, which records the path and not the body.
+          </p>
+          <p>
+            My Agents sends your connected wallet&apos;s address to list the agents you have hired. It
+            is used for that one request and is not stored.
+          </p>
+          <p>
+            The wallet trading-costs route receives a wallet address and reads that address&apos;s
+            public record on Hyperliquid: holdings, fills and fees, funding, and orders. To do that it
+            sends the address to Hyperliquid&apos;s public API, in the body of the request. The address
+            is not written to any database or to any log by our code, and it is not returned in the
+            answer. The computed answer is kept in the server&apos;s memory for up to five minutes,
+            looked up by the address, so that a second view in that time does not read Hyperliquid
+            again. It is not written to disk, and it is gone when the server restarts. The website
+            page that will call this route is still being built; nothing on the site calls it yet.
           </p>
         </Section>
 
