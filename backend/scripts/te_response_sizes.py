@@ -180,8 +180,9 @@ def record(sym, token, venues, primary, alt_idx, conc, ui):
         "shares_per_token_convention": "not_published", "ui_multiplier": ui, "new_ui_multiplier": None,
         "effective_at": None, "ui_multiplier_read_at_block": BLK, "per_share_price_usd": 181.3918,
         "token_price_usd": 181.5294, "total_return": True,
-        "distributions": {"paid_to_holder": False, "mechanism": "reinvested into the multiplier, net of withholding",
-                          "withholding_rate_bps": "not_published"},
+        "distributions": {"paid_to_holder": False, "mechanism": "reinvested into the multiplier, net of withholding"},
+        # Withholding is a 4.8 verdict, never a value. Robinhood publishes no rate.
+        "reconciliation": [{"quantity": "withholding_rate", "verdict": "not_published"}],
         "terms_url_matches_issuer": True, "transfer_control": copy.deepcopy(TRANSFER_CONTROL),
         "venues": [{k: v for k, v in dict(
             family=x["family"], walker=x["walker"], pool=x["pool"], fee_bps=x["fee_bps"],
@@ -256,6 +257,61 @@ def venue_index(r, venues):
         e.pop("quote_token")
         e["alternatives"] = [{"venue": idx[a["pool"]], "total_cost_bps": a["total_cost_bps"]}
                              for a in e["alternatives"]]
+    return r
+
+
+# ------------------------------------------------ section 4.8, issuer figures
+# The shape an xStocks instrument adds (spec 4.8): our supply per chain, our
+# circulating figure with every exclusion named, links to the issuer's pages,
+# and a reconcile verdict per quantity. Values are TSLAx from the 2026-09-24
+# reads in backend/scripts/te_xstocks_reads.py, all chain measurements. No
+# issuer number appears, by construction (E18).
+LISTED_EVM = "0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad"
+XS_CHAINS = [  # chain, supply, listed balance, read_at (block, or slot, or time for TON)
+    ("ethereum", 45000.0, 41485.492098, 26049954), ("bsc", 20000.0, 19981.854958, 123827815),
+    ("arbitrum", 48649.0, 48646.977371, 508564347), ("mantle", 10000.0, 8457.589609, 101077237),
+    ("ink", 46467.32, 45584.413973, 56786382), ("xlayer", 25369.679836, 7486.607569, 71515759),
+    ("optimism", 8882.845986, 8882.841902, 157343011), ("hyperevm", 46467.32, 46463.017341, 46795497),
+    ("solana", 229636.609614, 62298.349681, 450148440), ("ton", 57781.231786, 54701.838652, "2026-09-24T21:20:13Z"),
+    ("tron", 10000.0, 9766.899767, 86537482),
+]
+LISTED_BY_CHAIN = {"solana": "S7vYFFWH6BjJyEsdrPQpqpYTqLTrPRK6KW3VwsJuRaS",
+                   "ton": "EQCVLU9-UVFfm9Sct863y50nsF03Jr6uBn1tJm4n9g8QLeQX", "tron": "TCq5ut4WNk9EWya4bAyeoCe7yEd7RRkExc"}
+
+
+def issuer_figures_block():
+    return {
+        "supply_measured": [{"chain": c, "supply": s, "read_at": r} for c, s, _, r in XS_CHAINS],
+        "circulating_measured": {
+            "value": 189117.782209,
+            "method": "total supply on every listed chain minus every balance held by an address on the issuer's "
+                      "public system-wallet list or on the named exclusion list",
+            "exclusions": [{"chain": c, "address": LISTED_BY_CHAIN.get(c, LISTED_EVM), "held": h, "read_at": r,
+                            "basis": "on_issuer_system_wallet_list"} for c, _, h, r in XS_CHAINS]
+                          + [{"chain": "solana", "address": "9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd",
+                              "held": 5380.34209129, "read_at": 450148454, "basis": "named_exclusion_list"}],
+        },
+        "issuer_links": {"proof_of_reserves": "https://defi.xstocks.fi/proof-of-reserves",
+                         "product": "https://assets.backed.fi/products/tesla-xstock",
+                         "system_wallets": "https://docs.xstocks.fi/apis/openapi/system",
+                         "corporate_actions": "https://docs.xstocks.fi/apis/openapi/corporate-actions"},
+        "reconciliation": [
+            {"quantity": "total_supply", "verdict": "reconciles", "tolerance": "1e-9 of total supply",
+             "issuer_checked_at": "2026-09-24T21:20:16Z"},
+            {"quantity": "circulating_supply", "verdict": "reconciles_after_exclusion",
+             "tolerance": "1e-9 of total supply", "issuer_checked_at": "2026-09-24T21:20:16Z",
+             "explained_by": ["9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd"]},
+            {"quantity": "ui_multiplier", "verdict": "reconciles", "tolerance": "1e-12 relative",
+             "issuer_checked_at": "2026-09-24T21:19:35Z"},
+            {"quantity": "backing", "verdict": "no_chain_counterpart"},
+            {"quantity": "withholding_rate", "verdict": "no_chain_counterpart"},
+        ],
+    }
+
+
+def with_issuer_figures(r):
+    r = copy.deepcopy(r)
+    r.update(issuer_figures_block())  # replaces the base record's reconciliation list
     return r
 
 
@@ -422,6 +478,14 @@ def main() -> int:
                     ("instead: venue index, per-poll fields once", e), ("that, with transfer_control by key", f),
                     ("that, with basis_note in the descriptor", g)]:
         print(f"  {name:44} {enc(r):5} {response('tnega_get', r):5}")
+
+    blk48 = issuer_figures_block()
+    print("section 4.8, the issuer-figures block an xStocks instrument adds (TSLAx, eleven chains, twelve exclusions):")
+    print("  " + ", ".join(f"{k} {enc(v)}" for k, v in blk48.items()) + f"; block total {enc(blk48)}")
+    for name, r in [("NVDA record as specified, plus 4.8", with_issuer_figures(rec)),
+                    ("E16 layout (venue index, transfer_control by key), plus 4.8", with_issuer_figures(f)),
+                    ("E16 layout with basis_note in the descriptor, plus 4.8", with_issuer_figures(g))]:
+        print(f"  {name:62} record {enc(r):5} response {response('tnega_get', r):5}  ceiling 8192")
 
     print("real SPY record: two quote tokens (USDG, WETH), one alternative per entry (response bytes):")
     s4 = spy_record(4, 1)

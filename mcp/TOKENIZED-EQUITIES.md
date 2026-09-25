@@ -10,7 +10,8 @@ The six tools do not change: `tnega_catalogue`, `tnega_resolve`, `tnega_get`,
 schema changes, and no handler signature changes. Section 6.1 explains why that
 last clause had to be said out loud.
 
-Fifth revision. Section 13 lists what changed. Three reviews are folded in.
+Sixth revision: the fifth, plus the xStocks measurement pass (13.4). Section 13
+lists what changed. Three reviews are folded in.
 The second measured the spec against `envelope.CEILINGS` and found the flagship
 call was refused one hundred percent of the time; sections 3.2, 3.3 and 8.1 are
 the result. The third is `docs/tokenized-equity-measurements.md`, a provenance
@@ -22,8 +23,12 @@ references come from on-chain pools against a named stablecoin, and the
 concentration figures committed as a baseline. The end of section 13.2
 records both. Re-measuring the response sizes for this revision found that the
 instrument record and the route form, filled, do not fit their ceiling
-(3.3), and that is recorded rather than smoothed over as E16 and E17. Eleven
-decisions remain open.
+(3.3), and that is recorded rather than smoothed over as E16 and E17. A
+fourth measurement pass read xStocks for the first time. It named the 0.511
+instrument, gave E10 the evidence it was waiting on, and led to E18, which the
+owner settled: issuer-published figures are linked and reconciled, never
+served (4.8, 13.4). The same pass raised three questions for the owner, E19 to
+E21. Fourteen decisions remain open.
 
 ---
 
@@ -138,10 +143,15 @@ it was read against NVDAB (`0x02fca66c1d1afb4e2a7884261eb00f63598a7436`) and
 TSLAB (`0x5b1910eaad6450e50f816082aa078c41f10c292f`), which is the pair the
 outside advice attributed to Backed.
 
-Solana has no beacon. The xStocks population rule there is mint authority, and
-until it is established the same way, `issuer` for a Solana instrument carries
-`issuer_source.method: "unestablished"` and the instrument is not served.
-Escalation E10.
+Solana has no beacon. The xStocks mints are now read (the fourth measurement
+pass, re-read by `backend/scripts/te_xstocks_reads.py`), and every mint the
+issuer lists shares one mint authority, one freeze authority and one permanent
+delegate. Mint authority alone is not a sound key, though: Token-2022 takes the
+mint authority as instruction data when a mint is created and does not require
+that address to sign, so anyone can create a mint naming the issuer's authority.
+What a sound key needs is in E10. Until the owner decides it, `issuer` for a
+Solana instrument carries `issuer_source.method: "unestablished"` and the
+instrument is not served. Escalation E10.
 
 A token whose beacon is not in the table is not assigned an issuer and is not
 served. Guessing from the symbol is the failure this rule prevents, so it has
@@ -222,10 +232,10 @@ into four classes:
 
 | Class | Meaning |
 |---|---|
-| A | Re-read on 2026-09-24 against chain 4663 with the method recorded. Anyone can take it again |
+| A | Re-read on 2026-09-24 and 2026-09-25 with the method recorded, against chain 4663, BNB Smart Chain and, in the xStocks pass, Solana, Ethereum, Arbitrum, Mantle, Ink, X Layer, Optimism, HyperEVM, TON and Tron. Anyone can take it again |
 | B | Read in an earlier session and committed to a tracked file, so value and method both survive |
 | C | Carried from a session whose working files are gone. No method, no script, no stored output |
-| D | The issuer's own published text. Evidence about what the issuer says, and nothing else |
+| D | The issuer's own published statement or figure, including figures from its API. Evidence about what the issuer says, and nothing else. An issuer's number is never reproduced or served; it is linked, and reconciled against a chain read where one exists (E18). Terms text is still served as what it is, as `distributions` and `total_return` are |
 
 THE RULE: THIS DATASET SERVES CLASS A AND B FIGURES, AND FIGURES ITS OWN
 COLLECTOR PRODUCES. IT DOES NOT SERVE CLASS C FIGURES AS VALUES.
@@ -242,8 +252,9 @@ provenance record, including most of what the earlier revisions led with. A
 later measurement pass converted eight of them to class A and settled the
 denylist. A third converted the concentration figures. So the class C figures
 left are fewer: the Algebra dollar figures, the V3 token-id count, the 309
-mints and 17 MSTRx, the 0.511 instrument, and the two headline figures in
-section 1. Section 2.4 has the conversions.
+mints and 17 MSTRx, and the two headline figures in section 1. The 0.511
+instrument has left the list: it is AZNx, read on chain in the fourth pass
+(4.4). Section 2.4 has the conversions.
 
 What it does not remove is the reasoning those figures produced. A design may
 be chosen because of a figure that can no longer be checked, as long as the
@@ -252,8 +263,18 @@ way, and so is the concentration handling in 4.5, whose structural argument,
 that a V4 position key carries a salt and a V3 one does not, is a property of
 the two protocols. It has since been read as well: see 2.4.
 
-Class D figures are served as what they are: the issuer's text, marked
-`not_published` where the issuer is silent, never as a measurement.
+An issuer's number is never reproduced or served. Class D terms, the issuer's
+statement of what the instrument is, are served as what they are:
+`total_return`, `distributions.paid_to_holder` and `distributions.mechanism`
+state the issuer's terms, not a measurement, and are labelled that way. Where
+the issuer is silent a field says `not_published`. Where the issuer publishes a
+figure, the record carries a link to the issuer's page for it and, if the same
+quantity can be read on chain, our reading and whether the two reconcile (4.8).
+The issuer's number itself stays on the issuer's page: E18, settled by the
+owner. Class D was widened in the fourth measurement pass from "terms text" to
+"an issuer's published statement or figure". It was widened by the writer of
+that pass, not by an owner decision, and the measurements record says so where
+it defines the class.
 
 A class C figure that someone re-measures moves to class A and becomes
 servable. Several since have. A class A figure pinned to a past block is a
@@ -467,8 +488,8 @@ in this section, and the byte figures in 6, 8.1 and 9.1, is printed by
 | caveats | 1,915 | 1,915 | 1,915 | 1,915 |
 | coverage | 457 | 457 | 497 with legend | 457 |
 | envelope | 158 | 158 | 161 | 159 |
-| value | 7,744 | 6,730 | 118 points at 116 | 25 rows at 227 |
-| total | 10,274 | 9,260 | 16,380 | 8,232 |
+| value | 7,782 | 6,730 | 118 points at 116 | 25 rows at 227 |
+| total | 10,312 | 9,260 | 16,380 | 8,232 |
 | ceiling | 8,192 | 8,192 | 16,384 | 32,768 |
 
 How the examples were filled. The instrument is NVDA on chain 4663, and every
@@ -513,20 +534,35 @@ different route. Measured layouts for the NVDA record, each step cumulative:
 
 | Layout | Record | Response |
 |---|---|---|
-| As specified | 7,744 | 10,274 |
-| Alternatives without `pool` | 7,232 | 9,762 |
-| Then block, age, method and staleness bound once per record, not per entry | 6,885 | 9,415 |
-| Then `transfer_control` by key (`model` plus `issuer/robinhood`, where 4.6 already carries the contract) | 6,296 | 8,826 |
-| Then `basis_note` moved to the descriptor | 6,013 | 8,543 |
-| Instead: venues listed once, carrying `quote_token`; entries and alternatives name a venue by index; per-poll fields once | 5,928 | 8,458 |
-| That, with `transfer_control` by key | 5,339 | 7,869 |
-| That, with `basis_note` in the descriptor | 5,056 | 7,586 |
+| As specified | 7,782 | 10,312 |
+| Alternatives without `pool` | 7,270 | 9,800 |
+| Then block, age, method and staleness bound once per record, not per entry | 6,923 | 9,453 |
+| Then `transfer_control` by key (`model` plus `issuer/robinhood`, where 4.6 already carries the contract) | 6,334 | 8,864 |
+| Then `basis_note` moved to the descriptor | 6,051 | 8,581 |
+| Instead: venues listed once, carrying `quote_token`; entries and alternatives name a venue by index; per-poll fields once | 5,966 | 8,496 |
+| That, with `transfer_control` by key | 5,377 | 7,907 |
+| That, with `basis_note` in the descriptor | 5,094 | 7,624 |
+
+These figures moved by 38 bytes in the xStocks pass, when
+`distributions.withholding_rate_bps` was replaced by a section 4.8 verdict
+(`reconciliation`, with `withholding_rate` as `not_published` for this issuer).
+The earlier figures were 7,744 and 10,274 as specified, and 7,869 and 7,586 for
+the last two layouts.
+
+AN xSTOCKS INSTRUMENT DOES NOT FIT UNDER ANY LAYOUT ABOVE. Section 4.8 adds our
+supply per chain, our circulating figure with every exclusion named, the
+issuer links and the reconcile verdicts. For TSLAx, with eleven chains and
+twelve exclusions, that block encodes to 3,603 bytes: `supply_measured` 644,
+`circulating_measured` 2,027, `issuer_links` 264 and `reconciliation` 590. On
+the NVDA record as a stand-in body, the response is 13,837 as specified,
+11,432 with the E16 layout, and 11,149 with `basis_note` in the descriptor as
+well. All are over 8,192. Section 4.8's block is folded into E16.
 
 A leaner instrument does not escape it. A real SPY record has two quote tokens
 (USDG on V4 and the fork pool, WETH on V3 and the Algebra-shaped pool) and one
-alternative per entry. It measures 8,974 as specified, 8,628 with two venues
-instead of four, and 8,039 with two venues and `transfer_control` by key. The
-last is under the ceiling by 153 bytes, and only by dropping venues the
+alternative per entry. It measures 9,012 as specified, 8,666 with two venues
+instead of four, and 8,077 with two venues and `transfer_control` by key. The
+last is under the ceiling by 115 bytes, and only by dropping venues the
 record exists to compare.
 
 Only the indexed layout fits the NVDA record. It changes what an entry names:
@@ -625,7 +661,7 @@ is a recommendation wearing a table. The bands sum to `matched` the way
 
 ## 4. The instrument record
 
-Key `<chain id>/<address>` or `solana/<mint>`. 7,744 bytes encoded when filled
+Key `<chain id>/<address>` or `solana/<mint>`. 7,782 bytes encoded when filled
 as specified, which does not fit its ceiling: section 3.3 has the measurement
 and the layouts that would.
 
@@ -641,7 +677,7 @@ and the layouts that would.
 | `issuer` | enum | `xstocks`, `robinhood`, `bstocks` | the beacon is not in the section 2.1 table; the instrument is not served |
 | `issuer_source` | object | beacon, implementation, block, date | never absent when `issuer` is present |
 | `issuer_structure_key` | string | `issuer/<id>` | never absent |
-| `canonical` | boolean | beacon on EVM, mint authority on Solana | never absent |
+| `canonical` | boolean | beacon on EVM; on Solana, the key E10 settles | never absent |
 | `decimals` | integer | token decimals | never absent |
 
 ### 4.2 Cost to fill, the lead
@@ -993,7 +1029,7 @@ a source nobody has named, and serving premium later starts with naming one.
 | `total_return` | boolean | always true here | never absent |
 | `distributions.paid_to_holder` | boolean | false | never absent |
 | `distributions.mechanism` | string | reinvested into the multiplier, net of withholding | `not_published` |
-| `distributions.withholding_rate_bps` | number | basis points withheld at source | `not_published` |
+| `reconciliation` | list | section 4.8 verdicts. For withholding, `withholding_rate` with `no_chain_counterpart` and the issuer's page in `issuer_links` where the issuer publishes one, or `not_published`. Never a rate | never absent |
 
 `shares_per_token` is the unit ratio fixed at issue. It is the one that makes a
 correction matter, and it is served pre-corrected in `per_share_price_usd` for
@@ -1014,20 +1050,34 @@ seven scaled-UI selectors, including `uiMultiplier()`, `newUIMultiplier()` and
 which revert with empty data, the signature of no dispatch entry rather than a
 rejected call. The setter exists and is role-gated.
 
-THE FACTOR-OF-TWO CLAIM IS WITHDRAWN. Earlier revisions said one instrument
-sits at `shares_per_token: 0.511` and that a ratio built without the correction
-is wrong by up to a factor of two. That instrument is not named in any
-revision, is not in this repository, and no read of it survives: class C, not
-re-derivable. What is supported, at a much smaller magnitude, is that thirteen
-tokens read between 1.0 and 1.0017, so ignoring `ui_multiplier` costs up to
-about 17 basis points on those rather than a factor of two.
+THE 0.511 INSTRUMENT IS AZNx, AND THE FACTOR OF TWO WAS AN UNDERSTATEMENT.
+The previous revision withdrew the claim because the instrument was unnamed
+and no read of it survived. The fourth measurement pass named and read it.
+AZNx, the xStocks wrapper of AstraZeneca, reads 0.5111362527152737 on Solana,
+Ethereum, BNB Smart Chain and TON (`backend/scripts/te_xstocks_reads.py`). It
+is not a unit ratio fixed at issue. xStocks carries a single cumulative
+multiplier that moves with corporate actions. AZNx's halved exactly, in one
+step, between Ethereum blocks 24,372,014 and 24,372,015 on 2026-02-02. The
+issuer's corporate-actions history attributes that step to the underlying
+changing from the ADR to the ordinary share, and its multiplier history labels
+the same step differently (the measurements record has both labels). So for xStocks,
+`shares_per_token` and `ui_multiplier` are one quantity, and a record for an
+xStocks instrument fills `ui_multiplier` from the chain and does not invent a
+second ratio.
 
-The design conclusion is unchanged and does not depend on the withdrawn number.
-Thirteen instruments carrying a multiplier that is not 1.0, on a field that
-exists at all, is sufficient reason to serve `per_share_price_usd` corrected
-centrally rather than leave every caller to apply it. A correct conclusion
-resting on a wrong number is still a conclusion that has to be re-derived, and
-this is the re-derivation.
+The magnitude is larger than the claim that was withdrawn. On chains where the
+stored balance is raw (Solana, TON), ignoring AZNx's multiplier is off by a
+factor of 1.9564. KLACx reads 10.01683308516363 and NFLXx and PPLTx 10.0, so
+ignoring theirs is off by about ten times. Across the 1,124 Solana mints the
+issuer lists, effective multipliers run from 0.5111 to 10.0168, and 728 are
+exactly 1.0. On EVM chains the issuer's contract applies the multiplier inside
+`balanceOf()`. The thirteen Robinhood and bStocks readings between 1.0 and
+1.0017 stand as they were: up to about 17 basis points on those tokens.
+
+The design conclusion is unchanged and stronger. Serve `per_share_price_usd`
+corrected centrally rather than leave every caller to apply it: the thirteen
+EVM readings were already sufficient, and the xStocks readings add errors of up
+to ten times on raw units.
 
 `effective_at` earns its place in a precomputed record specifically: a non-zero
 value is a scheduled change at a known future timestamp, so the collector can
@@ -1066,7 +1116,7 @@ No yield field exists anywhere in this record.
 |---|---|---|
 | Robinhood Chain | `denylist` | measured, with controls, as above |
 | BSC bStocks | `denylist` | NOT an allowlist is measured with controls. Denylist itself is carried forward: the compliance surface exists and both bStock tokens expose a compliance call returning one shared contract carrying a compliance role, but no denied address was found in it |
-| xStocks on Solana | `unestablished` | untested. No mint exists in this repository, and the result is not generalised from the other two |
+| xStocks on Solana | `unestablished` | untested. The mints and their controls are now read: every listed mint carries a freeze authority, a pausable config and a permanent delegate, each held by a Squads multisig vault. No transfer was simulated on Solana, so whether any address is refused is not established, and the result is not generalised from the other two |
 
 The one-sentence claim that all three venues run a denylist is retired. It was a
 generalisation over three programmes in three jurisdictions, and the measurement
@@ -1261,6 +1311,166 @@ affected read. It is `gateway_rate_limited` with
 `failure_class: "user_agent_refused"`, and the collector sets a user agent
 rather than reporting the chain as unavailable.
 
+
+### 4.8 Issuer-published figures: our reading, their page, and a verdict
+
+E18 is settled: no issuer number appears in any served field. xStocks
+publishes figures about itself that overlap quantities we can read on chain
+(supply, circulating supply, the multiplier) and figures we cannot read at all
+(shares held in custody, the custodian, withholding rates). An xStocks
+instrument therefore carries three things for these quantities, and never the
+issuer's value.
+
+1. Our chain measurements: supply per chain with its block or slot,
+   multipliers per chain, the balances of the addresses we exclude, the
+   authorities, and a chain-derived circulating figure with every exclusion
+   named. The exclusions are the issuer's published system-wallet list, read
+   each cycle, plus a named exclusion list this project keeps. An address goes
+   on the named list only with the owner's approval, and every entry is
+   re-tested each cycle: the collector checks that the circulating verdict still
+   needs it, and reports an entry that has stopped explaining anything. Today
+   the named list would hold one address, `9U76…`, which the issuer's
+   circulating figure excludes and its wallet list does not name. Putting it
+   on the list is E21, the owner's decision.
+2. `issuer_links`: the issuer's human-facing page for the figure. For proof of
+   reserves that is `https://defi.xstocks.fi/proof-of-reserves`, the page the
+   issuer's own FAQ points to. For an instrument, its product page on
+   `https://assets.backed.fi/products/<slug>` when the collector finds one that
+   answers 200 (a missing slug answers 404, so the check means something). The
+   issuer's system-wallet list is linked through its documentation page,
+   `https://docs.xstocks.fi/apis/openapi/system`, and its corporate actions
+   through `https://docs.xstocks.fi/apis/openapi/corporate-actions`. A link to
+   an API path is not used as a human-facing page.
+3. `reconciliation`: per quantity, whether our measurement and the issuer's
+   figure agree, and where they do not, the checkable fact that explains it.
+
+The example below ASSUMES E21 IS APPROVED, so `9U76…` is on the named
+exclusion list and is subtracted alongside the issuer's list. Until E21 is
+decided, `circulating_measured` excludes the issuer's list only (194,498.124301
+in the same run) and the circulating verdict cannot cite the named list.
+
+```json
+"circulating_measured": {
+  "value": 189117.782209,
+  "method": "total supply on every listed chain minus every balance held by an address on the issuer's public system-wallet list or on the owner-approved named exclusion list",
+  "exclusions": [{"chain": "ethereum", "address": "0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad",
+                  "held": 41485.492098, "read_at_block": 26049954,
+                  "basis": "on_issuer_system_wallet_list"}, "..."]
+},
+"issuer_links": {"proof_of_reserves": "https://defi.xstocks.fi/proof-of-reserves",
+                 "product": "https://assets.backed.fi/products/tesla-xstock"},
+"reconciliation": [
+  {"quantity": "total_supply", "verdict": "reconciles", "tolerance": "1e-9 of total supply",
+   "issuer_checked_at": "2026-09-24T21:20:16Z"},
+  {"quantity": "circulating_supply", "verdict": "reconciles_after_exclusion",
+   "tolerance": "1e-9 of total supply",
+   "explained_by": [{"chain": "solana", "address": "9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd",
+                     "held": 5380.34209129, "read_at_slot": 450148454,
+                     "basis": "named_exclusion_list", "on_issuer_system_wallet_list": false}],
+   "issuer_checked_at": "2026-09-24T21:20:16Z"},
+  {"quantity": "backing", "verdict": "no_chain_counterpart"},
+  {"quantity": "withholding_rate", "verdict": "no_chain_counterpart"}
+]
+```
+
+The values above are TSLAx from the 21:19 UTC run of the script, all ours. The
+reconcile vocabulary, closed:
+
+| Verdict | Means | Carries |
+|---|---|---|
+| `reconciles` | our measurement and the issuer's figure agree within the stated tolerance | tolerance, time of the issuer check |
+| `reconciles_after_exclusion` | they agree once further addresses are excluded, and those addresses are named | `explained_by`: chain, address, our balance with its block or slot, and whether the address is on the issuer's list. Nothing about who controls the address is asserted beyond what is read |
+| `does_not_reconcile` | they have differed beyond tolerance on every cycle of the persistence window, and nothing on the named exclusion list explains it | the time of each check, the tolerance, the name of the issuer quantity compared (its name, never its value), the sign of the gap (ours above or below theirs), and the link. Not the magnitude, pending E19 |
+| `pending_recheck` | they differ beyond tolerance on this cycle but not yet for the whole persistence window | the time of the first differing check; nothing else |
+| `chain_incomplete` | at least one listed deployment's supply, or one balance the comparison needs, could not be read this cycle, so no comparison is made | the chains that were not read. A failed read is unknown, never 0, and no reconcile verdict is issued on a partial read |
+| `no_chain_counterpart` | the issuer publishes a figure no chain read can measure (shares held in custody, the custodian, withholding rates) | the link only |
+| `issuer_unavailable` | the issuer's figure could not be fetched this cycle | nothing further; our reading is served regardless, because a failed issuer fetch must never hide a chain read |
+| `not_published` | the issuer publishes no such figure | nothing |
+
+Tolerances are relative. Total and circulating supply are both compared
+against one part in 1e9 of the token's total supply. The base is the total
+supply, not the circulating figure, because a circulating figure can be tiny
+(AZNx's is about 0.2 percent of its total) and the same dust would then read as
+disagreement. A multiplier is compared against one part in 1e12 of its own
+size. The supply tolerance is relative because supply moves by dust between
+reads: in one TSLAx check the chain total was 4.4e-5 tokens below the issuer's
+figure, one part in 1.2e10.
+
+PERSISTENCE. A gap is recorded as `does_not_reconcile` only if it persists
+across three consecutive collector cycles, 45 minutes at the 15-minute
+cadence. Until then the verdict is `pending_recheck`. The issuer's figures lag
+the chain by minutes, not seconds: the TSLAx circulating figure differed at
+21:04:50 UTC on 2026-09-24 and agreed again by 21:17:57, about 13 minutes
+later, and a gap appeared again at 21:53:44, matching a movement out of a
+listed Solana wallet in that run. The supply and multiplier endpoints
+send no cache header, so the lag is the issuer's update cadence, not a cache
+the collector could wait out. The longest lag with a measured end was about
+13 minutes. The length of the 21:53 gap was not measured, since it was not
+re-checked until the next morning, and the SPYx difference first seen at 08:58
+on 2026-09-25 was still open at 09:04. So three cycles is a chosen window, not
+one shown to exceed every lag; it is revisited when a longer lag is measured.
+
+A backing ratio is never served. Its numerator, shares held in custody, is
+published only by the issuer, so any ratio built on it is the issuer's number,
+whatever denominator we supply. What is served for backing is
+`no_chain_counterpart` and the link.
+
+STORAGE. The collector reads the issuer's figure in memory, computes the
+verdict, and discards it. The issuer's number is not stored at all: not in a
+`te_` table, not in a log line, not in an error message. What is stored is the
+verdict, the tolerance, the time and host of the issuer fetch, and the
+`explained_by` entries, which are our reads. The cost is that a past verdict
+cannot be re-audited from our store. It can only be re-checked live, against
+the issuer's figure as it then stands, which is what
+`backend/scripts/te_xstocks_reads.py` does by hand.
+
+PRICE DATA IS NEVER SERVED. This is settled fact rather than a decision, and it
+is recorded here so that no later revision reopens it by accident. The issuer's
+`GET /public/assets/{symbol}/price-data` is documented as "sourced from onchain
+providers (cached) and Nasdaq (Blue Ocean for overnight/extended hours
+pricing)" (`https://docs.xstocks.fi/developers`). The response carries no
+source, time or delay flag, so no quote can be separated from its Nasdaq part.
+Nasdaq's terms bind a redistributor whatever route the data took:
+
+- Nasdaq Global Data Agreement, version 5.0, section 4.1(a): "Nasdaq grants to
+  Distributor a worldwide, non-exclusive, non-transferable license to receive
+  use, process and store the Information during the term of this Agreement
+  solely in accordance with the terms and conditions of the Agreement."
+  Section 4.1(c): "Distributor will attribute source as set forth in the Nasdaq
+  Requirements." Section 5.2: "For all other External Recipients, Distributor
+  shall have a legally valid and enforceable contract with such External
+  Recipient that: (a) governs the accounts held by External Recipients with the
+  Distributor through which the External Recipient is entitled to access the
+  Information, including any limitations on an External Recipient's right to
+  redistribute the Information; and (b) includes the disclaimer detailed below
+  or a substantially similar disclaimer."
+  (`https://www.nasdaq.com/docs/2025/11/18/Nasdaq-Global-Data-Agreement-Form_3.pdf`)
+- US Equities and Options Data Policies, version 2.6, Derived Data: "Derived
+  Data that contains price data is generally fee-liable at the underlying
+  product rates." The next sentence exempts two kinds: "Distributors of
+  Nasdaq U.S. Information may provide the following single security Derived
+  Data products free of charge: • Volume-only Data • Volume-Weighted Price
+  Data". Note 2: "Single security financial instruments supported by the
+  Exchange or financial instruments that track financial instruments one for
+  one are fee liable at the underlying rates." The exemption does not reach
+  the price-data response. It returns a quote, which is neither volume-only nor
+  a volume-weighted price, and a tokenised share tracks one for one, so Note 2
+  puts a quote for it at the underlying's rate.
+  (`https://www.nasdaqtrader.com/content/AdministrationSupport/Policy/USEquitiesandOptionsDataPolicies.pdf`)
+- Display Requirements Policy: "Prominent Delay Message: Distributors must
+  display a Prominent Delay Message on all Delayed Data Products." And:
+  "Distributors providing Nasdaq Basic or Nasdaq Last Sale Information [Nasdaq
+  Last Sale, NLS Plus, BX Last Sale, PSX Last Sale, and Nordic Last Sale] to
+  External Subscribers must provide an attribution message on all displays,
+  including wallboards, tickers, mobile devices, and audio announcements on
+  voice response services."
+  (`https://www.nasdaqtrader.com/content/AdministrationSupport/Policy/DISPLAYREQUIREMENTSPOLICY.pdf`)
+
+So the price-data response is not served raw, not served derived, and not used
+as an input to any served figure. Nasdaq's Data News DN2026-4 announces GDA
+version 5.1, effective 2026-09-01. Its text could not be retrieved (the linked
+page answered 404), so the quotations above are from version 5.0, and a
+revision that relies on the exact wording should re-read 5.1 first.
 ---
 
 ## 5. tnega_resolve
@@ -1928,16 +2138,16 @@ notice when the assumption behind it stops holding.
 
 ## 12. Decisions: settled, and still open
 
-Four are settled by the owner and are recorded here rather than removed, so a
-reader can see what was decided and not only what remains: E3, E12, E13 and
-E15. E4 and E14 collapsed rather than being decided, which is section 9.2 doing
-its work. Eleven remain open: E1, E2, E5, E6, E7, E8, E9, E10, E11, E16 and
-E17.
+Five are settled by the owner and are recorded here rather than removed, so a
+reader can see what was decided and not only what remains: E3, E12, E13, E15
+and E18. E4 and E14 collapsed rather than being decided, which is section 9.2 doing
+its work. Fourteen remain open: E1, E2, E5, E6, E7, E8, E9, E10, E11, E16,
+E17, E19, E20 and E21.
 
 E2 is open even though this document recommends the compound key, because a
 recommendation is not the owner's decision and section 6.1 keeps the
-alternative in front of the owner. An earlier revision said five settled and
-nine open, which accounts for sixteen decisions out of fifteen. The count here
+alternative in front of the owner. A revision before the fifth gave a count,
+"five settled and nine open", that did not match its own list. The count here
 is taken from the list.
 
 E1. The dataset id, undotted where every other is dotted. Recommendation: keep
@@ -1997,18 +2207,74 @@ returned from `tnega_resolve` when the caller supplies the mint, never listed.
 Trade-off: a slightly larger surface for something we are saying is not the
 asset.
 
-E10. Solana has no beacon, so the population rule does not extend to it.
-Recommendation: establish mint authority as the equivalent before serving any
-Solana instrument, and serve none until then. Trade-off: xStocks is the largest
-programme by instrument count and this keeps it out of the first cut, which
-makes E6 narrower than it looks.
+E10. Solana has no beacon, so the population rule does not extend to it. The
+fourth measurement pass read what an equivalent would have to be built from.
+All of it is re-read by `backend/scripts/te_xstocks_reads.py`, and the
+measurements record has the slots.
+
+- The authority set. Every one of the 1,124 Solana mints the issuer lists is a
+  Token-2022 mint with the same four holders. Mint authority
+  `7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj` and scaled-UI authority
+  `S7vYFFWH6BjJyEsdrPQpqpYTqLTrPRK6KW3VwsJuRaS` are ordinary keys (on the
+  ed25519 curve), and both are on the issuer's public system-wallet list.
+  Freeze and pause authority `JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs`,
+  and permanent delegate and metadata update authority
+  `5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq`, are program-derived and are
+  not on the list.
+- The Squads vaults. `JDq14…` is vault 0 of Squads v4 multisig
+  `8gep9m2BmCqz4qCQMcqZoqnaGedXgRWehFYhKaPuiu8X`, 2 of 4, whose members include
+  `S7vY…`. `5aMNN…`, which can move any holder's tokens, is vault 0 of Squads
+  v4 multisig `Dsm8Dmh6ip3pc19G3oB3FBc2Kx7A9sQBSA2akD2Jraot`, 2 of 3, and none of
+  its three members is on the issuer's list. Both vaults were derived from the
+  multisig address and matched, and the thresholds and members were read from
+  the multisig accounts.
+- Mint authority alone can be spoofed. Token-2022's InitializeMint takes the
+  mint authority as instruction data and does not require that address to
+  sign, so anyone can create a mint that names `7pt9…` as its authority. A
+  population rule keyed on that field alone would admit such a mint as
+  canonical.
+- What a sound key needs is an issuer signature, or the issuer's list. There
+  are three candidates.
+  (a) A creation transaction signed by `S7vY…`. The script samples sixteen
+  transactions from the permanent delegate's history, the eight oldest and the
+  eight newest. Fourteen are mint creations. All fourteen are signed by `S7vY…`
+  and the new mint's keypair only, all fourteen named `S7vY…` as mint authority
+  at creation, and all fourteen have `7pt9…` as mint authority now. So on that
+  sample the authority was reassigned after creation. The permanent delegate
+  appears in every creation read, so its history (1,845 transactions) is a
+  single place to find creations. Whether it holds the creation of every
+  listed mint is untested.
+  (b) A MintTo signed by `7pt9…`. A spoofed mint can name `7pt9…` but cannot
+  make it sign. This is untested across the listed mints, and there is reason
+  to doubt its coverage: `7pt9…` appears in 816 transactions, the oldest at slot
+  407,689,364, while the oldest sampled creations are at slot 346,063,790 with
+  `S7vY…` as mint authority. A mint whose supply was all minted before the
+  reassignment may have no MintTo under `7pt9…` at all. The script's
+  `--mint-coverage` run measures this; it has not completed.
+  (c) Intersection with the issuer's published asset list. It is sound as a
+  statement of what the issuer says, and labelled class D for that reason. It
+  also excludes mints the issuer created and does not list. In the sample,
+  eight of the fourteen creations are not in the issuer's asset list. One,
+  OURAx, has supply 0; seven have supply above 0 (BABAx, SHLDx, BIDUx, INFQx,
+  PDDx, PBx and QNTx).
+
+Recommendation: decide between (a) and (b) only after the coverage of each
+over the listed mints is measured, and serve no Solana instrument until then.
+Keep (c) as a labelled cross-check under either. Trade-offs: (a) depends on a
+creation's signer, a fact recorded once and unchangeable, but it needs each
+creation located. (b) cannot be spoofed, but it may miss listed mints minted
+only before the reassignment. (c) alone is cheapest, puts an issuer statement
+in the population rule, and would leave out issuer-created mints that hold
+supply but are not listed, as seven in the sample are. Serving none until then
+keeps xStocks, the largest programme by instrument count, out of the first
+cut, which makes E6 narrower than it looks.
 
 E11. The caveat budget, surface-wide. The earlier premise, that cutting the
 caveats fixed this dataset, does not survive re-measurement. There are seven
-caveats at 1,915 bytes, and with them a filled instrument response is 10,274
+caveats at 1,915 bytes, and with them a filled instrument response is 10,312
 bytes against 8,192 and the route form 9,260 (3.3). The caveats are 23 percent
 of that ceiling. They are not the whole overrun, since the record alone is
-7,744, but no layout in 3.3 fits without either cutting the record or freeing
+7,782, but no layout in 3.3 fits without either cutting the record or freeing
 caveat bytes. The underlying property remains: the caveat block is charged
 against the same ceiling as the answer, on every response, for every dataset.
 Recommendation: adopt the section 3.3 self-check now, which is local and
@@ -2019,19 +2285,33 @@ weakens the rule that the caveat travels with the number, and it changes the
 envelope for every dataset on one dataset's evidence.
 
 E16. The instrument record's layout, because as specified it does not fit
-(3.3: 10,274 bytes against 8,192 for a filled NVDA record). Recommendation:
+(3.3: 10,312 bytes against 8,192 for a filled NVDA record). Recommendation:
 list venues once with their `quote_token`, have each cost entry and each
 alternative name a venue by index, state block, age, method and staleness
 bound once per record, and carry `transfer_control` as its model plus the
 `issuer/robinhood` key where 4.6 already holds the contract. That measures
-7,869, 323 bytes under the ceiling. Moving `basis_note` into the descriptor as
-well gives 7,586, 606 under. Trade-off: an entry no longer names its quote
+7,907, 285 bytes under the ceiling. Moving `basis_note` into the descriptor as
+well gives 7,624, 568 under. Trade-off: an entry no longer names its quote
 token itself. A reader follows the index to the venue and then the venue's
 `quote_token` to `quote_references`, two hops where 4.2 now shows none. The
 margin is still thin, so a sixth venue or longer values could push a record
 over. The alternatives that fit without indexing all cut what the record is
-for: fewer venues or fewer entries. A real SPY record gets under, at 8,039,
+for: fewer venues or fewer entries. A real SPY record gets under, at 8,077,
 only with two venues instead of four.
+
+E16 now also covers the section 4.8 block, which no layout above absorbs. An
+xStocks instrument carrying it measures 11,149 bytes at best (3.3), 2,957
+over. The block is 3,603 bytes, and 2,027 of that is the exclusions list: one
+entry per chain for the listed wallet, plus the named exclusions. Options, none
+measured yet: list the listed-wallet exclusions once on the issuer structure
+record (4.6) and keep only named exclusions on the instrument; serve per-chain
+supply and exclusions at their own key (`<instrument>/supply`) and keep only
+the circulating figure and the verdicts on the instrument; or drop the
+per-chain `supply_measured` list, keeping its total. Recommendation: the second,
+because the per-chain reads are what make the verdict checkable and a
+separate key keeps them whole. Trade-off: a caller needs two calls to check a
+circulating verdict, and the instrument record states a figure whose working
+lives elsewhere.
 
 E17. The route form, because as specified it does not fit (3.3: 9,260
 bytes). Recommendation: drop `transfer_control`, whose model the route
@@ -2044,6 +2324,87 @@ route record stops showing the other venues it was chosen over, and its
 margin is thinner than the instrument record's. Calldata is 2,186 hex
 characters for a single-pool swap, and a multi-hop route would not fit, so
 multi-hop routes would need a decision of their own.
+
+E18. SETTLED. Issuer-published figures are not served, and are not reproduced
+in the repository. The question: xStocks publishes figures about itself (shares
+held in custody, the custodian, circulating supply, withholding rates) through
+a public API whose use is governed by its site terms. The operative clauses
+(`https://xstocks.fi/documents/xstocks-terms-of-service.pdf`), each quoted
+whole except §6, which is quoted to the end of its operative sentence and
+marked where it stops:
+
+- §1.1: "Subject to these Terms, Backed Finance allows you to access and use
+  the Services on a non-exclusive basis for informational purposes."
+- §3(3): "use the Site, Services, or content thereon in connection with any
+  commercial endeavors in any manner, except for the purposes specifically set
+  forth in these Terms;"
+- §3(4): "use any robot, spider, site search or retrieval application, or any
+  other manual or automatic device or process to retrieve, index, data-mine, or
+  in any way reproduce or circumvent the navigational structure or presentation
+  of the Site or Services;"
+- §6: "Backed Finance, its affiliates or its licensors, as the case may be,
+  have all right, title and interest in the Site, Services, and any content
+  thereon, including its overall appearance, text, graphics, graphics design,
+  videos, demos, interfaces, and underlying source files, and all worldwide
+  intellectual property rights, the trademarks, service marks, and logos
+  contained therein, whether registered or unregistered. Except as expressly
+  permitted herein, you may not copy, further develop, reproduce, republish,
+  modify, alter download, post, broadcast, transmit or otherwise use the content
+  of the Services for any purpose." (§6 continues with provisions on
+  proprietary notices, trademarks and feedback, which do not bear on this.)
+
+§3 opens: "You may not do or attempt to do or facilitate a third party in
+doing any of the following:". The API documentation invites integrators and
+grants no licence of its own.
+
+The owner's decision, in the owner's words: "do not serve their figures. Serve
+our own chain measurements, link to their published page, and say whether the
+two reconcile. That keeps us inside their terms and keeps every number we serve
+one we measured. Where they disagree, the disagreement is ours to state because
+both sides of it are checkable, but their number stays on their page."
+
+What it changed: section 4.8 carries the shape. An xStocks instrument has our
+chain measurements, `issuer_links` to the issuer's human-facing pages, and a
+`reconciliation` verdict from a closed vocabulary. No served field and no
+committed file holds an issuer number. The collector reads the issuer's figure
+in memory to compute a verdict and does not store it. A backing ratio is not
+served, because its numerator is issuer-only. Withholding is a 4.8 verdict,
+not a field that could hold a rate. The measurements record follows the same rule, because
+the repository's docs are published.
+
+E19. Whether `does_not_reconcile` carries the size of the gap. Section 4.8
+serves the sign (ours above or below theirs) and not the magnitude, because our
+figure plus the magnitude reproduces the issuer's number. Recommendation: carry
+it. The owner's own E18 wording says "the disagreement is ours to state because
+both sides of it are checkable", and a disagreement stated without its size is
+half stated. The owner has already ruled that our chain figures stay even when
+a reader can subtract them to get the issuer's, which is the same arithmetic.
+Trade-off: with the magnitude, a caller can recover the issuer's number from
+one served record, where today it takes the issuer's page.
+
+E20. Automated retrieval from the issuer's API. E18 settled what is served, not
+how the collector fetches. §3(4) of the issuer's terms forbids using "any robot,
+spider, site search or retrieval application, or any other manual or automatic
+device or process to retrieve, index, data-mine, or in any way reproduce or
+circumvent the navigational structure or presentation of the Site or
+Services". The collector's reconcile check is such a process, and
+`backend/scripts/te_xstocks_reads.py --all-mints` makes about 1,200 calls in
+one run. The API documentation invites integrators to call it and grants no
+licence of its own. Recommendation: ask Backed for written permission covering
+the reconcile check's cadence and volume, and until then run the reconcile
+check once per cycle on the served instruments only, with no bulk runs beyond
+this pass. Trade-off: fewer verdicts, and a question the terms do not answer
+cleanly left open until Backed does.
+
+E21. Whether `9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd` goes on the named
+exclusion list (4.8). It is what the issuer's circulating figure excludes
+beyond its published wallet list, for TSLAx, AZNx and SPYx alike. It is an
+ordinary key, not on the issuer's list, and nothing on chain says whose it is.
+Recommendation: approve it, labelled as excluded because the issuer's figure
+excludes it and for no other reason. Trade-off: our circulating figure then
+follows the issuer's definition for an address the issuer does not name. Not
+approving it leaves our figure on the published list alone, and the
+circulating verdict reads `does_not_reconcile` with the address unexplained.
 
 E3. SETTLED. The USD references come from chain. The owner's condition:
 "There is no dollar on chain, so a stablecoin's rate can only be measured
@@ -2300,7 +2661,8 @@ contract, and `measured_at` becomes `measured_at_block`.
 Two decisions were added rather than settled. Measuring the responses at
 their filled size showed the instrument record and the route form over the
 ceiling, and the choices that would bring them under are the owner's: E16 and
-E17. With those, eleven decisions remain open (section 12).
+E17. With those, eleven decisions were open at the fifth revision; section 12
+has the current count.
 
 ### 13.3 What the measurement pass returned
 
@@ -2362,6 +2724,39 @@ are recorded with their re-derived values in section 2.4, including the
 identity that no ticker has V3 depth without V4 depth, which earlier revisions
 could only recover by reconciling two published numbers.
 
+
+### 13.4 What the xStocks pass returned
+
+The fourth measurement pass read the issuer's public API beside Solana, eight
+EVM chains, TON and Tron, with no key. `backend/scripts/te_xstocks_reads.py`
+re-reads every chain figure it produced. The measurements record holds the
+values with their slots and blocks. This section records what changed here.
+
+- The 0.511 instrument is AZNx. It left the class C list, and 4.4 now states
+  its multiplier and a magnitude correction: errors of up to about ten times
+  on raw units (KLACx, NFLXx, PPLTx), not a factor of two.
+- The repository now has xStocks mint addresses. The rows that said it had
+  none (2.1, 4.5) now say what was read, and the Solana transfer control
+  stays untested because no transfer was simulated.
+- E10 carries the authority set, the two Squads vaults, the fact that mint
+  authority alone can be spoofed, and three candidate keys with a
+  recommendation. It remains the owner's decision.
+- E18 was raised and settled by the owner in the same pass. Section 4.8 is its
+  shape: our reading, the issuer's page, a verdict. The price-data endpoint is
+  recorded there as never served, citing Nasdaq's agreement and policies, and
+  GDA 5.1 is noted as not retrieved.
+- `distributions.withholding_rate_bps` is removed. Withholding is a 4.8
+  verdict with a link. The issuer publishes withholding on its corporate-action
+  records, with more than one distinct value across them (the script counts
+  the records and the distinct values without printing either value), so a
+  single rate field was also the wrong shape. Removing the field moved the 3.3
+  sizes by 38 bytes.
+- Class D is widened from "terms text" to "an issuer's published statement or
+  figure", in both documents, and said to be widened. It was widened by the
+  writer of this pass, not by an owner decision.
+
+With E18 settled and E19 to E21 raised, five decisions are settled and
+fourteen remain open (section 12).
 ---
 
 ## 14. Appendix: what the outside advice got wrong

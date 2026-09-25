@@ -19,6 +19,18 @@ stated as read off a contract turn out to come from logs. That pass also found
 that the third venue family is misidentified, which is recorded here because a
 collector written to the specification would build the wrong tick walker.
 
+A fourth pass the same day read xStocks for the first time: the issuer's
+public API beside Solana, eight EVM chains, TON and Tron. It names the 0.511
+instrument, which is AZNx and is not a unit ratio, answers the withholding
+question in the only form the issuer publishes it, and gives this repository
+its first xStocks mint addresses. Where the issuer publishes a figure for a
+quantity the chain also records, this record states the chain reading and
+whether the two reconcile, and links the issuer's page rather than repeating
+its number (E18, settled by the owner). Two things do not reconcile without
+further explanation: the issuer's circulating supply excludes one wallet it
+does not list, and the issuer labels one corporate action differently in its
+two histories. See the xStocks section.
+
 So this file is not a summary of the findings. It is a provenance record. Every
 figure below says what was measured, how, at what block or in what window, and
 whether a reader can take it again today. A figure marked not re-derivable is
@@ -40,6 +52,13 @@ the reference pools' depth at 71,627,504, and USDC at 71,629,036.
 Both are named where they are used. A figure pinned to a past block
 reproduces as a number and not only as a method, which the caution below does
 not have to cover.
+The fourth pass, on xStocks, read Solana mainnet, Ethereum, BNB Smart Chain,
+Arbitrum, Mantle, Ink, X Layer, Optimism, HyperEVM, TON and Tron through public
+endpoints with no key. The first reads were taken from 19:47 UTC on
+2026-09-24. The figures this record cites come from runs of the script between
+20:43 UTC that day and 09:00 UTC on 2026-09-25, and each figure names its run.
+Every one of them is re-read by `backend/scripts/te_xstocks_reads.py`, which prints each with its slot
+or block and never prints more of an endpoint than its host.
 
 B. Already committed to this repository. Read in an earlier session and
 written into a tracked file at the time, so the value and its method both
@@ -52,8 +71,24 @@ anything in this repository. No method, no script and no stored output survives
 for any figure in this class. These are the figures the specification is most
 exposed on.
 
-D. Terms text, not a measurement. An issuer's own published statement. It
-is evidence about what the issuer says, and about nothing else.
+D. Issuer-published, not measured. An issuer's own published statement or
+figure: its terms text, and any number the issuer publishes about itself,
+including through its own API. It is evidence about what the issuer says, and
+about nothing else. An issuer's number is never reproduced in this record and
+never served (E18 in the specification, settled): it is linked where the issuer
+publishes it. Terms text is still quoted where it is the evidence, as with the
+issuers' entities in the issuer comparison and the terms quoted in E18. Where the same quantity can be read on chain, the chain read is
+class A, and what is stated is the chain figure and whether it reconciles with
+the issuer's, with the checkable fact that explains any difference.
+
+This definition was widened in the fourth pass, by the writer of that pass,
+not by an owner decision. It used to read "Terms text,
+not a measurement", which did not cover a reserve figure or a withholding rate
+published through an issuer's API. Those are the same kind of evidence as terms text,
+the issuer speaking about itself, and filing them under a class defined as text
+would have been stretching the class without saying so. The change is made
+here and stated here, so a reader can see the class was widened rather than
+reinterpreted.
 
 State-dependent figures deserve one caution even inside class A. Pool
 liquidity, tick position and any cost computed from them move every block, so a
@@ -422,24 +457,276 @@ Eleven tokens in all, spread from 1.0 to 1.0017.
 
 | Claim | Class | Status |
 |---|---|---|
-| One instrument sits at `shares_per_token: 0.511` | C | Not re-derivable. The instrument is not named in the specification, is not in this repository, and no read of it survives. It is attributed to the session that reported it and is not restated here as established. |
-| A ratio built without applying the multiplier is wrong by up to a factor of two | C | Follows from the 0.511 figure and inherits its class. It is not supported by any multiplier this repository has read. |
-| Applying the multiplier matters | A and B | Supported, at a much smaller magnitude. Thirteen tokens across two chains sit between 1.0 and 1.0017, so ignoring the multiplier costs up to about 17 basis points on those, not a factor of two. |
+| Claim | Was | Now | Status |
+|---|---|---|---|
+| One instrument sits at `shares_per_token: 0.511` | C | A for the value, D for its cause | Resolved in the fourth pass. The instrument is AZNx, the xStocks wrapper of AstraZeneca, and 0.5111362527152737 is its current multiplier on every chain it is issued on. It is not a unit ratio fixed at issue: xStocks carries one cumulative multiplier that moves with corporate actions. This one halved exactly, in one step, between two Ethereum blocks on 2026-02-02. The issuer attributes that step to the underlying changing from the Nasdaq-listed ADR to the NYSE-listed share, and labels it differently in its two histories. The reads are in the xStocks section. |
+| A ratio built without applying the multiplier is wrong by up to a factor of two | C | A, and understated | On the chains where the stored balance is raw (Solana and TON), ignoring AZNx's multiplier is off by 1/0.5111 = 1.9564. That is the factor of two. It is not the largest error: KLACx reads 10.01683308516363 and NFLXx and PPLTx read 10.0, so ignoring the multiplier on those is off by about ten times. AZNx is the only effective xStocks multiplier below 1. On EVM chains the issuer's contract applies the multiplier inside `balanceOf()`, so the error there is in any raw share-unit arithmetic, not in balances. |
+| Applying the multiplier matters | A and B | A and B | Supported at two very different magnitudes. On Robinhood Chain and the bStocks, thirteen tokens sit between 1.0 and 1.0017, up to about 17 basis points. On xStocks, the effective multipliers on Solana run from 0.5111 to 10.0168 across 1,124 mints, 728 of them exactly 1.0. |
 
 The design conclusion the specification draws, that `per_share_price_usd` should
-be served pre-corrected rather than left to the caller, does not depend on the
-0.511 figure. Thirteen tokens reading between 1.0 and 1.0017 while the field
-exists at all is sufficient reason to correct centrally. The conclusion stands;
-the number under it does not.
+be served pre-corrected rather than left to the caller, never depended on the
+0.511 figure, and it is stronger now: the thirteen EVM readings were enough on
+their own, and the xStocks readings add errors of up to ten times on raw units.
 
 ### Total return and distributions
 
 | Figure | Class | Provenance |
 |---|---|---|
 | These are total-return wrappers, dividends reinvested into the multiplier net of withholding rather than paid out | D | The issuers' own terms. It is consistent with thirteen multipliers sitting at or slightly above 1.0, which is what reinvestment would produce, but consistency is not a measurement of the mechanism. |
-| The withholding rate | C | Not recorded anywhere. Not re-derivable. |
+| The withholding rate | C, now D | Closed as a question, not as a number. There is no single rate to record. xStocks publishes withholding on its corporate-action records (documented at https://docs.xstocks.fi/apis/openapi/corporate-actions), and those records carry more than one distinct value: `backend/scripts/te_xstocks_reads.py` counts the records and the distinct values without printing any value. The values are class D and are not reproduced here (E18). The multiplier each event produced is class A and readable on chain, but a withholding rate cannot be derived from it without the underlying's price at the ex date, which this pass did not read. A single `withholding_rate` field would have been the wrong shape, so the specification replaces it with a section 4.8 verdict and link. |
 | Serving no yield field | Design decision, not a figure | It follows from the row above being class D, and it is the correct handling of a class D input. |
 
+
+---
+
+## xStocks: the issuer's public API against the chain
+
+Read on 2026-09-24 and 2026-09-25. Unless a row names another run, every
+chain figure below comes from the run of `backend/scripts/te_xstocks_reads.py`
+from 08:56:09 to 09:00:30 UTC on 2026-09-25. The `--all-mints` figures come from
+the run at 21:56 UTC on 2026-09-24. Every chain figure is class A. The
+script uses no key and prints no more of an endpoint than its host.
+
+The issuer publishes a public API, documented at
+`https://docs.xstocks.fi/apis/openapi`. Its public group needs no key and
+covers assets, multipliers, supply, proof of reserves, oracles, system status
+and wallets, corporate actions, and bridges. Its client and trade groups need
+a key and were not called. What the issuer publishes is class D. Under E18,
+which the owner settled, the issuer's numbers are not reproduced here. For each
+quantity the chain also records, this section gives our chain reading, a link
+to the issuer's page, and a verdict from the specification's reconcile
+vocabulary (section 4.8 there): `reconciles`, `reconciles_after_exclusion`,
+`does_not_reconcile`, `no_chain_counterpart`.
+
+### The multiplier: AZNx is the 0.511 instrument
+
+| Chain | Read | AZNx multiplier | Verdict against the issuer |
+|---|---|---|---|
+| Solana | Token-2022 `scaledUiAmountConfig`, effective value, slot 450,305,058 | 0.5111362527152737 | reconciles |
+| Ethereum | `getCurrentMultiplier()`, block 26,053,410 | 0.5111362527152737 | reconciles |
+| BNB Smart Chain | `getCurrentMultiplier()`, block 123,920,665 | 0.5111362527152737 | reconciles |
+| TON | `get_display_multiplier`, 08:56:24 UTC | 0.5111362527152737 | reconciles |
+
+Across every Solana mint the issuer lists, 1,124 of them at slots 450,156,716
+to 450,156,745 (the `--all-mints` run), the effective multiplier reconciles
+with the issuer's figure on all 1,124. The effective value is `newMultiplier` once its effective timestamp
+has passed. The stored `multiplier` field lags until the authority next writes
+it. In the script's `--all-mints` run (slots 450,156,716 to 450,156,745, 21:56
+UTC), the stored field differs from the effective value on 385 of the 1,124
+mints, so reading that field alone gives a stale value on those.
+
+When the multiplier halved, read from past Ethereum state through the archive
+endpoint `https://eth.drpc.org`, because the default public endpoint refuses
+archive reads:
+
+| Block | Time (UTC) | `getCurrentMultiplier()` on AZNx |
+|---|---|---|
+| 24,235,000 | 2026-01-14 19:21:35 | 1.003871122822 |
+| 24,372,014 | 2026-02-02 21:59:59 | 1.003871122822 |
+| 24,372,015 | 2026-02-02 22:00:11 | 0.501935561411 |
+| 24,400,000 | 2026-02-06 19:54:35 | 0.501935561411 |
+
+The ratio is exactly 0.5. The step was found by bisection between the first
+and last rows.
+
+The issuer's two histories agree with the chain on when that step happened.
+They disagree with each other on what it was. The multiplier history
+(`GET /public/assets/AZNx/multiplier/history`) labels it `ReverseSplit`. The
+corporate-actions history, documented at
+`https://docs.xstocks.fi/apis/openapi/corporate-actions`, labels it
+`StockMerger` and attributes it to the underlying changing from the
+Nasdaq-listed ADR to the NYSE-listed share. That is a disagreement inside the
+issuer's own publications. It is recorded, not resolved. The chain shows a
+halving, which fits either label, and does not choose between them.
+
+The magnitude, class A, on Solana, where balances are stored raw:
+
+| Token | Effective multiplier | Slot | Error from ignoring it on raw units |
+|---|---|---|---|
+| KLACx | 10.01683308516363 | 450,305,145 | x10.0168 |
+| NFLXx | 10.0 | 450,305,151 | x10.0 |
+| PPLTx | 10.0 | 450,305,155 | x10.0 |
+| AZNx | 0.5111362527152737 | 450,305,159 | x1.9564 |
+
+Over all 1,124 mints: minimum 0.5111362527152737 (AZNx, the only one below
+1), maximum 10.01683308516363 (KLACx), and exactly 1.0 on 728. Nine sit
+outside 0.9 to 1.1: APHx, AZNx, CRWDx, KLACx, NFLXx, PALLx, PPLTx, TQQQx and
+VUGx.
+
+### Issuer identity on Solana
+
+Every mint the issuer lists, all 1,124, is owned by the Token-2022 program and
+carries the same authorities:
+
+| Role | Address | On the issuer's wallet list | Key |
+|---|---|---|---|
+| Mint authority | `7pt9tkctJPK7PPNQJ77GKg8ZffSF6QxoMiCFYHxrtaCj` | yes | on the ed25519 curve, so a keypair |
+| Scaled-UI (multiplier) authority | `S7vYFFWH6BjJyEsdrPQpqpYTqLTrPRK6KW3VwsJuRaS` | yes | keypair |
+| Freeze and pause authority | `JDq14BWvqCRFNu1krb12bcRpbGtJZ1FLEakMw6FdxJNs` | no | off the curve, a program-derived address |
+| Permanent delegate and metadata update authority | `5aMNNLQJwAEeoemTEMkv5NVjqKwvvefRYCQ5Z67HFvEq` | no | program-derived |
+
+"On the issuer's wallet list" means the address is returned by the issuer's
+public system-wallet endpoint, documented at
+`https://docs.xstocks.fi/apis/openapi/system`. That is a checkable fact about
+the list. How the issuer describes the wallets on it is on that page.
+
+The two program-derived addresses are Squads v4 vaults. Each was derived as
+vault 0 of the multisig named here and matched exactly, and each multisig
+account was read at slots 450,305,470 and 450,305,473:
+
+| Vault | Multisig | Threshold | Members on the issuer's list |
+|---|---|---|---|
+| `JDq14…` (freeze, pause) | `8gep9m2BmCqz4qCQMcqZoqnaGedXgRWehFYhKaPuiu8X` | 2 of 4 | one, `S7vY…` |
+| `5aMNN…` (permanent delegate, which can move any holder's tokens) | `Dsm8Dmh6ip3pc19G3oB3FBc2Kx7A9sQBSA2akD2Jraot` | 2 of 3 | none |
+
+One mint creation was read. Transaction `5XciNwU2…`, at slot 449,761,994, is
+signed by `S7vY…` and the new mint's own keypair, and nothing else. It sets the
+authorities above as instruction data, with `S7vY…` as the mint authority at
+creation. That mint is OURAx. At slot 450,305,478 its mint authority is `7pt9…`
+and its supply is 0, and it is not in the issuer's asset list.
+
+The script then samples sixteen transactions from the permanent delegate's
+history (1,845 transactions): the eight oldest and the eight newest. Fourteen
+are mint creations. On all fourteen, the creation is signed by `S7vY…` and the
+mint's keypair only, `S7vY…` is the mint authority at creation, and `7pt9…` is
+the mint authority now. On that sample, then, the mint authority was reassigned
+after creation every time. The sample is fourteen mints, not the 1,124. Six of
+the fourteen are listed mints, the oldest created at slot 346,063,790. Eight are
+not in the issuer's asset list. One of those is OURAx, with supply 0. The other
+seven have supply above 0: BABAx, SHLDx, BIDUx, INFQx, PDDx, PBx and QNTx. So
+the issuer has created mints that hold supply and that its published list
+does not include. What that means for the population rule is E10.
+
+Mint authority alone does not identify the issuer. Token-2022's InitializeMint
+takes the mint authority as data and does not require that address to sign, so
+anyone can create a mint naming `7pt9…`. That is a property of the token
+program, not a measurement. What it means for the population rule is E10 in
+the specification, which remains the owner's decision.
+
+On EVM the same wallets hold the token roles. On TSLAx on Ethereum, token
+`0x8ad3c73f833d3f9a523ab01476625f269aeb7cf0`, at block 26,053,422:
+
+| Getter | Returns | Kind | On the issuer's list |
+|---|---|---|---|
+| `burner()` | `0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad` | externally owned | yes |
+| `multiplierUpdater()` | `0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad` | externally owned | yes |
+| `minter()` | `0x0a934bc9c64309c9654451f23d8331c2dad34c2a` | externally owned | yes |
+| `owner()` | `0x49754062e35f7591b93cc4f9915965be89643a65` | Safe-style multisig, `getThreshold()` 2 of 3 owners | no |
+| `pauser()` | `0x8768cda7a463dae1baa6b2500efb025ebd7ffc50` | Safe-style multisig, 3 of 5 | no |
+
+### The 92 percent wallet
+
+On Ethereum at block 26,053,413, `0x5f7a4c11bde4f218f0025ef444c369d838ffa2ad`
+holds 41,485.492098 of TSLAx's 45,000 supply, which is 92.190 percent. It is
+externally owned, it is on the issuer's wallet list, and it is the token's
+`burner()` and `multiplierUpdater()`. So its tie to the issuer does not rest on
+the list alone: the token contract names it for two privileged roles. That
+92 percent is one chain's figure. The same wallet's share of TSLAx differs from
+chain to chain, as the next table shows.
+
+### Supply, circulating supply, and why no backing ratio is stated here
+
+TSLAx, supply per chain and the balance held by addresses on the issuer's
+wallet list. Solana and TON balances are scaled by their multiplier, which for
+TSLAx is 1.0. TON and Tron were read through `toncenter.com` and
+`api.trongrid.io`.
+
+| Chain | Block or slot | Supply | Held by listed wallets | Share |
+|---|---|---|---|---|
+| Ethereum | 26,053,413 | 45,000.000000 | 41,485.492098 | 92.190% |
+| BNB Smart Chain | 123,920,727 | 20,000.000000 | 19,981.854958 | 99.909% |
+| Arbitrum | 508,714,029 | 48,649.000000 | 48,646.985096 | 99.996% |
+| Mantle | 101,098,148 | 10,000.000000 | 8,457.589609 | 84.576% |
+| Ink | 56,828,204 | 46,467.320000 | 45,584.321591 | 98.100% |
+| X Layer | 71,557,581 | 25,369.679836 | 7,457.894516 | 29.397% |
+| Optimism | 157,363,922 | 8,882.845986 | 8,882.841902 | 100.000% |
+| HyperEVM | 46,838,015 | 46,467.320000 | 46,462.977292 | 99.991% |
+| Solana | slot 450,305,210 | 229,636.597454 | 62,319.296927 | 27.138% |
+| TON | 08:57:14 UTC | 57,781.231786 | 54,701.838652 | 94.671% |
+| Tron | 86,551,419 | 10,000.000000 | 9,766.899767 | 97.669% |
+| All | | 548,253.995063 | 353,747.992408 | 64.523% |
+
+Total supply against the issuer's total-supply figure: `reconciles` for all
+three, TSLAx (548,253.995063 on chain), AZNx (638,920.007484) and SPYx
+(269,051.310330). Every listed deployment and every listed-wallet balance was
+read in this run. When one is not, the verdict is `chain_incomplete`, naming
+the chain, and no comparison is made. An earlier run lost Ink for AZNx and
+said exactly that.
+
+The issuer's total counts Solana and TON supply at the multiplier. The script
+also sums the chains with Solana and TON left unscaled. For AZNx that gives
+835,675.414553, which does not reconcile: ours is above theirs. Scaled by
+0.5111, it reconciles. For SPYx the unscaled sum is 268,292.132490 and does not
+reconcile either. For TSLAx, whose multiplier is 1.0, the unscaled sum is
+unchanged and reconciles.
+
+Ink and HyperEVM report identical totals: 46,467.32 TSLAx, 109,769.369933
+AZNx and 14,496.950725 SPYx. The token code hash is identical on both, and on
+Ethereum too, so identical code says only that the issuer deploys one
+implementation everywhere. The TSLAx history accounts for the identical
+supply. On Ink, the chain's public explorer shows one mint event and no burns:
+46,467.32 to `0x5f7a…` at block 36,699,248, 2026-02-04 09:34:19 UTC. On HyperEVM
+there is a mint of the same amount to the same wallet at block 26,377,593,
+10:00:00 UTC, 25.7 minutes later. HyperEVM burns were not read. The two are
+not one ledger mirrored: the listed wallet holds 45,584.321591 on Ink and
+46,462.977292 on HyperEVM. So they are two separate issues of the same size,
+and the total counts both, as the issuer's total does. What is not
+established is whether one issue backs or represents the other. Nothing read
+here links them beyond the matching amount and time.
+
+Circulating supply against the issuer's circulating-supply figure. Our
+circulating figure is total supply minus every balance held by an address on
+the issuer's wallet list:
+
+| Token | Our circulating figure | Verdict | Explained by |
+|---|---|---|---|
+| AZNx | 11,945.313951 | `reconciles_after_exclusion` | `9U76mo3WuP28s4kYJ9CMH1CiQh6Ph3r5Zg5awZM5vMQd` on Solana holds 10,718.11398839 at slot 450,305,328 |
+| TSLAx | 194,506.002655 | `reconciles_after_exclusion` | the same wallet holds 5,380.42354242 at slot 450,305,224 |
+| SPYx | 89,737.353178 | differed on this single check, ours below theirs after the exclusion; `pending_recheck` under section 4.8, not a finding | the same wallet holds 2,830.43737267 at slot 450,305,422 |
+
+The same address explains the gap for all three whenever the verdict
+reconciles. That holds for AZNx and TSLAx in this run, and for AZNx, TSLAx and
+SPYx in the 21:19 UTC run on 2026-09-24. The SPYx difference in this run
+followed a movement on chain. Between the two runs, `9U76…`'s SPYx balance fell
+from 3,156.99988598 (slot 450,148,648) to 2,830.43737267. The SPYx balance of
+the listed Solana wallet rose from 23,178.850017 to 24,217.820919. A single
+differing check is what section 4.8's persistence rule exists for.
+
+TSLAx shows what timing does to a single check. In the 21:04 UTC run on
+2026-09-24, the chain figure less `9U76…` differed from the issuer's
+circulating figure by the sum of two chain movements. The listed wallet's
+HyperEVM balance rose by 0.04 TSLAx between the 20:43 and 21:04 runs, from
+46,462.977341 to 46,463.017341. Solana supply fell by 0.000044 over the same
+interval, from 229,636.609658 to 229,636.609614. That run recorded
+`does_not_reconcile`. In the 21:17 run the same chain figures reconciled, and
+the issuer's total supply had also caught up with the chain. So the issuer's
+figures lagged the chain by those two movements, for about 13 minutes, and not
+by a definition. That is why section 4.8 records `does_not_reconcile` only
+when a gap persists across three collector cycles.
+
+`9U76…` is an ordinary key: at slot 450,305,468 it is owned by the System
+Program and it is on the ed25519 curve. It is not on the issuer's wallet list. In other words, the issuer's
+circulating figure leaves out a wallet that its published list does not name.
+Whether that wallet is the issuer's own inventory is not published. For AZNx
+it holds 89.7 percent of the supply outside the listed wallets
+(10,718.11 of 11,945.31).
+
+No backing ratio is stated here. Shares held in custody are published only by
+the issuer, on its proof-of-reserves page, `https://defi.xstocks.fi/proof-of-reserves`,
+which its own FAQ points to. Any ratio with that figure as its numerator is the
+issuer's number, whatever denominator we put under it. Backing is
+`no_chain_counterpart`. What this record can say about the circulating figure,
+checkably, is the verdict above: the issuer's circulating figure excludes the
+listed wallets and also `9U76…`. Which figure the issuer divides by to state
+its backing is not read here.
+
+### The price data and the terms
+
+The issuer's price-data endpoint is documented as sourced partly from Nasdaq.
+Specification section 4.8 records, as settled fact, that it is never served,
+raw or derived, and quotes the Nasdaq agreement and policies that bind that.
+The issuer's site terms, and the owner's decision that follows from them, are
+E18 in the specification.
 ---
 
 ## The permission model
@@ -545,7 +832,7 @@ a live call.
 | Transfer control is not an allowlist, BNB Smart Chain | C | A | Follows from the test on NVDAB |
 | Transfer control is a denylist, BNB Smart Chain | C | C, unchanged | The shared compliance contract and its `COMPLIANCE_ROLE` were read, but no denied address was found there and no refusal was observed. Not an allowlist is established; is a denylist is not. |
 | Where the gate lives, per venue | not stated before | A | BSC: a shared `compliance()` contract, `0x53dba7aabde774787a1f57236b235567da8e14f4`. Robinhood Chain: the beacon, `0xe10b6f6b275de231345c20d14ab812db62151b00`. Different structures, which is why one sentence covering both was always going to be wrong about one of them. |
-| The same for xStocks on Solana | C | C, untested | No xStocks mint address exists anywhere in this repository and no Solana simulation was run. Recorded as not tested rather than generalised from the two venues that were. |
+| The same for xStocks on Solana | C | C, untested | The mints are now known (the xStocks section, and `backend/scripts/te_xstocks_reads.py`), and so are the controls a gate would use: every mint carries a freeze authority, a pausable config and a permanent delegate, all held by Squads multisig vaults. No transfer simulation was run on Solana, so whether any address is refused is not established. Recorded as not tested rather than generalised from the two venues that were. |
 | The Robinhood Chain instrument's terms are read from the contract | A | A | `terms()`, selector `0xd5025625`, returns `https://robinhood.com/stocktoken/rhj` on each of the ten stock tokens it was called on in this pass. |
 | What the terms at that URL say about eligibility | D | D | Issuer text. Not fetched in this pass, and evidence about what the issuer publishes rather than about what the contract enforces. |
 | Robinhood's EU Classic product is a different instrument from the on-chain one | D | D | Issuer text, and the correct correction to make. The on-chain half is class A: the token exists on chain 4663 and answers `terms()`. |
@@ -676,8 +963,13 @@ are gone, with no method, script or stored output surviving in this repository.
     issuer section for the one-query method that reproduces it.)
 16. The contracts not bounding the burn power, which is the half of the
     prospectus disagreement that is a contract read.
-17. The 0.511 shares-per-token instrument, and with it the factor-of-two claim.
-18. The dividend withholding rate.
+17. (Removed. The 0.511 instrument is AZNx, read on chain in the fourth pass,
+    and the factor of two understated the error: see the multiplier findings
+    and the xStocks section.)
+18. (Removed. There is no single withholding rate. The issuer publishes
+    withholding on its corporate-action records, with more than one distinct
+    value, class D, linked rather than reproduced: see total return and
+    distributions.)
 19. On BNB Smart Chain, that the compliance contract's denylist is populated and
     enforced. Not an allowlist is established there; a refusal was never
     observed, because no denied address was found. On Solana, the whole
@@ -687,7 +979,8 @@ are gone, with no method, script or stored output surviving in this repository.
 
 What remains cheap to convert. The BSC half of item 19 needs a denied address on
 that venue, found the way the Robinhood Chain one was, by reading the compliance
-contract's own event history. Solana needs an xStocks mint address, which this
-repository does not have.
+contract's own event history. The Solana half now has its mint addresses and
+the controls a gate would use (the xStocks section). It needs a transfer
+simulation with controls, the same method as on the other two venues.
 
 The rest need the census taken again.
