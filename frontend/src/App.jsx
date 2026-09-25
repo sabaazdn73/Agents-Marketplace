@@ -11,6 +11,7 @@ import PrivacyPage from './PrivacyPage.jsx';
 import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
 import CanaryTestingPanel from './CanaryTestingPanel.jsx';
+import { EcosystemBoundary, EcosystemFallback, hasWebGL } from './shell/EcosystemFallback.jsx';
 import { MAIN_TAB_PATHS, NAV_TO_PATH } from './routePaths.js';
 import { updatePageMeta } from './seoMeta.js';
 
@@ -224,14 +225,20 @@ export default function App() {
   }
 
   if (path === '/ecosystem') {
+    // No WebGL, no globe: say so instead of loading 900KB that will throw.
+    // The boundary catches whatever the check does not predict. See
+    // shell/EcosystemFallback.jsx.
+    if (!hasWebGL()) return <EcosystemFallback onBack={backToExplore} />;
     return (
+      <EcosystemBoundary onBack={backToExplore}>
       <Suspense fallback={
-        <div className="min-h-screen bg-[#0B1120] flex items-center justify-center">
-          <Loader2 size={28} className="animate-spin text-indigo-400" />
+        <div className="min-h-screen bg-page flex items-center justify-center">
+          <Loader2 size={28} className="animate-spin text-accent" />
         </div>
       }>
         <EcosystemGlobePage onBack={backToExplore} />
       </Suspense>
+      </EcosystemBoundary>
     );
   }
 

@@ -62,8 +62,8 @@ function timeAgo(ts) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
-// variant: 'dark' (light icon, for the dark web sidebar) | 'light' (default).
-export default function NotificationBell({ variant = 'light' }) {
+// Colours come from the theme roles, so one bell serves both themes and both apps.
+export default function NotificationBell() {
   const wallet = useNotificationWallet();
   const { notifications, unread, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
@@ -112,8 +112,8 @@ export default function NotificationBell({ variant = 'light' }) {
 
   return (
     <div ref={ref} className="relative">
-      <button ref={btnRef} onClick={() => setOpen((o) => !o)} className="relative p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" aria-label="Notifications">
-        <Bell size={18} className={variant === 'dark' ? 'text-gray-300' : 'text-gray-600 dark:text-gray-300'} />
+      <button ref={btnRef} onClick={() => setOpen((o) => !o)} className="relative w-8 h-8 flex items-center justify-center rounded-md text-muted hover:text-fg hover:bg-inset transition-colors" aria-label="Notifications">
+        <Bell size={16} aria-hidden="true" />
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
             {unread > 9 ? '9+' : unread}
@@ -132,23 +132,23 @@ export default function NotificationBell({ variant = 'light' }) {
         <div
           data-notification-panel
           style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
-          className="max-h-96 overflow-y-auto rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] shadow-xl z-[100] text-gray-900 dark:text-gray-100"
+          className="max-h-96 overflow-y-auto rounded-md border border-line bg-surface shadow-xl z-[100] text-fg"
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 sticky top-0 bg-white dark:bg-[#1E293B]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-line sticky top-0 bg-surface">
             <span className="text-sm font-bold">Notifications</span>
             {notifications.length > 0 && (
               <button onClick={markAllRead} className="text-[11px] text-indigo-500 hover:underline flex items-center gap-1"><Check size={11} /> Mark all read</button>
             )}
           </div>
           {notifications.length === 0 ? (
-            <div className="px-4 py-8 text-center text-xs text-gray-400">No notifications yet.</div>
+            <div className="px-4 py-8 text-center text-xs text-muted">No notifications yet.</div>
           ) : (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            <div className="divide-y divide-line">
               {notifications.map((n) => (
                 <div key={n.id} className={`px-4 py-3 ${n.read ? '' : 'bg-indigo-50/60 dark:bg-indigo-500/5'}`}>
                   <div className="text-xs font-semibold flex items-center gap-2">{!n.read && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />}{n.title}</div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{n.body}</div>
-                  <div className="text-[10px] text-gray-400 mt-1">{timeAgo(n.ts)}</div>
+                  <div className="text-[11px] text-muted mt-0.5">{n.body}</div>
+                  <div className="text-[10px] text-muted mt-1">{timeAgo(n.ts)}</div>
                 </div>
               ))}
             </div>

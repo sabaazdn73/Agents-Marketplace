@@ -46,6 +46,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Volume2, VolumeX, ChevronDown } from 'lucide-react';
 import './agentHero.css';
 import LandingStory from './LandingStory';
+import ThemeToggle from './theme/ThemeToggle';
 
 const HERO_VIDEO = '/agent-hero/multiagents.mp4';
 // A frame taken from the clip itself, so the still and the motion are the
@@ -162,6 +163,12 @@ export default function LandingPage({ onEnterMarketplace, animate = true }) {
             sidebar is hidden while this page shows, so this skip link is the
             one remaining exit from the hero for anyone who wants it. */}
         <a className="skip" href="/market">Skip to Explore</a>
+
+        {/* The theme control. This page renders outside both app shells, so
+            it carries its own copy of the one control rather than none. */}
+        <div className="absolute top-3.5 right-3.5 z-20">
+          <ThemeToggle />
+        </div>
 
         {/* The page scrolls now, and nothing about a full-bleed hero says so.
             Without this the story below it is found by accident or not at

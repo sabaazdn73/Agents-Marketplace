@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Sun, Moon, ShieldAlert, ShieldCheck, Sliders, CheckCircle2, XCircle,
+  ShieldAlert, ShieldCheck, Sliders, CheckCircle2, XCircle,
   LayoutGrid, Table2, Store, ArrowUpDown, ChevronRight,
   Loader2, AlertTriangle, Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
@@ -25,7 +25,6 @@ import iconLogo from './assets/app-icon.png';
 // where a solid tile is what the surface expects.
 import appMark from './assets/app-mark.png';
 
-import agentsHero from './assets/agents.jpg';
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
 import { useNavSync, useOverlayHistory } from './useViewHistory';
@@ -69,7 +68,7 @@ import Pagination from './Pagination';
 function QrToMobile() {
   const url = import.meta.env?.VITE_MOBILE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
   return (
-    <div className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-3 lg:w-72 shrink-0">
+    <div className="bg-surface p-3 rounded-md border border-line flex items-center gap-3 lg:w-72 shrink-0">
       {/* 120px code, 24px mark, 4-module quiet zone.
           This did not scan at all before, confirmed by decoding the live
           canvas rather than assuming: it returned nothing.
@@ -98,7 +97,7 @@ function QrToMobile() {
       </div>
       <div className="min-w-0">
         <div className="text-sm font-bold">Open on your phone</div>
-        <div className="text-xs text-gray-500 dark:text-gray-400">Scan to launch the mobile app.</div>
+        <div className="text-xs text-muted">Scan to launch the mobile app.</div>
       </div>
     </div>
   );
@@ -121,6 +120,9 @@ import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
+import ThemeToggle from './theme/ThemeToggle';
+import HeaderNav from './shell/HeaderNav';
+import { useTheme } from './theme/ThemeProvider';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
 import { ChainCardBadge } from './chainViews/chainMarks';
@@ -285,9 +287,9 @@ const BSCSCAN = 'https://bscscan.com';
 
 function DetailStat({ label, value, hint }) {
   return (
-    <div title={hint} className="text-center p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
+    <div title={hint} className="text-center p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-line/50">
       <span className="block text-[10px] text-gray-500 uppercase mb-1">{label}</span>
-      <span className="font-bold text-sm text-gray-900 dark:text-white">{value}</span>
+      <span className="font-bold text-sm text-fg">{value}</span>
     </div>
   );
 }
@@ -321,12 +323,12 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
           <Link2 size={14} /> {copied ? 'Link copied!' : 'Share this agent'}
         </button>
       </div>
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-xl">
+      <div className="bg-surface rounded-md p-8 border border-line shadow-xl">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-4">
             <AgentAvatar agent={agent} size={56} />
             <div>
-              <div className="flex items-center gap-2"><h2 className="text-2xl font-bold">{agent.name}</h2>{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</div>
+              <div className="flex items-center gap-2"><h2 className="text-h1 font-bold">{agent.name}</h2>{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" />}</div>
               <div className="flex items-center gap-2 mt-1">
                 <span title={CATEGORY_HINTS[agent.category]} className="text-[11px] text-indigo-500 uppercase font-semibold tracking-wider">{agent.category}</span>
                 {agent.possiblyDelisted && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" title="Not seen active in over a week">may no longer be active</span>}
@@ -345,7 +347,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         {agent.financialDataAvailable && agent.defillamaUrl && (
           <div className="mb-5">
             <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Where this money number comes from: DefiLlama <ExternalLink size={11} /></a>
-            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-muted">
               {agent.tvlChange7dPct != null && (
                 <span title="How this protocol's total funds have changed over the last 7 days: money flowing in vs out">
                   {agent.tvlChange7dPct >= 0 ? '▲' : '▼'} {Math.abs(agent.tvlChange7dPct).toFixed(1)}% (7d)
@@ -395,7 +397,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
         <BudgetRecord agent={agent} className="mb-5" />
 
         <h3 className="text-sm font-bold mb-2">About</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
+        <p className="text-sm text-muted leading-relaxed mb-6 whitespace-pre-wrap">{agent.strategy}</p>
 
         <h3 className="text-sm font-bold mb-2 flex items-center gap-2">Who owns this agent <PasskeyBadge ownerAddress={agent.ownerAddress} /> {agent.id && <ContractVerificationBadge agentId={agent.id} />}</h3>
         {agent.ownerAddress ? (
@@ -414,7 +416,7 @@ function AgentDetail({ agent, onBack, onHire, onTrySkill }) {
             placed apart from the "Funds" stat above so the two are never
             confused with one another. */}
         <div className="mt-4 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
-          <span className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5" title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now, checked live, this instant."><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
+          <span className="text-xs text-muted flex items-center gap-1.5" title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now, checked live, this instant."><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">
             {agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">not available</span>}
           </span>
@@ -450,48 +452,43 @@ function HybridWalletConnect({ accent }) {
   const isConnected = wagmiConnected || privyConnected;
   const shortAddress = activeAddress ? `${activeAddress.slice(0, 6)}...${activeAddress.slice(-4)}` : null;
 
-  // mt-6 dropped along with the wrapper that made it necessary: this is now
-  // the top of its own block, so a 24px offset here was pure dead space.
-  return (
-    <div className="bg-[#131825] border border-white/10 rounded-xl p-3.5">
-      <div className="flex items-center gap-2 mb-2.5">
-        <Wallet size={14} className="text-gray-400" />
-        <h3 className="text-xs font-bold text-gray-300 tracking-wider uppercase">Your Wallet</h3>
-      </div>
-
-      {isConnected ? (
-        <div className="flex items-center justify-between bg-white/5 rounded-lg p-2.5 border border-white/5">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-mono text-xs text-gray-200">{shortAddress}</span>
-          </div>
-          <button onClick={() => (wagmiConnected ? wagmiDisconnect() : logout())} className="text-gray-400 hover:text-white transition-colors">
-            <LogOut size={14} />
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <ConnectButton.Custom>
-            {({ openConnectModal }) => (
-              <button onClick={openConnectModal} className="w-full flex justify-between items-center bg-[#1E2433] hover:bg-[#252C3D] text-white text-sm font-medium py-2.5 px-3.5 rounded-lg transition-colors">
-                <span>Connect a wallet</span>
-                <ChevronRight size={16} className="text-gray-400" />
-              </button>
-            )}
-          </ConnectButton.Custom>
-          {/* The parent is already space-y-2; mt-3 on top of that made a
-              20px gap under a single 10px line. */}
-          <p className="text-[10px] leading-snug text-gray-500 text-center">No wallet? You can keep browsing without connecting.</p>
-        </div>
-      )}
+  // A header control now, not a card in a rail. Connected, it shows the
+  // address and a way out; not connected, one button. Browsing needs no
+  // wallet, so nothing here asks for one before it is wanted.
+  return isConnected ? (
+    <div className="flex items-center gap-1 h-8 pl-2.5 pr-1 rounded-md border border-line bg-inset">
+      <span className="w-1.5 h-1.5 rounded-full bg-pos" aria-hidden="true" />
+      <span className="figure text-label text-fg ml-1">{shortAddress}</span>
+      <button
+        type="button"
+        onClick={() => (wagmiConnected ? wagmiDisconnect() : logout())}
+        title="Disconnect"
+        aria-label="Disconnect wallet"
+        className="w-6 h-6 ml-0.5 rounded flex items-center justify-center text-muted hover:text-fg transition-colors"
+      >
+        <LogOut size={13} />
+      </button>
     </div>
+  ) : (
+    <ConnectButton.Custom>
+      {({ openConnectModal }) => (
+        <button
+          type="button"
+          onClick={openConnectModal}
+          title="Browsing needs no wallet. Connect one to hire or to see your own jobs."
+          className="h-8 px-3 rounded-md bg-accent text-accent-fg text-label font-semibold hover:opacity-90 transition-opacity flex items-center gap-1.5 whitespace-nowrap"
+        >
+          <Wallet size={14} aria-hidden="true" /> Connect wallet
+        </button>
+      )}
+    </ConnectButton.Custom>
   );
 }
 
 function SortHeader({ label, hint, sortKey, sortState, onSort }) {
   const active = sortState.key === sortKey;
   return (
-    <button onClick={() => onSort(sortKey)} title={hint} className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-semibold transition-colors ${active ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+    <button onClick={() => onSort(sortKey)} title={hint} className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-semibold transition-colors ${active ? 'text-fg' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
       {label}
       <ArrowUpDown size={12} className={active ? 'opacity-100' : 'opacity-40'} />
     </button>
@@ -560,7 +557,9 @@ const SIDEBAR_FOOTER_ITEMS = [
 ];
 
 export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, initialNav, onNavChange } = {}) {
-  const [darkMode, setDarkMode] = useState(false);
+  // The theme is the site's, not this component's: see theme/ThemeProvider.jsx.
+  // `darkMode` is still handed to the few panels that take it as a prop.
+  const { dark: darkMode } = useTheme();
  // first-visit orientation, shows automatically once per browser
   // (localStorage-gated, see onboarding.js), reopenable anytime via the "?"
   // header button. Lazy-init so it doesn't flash open-then-closed for a
@@ -981,224 +980,86 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   // keep filtering on a category that isn't even in the new group.
   useEffect(() => { setActiveCategory('All'); }, [activeGroup]);
 
+  // Tab changes from the header and the footer go through one function, so
+  // the two cannot drift in what they reset.
+  const goTo = (id) => {
+    dismissAgentDetail();
+    // Explore opens on its chain list. Without this, clicking the tab you
+    // are already on did nothing visible, and the chain list had no entry
+    // point at all once a chain was picked.
+    if (id === 'market') resetChainChoice();
+    setNav(id); setHiring(false); onNavChange?.(id);
+  };
+
   return (
-    <div className={`min-h-screen font-sans flex ${darkMode ? 'dark bg-[#0F172A]' : 'bg-[#F4F5F8]'}`}>
+    <div className="min-h-screen font-sans flex flex-col bg-page text-fg">
       {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
 
-      {/* Sidebar: Deep Dark Navy, scrolls together with the page now, no independent region */}
-      {/* Width was 28rem (448px), which is where the sparse look came from:
-          a nav row there is ~400px of button holding an 18px icon and a
-          short label, so every tab carried ~250px of dead space to the
-          right of its own text, and the title row put "Tnega" and its two
-          icon buttons at opposite ends of a near-empty 448px line. 20rem
-          (320px) is the conventional sidebar width and is still wide enough
-          for the longest label ("Advantage Report"), the wallet card and
-          the hero image.
+      {/* THE SHELL, 2026-09-24. A top header over one content column, where
+          there used to be a 384px dark rail down the left. The rail spent a
+          quarter of a 1440 screen on a picture and eight rows of navigation;
+          the header holds the same navigation in 56px and hands the width to
+          the page. The picture is no longer in the app shell; it appears on
+          the home page and on the mobile launch splash.
 
-          Widened to 22rem (352px) on 2026-09-10, then to 24rem (384px) on
-          2026-09-15. 320 was the low end of the conventional range and the
-          hero image was the thing paying for it: inside p-5 it rendered at
-          264px. The rail is the only lever the picture has. It is square
-          and h-auto, so the column sets its width and the ratio sets its
-          height, and the alternative way to gain height is an aspect-ratio
-          box, which crops: measured at 9/10 it takes 51px off each side and
-          cuts the Arbitrum robot's arm and the clay logo sign. So the width
-          went up instead. None of the nav labels or the wallet card needed
-          reflowing at either step. */}
-      <aside className="w-[24rem] shrink-0 bg-[#0B101B] text-white border-r border-white/5 shadow-xl relative z-10">
-        {/* Sticky wrapper: this content stays visible near the top of the
-            viewport as you scroll through the taller main content, instead
-            of scrolling away and leaving blank space, while the aside's
-            own dark background still extends the full page height. */}
-        <div className="sticky top-0 max-h-screen overflow-y-auto">
-          <div className="p-5">
-            <div className="flex items-center gap-2.5 mb-6">
-              <a
-                href="https://f2f-uzh.vercel.app"
-                target="_blank"
-                rel="noopener noreferrer"
-                title="F2F Hub, all three projects in this portfolio"
-                className="w-16 h-16 block shrink-0"
-              >
-                <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
-              </a>
-              <h1 className="text-lg font-bold tracking-tight flex-1">Tnega</h1>
-              {/* A person's own things sit together: their jobs, their
-                  notifications, and the explanation of the place. My Agents
-                  used to be a row in the nav below, among the eight places to
-                  browse, which put "what I hired" in the same list as "what
-                  there is to hire". It is here now, next to the bell that
-                  tells them when one of those jobs moves. */}
-              <button
-                onClick={() => { dismissAgentDetail(); setNav('my-agents'); setHiring(false); onNavChange?.('my-agents'); }}
-                title="My Agents, the jobs you have hired"
-                aria-label="My Agents"
-                className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center transition-colors ${
-                  nav === 'my-agents'
-                    ? 'text-white bg-white/15'
-                    : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
-              >
-                <Briefcase size={16} />
-              </button>
-              <button
-                onClick={() => setShowOnboarding(true)}
-                title="How this works"
-                className="w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <HelpCircle size={16} />
-              </button>
-              <NotificationBell variant="dark" />
+          Sticky, on the surface colour with a hairline under it, so the page
+          scrolls beneath a solid bar in both themes. Everything inside is
+          capped at the same width and gutter as the content below, so the
+          wordmark lines up with the left edge of the first card. */}
+      <header className="sticky top-0 z-30 bg-surface border-b border-line">
+        <div className="max-w-[1440px] mx-auto h-14 px-6 xl:px-14 flex items-center gap-4">
+          <a
+            href="https://f2f-uzh.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="F2F Hub, all three projects in this portfolio"
+            className="w-8 h-8 block shrink-0"
+          >
+            <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
+          </a>
+          <span className="text-title font-bold tracking-tight shrink-0 -ml-2">Tnega</span>
+
+          {/* Primary navigation. The tabs that fit are shown; the rest are
+              in a More menu, and the current tab is always one of the shown
+              ones. See shell/HeaderNav.jsx for how the fit is measured. */}
+          <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} />
+
+          <div className="flex items-center gap-1 shrink-0">
+            {/* A person's own things sit together: their jobs, their
+                notifications, and the explanation of the place. */}
+            <button
+              type="button"
+              onClick={() => goTo('my-agents')}
+              title="My Agents, the jobs you have hired"
+              aria-label="My Agents"
+              aria-current={nav === 'my-agents' ? 'page' : undefined}
+              className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${
+                nav === 'my-agents' ? 'text-accent bg-accent-soft' : 'text-muted hover:text-fg hover:bg-inset'}`}
+            >
+              <Briefcase size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOnboarding(true)}
+              title="How this works"
+              aria-label="How this works"
+              className="w-8 h-8 rounded-md flex items-center justify-center text-muted hover:text-fg hover:bg-inset transition-colors"
+            >
+              <HelpCircle size={16} />
+            </button>
+            <NotificationBell />
+            <ThemeToggle className="ml-1" />
+            <div className="ml-2">
+              <HybridWalletConnect accent={accent} />
             </div>
-
-            {/* Rows are tightened to match: py-3 + space-y-1 spread eight
-                items over more vertical run than they need, which read as
-                gaps rather than grouping. py-2.5 + space-y-0.5 keeps the
-                row a comfortable 40px target while letting the group read
-                as one list. The active row also gains a hairline ring, so
-                which tab is current survives the smaller fill area. */}
-            <nav className="space-y-0.5">
-              {NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const active = nav === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      dismissAgentDetail();
-                      // Explore opens on its chain list. Without this, clicking
-                      // the tab you are already on did nothing visible, and the
-                      // chain list had no entry point at all once a chain was
-                      // picked.
-                      if (item.id === 'market') resetChainChoice();
-                      setNav(item.id); setHiring(false); onNavChange?.(item.id);
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-left transition-all duration-200 ${
-                      active
-                        ? 'bg-white/10 text-white ring-1 ring-white/10'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-white/5'
-                    }`}
-                  >
-                    <Icon size={17} className={`shrink-0 ${active ? 'text-indigo-400' : 'opacity-70'}`} />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Ecosystem view and Demo Walkthrough used to sit here, below a
-                divider, as two full-width labelled rows. They are now icons
-                in the SiteLinks row further down. Neither is a tab you work
-                in, and between them they took about 90px of sidebar height
-                to say so. That height is what lets the hero image sit
-                higher. */}
-          </div>
-
-          {/* Hero image, same role as OnChain Oversight's hand+device visual, enlarged */}
-          {/* agents.jpg is square, 1024x1024 (1:1) since it was replaced on
-              2026-09-15; it was a 1024x1536 portrait before that, and
-              941x1672 before that.
-
-              The box is 7/8, taller than the file, so object-cover trims the
-              picture's sides: at the rendered 375px width it stands 428px
-              instead of the 375px a square would, and 64px comes off each
-              edge of the 1024. That is deliberate and it is the only lever
-              left. The picture is square, so under h-auto the column sets
-              the width and the ratio sets the height, and the column had
-              already been widened twice (p-5 to px-1, then the rail from
-              22rem to 24rem) to buy 111px of height that way.
-
-              7/8 rather than anything taller because of where the artwork
-              sits in the frame, which was measured on the file rather than
-              guessed. The clay plaque's left edge is at x=35 and the blue
-              Arbitrum robot's right edge at x=960, so 64px a side trims the
-              plaque's border and the outer sweep of both arcs while leaving
-              the logo glyph and all seven robots whole. The next step up,
-              5/6, gains 22px and starts cutting the red robot's shoulder
-              and the caterpillar's tail. If this needs to be substantially
-              taller again, the answer is a portrait source file, not a
-              tighter box.
-
-              The sticky wrapper above is max-h-screen overflow-y-auto, so a
-              taller image scrolls rather than overflowing. Mobile keeps the
-              whole square: this is the sidebar block only, and the launch
-              splash in the mobile app still shows the file uncropped. */}
-          {/* Pulled up into the gap left by the rows that used to sit above
-              it. Five have gone now -- Ecosystem, the walkthrough, the
-              report, Learn and Skills -- so the nav list ends well short of
-              where it did, and without this there is a band of dead space
-              between the last tab and the picture that reads as a rendering
-              mistake rather than spacing. */}
-          <div className="px-1 mb-1 -mt-5">
-            <img src={agentsHero} alt="" className="w-full aspect-[7/8] object-cover rounded-xl border border-white/10" />
-          </div>
-
-          {/* WEB3 WALLET MANAGER card, matching the OnChain Oversight
-              pattern. HybridWalletConnect renders the whole card itself --
-              its own background, border, padding and "Your Wallet" heading
-              -- so this used to wrap a finished card inside a second,
-              near-identical one: two nested borders, two stacked p-4s, and
-              the words "Your Wallet" printed twice, one above the other.
-              That duplication was most of the height, not the contents. */}
-          <div className="p-5">
-            <HybridWalletConnect accent={accent} />
-
-            {/* The site footer. These were one line at the very bottom of
-                the page, under two footers, where they were easy to miss.
-
-                The theme toggle is handed in rather than rendered after,
-                which is where it used to be: its own row below the links,
-                aligned right against nothing. It belongs on the footer's
-                baseline with the social marks, and passing it in is what
-                lets SiteLinks put it there while the state stays here. */}
-            <SiteLinks
-              onOpenDocs={onOpenDocs}
-              onOpenEcosystem={onOpenEcosystem}
-              onOpenDataSources={onOpenDataSources}
-              routeLinks={SIDEBAR_FOOTER_ITEMS.map((item) => ({
-                key: item.id,
-                label: item.label,
-                active: nav === item.id,
-                onClick: () => {
-                  dismissAgentDetail();
-                  setNav(item.id);
-                  setHiring(false);
-                  onNavChange?.(item.id);
-                },
-              }))}
-              trailing={(
-                <button
-                  type="button"
-                  onClick={() => setDarkMode(!darkMode)}
-                  className="inline-flex items-center justify-center p-1 -m-1 rounded text-gray-400 hover:text-white transition-colors"
-                  aria-label={darkMode ? 'Switch to light theme' : 'Switch to dark theme'}
-                  title={darkMode ? 'Light theme' : 'Dark theme'}
-                >
-                  {darkMode ? <Sun size={14} /> : <Moon size={14} />}
-                </button>
-              )}
-              variant="dark"
-              className="mt-4"
-            />
           </div>
         </div>
-      </aside>
+      </header>
 
-      {/* Main Content Area */}
-      {/* A column that always fills the window, so the partner strip has a
-          bottom to sit at. Before this, main was exactly as tall as its
-          content, so the strip landed wherever the content ended: halfway up
-          the window on a short tab and far below the fold on a long one. main
-          has exactly two children, the capped content column and the strip, so
-          making it a flex column only moves those two. */}
-      <main className="flex-1 flex flex-col p-6 md:p-8 overflow-x-hidden text-gray-900 dark:text-gray-100 transition-colors duration-300">
-        {/* Was max-w-6xl (1152px). Measured at a 1599px viewport that left
-            56px each side, but the cap is what binds on a larger screen: at
-            1920px it was leaving ~224px of empty gutter either side of a
-            page that is mostly card grids, which is what looked sparse.
-            1400px keeps a cap rather than going full width, because some
-            tabs here are text rather than cards and an uncapped line length
-            reads badly, but it hands the grid most of the room back. */}
-        <div className="max-w-[1400px] mx-auto w-full flex-1">
+      {/* Main content. The same 1440 cap and gutters as the header: at a
+          1440 window that is a 1328px column, 56px either side. */}
+      <main className="flex-1 flex flex-col w-full max-w-[1440px] mx-auto px-6 xl:px-14 pt-6 pb-8 overflow-x-hidden">
+        <div className="w-full flex-1">
           
                     {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail
@@ -1210,7 +1071,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           )}
 
           {nav === 'market' && !hiring && !detailAgent && (
-            <ChainViewTabs mutedBorder="border-gray-200 dark:border-gray-800">
+            <ChainViewTabs mutedBorder="border-line">
               {/* The BNB Chain view below is the original marketplace,
                   unchanged. ChainViewTabs renders it as-is when the BNB tab
                   is active and swaps in a separate module for the others, so
@@ -1233,7 +1094,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     270px, leaving half of every card empty. A single card with
                     dividers removes two borders, two gaps and all of that dead
                     space, and reads as one block of figures, which is what it is. */}
-                <div className="flex-1 bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100 dark:divide-gray-800">
+                <div className="flex-1 bg-surface rounded-md border border-line grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-line">
                   <div className="px-4 py-3 flex items-center justify-center gap-3">
                     <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0"><Activity size={18} /></div>
                     <div>
@@ -1322,38 +1183,38 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               <div className="mb-3 flex flex-col gap-3">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-3">
                   <div>
-                    <h2 className="text-2xl font-bold tracking-tight mb-1.5 flex items-center gap-2">
+                    <h2 className="text-h1 font-bold mb-1.5 flex items-center gap-2">
                       Explore
                       {refreshing && <Loader2 size={16} className="animate-spin text-gray-400" />}
                     </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Browse AI agents, check them out, and hire one with a spending limit you control.</p>
+                    <p className="text-sm text-muted">Browse AI agents, check them out, and hire one with a spending limit you control.</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <select
                       value={sortState.key}
                       onChange={(e) => handleSortSelect(e.target.value)}
                       title="Buyer-funded, marked-delivered agents always rank first (see the badges info above). Within that, agents with a hire history come before those without, and the two groups stay separate"
-                      className="px-3 py-2.5 rounded-xl text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] dark:text-gray-300 outline-none"
+                      className="px-3 py-2.5 rounded-xl text-xs font-medium border border-line bg-surface dark:text-gray-300 outline-none"
                     >
                       <option value="totalScore">Sort: Top score</option>
                       <option value="hireCount">Sort: Most hired</option>
                       <option value="winRate">Sort: Highest success rate</option>
                     </select>
-                    <div className="flex bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 rounded-xl p-1">
+                    <div className="flex bg-surface border border-line rounded-xl p-1">
                       <button onClick={() => setMarketView('grid')} className={`p-2 rounded-lg transition-all ${marketView === 'grid' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><LayoutGrid size={16} /></button>
                       <button onClick={() => setMarketView('table')} className={`p-2 rounded-lg transition-all ${marketView === 'table' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400' : 'text-gray-500'}`}><Table2 size={16} /></button>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex items-center gap-2 flex-wrap pt-3 border-t border-line">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-1 shrink-0">Filters</span>
                   <button
                     onClick={() => setOnlyVerified((v) => !v)}
                     className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyVerified
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
-                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        : 'border-line hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                     title={VERIFIED_MEANING}
                   >
@@ -1364,13 +1225,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyResponding
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
-                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        : 'border-line hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                     title="Only show agents that responded just now"
                   >
                     {onlyResponding ? '✓ ' : ''}Only show online agents
                   </button>
-                  <button onClick={() => setShowUnclassified((v) => !v)} className="px-3.5 py-2 rounded-xl text-[11px] font-medium border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <button onClick={() => setShowUnclassified((v) => !v)} className="px-3.5 py-2 rounded-xl text-[11px] font-medium border border-line hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                     {showUnclassified ? 'Hide' : 'Show'} unclassified
                   </button>
                 </div>
@@ -1400,10 +1261,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     placeholder="Search by name, or paste an agent id / wallet / contract address…"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-line bg-surface text-sm outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
-                <button type="button" onClick={() => setShowManualHire((v) => !v)} className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                <button type="button" onClick={() => setShowManualHire((v) => !v)} className="shrink-0 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold border border-line bg-surface text-muted hover:border-indigo-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                   <Search size={12} />{showManualHire ? 'Hide this' : 'Hire by ID'}
                 </button>
               </div>
@@ -1415,7 +1276,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  default order, never silently mixed in among track
                   records. */}
               {PERFORMANCE_SORT_KEYS.has(sortState.key) && (
-                <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                <div className="mb-4 flex items-start gap-2 text-[11px] text-muted p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-line">
                   <Activity size={13} className="shrink-0 mt-0.5 text-indigo-500" />
                   <span>
  Ranked by on-chain hire history{sortState.key === 'hireCount' ? ", total completed/in-progress jobs, most first" : ", completed-or-delivered vs. rejected/expired jobs, highest rate first"}.
@@ -1438,7 +1299,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       value={manualAddress}
                       onChange={(e) => setManualAddress(e.target.value.trim())}
                       placeholder="0x… the agent owner's wallet ID"
-                      className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-line bg-surface text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <button
                       type="button"
@@ -1479,11 +1340,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               {categoryView === 'defi' && (
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => setActiveHackathon('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                    activeHackathon === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                    activeHackathon === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-surface dark:text-gray-300 dark:border-gray-700'
                   }`}>All four</button>
                   {HACKATHON_CATEGORIES.map((h) => (
                     <button key={h.id} onClick={() => setActiveHackathon(h.id)} title={`Includes: ${h.categories.join(', ')}`} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                      activeHackathon === h.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                      activeHackathon === h.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-surface dark:text-gray-300 dark:border-gray-700'
                     }`}>{h.label} ({confirmedFresh ? (hackathonCounts[h.id] || 0) : '…'})</button>
                   ))}
                 </div>
@@ -1491,7 +1352,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
               <div className={`flex flex-wrap gap-2 ${categoryView === 'defi' ? 'hidden' : ''}`}>
                 <button onClick={() => setActiveGroup('All')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                  activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                  activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-surface dark:text-gray-300 dark:border-gray-700'
                 }`}>All</button>
  {/* fix (2026-08-27): same confirmedFresh gate as the
                     header stats, these counts come from the same `agents`
@@ -1502,20 +1363,20 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     number that might be wrong. */}
                 {CATEGORY_GROUPS.map((g) => (
                   <button key={g.id} onClick={() => setActiveGroup(g.id)} title={g.categories.join(', ')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                    activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                    activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-surface dark:text-gray-300 dark:border-gray-700'
                   }`}>{g.label} ({confirmedFresh ? (groupCounts[g.id] || 0) : '…'})</button>
                 ))}
                 <button onClick={() => setActiveGroup('Unclassified')} title="Agents whose description didn't clearly match a known category" className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${
-                  activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-300 dark:border-gray-700'
+                  activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-surface dark:text-gray-300 dark:border-gray-700'
                 }`}>Unclassified ({confirmedFresh ? (groupCounts.Unclassified || 0) : '…'})</button>
               </div>
               </div>
 
               {categoryView !== 'defi' && activeGroupCategories.length > 0 && (
-                <div className="mb-8 flex flex-wrap gap-2 pl-2 border-l-2 border-gray-200 dark:border-gray-800">
+                <div className="mb-8 flex flex-wrap gap-2 pl-2 border-l-2 border-line">
                   {activeGroupCategories.map((cat) => (
                     <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${
-                      activeCategory === cat ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300 dark:bg-[#1E293B] dark:text-gray-400 dark:border-gray-700'
+                      activeCategory === cat ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-500 border border-gray-200 hover:border-gray-300 dark:bg-surface dark:text-gray-400 dark:border-gray-700'
                     }`}>{cat}</button>
                   ))}
                 </div>
@@ -1543,7 +1404,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               {!loading && !error && filteredTotal === 0 && !searchQuery && (
                 <div className="text-center py-16 px-6">
                   <p className="font-semibold mb-1">No agents match these filters</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-sm text-muted mb-4">
                     Try widening them, "Only marked delivered" in particular matches only a small share of agents.
                   </p>
                   <button
@@ -1562,7 +1423,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     agentsWithPerf={agentsWithPerf}
                     onOpenAgent={(agent) => openAgentDetail(agent, agentPath(agent))}
                     accent={accent}
-                    mutedBorder="border-gray-200 dark:border-gray-800"
+                    mutedBorder="border-line"
                     darkMode={darkMode}
  // Real, plain fallback for anything that doesn't look
                     // like an id/address at all (an ordinary mistyped
@@ -1592,10 +1453,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               )}
 
               {!loading && !error && marketView === 'table' && (
-                <div className="bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+                <div className="bg-surface rounded-md border border-line overflow-hidden">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
+                      <tr className="bg-gray-50/50 dark:bg-gray-800/30 border-b border-line">
                         <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Agent</th>
                         <th className="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider" title="Which blockchain network this agent runs on">Network</th>
                         <th className="p-4"><SortHeader label="Score" hint="How trustworthy this agent looks, based on past feedback: higher is better" sortKey="totalScore" sortState={sortState} onSort={handleSort} /></th>
@@ -1605,7 +1466,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           <button
                             onClick={() => handleSortSelect('hireCount')}
                             title="ERC-8183 hire history for this agent, click to rank by most hired"
-                            className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-semibold transition-colors ${PERFORMANCE_SORT_KEYS.has(sortState.key) ? 'text-gray-900 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                            className={`flex items-center gap-1 text-[11px] uppercase tracking-wider font-semibold transition-colors ${PERFORMANCE_SORT_KEYS.has(sortState.key) ? 'text-fg' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
                           >
                             <ArrowUpDown size={12} className={PERFORMANCE_SORT_KEYS.has(sortState.key) ? 'opacity-100' : 'opacity-40'} />
                             Track record
@@ -1637,7 +1498,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           </td>
                           <td className="p-4"><span className="text-[10px] px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200/50 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 font-medium tracking-wide">{CHAIN_LABELS[agent.chainId] || agent.network}</span></td>
                           <td className="p-4 text-sm font-semibold">{agent.totalScore != null ? agent.totalScore.toFixed(1) : 'n/a'}</td>
-                          <td className="p-4 text-sm text-gray-600 dark:text-gray-400">{agent.starCount ?? 'n/a'}</td>
+                          <td className="p-4 text-sm text-muted">{agent.starCount ?? 'n/a'}</td>
                           <td className="p-4">
                             <div className="flex flex-col gap-1 items-start">
                               <ServiceHealthBadge status={agent.serviceStatus} checkedAt={agent.serviceCheckedAt} />
@@ -1674,7 +1535,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           className={`col-span-full ${i === 0 ? '' : 'mt-2'}`}
                         />
                       )}
-                    <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
+                    <div className="bg-surface rounded-md border border-line hover:shadow-md transition-shadow flex flex-col overflow-hidden">
                       <div className="p-6 flex-1 cursor-pointer" onClick={() => openAgentDetail(agent, agentPath(agent))}>
                         <div className="flex justify-between items-start mb-5">
                           <div className="flex items-center gap-3">
@@ -1695,23 +1556,23 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         </div>
 
 
-                        <div className="grid grid-cols-3 gap-2 p-3 mb-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800/50">
-                          <div className="text-center" title="How trustworthy this agent looks, based on past feedback"><span className="block text-[10px] text-gray-500 uppercase mb-1">Score</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.totalScore != null ? agent.totalScore.toFixed(1) : 'n/a'}</span></div>
-                          <div className="text-center border-l border-gray-200 dark:border-gray-700" title="How many people rated this agent"><span className="block text-[10px] text-gray-500 uppercase mb-1">Stars</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.starCount ?? 'n/a'}</span></div>
-                          <div className="text-center border-l border-gray-200 dark:border-gray-700" title="Total money this agent currently manages for people"><span className="block text-[10px] text-gray-500 uppercase mb-1">Funds</span><span className="font-bold text-sm text-gray-900 dark:text-white">{agent.financialDataAvailable ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : <span className="text-gray-400 font-normal">-</span>}</span></div>
+                        <div className="grid grid-cols-3 gap-2 p-3 mb-5 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-line/50">
+                          <div className="text-center" title="How trustworthy this agent looks, based on past feedback"><span className="block text-[10px] text-gray-500 uppercase mb-1">Score</span><span className="font-bold text-sm text-fg">{agent.totalScore != null ? agent.totalScore.toFixed(1) : 'n/a'}</span></div>
+                          <div className="text-center border-l border-line" title="How many people rated this agent"><span className="block text-[10px] text-gray-500 uppercase mb-1">Stars</span><span className="font-bold text-sm text-fg">{agent.starCount ?? 'n/a'}</span></div>
+                          <div className="text-center border-l border-line" title="Total money this agent currently manages for people"><span className="block text-[10px] text-gray-500 uppercase mb-1">Funds</span><span className="font-bold text-sm text-fg">{agent.financialDataAvailable ? `$${(agent.tvlUsd / 1e6).toFixed(1)}M` : <span className="text-gray-400 font-normal">-</span>}</span></div>
                         </div>
 
  {/* on-chain hire track record, same data the
                             "Most hired"/"Highest success rate" sort ranks
                             by, shown plainly here so it's visible
                             regardless of which sort is active. */}
-                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={perfIndexComplete ? "ERC-8183 job history for this agent: the complete on-chain history, not a recent-only window" : "ERC-8183 job history for this agent: a one-time backfill of the complete history is still catching up"}>
+                        <div className="mb-4 text-[11px] text-muted" title={perfIndexComplete ? "ERC-8183 job history for this agent: the complete on-chain history, not a recent-only window" : "ERC-8183 job history for this agent: a one-time backfill of the complete history is still catching up"}>
                           {agentHasRealHistory(agent, 'hireCount')
                             ? <>{agent.hireCount} {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
                             : <span className="text-gray-400 dark:text-gray-500">No hires yet</span>}
                         </div>
 
-                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">{agent.strategy}</p>
+                        <p className="text-sm text-muted leading-relaxed line-clamp-3">{agent.strategy}</p>
                         {/* How someone actually uses this agent, from the
                             same component the chain views use so the sentence
                             cannot differ between them. */}
@@ -1723,7 +1584,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         <BudgetRecord agent={agent} compact className="mt-1" />
                       </div>
                       
-                      <div className="p-5 bg-gray-50 dark:bg-gray-800/30 border-t border-gray-100 dark:border-gray-800">
+                      <div className="p-5 bg-gray-50 dark:bg-gray-800/30 border-t border-line">
                         {agent.session ? (
                           <div>
                             <div className="flex justify-between items-center mb-3 text-xs">
@@ -1741,7 +1602,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                                 down. A utilisation bar describes a budget,
                                 not a job. What is known is the amount on
                                 hold and the state, so that is what it says. */}
-                            <div className="mb-4 flex justify-between text-[11px] text-gray-600 dark:text-gray-400">
+                            <div className="mb-4 flex justify-between text-[11px] text-muted">
                               <span>On hold until this agent delivers</span>
                               <span className="font-medium tabular-nums">${agent.session.spendCap}</span>
                             </div>
@@ -1776,12 +1637,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   markup below is unchanged, only hidden while budget mode
                   is active, so selecting escrow runs exactly the code that
                   ran before budget mode existed. */}
-              <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 md:p-8 border border-gray-200 dark:border-gray-800 shadow-xl mb-6">
+              <div className="bg-surface rounded-md p-6 md:p-8 border border-line shadow-xl mb-6">
                 <div className="flex items-center gap-4 mb-6">
                   <AgentAvatar agent={selectedAgent} size={56} />
                   <div>
-                    <h2 className="text-2xl font-bold">Hire {selectedAgent.name}</h2>
-                    <p className="text-gray-500 text-sm mt-1">Approve each step yourself, in your wallet.</p>
+                    <h2 className="text-h1 font-bold">Hire {selectedAgent.name}</h2>
+                    <p className="text-muted text-sm mt-1">Approve each step yourself, in your wallet.</p>
                   </div>
                 </div>
                 <HireModePicker
@@ -1795,12 +1656,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               </div>
 
               <div className={hireMode === HIRE_MODE.BUDGET ? 'hidden' : ''}>
-              <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 md:p-10 border border-gray-200 dark:border-gray-800 shadow-xl mb-6">
+              <div className="bg-surface rounded-md p-8 md:p-10 border border-line shadow-xl mb-6">
                 <div className="flex items-center gap-4 mb-8">
                   <AgentAvatar agent={selectedAgent} size={56} />
                   <div>
-                    <h2 className="text-2xl font-bold">Hire {selectedAgent.name}</h2>
-                    <p className="text-gray-500 text-sm mt-1">Approve each step yourself, in your wallet.</p>
+                    <h2 className="text-h1 font-bold">Hire {selectedAgent.name}</h2>
+                    <p className="text-muted text-sm mt-1">Approve each step yourself, in your wallet.</p>
                   </div>
                 </div>
 
@@ -1824,7 +1685,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     same hire, so they live in one bordered section with
                     consistent visual treatment, not two disconnected
                     floating inputs. */}
-                <div className="mb-6 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/[0.02] space-y-6">
+                <div className="mb-6 p-5 rounded-2xl border border-line bg-gray-50/50 dark:bg-white/[0.02] space-y-6">
                   <div>
                     <label className="flex items-center gap-2 text-sm font-semibold mb-3"><Sliders size={16} className="text-gray-400" /> How much are you funding this job for? <span className="font-normal text-gray-400" title="$U is a type of digital dollar, 1 $U is worth about $1. It's what you pay agents with here.">($U, worth about $1 each)</span></label>
 
@@ -1852,7 +1713,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       </div>
                     )}
 
-                    <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
+                    <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-line bg-inset text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50" />
                     <div className="mt-1.5"><GetULink /></div>
                   </div>
 
@@ -1872,7 +1733,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                           type="button"
                           onClick={() => setDeadlineMinutes(p.minutes)}
                           disabled={hireStep && !hireError}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${Number(deadlineMinutes) === p.minutes ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-300'}`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${Number(deadlineMinutes) === p.minutes ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' : 'border-line text-muted hover:border-indigo-300'}`}
                         >
                           {p.label}
                         </button>
@@ -1881,7 +1742,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     <input
                       type="number" value={deadlineMinutes} disabled={hireStep && !hireError}
                       onChange={(e) => setDeadlineMinutes(e.target.value)}
-                      className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
+                      className="w-full p-4 rounded-xl border border-line bg-inset text-lg font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
                     />
                     <p className="text-[11px] text-gray-400 mt-1.5">
                       {deadlineError
@@ -1907,7 +1768,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                         disabled={hireStep && !hireError}
                         placeholder={`Hire via Tnega: ${selectedAgent.name}`}
                         rows={4}
-                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
+                        className="w-full p-3 rounded-xl border border-line bg-inset text-xs font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-all disabled:opacity-50"
                       />
                       <p className="text-[11px] text-gray-400 mt-1">Only for advanced users. This replaces the automatic description above with your own text, permanently recorded. Leave it blank unless you have a specific reason to use this.</p>
                     </div>
@@ -1921,7 +1782,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     doesn't support it). Disabled once a hire is actively
                     running, same as every other pre-hire control. */}
                 {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.supported && (
-                  <div className="mb-4 flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                  <div className="mb-4 flex items-center justify-between gap-3 p-3 rounded-xl border border-line bg-inset">
                     <div>
                       <div className="text-xs font-semibold">{signOnceForAllSteps ? 'Sign once for all steps' : 'Sign each step individually'}</div>
                       <div className="text-[11px] text-gray-400 mt-0.5">
@@ -1956,14 +1817,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                     the flow has started; the batched builder is used only for
  a run that started in batched mode. */}
                 {hireStep && (
-                  <div className="mb-6 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                  <div className="mb-6 p-5 rounded-xl border border-line bg-inset">
                     <StepChecklist steps={(activeHireMode === 'batched' ? buildBatchHireStepList : buildHireStepList)({
                       step: hireStep, completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps,
                       stepHashes: hireStepHashes, error: hireError, budgetUnits: spendCap,
                       notifySkipReason: hireNotifySkipReason,
                     })} />
                     {hireStep === 'done' && (
-                      <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-line">
                         <CheckCircle2 size={16} /> Done! Your payment is on hold and this agent has been notified to start work.
                       </div>
                     )}
@@ -1983,9 +1844,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               found afterward. See MyJobsPanel.jsx for the backing. */}
           {nav === 'my-agents' && (
             <div className="w-full">
-              <h2 className="text-3xl font-bold tracking-tight mb-2">My Agents</h2>
-              <p className="text-gray-500 mb-8">Every agent you've hired through here, and where things stand right now.</p>
-              <MyJobsPanel accent={accent} mutedBorder="border-gray-200 dark:border-gray-800" />
+              <h2 className="text-h1 font-bold mb-2">My Agents</h2>
+              <p className="text-muted mb-8">Every agent you've hired through here, and where things stand right now.</p>
+              <MyJobsPanel accent={accent} mutedBorder="border-line" />
             </div>
           )}
 
@@ -1998,8 +1859,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               between tabs does not move the text. */}
           {nav === 'report' && (
             <div className="w-full">
-              <h2 className="text-3xl font-bold tracking-tight mb-2">Advantage Report</h2>
-              <p className="text-gray-500 mb-8">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
+              <h2 className="text-h1 font-bold mb-2">Advantage Report</h2>
+              <p className="text-muted mb-8">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
               <AdvantageReport />
             </div>
           )}
@@ -2017,20 +1878,20 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           {/* Learn Tab */}
           {nav === 'learn' && (
             <div className="w-full">
-              <h2 className="text-3xl font-bold tracking-tight mb-2">Learn</h2>
-              <p className="text-gray-500 mb-6">What each agent does, and what authority you're granting when you hire one.</p>
+              <h2 className="text-h1 font-bold mb-2">Learn</h2>
+              <p className="text-muted mb-6">What each agent does, and what authority you're granting when you hire one.</p>
 
               <div className="space-y-6">
                 {LEARN_TOPICS.map((topic, i) => (
                   topic.custom ? (
                     <topic.custom key={i} />
                   ) : (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-                    <div className="px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
+                  <div key={i} className="bg-surface rounded-md border border-line overflow-hidden">
+                    <div className="px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-line">
                       <h3 className="font-bold text-lg">{topic.title}</h3>
                       {topic.src && <a href={topic.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline">Source: {topic.src.label} →</a>}
                     </div>
-                    <div className="divide-y divide-gray-100 dark:divide-gray-800/50">
+                    <div className="divide-y divide-line/50">
                       {topic.body.map((item, j) => (
                         <div key={j} className="p-8 flex gap-4">
                           <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -2045,7 +1906,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                             <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{item.plain || item.p}</p>
                             {item.plain && <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {item.p}</p>}
                             {item.Diagram && (
-                              <div className="mt-3 p-4 rounded-2xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                              <div className="mt-3 p-4 rounded-2xl bg-gray-50 dark:bg-gray-900/40 border border-line">
                                 <item.Diagram />
                               </div>
                             )}
@@ -2069,12 +1930,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             <div className="w-full">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Zap size={24} /></div>
-                <h2 className="text-3xl font-bold tracking-tight">Skills</h2>
+                <h2 className="text-h1 font-bold">Skills</h2>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-2">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
+              <p className="text-muted mb-2">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
               <p className="text-xs text-gray-400 mb-10">Different from hiring an agent from Explore: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
 
-              <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
+              <AltanaSkillsPanel accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
             </div>
           )}
 
@@ -2083,12 +1944,12 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             <div className="w-full">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Bot size={24} /></div>
-                <h2 className="text-3xl font-bold tracking-tight">Native Agent Marketplace</h2>
+                <h2 className="text-h1 font-bold">Native Agent Marketplace</h2>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-2">Tnega's own designed agents: autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
+              <p className="text-muted mb-2">Tnega's own designed agents: autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
               <p className="text-xs text-gray-400 mb-10">Each agent evaluates candidate protocols itself (liquidity/risk first, yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
 
-              <NativeAgentMarketplace accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} />
+              <NativeAgentMarketplace accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} />
             </div>
           )}
 
@@ -2096,15 +1957,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             <div className="w-full">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400"><Sparkles size={24} /></div>
-                <h2 className="text-3xl font-bold tracking-tight">Build Your Agent</h2>
+                <h2 className="text-h1 font-bold">Build Your Agent</h2>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 mb-2">No coding required. If you can describe what you want in a sentence, you can build this.</p>
+              <p className="text-muted mb-2">No coding required. If you can describe what you want in a sentence, you can build this.</p>
               <p className="text-xs text-gray-400 mb-1">Built on BNB Agent Studio (bnbagent-studio) and the ERC-8004/ERC-8183 standards.</p>
               <a href="https://docs.bnbchain.org/developer-kit" target="_blank" rel="noreferrer" className="text-xs text-indigo-500 underline mb-10 inline-block">Source: docs.bnbchain.org/developer-kit →</a>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 {BUILD_STEPS.map((step, i) => (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] p-8 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm">
+                  <div key={i} className="bg-surface p-8 rounded-md border border-line">
                     <h3 className="font-bold mb-3">{step.title}</h3>
                     {/* Copy audit (2026-08-23): the beginner-friendly explanation
                         now leads and reads at full size, it used to be the
@@ -2128,7 +1989,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                   placeholder='e.g. "an agent that sells 3-day weather forecasts"'
                   rows={2}
                   disabled={buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error'}
-                  className="w-full p-4 rounded-2xl border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-[#0F172A] text-sm mb-4 outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  className="w-full p-4 rounded-2xl border border-indigo-200 dark:border-indigo-500/30 bg-field text-sm mb-4 outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                 />
                 <div className="flex flex-wrap gap-3">
                   <button
@@ -2148,7 +2009,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 </div>
 
                 {buildStatus && (
-                  <div className="mt-6 p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-indigo-100 dark:border-indigo-500/30">
+                  <div className="mt-6 p-5 rounded-2xl bg-field border border-indigo-100 dark:border-indigo-500/30">
                     <div className="flex items-center gap-2 mb-2">
                       {buildStatus.step !== 'done' && buildStatus.step !== 'error' && <Loader2 size={16} className="animate-spin text-indigo-500" />}
                       {buildStatus.step === 'done' && <CheckCircle2 size={16} className="text-green-500" />}
@@ -2163,7 +2024,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                       </span>
                     </div>
                     {buildStatus.step === 'done' && buildStatus.address && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Wallet: <span className="font-mono">{buildStatus.address}</span>, a temporary practice wallet made just for this trial. It can't hold or lose any money.</p>
+                      <p className="text-xs text-muted mt-2">Wallet: <span className="font-mono">{buildStatus.address}</span>, a temporary practice wallet made just for this trial. It can't hold or lose any money.</p>
                     )}
                     {buildStatus.step === 'error' && (
                       <p className="text-xs text-red-500 mt-2 font-mono whitespace-pre-wrap">{buildStatus.error}</p>
@@ -2172,7 +2033,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 )}
 
                 {showBuildCommand && buildDescription.trim() && (
-                  <div className="mt-6 font-mono text-xs p-5 rounded-2xl bg-white dark:bg-[#0F172A] border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  <div className="mt-6 font-mono text-xs p-5 rounded-2xl bg-field border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
 {`# Or run this yourself, in your own terminal (Claude Code or Cursor):
 
 pip install bnbagent-studio
@@ -2190,9 +2051,9 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
               <h3 className="text-xl font-bold mb-6">Questions a total beginner would ask</h3>
               <div className="space-y-4 mb-10">
                 {KID_FRIENDLY_FAQ.map((item, i) => (
-                  <div key={i} className="bg-white dark:bg-[#1E293B] p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
+                  <div key={i} className="bg-surface p-6 rounded-md border border-line">
                     <div className="font-bold text-sm mb-2">{item.q}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{item.a}</div>
+                    <div className="text-sm text-muted">{item.a}</div>
                     {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-2 inline-block">Source: {item.src.label} →</a>}
                   </div>
                 ))}
@@ -2202,11 +2063,21 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
 
         </div>
 
-        {/* Replaces the old partner footer. It sits INSIDE main, at the end
-            of the content column. The page's outer div is `flex`, so a
-            sibling of main becomes a second flex column: at width 100% it
-            takes the whole row and pushes the sidebar and content out of
-            view, which blanked the page. */}
+        {/* The site footer: secondary pages, legal, sources, the social
+            marks. It used to sit in the rail under the wallet card. It is
+            inside main so it shares the content column's width. */}
+        <SiteLinks
+          onOpenDocs={onOpenDocs}
+          onOpenEcosystem={onOpenEcosystem}
+          onOpenDataSources={onOpenDataSources}
+          routeLinks={SIDEBAR_FOOTER_ITEMS.map((item) => ({
+            key: item.id,
+            label: item.label,
+            active: nav === item.id,
+            onClick: () => goTo(item.id),
+          }))}
+          className="mt-10"
+        />
         <PartnerMarquee />
       </main>
     </div>

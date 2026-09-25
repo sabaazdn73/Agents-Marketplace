@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { RainbowKitProvider, lightTheme, darkTheme } from '@rainbow-me/rainbowkit';
 import { PrivyProvider } from '@privy-io/react-auth';
 import { bsc, arbitrum, robinhood } from 'wagmi/chains';
 import '@rainbow-me/rainbowkit/styles.css';
@@ -10,6 +10,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { installApiRetry } from './apiRetry';
 import { wagmiConfig } from './wagmiConfig';
 import App from './App';
+import { ThemeProvider, useTheme } from './theme/ThemeProvider';
 import './index.css';
 
 // Installed before anything renders, so every backend call in the app is
@@ -19,8 +20,21 @@ installApiRetry(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
 
 const queryClient = new QueryClient();
 
+// The wallet modal follows the site theme. Its accent is the --accent role,
+// written out because RainbowKit takes a colour string, not a CSS variable.
+function ThemedRainbowKit({ children }) {
+  const { dark } = useTheme();
+  const theme = dark
+    ? darkTheme({ accentColor: 'rgb(150, 160, 252)', accentColorForeground: 'rgb(12, 5, 30)', borderRadius: 'small' })
+    : lightTheme({ accentColor: 'rgb(79, 70, 229)', accentColorForeground: 'white', borderRadius: 'small' });
+  return <RainbowKitProvider theme={theme}>{children}</RainbowKitProvider>;
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    {/* Outermost, so every provider and page below it, including the
+        wallet modal and the standalone routes, reads one theme. */}
+    <ThemeProvider>
     {/* Two independent providers for the hybrid wallet flow:
         - PrivyProvider: Face ID / email login, creates an embedded wallet
         - WagmiProvider + RainbowKitProvider: direct wallet-connect for
@@ -56,11 +70,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     >
       <WagmiProvider config={wagmiConfig} reconnectOnMount={false}>
         <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider>
+          <ThemedRainbowKit>
             <App />
-          </RainbowKitProvider>
+          </ThemedRainbowKit>
         </QueryClientProvider>
       </WagmiProvider>
     </PrivyProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );

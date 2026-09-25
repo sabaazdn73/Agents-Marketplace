@@ -8,7 +8,8 @@
 // with "cache_age_seconds", never presented as an average or a claim
 // about the past).
 import React, { useEffect, useState, useCallback } from 'react';
-import { ArrowLeft, CheckCircle2, XCircle, RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
+import StandaloneBar from './shell/StandaloneBar';
+import { CheckCircle2, XCircle, RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -49,20 +50,18 @@ export default function StatusPage({ onBack }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-white">
+    <div className="min-h-screen bg-page text-fg">
       <div className="max-w-[1400px] mx-auto px-6 py-10">
-        <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors mb-8">
-          <ArrowLeft size={16} /> Back to Explore
-        </button>
+        <StandaloneBar onBack={onBack} />
 
         <h1 className="text-2xl font-bold mb-1">System status</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+        <p className="text-sm text-muted mb-8">
  Real, live checks against every external service this project depends on, not a claimed
           uptime history, just whether each one answers right now.
         </p>
 
         {loading && !data && (
-          <div className="flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Checking connectivity…</div>
+          <div className="flex items-center gap-2 text-sm text-muted"><Loader2 size={16} className="animate-spin" /> Checking connectivity…</div>
         )}
         {error && (
           <div className="text-sm text-red-600 dark:text-red-400">Couldn't reach the status endpoint ({error}).</div>
@@ -71,7 +70,7 @@ export default function StatusPage({ onBack }) {
         {data && (
           <>
             <div className={`flex items-center gap-2 mb-6 px-4 py-3 rounded-2xl text-sm font-semibold ${
-              allOk ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
+ allOk ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400'
                     : 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
             }`}>
               {allOk ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
@@ -88,8 +87,8 @@ export default function StatusPage({ onBack }) {
                 left to guess from a red row above. */}
             {discovery && (
               <div className={`mt-4 rounded-2xl border p-4 ${
-                discovery.ok
-                  ? 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B]'
+ discovery.ok
+ ? 'border-line bg-surface'
                   : 'border-amber-500/30 bg-amber-500/5'
               }`}>
                 <div className="flex items-start gap-2.5">
@@ -98,28 +97,28 @@ export default function StatusPage({ onBack }) {
                     : <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />}
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold mb-1">New-agent discovery</div>
-                    <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                    <p className="text-[12px] text-muted leading-relaxed">
                       {discovery.detail}
                     </p>
 
                     {discovery.last_success_at ? (
-                      <p className="text-[11px] text-gray-500 mt-1.5">
+                      <p className="text-[11px] text-muted mt-1.5">
                         Last successful ingestion {ago(discovery.last_success_at)}.
                       </p>
                     ) : (
-                      <p className="text-[11px] text-gray-500 mt-1.5">
+                      <p className="text-[11px] text-muted mt-1.5">
                         No successful ingestion recorded since this was first tracked.
                       </p>
                     )}
 
                     {!discovery.ok && discovery.unaffected?.length > 0 && (
                       <div className="mt-3">
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted mb-1">
                           Still working normally
                         </div>
                         <ul className="space-y-0.5">
                           {discovery.unaffected.map((u) => (
-                            <li key={u} className="text-[11px] text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                            <li key={u} className="text-[11px] text-muted flex items-start gap-1.5">
                               <CheckCircle2 size={11} className="text-emerald-500 shrink-0 mt-[3px]" />
                               <span>{u}</span>
                             </li>
@@ -130,7 +129,7 @@ export default function StatusPage({ onBack }) {
 
                     {discovery.sources?.length > 0 && (
                       <details className="mt-3">
-                        <summary className="text-[11px] text-gray-500 cursor-pointer hover:text-gray-700 dark:hover:text-gray-300">
+                        <summary className="text-[11px] text-muted cursor-pointer hover:text-fg ">
                           Per-source detail ({discovery.sources.filter((s) => !s.ok).length} of {discovery.sources.length} failing)
                         </summary>
                         <div className="mt-2 space-y-1.5">
@@ -147,10 +146,10 @@ export default function StatusPage({ onBack }) {
                                     against 263,704 actually held, because that
                                     field accumulates across re-scans. */}
                                 {s.agents_reported_by_source != null && (
-                                  <span className="text-gray-400" title="How many agents the upstream registry reports for this source. Not how many rows we hold."> · {s.agents_reported_by_source.toLocaleString()} at source</span>
+                                  <span className="text-muted" title="How many agents the upstream registry reports for this source. Not how many rows we hold."> · {s.agents_reported_by_source.toLocaleString()} at source</span>
                                 )}
                                 {s.last_error && (
-                                  <div className="text-gray-500 break-words">{s.last_error}</div>
+                                  <div className="text-muted break-words">{s.last_error}</div>
                                 )}
                               </div>
                             </div>
@@ -163,7 +162,7 @@ export default function StatusPage({ onBack }) {
               </div>
             )}
 
-            <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 overflow-hidden">
+            <div className="bg-surface rounded-3xl border border-line divide-y divide-line overflow-hidden">
               {services.map((s) => (
                 <div key={s.name} className="flex items-center justify-between px-5 py-4">
                   <div className="flex items-center gap-3">
@@ -172,19 +171,19 @@ export default function StatusPage({ onBack }) {
                       : <XCircle size={18} className="text-red-500 shrink-0" />}
                     <div>
                       <div className="text-sm font-semibold">{s.name}</div>
-                      <div className="text-[11px] text-gray-500 dark:text-gray-400">{s.detail}</div>
+                      <div className="text-[11px] text-muted">{s.detail}</div>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className={`text-xs font-mono ${s.ok ? 'text-gray-600 dark:text-gray-300' : 'text-red-500'}`}>{s.response_ms}ms</div>
+                    <div className={`text-xs font-mono ${s.ok ? 'text-muted' : 'text-red-500'}`}>{s.response_ms}ms</div>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="flex items-center justify-between mt-4 text-[11px] text-gray-400">
+            <div className="flex items-center justify-between mt-4 text-[11px] text-muted">
               <span>Checked {data.cache_age_seconds === 0 ? 'just now' : `${data.cache_age_seconds}s ago`} (cached up to 30s to protect rate-limited keys)</span>
-              <button onClick={reload} disabled={loading} className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-40">
+              <button onClick={reload} disabled={loading} className="flex items-center gap-1 hover:text-fg disabled:opacity-40">
                 <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
               </button>
             </div>

@@ -82,22 +82,22 @@ function bandCopy(k = {}) {
     quoting: {
       label: 'Quoting',
       blurb: `Under ${quotingMax} refused. Their orders reach the book.`,
-      tone: 'text-emerald-700 dark:text-emerald-400 border-emerald-500/25 bg-emerald-500/5',
+      tone: 'text-pos border-pos/25 bg-pos/5',
     },
     mixed: {
       label: 'Mixed',
       blurb: `Between ${quotingMax} and ${mixedMax} refused.`,
-      tone: 'text-amber-700 dark:text-amber-400 border-amber-500/25 bg-amber-500/5',
+      tone: 'text-warn border-warn/25 bg-warn/5',
     },
     spraying: {
       label: 'Spraying',
       blurb: `Over ${mixedMax} refused. Most of what they send never rests.`,
-      tone: 'text-rose-700 dark:text-rose-400 border-rose-500/25 bg-rose-500/5',
+      tone: 'text-neg border-neg/25 bg-neg/5',
     },
     unknown: {
       label: 'Not enough yet',
       blurb: `Fewer than ${minPolls} polls so far, so no rate is shown.`,
-      tone: 'text-gray-600 dark:text-gray-400 border-gray-300/40 dark:border-gray-700 bg-gray-500/5',
+      tone: 'text-muted border-line bg-inset',
     },
   };
 }
@@ -216,7 +216,7 @@ function definitions() {
 function MarketBreakdown({ cross, constants = {} }) {
   if (!cross || !(cross.markets || []).length) {
     return (
-      <p className="text-[11px] text-gray-500 dark:text-gray-500">
+      <p className="text-[11px] text-muted ">
         No per-market counts stored for this address.
       </p>
     );
@@ -226,7 +226,7 @@ function MarketBreakdown({ cross, constants = {} }) {
     : 0;
   return (
     <div>
-      <p className="text-[11px] text-gray-500 dark:text-gray-500 mb-1.5">
+      <p className="text-[11px] text-muted mb-1.5">
         Its {cross.markets_shown} busiest markets of {cross.markets_total}, carrying{' '}
         {pct(share, 0)} of the post-only orders we have seen from this address. A rate is
         withheld where the market carries fewer than{' '}
@@ -236,17 +236,17 @@ function MarketBreakdown({ cross, constants = {} }) {
         {cross.markets.map((mk) => (
           <div
             key={mk.coin}
-            className="rounded-lg border border-gray-200 dark:border-gray-800 px-2 py-1.5 min-w-[104px]"
+            className="rounded-lg border border-line px-2 py-1.5 min-w-[104px]"
           >
-            <div className="font-mono text-[10px] text-gray-600 dark:text-gray-400 truncate">
+            <div className="font-mono text-[10px] text-muted truncate">
               {mk.coin}
             </div>
-            <div className="text-[13px] font-bold tabular-nums text-gray-900 dark:text-gray-100 leading-tight">
+            <div className="text-[13px] font-bold tabular-nums text-fg leading-tight">
               {mk.enough_data
                 ? (pct(mk.post_only_rejection_rate) ?? 'n/a')
-                : <span className="text-[11px] font-normal text-gray-400 dark:text-gray-600">too few</span>}
+                : <span className="text-[11px] font-normal text-muted ">too few</span>}
             </div>
-            <div className="text-[10px] text-gray-400 dark:text-gray-600 tabular-nums">
+            <div className="text-[10px] text-muted tabular-nums">
               {mk.alo_rejected.toLocaleString()} / {mk.alo_total.toLocaleString()}
             </div>
           </div>
@@ -329,7 +329,7 @@ function vol(v) {
 
 function Card({ children, mutedBorder, className = '' }) {
   return (
-    <div className={`bg-white dark:bg-[#1E293B] rounded-2xl border ${mutedBorder || 'border-gray-200 dark:border-gray-800'} ${className}`}>
+    <div className={`bg-surface rounded-2xl border ${mutedBorder || 'border-line '} ${className}`}>
       {children}
     </div>
   );
@@ -337,7 +337,7 @@ function Card({ children, mutedBorder, className = '' }) {
 
 function Th({ children, align = 'right' }) {
   return (
-    <th className={`px-3 py-2 text-${align} text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500 whitespace-nowrap`}>
+    <th className={`px-3 py-2 text-${align} text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap`}>
       {children}
     </th>
   );
@@ -346,8 +346,8 @@ function Th({ children, align = 'right' }) {
 function Td({ children, align = 'right', strong = false, className = '' }) {
   return (
     <td className={`px-3 py-2 text-${align} text-[12px] whitespace-nowrap tabular-nums ${
-      strong ? 'font-semibold text-gray-900 dark:text-gray-100'
-             : 'text-gray-600 dark:text-gray-400'} ${className}`}>
+ strong ? 'font-semibold text-fg '
+             : 'text-muted '} ${className}`}>
       {children}
     </td>
   );
@@ -385,9 +385,9 @@ function Sections({ sections, mutedBorder }) {
                   </span>
                 )}
                 <span className="min-w-0">
-                  <span className="block font-bold text-sm text-gray-900 dark:text-gray-100">{title}</span>
+                  <span className="block font-bold text-sm text-fg ">{title}</span>
                   {note && (
-                    <span className="block text-[11px] text-gray-500 dark:text-gray-500 truncate">{note}</span>
+                    <span className="block text-[11px] text-muted truncate">{note}</span>
                   )}
                 </span>
               </span>
@@ -404,7 +404,7 @@ function Sections({ sections, mutedBorder }) {
               <div
                 id={`hl-panel-${key}`}
                 hidden={!isOpen}
-                className="px-4 pb-4 pt-1 border-t border-gray-100 dark:border-gray-800/60 max-h-[62vh] overflow-y-auto"
+                className="px-4 pb-4 pt-1 border-t border-line max-h-[62vh] overflow-y-auto"
               >
                 {render()}
               </div>
@@ -418,10 +418,10 @@ function Sections({ sections, mutedBorder }) {
 
 function ScrollTable({ mutedBorder, head, children }) {
   return (
-    <div className={`overflow-x-auto rounded-xl border ${mutedBorder || 'border-gray-200 dark:border-gray-800'} mt-2`}>
+    <div className={`overflow-x-auto rounded-xl border ${mutedBorder || 'border-line '} mt-2`}>
       <table className="w-full">
         <thead>
-          <tr className="border-b border-gray-100 dark:border-gray-800">{head}</tr>
+          <tr className="border-b border-line ">{head}</tr>
         </thead>
         <tbody>{children}</tbody>
       </table>
@@ -431,14 +431,14 @@ function ScrollTable({ mutedBorder, head, children }) {
 
 function SourceRow({ icon: Icon, name, what, status, tone }) {
   return (
-    <div className="flex items-start gap-2.5 py-2.5 border-b border-gray-100 dark:border-gray-800/60 last:border-0">
-      <Icon size={15} className="mt-0.5 shrink-0 text-gray-400 dark:text-gray-600" />
+    <div className="flex items-start gap-2.5 py-2.5 border-b border-line last:border-0">
+      <Icon size={15} className="mt-0.5 shrink-0 text-muted " />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">{name}</span>
+          <span className="text-[13px] font-semibold text-fg ">{name}</span>
           <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border ${tone}`}>{status}</span>
         </div>
-        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-0.5">{what}</p>
+        <p className="text-[12px] leading-relaxed text-muted mt-0.5">{what}</p>
       </div>
     </div>
   );
@@ -633,9 +633,9 @@ function FieldList({ rows }) {
   return (
     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
       {rows.map(([k, v]) => (
-        <div key={k} className="flex items-baseline justify-between gap-3 border-b border-gray-100 dark:border-gray-800/60 py-1">
-          <dt className="text-[11px] font-mono text-gray-500 dark:text-gray-500 shrink-0">{k}</dt>
-          <dd className="text-[11px] text-right text-gray-700 dark:text-gray-300 tabular-nums">{v}</dd>
+        <div key={k} className="flex items-baseline justify-between gap-3 border-b border-line py-1">
+          <dt className="text-[11px] font-mono text-muted shrink-0">{k}</dt>
+          <dd className="text-[11px] text-right text-fg tabular-nums">{v}</dd>
         </div>
       ))}
     </dl>
@@ -647,10 +647,10 @@ function FieldList({ rows }) {
 function BrainNoSignal() {
   return (
     <>
-      <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+      <p className="text-[13px] font-semibold text-fg mt-2">
         Tested, and there is nothing to recommend.
       </p>
-      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+      <p className="text-[12px] leading-relaxed text-muted mt-1.5 max-w-xl mx-auto">
         What happened a moment ago does not predict what happens next, at any
         resolution measured. This section stays empty because the data does not
         support advice, not because the work is unfinished.
@@ -694,7 +694,7 @@ function BrainReady({ brain, mutedBorder }) {
       {/* The window dates are in the first sentence a reader meets, not in a
           tooltip, because the result is one window and nothing else. */}
       {dated && (
-        <p className="text-[12px] leading-relaxed rounded-xl border border-amber-500/25 bg-amber-500/5 text-amber-700 dark:text-amber-400 p-3">
+        <p className="text-[12px] leading-relaxed rounded-xl border border-warn/25 bg-warn/5 text-warn p-3">
           Measured over {b.window_hours} hours on {utcDate(b.window_start)} and not
           re-measured since. What follows describes that window. Whether it still
           describes the feed today has not been tested.
@@ -702,17 +702,17 @@ function BrainReady({ brain, mutedBorder }) {
       )}
 
       <div>
-        <h4 className="text-[14px] font-bold text-gray-900 dark:text-gray-100">
+        <h4 className="text-[14px] font-bold text-fg ">
           {dated
             ? 'Refusals arrived in stretches rather than at random.'
             : 'Refusals arrive in stretches rather than at random.'}
         </h4>
-        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-[12px] leading-relaxed text-muted mt-1">
           Measured over {b.window_hours} hours on {utcDate(b.window_start)}.{' '}
           {b.addresses_measured} addresses, {b.usable_buckets_min.toLocaleString()} to{' '}
           {b.usable_buckets_max.toLocaleString()} {b.bucket_seconds}-second windows each.
         </p>
-        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5">
+        <p className="text-[12px] leading-relaxed text-muted mt-1.5">
           When one {b.bucket_seconds}-second window {dated ? 'was refusing' : 'is refusing'} more
           than that address usually {dated ? 'did' : 'does'}, the next one{' '}
           {dated ? 'tended' : 'tends'} to as well.
@@ -723,19 +723,19 @@ function BrainReady({ brain, mutedBorder }) {
           beside it rather than in a tooltip. A number alone here would assert
           a stability across windows that has not been measured, which is why
           the word leads and the value follows it. */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
-        <div className="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-500">
+      <div className="rounded-xl border border-line p-3">
+        <div className="text-[11px] uppercase tracking-wider text-muted ">
           How much one {b.bucket_seconds}-second window repeats in the next, at a gap of {lagText(b.lag_seconds)}
         </div>
         <div className="flex items-baseline gap-2 flex-wrap mt-1">
-          <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
+          <span className="text-xl font-bold text-fg ">
             {word || 'not shown at this window'}
           </span>
-          <span className="text-[12px] tabular-nums text-gray-600 dark:text-gray-400">
+          <span className="text-[12px] tabular-nums text-muted ">
             median of {b.addresses_measured} within-address values, {signed(b.median_r1)}
           </span>
         </div>
-        <div className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1.5">
+        <div className="text-[11px] leading-relaxed text-muted mt-1.5">
           {b.statistic}. Lag {b.lag_seconds} seconds. At least {b.pairs_min.toLocaleString()} contiguous
           pairs per address, standard error {b.standard_error.min.toFixed(4)} to{' '}
           {b.standard_error.max.toFixed(4)}, one per address and never pooled. Window{' '}
@@ -743,7 +743,7 @@ function BrainReady({ brain, mutedBorder }) {
           {WS_DENOMINATOR_LABEL}.
         </div>
         {word && (
-          <div className="text-[11px] text-gray-500 dark:text-gray-500 mt-1">
+          <div className="text-[11px] text-muted mt-1">
             The word describes the correlation between one window and the next. It is not a
             recommendation.
           </div>
@@ -760,14 +760,14 @@ function BrainReady({ brain, mutedBorder }) {
               "still visible at 30 minutes" off the last row asserted at the
               weakest point of the table exactly what the word "slight" is
               withheld for at the strongest one. */}
-          <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+          <h4 className="text-[13px] font-bold text-fg ">
             The effect fades with distance: strongest at {lagText(decay[0].lag_seconds)}
             {lastClear
               ? `, still visible at ${lagText(lastClear.lag_seconds)}`
               : ''}
             .
           </h4>
-          <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="text-[12px] text-muted leading-relaxed">
             Each row is the median of the {b.addresses_measured} within-address values at that gap,
             over the same window, with the standard error at that gap beside it. A row describes
             pairs that were observed. It is not a length of time a value holds for. A row marked
@@ -785,17 +785,17 @@ function BrainReady({ brain, mutedBorder }) {
               const clears = Number.isFinite(d.standard_error)
                 && Math.abs(d.median_r1) >= 3 * d.standard_error;
               return (
-                <tr key={d.lag_seconds} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
+                <tr key={d.lag_seconds} className="border-b border-line last:border-0">
                   <Td align="left" strong>{lagText(d.lag_seconds)}</Td>
-                  <Td strong={clears} className={clears ? '' : 'text-gray-400 dark:text-gray-600'}>
+                  <Td strong={clears} className={clears ? '' : 'text-muted '}>
                     {signed(d.median_r1)}
                     {clears ? '' : ' (under 3 SE)'}
                   </Td>
-                  <Td className="text-gray-400 dark:text-gray-600">
+                  <Td className="text-muted ">
                     {Number.isFinite(d.standard_error) ? d.standard_error.toFixed(4) : 'not recorded'}
                   </Td>
-                  <Td className="text-gray-400 dark:text-gray-600">{(d.pairs_min ?? 0).toLocaleString()}</Td>
-                  <Td className="text-gray-400 dark:text-gray-600">
+                  <Td className="text-muted ">{(d.pairs_min ?? 0).toLocaleString()}</Td>
+                  <Td className="text-muted ">
                     {Number.isFinite(d.addresses_significant)
                       ? `${d.addresses_significant} of ${d.addresses_total}`
                       : 'not recorded'}
@@ -809,10 +809,10 @@ function BrainReady({ brain, mutedBorder }) {
 
       {rows.length > 0 && (
         <div>
-          <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+          <h4 className="text-[13px] font-bold text-fg ">
             Address by address
           </h4>
-          <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="text-[12px] text-muted leading-relaxed">
             Every address that was on the feed for this window, including{' '}
             {withheldCount > 0
               ? `the ${withheldCount === 1 ? 'one' : withheldCount} no figure could be computed for`
@@ -842,19 +842,19 @@ function BrainReady({ brain, mutedBorder }) {
             {rows.map((r) => {
               const reason = r.withheld_reason;
               return (
-                <tr key={r.address} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0 align-top">
+                <tr key={r.address} className="border-b border-line last:border-0 align-top">
                   <td className="px-3 py-2 text-left whitespace-nowrap">
                     <a href={`https://app.hyperliquid.xyz/explorer/address/${r.address}`}
                        target="_blank" rel="noreferrer"
-                       className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline">
+                       className="font-mono text-[11px] text-accent hover:underline">
                       {short(r.address)}
                     </a>
                   </td>
                   <Td>{Number.isFinite(r.usable_buckets) ? r.usable_buckets.toLocaleString() : 'not recorded'}</Td>
                   <Td>{Number.isFinite(r.pairs) ? r.pairs.toLocaleString() : 'not recorded'}</Td>
                   {reason ? (
-                    <td colSpan={3} className="px-3 py-2 text-left text-[11px] leading-relaxed text-gray-600 dark:text-gray-400">
-                      <span className="font-mono text-[10px] text-gray-500 dark:text-gray-500">{reason}</span>
+                    <td colSpan={3} className="px-3 py-2 text-left text-[11px] leading-relaxed text-muted ">
+                      <span className="font-mono text-[10px] text-muted ">{reason}</span>
                       {': '}
                       {BRAIN_REASON_COPY[reason] || 'No value is shown for this address.'}
                     </td>
@@ -883,7 +883,7 @@ function BrainReady({ brain, mutedBorder }) {
             and the rest of the sentence says only that it is not all of
             them. */}
         {ctl && Number.isFinite(ctl.median_r1) && (
-          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+          <p className="text-[12px] leading-relaxed text-muted ">
             This was tested on order volume as well, and volume clusters more than the refused
             share does, so the clustering is not only an effect of how busy the address is. That
             holds at {ctl.addresses_higher} of {ctl.addresses_total} addresses and at the median,
@@ -905,7 +905,7 @@ function BrainReady({ brain, mutedBorder }) {
             travels with it, and the word itself is only used when the smallest
             multiple is above the floor. */}
         {disp && Number.isFinite(disp.median) && (
-          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+          <p className="text-[12px] leading-relaxed text-muted ">
             The variation between windows is larger than counting noise alone would produce:{' '}
             {disp.min > 1
               ? `all ${disp.addresses ?? b.addresses_measured} addresses the multiple was computed`
@@ -938,7 +938,7 @@ function BrainReady({ brain, mutedBorder }) {
             So: compared, or stored-but-not-yet-compared, or genuinely one
             window. Only the last of those may say there is nothing to
             compare against. */}
-        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+        <p className="text-[12px] leading-relaxed text-muted ">
           {mag && Number.isFinite(mag.min) && Number.isFinite(mag.max)
             ? `Direction only. The size of the effect differed between the ${mag.windows} windows `
               + `measured, from ${signed(mag.min, 2)} to ${signed(mag.max, 2)}, so no number here `
@@ -951,7 +951,7 @@ function BrainReady({ brain, mutedBorder }) {
                 + 'one here, so nothing above should be read as a constant.'}
         </p>
 
-        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+        <p className="text-[12px] leading-relaxed text-muted ">
           This describes the {b.addresses_measured} addresses on the live feed over one window,{' '}
           {utcDate(b.window_start)}. It does not describe the venue, and it does not describe any
           single order.
@@ -962,11 +962,11 @@ function BrainReady({ brain, mutedBorder }) {
           reaches ten addresses and the tab tracks fifty. That absence must not
           be drawn as a zero, a dash or an empty cell, any of which reads as a
           low rate. */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 p-3">
-        <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+      <div className="rounded-xl border border-line p-3">
+        <h4 className="text-[13px] font-bold text-fg ">
           The addresses this says nothing about
         </h4>
-        <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-[12px] leading-relaxed text-muted mt-1">
           The exchange permits a bounded number of subscriptions from one connection point.{' '}
           {b.addresses_watched} were used
           {Number.isFinite(b.addresses_not_watched)
@@ -979,28 +979,28 @@ function BrainReady({ brain, mutedBorder }) {
       </div>
 
       <div>
-        <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+        <h4 className="text-[13px] font-bold text-fg ">
           What is left out of these figures
         </h4>
         <ul className="mt-1 space-y-1">
           {b.excluded.map((e) => (
-            <li key={e} className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 flex gap-2">
-              <span aria-hidden="true" className="text-gray-400 dark:text-gray-600">·</span>
+            <li key={e} className="text-[12px] leading-relaxed text-muted flex gap-2">
+              <span aria-hidden="true" className="text-muted ">·</span>
               <span>{e}</span>
             </li>
           ))}
         </ul>
-        <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-1.5">
+        <p className="text-[11px] text-muted mt-1.5">
           Each line is something dropped before the figures were computed. None of it was counted
           as a zero.
         </p>
       </div>
 
       <div>
-        <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+        <h4 className="text-[13px] font-bold text-fg ">
           What travels with every number above
         </h4>
-        <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed mb-1.5">
+        <p className="text-[12px] text-muted leading-relaxed mb-1.5">
           Rendered here in full. A figure missing any of these is not drawn at all. The pair count
           and standard error below are the headline figure&apos;s, at a gap of{' '}
           {lagText(b.lag_seconds)}; every row of the decay table carries its own, because a longer
@@ -1046,14 +1046,14 @@ function BrainReady({ brain, mutedBorder }) {
 function CoreSection({ core, state, mutedBorder }) {
   if (state === 'loading') {
     return (
-      <p className="text-[12px] text-gray-500 dark:text-gray-500 py-2">
+      <p className="text-[12px] text-muted py-2">
         Reading HyperCore through the contract on HyperEVM…
       </p>
     );
   }
   if (state === 'failed' || !core) {
     return (
-      <p className="text-[12px] leading-relaxed text-amber-700 dark:text-amber-400 py-2">
+      <p className="text-[12px] leading-relaxed text-warn py-2">
         The on-chain read did not answer. That is a failed request to HyperEVM, not a
         statement about any address: the rejection rates above are unaffected and were
         measured from a different source.
@@ -1062,7 +1062,7 @@ function CoreSection({ core, state, mutedBorder }) {
   }
   if (!core.served) {
     return (
-      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 py-2">
+      <p className="text-[12px] leading-relaxed text-muted py-2">
         No reader contract is configured, so nothing was read from HyperCore. The
         rejection rates above do not depend on it.
       </p>
@@ -1074,7 +1074,7 @@ function CoreSection({ core, state, mutedBorder }) {
 
   return (
     <div className="pt-3 space-y-4">
-      <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
+      <p className="text-[12px] leading-relaxed text-muted ">
         Each maker that currently carries a rejection rate, with where it stands on
         HyperCore right now. The rate is measured over hours of polling; the position is
         one block old. They are shown in one row and never combined into one figure.
@@ -1093,11 +1093,11 @@ function CoreSection({ core, state, mutedBorder }) {
           const positions = c.positions || [];
           const p = positions[0] || null;
           return (
-            <tr key={r.address} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0 align-top">
+            <tr key={r.address} className="border-b border-line last:border-0 align-top">
               <td className="px-3 py-2 text-left whitespace-nowrap">
                 <a href={`https://app.hyperliquid.xyz/explorer/address/${r.address}`}
                    target="_blank" rel="noreferrer"
-                   className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline">
+                   className="font-mono text-[11px] text-accent hover:underline">
                   {short(r.address)}
                 </a>
               </td>
@@ -1117,7 +1117,7 @@ function CoreSection({ core, state, mutedBorder }) {
                   </Td>
                 </>
               ) : (
-                <td colSpan={4} className="px-3 py-2 text-left text-[11px] leading-relaxed text-gray-500 dark:text-gray-500">
+                <td colSpan={4} className="px-3 py-2 text-left text-[11px] leading-relaxed text-muted ">
                   {c.account_found
                     ? `An account exists, with no position on ${markets}.`
                     : `Nothing found on ${markets}. Not the same as flat: an account that `
@@ -1129,12 +1129,12 @@ function CoreSection({ core, state, mutedBorder }) {
         })}
       </ScrollTable>
 
-      <div className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-500 space-y-1">
+      <div className="text-[11px] leading-relaxed text-muted space-y-1">
         <p>
           Read through <a
             href={`https://hyperevmscan.io/address/${core.reader}`}
             target="_blank" rel="noreferrer"
-            className="font-mono text-indigo-600 dark:text-indigo-400 hover:underline">
+            className="font-mono text-accent hover:underline">
             {short(core.reader)}
           </a>, a contract on HyperEVM, chain {core.chain_id}, which reads HyperCore's own
           precompiles. Its source is verified.
@@ -1157,17 +1157,17 @@ function BrainSection({ brain, mutedBorder }) {
   if (BRAIN_STATE === 'waiting') {
     return (
       <div className="pt-3 pb-1">
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
-          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
-          <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+        <div className="rounded-xl border border-dashed border-line p-5 text-center">
+          <Brain size={22} className="mx-auto text-faint " />
+          <p className="text-[13px] font-semibold text-fg mt-2">
             There is nothing here yet, and that is deliberate.
           </p>
-          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+          <p className="text-[12px] leading-relaxed text-muted mt-1.5 max-w-xl mx-auto">
             For this agent to suggest anything, one thing has to be true: what happened
             a moment ago has to tell you something about what happens next. That is
             being tested now on the live feed, over a full night of data.
           </p>
-          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+          <p className="text-[12px] leading-relaxed text-muted mt-1.5 max-w-xl mx-auto">
             The first attempt, on the slower fifteen-minute data, found the opposite of
             what a recommendation would need. A suggestion built on that would be worse
             than no suggestion, so none is shown until the faster data settles it.
@@ -1180,8 +1180,8 @@ function BrainSection({ brain, mutedBorder }) {
   if (BRAIN_STATE === 'no-signal') {
     return (
       <div className="pt-3 pb-1">
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
-          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
+        <div className="rounded-xl border border-dashed border-line p-5 text-center">
+          <Brain size={22} className="mx-auto text-faint " />
           <BrainNoSignal />
         </div>
       </div>
@@ -1194,12 +1194,12 @@ function BrainSection({ brain, mutedBorder }) {
     // figure did not arrive, so no figure is drawn and the gap is named.
     return (
       <div className="pt-3 pb-1">
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
-          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
-          <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+        <div className="rounded-xl border border-dashed border-line p-5 text-center">
+          <Brain size={22} className="mx-auto text-faint " />
+          <p className="text-[13px] font-semibold text-fg mt-2">
             The clustering result is not being served right now.
           </p>
-          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+          <p className="text-[12px] leading-relaxed text-muted mt-1.5 max-w-xl mx-auto">
             This is not a reading of no clustering. A figure here is shown only with the window it
             was measured in, the pair count behind it and its standard error.{' '}
             {brain
@@ -1223,8 +1223,8 @@ function BrainSection({ brain, mutedBorder }) {
   if (brain.withheld_reason === 'not_significant') {
     return (
       <div className="pt-3 pb-1">
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
-          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
+        <div className="rounded-xl border border-dashed border-line p-5 text-center">
+          <Brain size={22} className="mx-auto text-faint " />
           <BrainNoSignal />
         </div>
       </div>
@@ -1238,12 +1238,12 @@ function BrainSection({ brain, mutedBorder }) {
   if (stale) {
     return (
       <div className="pt-3 pb-1">
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-5 text-center">
-          <Brain size={22} className="mx-auto text-gray-300 dark:text-gray-700" />
-          <p className="text-[13px] font-semibold text-gray-700 dark:text-gray-300 mt-2">
+        <div className="rounded-xl border border-dashed border-line p-5 text-center">
+          <Brain size={22} className="mx-auto text-faint " />
+          <p className="text-[13px] font-semibold text-fg mt-2">
             Nothing is shown here until the test is run again.
           </p>
-          <p className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400 mt-1.5 max-w-xl mx-auto">
+          <p className="text-[12px] leading-relaxed text-muted mt-1.5 max-w-xl mx-auto">
             The clustering result came from one window, {utcDate(brain.window_start)}, and has not
             been re-measured since. It is old enough that presenting it as current would be
             presenting an assumption as a measurement.
@@ -1300,7 +1300,7 @@ export default function HyperliquidView({ mutedBorder }) {
 
   if (loading) {
     return (
-      <div className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="py-16 text-center text-sm text-muted ">
         Loading Hyperliquid data…
       </div>
     );
@@ -1311,11 +1311,11 @@ export default function HyperliquidView({ mutedBorder }) {
     // that would look like zero rejections.
     return (
       <div className="py-12 text-center">
-        <p className="text-sm text-gray-700 dark:text-gray-300">
+        <p className="text-sm text-fg ">
           Hyperliquid data is unavailable right now.
         </p>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">{error}</p>
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
+        <p className="mt-1 text-xs text-muted ">{error}</p>
+        <p className="mt-2 text-xs text-muted ">
           This is not a reading of zero. The store could not be reached.
         </p>
       </div>
@@ -1412,7 +1412,7 @@ export default function HyperliquidView({ mutedBorder }) {
           />
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">
+              <h2 className="text-base sm:text-lg font-bold text-fg ">
                 The market maker watcher
               </h2>
               <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full border border-[#97FCE4]/40 bg-[#97FCE4]/10 text-[#0B7A66] dark:text-[#97FCE4]">
@@ -1428,20 +1428,20 @@ export default function HyperliquidView({ mutedBorder }) {
                 meaning depending on which side of it you are, and leaving a
                 reader to work that out was leaving the most important thing
                 on the page implicit. */}
-            <p className="text-[13px] leading-relaxed text-gray-700 dark:text-gray-300 mt-1.5">
+            <p className="text-[13px] leading-relaxed text-fg mt-1.5">
               If you route orders here, a refused post-only is a user left with nothing.
               The order did not rest and it did not fill. This page measures how often
               that happens on Hyperliquid, per market and per address, from orders we
               polled ourselves.
             </p>
-            <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1.5">
+            <p className="text-[12px] leading-relaxed text-muted mt-1.5">
               For a market maker the same refusal is the mechanism working as intended,
               protecting them from crossing the spread and paying a taker fee. So a high
               rate on a maker&apos;s row is a statement about how aggressively that address
               quotes, not about whether the venue is working. Read the rates with the side
               you are on in mind.
             </p>
-            <p className="text-[12px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1.5">
+            <p className="text-[12px] leading-relaxed text-muted mt-1.5">
               It reports what it has seen. It does not give advice, and it does not know
               whether any of these traders make money.
             </p>
@@ -1451,7 +1451,7 @@ export default function HyperliquidView({ mutedBorder }) {
 
       {/* Question one, at a glance. */}
       <div>
-        <h3 className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-2">
+        <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted mb-2">
           What the tracked makers are doing
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -1461,7 +1461,7 @@ export default function HyperliquidView({ mutedBorder }) {
               <div key={k} className={`rounded-xl border p-3 ${c.tone}`}>
                 <div className="text-2xl font-bold tabular-nums leading-none">{bands[k] ?? 0}</div>
                 <div className="text-[12px] font-semibold mt-1">{c.label}</div>
-                <div className="text-[11px] leading-snug opacity-80 mt-0.5">{c.blurb}</div>
+                <div className="text-[11px] leading-snug mt-0.5">{c.blurb}</div>
               </div>
             );
           })}
@@ -1469,7 +1469,7 @@ export default function HyperliquidView({ mutedBorder }) {
       </div>
 
       {/* Question two, at a glance. */}
-      <div className="p-3 rounded-xl border border-amber-500/25 bg-amber-500/5 text-amber-700 dark:text-amber-400 text-[12px] flex items-start gap-2">
+      <div className="p-3 rounded-xl border border-warn/25 bg-warn/5 text-warn text-[12px] flex items-start gap-2">
         <AlertTriangle size={14} className="shrink-0 mt-0.5" />
         <div className="min-w-0 leading-relaxed">
           <span className="font-semibold">
@@ -1536,10 +1536,10 @@ export default function HyperliquidView({ mutedBorder }) {
                       cov.polls ? `${Math.round((cov.polls_with_gap / cov.polls) * 100)}% of polls`
                                 : 'all time'],
                   ].map(([k, v, period]) => (
-                    <div key={k} className="rounded-xl border border-gray-200 dark:border-gray-800 p-2.5">
-                      <div className="text-[15px] font-bold tabular-nums text-gray-900 dark:text-gray-100">{v}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-500 mt-0.5">{k}</div>
-                      <div className="text-[10px] text-gray-400 dark:text-gray-600 mt-0.5">{period}</div>
+                    <div key={k} className="rounded-xl border border-line p-2.5">
+                      <div className="text-[15px] font-bold tabular-nums text-fg ">{v}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted mt-0.5">{k}</div>
+                      <div className="text-[10px] text-muted mt-0.5">{period}</div>
                     </div>
                   ))}
                 </div>
@@ -1551,7 +1551,7 @@ export default function HyperliquidView({ mutedBorder }) {
                     still inside it is counted again by the next poll. Anyone
                     dividing by this number, or comparing it to a venue figure,
                     was going to be wrong by about a fifth. */}
-                <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                <p className="text-[12px] text-muted leading-relaxed">
                   The first figure counts sightings, not distinct orders. Each poll returns the
                   venue&apos;s most recent window, and that window turns over more slowly than the
                   polling, so an order still inside it is counted again by the next poll that sees
@@ -1575,7 +1575,7 @@ export default function HyperliquidView({ mutedBorder }) {
                 </p>
 
                 <div>
-                  <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">By market</h4>
+                  <h4 className="text-[13px] font-bold text-fg ">By market</h4>
                   {/* The distribution, not one number. A pooled rate on a book
                       where two addresses place most of the quotes is a
                       statement about those two: on 2026-09-20 BTC pooled to
@@ -1583,7 +1583,7 @@ export default function HyperliquidView({ mutedBorder }) {
                       its 23 sat under one percent. The pooled figure
                       is still here, named for what it is, in its own column at
                       the end. */}
-                  <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <p className="text-[12px] text-muted leading-relaxed">
                     The typical maker on each book, and the spread around it. The median is across
                     the addresses currently being polled, one value each and never pooled. The last
                     column pools every post-only order on the book instead, which is a different
@@ -1600,10 +1600,10 @@ export default function HyperliquidView({ mutedBorder }) {
                     <Th>All orders pooled</Th>
                   </>}>
                     {markets.map((m) => (
-                      <tr key={m.coin} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
+                      <tr key={m.coin} className="border-b border-line last:border-0">
                         <Td align="left" strong>{m.coin}</Td>
                         <Td strong>{pct(m.median_rejection_rate) ?? 'n/a'}</Td>
-                        <Td className="text-gray-500 dark:text-gray-500">
+                        <Td className="text-muted ">
                           {m.rate_min != null && m.rate_max != null
                             ? `${pct(m.rate_min, 2)} to ${pct(m.rate_max, 1)}`
                             : 'n/a'}
@@ -1613,13 +1613,13 @@ export default function HyperliquidView({ mutedBorder }) {
                           {m.makers_over_half ?? 0}
                         </Td>
                         <Td>{m.makers}</Td>
-                        <Td className="text-gray-500 dark:text-gray-500">
+                        <Td className="text-muted ">
                           {pct(m.pooled_rejection_rate) ?? 'n/a'}
                         </Td>
                       </tr>
                     ))}
                   </ScrollTable>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-500 mt-1.5">
+                  <p className="text-[11px] text-muted mt-1.5">
                     Where those two columns disagree sharply, a few addresses are placing most of
                     the quotes.
                     {(() => {
@@ -1649,8 +1649,8 @@ export default function HyperliquidView({ mutedBorder }) {
                 </div>
 
                 <div>
-                  <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">By maker</h4>
-                  <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <h4 className="text-[13px] font-bold text-fg ">By maker</h4>
+                  <p className="text-[12px] text-muted leading-relaxed">
                     Chosen by the venue's own 30-day volume ranking, not by us, and ordered here
                     with the addresses currently being polled first. Below roughly this rank the
                     median address posts no resting orders at all, so there is nothing of this kind
@@ -1681,7 +1681,7 @@ export default function HyperliquidView({ mutedBorder }) {
                       userFills carries no builder field at all, read across
                       7,851 fills from 40 addresses. So this is a caveat rather
                       than a column. */}
-                  <p className="text-[11px] text-gray-500 dark:text-gray-500 leading-relaxed mt-1">
+                  <p className="text-[11px] text-muted leading-relaxed mt-1">
                     A row is an address, not a person. The rows marked Vault trade a strategy
                     with other people&apos;s deposits in it, so their rate describes that strategy.
                     {roles && roles.measured ? (
@@ -1720,24 +1720,24 @@ export default function HyperliquidView({ mutedBorder }) {
                   </>}>
                     {makers.map((m) => (
                       <React.Fragment key={m.address}>
-                      <tr className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
+                      <tr className="border-b border-line last:border-0">
                         <td className="px-3 py-2 text-left whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => setOpenMaker((prev) => (prev === m.address ? null : m.address))}
                             aria-expanded={openMaker === m.address}
                             title="Show this address's rate in each market it quotes"
-                            className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                            className="font-mono text-[11px] text-accent hover:underline"
                           >
                             {short(m.address)}
-                            <span className="ml-1 text-[9px] text-gray-400 dark:text-gray-600">
+                            <span className="ml-1 text-[9px] text-muted ">
                               {openMaker === m.address ? '\u25be' : '\u25b8'}
                             </span>
                           </button>
                           <a href={`https://app.hyperliquid.xyz/explorer/address/${m.address}`}
                              target="_blank" rel="noreferrer"
                              title="Open on the venue's explorer"
-                             className="ml-1.5 text-[10px] text-gray-400 dark:text-gray-600 hover:underline">
+                             className="ml-1.5 text-[10px] text-muted hover:underline">
                             explorer
                           </a>
                           {/* The venue reports these as vaults. The caveat
@@ -1748,7 +1748,7 @@ export default function HyperliquidView({ mutedBorder }) {
                           {m.account_role === 'vault' && (
                             <span
                               title={`${m.vault_name || 'A vault'}: this address trades a strategy with other people's deposits in it, so the rate beside it describes that strategy rather than one person's trading.`}
-                              className="ml-2 inline-block align-middle text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                              className="ml-2 inline-block align-middle text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn"
                             >
                               Vault{m.vault_name ? ` · ${m.vault_name}` : ''}
                             </span>
@@ -1760,7 +1760,7 @@ export default function HyperliquidView({ mutedBorder }) {
                             month never exceeds allTime, and it does not on any
                             of the 46,171 rows. The same test applied to PnL
                             proves nothing, because PnL is signed. */}
-                        <Td className="text-gray-500 dark:text-gray-400"
+                        <Td className="text-muted "
                             title="The venue's own 30-day volume, from its public leaderboard. This is what chose these addresses and what orders this table.">
                           {vol(m.month_volume)}
                         </Td>
@@ -1768,7 +1768,7 @@ export default function HyperliquidView({ mutedBorder }) {
                         <Td>{m.alo_rejected.toLocaleString()}</Td>
                         <Td strong>
                           {m.enough_data ? (pct(m.post_only_rejection_rate) ?? 'n/a')
-                            : <span className="font-normal text-gray-400 dark:text-gray-600">not enough yet</span>}
+                            : <span className="font-normal text-muted ">not enough yet</span>}
                         </Td>
                         {/* A WITHHELD RATE STAYS WITHHELD, INCLUDING AS A PICTURE
                             The first version drew this whenever a series
@@ -1780,18 +1780,18 @@ export default function HyperliquidView({ mutedBorder }) {
                             pooled rate is not trustworthy enough to print, the
                             hours composing it are not trustworthy enough to
                             draw. */}
-                        <Td className="text-indigo-500 dark:text-indigo-400">
+                        <Td className="text-accent ">
                           {m.enough_data && m.post_only_rejection_rate != null
                             ? <RateSparkline series={(data.rate_series || {})[m.address]} />
                             : null}
                         </Td>
                         <Td>{m.cancel_to_fill != null ? m.cancel_to_fill.toFixed(1) : 'n/a'}</Td>
                         <Td>{pct(m.effective_fill_rate) ?? 'n/a'}</Td>
-                        <Td className="text-gray-400 dark:text-gray-600">{m.polls}</Td>
+                        <Td className="text-muted ">{m.polls}</Td>
                       </tr>
                       {openMaker === m.address && (
-                        <tr className="border-b border-gray-50 dark:border-gray-800/60">
-                          <td colSpan={9} className="px-3 py-2.5 bg-gray-50/60 dark:bg-gray-900/40">
+                        <tr className="border-b border-line ">
+                          <td colSpan={9} className="px-3 py-2.5 bg-inset ">
                             {/* The table scrolls horizontally and this row is
                                 as wide as the table, so on a phone the tiles
                                 would lay out against the table's width and
@@ -1813,12 +1813,12 @@ export default function HyperliquidView({ mutedBorder }) {
                 </div>
 
                 <div>
-                  <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">
+                  <h4 className="text-[13px] font-bold text-fg ">
                     Why the obvious query finds almost nothing
                   </h4>
-                  <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                  <p className="text-[12px] text-muted leading-relaxed">
                     Hyperliquid reports outcomes as distinct typed statuses. A plain
-                    <code className="mx-1 rounded bg-gray-100 dark:bg-gray-800 px-1 text-[11px]">rejected</code>
+                    <code className="mx-1 rounded bg-inset px-1 text-[11px]">rejected</code>
                     status exists on the venue and does not appear in the table below at all: none
                     of the addresses being polled now has produced one. Asking only for it would
                     find nothing here, and would miss every post-only rejection.
@@ -1827,12 +1827,12 @@ export default function HyperliquidView({ mutedBorder }) {
                     <Th align="left">Status</Th><Th>Count</Th><Th>Share</Th><Th align="right"> </Th>
                   </>}>
                     {statuses.map((s) => (
-                      <tr key={s.status} className="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
-                        <td className="px-3 py-2 font-mono text-[11px] text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      <tr key={s.status} className="border-b border-line last:border-0">
+                        <td className="px-3 py-2 font-mono text-[11px] text-fg whitespace-nowrap">
                           {s.status}
                         </td>
                         <Td>{s.n.toLocaleString()}</Td>
-                        <Td className="text-gray-500 dark:text-gray-500">{pct(s.share, 1)}</Td>
+                        <Td className="text-muted ">{pct(s.share, 1)}</Td>
                         <td className="px-3 py-2 text-right">
                           {s.is_rejection && (
                             <span className="rounded-full border border-amber-500/25 bg-amber-500/5 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
@@ -1847,20 +1847,20 @@ export default function HyperliquidView({ mutedBorder }) {
 
                 <div className="pt-1">
                   <div className="mb-1.5 flex items-center gap-1.5">
-                    <Info size={14} className="text-gray-500 dark:text-gray-500" />
-                    <h4 className="text-[13px] font-bold text-gray-900 dark:text-gray-100">What these numbers mean</h4>
+                    <Info size={14} className="text-muted " />
+                    <h4 className="text-[13px] font-bold text-fg ">What these numbers mean</h4>
                   </div>
                   <dl className="space-y-2">
                     {definitions().map((d) => (
                       <div key={d.term}>
-                        <dt className="text-[12px] font-semibold text-gray-800 dark:text-gray-200">{d.term}</dt>
-                        <dd className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">{d.text}</dd>
+                        <dt className="text-[12px] font-semibold text-fg ">{d.term}</dt>
+                        <dd className="text-[12px] leading-relaxed text-muted ">{d.text}</dd>
                         {/* Where a figure cannot be read live, the reason sits
                             beside it. A date would only say when it was taken,
                             which leaves a reader to guess whether it has since
                             moved. This says whether it can. */}
                         {d.note && (
-                          <dd className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-500 mt-1">
+                          <dd className="text-[11px] leading-relaxed text-muted mt-1">
                             {d.note}
                           </dd>
                         )}
@@ -1897,7 +1897,7 @@ export default function HyperliquidView({ mutedBorder }) {
                       : `Last wrote ${relAge(wsLastBucketAge)} ago`}
                   tone={wsLive
                     ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
-                    : 'border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400'}
+                    : 'border-line bg-inset text-muted '}
                   what={`A live stream of every order outcome, bucketed into ${ws.bucket_seconds ?? 10}
                          second windows. It watches up to ${ws.watch_cap ?? 10} addresses at once,
                          which is what the exchange allows from one connection point, and
@@ -1910,7 +1910,7 @@ export default function HyperliquidView({ mutedBorder }) {
                 />
                 <SourceRow
                   icon={Database} name="Reservoir historical archive" status="Not connected"
-                  tone="border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400"
+                  tone="border-line bg-inset text-muted "
                   what="Order book snapshots and price history going back to July 2025, which is
                         the only source here that can describe the past rather than the present.
                         It is published on requester-pays storage, so reaching it needs billing
@@ -1925,7 +1925,7 @@ export default function HyperliquidView({ mutedBorder }) {
             icon: Brain,
             note: brainNote,
             badge: brainBadge,
-            badgeTone: 'border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400',
+            badgeTone: 'border-line bg-inset text-muted ',
             render: () => <BrainSection brain={brain} mutedBorder={mutedBorder} />,
           },
           {
@@ -1934,7 +1934,7 @@ export default function HyperliquidView({ mutedBorder }) {
             icon: Radio,
             note: coreNote,
             badge: coreBadge,
-            badgeTone: 'border-gray-300/40 dark:border-gray-700 bg-gray-500/5 text-gray-600 dark:text-gray-400',
+            badgeTone: 'border-line bg-inset text-muted ',
             render: () => <CoreSection core={core} state={coreState} mutedBorder={mutedBorder} />,
           },
         ]}
@@ -1945,9 +1945,9 @@ export default function HyperliquidView({ mutedBorder }) {
           item itself: the URL lives in ../extensionLink.js, which is the one
           place to correct it, and the Connect tab is where its state is said
           in words. */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-white/5 p-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-[12px] leading-relaxed text-gray-600 dark:text-gray-400">
-          <span className="font-semibold text-gray-900 dark:text-gray-100">{CHROME_EXTENSION_NAME}</span>
+      <div className="rounded-xl border border-line bg-inset dark:bg-white/5 p-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-[12px] leading-relaxed text-muted ">
+          <span className="font-semibold text-fg ">{CHROME_EXTENSION_NAME}</span>
           {' '}puts this measurement on the address page itself, at app.hyperliquid.xyz. It reads the
           address out of the URL and stores nothing.
         </div>
@@ -1955,13 +1955,13 @@ export default function HyperliquidView({ mutedBorder }) {
           href={CHROME_EXTENSION_URL}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+          className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-accent hover:underline shrink-0"
         >
           Chrome Web Store <ExternalLink size={12} />
         </a>
       </div>
 
-      <div className="flex items-start gap-2 text-[11px] leading-relaxed text-gray-500 dark:text-gray-500">
+      <div className="flex items-start gap-2 text-[11px] leading-relaxed text-muted ">
         <AlertTriangle size={13} className="mt-0.5 shrink-0" />
         <span>
           This tab measures whether orders reach the book. It does not measure whether a maker is

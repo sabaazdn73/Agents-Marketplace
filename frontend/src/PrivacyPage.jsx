@@ -54,7 +54,7 @@
 // lives in SiteLinks, which both apps render.
 
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
+import StandaloneBar from './shell/StandaloneBar';
 
 const UPDATED = '25 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
@@ -79,7 +79,7 @@ function Section({ title, children }) {
   return (
     <section className="mb-8">
       <h2 className="text-base font-semibold mb-2">{title}</h2>
-      <div className="text-sm text-gray-600 dark:text-gray-300 space-y-3 leading-relaxed">
+      <div className="text-sm text-muted space-y-3 leading-relaxed">
         {children}
       </div>
     </section>
@@ -88,17 +88,12 @@ function Section({ title, children }) {
 
 export default function PrivacyPage({ onBack }) {
   return (
-    <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-white">
+    <div className="min-h-screen bg-page text-fg">
       <div className="max-w-[1400px] mx-auto px-6 py-10">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors mb-8"
-        >
-          <ArrowLeft size={16} /> Back to Explore
-        </button>
+        <StandaloneBar onBack={onBack} />
 
         <h1 className="text-2xl font-bold mb-1">Privacy</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+        <p className="text-sm text-muted mb-8">
           For the Chrome extension, Tnega, and for the two routes on the website that receive your own wallet address. Last updated {UPDATED}.
         </p>
 
@@ -135,11 +130,11 @@ export default function PrivacyPage({ onBack }) {
             which is what Chrome enforces: anywhere else the extension is not loaded and no code of
             ours runs.
           </p>
-          <ul className="list-none space-y-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+          <ul className="list-none space-y-1 font-mono text-xs text-muted">
             {SITES.map(([host, where]) => (
               <li key={host}>
                 {host}
-                <span className="font-sans text-gray-400 dark:text-gray-500"> · {where}</span>
+                <span className="font-sans text-muted "> · {where}</span>
               </li>
             ))}
           </ul>
@@ -200,7 +195,7 @@ export default function PrivacyPage({ onBack }) {
             travel with any of them. There is no account, no sign-in, no device identifier and no
             key in the extension.
           </p>
-          <p className="font-semibold text-gray-900 dark:text-white">
+          <p className="font-semibold text-fg">
             One. A scheduled download from our server, which is telemetry.
           </p>
           <p>
@@ -225,7 +220,7 @@ export default function PrivacyPage({ onBack }) {
             download is what lets the block explorer and 8004scan panels exist without sending us
             every address you look at there.
           </p>
-          <p className="font-semibold text-gray-900 dark:text-white">
+          <p className="font-semibold text-fg">
             Two. On a block explorer or 8004scan, one identifier, only when the list says we have
             measured it.
           </p>
@@ -233,7 +228,7 @@ export default function PrivacyPage({ onBack }) {
             When the page you are on is about an address or an agent that is in that list, the
             extension asks our server for what was measured:
           </p>
-          <p className="font-mono text-xs break-all text-gray-500 dark:text-gray-400">
+          <p className="font-mono text-xs break-all text-muted">
             GET {API}/api/extension/subject/&lt;identifier&gt;
           </p>
           <p>
@@ -244,21 +239,21 @@ export default function PrivacyPage({ onBack }) {
             visit, because the test that decides happens on your machine and most of the time its
             answer is no.
           </p>
-          <p className="font-semibold text-gray-900 dark:text-white">
+          <p className="font-semibold text-fg">
             Three. On a Hyperliquid address page, that address, every time.
           </p>
           <p>
             On app.hyperliquid.xyz the list is not consulted. Every address page, a URL of the form
             /explorer/address/0x…, sends its address to our server, measured or not:
           </p>
-          <p className="font-mono text-xs break-all text-gray-500 dark:text-gray-400">
+          <p className="font-mono text-xs break-all text-muted">
             GET {API}/api/hyperliquid/address/&lt;address&gt;
           </p>
           <p>
             So for Hyperliquid address pages we do learn which addresses are opened, and when. This
             is the one place the extension reports a page you merely visited.
           </p>
-          <p className="font-semibold text-gray-900 dark:text-white">
+          <p className="font-semibold text-fg">
             Four. An address you ask about in the toolbar popup.
           </p>
           <p>
@@ -271,14 +266,14 @@ export default function PrivacyPage({ onBack }) {
             On an 8004scan agent page, whose URL names an agent rather than an address, the popup
             does check the list first and sends the agent only if it is there.
           </p>
-          <p className="font-semibold text-gray-900 dark:text-white">
+          <p className="font-semibold text-fg">
             Five. Practice mode, to Hyperliquid rather than to us.
           </p>
           <p>
             On a Hyperliquid trading page, the practice-mode script asks Hyperliquid&apos;s public
             API for public market data:
           </p>
-          <p className="font-mono text-xs break-all text-gray-500 dark:text-gray-400">
+          <p className="font-mono text-xs break-all text-muted">
             POST https://api.hyperliquid.xyz/info
           </p>
           <p>
@@ -388,28 +383,28 @@ export default function PrivacyPage({ onBack }) {
 
         <Section title="Permissions, and why each one exists">
           <p>
-            <b className="text-gray-900 dark:text-white">activeTab</b>: so the popup can read the
+            <b className="text-fg">activeTab</b>: so the popup can read the
             URL of the tab you clicked on, to find the identifier there. Chosen instead of the tabs
             permission, which would grant the same reading for every tab all the time.
           </p>
           <p>
-            <b className="text-gray-900 dark:text-white">storage</b>: to keep what is listed under
+            <b className="text-fg">storage</b>: to keep what is listed under
             &quot;What it stores&quot; between page loads: the list, each site&apos;s panel
             position and collapsed state, and the practice account.
           </p>
           <p>
-            <b className="text-gray-900 dark:text-white">alarms</b>: to schedule the daily refresh.
+            <b className="text-fg">alarms</b>: to schedule the daily refresh.
             Chrome shuts down an idle background worker, so a timer inside it would not survive, and
             this is the mechanism Chrome provides instead.
           </p>
           <p>
-            <b className="text-gray-900 dark:text-white">
+            <b className="text-fg">
               Host access to agents-marketplace-q3k4.onrender.com
             </b>
             : our server, for the list and for the measurements.
           </p>
           <p>
-            <b className="text-gray-900 dark:text-white">Content scripts</b> on the nine sites
+            <b className="text-fg">Content scripts</b> on the nine sites
             listed under &quot;Where it runs&quot;: drawing the panels on those pages is the whole
             feature.
           </p>
@@ -466,7 +461,7 @@ export default function PrivacyPage({ onBack }) {
         <Section title="Contact">
           <p>
             Questions about this policy, or about what the extension does, go to{' '}
-            <a href={`mailto:${CONTACT}`} className="text-indigo-500 hover:underline">
+            <a href={`mailto:${CONTACT}`} className="text-accent hover:underline">
               {CONTACT}
             </a>
             . The extension&apos;s source is in the public repository linked in the site footer, so

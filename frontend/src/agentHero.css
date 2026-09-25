@@ -1,9 +1,41 @@
+/* Both themes, 2026-09-24. This page used to be dark whatever the visitor
+   chose. It now reads the site's theme roles from index.css, so a light-theme
+   visitor lands on a light page. Three things stay dark in both themes on
+   purpose: the video stage (it is a night scene), the small glass controls
+   that sit on it, and the gradient button, whose dark label is legible on its
+   bright fill either way.
+
+   --gold and --violet are text colours here as well as decoration, so each
+   theme gets its own: the bright pair fails 4.5:1 on a light page, the dark
+   pair fails on a dark one. */
 .agent-hero{
-    --bg:#060b1f;
-    --ink:#eef2ff;
-    --muted:#9aa6d1;
+    --bg:rgb(var(--page));
+    --ink:rgb(var(--fg));
+    --muted:rgb(var(--muted));
+    --card:rgb(var(--surface));
+    --rule:rgb(var(--line));
+    --rule-strong:rgb(var(--line-strong));
+    --gold:#9a4a00;
+    --violet:#5b3be0;
+    /* The band behind the headline. Light: the page colour, with dark text on
+       it. Dark: the original navy, with light text. The alphas below are the
+       ones solved for the artwork and apply to either. */
+    --scrim:var(--page);
+    --hero-h1:rgb(var(--fg));
+    --hero-p:rgb(var(--muted));
+    --hero-shadow:none;
+    --hero-cta-bg:rgba(16,20,28,.92);
+    --hero-cta-border:rgba(16,20,28,.92);
+  }
+html.dark .agent-hero{
     --gold:#ffb347;
     --violet:#8f6bff;
+    --scrim:6 11 31;
+    --hero-h1:#fff;
+    --hero-p:#dde3f7;
+    --hero-shadow:0 1px 2px rgba(0,0,0,.8),0 2px 18px rgba(0,0,0,.55);
+    --hero-cta-bg:rgba(12,18,42,.55);
+    --hero-cta-border:rgba(255,255,255,.22);
   }
 .agent-hero .hero{
     position:relative;min-height:100vh;display:grid;place-items:center;
@@ -84,24 +116,24 @@
        0.879 to reach 4.5:1, so the whole band the text occupies is held at
        0.93 and only fades above it, where nothing is written. */
     background:linear-gradient(to top,
-      rgba(6,11,31,.96) 0%,
-      rgba(6,11,31,.93) 55%,
-      rgba(6,11,31,.62) 80%,
-      rgba(6,11,31,0) 100%);
+      rgb(var(--scrim) / .96) 0%,
+      rgb(var(--scrim) / .93) 55%,
+      rgb(var(--scrim) / .62) 80%,
+      rgb(var(--scrim) / 0) 100%);
   }
 @keyframes copyIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 .agent-hero .copy h1{
     font-size:clamp(22px,3.4vw,44px);font-weight:700;letter-spacing:-.01em;margin:0 0 8px;
-    color:#fff;
-    text-shadow:0 1px 2px rgba(0,0,0,.8),0 2px 18px rgba(0,0,0,.55);
+    color:var(--hero-h1);
+    text-shadow:var(--hero-shadow);
   }
 .agent-hero .copy p{
     margin:0 0 18px;font-size:clamp(14px,1.4vw,18px);
     /* Lifted from --muted (#9aa6d1), which failed against the podium
        glow. At the scrim's 0.93 this clears 4.5:1 even over the brightest
        pixel in the artwork. */
-    color:#dde3f7;
-    text-shadow:0 1px 2px rgba(0,0,0,.7);
+    color:var(--hero-p);
+    text-shadow:var(--hero-shadow);
   }
 .agent-hero .copy a{
     /* Glass rather than the gradient pill: a translucent pane that takes
@@ -120,8 +152,8 @@
        dark composition rather than as a pale chip sitting on top of it. */
     background:
       linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03)),
-      rgba(12,18,42,.55);
-    border:1px solid rgba(255,255,255,.22);
+      var(--hero-cta-bg);
+    border:1px solid var(--hero-cta-border);
     border-top-color:rgba(255,255,255,.42);
     backdrop-filter:blur(14px) saturate(140%);
     -webkit-backdrop-filter:blur(14px) saturate(140%);
@@ -138,7 +170,7 @@
        clears 4.5:1 on this background. */
     background:
       linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04)),
-      rgba(16,23,52,.62);
+      var(--hero-cta-bg);
     border-color:rgba(255,255,255,.46);
     transform:translateY(-1px);
     box-shadow:
@@ -153,7 +185,7 @@
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   .agent-hero .copy a{background:rgba(23,30,58,.92)}
 }
-.agent-hero .copy a:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.agent-hero .copy a:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 @media (prefers-reduced-motion:reduce){
   /* animation:none above would strand the copy at the keyframe's start,
      so state the resting values outright. */
@@ -166,7 +198,7 @@
     font-size:13px;
   }
 .agent-hero .skip:hover{background:rgba(10,14,40,.85)}
-.agent-hero .skip:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.agent-hero .skip:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
 
 /* ─────────────────────────────────────────────────────────────────────────
    THE STORY BELOW THE HERO
@@ -174,9 +206,8 @@
    The landing page was one screen and stopped. These sections are what a
    visitor reads before deciding whether the agent grid is worth their time.
 
-   Scoped under .tn-story so nothing here reaches the app, which has its own
-   design language and its own dark-mode class. This page is dark either way:
-   it sits in front of the app and never inherits its theme. */
+   Scoped under .tn-story so nothing here reaches the app. Colours come from
+   the site theme through the variables on .agent-hero above. */
 .tn-story {
   background: var(--bg);
   color: var(--ink);
@@ -187,10 +218,10 @@
   max-width: 980px;
   margin: 0 auto;
   padding: 88px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid var(--rule);
 }
 .tn-sec--lead { border-top: 0; padding-top: 96px; }
-.tn-sec--quiet { background: rgba(255, 255, 255, 0.018); }
+.tn-sec--quiet { background: rgb(var(--inset) / 0.5); }
 .tn-sec--stats { padding-block: 56px; }
 
 .tn-eyebrow {
@@ -206,7 +237,7 @@
   line-height: 1.15;
   letter-spacing: -0.02em;
   margin: 0 0 18px;
-  color: #fff;
+  color: var(--ink);
   font-weight: 700;
   max-width: 22ch;
 }
@@ -246,10 +277,10 @@
 }
 .tn-step {
   position: relative;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--rule);
   border-radius: 16px;
   padding: 20px 20px 22px;
-  background: rgba(255, 255, 255, 0.022);
+  background: var(--card);
   height: 100%;
 }
 .tn-step-n {
@@ -260,7 +291,7 @@
   letter-spacing: 0.08em;
 }
 .tn-step-i { color: var(--gold); margin: 10px 0 6px; display: block; }
-.tn-step h3 { font-size: 16px; margin: 0 0 8px; color: #fff; font-weight: 650; }
+.tn-step h3 { font-size: 16px; margin: 0 0 8px; color: var(--ink); font-weight: 650; }
 .tn-step p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin: 0; }
 
 .tn-refuse { list-style: none; padding: 0; margin: 22px 0 0; display: grid; gap: 14px; }
@@ -283,7 +314,10 @@
   padding: 0 20px;
   border-radius: 12px;
   border: 1px solid transparent;
-  background: linear-gradient(90deg, var(--gold), var(--violet));
+  /* Fixed bright stops, not --gold and --violet: those darken on a light
+     page for legibility, and this dark label needs the bright fill under it
+     in both themes. */
+  background: linear-gradient(90deg, #ffb347, #8f6bff);
   color: #0b1020;
   font-weight: 700;
   font-size: 14.5px;
@@ -293,9 +327,9 @@
 .tn-btn--ghost {
   background: transparent;
   color: var(--ink);
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: var(--rule-strong);
 }
-.tn-btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.tn-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 /* Reveal on scroll. The transition is the whole effect; the reveal itself
    falls back to visible where IntersectionObserver or motion is unavailable,
@@ -335,7 +369,7 @@
   animation: tn-cue 2.4s ease-in-out infinite;
 }
 .agent-hero .tn-scroll-cue:hover { background: rgba(6, 11, 31, 0.85); }
-.agent-hero .tn-scroll-cue:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.agent-hero .tn-scroll-cue:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 @keyframes tn-cue {
   0%, 100% { transform: translate(-50%, 0); }
   50%      { transform: translate(-50%, 5px); }
@@ -386,7 +420,7 @@
   font-size: clamp(22px, 2.2vw, 28px);
   line-height: 1.2;
   letter-spacing: -0.02em;
-  color: #fff;
+  color: var(--ink);
   font-weight: 700;
   margin: 0 0 14px;
 }
@@ -402,21 +436,21 @@
    the centring, and a second max-width would leave the text hugging one edge. */
 .tn-shell .tn-sec { max-width: none; margin: 0; padding-inline: 0; }
 .tn-shell .tn-sec--quiet {
-  background: rgba(255, 255, 255, 0.018);
+  background: rgb(var(--inset) / 0.5);
   padding-inline: 20px;
   border-radius: 16px;
 }
 
 .tn-who { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; margin-top: 26px; }
 .tn-who-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--rule);
   border-radius: 16px;
   padding: 20px;
-  background: rgba(255, 255, 255, 0.022);
+  background: var(--card);
   height: 100%;
 }
 .tn-who-card svg { color: var(--gold); margin-bottom: 10px; }
-.tn-who-card h3 { font-size: 15.5px; margin: 0 0 8px; color: #fff; font-weight: 650; }
+.tn-who-card h3 { font-size: 15.5px; margin: 0 0 8px; color: var(--ink); font-weight: 650; }
 .tn-who-card p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin: 0; }
 
 .tn-chains { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 24px; }
@@ -424,12 +458,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--rule);
   border-radius: 12px;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.022);
+  background: var(--card);
 }
-.tn-chain-n { font-size: 14px; color: #fff; font-weight: 650; }
+.tn-chain-n { font-size: 14px; color: var(--ink); font-weight: 650; }
 .tn-chain-s { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 
 @media (max-width: 900px) {
@@ -442,5 +476,5 @@
    fallback. Small and muted: it is provenance, not a headline. */
 .tn-stat-asof{
   margin:10px 0 0; font-size:12px; line-height:1.5;
-  color:rgba(255,255,255,.45);
+  color:var(--muted);
 }

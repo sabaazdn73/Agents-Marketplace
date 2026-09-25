@@ -18,9 +18,10 @@
 // has already broadcast the transaction.
 
 import React, { useState, useEffect, useCallback } from 'react';
+import StandaloneBar from './shell/StandaloneBar';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Loader2, ShieldHalf, AlertTriangle, ChevronRight, ExternalLink } from 'lucide-react';
+import { Loader2, ShieldHalf, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useHireAgent, buildHireStepList } from './useHireAgent';
 import StepChecklist from './StepChecklist';
 
@@ -110,11 +111,11 @@ function CandidateRow({ agent, budget, onDone }) {
   const steps = running || step ? buildHireStepList({ step, completedSteps, skippedSteps, stepHashes, error, budgetUnits: DEFAULT_TEST_BUDGET, notifySkipReason }) : null;
 
   return (
-    <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B]">
+    <div className="p-4 rounded-xl border border-line bg-surface">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="font-semibold text-sm truncate">{agent.name}</div>
-          <div className="text-[11px] text-gray-500">{agent.category} · <span className="font-mono">{agent.owner_address}</span></div>
+          <div className="text-[11px] text-muted">{agent.category} · <span className="font-mono">{agent.owner_address}</span></div>
         </div>
         <button
           onClick={handleRun}
@@ -141,35 +142,33 @@ export default function CanaryTestingPanel({ onBack }) {
   const { candidates, budget, error, reload } = useCanaryData();
 
   return (
-    <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-gray-100 p-6 md:p-10">
+    <div className="min-h-screen bg-page text-fg p-6 md:p-10">
       <div className="max-w-3xl mx-auto">
-        <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white mb-6">
-          <ChevronRight size={16} className="rotate-180" /> Back to Explore
-        </button>
+        <StandaloneBar onBack={onBack} className="mb-6" />
 
         <h1 className="text-2xl font-bold flex items-center gap-2 mb-2"><ShieldHalf size={22} className="text-teal-600" /> Canary Testing (operator tool)</h1>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-muted mb-6">
  Proactively tests a small, sample of "Responding, unproven" agents with a small, real, funded job,
  every job here is funded by YOUR connected wallet, exactly like any other hire. See{' '}
-          <a href="/docs/verification-methodology" className="text-teal-600 hover:underline inline-flex items-center gap-0.5">
+          <a href="/docs/verification-methodology" className="text-accent hover:underline inline-flex items-center gap-0.5">
             the methodology <ExternalLink size={11} />
           </a>.
         </p>
 
-        <div className="mb-6 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B]">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">Weekly budget</div>
+        <div className="mb-6 p-4 rounded-2xl border border-line bg-surface">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted mb-2">Weekly budget</div>
           {budget ? (
             <div className="flex items-center gap-6 text-sm">
-              <div><span className="font-bold">{budget.spent_units}</span> <span className="text-gray-500">$U spent</span></div>
-              <div><span className="font-bold">{budget.remaining_units}</span> <span className="text-gray-500">$U remaining</span></div>
-              <div><span className="font-bold">{budget.tests_this_period}</span> <span className="text-gray-500">tests this week</span></div>
+              <div><span className="font-bold">{budget.spent_units}</span> <span className="text-muted">$U spent</span></div>
+              <div><span className="font-bold">{budget.remaining_units}</span> <span className="text-muted">$U remaining</span></div>
+              <div><span className="font-bold">{budget.tests_this_period}</span> <span className="text-muted">tests this week</span></div>
             </div>
-          ) : <Loader2 size={14} className="animate-spin text-gray-400" />}
+          ) : <Loader2 size={14} className="animate-spin text-muted" />}
         </div>
 
         {!isConnected ? (
-          <div className="p-8 rounded-2xl border border-gray-200 dark:border-gray-800 text-center">
-            <p className="text-sm text-gray-500 mb-4">Connect the operator wallet to run canary tests.</p>
+          <div className="p-8 rounded-2xl border border-line text-center">
+            <p className="text-sm text-muted mb-4">Connect the operator wallet to run canary tests.</p>
             <ConnectButton />
           </div>
         ) : error ? (
@@ -178,9 +177,9 @@ export default function CanaryTestingPanel({ onBack }) {
             <button onClick={reload} className="underline font-medium ml-2">Try again</button>
           </div>
         ) : candidates === null ? (
-          <div className="flex items-center gap-2 text-gray-400 text-sm py-8 justify-center"><Loader2 size={16} className="animate-spin" /> Loading candidates…</div>
+          <div className="flex items-center gap-2 text-muted text-sm py-8 justify-center"><Loader2 size={16} className="animate-spin" /> Loading candidates…</div>
         ) : candidates.length === 0 ? (
-          <div className="p-8 rounded-2xl border border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500">
+          <div className="p-8 rounded-2xl border border-line text-center text-sm text-muted">
             No candidates right now, either nothing in the allowed scope is currently "Responding, unproven", or everything eligible was tested within the last {budget?.recent_test_cooldown_days ?? 30} days.
           </div>
         ) : (

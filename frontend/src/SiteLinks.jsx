@@ -92,16 +92,14 @@ export default function SiteLinks({
   variant = 'dark',
   className = '',
 }) {
-  const dark = variant === 'dark';
-  const base = dark
-    ? 'text-gray-400 hover:text-white'
-    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white';
-  // A route can be the current page; an external link cannot. The active one
-  // gets full strength, so moving these out of the tab list did not cost the
-  // ability to see where you are.
-  const active = dark ? 'text-white' : 'text-gray-900 dark:text-white';
-  const rule = dark ? 'border-white/10' : 'border-gray-200 dark:border-gray-800';
-  const quiet = dark ? 'text-gray-500' : 'text-gray-400 dark:text-gray-500';
+  // Theme roles, so the footer follows the site theme wherever it sits.
+  // `variant` is kept in the signature for existing callers and no longer
+  // changes anything: the dark rail it existed for is gone.
+  void variant;
+  const base = 'text-muted hover:text-fg';
+  const active = 'text-fg';
+  const rule = 'border-line';
+  const quiet = 'text-muted';
 
   const link = `text-xs font-medium transition-colors ${base}`;
   // The marks get a hit area rather than sitting flush against each other,

@@ -21,7 +21,8 @@
 // frontend/; the production build resolves these at build time
 // regardless of that setting.)
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Menu, X, ExternalLink } from 'lucide-react';
+import StandaloneBar from './shell/StandaloneBar';
+import { Menu, X, ExternalLink } from 'lucide-react';
 import { parseDocsMarkdown } from './docsMarkdown';
 import { updatePageMeta } from './seoMeta.js';
 
@@ -162,14 +163,14 @@ function MermaidDiagram({ code }) {
   }
   if (!svg) {
     return (
-      <div className="text-xs text-gray-400 dark:text-gray-500 py-8 text-center my-5 border border-dashed border-gray-200 dark:border-gray-800 rounded-xl">
+      <div className="text-xs text-muted py-8 text-center my-5 border border-dashed border-line rounded-xl">
         Rendering diagram…
       </div>
     );
   }
   return (
     <div
-      className="my-6 flex justify-center overflow-x-auto bg-white dark:bg-[#1E293B] rounded-xl border border-gray-200 dark:border-gray-800 p-4"
+      className="my-6 flex justify-center overflow-x-auto bg-surface rounded-xl border border-line p-4"
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
@@ -178,11 +179,11 @@ function MermaidDiagram({ code }) {
 function InlineContent({ parts, onNavigate }) {
   return parts.map((p, i) => {
     if (p.t === 'text') return <React.Fragment key={i}>{p.v}</React.Fragment>;
-    if (p.t === 'bold') return <strong key={i} className="font-semibold text-gray-900 dark:text-white">{p.v}</strong>;
+    if (p.t === 'bold') return <strong key={i} className="font-semibold text-fg">{p.v}</strong>;
     if (p.t === 'italic') return <em key={i}>{p.v}</em>;
     if (p.t === 'code') {
       return (
-        <code key={i} className="text-[0.85em] bg-gray-100 dark:bg-gray-800 text-indigo-600 dark:text-indigo-300 px-1.5 py-0.5 rounded font-mono">
+        <code key={i} className="text-[0.85em] bg-inset text-accent px-1.5 py-0.5 rounded font-mono">
           {p.v}
         </code>
       );
@@ -203,10 +204,10 @@ function InlineContent({ parts, onNavigate }) {
             src={resolveDocImage(p.href)}
             alt={p.v}
             loading="lazy"
-            className="w-full rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm"
+            className="w-full rounded-xl border border-line shadow-sm"
           />
           {p.v ? (
-            <figcaption className="mt-2 text-[11px] text-gray-500 dark:text-gray-400">
+            <figcaption className="mt-2 text-[11px] text-muted">
               {p.v}
             </figcaption>
           ) : null}
@@ -226,7 +227,7 @@ function InlineContent({ parts, onNavigate }) {
             key={i}
             href={`/docs${slug ? '/' + slug : ''}${hash ? '#' + hash : ''}`}
             onClick={(e) => { e.preventDefault(); onNavigate(slug, hash); }}
-            className="text-indigo-500 hover:underline"
+            className="text-accent hover:underline"
           >
             {p.v}
           </a>
@@ -236,14 +237,14 @@ function InlineContent({ parts, onNavigate }) {
       if (p.href.startsWith('#')) {
         const hash = p.href.slice(1);
         return (
-          <a key={i} href={p.href} onClick={(e) => { e.preventDefault(); onNavigate(undefined, hash); }} className="text-indigo-500 hover:underline">
+          <a key={i} href={p.href} onClick={(e) => { e.preventDefault(); onNavigate(undefined, hash); }} className="text-accent hover:underline">
             {p.v}
           </a>
         );
       }
  // external link
       return (
-        <a key={i} href={p.href} target="_blank" rel="noreferrer" className="text-indigo-500 hover:underline inline-flex items-center gap-0.5">
+        <a key={i} href={p.href} target="_blank" rel="noreferrer" className="text-accent hover:underline inline-flex items-center gap-0.5">
           {p.v}<ExternalLink size={10} />
         </a>
       );
@@ -253,7 +254,7 @@ function InlineContent({ parts, onNavigate }) {
 }
 
 const HEADING_SIZE = {
-  1: 'text-2xl mt-1 mb-5 pb-4 border-b border-gray-200 dark:border-gray-800',
+  1: 'text-2xl mt-1 mb-5 pb-4 border-b border-line',
   2: 'text-xl mt-10 mb-3',
   3: 'text-base mt-7 mb-2',
   4: 'text-sm mt-6 mb-2',
@@ -297,7 +298,7 @@ function DocContent({ filename, onNavigate }) {
             // so prose keeps a reading column while tables, code blocks and
             // diagrams below are free to use the full width. That asymmetry
             // is the whole point of widening this page.
-            <p key={i} className="text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4 max-w-3xl mx-auto">
+            <p key={i} className="text-sm leading-relaxed text-muted mb-4 max-w-3xl mx-auto">
               <InlineContent parts={b.inline} onNavigate={onNavigate} />
             </p>
           );
@@ -305,19 +306,19 @@ function DocContent({ filename, onNavigate }) {
         if (b.type === 'list') {
           const ListTag = b.ordered ? 'ol' : 'ul';
           return (
-            <ListTag key={i} className={`text-sm leading-relaxed text-gray-600 dark:text-gray-300 mb-4 pl-5 space-y-1.5 max-w-3xl ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
+            <ListTag key={i} className={`text-sm leading-relaxed text-muted mb-4 pl-5 space-y-1.5 max-w-3xl ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
               {b.items.map((item, j) => <li key={j}><InlineContent parts={item} onNavigate={onNavigate} /></li>)}
             </ListTag>
           );
         }
         if (b.type === 'table') {
           return (
-            <div key={i} className="overflow-x-auto mb-5 rounded-xl border border-gray-200 dark:border-gray-800">
+            <div key={i} className="overflow-x-auto mb-5 rounded-xl border border-line">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-800/60">
+                  <tr className="bg-inset ">
                     {b.header.map((cell, j) => (
-                      <th key={j} className="text-left font-semibold px-3 py-2 border-b border-gray-200 dark:border-gray-800 whitespace-nowrap">
+                      <th key={j} className="text-left font-semibold px-3 py-2 border-b border-line whitespace-nowrap">
                         <InlineContent parts={cell} onNavigate={onNavigate} />
                       </th>
                     ))}
@@ -325,9 +326,9 @@ function DocContent({ filename, onNavigate }) {
                 </thead>
                 <tbody>
                   {b.rows.map((row, j) => (
-                    <tr key={j} className="border-b border-gray-100 dark:border-gray-800/60 last:border-0">
+                    <tr key={j} className="border-b border-line/60 last:border-0">
                       {row.map((cell, k) => (
-                        <td key={k} className="px-3 py-2 text-gray-600 dark:text-gray-300 align-top">
+                        <td key={k} className="px-3 py-2 text-muted align-top">
                           <InlineContent parts={cell} onNavigate={onNavigate} />
                         </td>
                       ))}
@@ -340,9 +341,9 @@ function DocContent({ filename, onNavigate }) {
         }
         if (b.type === 'code') {
           return (
-            <div key={i} className="mb-5 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
+            <div key={i} className="mb-5 rounded-xl overflow-hidden border border-line">
               {b.lang && (
-                <div className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/60 px-3 py-1 border-b border-gray-200 dark:border-gray-800">
+                <div className="text-[10px] uppercase tracking-wider font-semibold text-muted bg-inset px-3 py-1 border-b border-line">
                   {b.lang}
                 </div>
               )}
@@ -353,7 +354,7 @@ function DocContent({ filename, onNavigate }) {
           );
         }
         if (b.type === 'mermaid') return <MermaidDiagram key={i} code={b.content} />;
-        if (b.type === 'hr') return <hr key={i} className="my-8 border-gray-200 dark:border-gray-800" />;
+        if (b.type === 'hr') return <hr key={i} className="my-8 border-line" />;
         return null;
       })}
     </div>
@@ -404,7 +405,7 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
       {NAV_SECTIONS.map((section, i) => (
         <div key={section.title || `intro-${i}`} className="space-y-0.5">
           {section.title && (
-            <h3 className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            <h3 className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted ">
               {section.title}
             </h3>
           )}
@@ -416,9 +417,9 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
                 href={`/docs${item.slug ? '/' + item.slug : ''}`}
                 onClick={(e) => { e.preventDefault(); handleNavigate(item.slug, ''); }}
                 className={`block text-sm px-3 py-2 rounded-lg transition-colors ${
-                  active
-                    ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-semibold'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+ active
+ ? 'bg-indigo-50 dark:bg-indigo-500/10 text-accent font-semibold'
+                    : 'text-muted hover:bg-inset'
                 }`}
               >
                 {item.title}
@@ -431,7 +432,7 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
   );
 
   return (
-    <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-white">
+    <div className="min-h-screen bg-page text-fg">
       {/* Was max-w-5xl (1024px). Measured at a 1730px viewport that left 353px
           unused on EACH side while the content pane was only 720px, and both
           tables on the Smart Contracts page were clipped with their last
@@ -439,16 +440,13 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
           (53 across the section), so the width was costing legibility rather
           than only looking sparse. 1400px matches the marketplace shell. */}
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
-            <ArrowLeft size={16} /> Back to Explore
-          </button>
+        <StandaloneBar onBack={onBack} className="mb-6">
           {isMobile && (
-            <button onClick={() => setDrawerOpen(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white">
+            <button onClick={() => setDrawerOpen(true)} className="flex items-center gap-1.5 text-body font-medium text-muted hover:text-fg">
               <Menu size={18} /> Sections
             </button>
           )}
-        </div>
+        </StandaloneBar>
 
         <div className="flex gap-8 items-start">
           {!isMobile && (
@@ -489,7 +487,7 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
             </aside>
           )}
 
-          <main className="flex-1 min-w-0 bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 p-6 sm:p-8">
+          <main className="flex-1 min-w-0 bg-surface rounded-2xl border border-line p-6 sm:p-8">
             <DocContent filename={filename} onNavigate={handleNavigate} />
           </main>
         </div>
@@ -498,7 +496,7 @@ export default function DocsPage({ path, navigate, onBack, isMobile }) {
       {isMobile && drawerOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
-          <div className="relative w-72 max-w-[80vw] h-full bg-white dark:bg-[#0F172A] p-4 overflow-y-auto shadow-2xl">
+          <div className="relative w-72 max-w-[80vw] h-full bg-field p-4 overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <span className="text-sm font-bold">Documentation</span>
               <button onClick={() => setDrawerOpen(false)}><X size={18} /></button>

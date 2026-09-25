@@ -255,8 +255,8 @@ export default function ChainViewTabs({ mutedBorder, children }) {
               // "Robinhood Chain" rather than "Robinhood".
               aria-label={t.label}
               className={`shrink-0 flex items-center gap-1 sm:gap-1.5 min-h-11 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-semibold border transition-colors ${on
-                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+ ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-accent '
+                : 'border-line text-muted hover:bg-inset'}`}
             >
               <ChainMark viewId={t.id} size={12} />
               {short ? (
@@ -269,12 +269,12 @@ export default function ChainViewTabs({ mutedBorder, children }) {
                   zero. Rendering 0 next to Hyperliquid would read as an empty
                   chain rather than a different kind of tab. */}
               {t.count != null && t.kind !== 'venue' && (
-                <span className="hidden md:inline text-[10px] font-medium opacity-60">
+                <span className="hidden md:inline text-[10px] font-medium text-muted">
                   {compactCount(t.count)}
                 </span>
               )}
               {t.coming_soon && (
-                <span className="hidden sm:inline text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-500">
+                <span className="hidden sm:inline text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-accent/15 text-accent">
                   Soon
                 </span>
               )}

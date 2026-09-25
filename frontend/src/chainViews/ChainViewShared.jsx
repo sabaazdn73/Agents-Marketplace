@@ -107,7 +107,7 @@ export function HireabilityNotice({ label, hirePaths }) {
 export function UnverifiedStatusNote({ note, verifiedChains = [], unverifiedChains = [] }) {
   const names = (l) => l.map((c) => c.name).join(', ');
   return (
-    <div className="text-[11px] text-gray-600 dark:text-gray-400 flex items-start gap-1.5 mb-4">
+    <div className="text-[11px] text-muted flex items-start gap-1.5 mb-4">
       <AlertTriangle size={12} className="shrink-0 mt-0.5 opacity-70" />
       <span>
         {verifiedChains.length > 0 && (
@@ -162,11 +162,11 @@ export function ChainCapabilities({ capabilities }) {
   const absent = signals.filter((s) => !s.available && !s.partial);
 
   return (
-    <details className="mb-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B]">
+    <details className="mb-4 rounded-xl border border-line bg-surface ">
       <summary className="px-4 py-3 text-[12px] font-semibold cursor-pointer select-none flex items-center gap-2">
-        <Info size={13} className="text-indigo-500 shrink-0" />
+        <Info size={13} className="text-accent shrink-0" />
         What we can check on this chain
-        <span className="font-normal text-gray-500">
+        <span className="font-normal text-muted">
           ({shown.length} of {signals.length} signals)
         </span>
       </summary>
@@ -179,7 +179,7 @@ export function ChainCapabilities({ capabilities }) {
                 {SIGNAL_LABELS[s.signal] || s.signal}
                 {s.partial && <span className="ml-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">PARTIAL</span>}
               </div>
-              <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">{s.detail}</p>
+              <p className="text-[11px] text-muted leading-relaxed">{s.detail}</p>
               {s.partial && s.missing_chains?.length > 0 && (
                 <p className="text-[11px] text-amber-700 dark:text-amber-500 mt-0.5">
                   Not available for {s.missing_chains.map((c) => c.name).join(', ')}.
@@ -190,10 +190,10 @@ export function ChainCapabilities({ capabilities }) {
         ))}
         {absent.map((s) => (
           <div key={s.signal} className="flex items-start gap-2">
-            <XCircle size={13} className="shrink-0 mt-0.5 text-gray-400" />
+            <XCircle size={13} className="shrink-0 mt-0.5 text-muted" />
             <div className="min-w-0">
-              <div className="text-[12px] font-medium text-gray-500">{SIGNAL_LABELS[s.signal] || s.signal}</div>
-              <p className="text-[11px] text-gray-500 dark:text-gray-500 leading-relaxed">{s.reason}</p>
+              <div className="text-[12px] font-medium text-muted">{SIGNAL_LABELS[s.signal] || s.signal}</div>
+              <p className="text-[11px] text-muted leading-relaxed">{s.reason}</p>
             </div>
           </div>
         ))}
@@ -205,17 +205,17 @@ export function ChainCapabilities({ capabilities }) {
 export function ChainAgentCard({ agent, mutedBorder }) {
   const explorer = EXPLORER_BASE[agent.chain_id];
   return (
-    <div className={`bg-white dark:bg-[#1E293B] rounded-2xl border ${mutedBorder} p-4 flex flex-col gap-2`}>
+    <div className={`bg-surface rounded-2xl border ${mutedBorder} p-4 flex flex-col gap-2`}>
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-bold leading-snug">{agent.name || 'Unnamed agent'}</h3>
         <ChainBadge chainName={agent.chain_name} chainId={agent.chain_id} />
       </div>
       {agent.category && (
-        <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider">
+        <span className="text-[10px] font-semibold text-accent uppercase tracking-wider">
           {agent.category}
         </span>
       )}
-      <p className="text-[12px] text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-3">
+      <p className="text-[12px] text-muted leading-relaxed line-clamp-3">
         {agent.description || 'No description provided.'}
       </p>
       <InteractionLine interaction={agent.interaction} showDetail={false} />
@@ -232,7 +232,7 @@ export function ChainAgentCard({ agent, mutedBorder }) {
  against rate-limited keys, so they run only when someone actually
           asks about one agent rather than for every card rendered. */}
       <details className="mt-1">
-        <summary className="text-[11px] text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline select-none">
+        <summary className="text-[11px] text-accent cursor-pointer hover:underline select-none">
           Evaluate this agent
         </summary>
         <div className="mt-2">
@@ -244,14 +244,14 @@ export function ChainAgentCard({ agent, mutedBorder }) {
         </div>
       </details>
 
-      <div className="flex items-center gap-3 text-[10px] text-gray-500 dark:text-gray-500 mt-auto pt-2">
+      <div className="flex items-center gap-3 text-[10px] text-muted mt-auto pt-2">
         {agent.token_id != null && <span className="font-mono">#{agent.token_id}</span>}
         {agent.total_feedbacks > 0 && <span>{agent.total_feedbacks} on-chain feedback</span>}
         {explorer && agent.owner_address && (
           <a
             href={`${explorer}${agent.owner_address}`}
             target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 hover:text-indigo-500 ml-auto"
+            className="inline-flex items-center gap-1 hover:text-accent ml-auto"
           >
             Owner <ExternalLink size={10} />
           </a>
@@ -264,7 +264,7 @@ export function ChainAgentCard({ agent, mutedBorder }) {
 export function ChainViewStates({ loading, error, empty, label }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
+      <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted">
         <Loader2 size={16} className="animate-spin" /> Loading {label} agents…
       </div>
     );
@@ -273,7 +273,7 @@ export function ChainViewStates({ loading, error, empty, label }) {
     return (
       <div className="text-center py-16 px-6">
         <p className="font-semibold mb-1">Couldn't load {label} agents</p>
-        <p className="text-sm text-gray-600 dark:text-gray-400">{error}</p>
+        <p className="text-sm text-muted ">{error}</p>
       </div>
     );
   }
@@ -281,7 +281,7 @@ export function ChainViewStates({ loading, error, empty, label }) {
     return (
       <div className="text-center py-16 px-6">
         <p className="font-semibold mb-1">No {label} agents stored yet</p>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-muted ">
           This view fills as the background ingestion reaches that chain.
         </p>
       </div>
@@ -297,7 +297,7 @@ export function LoadMoreButton({ hasMore, loadingMore, onClick }) {
       <button
         onClick={onClick}
         disabled={loadingMore}
-        className="text-sm font-semibold px-5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-white/5 disabled:opacity-60 flex items-center gap-2"
+        className="text-sm font-semibold px-5 py-2.5 rounded-xl border border-line hover:bg-inset disabled:opacity-60 flex items-center gap-2"
       >
         {loadingMore && <Loader2 size={14} className="animate-spin" />}
         {loadingMore ? 'Loading…' : 'Load more'}

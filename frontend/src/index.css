@@ -2,6 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Theme roles ─────────────────────────────────────────────────────────────
+   Every colour the shell uses is one of these roles, never a hex in a class.
+   Components ask for a role (bg-surface, text-muted, border-line) and the
+   theme decides what it is. Values are space-separated RGB so Tailwind can
+   apply an alpha: bg-surface/80.
+
+   Two rules the values follow in both themes:
+   1. The page is darker than a card, so a card lifts by lightness, not by a
+      shadow. Cards carry a hairline border and no shadow.
+   2. Gain and loss colours are tuned per theme rather than reused, because a
+      green that reads on white is too dark on near-black and the reverse.
+      pos, neg, warn and accent also clear 4.5:1 on their own 5 to 15% tint,
+      so a chip written as text-pos bg-pos/10 is legible without checking.
+
+   The `dark` class lives on <html>, set before first paint by the inline
+   script in index.html and kept current by theme/ThemeProvider.jsx. Keeping
+   Tailwind's class strategy means every existing dark: utility still works.
+
+   `line` is a decorative hairline (cards, dividers) and is deliberately
+   quiet. `line-strong` is the role for a control's own boundary (an input,
+   an outlined button) and clears 3:1 against surface, page and inset in both
+   themes, which is what WCAG 1.4.11 asks of a component boundary. Every text
+   role clears 4.5:1 on page, surface and inset in both themes. Recompute
+   the ratios whenever a value here changes.
+
+   index.html repeats the two page colours in its inline style so the very
+   first frame is right before this file loads. Change them together. */
+:root {
+  --page: 244 245 247;
+  --surface: 255 255 255;
+  --inset: 240 242 245;
+  --field: 255 255 255;
+  --line: 226 229 234;
+  --line-strong: 128 135 148;
+  --fg: 18 28 28;
+  --muted: 84 92 107;
+  --faint: 100 108 122;
+  --accent: 79 70 229;
+  --accent-fg: 255 255 255;
+  --accent-soft: 238 240 255;
+  --pos: 3 105 62;
+  --neg: 180 35 26;
+  --warn: 138 82 5;
+  --chart-baseline: 176 183 195;
+  color-scheme: light;
+}
+
+html.dark {
+  /* A dim dark, blue-tinted, rather than near-black. Each neutral here sits
+     at least 12 units (RGB distance) from the reference product's dark
+     neutrals, so the theme is ours and not a copy of theirs. */
+  --page: 23 24 32;
+  --surface: 43 44 60;
+  --inset: 50 54 68;
+  --field: 32 32 43;
+  --line: 62 66 82;
+  --line-strong: 122 129 148;
+  --fg: 240 242 246;
+  --muted: 170 177 191;
+  --faint: 156 163 178;
+  --accent: 150 160 252;
+  --accent-fg: 12 5 30;
+  --accent-soft: 52 55 100;
+  --pos: 84 214 148;
+  --neg: 252 130 120;
+  --warn: 236 184 20;
+  --chart-baseline: 88 94 112;
+  color-scheme: dark;
+}
+
+html {
+  background-color: rgb(var(--page));
+  color: rgb(var(--fg));
+}
+
+@layer base {
+  body {
+    background-color: rgb(var(--page));
+    color: rgb(var(--fg));
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  /* The one card. Radius 6, hairline border, 16px padding, no shadow. On a
+     phone the shell uses .card-bleed instead, which drops the radius and the
+     side borders so the card runs edge to edge and the page colour between
+     cards does the separating. */
+  .card {
+    @apply bg-surface border border-line rounded-md;
+  }
+  .card-bleed {
+    @apply bg-surface border-y border-line;
+  }
+  /* Money and counts. Tabular figures so a column of numbers lines up. */
+  .figure {
+    @apply font-mono tabular-nums;
+  }
+}
+
 /* Safe-area utilities. `pt-safe`/`pb-safe` were already being used on the
    mobile header and bottom bar but were never defined -- no Tailwind plugin,
    nothing in tailwind.config.js, and confirmed absent from the built CSS. So
@@ -11,4 +111,6 @@
 @layer utilities {
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }

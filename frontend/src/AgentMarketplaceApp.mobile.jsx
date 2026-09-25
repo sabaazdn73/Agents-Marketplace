@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  Sun, Moon, ShieldAlert, ShieldCheck, FileBarChart, CheckCircle2, XCircle,
+  ShieldAlert, ShieldCheck, FileBarChart, CheckCircle2, XCircle,
   GraduationCap, Store, ChevronRight, Loader2, AlertTriangle,
   Wallet, LogOut, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, Menu,
@@ -77,6 +77,8 @@ import InteractionLine from './InteractionLine';
 import DeliveryRecord from './DeliveryRecord';
 import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
+import ThemeToggle from './theme/ThemeToggle';
+import { useTheme } from './theme/ThemeProvider';
 import AgentStudioPage from './AgentStudioPage';
 import MultiAgentIcon from './MultiAgentIcon';
 import { ChainCardBadge } from './chainViews/chainMarks';
@@ -282,7 +284,7 @@ const SECONDARY_NAV_ITEMS = NAV_ITEMS.filter((i) => !PRIMARY_NAV_IDS.includes(i.
 // Mobile-optimized Wallet Modal / Sheet
 function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
                             onOpenEcosystem, onShowOnboarding,
-                            onOpenDataSources, darkMode, onToggleTheme }) {
+                            onOpenDataSources }) {
   const { address: wagmiAddress, isConnected: wagmiConnected } = useAccount();
   const { disconnect: wagmiDisconnect } = useDisconnect();
   const { ready, authenticated, user, logout } = usePrivy();
@@ -293,28 +295,31 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full bg-white dark:bg-[#0F172A] rounded-t-3xl p-6 pb-10" onClick={e => e.stopPropagation()}>
-        <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6" />
+      <div className="w-full max-h-[90dvh] overflow-y-auto bg-surface text-fg border-t border-line rounded-t-xl p-5 pb-10" onClick={e => e.stopPropagation()}>
+        <div className="w-10 h-1 bg-line-strong rounded-full mx-auto mb-5" />
         {/* The three controls that left the header on 2026-09-18. They are
             here rather than gone: a control moved out of sight has to land
             somewhere a person can find it, and this sheet is where the other
             secondary things already are. */}
-        <div className="grid grid-cols-3 gap-2 mb-6">
+        {/* Theme first: the one setting in this sheet, and it has to be
+            reachable without a wallet. Three positions, system by default. */}
+        <div className="mb-4">
+          <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Theme</h3>
+          <ThemeToggle labels />
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-4">
           {[
             onOpenEcosystem && { key: 'eco', icon: Globe, label: 'Ecosystem',
               onClick: () => { onOpenEcosystem(); onClose(); } },
             onShowOnboarding && { key: 'help', icon: HelpCircle, label: 'How this works',
               onClick: () => { onShowOnboarding(); onClose(); } },
-            onToggleTheme && { key: 'theme', icon: darkMode ? Sun : Moon,
-              label: darkMode ? 'Light mode' : 'Dark mode',
-              onClick: () => onToggleTheme() },
           ].filter(Boolean).map((b) => {
             const Icon = b.icon;
             return (
               <button
                 key={b.key}
                 onClick={b.onClick}
-                className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#1E293B] text-gray-600 dark:text-gray-300"
+                className="flex flex-col items-center justify-center gap-1.5 py-3 rounded-md border border-line bg-inset text-muted hover:text-fg"
               >
                 <Icon size={18} />
                 <span className="text-[11px] font-medium">{b.label}</span>
@@ -326,8 +331,8 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
         {/* Secondary destinations, moved out of the bottom bar (2026-09-04).
             Reachable in one tap from the menu the header already had. */}
         {onNavigate && (
-          <div className="mb-6">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3 px-1">Go to</h3>
+          <div className="mb-5">
+            <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Go to</h3>
             <div className="grid grid-cols-3 gap-2">
               {SECONDARY_NAV_ITEMS.map((item) => {
                 const Icon = item.icon;
@@ -336,9 +341,9 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
                   <button
                     key={item.id}
                     onClick={() => { onNavigate(item.id); onClose(); }}
-                    className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl border transition-colors ${active
-                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                      : 'border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'}`}
+                    className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-md border transition-colors ${active
+                      ? 'border-accent bg-accent-soft text-accent'
+                      : 'border-line bg-inset text-muted hover:text-fg'}`}
                   >
                     <Icon size={18} />
                     <span className="text-[11px] font-medium">{item.label}</span>
@@ -349,19 +354,19 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
           </div>
         )}
 
-        <h3 className="text-lg font-bold mb-6 text-gray-900 dark:text-white text-center">Your Wallet</h3>
+        <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Wallet</h3>
         
         {isConnected ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between bg-gray-50 dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+            <div className="flex items-center justify-between bg-inset rounded-md p-3 border border-line">
               <div className="flex items-center gap-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-mono text-sm text-gray-700 dark:text-gray-200">{shortAddress}</span>
+                <span className="w-2 h-2 rounded-full bg-pos" aria-hidden="true" />
+                <span className="figure text-body text-fg">{shortAddress}</span>
               </div>
             </div>
             <button 
               onClick={() => { wagmiConnected ? wagmiDisconnect() : logout(); onClose(); }} 
-              className="w-full flex justify-center items-center gap-2 bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400 py-4 rounded-xl font-semibold"
+              className="w-full flex justify-center items-center gap-2 border border-line text-neg h-11 rounded-md text-body font-semibold"
             >
               <LogOut size={18} /> Disconnect
             </button>
@@ -370,8 +375,8 @@ function MobileWalletSheet({ onClose, nav, onNavigate, onOpenDocs,
           <div className="space-y-3">
             <ConnectButton.Custom>
               {({ openConnectModal }) => (
-                <button onClick={() => { openConnectModal(); onClose(); }} className="w-full flex justify-between items-center bg-indigo-600 text-white text-base font-semibold py-4 px-5 rounded-2xl">
-                  <span>Connect Wallet</span>
+                <button onClick={() => { openConnectModal(); onClose(); }} className="w-full flex justify-between items-center bg-accent text-accent-fg text-body font-semibold h-11 px-4 rounded-md">
+                  <span>Connect wallet</span>
                   <Wallet size={20} />
                 </button>
               )}
@@ -424,23 +429,23 @@ function SplashScreen({ onUnlock }) {
   return (
     <div
       onClick={showControls ? onUnlock : undefined}
-      className="fixed inset-0 z-50 bg-[#0B101B] text-white flex flex-col items-center justify-between p-8 select-none"
+      className="fixed inset-0 z-50 bg-page text-fg flex flex-col items-center justify-between p-8 select-none"
       role="button"
       aria-label="Tap to continue"
     >
       <div className="flex-1 flex flex-col items-center justify-center gap-6 w-full">
-        <img src={agentsHero} alt="Tnega" className="w-full max-w-xs rounded-3xl border border-white/10 shadow-2xl object-cover" />
+        <img src={agentsHero} alt="Tnega" className="w-full max-w-xs rounded-lg border border-line object-cover" />
         {!showControls ? (
-          <div className="flex items-center gap-2 text-gray-400 text-sm"><Loader2 size={16} className="animate-spin" /> Loading…</div>
+          <div className="flex items-center gap-2 text-muted text-sm"><Loader2 size={16} className="animate-spin" /> Loading…</div>
         ) : (
-          <p className="text-xs text-gray-400">Tap anywhere to continue</p>
+          <p className="text-label text-muted">Tap anywhere to continue</p>
         )}
       </div>
 
       <div className="w-full flex flex-col items-center gap-2 pb-4 min-h-[48px] justify-end">
         <div className="flex items-center gap-2">
           <img src={appMark} alt="" className="w-11 h-11" />
-          <h1 className="text-xl font-bold tracking-tight">Tnega</h1>
+          <h1 className="text-h1 font-bold tracking-tight">Tnega</h1>
         </div>
       </div>
     </div>
@@ -469,7 +474,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
           <Link2 size={14} /> {copied ? 'Copied!' : 'Share'}
         </button>
       </div>
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+      <div className="bg-surface rounded-md p-6 border border-line">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <AgentAvatar agent={agent} size={44} />
@@ -478,7 +483,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
                 <span title={CATEGORY_HINTS[agent.category]} className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider">{agent.category}</span>
                 {agent.possiblyDelisted && <span title="Not seen active in over a week" className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">may no longer be active</span>}
               </div>
-              <h2 className="text-2xl font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Registered on-chain, not a quality rating" />}</h2>
+              <h2 className="text-h1 font-bold flex items-center gap-1.5">{agent.name}{agent.isVerified && <BadgeCheck size={18} className="text-indigo-500" title="Registered on-chain, not a quality rating" />}</h2>
             </div>
           </div>
           <span className="text-[10px] px-2 py-1 rounded-md bg-gray-50 dark:bg-gray-800 font-medium shrink-0">{CHAIN_LABELS[agent.chainId] || agent.network}</span>
@@ -498,7 +503,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         {agent.financialDataAvailable && agent.defillamaUrl && (
           <div className="mb-4">
             <a href={agent.defillamaUrl} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 inline-flex items-center gap-1">Where this money number comes from: DefiLlama <ExternalLink size={11} /></a>
-            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+            <div className="flex flex-wrap items-center gap-3 mt-1.5 text-[11px] text-muted">
               {agent.tvlChange7dPct != null && (
                 <span title="How this protocol's total funds have changed over the last 7 days">{agent.tvlChange7dPct >= 0 ? '▲' : '▼'} {Math.abs(agent.tvlChange7dPct).toFixed(1)}% (7d)</span>
               )}
@@ -529,7 +534,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
         )}
 
         <h3 className="text-sm font-bold mb-1">About</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">{agent.strategy}</p>
+        <p className="text-sm text-muted leading-relaxed mb-4">{agent.strategy}</p>
         <InteractionLine interaction={agent.interaction} className="mb-4"
           deliveredCount={(agent.jobsCompleted ?? 0) + (agent.jobsSubmitted ?? 0)} />
 
@@ -553,7 +558,7 @@ function AgentDetailMobile({ agent, onBack, onHire, onTrySkill }) {
             "Funds", labeled and placed separately so the two are never
             confused with one another. */}
         <div className="mt-3 flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-500/5 border border-indigo-100 dark:border-indigo-500/20">
-          <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-gray-600 dark:text-gray-300 flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
+          <span title="BNB is this network's own currency, used to pay small network fees. This is how much the owner's wallet holds right now." className="text-xs text-muted flex items-center gap-1.5"><Wallet size={13} /> Owner's wallet balance <span className="text-[10px] text-gray-400">(in BNB)</span></span>
           <span className="font-mono text-sm font-semibold">{agent.ownerBnbBalance != null ? formatBnbWithUsd(agent.ownerBnbBalance, bnbUsdPrice) : <span className="text-gray-400 font-normal">n/a</span>}</span>
         </div>
  {/* Real, final, unified "Metrics" presentation, see the matching
@@ -587,7 +592,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // tab 2026-08-29, see NAV_ITEMS' own comment above.) Same accent
   // value web uses (AgentMarketplaceApp.web.jsx).
   const accent = '#6366F1';
-  const [darkMode, setDarkMode] = useState(false);
+  // The theme is the site's, not this component's: see theme/ThemeProvider.jsx.
+  // `darkMode` is still handed to the few panels that take it as a prop.
+  const { dark: darkMode } = useTheme();
  // first-visit orientation, see AgentMarketplaceApp.web.jsx's
   // matching comment and onboarding.js for the reasoning.
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
@@ -878,7 +885,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   }), [agentsWithPerf]);
 
   return (
-    <div className={`relative flex flex-col h-[100dvh] font-sans ${darkMode ? 'dark bg-[#0B101B] text-white' : 'bg-[#F4F5F8] text-gray-900'}`}>
+    <div className="relative flex flex-col h-[100dvh] font-sans bg-page text-fg">
       {showOnboarding && <OnboardingTour onClose={() => setShowOnboarding(false)} />}
 
       {/* App Header (Sticky) */}
@@ -887,7 +894,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           360px phone. This is arrangement only -- every control is still here
           and still 44x44. What changed is the gap between them and the
  padding around them, which is where the space was. */}
-      <header className="shrink-0 flex items-center justify-between gap-2 px-3 sm:px-5 py-2.5 sm:py-4 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-gray-200/50 dark:border-white/5 z-20 pt-safe">
+      <header className="shrink-0 bg-surface border-b border-line z-20 pt-safe">
+        <div className="h-14 flex items-center justify-between gap-2 px-3">
         <div className="flex items-center gap-2 min-w-0">
           <a
             href="https://f2f-uzh.vercel.app"
@@ -898,7 +906,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           >
             <img src={appMark} alt="Tnega" className="w-full h-full object-contain" />
           </a>
-          <h1 className="text-lg font-bold tracking-tight truncate">Tnega</h1>
+          <h1 className="text-title font-bold tracking-tight truncate">Tnega</h1>
         </div>
         <div className="flex items-center gap-0.5 sm:gap-2 shrink-0">
           {/* Beside the bell, for the reason given in the web shell: a
@@ -913,10 +921,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             }}
             aria-label="My Agents"
             title="My Agents, the jobs you have hired"
-            className={`w-11 h-11 flex items-center justify-center rounded-full ${
+            className={`w-11 h-11 flex items-center justify-center rounded-md transition-colors ${
               nav === 'my-agents'
-                ? 'bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400'
-                : 'bg-gray-100 dark:bg-white/10'}`}
+                ? 'bg-accent-soft text-accent'
+                : 'text-muted hover:text-fg'}`}
           >
             <Briefcase size={16} />
           </button>
@@ -927,9 +935,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               ecosystem view, the tour and the theme. They are in the sheet
               behind this menu button, one tap away, grouped rather than
               competing with the jobs and notifications a person checks. */}
-          <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
-            <Menu size={18} />
+          <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded-md text-fg hover:bg-inset">
+            <Menu size={20} />
           </button>
+        </div>
         </div>
       </header>
 
@@ -944,7 +953,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {/* Funding model, parity with web. Escrow is the default and
                 the ERC-8183 markup below is unchanged -- only hidden while
                 budget mode is active. */}
-            <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 mb-4">
+            <div className="bg-surface rounded-md p-5 border border-line mb-4">
               <div className="flex items-center gap-3 mb-4">
                 <AgentAvatar agent={selectedAgent} size={44} />
                 <h2 className="text-xl font-bold">{selectedAgent.name}</h2>
@@ -960,12 +969,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             </div>
 
             <div className={hireMode === HIRE_MODE.BUDGET ? 'hidden' : ''}>
-            <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-800">
+            <div className="bg-surface rounded-md p-6 border border-line">
               <div className="mb-4">
                 <AgentAvatar agent={selectedAgent} size={64} />
               </div>
-              <h2 className="text-2xl font-bold mb-1">{selectedAgent.name}</h2>
-              <p className="text-gray-500 text-sm mb-4">You'll approve a few quick steps in your wallet, tracked below as they happen.</p>
+              <h2 className="text-h1 font-bold mb-1">{selectedAgent.name}</h2>
+              <p className="text-muted text-sm mb-4">You'll approve a few quick steps in your wallet, tracked below as they happen.</p>
 
  {/* Real, last-chance gate, parity with web, see
                   EscrowCompatibilityWarning.jsx. */}
@@ -980,7 +989,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {/* Unified "how much and how long" step (2026-09-09), see
                     the matching comment in AgentMarketplaceApp.web.jsx
                     (kept in sync). */}
-                <div className="p-4 rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-white/[0.02] space-y-6">
+                <div className="p-4 rounded-2xl border border-line bg-gray-50/50 dark:bg-white/[0.02] space-y-6">
                 <div>
                   <label className="block text-sm font-semibold mb-2">How much are you funding this job for? <span className="font-normal text-gray-400" title="$U is a type of digital dollar, 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
 
@@ -1005,7 +1014,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     </div>
                   )}
 
-                  <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50" />
+                  <input type="number" value={spendCap} onChange={(e) => { setSpendCap(e.target.value); setSpendCapTouched(true); }} disabled={hireStep && !hireError} className="w-full p-4 rounded-xl border border-line bg-inset text-lg font-mono outline-none disabled:opacity-50" />
                   <div className="mt-1.5"><GetULink /></div>
                 </div>
 
@@ -1023,7 +1032,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         type="button"
                         onClick={() => setDeadlineMinutes(p.minutes)}
                         disabled={hireStep && !hireError}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${Number(deadlineMinutes) === p.minutes ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'}`}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all disabled:opacity-50 ${Number(deadlineMinutes) === p.minutes ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400' : 'border-line text-muted'}`}
                       >
                         {p.label}
                       </button>
@@ -1032,7 +1041,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <input
                     type="number" value={deadlineMinutes} disabled={hireStep && !hireError}
                     onChange={(e) => setDeadlineMinutes(e.target.value)}
-                    className="w-full p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-lg font-mono outline-none disabled:opacity-50"
+                    className="w-full p-4 rounded-xl border border-line bg-inset text-lg font-mono outline-none disabled:opacity-50"
                   />
                   <p className="text-[11px] text-gray-400 mt-1.5">
                     {deadlineError
@@ -1054,7 +1063,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         disabled={hireStep && !hireError}
                         placeholder={`Hire via Tnega: ${selectedAgent.name}`}
                         rows={4}
-                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A] text-xs font-mono outline-none disabled:opacity-50"
+                        className="w-full p-3 rounded-xl border border-line bg-inset text-xs font-mono outline-none disabled:opacity-50"
                       />
                       <p className="text-[11px] text-gray-400 mt-1">Only for advanced users. This replaces the automatic description above with your own text, permanently recorded. Leave it blank unless you have a specific reason to use this.</p>
                     </div>
@@ -1065,7 +1074,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
  only ever shown once canBatchHire genuinely confirms
  batch support for the connected wallet. */}
                 {!hireStep && canBatchHire === CAN_BATCH_HIRE_STATUS.supported && (
-                  <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                  <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-xl border border-line bg-inset">
                     <div>
                       <div className="text-xs font-semibold">{signOnceForAllSteps ? 'Sign once for all steps' : 'Sign each step individually'}</div>
                       <div className="text-[11px] text-gray-400 mt-0.5">
@@ -1094,14 +1103,14 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     helpers (useHireAgent.js), so the two can't drift on
  what each step means. */}
                 {hireStep && (
-                  <div className="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0F172A]">
+                  <div className="p-4 rounded-xl border border-line bg-inset">
                     <StepChecklist steps={(activeHireMode === 'batched' ? buildBatchHireStepList : buildHireStepList)({
                       step: hireStep, completedSteps: hireCompletedSteps, skippedSteps: hireSkippedSteps,
                       stepHashes: hireStepHashes, error: hireError, budgetUnits: spendCap,
                       notifySkipReason: hireNotifySkipReason,
                     })} />
                     {hireStep === 'done' && (
-                      <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+                      <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400 mt-4 pt-4 border-t border-line">
                         <CheckCircle2 size={16} /> Done! Your payment is on hold and this agent has been notified to start work.
                       </div>
                     )}
@@ -1125,13 +1134,13 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
         ) : (
           <div className="p-5">
                         {nav === 'market' && (
-              <ChainViewTabs mutedBorder="border-gray-100 dark:border-gray-800">
+              <ChainViewTabs mutedBorder="border-line">
                 {/* BNB Chain view below is the original mobile marketplace,
                     unchanged; ChainViewTabs renders it as-is on the BNB tab. */}
                 <>
                 <div className="mb-4">
-                  <h2 className="text-2xl font-bold mb-1">Explore</h2>
-                  <p className="text-sm text-gray-500">Browse AI agents and hire one with a spending limit you control.</p>
+                  <h2 className="text-h1 font-bold mb-1">Explore</h2>
+                  <p className="text-sm text-muted">Browse AI agents and hire one with a spending limit you control.</p>
                 </div>
 
  {/* stat cards (parity with web). The diversity-limit note and
@@ -1150,7 +1159,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   ].map((c) => {
                     const Icon = c.icon;
                     return (
-                      <div key={c.label} title={c.hint} className="bg-white dark:bg-[#1E293B] p-3 rounded-2xl border border-gray-100 dark:border-gray-800 text-center">
+                      <div key={c.label} title={c.hint} className="bg-surface p-3 rounded-md border border-line text-center">
                         <Icon size={16} className="mx-auto mb-1" style={{ color: c.color }} />
  {/* fix (2026-08-27): only render the real,
                             confirmed-fresh count, a skeleton until then,
@@ -1179,14 +1188,14 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className="mb-3 relative">
                   <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search by name, id, or address…" className="w-full pl-10 pr-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none" />
+                  <input type="text" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search by name, id, or address…" className="w-full pl-10 pr-4 py-3 rounded-md border border-line bg-surface text-sm outline-none" />
                 </div>
 
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
                   title="Ranks agents with a hire history first; those without are listed after, kept separate"
-                  className="mb-3 w-full px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm outline-none"
+                  className="mb-3 w-full px-4 py-3 rounded-md border border-line bg-surface text-sm outline-none"
                 >
                   <option value="default">Sort: Top score</option>
                   <option value="hireCount">Sort: Most hired</option>
@@ -1194,7 +1203,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 </select>
 
                 {(sortKey === 'hireCount' || sortKey === 'winRate') && (
-                  <div className="mb-4 flex items-start gap-2 text-[11px] text-gray-500 dark:text-gray-400 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+                  <div className="mb-4 flex items-start gap-2 text-[11px] text-muted p-3 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-line">
                     <Activity size={13} className="shrink-0 mt-0.5 text-indigo-500" />
                     <span>
                       Ranked by on-chain hire history{sortKey === 'hireCount' ? ', most jobs first' : ', highest success rate first'}.
@@ -1203,14 +1212,14 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </div>
                 )}
 
-                <div className="mb-4 flex items-center gap-2 flex-wrap pt-3 border-t border-gray-100 dark:border-gray-800">
+                <div className="mb-4 flex items-center gap-2 flex-wrap pt-3 border-t border-line">
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mr-1 shrink-0 w-full">Filters</span>
                   <button
                     onClick={() => setOnlyVerified((v) => !v)}
                     className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyVerified
                         ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-500/10 dark:border-indigo-500/30 dark:text-indigo-400'
-                        : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
+                        : 'border-line bg-surface text-muted'
                     }`}
                     title={VERIFIED_MEANING}
                   >
@@ -1221,7 +1230,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     className={`px-3.5 py-2 rounded-xl text-[11px] font-medium border transition-colors ${
                       onlyResponding
                         ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400'
-                        : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300'
+                        : 'border-line bg-surface text-muted'
                     }`}
                   >
                     {onlyResponding ? '✓ ' : ''}Only show online agents
@@ -1241,7 +1250,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {/* Hire-by-address escape hatch, see the matching block in
                     AgentMarketplaceApp.web.jsx. */}
                 <div className="mb-4">
-                  <button type="button" onClick={() => setShowManualHire((v) => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300">
+                  <button type="button" onClick={() => setShowManualHire((v) => !v)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold border border-line bg-surface text-muted">
                     <Search size={12} />{showManualHire ? 'Hide this' : "Know an agent's ID? Hire it directly"}
                   </button>
                   {showManualHire && (
@@ -1251,7 +1260,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         value={manualAddress}
                         onChange={(e) => setManualAddress(e.target.value.trim())}
                         placeholder="0x… the agent owner's wallet ID"
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] text-sm font-mono outline-none"
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-line bg-surface text-sm font-mono outline-none"
                       />
                       <button
                         type="button"
@@ -1275,7 +1284,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <span className="opacity-40 mr-1">Browse by</span>
                   {[['categories', 'Categories'], ['defi', 'DeFi categories']].map(([id, label]) => (
                     <button key={id} onClick={() => setCategoryView(id)} className={`px-3 py-1 rounded-full font-semibold transition-colors ${
-                      categoryView === id ? 'bg-indigo-600 text-white' : 'text-gray-500 dark:text-gray-400'
+                      categoryView === id ? 'bg-indigo-600 text-white' : 'text-muted'
                     }`}>{label}</button>
                   ))}
                 </div>
@@ -1283,11 +1292,11 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {categoryView === 'defi' && (
                   <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
                     <button onClick={() => setActiveHackathon('All')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
-                      activeHackathon === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                      activeHackathon === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-surface border border-line text-muted'
                     }`}>All four</button>
                     {HACKATHON_CATEGORIES.map((h) => (
                       <button key={h.id} onClick={() => setActiveHackathon(h.id)} title={`Includes: ${h.categories.join(', ')}`} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
-                        activeHackathon === h.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                        activeHackathon === h.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-surface border border-line text-muted'
                       }`}>{h.label} ({confirmedFresh ? (hackathonCounts[h.id] || 0) : '…'})</button>
                     ))}
                   </div>
@@ -1295,20 +1304,20 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
 
                 <div className={`flex overflow-x-auto pb-3 -mx-5 px-5 gap-2 snap-x hide-scrollbar ${categoryView === 'defi' ? 'hidden' : ''}`}>
                   <button onClick={() => setActiveGroup('All')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
-                    activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                    activeGroup === 'All' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-surface border border-line text-muted'
                   }`}>All</button>
  {/* fix (2026-08-27), matches web: same
                       confirmedFresh gate as the header stats, '…' instead
                       of a count that might be a stale, pre-fetch number. */}
                   {CATEGORY_GROUPS.map((g) => (
                     <button key={g.id} onClick={() => setActiveGroup(g.id)} title={g.categories.join(', ')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
-                      activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                      activeGroup === g.id ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-surface border border-line text-muted'
                     }`}>
                       {g.label} ({confirmedFresh ? (groupCounts[g.id] || 0) : '…'})
                     </button>
                   ))}
                   <button onClick={() => setActiveGroup('Unclassified')} className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-medium snap-start transition-colors ${
-                    activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-300'
+                    activeGroup === 'Unclassified' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-surface border border-line text-muted'
                   }`}>
                     Unclassified ({confirmedFresh ? (groupCounts.Unclassified || 0) : '…'})
                   </button>
@@ -1318,7 +1327,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   <div className="flex overflow-x-auto pb-4 -mx-5 px-5 gap-2 snap-x hide-scrollbar">
                     {activeGroupCategories.map((cat) => (
                       <button key={cat} onClick={() => setActiveCategory(cat)} title={CATEGORY_HINTS[cat]} className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-medium snap-start transition-colors ${
-                        activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-[#1E293B] border border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400'
+                        activeCategory === cat ? 'bg-indigo-600 text-white' : 'bg-surface border border-line text-muted'
                       }`}>
                         {cat}
                       </button>
@@ -1341,7 +1350,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 {!loading && filteredTotal === 0 && !searchQuery && (
                   <div className="text-center py-14 px-5">
                     <p className="font-semibold mb-1">No agents match these filters</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    <p className="text-sm text-muted mb-4">
                       Try widening them, "Only marked delivered" in particular matches only a small share of agents.
                     </p>
                     <button
@@ -1360,7 +1369,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                       agentsWithPerf={agentsWithPerf}
                       onOpenAgent={(agent) => openAgentDetail(agent, agentPath(agent))}
                       accent={accent}
-                      mutedBorder="border-gray-200 dark:border-gray-800"
+                      mutedBorder="border-line"
                       darkMode={darkMode}
                       plainEmptyMessage={`Nothing matches "${searchInput.trim()}" by name. If you're looking for a specific agent, try its exact id instead of its name, or paste a wallet or contract address.`}
                     />
@@ -1376,7 +1385,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                         {visibleTierBreaks[i] && (
                           <VerificationTierDivider tier={visibleTierBreaks[i]} count={tierCounts[visibleTierBreaks[i]]} className={i === 0 ? '' : 'pt-2'} />
                         )}
-                      <div onClick={() => openAgentDetail(agent, agentPath(agent))} className="bg-white dark:bg-[#1E293B] rounded-3xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col cursor-pointer">
+                      <div onClick={() => openAgentDetail(agent, agentPath(agent))} className="bg-surface rounded-md p-5 border border-line flex flex-col cursor-pointer">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
                             <AgentAvatar agent={agent} size={36} rounded="rounded-xl" />
@@ -1404,20 +1413,20 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
  {/* on-chain hire track record, same data the
                             sort dropdown ranks by, shown here regardless of
                             which sort is active. */}
-                        <div className="mb-4 text-[11px] text-gray-500 dark:text-gray-400" title={perfIndexComplete ? "ERC-8183 job history for this agent: the complete on-chain history, not a recent-only window" : "ERC-8183 job history for this agent: a one-time backfill of the complete history is still catching up"}>
+                        <div className="mb-4 text-[11px] text-muted" title={perfIndexComplete ? "ERC-8183 job history for this agent: the complete on-chain history, not a recent-only window" : "ERC-8183 job history for this agent: a one-time backfill of the complete history is still catching up"}>
                           {agentHasRealHistory(agent, 'hireCount')
                             ? <>{agent.hireCount} {agent.hireCount === 1 ? 'hire' : 'hires'}{agent.winRate != null ? ` · ${Math.round(agent.winRate * 100)}% success` : ''}</>
                             : <span className="text-gray-400 dark:text-gray-500">No hires yet</span>}
                         </div>
 
                         {agent.session ? (
-                          <div className="mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
+                          <div className="mt-auto pt-4 border-t border-line">
                             {/* Parity with web. "Spent: $undefined" is what
                                 this rendered: `session.spendUtilized` is
                                 assigned nowhere, and on the ERC-8183 path
                                 there is no drawn-down amount to assign,
                                 since the whole sum is held until delivery. */}
-                            <div className="flex justify-between text-xs mb-2 text-gray-600 dark:text-gray-400">
+                            <div className="flex justify-between text-xs mb-2 text-muted">
                               <span>On hold until it delivers</span>
                               <span className="font-medium tabular-nums">${agent.session.spendCap}</span>
                             </div>
@@ -1451,18 +1460,18 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'my-agents' && (
               <div className="space-y-5">
                 <div>
-                  <h2 className="text-2xl font-bold mb-1">My Agents</h2>
-                  <p className="text-sm text-gray-500">Every agent you've hired through here, and where things stand right now.</p>
+                  <h2 className="text-h1 font-bold mb-1">My Agents</h2>
+                  <p className="text-sm text-muted">Every agent you've hired through here, and where things stand right now.</p>
                 </div>
-                <MyJobsPanel accent="#4F46E5" mutedBorder="border-gray-100 dark:border-gray-800" />
+                <MyJobsPanel accent="#4F46E5" mutedBorder="border-line" />
               </div>
             )}
 
             {nav === 'report' && (
               <div className="space-y-5">
                 <div>
-                  <h2 className="text-2xl font-bold mb-1">Advantage Report</h2>
-                  <p className="text-sm text-gray-500">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
+                  <h2 className="text-h1 font-bold mb-1">Advantage Report</h2>
+                  <p className="text-sm text-muted">3 tasks, each done two ways: once using an agent, once by hand, so you can compare the time, cost and quality yourself.</p>
                 </div>
                 <AdvantageReport />
               </div>
@@ -1477,8 +1486,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'learn' && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold mb-1">Learn</h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">What each agent does, and what you're granting.</p>
+                  <h2 className="text-h1 font-bold mb-1">Learn</h2>
+                  <p className="text-sm text-muted">What each agent does, and what you're granting.</p>
                 </div>
 
                 <div className="space-y-3">
@@ -1486,12 +1495,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     item.custom ? (
                       <item.custom key={i} />
                     ) : (
-                    <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div key={i} className="bg-surface rounded-md p-4 border border-line">
                       <div className="font-bold text-sm mb-1">{item.h}</div>
                       <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{item.p}</div>
                       {item.tech && <div className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {item.tech}</div>}
                       {item.Diagram && (
-                        <div className="mt-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800">
+                        <div className="mt-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-line">
                           <item.Diagram compact />
                         </div>
                       )}
@@ -1508,12 +1517,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 "Build" for. Same AltanaSkillsPanel web uses, verbatim. */}
             {nav === 'skills' && (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold mb-1">Skills</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
+                <h2 className="text-h1 font-bold mb-1">Skills</h2>
+                <p className="text-sm text-muted">Pre-built, audited on-chain actions you run yourself: supply into Venus, trade on PancakeSwap, and more, through your own connected wallet or a spend-capped mini-wallet.</p>
                 <p className="text-[11px] text-gray-400">Different from hiring an agent from Explore: there's no job, no delivery to wait on, and no third party doing the work on your behalf. This runs directly, right now, within a limit you set.</p>
 
-                <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
-                  <AltanaSkillsPanel accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
+                <div className="bg-surface rounded-md p-4 border border-line">
+                  <AltanaSkillsPanel accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} initialSkillId={pendingSkillId} onConsumedInitialSkill={() => setPendingSkillId(null)} />
                 </div>
               </div>
             )}
@@ -1522,19 +1531,19 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 identical NativeAgentMarketplace section, verbatim. */}
             {nav === 'native' && (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold mb-1">Native Agent Marketplace</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Tnega's own designed agents: autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
+                <h2 className="text-h1 font-bold mb-1">Native Agent Marketplace</h2>
+                <p className="text-sm text-muted">Tnega's own designed agents: autonomous, multi-factor decisions, not a hired third party and not a plain pass-through Skill.</p>
                 <p className="text-[11px] text-gray-400">Each agent evaluates candidate protocols itself (liquidity/risk first, yield second) and shows you exactly why it picked what it picked, before you sign anything.</p>
 
-                <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
-                  <NativeAgentMarketplace accent={accent} surface={darkMode ? '#1E293B' : '#FFFFFF'} mutedBorder="border-gray-200 dark:border-gray-800" darkMode={darkMode} />
+                <div className="bg-surface rounded-md p-4 border border-line">
+                  <NativeAgentMarketplace accent={accent} surface="rgb(var(--surface))" mutedBorder="border-line" darkMode={darkMode} />
                 </div>
               </div>
             )}
 
             {nav === 'build' && (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold mb-1">Build Your Agent</h2>
+                <h2 className="text-h1 font-bold mb-1">Build Your Agent</h2>
 
                 <div className="bg-indigo-600 text-white p-6 rounded-3xl shadow-lg shadow-indigo-600/20">
                   <Sparkles size={24} className="mb-3" />
@@ -1544,7 +1553,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 </div>
                 <div className="space-y-3">
                   {BUILD_STEPS.map((step, i) => (
-                    <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div key={i} className="bg-surface rounded-md p-4 border border-line">
                       <div className="font-bold text-sm mb-1">{step.h}</div>
                       <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{step.p}</div>
                       {step.tech && <div className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed mt-1.5">Technical details, if you want them: {step.tech}</div>}
@@ -1556,17 +1565,17 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 <div className="space-y-2">
                   <div className="text-xs font-bold uppercase text-gray-500 mb-1">Questions a beginner would ask</div>
                   {KID_FRIENDLY_FAQ.map((item, i) => (
-                    <div key={i} className="bg-white dark:bg-[#1E293B] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                    <div key={i} className="bg-surface rounded-md p-4 border border-line">
                       <div className="font-bold text-sm mb-1">{item.q}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{item.a}</div>
+                      <div className="text-sm text-muted leading-relaxed">{item.a}</div>
                       {item.src && <a href={item.src.url} target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline mt-1.5 inline-block">Source: {item.src.label} →</a>}
                     </div>
                   ))}
                 </div>
 
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 border border-line">
                   <div className="flex items-center gap-2 mb-2"><Link2 size={13} /><span className="text-xs font-bold uppercase text-gray-500">Good to know</span></div>
- <p className="text-xs text-gray-500 dark:text-gray-400">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in Explore spends money on mainnet.</p>
+ <p className="text-xs text-muted">Right now this tool only builds agents that earn by doing jobs for others, not ones that hire other agents. The free build trial runs on a practice network; hiring in Explore spends money on mainnet.</p>
                 </div>
 
                 <div className="bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl p-4">
@@ -1576,7 +1585,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                     placeholder='e.g. "an agent that sells weather forecasts"'
                     rows={2}
                     disabled={buildStatus && buildStatus.step !== 'done' && buildStatus.step !== 'error'}
-                    className="w-full p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-white dark:bg-[#0F172A] text-sm mb-3 outline-none disabled:opacity-50"
+                    className="w-full p-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-field text-sm mb-3 outline-none disabled:opacity-50"
                   />
                   <button
                     onClick={handleRealBuild}
@@ -1594,7 +1603,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   </button>
 
                   {buildStatus && (
-                    <div className="mt-4 p-4 rounded-xl bg-white dark:bg-[#0F172A] border border-indigo-100 dark:border-indigo-500/30">
+                    <div className="mt-4 p-4 rounded-xl bg-field border border-indigo-100 dark:border-indigo-500/30">
                       <div className="flex items-center gap-2 mb-1">
                         {buildStatus.step !== 'done' && buildStatus.step !== 'error' && <Loader2 size={14} className="animate-spin text-indigo-500" />}
                         {buildStatus.step === 'done' && <CheckCircle2 size={14} className="text-green-500" />}
@@ -1617,7 +1626,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                   )}
 
                   {showBuildCommand && buildDescription.trim() && (
-                    <div className="mt-4 font-mono text-[10px] p-4 rounded-xl bg-white dark:bg-[#0F172A] border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-x-auto">
+                    <div className="mt-4 font-mono text-[10px] p-4 rounded-xl bg-field border border-indigo-100 dark:border-indigo-500/30 text-gray-700 dark:text-gray-300 whitespace-pre-wrap overflow-x-auto">
 {`# Run in your own terminal:
 pip install bnbagent-studio
 bag skills install --target both --scope user
@@ -1665,12 +1674,9 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
           blur over a dark page needs a much dimmer top highlight or it
           reads as a bright seam. */}
       <nav className="absolute bottom-0 inset-x-0 z-30 pb-safe
-        bg-white/70 dark:bg-[#0B101B]/60
-        supports-[backdrop-filter]:bg-white/55 dark:supports-[backdrop-filter]:bg-[#0B101B]/45
-        backdrop-blur-2xl backdrop-saturate-150
-        border-t border-white/60 dark:border-white/10
-        shadow-[0_-8px_32px_-8px_rgba(15,23,42,0.18),inset_0_1px_0_0_rgba(255,255,255,0.7)]
-        dark:shadow-[0_-8px_32px_-8px_rgba(0,0,0,0.55),inset_0_1px_0_0_rgba(255,255,255,0.08)]">
+        bg-surface/90 supports-[backdrop-filter]:bg-surface/75
+        backdrop-blur-xl backdrop-saturate-150
+        border-t border-line" aria-label="Main">
         <div className="flex justify-around items-center px-2 pt-2 pb-1">
           {PRIMARY_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
@@ -1684,10 +1690,11 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
                   if (item.id === 'market') resetChainChoice();
                   setNav(item.id); setHiring(false); onNavChange?.(item.id);
                 }}
-                className={`flex flex-col items-center justify-center flex-1 max-w-[72px] h-14 rounded-xl transition-colors ${active ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5'}`}
+                aria-current={active ? 'page' : undefined}
+                className={`flex flex-col items-center justify-center flex-1 max-w-[88px] h-14 rounded-md transition-colors ${active ? 'text-accent' : 'text-muted hover:text-fg'}`}
               >
                 <Icon size={20} className={`mb-1 transition-transform ${active ? 'scale-110' : ''}`} />
-                <span className="text-[10px] font-medium tracking-wide leading-tight text-center">{item.barLabel || item.label}</span>
+                <span className={`text-micro tracking-wide text-center ${active ? 'font-semibold' : 'font-medium'}`}>{item.barLabel || item.label}</span>
               </button>
             );
           })}
@@ -1703,18 +1710,16 @@ bag init ${buildDescription.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').sli
           onOpenEcosystem={onOpenEcosystem}
           onOpenDataSources={onOpenDataSources}
           onShowOnboarding={() => setShowOnboarding(true)}
-          darkMode={darkMode}
-          onToggleTheme={() => setDarkMode(!darkMode)}
           onNavigate={(id) => { dismissAgentDetail(); setNav(id); setHiring(false); onNavChange?.(id); }}
         />
       )}
       
       {/* Hide Scrollbar style for horizontal list */}
+      {/* The bottom bar needs a floor under it even on a phone with no
+          safe-area inset, so pb-safe here keeps a 20px fallback. The other
+          utilities this block used to define are in index.css. */}
       <style dangerouslySetInnerHTML={{__html: `
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
-        .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
       `}} />
     </div>
   );

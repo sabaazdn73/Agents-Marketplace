@@ -5,7 +5,8 @@
 // used for in this codebase. See dataSources.js for the source of
 // truth these render from.
 import React, { useState } from 'react';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import StandaloneBar from './shell/StandaloneBar';
+import { ExternalLink } from 'lucide-react';
 import { DATA_SOURCES } from './dataSources';
 
 // Status is grouped rather than left as a badge on an otherwise flat list,
@@ -16,22 +17,24 @@ import { DATA_SOURCES } from './dataSources';
 const STATUS_META = {
   live: {
     label: 'Live',
-    color: '#1E7A5E',
+    // Theme roles, not fixed hexes, so each chip is legible in both themes.
+    // A fixed dark colour on a translucent tint measured 2.1:1 in dark mode.
+    tone: 'text-pos border-pos/40 bg-pos/10',
     meaning: 'In use by the site right now.',
   },
   partial: {
     label: 'Partial',
-    color: '#8A6516',
+    tone: 'text-warn border-warn/40 bg-warn/10',
     meaning: 'Used, but not for everything it could be. The note says what is missing.',
   },
   inactive: {
     label: 'Not active',
-    color: '#64748B',
+    tone: 'text-muted border-line-strong/60 bg-inset',
     meaning: 'Connected and verified, but deliberately not doing anything yet.',
   },
   analysis: {
     label: 'Analysis only',
-    color: '#2B4C7E',
+    tone: 'text-accent border-accent/40 bg-accent/10',
     meaning: 'Used to produce published analysis. The live site does not depend on it.',
   },
 };
@@ -39,25 +42,23 @@ const STATUS_ORDER = ['live', 'partial', 'inactive', 'analysis'];
 
 function SourceLogo({ src }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return <div className="w-9 h-9 rounded-xl bg-gray-100 dark:bg-gray-800" />;
+  if (failed) return <div className="w-9 h-9 rounded-xl bg-inset " />;
   return (
-    <img src={src} alt="" width={36} height={36} onError={() => setFailed(true)} className="rounded-xl border border-gray-200 dark:border-gray-700" />
+    <img src={src} alt="" width={36} height={36} onError={() => setFailed(true)} className="rounded-xl border border-line" />
   );
 }
 
 export default function DataSourcesPage({ onBack }) {
   return (
-    <div className="min-h-screen bg-[#F4F5F8] dark:bg-[#0F172A] text-gray-900 dark:text-white">
+    <div className="min-h-screen bg-page text-fg">
       <div className="max-w-[1400px] mx-auto px-6 py-10">
-        <button onClick={onBack} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors mb-8">
-          <ArrowLeft size={16} /> Back to Explore
-        </button>
+        <StandaloneBar onBack={onBack} />
 
         <h1 className="text-2xl font-bold mb-1">Resources</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+        <p className="text-sm text-muted mb-5">
           Every external service this project uses, what each one does here, and whether it is
           actually running. Live reachability for the ones marked as checked is tracked on{' '}
-          <a href="/status" className="text-indigo-500 hover:underline">/status</a>.
+          <a href="/status" className="text-accent hover:underline">/status</a>.
         </p>
 
         {/* The legend earns its place: without it "partial" and "analysis"
@@ -70,8 +71,7 @@ export default function DataSourcesPage({ onBack }) {
             return (
               <span
                 key={key}
-                className="text-[11px] px-2.5 py-1 rounded-full border"
-                style={{ borderColor: `${m.color}55`, background: `${m.color}14`, color: m.color }}
+                className={`text-[11px] px-2.5 py-1 rounded-full border ${m.tone}`}
                 title={m.meaning}
               >
                 {m.label} · {n}
@@ -87,10 +87,10 @@ export default function DataSourcesPage({ onBack }) {
             const m = STATUS_META[key];
             return (
               <section key={key} className="pt-2">
-                <h2 className="text-[11px] uppercase tracking-wider font-semibold text-gray-400 mb-1">
+                <h2 className="text-[11px] uppercase tracking-wider font-semibold text-muted mb-1">
                   {m.label}
                 </h2>
-                <p className="text-[11px] text-gray-400 mb-3">{m.meaning}</p>
+                <p className="text-[11px] text-muted mb-3">{m.meaning}</p>
                 <div className="space-y-3">
                   {group.map((s) => (
                     <a
@@ -98,23 +98,22 @@ export default function DataSourcesPage({ onBack }) {
                       href={s.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-start gap-4 bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 p-4 hover:shadow-sm transition-shadow"
+                      className="flex items-start gap-4 bg-surface rounded-2xl border border-line p-4 hover:shadow-sm transition-shadow"
                     >
                       <div className="mt-0.5"><SourceLogo src={s.logo} /></div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-semibold flex items-center gap-1.5 flex-wrap">
                           {s.name}
-                          <ExternalLink size={12} className="text-gray-400" />
+                          <ExternalLink size={12} className="text-muted" />
                           <span
-                            className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
-                            style={{ background: `${m.color}1F`, color: m.color }}
+                            className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded border ${m.tone}`}
                           >
                             {m.label}
                           </span>
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{s.description}</div>
+                        <div className="text-xs text-muted mt-0.5">{s.description}</div>
                         {s.statusNote && (
-                          <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">{s.statusNote}</div>
+                          <div className="text-[11px] text-muted mt-1">{s.statusNote}</div>
                         )}
                       </div>
                     </a>

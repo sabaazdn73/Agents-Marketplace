@@ -34,9 +34,10 @@
 // needed.
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import StandaloneBar from './shell/StandaloneBar';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { CATEGORY_GROUPS, groupForCategory, groupLabel } from './categoryGroups';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -260,17 +261,11 @@ export default function EcosystemGlobePage({ onBack }) {
     // to draw (invisible sphere), and every <Html> marker's screen
     // projection (x * width/2, y * height/2) collapsed to the same (0,0)
     // point, exactly the reported "overlapping stacked text" bug.
-    <div className="h-screen overflow-hidden bg-[#0B1120] text-white flex flex-col">
-      <div className="flex items-center justify-between px-6 py-5 shrink-0">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={16} /> Back to Explore
-        </button>
-        <div className="text-right">
+    <div className="h-screen overflow-hidden bg-page text-fg flex flex-col">
+      <StandaloneBar onBack={onBack} className="px-6 py-5 shrink-0">
+        <div className="ml-4 pl-4 border-l border-line min-w-0">
           <div className="text-sm font-semibold">The agent ecosystem, at a glance</div>
-          <div className="text-[11px] text-gray-500">
+          <div className="text-[11px] text-muted">
  {/* fix (2026-08-27): the globe itself still renders
                 instantly from cache below (same tradeoff as the
                 Marketplace's own agent grid), but this NUMBER, the exact
@@ -280,11 +275,11 @@ export default function EcosystemGlobePage({ onBack }) {
             {loading
  ? 'Loading category counts…'
               : !confirmedFresh
-                ? <span className="inline-block h-3 w-40 rounded bg-gray-700 animate-pulse align-middle" />
+                ? <span className="inline-block h-3 w-40 rounded bg-inset animate-pulse align-middle" />
  : `${total.toLocaleString()} agents across ${counts.length} category groups`}
           </div>
         </div>
-      </div>
+      </StandaloneBar>
 
       {/* min-h-0 overrides the flex item's default min-height:auto, the
           other half of the fix: without it, this flex-1 child refuses
@@ -294,12 +289,12 @@ export default function EcosystemGlobePage({ onBack }) {
       <div className="flex-1 min-h-0 relative">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 size={28} className="animate-spin text-indigo-400" />
+            <Loader2 size={28} className="animate-spin text-accent" />
           </div>
         )}
         {error && !loading && (
           <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
- <p className="text-sm text-gray-400">Couldn't load agent data right now ({error}). Nothing fabricated, try again shortly.</p>
+ <p className="text-sm text-muted">Couldn't load agent data right now ({error}). Nothing fabricated, try again shortly.</p>
           </div>
         )}
         {!loading && !error && counts.length > 0 && (
@@ -324,7 +319,7 @@ export default function EcosystemGlobePage({ onBack }) {
         )}
       </div>
 
-      <div className="px-6 pb-6 text-center text-[11px] text-gray-500 shrink-0">
+      <div className="px-6 pb-6 text-center text-[11px] text-muted shrink-0">
  Drag to rotate, scroll/pinch to zoom. Marker size reflects each category's real, current agent count, not a fixed layout.
       </div>
     </div>
