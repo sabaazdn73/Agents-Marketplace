@@ -248,19 +248,58 @@ def deployed_commit() -> dict:
     }
 
 
+def _cached_answer(now: float) -> dict:
+    return {
+        "checked_at": _cache["checked_at"],
+        "cache_age_seconds": round(now - _cache["checked_at"], 1),
+        "services": _cache["data"],
+        "discovery": _cache.get("discovery"),
+    }
+
+
+# One refresh at a time. Without it every caller that arrives while the cache
+# is expired runs its own seven checks and its own Mongo query, so a burst at
+# expiry multiplied the work by the number of callers. A caller that waited
+# while another refreshed takes that result instead of starting a second one.
+#
+# The lock is made for the running event loop and remade if the loop changes:
+# an asyncio.Lock binds to the first loop that waits on it, and a second loop
+# (a script calling asyncio.run twice) would otherwise get a RuntimeError.
+_lock: tuple = (None, None)       # (loop, lock)
+_refreshes = 0      # completed refreshes, so a waiter can tell one happened
+
+
+def _refresh_lock() -> asyncio.Lock:
+    global _lock
+    loop = asyncio.get_running_loop()
+    if _lock[0] is not loop:
+        _lock = (loop, asyncio.Lock())
+    return _lock[1]
+
+
+_REFRESH_TIMEOUT_SECONDS = 20
+
+
 async def get_status(force_refresh: bool = False) -> dict:
     """Returns {checked_at, cache_age_seconds, services: [...]}. Cached for
     _CACHE_TTL_SECONDS so repeated visitors don't each burn a fresh
     hit against rate-limited keys (8004scan, Zerion)."""
-    now = time.time()
-    if not force_refresh and _cache["data"] and (now - _cache["checked_at"]) < _CACHE_TTL_SECONDS:
-        return {
-            "checked_at": _cache["checked_at"],
-            "cache_age_seconds": round(now - _cache["checked_at"], 1),
-            "services": _cache["data"],
-            "discovery": _cache.get("discovery"),
-        }
+    asked_at = time.time()
+    if not force_refresh and _cache["data"] and (asked_at - _cache["checked_at"]) < _CACHE_TTL_SECONDS:
+        return _cached_answer(asked_at)
+    seen = _refreshes
+    async with _refresh_lock():
+        if _cache["data"] and _refreshes != seen:
+            # Refreshed by another caller while this one waited.
+            return _cached_answer(time.time())
+        # Bounded while it holds the lock: the Mongo ping and the discovery
+        # read have no timeout of their own, and a refresh stuck on a
+        # half-open connection would otherwise hold every later caller.
+        return await asyncio.wait_for(_refresh(time.time()), _REFRESH_TIMEOUT_SECONDS)
 
+
+async def _refresh(now: float) -> dict:
+    global _refreshes
     results = await asyncio.gather(
         _timed("8004scan", _check_8004scan()),
         _timed("Zerion", _check_zerion()),
@@ -284,5 +323,6 @@ async def get_status(force_refresh: bool = False) -> dict:
     _cache["data"] = list(results)
     _cache["discovery"] = discovery
     _cache["checked_at"] = now
+    _refreshes += 1
     return {"checked_at": now, "cache_age_seconds": 0, "services": results,
             "discovery": discovery}

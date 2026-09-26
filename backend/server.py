@@ -287,6 +287,170 @@ class BodyCap:
 app.add_middleware(BodyCap, default_cap=API_MAX_BODY_BYTES, per_path=BODY_CAP_PER_PATH)
 
 
+# ── the per-address request limit, for every route ──────────────────────────
+#
+# 120 requests a minute from one address, the owner's figure (2026-09-26).
+# RATE_LIMIT_PER_IP_PER_MINUTE to change it, 0 to turn it off. A burst of the
+# full allowance is admitted from rest, then one request every half second.
+#
+# ONE TABLE PER PROCESS. The table lives in this process's memory, so with N
+# worker processes each keeps its own and an address can make up to N x 120 a
+# minute before every process refuses it. N is whatever the start command runs;
+# it is not visible from here. Each process prints the "[ratelimit] ..." startup
+# line below once, with its pid, so N is the number of distinct pids in those
+# lines in Render's log after a deploy.
+#
+# WHO A REQUEST IS FROM. The socket peer is Render's proxy, so the address has
+# to come from a header, and only a header the proxy writes over whatever the
+# client sent. True-Client-IP by default: Cloudflare, which Render puts in
+# front of every service, replaces a client's value with the address it saw.
+# The leftmost X-Forwarded-For entry is whatever the client wrote and is never
+# used, and neither is the ASGI peer, which uvicorn rewrites from that entry.
+# A request whose header is absent or unreadable goes to one shared bucket,
+# "unknown", and that is logged at most once a minute. RATE_LIMIT_IP_HEADER changes the choice; what Render's docs say, what
+# was observed, and the other forms are in core/rate_limit.py.
+# RATE_LIMIT_IP_DEBUG=1 adds GET /api/debug/client-ip, which shows a caller the
+# addresses its own request carried and which one was used, so the choice can
+# be checked on Render after a deploy. Off unless set.
+#
+# WHAT IS NOT COUNTED. OPTIONS (a preflight is the browser asking, not the page
+# calling), and RATE_LIMIT_EXEMPT_PATHS, by default: the Telegram webhook
+# (Telegram's own servers), /api/admin/* (GitHub Actions, which has its secret),
+# /api/health (monitors; it answers a constant), and /mcp. Not /api/status,
+# which runs an uncached Mongo query and live external checks per call. /mcp because MCP clients
+# call from their vendors' shared address ranges, so one bucket per address
+# would throttle every user of a client together; it keeps its own global
+# 600-a-minute cap and its one-call gate (mcp_server/protocol.py).
+#
+# MEMORY. One float per address, at most RATE_LIMIT_MAX_IPS (20,000)
+# addresses, least recently seen dropped first. About 3 MB when full, measured
+# in scripts/rate_limit_selfcheck.py.
+#
+# WHERE IT SITS. Inside CORS, so a 429 carries the CORS headers and the site
+# can read it, and outside the body cap, so a refused request is refused before
+# a byte of its body is read.
+import time
+
+from core import rate_limit as rate_limit_mod
+
+RATE_LIMIT_PER_MINUTE = rate_limit_mod.per_minute_from_env()
+RATE_LIMIT_IP_RULE, _rate_rule_warning = rate_limit_mod.ip_rule_from_env()
+RATE_LIMIT_EXEMPT = rate_limit_mod.exempt_from_env()
+RATE_LIMITER = (rate_limit_mod.PerKeyLimiter(
+    RATE_LIMIT_PER_MINUTE,
+    max_keys=cap_from_env("RATE_LIMIT_MAX_IPS", rate_limit_mod.DEFAULT_MAX_KEYS))
+    if RATE_LIMIT_PER_MINUTE else None)
+
+
+class RateLimit:
+    """Pure ASGI. A request that passes is handed on untouched."""
+
+    def __init__(self, app, limiter, rule, exempt):
+        self.app = app
+        self.limiter = limiter
+        self.rule = rule
+        self.exempt = exempt
+        self._logged_at = 0.0
+        self._refused_since_log = 0
+        self._unknown_logged_at = 0.0
+        self._unknown_since_log = 0
+
+    def _log_refusal(self) -> None:
+        # One line a minute at most, however many are refused: under a flood
+        # a line per refusal would bury every other log line.
+        self._refused_since_log += 1
+        now = time.monotonic()
+        if now - self._logged_at >= 60:
+            print(f"[ratelimit] refused {self._refused_since_log} request(s) in the "
+                  f"last minute or so; {len(self.limiter)} addresses held, "
+                  f"{self.limiter.evicted} evicted since start", flush=True)
+            self._logged_at = now
+            self._refused_since_log = 0
+
+    def _log_unknown(self, source: str) -> None:
+        # A header rule that finds nothing puts the request in the shared
+        # bucket. Normal locally; on Render it means the header stopped
+        # arriving, and every such caller is now sharing 120 a minute.
+        self._unknown_since_log += 1
+        now = time.monotonic()
+        if now - self._unknown_logged_at >= 60:
+            print(f"[ratelimit] {self._unknown_since_log} request(s) in the last minute "
+                  f"or so had no usable {self.rule.describe()} and shared the "
+                  f"'{rate_limit_mod.UNKNOWN_KEY}' bucket (latest: {source})", flush=True)
+            self._unknown_logged_at = now
+            self._unknown_since_log = 0
+
+    def _pace(self) -> str:
+        n = self.limiter.per_minute
+        if n % 60 == 0:
+            return f"{n // 60} a second"
+        return f"one every {60 / n:.2f} s"
+
+    async def __call__(self, scope, receive, send):
+        if (self.limiter is None or scope["type"] != "http"
+                or scope.get("method") == "OPTIONS"
+                or (scope.get("path") or "") in self.exempt):
+            await self.app(scope, receive, send)
+            return
+        client = scope.get("client")
+        key, source = rate_limit_mod.client_key(scope.get("headers") or [],
+                                                client[0] if client else None, self.rule)
+        if key == rate_limit_mod.UNKNOWN_KEY:
+            self._log_unknown(source)
+        wait = self.limiter.take(key)
+        if not wait:
+            await self.app(scope, receive, send)
+            return
+        self._log_refusal()
+        seconds = self.limiter.retry_after(wait)
+        raw = json.dumps({
+            "detail": f"Too many requests from this address: bursts of "
+                      f"{self.limiter.per_minute}, then {self._pace()}. "
+                      f"Retry in {seconds} s.",
+            "error": "rate_limited",
+            "retry_after_seconds": seconds,
+        }).encode()
+        headers = [(b"content-type", b"application/json"),
+                   (b"content-length", str(len(raw)).encode()),
+                   (b"retry-after", str(seconds).encode())]
+        # A body that was sent is not going to be read; closing tells the
+        # server not to parse it as the next request.
+        if any(k in (b"content-length", b"transfer-encoding") and v not in (b"0",)
+               for k, v in scope.get("headers") or []):
+            headers.append((b"connection", b"close"))
+        await send({"type": "http.response.start", "status": 429, "headers": headers})
+        await send({"type": "http.response.body", "body": raw})
+
+
+# Added after BodyCap and before CORS: CORS is outermost, then this, then the
+# body cap.
+app.add_middleware(RateLimit, limiter=RATE_LIMITER, rule=RATE_LIMIT_IP_RULE,
+                   exempt=RATE_LIMIT_EXEMPT)
+
+if _rate_rule_warning:
+    print(f"[ratelimit] {_rate_rule_warning}", flush=True)
+if RATE_LIMITER is None:
+    print("[ratelimit] off (RATE_LIMIT_PER_IP_PER_MINUTE=0)", flush=True)
+else:
+    print(f"[ratelimit] pid {os.getpid()}: bursts of {RATE_LIMITER.per_minute} per "
+          f"address, refilled over a minute; address from "
+          f"{RATE_LIMIT_IP_RULE.describe()} (the shared '{rate_limit_mod.UNKNOWN_KEY}' "
+          f"bucket when that is absent or unreadable); at most {RATE_LIMITER.max_keys} "
+          f"addresses held; exempt: {RATE_LIMIT_EXEMPT.describe()}. This table is this "
+          f"process's own: with N worker processes the real limit is N x "
+          f"{RATE_LIMITER.per_minute}, and N is the number of distinct pids on this "
+          f"line in the log", flush=True)
+
+if os.environ.get("RATE_LIMIT_IP_DEBUG", "").strip().lower() in ("1", "true", "yes", "on"):
+    @app.get("/api/debug/client-ip", include_in_schema=False)
+    async def debug_client_ip(request: Request):
+        return rate_limit_mod.explain(request.scope.get("headers") or [],
+                                      request.client.host if request.client else None,
+                                      RATE_LIMIT_IP_RULE)
+    print("[ratelimit] RATE_LIMIT_IP_DEBUG is set: GET /api/debug/client-ip is "
+          "mounted", flush=True)
+
+
 # ── a JSON body, parsed once, the same way on every route ───────────────────
 #
 # Every route below that reads a JSON body then calls body.get(). Three of them
@@ -330,6 +494,9 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    # Retry-After is not a CORS-safelisted response header, so without this a
+    # page on the site can read a 429's status and body but not the header.
+    expose_headers=["Retry-After"],
 )
 
 
