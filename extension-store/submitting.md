@@ -57,8 +57,10 @@ a zip if any check fails, so a passing run is the evidence, not a promise.
 
 The mark lives in one file, frontend/public/icon_v2.svg, the blue tile the
 website's favicon and app icons are rendered from too. Change it there, run
-`python3 extension-store/icons.py`, then rebuild. That renders the four
-toolbar sizes, the store icon and both promo tiles together, so the icon on the
+`python3 extension-store/icons.py`, then rebuild. That renders the three
+toolbar sizes, the padded 128px icon the manifest names (96px of artwork, 16px
+of transparent padding, per the store's image rules), the popup's full tile,
+the store icon and both promo tiles together, so the icon on the
 toolbar and the icon on the listing cannot come from different versions of the
 logo.
 

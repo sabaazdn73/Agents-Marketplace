@@ -67,6 +67,10 @@ FILES = [
     "icons/tnega-32.png",
     "icons/tnega-48.png",
     "icons/tnega-128.png",
+    # The popup header's mark: the tile filling its square. tnega-128.png is
+    # the manifest icon with the store's 16px padding, which would draw the
+    # popup's mark a quarter smaller. Both come from extension-store/icons.py.
+    "icons/tnega-tile-128.png",
     # Fendi, Tnega's mascot, shown inside the Hyperliquid panels only. One
     # framing at three sizes, picked by srcset. Declared in the manifest's
     # web_accessible_resources, so all three have to be in the package.

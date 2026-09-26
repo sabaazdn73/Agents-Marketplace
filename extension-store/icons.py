@@ -13,15 +13,19 @@ Writes:
     extension/icons/tnega-16.png
     extension/icons/tnega-32.png
     extension/icons/tnega-48.png
-    extension/icons/tnega-128.png     the manifest icon and the popup header
-    extension-store/icon-128.png      the store icon, 96px tile in 128px
+    extension/icons/tnega-128.png     the manifest's 128 icon: 96px tile, 16px
+                                      transparent padding
+    extension/icons/tnega-tile-128.png  the popup header: the tile filling
+                                      its square
+    extension-store/icon-128.png      the store icon, byte-identical copy of
+                                      tnega-128.png
     extension-store/promo-440x280.png the small promo tile
     extension-store/promo-1400x560.png the marquee tile
 
 WHY THIS IS A SCRIPT
 --------------------
-These files are one mark in several places: the toolbar at four sizes, the
-store icon, and the tiles. Made by hand they drift, and the drift is invisible
+These files are one mark in several places: the toolbar at three sizes, the
+128px icon, the popup, the store icon, and the tiles. Made by hand they drift, and the drift is invisible
 until someone compares the toolbar against the listing. The tile is the one
 that proves the point: it was built from the site's app icon, so when the mark
 changed the tile silently kept the old one, background and all.
@@ -29,10 +33,13 @@ changed the tile silently kept the old one, background and all.
 Every size is rendered from the vector at that size, never scaled down from a
 larger raster, so the 16px toolbar icon is drawn for 16px.
 
-The store icon is not a copy of tnega-128.png. The Chrome Web Store's image
-guidance asks for a 128px icon whose artwork is 96x96 with 16px of
-transparent padding on each side; the toolbar and the popup want the tile
-filling its square, so the two are rendered separately from the same master.
+The 128px icon follows the Chrome Web Store's image guidance: artwork 96x96
+with 16px of transparent padding on each side. That is the file the manifest
+names as "128" (under icons and action.default_icon), so the icon inside the
+package meets the rule, and the store icon is a copy of it. The toolbar sizes
+fill their square, as Chrome draws them. The popup header wants the tile
+filling its square too, so it has its own file, tnega-tile-128.png, rather
+than the padded one shrinking it by a quarter.
 
 Edit the master, run this, rebuild the zip. Nothing else touches these files.
 
@@ -46,6 +53,7 @@ the toolbar, the store icon and the tiles carry.
 import base64
 import io
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -57,7 +65,7 @@ MASTER = ROOT / "frontend" / "public" / "icon_v2.svg"
 ICONS = ROOT / "extension" / "icons"
 STORE = ROOT / "extension-store"
 
-TOOLBAR_SIZES = (16, 32, 48, 128)
+TOOLBAR_SIZES = (16, 32, 48)
 
 # Where the tiles draw the mark, in their own pixels. The mark is rendered at
 # exactly this size and embedded, so rsvg-convert does not resample it.
@@ -198,12 +206,21 @@ def main():
         render(size).save(out, format="PNG", optimize=True)
         print(f"wrote {out.relative_to(ROOT)}")
 
-    # 96px of artwork centred in 128px, per the store's image guidance.
-    store_icon = STORE / "icon-128.png"
+    # 96px of artwork centred in 128px, per the store's image guidance. The
+    # manifest's 128 icon, and the store icon as a copy of it.
+    icon128 = ICONS / "tnega-128.png"
     canvas = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
     canvas.alpha_composite(render(96), (16, 16))
-    canvas.save(store_icon, format="PNG", optimize=True)
-    print(f"wrote {store_icon.relative_to(ROOT)}  (96px tile, 16px padding)")
+    canvas.save(icon128, format="PNG", optimize=True)
+    print(f"wrote {icon128.relative_to(ROOT)}  (96px tile, 16px padding)")
+
+    store_icon = STORE / "icon-128.png"
+    shutil.copyfile(icon128, store_icon)
+    print(f"wrote {store_icon.relative_to(ROOT)}  (copy of tnega-128.png)")
+
+    popup = ICONS / "tnega-tile-128.png"
+    render(128).save(popup, format="PNG", optimize=True)
+    print(f"wrote {popup.relative_to(ROOT)}  (full tile, for the popup)")
 
     # The SVG is scaffolding for rsvg-convert, not a deliverable, so it is
     # written outside the repository. A copy of it sitting next to the PNG
@@ -226,7 +243,7 @@ def main():
     )
     print(f"wrote {marquee.relative_to(ROOT)}")
 
-    for path in [ICONS / f"tnega-{s}.png" for s in TOOLBAR_SIZES] + [store_icon, tile, marquee]:
+    for path in [ICONS / f"tnega-{s}.png" for s in TOOLBAR_SIZES] + [icon128, popup, store_icon, tile, marquee]:
         print(f"  {path.relative_to(ROOT)}  {Image.open(path).size}")
     return 0
 
