@@ -198,7 +198,7 @@ def get_chain_capabilities(chain_id: int) -> dict:
                 "The agent's registered endpoint is resolved from its on-chain tokenURI over this "
                 "chain's own RPC and probed live.",
                 "This chain's agents haven't been added to the health-checking pass yet. Nothing "
-                "is implied about whether they're online -- they simply haven't been checked."
+                "is implied about whether they're online. They simply haven't been checked."
                 if is_evm else _NOT_EVM),
         _signal(has_explorer, "contract_verification",
                 ("The owner address is checked against Sourcify for published source, and against "
@@ -207,9 +207,17 @@ def get_chain_capabilities(chain_id: int) -> dict:
                  "The owner address is checked on this chain's own explorer: whether it's a contract "
                  "at all, and if so whether its source is verified."),
                 _NO_EXPLORER if is_evm else _NOT_EVM),
+        # Worded as a site feature, without naming its source. This text is
+        # also served over MCP inside chain agent records (under
+        # tnega_website_features there), and the source's data is for display
+        # on the site only; naming it read as that data being available to the
+        # caller. The source is recorded in the header of this file. The site
+        # renders detail and reason as they stand in ChainViewShared.jsx, so
+        # both read as page copy as well.
         _signal(chain_id in _ZERION_CHAINS, "independent_corroboration",
-                "Independent wallet activity for this chain, read from Zerion.",
-                "Zerion doesn't index this chain, so there's no independent record to corroborate against."),
+                "Independent wallet activity for this chain, from an outside wallet indexer.",
+                "The Tnega site has no wallet activity source for this chain, so there's no "
+                "independent record to corroborate against."),
         _signal(chain_id in _DEFILLAMA_CHAINS, "financial_record",
                 "Protocol-level financial data for this chain, from DefiLlama.",
                 "DefiLlama doesn't cover this chain, so there's no financial record to show."),

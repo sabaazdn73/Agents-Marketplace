@@ -36,6 +36,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 
+def _no_caveats() -> list[str]:
+    return []
+
+
 @dataclass(frozen=True)
 class Dataset:
     id: str
@@ -52,7 +56,12 @@ class Dataset:
     series: Callable[..., Any] | None = None
     # Carried into every response from this dataset, whatever the tool. This is
     # where a denominator that differs from the obvious one gets said out loud.
-    caveats: list[str] = field(default_factory=list)
+    #
+    # default_factory is _no_caveats and not `list`, because inside this class
+    # body `list` is the field above, whose default is None: the factory was
+    # None, and a Dataset registered without caveats raised TypeError on
+    # construction.
+    caveats: list[str] = field(default_factory=_no_caveats)
     # Filters this dataset needs before it can answer, as an example a caller
     # can copy. chains.agents cannot page without a chain_id, and a model
     # should learn that from the catalogue rather than from an empty result.
@@ -63,6 +72,20 @@ class Dataset:
     # catalogue keeps showing it and every response carries it, because a
     # caller that stops working should have been told first.
     deprecated: str | None = None
+    # WHEN THE DATA WAS MEASURED, which is what as_of carries in every
+    # response. Given a coverage block, returns the time the data behind it
+    # was measured: a collector's last poll, an indexer's last run, a series'
+    # last bucket. tnega_series applies it to the series' own coverage, so a
+    # dataset with a series reads whichever of its keys that block carries.
+    # None, or a function returning None, means as_of is null and the dataset
+    # says why in its caveats. The call time never stands in for it: that is
+    # served_at.
+    as_of: Callable[[dict], Any] | None = None
+    # The same, for one record, where a record has its own measurement time
+    # that differs from the dataset's. When set, tnega_get uses it and only
+    # it: an address that left the collector's rotation days ago must not
+    # borrow the collector's last poll as its own.
+    record_as_of: Callable[[Any], Any] | None = None
 
     def verbs(self) -> list[str]:
         return [v for v in ("get", "list", "summary", "series")
@@ -75,6 +98,38 @@ async def call(fn: Callable[..., Any], *args, **kwargs):
     if inspect.isawaitable(out):
         return await out
     return out
+
+
+def iso_utc(v: Any) -> str | None:
+    """A measurement time as ISO 8601 UTC, whatever the store kept it as.
+
+    The stores disagree: the job and registry indexers write epoch seconds as
+    floats, the budget indexer as ints, Cockroach returns datetimes, and the
+    Hyperliquid service has already formatted its own. A reader comparing two
+    as_of values should not have to know which store each came from.
+    """
+    import datetime as dt
+    if v is None or v == "" or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        # Zero and negatives are an unset timestamp, not 1970. server.py's
+        # cache starts at fetched_at 0, and a store default can be 0 too.
+        if v <= 0:
+            return None
+        return dt.datetime.fromtimestamp(float(v), dt.UTC).isoformat(timespec="seconds")
+    if isinstance(v, dt.datetime):
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=dt.UTC)
+        return v.astimezone(dt.UTC).isoformat(timespec="seconds")
+    if isinstance(v, str):
+        try:
+            parsed = dt.datetime.fromisoformat(v.replace("Z", "+00:00"))
+        except ValueError:
+            # Not a time. Passing it through would put a value in as_of that
+            # a reader cannot compare with any other as_of.
+            return None
+        return iso_utc(parsed)
+    return None
 
 
 # How many category rows a summary carries before it starts summarising the
@@ -143,6 +198,70 @@ def _chain_page(chain_views, limit: int, offset: int) -> dict:
     }
 
 
+# How many maker rows are read to page or summarise over. The service's own
+# default is 50, which is the tab's table, and paging a model over it cut 24
+# of the 74 polled addresses off with no cursor to reach them and partial
+# false. The read is one aggregate over every address whatever the LIMIT, so
+# reading them all costs rows in memory for one call, about 500 bytes each,
+# and not another scan. If the store ever holds more than this, the page and
+# the summary say partial and name the cut rather than pretend it is whole.
+HL_MAKERS_READ = 1000
+
+
+def _chain_record(chain_views, view: str) -> dict | None:
+    """One chain view, with `hireable` replaced as the list replaces it.
+
+    The list stopped serving `hireable` after a model read it as delivery
+    having happened, and tnega_get kept serving it. A name that misled once
+    misleads from either tool, so the record carries hire_paths_deployed,
+    the same list the row carries, and hire_paths stays as the detail.
+    """
+    v = next((v for v in chain_views.describe_views() if v["id"] == view), None)
+    if v is None:
+        return None
+    out = {k: val for k, val in v.items() if k != "hireable"}
+    out["hire_paths_deployed"] = [
+        name for name in ("budget", "escrow")
+        if ((v.get("hire_paths") or {}).get(name) or {}).get("available")]
+    return out
+
+
+def _retry_serialization(fn: Callable[[], Any]) -> Any:
+    """One retry on a Cockroach serialization failure, SQLSTATE 40001.
+
+    Cockroach answers a transaction that lost a conflict with 40001 and
+    expects the client to run it again; it is a signal to retry, not a fault.
+    coverage() runs six reads against tables the collector is writing, and
+    one of them occasionally lost, which took the dataset's whole coverage
+    block to unavailable for that call. Once, not in a loop: a second failure
+    is reported as the failure it is.
+    """
+    try:
+        return fn()
+    except Exception as e:  # noqa: BLE001
+        if getattr(e, "sqlstate", None) != "40001":
+            raise
+        return fn()
+
+
+def _hl_order(m: dict) -> tuple:
+    vol = m.get("month_volume")
+    return (not m.get("tracked"), vol is None, -float(vol or 0),
+            str(m.get("address") or ""))
+
+
+def _hl_makers(hl) -> tuple[list[dict], bool]:
+    """Every maker, in an order that is the same on every call.
+
+    The service orders by rotation then volume, and leaves ties to the
+    database. Addresses without a volume all tie, and Cockroach returned them
+    in whatever order it liked, so a cursor walk could see one twice and miss
+    another. The address breaks the tie here, over the same ordering.
+    """
+    rows = hl.makers(HL_MAKERS_READ)
+    return sorted(rows, key=_hl_order), len(rows) >= HL_MAKERS_READ
+
+
 def _hl_page(hl, limit: int, offset: int) -> dict:
     """Makers as compact rows.
 
@@ -155,7 +274,7 @@ def _hl_page(hl, limit: int, offset: int) -> dict:
     A rate that the service withheld stays withheld here. Reprojecting a null
     into a 0.0 would be the exact failure the whole surface is built to avoid.
     """
-    rows = hl.makers(50)
+    rows, cut = _hl_makers(hl)
     page = rows[offset:offset + limit]
     return {
         "rows": [{
@@ -171,8 +290,36 @@ def _hl_page(hl, limit: int, offset: int) -> dict:
             "enough_data": m.get("enough_data"),
         } for m in page],
         "total": len(rows),
-        "partial": False,
+        "partial": cut,
+        **({"note": f"Read stopped at {HL_MAKERS_READ} addresses; the store "
+                    f"holds more, and they are not in this list."} if cut else {}),
     }
+
+
+SITE_FEATURES_NOTE = (
+    "Features of the Tnega website for this agent's chain: which panels the "
+    "site can show, and why the others are absent. Not data available over "
+    "MCP, and not a finding about this agent.")
+
+
+def _site_features(rec: Any) -> Any:
+    """The site's capabilities block, named for what it is.
+
+    chain_views attaches `capabilities` to a record so the site can say which
+    panels it can draw on each chain and why the rest are absent. Served to a
+    model under that name it reads as what this data holds, which it is not:
+    several of the signals it lists are site panels fed by sources this
+    surface never serves. The same lesson as `hireable`: a caveat beside a
+    field does not undo how the field's name reads, so the name changes here
+    and the explanation travels inside it. The site's own REST response keeps
+    `capabilities`, which is what ChainViewShared.jsx reads.
+    """
+    if not isinstance(rec, dict) or not isinstance(rec.get("capabilities"), dict):
+        return rec
+    out = {k: v for k, v in rec.items() if k != "capabilities"}
+    out["tnega_website_features"] = {"about": SITE_FEATURES_NOTE,
+                                     **rec["capabilities"]}
+    return out
 
 
 def _hl_summary(hl) -> dict:
@@ -184,10 +331,14 @@ def _hl_summary(hl) -> dict:
     its job and the shape was still wrong. A summary that has to be trimmed to
     fit was never a summary.
     """
-    rows = hl.makers(50)
+    rows, cut = _hl_makers(hl)
     bands = hl.maker_bands(rows)
     return {
         "makers": len(rows),
+        # makers counts addresses with both polls and order counts. It can
+        # sit below coverage.addresses, which counts every address ever
+        # polled, including ones whose polls returned no orders at all.
+        "makers_cut_at": HL_MAKERS_READ if cut else None,
         "bands": {name: len(members) for name, members in bands.items()},
         "statuses": hl.status_breakdown()[:12],
         "websocket": hl.ws_coverage(),
@@ -212,11 +363,42 @@ def build(providers) -> dict[str, Dataset]:
     # tokenized stock work is chain 4663 in this index and in the chain views,
     # so it is reachable as a filter rather than as a name. If it grows its own
     # measurements it gets its own descriptor here and no tool changes.
-    def agents_coverage():
+    def _index_as_of():
+        # When the data in the index was last refreshed from the registry, as
+        # server.py measured it at build time: the newest last_seen_at over
+        # the records. Not when this process loaded it, which is what the
+        # cache's own timestamp says, and the container restarts often.
+        reader = getattr(providers, "agents_index_as_of", None)
+        if reader is None:
+            return None
+        try:
+            return reader() or None
+        except Exception:  # noqa: BLE001
+            return None
+
+    async def _index():
+        """The index, built now if this process has not built it yet.
+
+        server.py builds it on the first site request for agents, so on a
+        fresh process an MCP caller used to find nothing until a person had
+        loaded the site. The builder is server.py's own, under its own lock,
+        into its one cache: nothing is built twice and nothing is held here.
+        """
         ix = providers.agents_index()
+        ensure = getattr(providers, "ensure_agents_index", None)
+        if ix is None and ensure is not None:
+            try:
+                await ensure()
+            except Exception:  # noqa: BLE001
+                return None
+            ix = providers.agents_index()
+        return ix
+
+    async def agents_coverage():
+        ix = await _index()
         if ix is None:
             return {"agents": 0, "partial": True,
-                    "note": "the index has not been built on this instance yet"}
+                    "note": "the index could not be built on this instance just now"}
         idx = ix.select()
         return {
             "agents": ix.count,
@@ -224,19 +406,23 @@ def build(providers) -> dict[str, Dataset]:
             "tiers": ix.tier_counts(idx),
             "liveness_coverage": ix.liveness_coverage(idx),
             "chains": sorted({c for c in ix.chain if c}),
+            # Last, so the counts lead for any reader that shows the first
+            # few fields, as the Telegram /coverage reply does.
+            "registry_last_seen_at": iso_utc(_index_as_of()),
             "partial": False,
         }
 
-    def agents_get(agent_id: str):
-        ix = providers.agents_index()
+    async def agents_get(agent_id: str):
+        ix = await _index()
         return ix.record(agent_id) if ix else None
 
-    def agents_list(*, limit: int, offset: int, chain_id: int | None = None,
-                    category: str | None = None, search: str | None = None,
-                    verified: bool | None = None, sort: str | None = None):
-        ix = providers.agents_index()
+    async def agents_list(*, limit: int, offset: int, chain_id: int | None = None,
+                          category: str | None = None, search: str | None = None,
+                          verified: bool | None = None, sort: str | None = None):
+        ix = await _index()
         if ix is None:
-            return {"rows": [], "total": 0, "partial": True}
+            return {"rows": [], "total": 0, "partial": True,
+                    "note": "the index could not be built on this instance just now."}
         from core import agents_index as ai
         idx = ix.select(chain_id=chain_id, category=category, search=search,
                         min_tier=ai.TIER_VERIFIED if verified else None)
@@ -244,9 +430,9 @@ def build(providers) -> dict[str, Dataset]:
         return {"rows": ix.project(idx, offset, limit), "total": len(idx),
                 "partial": False}
 
-    def agents_summary(*, chain_id: int | None = None,
-                       category: str | None = None, search: str | None = None):
-        ix = providers.agents_index()
+    async def agents_summary(*, chain_id: int | None = None,
+                             category: str | None = None, search: str | None = None):
+        ix = await _index()
         if ix is None:
             return {"partial": True}
         idx = ix.select(chain_id=chain_id, category=category, search=search)
@@ -270,7 +456,14 @@ def build(providers) -> dict[str, Dataset]:
         get=agents_get,
         list=agents_list,
         summary=agents_summary,
-        caveats=["the tier id verified reads, in full: an address other than "
+        as_of=lambda c: c.get("registry_last_seen_at"),
+        caveats=["as_of is the last time the registry refresh saw any agent in "
+                 "this index, coverage.registry_last_seen_at, which is the "
+                 "newest last_seen_at over its records. One agent's own "
+                 "last_seen_at can be older. It is not the time of any "
+                 "agent's health check, and it is null when the server did "
+                 "not report it.",
+                 "the tier id verified reads, in full: an address other than "
                  "the owner funded an on-chain job, and the agent then marked "
                  "it delivered. Marking it delivered is the provider calling "
                  "submit, which is the provider's own claim, and the tier "
@@ -334,7 +527,7 @@ def build(providers) -> dict[str, Dataset]:
         measures="the share of an address's post-only orders that the matching "
                  "engine refused instead of resting on the book",
         keys=["address"],
-        coverage=hl.coverage,
+        coverage=lambda: _retry_serialization(hl.coverage),
         get=hl.address_detail,
         # Every list takes the same keyword contract and returns the same shape,
         # so the tool does not need to know which dataset it is paging. Where a
@@ -344,7 +537,22 @@ def build(providers) -> dict[str, Dataset]:
         list=lambda *, limit, offset, **_: _hl_page(hl, limit, offset),
         summary=lambda **_: _hl_summary(hl),
         series=hl.address_series,
-        caveats=["A refused post-only order never rests, provides no liquidity "
+        # The REST collector's last poll for the dataset, and the WebSocket
+        # series' last bucket for a series: the two coverage blocks carry one
+        # key each and never both.
+        as_of=lambda c: c.get("last_poll") or c.get("last_bucket"),
+        record_as_of=lambda r: ((r or {}).get("freshness") or {}).get("last_polled_at"),
+        caveats=["as_of is the REST collector's last poll for the dataset, the "
+                 "address's own last poll for one record (null if it was never "
+                 "polled), and the last WebSocket bucket for a series. The "
+                 "record's own as_of field inside value is the time of the "
+                 "read, not of the measurement.",
+                 "The WebSocket collector behind the series was suspended on "
+                 "2026-09-19 after the study it was run for had its windows, "
+                 "so every series ends on that date unless it has been "
+                 "resumed since. coverage.last_bucket says where a series "
+                 "ends. The REST rate is collected separately and is current.",
+                 "A refused post-only order never rests, provides no liquidity "
                  "and leaves no trace in fills, so it is invisible in volume.",
                  "coverage.polls_with_gap counts polls where orders happened "
                  "between the end of the previous window and the start of this "
@@ -376,10 +584,15 @@ def build(providers) -> dict[str, Dataset]:
         keys=["view id"],
         coverage=lambda: {"views": len(chain_views.view_ids()),
                           "ids": chain_views.view_ids(), "partial": False},
-        get=lambda view: next((v for v in chain_views.describe_views()
-                               if v['id'] == view), None),
+        get=lambda view: _chain_record(chain_views, view),
         list=lambda *, limit, offset, **_: _chain_page(chain_views, limit, offset),
-        caveats=["hire_paths_deployed names the contracts that exist on that "
+        # Configuration, not a measurement: which chains a view groups and
+        # which contracts are deployed there. There is no time it was measured
+        # at, so as_of is null rather than the call time.
+        as_of=None,
+        caveats=["This dataset is configuration rather than a measurement, so "
+                 "as_of is null. served_at is the time of the call.",
+                 "hire_paths_deployed names the contracts that exist on that "
                  "chain. It is a fact about deployment, not about delivery: no "
                  "agent on the chain need ever have been hired, and none of it "
                  "implies a job was completed.",
@@ -464,7 +677,14 @@ def build(providers) -> dict[str, Dataset]:
         coverage=jobs_coverage,
         get=jobs_get,
         list=jobs_list,
-        caveats=["Provider is the agent owner's address. The field is called "
+        as_of=lambda c: c.get("last_pass_completed_at"),
+        caveats=["as_of is the end of the indexer's last complete pass, "
+                 "coverage.last_pass_completed_at: the last time the index "
+                 "was read against the chain, whether or not that pass found "
+                 "new jobs. last_pass_reached_head says whether it also caught "
+                 "up to the chain's job counter. It is null until a pass has "
+                 "recorded it. last_run_at is different: it moves only when a "
+                 "new job is indexed.","Provider is the agent owner's address. The field is called "
                  "owner_address in the aggregate and provider in the job "
                  "documents, and they are the same address.",
                  "budget is the amount escrowed for the job in the contract's "
@@ -487,17 +707,31 @@ def build(providers) -> dict[str, Dataset]:
                  "only place the field says more than status, is 8 EXPIRED "
                  "jobs that carry a commitment.",
                  "Indexed from chain logs in batches, so the index can trail "
-                 "the chain. index_complete describes the last run, whose time "
-                 "is in coverage.last_run_at, not this moment."],
+                 "the chain. index_complete describes the index as of "
+                 "coverage.last_pass_completed_at, not this moment."],
     ))
 
     # ── budgets ───────────────────────────────────────────────────────────
     async def budgets_coverage():
         from core import budget_index
         from core.db import get_db
-        stats = await budget_index.get_agent_budget_stats(get_db())
-        rated = sum(1 for v in stats.values() if v.get("rate") is not None)
+        db = get_db()
+        stats = await budget_index.get_agent_budget_stats(db)
+        # draw_rate, not rate. This read `rate`, a key the service has never
+        # returned, so agents_with_a_rate was 0 whatever the data said.
+        rated = sum(1 for v in stats.values() if v.get("draw_rate") is not None)
+        # When each chain was last indexed, from the indexer's own checkpoint.
+        # The dataset is as current as its least current chain, so that one
+        # is as_of, and every chain is listed so the lag is visible by name.
+        indexed = {}
+        async for doc in db[budget_index.PROGRESS_COLLECTION].find(
+                {}, {"_id": 0, "chain_id": 1, "updated_at": 1}):
+            if doc.get("chain_id") is not None:
+                indexed[str(doc["chain_id"])] = doc.get("updated_at")
+        times = [t for t in indexed.values() if t]
         return {"agents_with_budgets": len(stats), "agents_with_a_rate": rated,
+                "chains_indexed_at": {k: iso_utc(v) for k, v in sorted(indexed.items())},
+                "oldest_chain_indexed_at": iso_utc(min(times)) if times else None,
                 "partial": False}
 
     async def budgets_get(agent_address: str):
@@ -514,7 +748,10 @@ def build(providers) -> dict[str, Dataset]:
         keys=["agent address"],
         coverage=budgets_coverage,
         get=budgets_get,
-        caveats=["A rate is withheld below the minimum sample rather than "
+        as_of=lambda c: c.get("oldest_chain_indexed_at"),
+        caveats=["as_of is the least recently indexed chain, "
+                 "coverage.oldest_chain_indexed_at; chains_indexed_at gives "
+                 "each chain's own time, keyed by chain id.","A rate is withheld below the minimum sample rather than "
                  "computed from a few budgets.",
                  "Spend is counted from Drawn events. The contract's own spent "
                  "field is overwritten by a reclaim and does not mean delivery.",
@@ -551,8 +788,27 @@ def build(providers) -> dict[str, Dataset]:
             if (chain_views.VIEWS.get(vid) or {}).get("kind") == "venue":
                 continue
             counts[vid] = await chain_views.count_view(vid)
+        # When each registry scan behind these views last SUCCEEDED, from the
+        # ingest's own checkpoints. last_run_at moves on failures too, so it
+        # dated Solana to an attempt that returned HTTP 525. Ethereum rides
+        # the shared EVM scan; Solana and the three single-chain registries
+        # have their own checkpoints.
+        from core import full_registry_ingest as fri
+        docs = {"ethereum": await fri.get_progress(),
+                "solana": await fri.get_solana_progress(),
+                **(await fri.get_additional_chains_progress())}
+        ok = {k: (d or {}).get("last_success_at") for k, d in docs.items() if k in counts}
+        never = sorted(k for k, t in ok.items() if not t)
+        # A view with no recorded success makes the dataset's as_of null
+        # rather than being left out of it: an as_of says every view was read
+        # at that time or later, and for these no time can be said.
+        oldest = (iso_utc(min(ok.values())) if ok and not never else None)
         return {"views": counts, "agents": sum(counts.values()),
-                "chain_ids": sorted(chain_by_id), "partial": False}
+                "chain_ids": sorted(chain_by_id),
+                "ingest_last_success_at": {k: iso_utc(v) for k, v in ok.items()},
+                "ingest_no_recorded_success": never,
+                "oldest_ingest_success_at": oldest,
+                "partial": False}
 
     async def chain_agents_get(key: str):
         # "<chain id>/<token id>", which is the shape of the site's own URL for
@@ -560,7 +816,8 @@ def build(providers) -> dict[str, Dataset]:
         parts = str(key).split("/")
         if len(parts) != 2 or not parts[0].isdigit():
             return None
-        return await chain_views.fetch_agent(int(parts[0]), parts[1])
+        rec = await chain_views.fetch_agent(int(parts[0]), parts[1])
+        return _site_features(rec)
 
     async def chain_agents_list(*, limit, offset, chain_id=None, category=None, **_):
         if chain_id is None:
@@ -620,7 +877,14 @@ def build(providers) -> dict[str, Dataset]:
         get=chain_agents_get,
         list=chain_agents_list,
         summary=chain_agents_summary,
-        caveats=["A different store from agents.index, with a thinner record: "
+        as_of=lambda c: c.get("oldest_ingest_success_at"),
+        caveats=["as_of is the least recent successful registry scan across "
+                 "these views, coverage.oldest_ingest_success_at, and "
+                 "ingest_last_success_at gives each view's own. A view named "
+                 "in ingest_no_recorded_success has no recorded success, and "
+                 "while any view is in it as_of is null rather than a time "
+                 "that would not hold for that view.",
+                 "A different store from agents.index, with a thinner record: "
                  "no verification tier, because delivery has not been joined "
                  "for these chains.",
                  "Service status exists only for chains the analysis pass has "

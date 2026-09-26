@@ -3,7 +3,9 @@
 WHY THE PROTOCOL IS HAND WRITTEN
 --------------------------------
 This server answers five methods: initialize, notifications/initialized, ping,
-tools/list and tools/call. An SDK for that is a dependency in a container that
+tools/list and tools/call. server/discover, from the stateless 2026-07-28
+revision, is answered by router.py with the HTTP 400 that tells a client to
+fall back to initialize. An SDK for that is a dependency in a container that
 is OOM killed roughly every two hours, to save writing a switch statement. The
 project already made this call once for routing on the frontend and the
 reasoning is the same: no library for a single small case.
@@ -31,8 +33,11 @@ they arrive in that function, and no tool signature changes.
 from __future__ import annotations
 
 import json
+import os
+import threading
 import time
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from mcp_server import envelope, tools
 
@@ -40,8 +45,45 @@ PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_VERSIONS = {"2025-06-18", "2025-03-26", "2024-11-05"}
 SERVER_INFO = {"name": "tnega", "version": "0.1.0"}
 
-# JSON-RPC reserved range ends at -32000. This is ours.
+# What the MCP-Protocol-Version header may say on a request after initialize.
+#
+# There are no sessions here, so there is no negotiated version to hold a
+# request to. The rule is therefore the one the spec gives for that case: any
+# version this server supports is accepted, anything else is a 400.
+#
+# 2025-11-25 is also accepted in the header, by the owner's decision. A client
+# that asks for it at initialize is still answered 2025-06-18, which the spec
+# permits, because that revision's transport requires a 403 on a present and
+# invalid Origin and this server only counts such requests (see note_origin).
+# Accepting the header keeps a client working if it sends its own revision
+# after that answer; enforcing Origin is the change that would let 2025-11-25
+# be negotiated outright.
+HEADER_VERSIONS = frozenset(SUPPORTED_VERSIONS | {"2025-11-25"})
+
+# The stateless revision, which this server does not speak. A client that
+# declares it opens with server/discover or sends requests with no
+# initialize, and falls back to initialize only on an HTTP 400 whose body is
+# not a modern JSON-RPC error. router.py answers it that way.
+MODERN_VERSION = "2026-07-28"
+
+# JSON-RPC reserved range ends at -32000. This is ours. It covers both ways
+# this server turns a caller away, the one-call gate and the per-minute cap,
+# and data.reason says which.
 BUSY_CODE = -32029
+
+INSTRUCTIONS = (
+    "Measurements from Tnega, read only. agents.index is ERC-8004 agents on "
+    "BNB Chain; chains.agents is agents on Ethereum, Arbitrum, Robinhood "
+    "Chain, Solana and Monad; jobs.erc8183 is ERC-8183 jobs on BNB Chain; "
+    "budgets.escrow is spending budgets; hyperliquid.post_only is post-only "
+    "rejection on Hyperliquid; chains.views is chain coverage. Start with "
+    "tnega_catalogue. Every response carries its coverage, and a measurement "
+    "with nothing behind it returns a withheld_reason rather than a zero. "
+    "as_of is when the data was measured, or null where there is no such "
+    "time; served_at is when you asked. Cite as_of. One call at a time: a "
+    "second concurrent call is refused, not queued. Requests are capped per "
+    "minute across all callers; on HTTP 429 wait the seconds given in the "
+    "Retry-After header, also in error.data.retry_after_seconds, then retry.")
 
 
 @dataclass(frozen=True)
@@ -84,6 +126,148 @@ class InFlight:
 
 
 GATE = InFlight()
+
+
+class RateCap:
+    """Requests per minute across the whole process, refused past the cap.
+
+    The gate bounds how many calls run at once. It does not bound how many
+    arrive: a client that waits for each answer and asks again at once holds
+    the gate for as long as it likes, and every request costs a body parse
+    and a coverage read even when it is refused. This bounds the rate.
+
+    A token bucket rather than a window of timestamps, so it holds two
+    numbers whatever the traffic: nothing here grows with load, in a
+    container whose ceiling is memory.
+
+    GLOBAL, NOT PER CALLER, AND DELIBERATELY. The only per-caller key
+    available here is the connecting address, and it is the wrong one: behind
+    Render every request arrives from the proxy, X-Forwarded-For is whatever
+    the caller wrote when it reaches Render directly, and a chat client's
+    connector calls from its vendor's cloud, so one address is every user of
+    that client. Per-address limiting belongs at the edge, in Vercel, where
+    the address is the platform's own reading and not a header, and it is not
+    built here. Nothing in this class reads an address.
+    """
+
+    def __init__(self, per_minute: int) -> None:
+        self.per_minute = max(1, int(per_minute))
+        self.tokens = float(self.per_minute)
+        self.stamp = time.monotonic()
+        self.refused = 0
+        self._lock = threading.Lock()
+
+    def take(self) -> bool:
+        with self._lock:
+            now = time.monotonic()
+            self.tokens = min(float(self.per_minute),
+                              self.tokens + (now - self.stamp) * self.per_minute / 60.0)
+            self.stamp = now
+            if self.tokens >= 1.0:
+                self.tokens -= 1.0
+                return True
+            self.refused += 1
+            return False
+
+    def retry_after(self) -> int:
+        """Whole seconds until one request would be admitted."""
+        need = max(0.0, 1.0 - self.tokens)
+        return max(1, int(need * 60.0 / self.per_minute + 0.999))
+
+
+RATE_DEFAULT_PER_MINUTE = 600
+
+
+def _rate_from_env() -> "RateCap | None":
+    """The cap from MCP_RATE_LIMIT_PER_MINUTE, or None when it is off.
+
+    Exactly 0 means off. Unset, unreadable or negative means the default: a
+    negative number is a mistake, and a mistake should leave the backstop in
+    place rather than remove it.
+    """
+    raw = os.environ.get("MCP_RATE_LIMIT_PER_MINUTE", "").strip()
+    try:
+        n = int(raw) if raw else RATE_DEFAULT_PER_MINUTE
+    except ValueError:
+        n = RATE_DEFAULT_PER_MINUTE
+    if n == 0:
+        return None
+    return RateCap(n if n > 0 else RATE_DEFAULT_PER_MINUTE)
+
+
+# 600 a minute, a backstop and not a share.
+#
+# This cap is global, so it is not what keeps one client from starving the
+# others; the gate is. Every tool call holds the one slot while it runs, and
+# measured locally against the real stores on 2026-09-25 a call took under
+# 0.1s (resolve, get, summary) to 0.8s (list, series), and about 5s for the
+# catalogue. So tool calls cannot run faster than roughly 10 a second in
+# total whatever this says, and a client looping on them is refused by the
+# gate, not by this. What this
+# bounds is the traffic the gate never sees: pings, tools/list, malformed
+# bodies and refused calls, each of which costs a parse. At 120 a minute a
+# single client at 2 requests a second used the whole budget and every other
+# caller got 429s; at 600, ten a second, one client at that pace uses a fifth.
+RATE = _rate_from_env()
+
+
+def rate_limited(req_id, cap: RateCap) -> dict:
+    return _error(
+        req_id, BUSY_CODE,
+        "Tnega answers a limited number of requests a minute across all "
+        "callers, and that limit is reached. Retry after the time given.",
+        {"limit": f"{cap.per_minute} requests per minute, all callers",
+         "reason": "rate_limited",
+         "retry_after_seconds": cap.retry_after(),
+         "refused_so_far": cap.refused})
+
+
+# ── Origin, observed and not yet enforced ────────────────────────────────────
+#
+# The transport spec says a server should reject a request whose Origin is
+# present and not its own, which protects a local server from a web page the
+# user happens to have open. Enforcing it here is held back until it is known
+# what the chat clients that connect send, because refusing one of them would
+# end its connection and a count would not. So this only counts, and logs at
+# the 1st, 2nd, 4th, 8th... occurrence so a flood cannot fill the log.
+ALLOWED_ORIGIN_HOSTS = {"tnega.app", "www.tnega.app", "localhost", "127.0.0.1", "::1"}
+ORIGIN_OUTSIDE = {"count": 0}
+
+
+def origin_allowed(origin: str) -> bool:
+    try:
+        host = (urlsplit(origin).hostname or "").lower()
+    except ValueError:
+        return False
+    return host in ALLOWED_ORIGIN_HOSTS
+
+
+# Every refused version, counted and logged on the same schedule as Origin,
+# so the first time a real client is turned away it is visible rather than
+# inferred from a connection that never appears.
+VERSION_REFUSED = {"count": 0}
+
+
+def note_version_refusal(method: str | None, header: str | None,
+                         user_agent: str | None, why: str) -> None:
+    VERSION_REFUSED["count"] += 1
+    n = VERSION_REFUSED["count"]
+    if n & (n - 1) == 0:
+        print(f"[mcp] version refusal ({why}): method={str(method)[:40]!r} "
+              f"header={str(header)[:40]!r} user_agent={str(user_agent)[:80]!r} "
+              f"({n} so far)", flush=True)
+
+
+def note_origin(origin: str | None) -> bool:
+    """Count an Origin outside the allowlist. Returns True if it was outside."""
+    if not origin or origin_allowed(origin):
+        return False
+    ORIGIN_OUTSIDE["count"] += 1
+    n = ORIGIN_OUTSIDE["count"]
+    if n & (n - 1) == 0:
+        print(f"[mcp] Origin outside the allowlist, not refused: "
+              f"{origin[:80]!r} ({n} so far)", flush=True)
+    return True
 
 
 def _result(req_id, result: dict) -> dict:
@@ -143,13 +327,7 @@ async def handle(message: dict, datasets: dict, headers=None) -> dict | None:
             "protocolVersion": version,
             "capabilities": {"tools": {"listChanged": False}},
             "serverInfo": SERVER_INFO,
-            "instructions":
-                "Measurements from Tnega: agents across five chains, ERC-8183 "
-                "jobs, Hyperliquid post-only rejection, spending budgets, and the "
-                "chain views. Start with tnega_catalogue. Every response carries "
-                "its coverage, and a measurement with nothing behind it returns "
-                "a withheld_reason rather than a zero. One call at a time: a "
-                "second concurrent call is refused, not queued.",
+            "instructions": INSTRUCTIONS,
         })
 
     if method == "ping":

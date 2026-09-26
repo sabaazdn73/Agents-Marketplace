@@ -29,7 +29,7 @@ import re
 from typing import Any
 
 from mcp_server import envelope
-from mcp_server.registry import call
+from mcp_server.registry import iso_utc, call
 
 def _echo(query: str) -> str:
     """The identifier, whole.
@@ -92,7 +92,23 @@ def _coverage(cov: dict | None, **extra) -> dict:
     return base
 
 
-def _empty_result(tool: str, dataset: str, filters: dict, cov: dict) -> dict:
+def _as_of(fn, block: Any) -> str | None:
+    """When the data was measured, from a dataset's own reader, or null.
+
+    Never the call time: that is served_at, and the two being the same field
+    is how a series that stopped on 2026-09-19 read as current on the 25th.
+    A reader that fails gives null rather than taking the answer down with it.
+    """
+    if fn is None or not isinstance(block, dict):
+        return None
+    try:
+        return iso_utc(fn(block))
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _empty_result(tool: str, dataset: str, filters: dict, cov: dict,
+                  as_of: str | None = None) -> dict:
     """Nothing matched, said as a reason rather than as zeros.
 
     The server's own instructions promise that a measurement with nothing
@@ -105,6 +121,7 @@ def _empty_result(tool: str, dataset: str, filters: dict, cov: dict) -> dict:
     return envelope.withheld(
         measured=f"{tool} over {dataset}",
         coverage=_coverage(cov, filters=filters, matched=0),
+        as_of=as_of,
         reason="no_matches",
         explanation=f"Nothing in {dataset} matches {shown}. This is an empty "
                     f"selection, not a measurement of zero. tnega_catalogue "
@@ -139,13 +156,17 @@ async def catalogue(datasets: dict, args: dict) -> dict:
     rows = []
     partial = False
     for d in sorted(datasets.values(), key=lambda x: x.id):
+        # No caveats here. They rode along in every row and took the
+        # catalogue over its ceiling, so production answered "what do you
+        # have" with 4 of its 6 datasets. Every get, list and summary on a
+        # dataset carries its caveats in full, which is where they are read
+        # beside the number they qualify.
         row = {
             "id": d.id,
             "title": d.title,
             "measures": d.measures,
             "keys": d.keys,
             "supports": d.verbs(),
-            "caveats": d.caveats,
         }
         if d.example_filters:
             row["example_filters"] = d.example_filters
@@ -165,18 +186,31 @@ async def catalogue(datasets: dict, args: dict) -> dict:
             # tell "false" from "the key is missing" will eventually get it
             # wrong. Production showed partial=None on two of five rows.
             row["coverage"] = {**cov, "partial": bool(cov.get("partial"))}
+            row["as_of"] = _as_of(d.as_of, cov)
         except Exception as e:  # noqa: BLE001
             partial = True
             row["coverage"] = {"partial": True,
                                "unavailable": type(e).__name__}
+            row["as_of"] = None
         rows.append(row)
+    # The catalogue's own as_of is its least current dataset: every row was
+    # measured at that time or later. Rows with no measurement time, such as
+    # configuration, do not count toward it.
+    times = [r["as_of"] for r in rows if r.get("as_of")]
+    caveats = ["Each row's as_of is when that dataset was measured, null for "
+               "configuration or when no time is recorded. The catalogue's "
+               "as_of is the oldest of them. Each dataset's caveats come "
+               "with tnega_get, tnega_list and tnega_summary on it."]
+    if partial:
+        caveats.append("A row with coverage.partial true could not be read "
+                       "just now. That is a fact about this call, not about "
+                       "the dataset.")
     return envelope.build(
         measured="every dataset Tnega holds, with its coverage",
         coverage={"datasets": len(rows), "partial": partial},
+        as_of=min(times) if times else None,
         value=rows,
-        caveats=["A row with coverage.partial true could not be read just now. "
-                 "That is a fact about this call, not about the dataset."]
-        if partial else [])
+        caveats=caveats)
 
 
 async def resolve(datasets: dict, args: dict) -> dict:
@@ -248,10 +282,17 @@ async def get(datasets: dict, args: dict) -> dict:
     except Exception as e:  # noqa: BLE001
         cov = {"partial": True, "unavailable": type(e).__name__}
     record = await call(d.get, key)
+    # A record with its own measurement time uses that and only that. The
+    # dataset's time is used where records carry none.
+    as_of = (_as_of(d.record_as_of, record) if d.record_as_of is not None
+             else _as_of(d.as_of, cov))
 
     if record is None:
+        # The dataset's time, since that is when the absence was established:
+        # nothing under this key as of the index's last run.
         return envelope.withheld(
             measured=f"one record from {dataset}", coverage=cov,
+            as_of=_as_of(d.as_of, cov),
             reason="not_found",
             explanation=f"{dataset} holds nothing under '{key[:48]}'. This is an "
                         f"absence of a record, not a measurement of zero.")
@@ -262,7 +303,7 @@ async def get(datasets: dict, args: dict) -> dict:
     inner = record.get("withheld_reason") if isinstance(record, dict) else None
     return envelope.build(
         measured=f"one record from {dataset}", coverage=cov, value=record,
-        withheld_reason=inner, caveats=list(d.caveats))
+        as_of=as_of, withheld_reason=inner, caveats=list(d.caveats))
 
 
 async def list_(datasets: dict, args: dict) -> dict:
@@ -299,6 +340,7 @@ async def list_(datasets: dict, args: dict) -> dict:
     except Exception as e:  # noqa: BLE001
         cov = {"partial": True, "unavailable": type(e).__name__}
 
+    as_of = _as_of(d.as_of, cov)
     page = await call(d.list, limit=limit, offset=offset, **filters)
     rows = page.get("rows") or []
     total = page.get("total")
@@ -319,19 +361,24 @@ async def list_(datasets: dict, args: dict) -> dict:
         return envelope.withheld(
             measured=f"a page of {dataset}",
             coverage=_coverage(cov, matched=total, returned=0, offset=offset),
+            as_of=as_of,
             reason=str(page["withheld_reason"]),
             explanation=str(page.get("explanation")
                             or "This dataset cannot be listed with the "
                                "arguments given."))
 
     if not rows and not page.get("partial"):
-        return _empty_result("tnega_list", dataset, filters, cov)
+        return _empty_result("tnega_list", dataset, filters, cov, as_of)
     nxt = offset + len(rows)
     caveats = list(d.caveats) + [
         "Rows are a projection, not whole records. Read one in full with "
         "tnega_get using the id in the row."]
     if page.get("partial"):
-        caveats.append("This page is partial: a source was not readable.")
+        # The dataset's own words for why, where it gave any. The fixed
+        # sentence said "a source was not readable" for a page that was
+        # partial because a filter was missing, which named the wrong cause.
+        caveats.append("This page is partial: " + str(
+            page.get("note") or "a source was not readable."))
 
     # The page's own partial, not the dataset's. They are different claims:
     # the dataset may be wholly readable and this page still incomplete.
@@ -341,9 +388,17 @@ async def list_(datasets: dict, args: dict) -> dict:
     return envelope.build(
         measured=f"a page of {dataset}",
         coverage=_coverage(page_cov, matched=total, returned=len(rows), offset=offset),
+        as_of=as_of,
         value=rows,
         next_cursor=(_cursor_encode(dataset, nxt, filters)
                      if total is not None and nxt < total else None),
+        # If the ceiling trims this page, the cursor has to start at the first
+        # row not sent, not at the first row not built.
+        # No cursor once the rows consumed reach the end of the selection,
+        # which happens when the last row is the one skipped as too large.
+        resume=lambda kept: (_cursor_encode(dataset, offset + len(kept), filters)
+                             if total is None or offset + len(kept) < total
+                             else None),
         caveats=caveats)
 
 
@@ -359,11 +414,13 @@ async def summary(datasets: dict, args: dict) -> dict:
         cov = _coverage(await call(d.coverage))
     except Exception as e:  # noqa: BLE001
         cov = {"partial": True, "unavailable": type(e).__name__}
+    as_of = _as_of(d.as_of, cov)
     value = await call(d.summary, **filters)
     if isinstance(value, dict) and value.get("matched") == 0:
-        return _empty_result("tnega_summary", dataset, filters, cov)
+        return _empty_result("tnega_summary", dataset, filters, cov, as_of)
     return envelope.build(
         measured=f"an aggregate over {dataset}", coverage=_coverage(cov), value=value,
+        as_of=as_of,
         caveats=list(d.caveats) + [
             "An aggregate over what is stored, which is what coverage "
             "describes, not over everything that exists."])
@@ -387,11 +444,16 @@ async def series(datasets: dict, args: dict) -> dict:
     out = await call(d.series, key, limit=limit, before=args.get("before"))
     points = out.get("points") or []
     inner_cov = out.get("coverage") or {}
+    # The series' own coverage, not the dataset's: a series is as current as
+    # its last bucket, whatever the collector behind the rest of the dataset
+    # did since.
+    as_of = _as_of(d.as_of, inner_cov)
 
     if not points:
         return envelope.withheld(
             measured=f"a series from {dataset} for {key[:48]}",
-            coverage={**inner_cov, "points": 0},
+            coverage=_coverage(inner_cov, points=0),
+            as_of=as_of,
             reason="no_observations",
             explanation="Nothing was recorded for this key in the window. "
                         "coverage says whether it was being watched and heard "
@@ -401,8 +463,17 @@ async def series(datasets: dict, args: dict) -> dict:
         measured=f"a series from {dataset} for {key[:48]}",
         coverage=_coverage(inner_cov, points=len(points),
                            bucket_seconds=out.get("bucket_seconds")),
+        as_of=as_of,
         value=points,
         next_cursor=out.get("next_before"),
+        # A trimmed series continues from the last point kept. `before` is
+        # exclusive, so that point's time is the cursor.
+        # No cursor once the points consumed are all there is: every point
+        # of this call, with none beyond it (no next_before).
+        resume=lambda kept: (kept[-1].get("t")
+                             if kept and (len(kept) < len(points)
+                                          or out.get("next_before"))
+                             else None),
         caveats=list(d.caveats))
 
 
@@ -434,9 +505,10 @@ TOOLS = [
         "description":
             "Lists every measurement Tnega holds: dataset ids, what each one "
             "measures, the keys it accepts, which of get/list/summary/series it "
-            "supports, and its live coverage. Takes no arguments and returns one row "
-            "per dataset, under 8KB. Call this first when you do not know a "
-            "dataset id; then use tnega_get or tnega_list.",
+            "supports, its live coverage and as_of, when it was last measured. "
+            "Takes no arguments and returns one row per dataset, under 16KB. "
+            "Call this first when you do not know a dataset id; then use "
+            "tnega_get or tnega_list.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
         "handler": catalogue,
     },
@@ -499,8 +571,9 @@ TOOLS = [
             "One record in full from one dataset: an agent, a Hyperliquid "
             "address, a provider's job record, an agent's budget record, or a "
             "chain view. Give dataset and id. Returns the record with its "
-            "coverage and caveats under 8KB, or the reason there is nothing to "
-            "return. For many records at once use tnega_list.",
+            "coverage, caveats and as_of (when it was measured; served_at is "
+            "the call) under 8KB, or the reason there is nothing to return. "
+            "For many records at once use tnega_list.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -537,8 +610,9 @@ TOOLS = [
             "A filtered page of compact rows from one dataset, about 200 bytes "
             "each rather than whole records. Give dataset, optional filters or a "
             "key to narrow to one entity, and limit up to 50, default 25. Returns "
-            "rows plus next_cursor, capped at 32KB. Read any row in full with "
-            "tnega_get; for counts rather than rows use tnega_summary.",
+            "rows, as_of (when measured) and next_cursor, capped at 32KB. Read "
+            "any row in full with tnega_get; for counts rather than rows use "
+            "tnega_summary.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -581,9 +655,9 @@ TOOLS = [
         "description":
             "An aggregate over one dataset with the coverage behind it: counts by "
             "verification tier or behaviour band, category breakdowns, totals. "
-            "Give dataset and optional filters. Returns one rollup under 8KB and "
-            "never a list of records. Use tnega_list for the rows, or "
-            "tnega_series for movement over time.",
+            "Give dataset and optional filters. Returns one rollup with as_of, "
+            "when it was measured, under 8KB and never a list of records. Use "
+            "tnega_list for the rows, or tnega_series for movement over time.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -622,8 +696,8 @@ TOOLS = [
             "A measurement over time from one dataset, newest first. Today that "
             "is hyperliquid.post_only at 10 second buckets for one address. Give "
             "dataset and key, with limit up to 200 points, returned under 16KB "
-            "with the denominator behind them. For the current value rather than "
-            "its history use tnega_get.",
+            "with the denominator behind them and as_of, the last bucket. For "
+            "the current value rather than its history use tnega_get.",
         "inputSchema": {
             "type": "object",
             "properties": {

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import os
 import time
 
@@ -40,6 +41,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from mcp_server import registry
+from mcp_server.registry import call as _call
+from mcp_server.router import BodyTooLarge, cap_from_env, read_body_capped
+
+MAX_UPDATE_BYTES = cap_from_env("TELEGRAM_MAX_BODY_BYTES", 262_144)
 from mcp_server.protocol import InFlight
 
 from telegram_bot import render
@@ -120,7 +125,7 @@ def build_router(providers) -> APIRouter:
         m = re.match(r"^/jobs\s+(" + _ADDRESS + r")", t)
         if m:
             d = datasets.get("jobs.erc8183")
-            rec = await d.get(m.group(1))
+            rec = await _call(d.get, m.group(1))
             if not rec:
                 return render.withheld_block("not_found")
             keys = ("hired", "completed", "submitted", "active", "rejected", "expired")
@@ -134,7 +139,7 @@ def build_router(providers) -> APIRouter:
         m = re.match(r"^/budget\s+(" + _ADDRESS + r")", t)
         if m:
             d = datasets.get("budgets.escrow")
-            rec = await d.get(m.group(1))
+            rec = await _call(d.get, m.group(1))
             if not rec:
                 return render.withheld_block("not_found")
             # "Budget escrow" until now. The dataset id says escrow and the
@@ -163,7 +168,11 @@ def build_router(providers) -> APIRouter:
 
         if re.match(r"^/counts", t):
             d = datasets.get("agents.index")
-            s = await asyncio.to_thread(d.summary)
+            # registry.call runs a reader whether it is sync or async. The
+            # agents readers became async when they learned to build the index
+            # on a fresh process, and to_thread on an async function returns
+            # an unawaited coroutine rather than a summary.
+            s = await _call(d.summary)
             if s.get("partial"):
                 return ("<b>Agents</b>\n\nThe index is not loaded in this process "
                         "right now, so no counts are available. That is a gap in "
@@ -174,7 +183,11 @@ def build_router(providers) -> APIRouter:
             rows = []
             for name, d in sorted(datasets.items()):
                 try:
-                    cov = await d.coverage()
+                    # Sync or async: some coverage functions return a dict
+                    # and some a coroutine, and awaiting a dict raised
+                    # TypeError, so /coverage reported the sync ones
+                    # (hyperliquid.post_only, chains.views) as unavailable.
+                    cov = await _call(d.coverage)
                 except Exception as e:  # noqa: BLE001
                     cov = {"partial": True, "unavailable": type(e).__name__}
                 rows.append({"id": name, "coverage": cov})
@@ -200,9 +213,22 @@ def build_router(providers) -> APIRouter:
         if not WEBHOOK_SECRET or not hmac.compare_digest(got, WEBHOOK_SECRET):
             return JSONResponse(status_code=401, content={"ok": False})
 
+        # Read under a cap, like POST /mcp, and for the same reason: the
+        # route is public, request.json() holds the whole body however large,
+        # and the secret only proves the sender, not the size. A Telegram
+        # update carrying a message is a few kilobytes; the cap is generous.
         try:
-            update = await request.json()
-        except Exception:  # noqa: BLE001
+            raw = await read_body_capped(request, MAX_UPDATE_BYTES)
+        except BodyTooLarge:
+            return JSONResponse(status_code=413, content={
+                "ok": False, "error": f"update over {MAX_UPDATE_BYTES} bytes"})
+        try:
+            update = json.loads(raw)
+        except (ValueError, UnicodeDecodeError, RecursionError):
+            return JSONResponse({"ok": True})
+        if not isinstance(update, dict):
+            # A list or a bare value is not an update, and .get on it was a
+            # 500.
             return JSONResponse({"ok": True})
 
         uid = update.get("update_id")
@@ -241,4 +267,7 @@ def build_router(providers) -> APIRouter:
             "disable_web_page_preview": True,
         })
 
+    # Exposed so scripts/mcp_selfcheck.py can ask it a question without a
+    # webhook secret or a network. Nothing in the app reads it.
+    router.answer = answer
     return router

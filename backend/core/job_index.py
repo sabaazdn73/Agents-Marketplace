@@ -223,6 +223,18 @@ async def run_index_batch(max_seconds: float = 20.0, recheck_seconds: float = 10
         progress["recheck_next_id"] = chunk_ids[-1] + 1
         await _save_progress(progress)
 
+    # THE TIME OF THIS PASS, whatever it found. last_run_at above moves only
+    # when the forward pass indexes a new job, so on a day with no new jobs it
+    # stood still while the indexer kept running and kept re-reading
+    # statuses, and a reader citing it dated the index to the last new job
+    # rather than to the last read of the chain. This is written only when
+    # both passes finished without raising, so it means the index was read
+    # against the chain's job counter at this time; last_pass_reached_head
+    # says whether the forward pass also caught up to that counter.
+    progress["last_pass_completed_at"] = time.time()
+    progress["last_pass_reached_head"] = reached_end
+    await _save_progress(progress)
+
     return {
         "indexed_this_batch": indexed_this_batch, "rechecked_this_batch": rechecked,
         "next_job_id": next_id, "job_counter": job_counter, "reached_end": reached_end,

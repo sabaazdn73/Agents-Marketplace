@@ -575,6 +575,11 @@ async def _run_single_chain_ingest_batch(
         progress["total_ingested"] = (progress.get("total_ingested") or 0) + len(agents)
         progress["last_run_at"] = time.time()
         progress["last_error"] = None
+        # The same field the shared scan writes, for the same reason: last_run_at
+        # moves on failures too, so it cannot say when a page last came back.
+        # This path never wrote it, so Solana and the single-chain registries
+        # had no record of their last success at all.
+        progress["last_success_at"] = progress["last_run_at"]
         await _save_progress(progress)
 
         # The traversal is over when the server stops handing back a cursor.

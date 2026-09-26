@@ -116,7 +116,7 @@ argument. Not capped by default, not reachable.
 
 | Tool | Default | Hard ceiling | Basis |
 |---|---|---|---|
-| `tnega_catalogue` | all datasets | 8 KB | about 12 rows today |
+| `tnega_catalogue` | all datasets | 16 KB | 6 rows at about 4.6 KB; rows carry no caveats, which get, list and summary return |
 | `tnega_resolve` | up to 5 candidates | 2 KB | ids and labels only |
 | `tnega_get` | one entity | 8 KB | an agent blob is 1.2 KB, with evaluation about 3 KB |
 | `tnega_list` | 25 compact rows | 32 KB | at about 200 bytes a row, 25 rows is 5 KB |

@@ -167,6 +167,7 @@ def _site_only(request: Request) -> None:
         raise HTTPException(status_code=403, detail=_SITE_ONLY_DETAIL)
 
 
+import re
 import time
 import datetime as dt
 import asyncio
@@ -446,9 +447,66 @@ def _set_agents_cache(records: list, fetched_at=None, perf=None, canary_map=None
     _cache["index"] = agents_index.AgentsIndex(records or [], perf, canary_map)
     _cache["count"] = len(records or [])
     _cache["fetched_at"] = fetched_at if fetched_at is not None else time.time()
+    _cache["data_as_of"] = _newest_last_seen(records=records or [])
 
 
-_cache: dict = {"index": None, "count": 0, "fetched_at": 0}
+# WHEN THE DATA IN THE INDEX WAS MEASURED, as opposed to when this process
+# loaded it. fetched_at is the load time: a cold boot fills the cache from the
+# store and stamps it now, and the container restarts every couple of hours,
+# so fetched_at says how long this process has been up rather than how old the
+# data is. The registry refresh writes last_seen_at on every agent it sees, so
+# the newest last_seen_at over the served records is when the refresh last saw
+# the registry. Computed once, when the index is built, and held as one string.
+_LAST_SEEN = re.compile(rb'"last_seen_at":"([^"]{10,40})"')
+
+
+def _newest_last_seen(records: list | None = None, body: bytes | None = None) -> str | None:
+    """The newest last_seen_at, from records in hand or from their encoding.
+
+    The encoded path scans the bytes rather than decoding them, because the
+    refresh runs out of process precisely so that the dicts never exist here.
+    The values are ISO 8601 strings written by one writer in one format, so
+    the largest string is the latest time.
+    """
+    best = None
+    if records is not None:
+        for r in records:
+            v = r.get("last_seen_at") if isinstance(r, dict) else None
+            if isinstance(v, str) and (best is None or v > best):
+                best = v
+        return best
+    for m in _LAST_SEEN.finditer(body or b""):
+        v = m.group(1)
+        if best is None or v > best:
+            best = v
+    return best.decode("utf-8", "replace") if best else None
+
+
+# One cold fill at a time. Four callers can find the cache empty on a fresh
+# process: /api/agents, /api/agents/by-id, /api/agents/facets and the MCP
+# adapter. Without the lock two of them arriving together each built an
+# index, and on a 512MiB container two copies of 15,000 records at once is
+# the allocation this cache exists to avoid. The second caller now waits for
+# the first and uses what it built.
+_cold_fill_lock = asyncio.Lock()
+
+
+async def _ensure_agents_index() -> None:
+    """Fill the cache from the persistent store if it is empty. Raises on
+    failure; each caller decides what a failure means for its response."""
+    if _cache["index"] is not None:
+        return
+    async with _cold_fill_lock:
+        if _cache["index"] is not None:
+            return
+        # The store, not a live 8004scan fetch: one Mongo query, the same
+        # read the site's cold path has always made.
+        _perf, _can = await _tier_join()
+        _set_agents_cache(await agent_store.get_stored_agents(),
+                          perf=_perf, canary_map=_can)
+
+
+_cache: dict = {"index": None, "count": 0, "fetched_at": 0, "data_as_of": None}
 _CACHE_TTL_SECONDS = 60 * 60  # 60 minutes. A full refresh now paginates deeper
 # for agent diversity (aggregate.py: 20 pages × 100 = 20 real 8004scan
 # requests + 1 DefiLlama). Budget math against the free_api tier (30 req/min,
@@ -729,6 +787,7 @@ async def _background_refresh():
             _cache["index"] = agents_index.AgentsIndex.from_encoded(body, perf, can)
             _cache["count"] = count
             _cache["fetched_at"] = time.time()
+            _cache["data_as_of"] = _newest_last_seen(body=body)
             print(f"[server] Refresh (subprocess): {count:,} agents, "
                   f"{len(body)/1e6:.1f}MB indexed.", flush=True)
             del body, result
@@ -791,11 +850,10 @@ async def agents(
     if _cache["index"] is None:
         # Cold in-memory cache (fresh instance boot), read the persistent
         # store directly. This is a fast, single Mongo query, not a live
-        # 8004scan fetch, so it's fine to await inline.
+        # 8004scan fetch, so it's fine to await inline. Through the shared
+        # builder, so a concurrent cold caller does not build a second copy.
         try:
-            _perf, _can = await _tier_join()
-            _set_agents_cache(await agent_store.get_stored_agents(),
-                              fetched_at=now, perf=_perf, canary_map=_can)
+            await _ensure_agents_index()
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
 
@@ -1431,9 +1489,7 @@ async def agent_by_id(agent_id: str):
     names even when that agent is not on the page currently displayed."""
     if _cache["index"] is None:
         try:
-            _perf, _can = await _tier_join()
-            _set_agents_cache(await agent_store.get_stored_agents(),
-                              perf=_perf, canary_map=_can)
+            await _ensure_agents_index()
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
     ix = _cache["index"]
@@ -1469,9 +1525,7 @@ async def agents_facets(
     count over 15,000 in-memory ints is not worth a cache."""
     if _cache["index"] is None:
         try:
-            _perf, _can = await _tier_join()
-            _set_agents_cache(await agent_store.get_stored_agents(),
-                              perf=_perf, canary_map=_can)
+            await _ensure_agents_index()
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"Couldn't load agent data right now: {e}")
     ix = _cache["index"]
@@ -3663,6 +3717,8 @@ try:
 
     app.include_router(build_router(Providers(
         agents_index=lambda: _cache["index"],
+        agents_index_as_of=lambda: _cache.get("data_as_of"),
+        ensure_agents_index=_ensure_agents_index,
     )))
     print("[mcp] mounted at POST /mcp", flush=True)
 except Exception as _mcp_error:  # noqa: BLE001
@@ -3686,6 +3742,8 @@ try:
 
     app.include_router(build_telegram_router(Providers(
         agents_index=lambda: _cache["index"],
+        agents_index_as_of=lambda: _cache.get("data_as_of"),
+        ensure_agents_index=_ensure_agents_index,
     )))
     print("[telegram] mounted at POST /api/telegram/webhook", flush=True)
 except Exception as _tg_error:  # noqa: BLE001
