@@ -689,11 +689,16 @@ function tpRow(tbody, label) {
 
 /** The cat, as an <img>, or nothing if there is no extension runtime to ask.
  *
- *  Hyperliquid's mascot, used the way content.js uses it on an address page:
- *  inside a panel about Hyperliquid, on Hyperliquid's own site, saying what the
- *  panel is about. It is not this extension's mark; the toolbar icon, the popup
- *  and the store listing are Tnega's. */
-function tpCat(parent, cls) {
+ *  Fendi, Tnega's own mascot, the same cat content.js puts in the address
+ *  panel. He appears on the practice tab and in the practice panel header,
+ *  beside the sentence saying the money is not there. The toolbar icon, the
+ *  popup and the store listing keep the Tnega logo.
+ *
+ *  `px` is the CSS box the class gives him (22 in the header, 26 on the tab).
+ *  The files are square and he fills their height, so the box is square and
+ *  object-fit: contain never stretches him; srcset picks 32, 48 or 128 for
+ *  that box at the screen's density. */
+function tpCat(parent, cls, px) {
   const img = document.createElement("img");
   img.className = cls;
   img.alt = "";
@@ -705,7 +710,12 @@ function tpCat(parent, cls) {
   // is the only place this fires.
   img.addEventListener("error", () => img.classList.add("tp-hide"), { once: true });
   try {
-    img.src = chrome.runtime.getURL("icons/hypurr-128.png");
+    img.width = px;
+    img.height = px;
+    img.sizes = `${px}px`;
+    img.srcset = [32, 48, 128]
+      .map((n) => `${chrome.runtime.getURL(`icons/fendi-${n}.png`)} ${n}w`).join(", ");
+    img.src = chrome.runtime.getURL("icons/fendi-128.png");
     parent.appendChild(img);
     return img;
   } catch (e) { return null; }   // no runtime, no mascot, nothing else changes
@@ -728,7 +738,7 @@ function buildPaperTab() {
   tab.dataset.act = "open";
   tab.setAttribute("aria-expanded", "false");
   tab.title = PAPER_HEADER_TEXT + ". Click to open.";
-  tpCat(tab, "tp-tab-cat");
+  tpCat(tab, "tp-tab-cat", 26);
   // One row, not two. Stacking the affordance under the sentence made the tab
   // 80px tall at 390, which is too much of a phone screen to spend on a thing
   // that is closed. Side by side it is 44 at every width measured, which is
@@ -754,7 +764,7 @@ function buildPaperPanel() {
   // ── Header. Never removed, never emptied.
   const head = tpEl(root, "div", "tp-head");
   ui.head = head;
-  tpCat(head, "tp-cat");
+  tpCat(head, "tp-cat", 22);
   ui.mark = tpEl(head, "span", "tp-mark", PAPER_HEADER_TEXT);
   tpEl(head, "span", "tp-spacer");
   ui.balance = tpEl(head, "span", "tp-bal", "");

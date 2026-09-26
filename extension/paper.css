@@ -107,6 +107,8 @@
      difference between "the panel starts here" and "this bar is floating". */
   border-top: 1px solid var(--tp-accent);
 }
+/* Fendi. Square box for a square file: he is full height and about 16 wide at
+   22, the rest transparent. content.js explains the srcset. */
 .tnega-paper .tp-cat { width: 22px; height: 22px; flex: 0 0 auto; object-fit: contain; display: block; }
 .tnega-paper .tp-mark {
   color: var(--tp-accent);
@@ -774,7 +776,7 @@
 }
 .tnega-paper-tab *, .tnega-paper-tab *::before { box-sizing: border-box; }
 .tnega-paper-tab:hover { border-color: var(--tp-accent); }
-.tnega-paper-tab .tp-tab-cat { width: 26px; height: 26px; flex: 0 0 auto; object-fit: contain; }
+.tnega-paper-tab .tp-tab-cat { width: 26px; height: 26px; flex: 0 0 auto; object-fit: contain; display: block; }
 .tnega-paper-tab .tp-tab-mark { flex: 1 1 auto; min-width: 0; }
 .tnega-paper-tab .tp-tab-line { display: block; color: var(--tp-accent); }
 .tnega-paper-tab .tp-tab-held { display: block; color: var(--tp-muted); margin-top: 2px; }

@@ -48,14 +48,19 @@ const FOOT = `
 
 // WHOSE MARK GOES WHERE
 //
-// Hypurr is Hyperliquid's mascot, not ours, and the split follows from that.
-// It appears here, inside a panel that describes Hyperliquid order data on
-// Hyperliquid's own site, which is nominative use: it says what the panel is
-// about. It is not the extension's identity. The toolbar icon, the popup
-// header, the store listing and the packaged icons are all Tnega's mark,
-// because those are the places the software identifies itself rather than
-// its subject. Publishing another company's mascot as the face of this
-// product would be a trademark question rather than a design one.
+// The cat in the panel header is Fendi, Tnega's own mascot, and he is the
+// only cat the extension shows: here, and on the practice tab and panel in
+// paper.js. The toolbar icon, the popup header, the store listing and the
+// packaged icons stay the Tnega logo. That split is a decision about where
+// each mark goes, not a licensing constraint: both are Tnega's.
+//
+// The image is square with transparent sides, and he fills its full height, so
+// the box is square too and object-fit: contain draws him unstretched. Three
+// files at one framing, chosen by srcset against the box size in `sizes`: 48
+// for this 40px box at 1x, 128 at 2x. paper.js uses the same three files for
+// its 22px and 26px boxes, where 32 is the 1x pick.
+const FENDI_SRCSET = () =>
+  [32, 48, 128].map((n) => `${chrome.runtime.getURL(`icons/fendi-${n}.png`)} ${n}w`).join(", ");
 
 // The other half of the sentence: where this address stands on HyperCore right
 // now, read on chain 999 through the HyperCoreReader contract.
@@ -201,11 +206,11 @@ function holdingsHtml(h, kind) {
 
 function panelHtml(state, data, address) {
   const shortAddr = `${address.slice(0, 6)}…${address.slice(-4)}`;
-  const icon = chrome.runtime.getURL("icons/hypurr-128.png");
+  const icon = chrome.runtime.getURL("icons/fendi-128.png");
 
   const head = `
     <div class="tnega-head">
-      <img class="tnega-cat" src="${icon}" alt="" />
+      <img class="tnega-cat" src="${icon}" srcset="${FENDI_SRCSET()}" sizes="40px" width="40" height="40" alt="" />
       <div class="tnega-head-text">
         <div class="tnega-title">Post-only rejection</div>
         <div class="tnega-sub">${shortAddr} &middot; measured by Tnega</div>

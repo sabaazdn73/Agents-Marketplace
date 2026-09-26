@@ -21,9 +21,11 @@ changed the tile silently kept the old one, background and all.
 
 Edit the master, run this, rebuild the zip. Nothing else touches these files.
 
-The panel's Hypurr image is not here and is not derived from anything: it is
-Hyperliquid's mascot, used inside the panel only, and it has no business in a
-script that generates Tnega's identity.
+The panel's cat, Fendi, is not generated here. fendi-128.png is the owner's
+file as supplied; fendi-32.png and fendi-48.png are Lanczos downscales of the
+owner's 512px master, which is not in the repository, at the same framing.
+He is shown inside the panels only. This script makes the logo, which is what
+the toolbar, the store icon and the tile carry.
 """
 
 import base64
@@ -47,7 +49,7 @@ def promo_svg(master_b64):
     """The 440x280 tile.
 
     Tnega's mark and wordmark on the panel's own ground, and one line saying
-    what the extension shows and one saying what it does not. No Hypurr, no
+    what the extension shows and one saying what it does not. No mascot, no
     Hyperliquid mark, no number: a number on a promotional tile would either be
     invented or be stale the day after it was rendered.
 

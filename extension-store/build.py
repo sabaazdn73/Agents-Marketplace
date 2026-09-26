@@ -67,9 +67,12 @@ FILES = [
     "icons/tnega-32.png",
     "icons/tnega-48.png",
     "icons/tnega-128.png",
-    # Hyperliquid's mascot, used inside the panel only. Declared in the
-    # manifest's web_accessible_resources, so it has to be in the package.
-    "icons/hypurr-128.png",
+    # Fendi, Tnega's mascot, shown inside the Hyperliquid panels only. One
+    # framing at three sizes, picked by srcset. Declared in the manifest's
+    # web_accessible_resources, so all three have to be in the package.
+    "icons/fendi-32.png",
+    "icons/fendi-48.png",
+    "icons/fendi-128.png",
 ]
 
 # Hosts the bundle is allowed to name. Anything else in a source file is either

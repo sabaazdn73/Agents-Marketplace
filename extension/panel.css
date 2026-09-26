@@ -47,7 +47,12 @@
  * is 12px, both at the panel's 1.5 line height, so that block stands 39px
  * tall and anything larger than 40 makes the header grow to carry the mascot.
  * 40 is therefore as big as it goes: noticeably larger than it was, and the
- * header is the same height it has always been. */
+ * header is the same height it has always been.
+ *
+ * The cat is Fendi. His files are square with transparent sides and he fills
+ * their full height, so the box stays square: a square box and contain draw
+ * him at 40 tall and about 29 wide, never stretched. A narrower box would
+ * shrink him, not trim the sides. */
 .tnega-panel .tnega-cat {
   width: 40px;
   height: 40px;

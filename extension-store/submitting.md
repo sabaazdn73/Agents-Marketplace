@@ -138,10 +138,12 @@ Dependencies loaded from a CDN at runtime.
 One more worth knowing about, since it is not on your list. The name contains
 "Hyperliquid". Descriptive use of another product's name is allowed, and "Tnega
 for Hyperliquid" is the form that reads as description rather than as
-affiliation. What would not survive is their mascot as the item's identity,
-which is why Hypurr appears only inside the panel, on their own site, describing
-their own data, and every surface that identifies the software is Tnega's mark:
-the toolbar icon, the popup header, the store icon, the promo tile.
+affiliation. The 0.2.0 package as published still carries Hyperliquid's
+Hypurr image in its panel; the source no longer does, so the next package built
+from it ships no Hyperliquid mark. The cat inside the panels is now Fendi,
+Tnega's own mascot, and every surface that
+identifies the software is Tnega's logo: the toolbar icon, the popup header,
+the store icon, the promo tile.
 
 ## What you can change later without a new review
 

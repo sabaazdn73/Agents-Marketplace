@@ -86,7 +86,9 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/hypurr-128.png"
+        "icons/fendi-32.png",
+        "icons/fendi-48.png",
+        "icons/fendi-128.png"
       ],
       "matches": [
         "https://app.hyperliquid.xyz/*"
