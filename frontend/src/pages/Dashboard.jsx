@@ -1,36 +1,23 @@
 // Dashboard.jsx
 //
-// "/". With a wallet connected, its holdings sit at the top: the whole of
-// what /wallet used to show (wallet/WalletHome.jsx), unchanged. Below that
-// is where every covered stock, ETF and vault will be listed, in two groups,
-// EVM and non-EVM, and nothing else. Until the instrument list exists (build
-// step 2) the groups are empty and say so.
+// "/". The connected wallet's holdings: the whole of what /wallet used to
+// show (wallet/WalletHome.jsx), unchanged. With no wallet connected,
+// WalletHome shows what the page reads and a way to connect, and nothing
+// else: no list of instruments until one exists and works end to end.
+//
+// `onSignIn` is what the connect button does with no wallet connected. Both
+// apps pass the /signin page, the same place the header's "Sign in" goes.
 
 import React from 'react';
-import { useSignIn } from '../wallet/SignInProvider';
 import WalletHome from '../wallet/WalletHome';
-import { CHAIN_GROUPS } from '../chainGroups';
-import { PageFrame, BeingBuilt } from './PageFrame';
+import { PageFrame } from './PageFrame';
 
-export default function Dashboard({ layout = 'web' }) {
-  const { status } = useSignIn();
+export default function Dashboard({ layout = 'web', onSignIn = null }) {
   return (
     <PageFrame layout={layout} title="Dashboard">
-      {status !== 'disconnected' && (
-        <section aria-label="Holdings of the connected wallet">
-          <WalletHome layout={layout} embedded />
-        </section>
-      )}
-      <BeingBuilt what="The stocks, ETFs and vaults covered will be listed here, grouped EVM and non-EVM." />
-      <div className={`grid gap-4 ${layout === 'mobile' ? 'grid-cols-1' : 'md:grid-cols-2 md:gap-6'}`}>
-        {CHAIN_GROUPS.map((g) => (
-          <section key={g.id} className="card p-4" aria-labelledby={`group-${g.id}`}>
-            <h2 id={`group-${g.id}`} className="text-title font-bold text-fg">{g.label}</h2>
-            <p className="text-label text-muted mt-0.5">{g.note}</p>
-            <p className="text-body text-muted mt-4">Nothing listed yet.</p>
-          </section>
-        ))}
-      </div>
+      <section aria-label="Holdings of the connected wallet">
+        <WalletHome layout={layout} embedded onConnect={onSignIn} />
+      </section>
     </PageFrame>
   );
 }

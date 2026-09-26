@@ -98,7 +98,7 @@ import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
-import { PRODUCT_NAV } from './shell/productNav';
+import { PRODUCT_NAV, isLive, SEARCH_LIVE } from './shell/productNav';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
 import Vaults from './pages/Vaults';
@@ -362,8 +362,9 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
   );
 }
 
-// The main navigation is the product's five pages, shared with the mobile
-// bottom bar through shell/productNav.js so the two cannot drift. Explore
+// The main navigation is the product's live pages, shared with the mobile
+// bottom bar through shell/productNav.js so the two cannot drift. A page
+// behind `live: false` there is in neither. Explore
 // (/market) and My Agents (/my-agents) are still tabs of this component, and
 // are reached from the footer (SiteLinks.jsx).
 const NAV_ITEMS = PRODUCT_NAV;
@@ -817,7 +818,11 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           Measured at 1280 with a connected, unsigned wallet (the widest
           badge, 298px), before and after the mark: all five tabs and 15px
           to spare. If a platform's fonts are wider, the
-          last tab moves to More rather than anything overlapping. */}
+          last tab moves to More rather than anything overlapping.
+
+          While only Dashboard and Use with AI are live (shell/productNav.js),
+          the search is not drawn at all, since it opens Stocks & ETFs, and the
+          two tabs sit at the right beside the bell, the theme and the wallet. */}
       <header className="sticky top-0 z-30 bg-surface border-b border-line">
         <div className="max-w-[1440px] mx-auto h-16 px-6 xl:px-14 flex items-center gap-2">
           <a
@@ -828,21 +833,27 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             <Brand markClassName="w-[52px] h-[52px]" wordClassName="text-[22px]" />
           </a>
 
-          <TopSearch
-            key={query}
-            initial={query}
-            onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
-            className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-0.5"
-          />
-          <button
-            type="button"
-            onClick={() => goTo('stocks')}
-            aria-label="Search stocks, ETFs or vaults"
-            title="Search stocks, ETFs or vaults"
-            className="xl:hidden w-8 h-8 shrink-0 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-inset"
-          >
-            <Search size={16} />
-          </button>
+          {/* The search opens Stocks & ETFs, so it shows only while that page
+              is live (shell/productNav.js SEARCH_LIVE). */}
+          {SEARCH_LIVE && (
+            <>
+              <TopSearch
+                key={query}
+                initial={query}
+                onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
+                className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-0.5"
+              />
+              <button
+                type="button"
+                onClick={() => goTo('stocks')}
+                aria-label="Search stocks, ETFs or vaults"
+                title="Search stocks, ETFs or vaults"
+                className="xl:hidden w-8 h-8 shrink-0 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-inset"
+              >
+                <Search size={16} />
+              </button>
+            </>
+          )}
 
           <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} align="end" />
 
@@ -865,10 +876,10 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
         <div className="w-full flex-1">
           {/* The product pages. One component each, shared with the mobile
               app; `layout` changes spacing and never content. */}
-          {nav === 'dashboard' && <Dashboard layout="web" />}
-          {nav === 'stocks' && <Stocks layout="web" query={query} />}
-          {nav === 'vaults' && <Vaults layout="web" />}
-          {nav === 'my-etfs' && <MyEtfs layout="web" />}
+          {nav === 'dashboard' && <Dashboard layout="web" onSignIn={() => onNavigate?.('/signin')} />}
+          {nav === 'stocks' && isLive('stocks') && <Stocks layout="web" query={query} />}
+          {nav === 'vaults' && isLive('vaults') && <Vaults layout="web" />}
+          {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="web" />}
           {nav === 'ai' && <UseWithAi layout="web" />}
 
           {nav === 'market' && detailAgent && !hiring && (

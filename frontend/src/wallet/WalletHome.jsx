@@ -34,22 +34,36 @@ import EvmHoldings from './EvmHoldings';
 import MyJobsPanel from '../MyJobsPanel';
 import { fmtAge, fmtUtc, reasonText, sectionName } from './format';
 
-function Intro({ onSignIn }) {
+// With no wallet connected. On the Dashboard (`embedded`) the page title is
+// already the h1, so this card's heading is an h2 and the card carries the
+// whole prompt: what connecting shows, what is read and by whom, and the
+// button.
+function Intro({ onSignIn, embedded = false }) {
+  const Heading = embedded ? 'h2' : 'h1';
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-h1 font-bold">Your wallet</h1>
-      <p className="text-body text-muted mt-1">
-        Connect a wallet to see what it holds and what its trading habits on Hyperliquid have cost it, measured.
-      </p>
-      <div className="card p-4 mt-5 space-y-3 text-body text-fg">
+    <section className="card p-4 md:p-6 max-w-3xl" aria-labelledby="wallet-intro-title">
+      <div className="flex items-start gap-3">
+        <span className="p-2 rounded bg-inset shrink-0 text-fg">
+          <Wallet size={18} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <Heading id="wallet-intro-title" className={`${embedded ? 'text-title' : 'text-h1'} font-bold text-fg`}>
+            Your wallet
+          </Heading>
+          <p className="text-body text-muted mt-0.5">
+            Connect one to see what it holds and what its trading habits on Hyperliquid have cost it, measured.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 space-y-3 text-body text-fg">
         <p><span className="font-semibold">Holdings.</span> Its Hyperliquid perp accounts and positions, its Hyperliquid spot balances, and its native coin and a short named list of stablecoins on BNB Chain, Arbitrum and Robinhood Chain.</p>
         <p><span className="font-semibold">What its habits cost.</span> Fees paid as maker and as taker, the share of volume it took rather than made, funding paid and received, how often its post-only orders were refused, and cancels per fill. Each figure carries the window and the number of records behind it, and where something could not be read the page says why instead of showing a zero. There are no estimates and no what-ifs.</p>
         <p><span className="font-semibold">What is read, and by whom.</span> The address is sent to our server in the body of one request, which reads its public Hyperliquid record and keeps the answer in memory for five minutes; and from your browser to each chain&apos;s public RPC provider to read balances. Nothing is stored, and you do not need to sign anything to see the figures.</p>
-        <button type="button" onClick={onSignIn} className="h-10 px-4 rounded-md bg-accent text-accent-fg text-body font-semibold hover:opacity-90 inline-flex items-center gap-2">
-          <Wallet size={16} aria-hidden="true" /> Connect a wallet
-        </button>
       </div>
-    </div>
+      <button type="button" onClick={onSignIn} className="mt-5 h-10 px-4 rounded-md bg-accent text-accent-fg text-body font-semibold hover:opacity-90 inline-flex items-center gap-2">
+        <Wallet size={16} aria-hidden="true" /> Connect a wallet
+      </button>
+    </section>
   );
 }
 
@@ -178,12 +192,14 @@ function Hires() {
 
 // `embedded` is set when the Dashboard shows this under its own page title,
 // so the address is a second-level heading there rather than a second h1.
-export default function WalletHome({ layout = 'web', embedded = false }) {
+// `onConnect`, when given, is what the connect button does with no wallet
+// connected (the Dashboard opens /signin); without it, the sign-in modal.
+export default function WalletHome({ layout = 'web', embedded = false, onConnect = null }) {
   const { status, address, openSignIn } = useSignIn();
   const habits = useHabits(status === 'disconnected' ? null : address);
   const evm = useEvmHoldings(status === 'disconnected' ? null : address);
 
-  if (status === 'disconnected') return <Intro onSignIn={() => openSignIn()} />;
+  if (status === 'disconnected') return <Intro embedded={embedded} onSignIn={onConnect || (() => openSignIn())} />;
 
   const who = status === 'signed' ? 'your wallet' : 'this address';
   const data = habits.status === 'ok' ? habits.data : null;

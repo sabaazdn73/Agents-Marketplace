@@ -21,7 +21,12 @@ export function PageFrame({ layout = 'web', title, children }) {
   );
 }
 
-/** The empty state. A card with the sentence and, optionally, one more line
+/** The empty state, for the pages behind `live: false` in
+ *  shell/productNav.js only. Those pages are not reachable (their paths
+ *  redirect to "/"), so this is never shown on the site; it stays for
+ *  working on a page before its flag turns on.
+ *
+ *  A card with the sentence and, optionally, one more line
  *  saying what the page will hold, so a reader knows what they are waiting
  *  for without being shown anything that looks like data. */
 export function BeingBuilt({ what = null, children = null }) {

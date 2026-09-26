@@ -2,7 +2,8 @@
 //
 // Which URL opens which tab of the app shell, and which old URLs now land
 // somewhere else. A plain module with no JSX or React import, so a headless
-// check can read it without bundling the app (wagmi, RainbowKit).
+// check can read it without bundling the app (wagmi, RainbowKit). Its one
+// import, shell/productNav.js, is plain too (lucide-react only).
 //
 // THE PRODUCT, 2026-09-25
 // Five pages: Dashboard (/), Stocks & ETFs, Vaults, My ETFs, Use with AI.
@@ -10,8 +11,14 @@
 // reached from the footer rather than the main navigation. The tab ids are
 // the ones NAV_ITEMS uses in both apps (shell/productNav.js).
 //
+// A product page that is not live yet (shell/productNav.js, `live: false`)
+// keeps its entry here so its id still maps to its path, but the path itself
+// redirects to "/" (REDIRECTS below) until the flag turns on.
+//
 // Order matters: NAV_TO_PATH is built with Object.fromEntries over these
 // pairs, so if two paths ever share one id the LAST one wins.
+import { HIDDEN_PRODUCT_PATHS } from './shell/productNav.js';
+
 export const MAIN_TAB_PATHS = {
   '/': 'dashboard',
   '/stocks': 'stocks',
@@ -51,6 +58,10 @@ export const REDIRECTS = {
   '/report': '/',
   '/learn': '/',
 };
+
+// The product pages that are not live yet: each goes to "/", replaced in the
+// address bar like the old paths above, so no placeholder page is ever shown.
+for (const p of HIDDEN_PRODUCT_PATHS) REDIRECTS[p] = '/';
 
 // STANDALONE ROUTES: pages App.jsx renders outside the app shell. Listed
 // here so that "is this a page we serve" has one answer. /docs/<slug> is
@@ -119,7 +130,7 @@ export function resolvePath(pathname) {
   if (redirected) return { path: redirected, changed: true };
   if (isServed(p)) return { path: p, changed: p !== pathname };
   const lower = p.toLowerCase();
-  if (lower !== p && isServed(lower) && !isExplorePath(lower)) return { path: lower, changed: true };
+  if (lower !== p && isServed(lower) && !isExplorePath(lower)) return { path: redirectTarget(lower) || lower, changed: true };
   return { path: '/', changed: true, unknown: true };
 }
 

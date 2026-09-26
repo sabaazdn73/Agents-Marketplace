@@ -59,7 +59,9 @@ export const FOOTER_LINKS = [
   { key: 'privacy', label: 'Privacy', path: '/privacy' },
 ];
 
-export const SOURCES_LINE = 'Figures come from chain reads, and from LI.FI quotes for the cost to buy.';
+// What the live pages read. No LI.FI quote is shown on any live page, so the
+// line does not name one; it returns with the page that uses it.
+export const SOURCES_LINE = "Figures come from chain reads, Hyperliquid's public API and the agent registries.";
 
 export default function SiteLinks({
   // (path) => void. Called for a plain left click; modified clicks (new tab,

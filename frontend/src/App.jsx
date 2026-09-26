@@ -24,16 +24,17 @@ const PAGE_META = {
   // og:/twitter: tags. Social scrapers read the raw HTML and never run this;
   // search crawlers run it and see this instead. If the two disagree, a
   // shared link and a search result describe the site differently.
-  // Rewritten 2026-09-25 for the tokenized-equities product. "Being built"
-  // stays in the description until the pages hold something live.
+  // Rewritten 2026-09-26 for launch: it describes the pages that are live
+  // (the Dashboard's wallet holdings and habit costs, and Use with AI) and
+  // makes no claim about stocks, ETFs or vaults, which are not live.
   '/': {
-    docTitle: 'Tnega: Tokenized Stocks, ETFs and Vaults, and What They Cost to Buy',
-    ogTitle: 'Tnega: Tokenized Stocks, ETFs and Vaults',
-    description: 'Tnega is being built: connect a wallet, pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet. EVM chains, Solana and Hyperliquid.',
+    docTitle: 'Tnega: Wallet Holdings and Trading Costs, Measured',
+    ogTitle: 'Tnega: Wallet Holdings and Trading Costs',
+    description: "Connect your wallet to see its holdings and what its Hyperliquid trading has cost it, and use Tnega from your AI tools.",
   },
-  '/stocks': { title: 'Stocks & ETFs', description: 'Tokenized stocks and ETFs, with the cost and route of a buy shown before your wallet signs it. Being built: nothing is listed yet.' },
-  '/vaults': { title: 'Vaults', description: 'Vaults holding real-world assets on Solana and Hyperliquid, with platform, manager, fees, lockup and audit status. Being built: nothing is listed yet.' },
-  '/my-etfs': { title: 'My ETFs', description: 'A basket of up to five tokenized stocks, ETFs or vaults, bought one signature per component and shared as a link. Being built.' },
+  // /stocks, /vaults and /my-etfs have no entry while they are not live
+  // (shell/productNav.js): their paths redirect to "/". Each gets one, saying
+  // what the page holds, in the same pass that turns its flag on.
   '/ai': { title: 'Use with AI', description: "Point your own assistant at Tnega's MCP server: the endpoint, the one-line install, and the read-only tools it serves today." },
   '/signin': { title: 'Sign in', description: 'Connect a wallet and sign one message to show the wallet is yours. No account, no password, no funds moved.' },
   // Explore keeps its path: every shared link, the sitemap and the Chrome

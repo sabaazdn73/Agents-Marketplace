@@ -146,7 +146,7 @@ function Showcase() {
       <h2 className="relative text-center max-w-[640px]">
         <span className="block text-[34px] leading-[1.15] font-bold tracking-[-0.01em]">Wealth, borderless.</span>
         <span className="block mt-3 text-[20px] leading-snug font-normal text-[#b3b3b3]">
-          Every tokenized equity, and what it really costs to buy.
+          Your holdings, and what your trading has cost you.
         </span>
       </h2>
 

@@ -58,7 +58,7 @@ import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
-import { PRODUCT_NAV, PRODUCT_PAGE_IDS } from './shell/productNav';
+import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE } from './shell/productNav';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
 import Vaults from './pages/Vaults';
@@ -131,12 +131,11 @@ function StatSkeleton() {
 }
 
 // The main navigation, shared with the web header through shell/productNav.js
-// so the two cannot drift. All five product pages fit in the bottom bar, each
-// with its short `barLabel`; Explore agents and My agents are reached from the
-// footer links, in the menu sheet and at the foot of each page.
-const NAV_ITEMS = PRODUCT_NAV;
-const PRIMARY_NAV_IDS = ['dashboard', 'stocks', 'vaults', 'my-etfs', 'ai'];
-const PRIMARY_NAV_ITEMS = NAV_ITEMS.filter((i) => PRIMARY_NAV_IDS.includes(i.id));
+// so the two cannot drift. Every live product page is in the bottom bar, each
+// with its short `barLabel`, and a page behind `live: false` is in neither.
+// Explore agents and My agents are reached from the footer links, in the menu
+// sheet and at the foot of each page.
+const PRIMARY_NAV_ITEMS = PRODUCT_NAV;
 
 // The menu sheet: the wallet, the theme, and the footer links. Every product
 // page is in the bottom bar, so the sheet holds no navigation of its own.
@@ -617,7 +616,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
       {/* The header, following the reference's phone layout: the wordmark
           on the left; search, the bell and the menu on the right, each a 44px
           target. Search opens a row under the header with the same field as
-          the web header (shell/TopSearch.jsx). */}
+          the web header (shell/TopSearch.jsx). The search is not drawn
+          while Stocks & ETFs, where it leads, is not live. */}
       <header className="shrink-0 bg-surface border-b border-line z-20 pt-safe">
         <div className="h-[68px] flex items-center justify-between gap-2 pl-4 pr-2">
           <a
@@ -628,22 +628,26 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             <Brand markClassName="w-[59px] h-[59px]" wordClassName="text-[24px]" gapClassName="gap-2" />
           </a>
           <div className="flex items-center gap-0.5 shrink-0">
-            <button
-              type="button"
-              onClick={() => setSearchOpen((v) => !v)}
-              aria-label="Search stocks, ETFs or vaults"
-              aria-expanded={searchOpen}
-              className={`w-11 h-11 flex items-center justify-center rounded ${searchOpen ? 'text-fg bg-inset' : 'text-fg hover:bg-inset'}`}
-            >
-              <Search size={20} />
-            </button>
+            {/* Hidden while Stocks & ETFs, where the search leads, is not
+                live (shell/productNav.js SEARCH_LIVE). */}
+            {SEARCH_LIVE && (
+              <button
+                type="button"
+                onClick={() => setSearchOpen((v) => !v)}
+                aria-label="Search stocks, ETFs or vaults"
+                aria-expanded={searchOpen}
+                className={`w-11 h-11 flex items-center justify-center rounded ${searchOpen ? 'text-fg bg-inset' : 'text-fg hover:bg-inset'}`}
+              >
+                <Search size={20} />
+              </button>
+            )}
             <NotificationBell />
             <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded text-fg hover:bg-inset">
               <Menu size={20} />
             </button>
           </div>
         </div>
-        {searchOpen && (
+        {SEARCH_LIVE && searchOpen && (
           <div className="px-4 pb-3">
             <TopSearch
               key={query}
@@ -847,10 +851,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           // The product pages, the same components web renders; `layout`
           // changes spacing only.
           <>
-            {nav === 'dashboard' && <Dashboard layout="mobile" />}
-            {nav === 'stocks' && <Stocks layout="mobile" query={query} />}
-            {nav === 'vaults' && <Vaults layout="mobile" />}
-            {nav === 'my-etfs' && <MyEtfs layout="mobile" />}
+            {nav === 'dashboard' && <Dashboard layout="mobile" onSignIn={() => onNavigate?.('/signin')} />}
+            {nav === 'stocks' && isLive('stocks') && <Stocks layout="mobile" query={query} />}
+            {nav === 'vaults' && isLive('vaults') && <Vaults layout="mobile" />}
+            {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="mobile" />}
             {nav === 'ai' && <UseWithAi layout="mobile" />}
           </>
         ) : (
