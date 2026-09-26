@@ -16,15 +16,17 @@
          the conventional path Google's own example markup uses and some
          crawlers request even without a <link> tag pointing elsewhere;
          it didn't exist here before (fell through to the SPA's catch-all
-         rewrite) -- added, 512x512 source downsized into a real
-         multi-size .ico (16/32/48/64/128/256), square throughout, well
-         above Google's real 48x48px recommendation. -->
-    <!-- All generated from frontend/iconlogo.png on 2026-09-11, so the tab,
-         the Windows/macOS dock shortcut, the iOS home screen and the Android
-         launcher all show the same clay mark rather than the older flat one.
-         The SVG is gone from this list on purpose: it was a different
-         drawing, and a browser preferring it would have shown a different
-         icon from the one on the home screen. -->
+         rewrite). It is a real .ico with 16, 32 and 48px frames; 48px is
+         the minimum Google's guidance asks for, and the 192 and 512px PNGs
+         declared below give search a larger square to choose. -->
+    <!-- All rendered from public/icon_v2.svg (the blue tile) by
+         scripts/render_icons.py on 2026-09-26, so the tab, the dock shortcut,
+         the iOS home screen, the Android launcher and the site header show
+         one mark. favicon.ico carries 16, 32 and 48px frames, each drawn at
+         its own size. apple-touch-icon.png is the square variant
+         (icon_v2_maskable.svg) because iOS rounds the corners itself and
+         would fill transparent ones with black. No SVG link: icon_v2.svg has
+         drop-shadow filters a tab-sized render does not need. -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" sizes="192x192" href="/app-icon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/app-icon-512.png" />
@@ -121,19 +123,20 @@
          forces a refetch when the file changes under the same name. Bump it
          whenever the card does.
 
-         public/og-card.png is the wordmark card: the Wordmark component
-         (shell/Wordmark.jsx) rendered white on the dark page colour with a
-         glow and a rule in our violet, captured at 1200x630 by headless
-         Chromium. PNG because it is flat colour and text, which PNG keeps
-         sharp at about 140KB. It replaced the agents artwork banner. -->
-    <meta property="og:image" content="https://www.tnega.app/og-card.png?v=1" />
+         public/og-card.png is the brand card: the mark on its blue tile
+         (icon_v2.svg, rendered at 168px) beside the Wordmark component
+         (shell/Wordmark.jsx) in white, on the dark page colour with a glow
+         and a rule in our violet, captured at 1200x630 by headless Chromium.
+         PNG because it is flat colour, text and one small tile, which PNG
+         keeps sharp. It replaced the agents artwork banner. -->
+    <meta property="og:image" content="https://www.tnega.app/og-card.png?v=2" />
     <!-- Declared dimensions let a scraper commit to the large-image card
          before it has downloaded the file. Must match the file: 1200x630,
          the 1.91:1 every platform expects. -->
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="The Tnega wordmark, white on black, with a violet glow." />
+    <meta property="og:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the tnega wordmark in white on black." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -141,8 +144,8 @@
     <meta name="twitter:creator" content="@SabaAzadegan" />
     <meta name="twitter:title" content="Tnega: Tokenized Stocks, ETFs and Vaults" />
     <meta name="twitter:description" content="Being built: pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet." />
-    <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=1" />
-    <meta name="twitter:image:alt" content="The Tnega wordmark, white on black, with a violet glow." />
+    <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=2" />
+    <meta name="twitter:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the tnega wordmark in white on black." />
     <!-- Structured data. There was none, so Google had only the raw text
          of a JavaScript-rendered page to work from and nothing telling it
          what this site IS. Organization ties the name, logo and accounts

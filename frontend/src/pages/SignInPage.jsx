@@ -34,7 +34,7 @@ import { useSignIn } from '../wallet/SignInProvider';
 import { shortAddress } from '../wallet/useConnectedWallet';
 import { useWalletButtons } from '../wallet/useWalletButtons';
 import { SIGN_IN_BUTTON } from '../wallet/signInButton';
-import Wordmark from '../shell/Wordmark';
+import Brand from '../shell/Brand';
 import ThemeToggle from '../theme/ThemeToggle';
 
 const primaryBtn = `w-full h-10 px-4 text-body ${SIGN_IN_BUTTON}`;
@@ -197,7 +197,11 @@ export default function SignInPage({ navigate }) {
         </div>
         <div className="w-full max-w-[436px] mx-auto flex-1 flex flex-col">
           <InternalLink href="/" navigate={navigate} className="self-center text-fg">
-            <Wordmark className="text-[26px] lg:text-[40px]" />
+            <Brand
+              markClassName="w-[43px] h-[43px] lg:w-[56px] lg:h-[56px]"
+              wordClassName="text-[26px] lg:text-[40px]"
+              gapClassName="gap-2 lg:gap-3"
+            />
           </InternalLink>
 
           <main className="flex-1 flex flex-col justify-center py-10">

@@ -56,7 +56,7 @@ import WalletIdentity from './wallet/WalletIdentity';
 import { useConnectedWallet } from './wallet/useConnectedWallet';
 import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
-import Wordmark from './shell/Wordmark';
+import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
 import { PRODUCT_NAV, PRODUCT_PAGE_IDS } from './shell/productNav';
 import Dashboard from './pages/Dashboard';
@@ -625,7 +625,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
             className="min-w-0 text-fg"
           >
-            <Wordmark className="text-[24px]" />
+            <Brand markClassName="w-[43px] h-[43px]" wordClassName="text-[24px]" gapClassName="gap-2" />
           </a>
           <div className="flex items-center gap-0.5 shrink-0">
             <button

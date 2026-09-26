@@ -29,7 +29,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-const GAP = 4; // gap-1 between tabs
+const GAP = 2; // gap-0.5 between tabs, and ml-0.5 before More
 
 // The page you are on is in the foreground colour and the rest are muted,
 // with no underline: the current page is marked by colour alone. Both states
@@ -41,7 +41,7 @@ const GAP = 4; // gap-1 between tabs
 // difference between all five pages showing and two of them in More. The
 // icons stay in the More menu, where the width is free.
 function tabClass(active) {
-  return `relative shrink-0 h-full flex items-center px-2.5 text-body font-medium whitespace-nowrap transition-colors ${
+  return `relative shrink-0 h-full flex items-center px-2 text-body font-medium whitespace-nowrap transition-colors ${
     active ? 'text-fg' : 'text-muted hover:text-fg'}`;
 }
 
@@ -157,7 +157,7 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
   return (
     <div ref={boxRef} className={`relative flex-1 min-w-0 h-full flex items-stretch ${align === 'end' ? 'justify-end' : ''}`}>
       {/* The measuring row: every tab at its widest, never seen or read. */}
-      <div ref={measureRef} aria-hidden="true" className="absolute left-0 top-0 h-0 overflow-hidden invisible flex gap-1 pointer-events-none">
+      <div ref={measureRef} aria-hidden="true" className="absolute left-0 top-0 h-0 overflow-hidden invisible flex gap-0.5 pointer-events-none">
         {items.map((item) => (
           <span key={item.id} className={tabClass(true)}>
             <span>{item.label}</span>
@@ -168,7 +168,7 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
         More <ChevronDown size={14} />
       </span>
 
-      <nav className="h-full flex items-stretch gap-1 min-w-0 overflow-hidden" aria-label="Main">
+      <nav className="h-full flex items-stretch gap-0.5 min-w-0 overflow-hidden" aria-label="Main">
         {visible.map((item) => {
           const on = active === item.id;
           return (
@@ -186,7 +186,7 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
       </nav>
 
       {overflow.length > 0 && (
-        <div className="relative shrink-0 h-full flex items-stretch ml-1">
+        <div className="relative shrink-0 h-full flex items-stretch ml-0.5">
           <button
             ref={moreBtnRef}
             type="button"

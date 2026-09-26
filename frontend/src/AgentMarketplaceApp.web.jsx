@@ -5,8 +5,9 @@ import {
   Loader2, AlertTriangle, Wallet, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
 } from 'lucide-react';
-// The clay app mark, used by the QR code below (QrToMobile).
-import iconLogo from './assets/app-icon.png';
+// The Tnega mark on its blue tile, in the centre of the QR code below
+// (QrToMobile). Same file as the header's mark; see shell/Brand.jsx.
+import iconLogo from './assets/tnega-mark.png';
 
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
@@ -95,7 +96,7 @@ import BudgetRecord from './BudgetRecord';
 import SiteLinks from './SiteLinks';
 import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
-import Wordmark from './shell/Wordmark';
+import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
 import { PRODUCT_NAV } from './shell/productNav';
 import Dashboard from './pages/Dashboard';
@@ -806,26 +807,31 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           included (its badge is about 250px). What pays for it: the tabs are
           words without icons, the theme control is one 32px button, and the
           search field shows from 1280, 244px wide (the width at which its
-          placeholder is not cut off) and 260px from 1440, with an icon button
-          in its place below 1280. Measured at 1280 with a connected, unsigned
-          wallet (the widest badge, 298px): all five tabs and 15px
-          to spare. If a platform's fonts are wider, the last tab moves to
-          More rather than anything overlapping. */}
+          placeholder is not cut off; 236px cut the last letter, because a
+          search input keeps room for its clear button) and 260px from 1440,
+          with an icon button in its place below 1280. The 38px mark
+          (shell/Brand.jsx) cost 44px with its gap; it was paid for by the
+          row gap going from 12px to 8px, the search's left margin from 8px
+          to 4px, the tabs' side padding from 10px to 8px and the gap between
+          tabs from 4px to 2px. Measured at 1280 with a connected, unsigned
+          wallet (the widest badge, 298px), before and after the mark: all
+          five tabs and 15px to spare. If a platform's fonts are wider, the
+          last tab moves to More rather than anything overlapping. */}
       <header className="sticky top-0 z-30 bg-surface border-b border-line">
-        <div className="max-w-[1440px] mx-auto h-14 px-6 xl:px-14 flex items-center gap-3">
+        <div className="max-w-[1440px] mx-auto h-14 px-6 xl:px-14 flex items-center gap-2">
           <a
             href="/"
             onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
             className="shrink-0 text-fg"
           >
-            <Wordmark className="text-[22px]" />
+            <Brand markClassName="w-[38px] h-[38px]" wordClassName="text-[22px]" />
           </a>
 
           <TopSearch
             key={query}
             initial={query}
             onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
-            className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-2"
+            className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-1"
           />
           <button
             type="button"

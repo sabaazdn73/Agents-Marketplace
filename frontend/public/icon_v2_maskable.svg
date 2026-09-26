@@ -50,19 +50,21 @@
       <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#04102E" flood-opacity="0.4"/>
     </filter>
   </defs>
-  <!-- Maskable variant, generated 2026-09-04 from icon_v2.svg.
-       Android applies its own mask (circle/squircle/teardrop) to a maskable
-       icon and only guarantees the centre 80% survives. icon_v2.svg is a
-       full-bleed rounded rect, so used directly its corners AND part of the
-       mark would be cropped. This keeps the same artwork but insets it into
-       the safe zone, with the background gradient extended full-bleed
-       behind it so whatever shape the launcher cuts is still filled. -->
-  <rect x="0" y="0" width="512" height="512" fill="url(#bg)"/>
-  <g transform="translate(51.2,51.2) scale(0.8)">
 
+  <!-- Square variant of icon_v2.svg, for surfaces that cut their own shape:
+       the Android maskable icon and the iOS home-screen icon. Identical to
+       icon_v2.svg except that the three rounded rects have no corner radius,
+       so the tile fills the square and the platform's mask decides the
+       corners. The artwork is not scaled. Android keeps only a centred circle
+       of radius 0.4 x 512 = 204.8px for certain; the farthest drawn points,
+       the outer feet of the arch at (120, 384) and (392, 384), are 186.8px
+       from the centre, so the whole drawing survives the tightest mask. Only
+       the soft tail of the arch's drop shadow reaches past 204.8px, and there
+       it differs from the bare tile by at most 8 of 255 in any channel
+       (measured on a 512px render, 2026-09-26). -->
   <!-- background -->
-  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#innerVignette)"/>
+  <rect x="0" y="0" width="512" height="512" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="512" fill="url(#innerVignette)"/>
 
   <!-- side arcs: fiat-to-fiat, with embossed feel -->
   <g filter="url(#bigShadow)">
@@ -130,8 +132,5 @@
   </g>
 
   <!-- overall glass gloss on top of everything -->
-  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#gloss)"/>
-
-
-  </g>
+  <rect x="0" y="0" width="512" height="512" fill="url(#gloss)"/>
 </svg>
