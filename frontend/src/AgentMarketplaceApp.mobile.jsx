@@ -623,7 +623,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           <a
             href="/"
             onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
-            className="min-w-0 text-fg"
+            className="min-w-0 self-stretch flex items-center text-fg"
           >
             <Brand markClassName="w-[43px] h-[43px]" wordClassName="text-[24px]" gapClassName="gap-2" />
           </a>

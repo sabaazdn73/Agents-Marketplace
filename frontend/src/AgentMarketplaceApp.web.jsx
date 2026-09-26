@@ -822,7 +822,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           <a
             href="/"
             onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
-            className="shrink-0 text-fg"
+            className="shrink-0 self-stretch flex items-center text-fg"
           >
             <Brand markClassName="w-[38px] h-[38px]" wordClassName="text-[22px]" />
           </a>

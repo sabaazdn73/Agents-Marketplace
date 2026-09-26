@@ -16,6 +16,10 @@
 // 36px on mobile. The owner asked for the blue tile about 20% larger than
 // that: 38px and 43px.
 //
+// A flex box, not inline-flex: inline-flex sits on its parent's text baseline
+// and leaves a descender's gap under it, which put the tile 3px above the
+// header's centre line.
+//
 // The mark is decorative (alt=""); the wordmark carries the accessible name.
 
 import React from 'react';
@@ -36,7 +40,7 @@ export function TnegaMark({ className = 'w-[38px] h-[38px]' }) {
 
 export default function Brand({ markClassName, wordClassName, gapClassName = 'gap-1.5', className = '' }) {
   return (
-    <span className={`inline-flex items-center ${gapClassName} ${className}`}>
+    <span className={`flex items-center ${gapClassName} ${className}`}>
       <TnegaMark className={markClassName} />
       <Wordmark className={wordClassName} />
     </span>
