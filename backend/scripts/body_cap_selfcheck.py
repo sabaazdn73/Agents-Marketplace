@@ -55,6 +55,10 @@ os.environ["TELEGRAM_WEBHOOK_SECRET"] = ""
 for k in ("API_MAX_BODY_BYTES", "MCP_MAX_BODY_BYTES", "TELEGRAM_MAX_BODY_BYTES",
           "MCP_RATE_LIMIT_PER_MINUTE"):
     os.environ.pop(k, None)
+# Every request here comes from one address, and there are more than the
+# per-address limit allows in a minute. That limit has its own check
+# (rate_limit_selfcheck.py); here it is off so it cannot mask a body-cap answer.
+os.environ["RATE_LIMIT_PER_IP_PER_MINUTE"] = "0"
 
 import server  # noqa: E402
 from core.env_caps import cap_from_env  # noqa: E402
