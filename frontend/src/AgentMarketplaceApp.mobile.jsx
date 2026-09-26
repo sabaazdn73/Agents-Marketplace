@@ -637,7 +637,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
               <button
                 type="button"
                 onClick={() => setSearchOpen((v) => !v)}
-                aria-label="Search stocks, ETFs or vaults"
+                aria-label="Search stocks and ETFs"
                 aria-expanded={searchOpen}
                 className={`w-11 h-11 flex items-center justify-center rounded ${searchOpen ? 'text-fg bg-inset' : 'text-fg hover:bg-inset'}`}
               >

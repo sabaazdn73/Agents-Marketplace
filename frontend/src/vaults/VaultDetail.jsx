@@ -21,7 +21,7 @@ import { DATA_LIVE } from '../dataLive';
 import { Card, DevTag, LineChart, Pills, PrimaryButton, SecondaryButton, fmtUsd0 } from '../ui/primitives';
 import { Breadcrumb, CopyAddress, StatCard, SourceChip, TabbedCard, Field, provText, shortAddr } from '../ui/detail';
 import { TvlNote } from './VaultList';
-import { staleOf } from './model';
+import { staleOf, tvlTime } from './model';
 import { explorerUrl } from './venues';
 import DepositPanel from './DepositPanel';
 
@@ -76,6 +76,54 @@ function keyRows(m) {
   return rows.filter(([, k]) => k && k.text);
 }
 
+/** What the vault's stablecoin is lent against: T6's summary, then, where
+ *  T6 serves them, one row per market with its share of the vault, the
+ *  value, the market's owner and the collateral it accepts. A token is
+ *  marked off-chain backed only where T6 says so (offchain_backed true);
+ *  null means that was not established, and the table says so. */
+function LendsAgainst({ v }) {
+  const text = v.row?.lends_against || v.assets?.lends_against_text;
+  const markets = Array.isArray(v.assets?.lends_against) ? v.assets.lends_against : [];
+  if (!text && !markets.length) return null;
+  const anyUnknown = markets.some((m) => (m.collateral || []).some((c) => c.offchain_backed == null));
+  return (
+    <Field label="What it lends against" prov={provText(v.assets)}>
+      {text && <p>{text}</p>}
+      <p className="mt-1 text-[11px] text-muted">Collateral names as each token&apos;s own metadata declares them; the tokens themselves are read on chain.</p>
+      {markets.length > 0 && (
+        <div className="mt-2 overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead><tr className="text-muted text-left"><th className="font-medium py-1.5 pr-3">Market</th><th className="font-medium py-1.5 pr-3 text-right">Share</th><th className="font-medium py-1.5 pr-3 text-right">Value ({v.token?.symbol || 'tokens'})</th><th className="font-medium py-1.5 pr-3">Owner</th><th className="font-medium py-1.5">Collateral accepted</th></tr></thead>
+            <tbody className="divide-y divide-line">
+              {markets.map((m) => (
+                <tr key={m.market} className="align-top">
+                  <td className="py-1.5 pr-3 font-mono">{shortAddr(m.market)}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums" title={m.share_basis}>{Number.isFinite(m.share_of_vault) ? `${(m.share_of_vault * 100).toFixed(1)}%` : '–'}</td>
+                  <td className="py-1.5 pr-3 text-right tabular-nums">{Number.isFinite(m.value_tokens) ? m.value_tokens.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '–'}</td>
+                  <td className="py-1.5 pr-3">{m.market_owner_text}</td>
+                  <td className="py-1.5">
+                    <div className="flex flex-wrap gap-1">
+                      {(m.collateral || []).map((c) => (
+                        <span key={c.mint} className="inline-flex items-center gap-1 h-5 px-1.5 rounded bg-inset text-[11px] text-fg" title={c.mint}>
+                          {c.label}{c.stablecoin ? <span className="text-muted">stablecoin</span> : null}
+                          {c.offchain_backed === true && <span className="text-warn font-semibold uppercase text-[10px]">off-chain backed</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {markets[0]?.share_basis && <p className="mt-1 text-[11px] text-muted">Share: {markets[0].share_basis}.</p>}
+          {markets[0]?.collateral_class && <p className="mt-1 text-[11px] text-muted">Collateral: {markets[0].collateral_class}.</p>}
+          {anyUnknown && <p className="mt-1 text-[11px] text-muted">Whether a collateral token is backed off chain is marked only where it was established; for the others it was not established.</p>}
+        </div>
+      )}
+    </Field>
+  );
+}
+
 function DueDiligence({ v }) {
   const m = v.manager || {};
   const c = v.controls || {};
@@ -100,6 +148,7 @@ function DueDiligence({ v }) {
       {v.lockup?.text && <Field label="Lock-up" prov={provText(v.lockup)}>{v.lockup.text}</Field>}
       {v.fees?.text && <Field label="Fees" prov={provText(v.fees)}>{v.fees.text}</Field>}
       {v.assets?.text && <Field label="What it holds" prov={provText(v.assets)}>{v.assets.text}</Field>}
+      <LendsAgainst v={v} />
       {v.powers?.rows?.length > 0 && (
         <Field label="What each role can do" prov={provText(v.powers)}>
           {v.powers.rows.map(([role, what]) => <div key={role} className="mt-1"><span className="font-semibold">{role}:</span> {what}</div>)}

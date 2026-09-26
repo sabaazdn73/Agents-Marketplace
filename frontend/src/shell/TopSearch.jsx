@@ -1,6 +1,6 @@
 // TopSearch.jsx
 //
-// The search field at the top of both apps: "Search stocks, ETFs or vaults".
+// The search field at the top of both apps: "Search stocks and ETFs".
 // Its boundary is line-strong (3:1 or more on every surface, index.css) and
 // it shows a focus ring while its input has focus (focus-within).
 // Until the instrument list exists (build step 2) it searches nothing here;
@@ -11,7 +11,9 @@
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 
-export const SEARCH_PLACEHOLDER = 'Search stocks, ETFs or vaults';
+// Vaults are not in the search index (T2's coverage says so), so the field
+// does not offer them.
+export const SEARCH_PLACEHOLDER = 'Search stocks and ETFs';
 
 export function searchPath(q) {
   const t = (q || '').trim();

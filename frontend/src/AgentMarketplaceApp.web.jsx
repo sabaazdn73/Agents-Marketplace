@@ -852,8 +852,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
                 <button
                   type="button"
                   onClick={() => goTo('stocks')}
-                  aria-label="Search stocks, ETFs or vaults"
-                  title="Search stocks, ETFs or vaults"
+                  aria-label="Search stocks and ETFs"
+                  title="Search stocks and ETFs"
                   className="xl:hidden w-8 h-8 shrink-0 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-inset"
                 >
                   <Search size={16} />

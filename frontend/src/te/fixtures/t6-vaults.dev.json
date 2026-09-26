@@ -1,5 +1,5 @@
 {
- "computed_at": "2026-09-26T21:58:50Z",
+ "computed_at": "2026-09-26T22:10:27Z",
  "as_of": "2026-09-26",
  "read_only": true,
  "deposits": "venue",
@@ -10,7 +10,7 @@
   "none_qualifying": "the platform was read this run and no vault qualifies; `text` gives the reason",
   "read_failed": "this run's read of the platform failed (a fault in the call, not a fact about the vaults); earlier results, if any, are kept and marked stale"
  },
- "rule": "Listed: vaults taking a stablecoin deposit (by mint address; USX and USDe are synthetic dollars and are labelled so). A listed vault lends that stablecoin on Solana; its borrowers' collateral is often crypto, so it is not a real-world-asset vault. It is listed when: Kamino and GLAM positions are read on chain, and Voltr positions are as recorded by the vault; nothing is placed with Drift; it does not lend into a market whose only collateral is one bespoke off-chain-backed token; the name is not a test, staging or demo name; and it holds at least 1,000 tokens. Amounts are counted at 1 USD per token (face value, not a market price).",
+ "rule": "Listed: vaults taking a stablecoin deposit (by mint address; USX and USDe are synthetic dollars and are labelled so). A listed vault lends that stablecoin on Solana; what it lends against is shown per vault, and is often crypto, so these are not real-world-asset vaults. Not listed: vaults placing funds with Drift; Kamino vaults lending into Kamino's institutional-yield markets (a market is one when any of its reserves is minted by Kamino's institutional mint authority 4gPJLzZo\u2026; structure described at https://kamino.com/docs/products/institutional-yield/structure.md); Voltr vaults with an off-chain, closed or unlisted strategy position, or a position in a Kamino vault not listed here; GLAM vaults that are not tokenized, can bridge, or allow non-stablecoin assets; test, staging or demo names; and vaults holding under 1,000 tokens. Kamino and GLAM figures are our chain reads; Voltr positions are as recorded by the vault. Amounts are counted at 1 USD per token (face value, not a market price).",
  "checks": [
   "Stablecoin deposit, and what it is lent against",
   "Audits and auditors, linked",
@@ -39,18 +39,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 9559596.81,
-   "tvl_slot": 450802143,
-   "tvl_amount": 9559596.81,
+   "tvl_usd": 9559572.48,
+   "tvl_slot": 450804749,
+   "tvl_amount": 9559572.48,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
-   "tvl_reconciliation": "does not reconcile: cToken balance differs from the vault's record on 1 reserve(s); the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -62,43 +63,45 @@
      "platform_key": "voltr",
      "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
      "name": "Hubra Copilot USDC",
-     "tokens": 28119.78
+     "tokens": 28119.81
     }
    ],
-   "nesting_note": "Part of this vault's funds sit in another listed vault; do not add the two TVLs together.",
+   "nesting_note": "This vault's TVL includes funds placed by Hubra Copilot USDC, also listed; do not add the two TVLs together.",
+   "lends_against": "55.1% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 20.9% in a market taking sUSDai (Staked USDai); 8.9% in a market taking ZEC (Zcash); 8.1% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; and more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -115,18 +118,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 572055.43,
-   "tvl_slot": 450802143,
-   "tvl_amount": 572055.43,
+   "tvl_usd": 572056.35,
+   "tvl_slot": 450804749,
+   "tvl_amount": 572056.35,
    "tvl_symbol": "USDS",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDS counted at 1 USD per token (face value, not a market price)",
-   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.002% (within the 0.5% flag)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.003% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDS",
@@ -135,39 +139,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "81.0% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 18.9% in a market taking PRIME, wYLDS",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -184,18 +190,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 239635.78,
-   "tvl_slot": 450802143,
-   "tvl_amount": 239635.78,
+   "tvl_usd": 239635.97,
+   "tvl_slot": 450804749,
+   "tvl_amount": 239635.97,
    "tvl_symbol": "USDT",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDT counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDT",
@@ -204,39 +211,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "81.6% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 17.8% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL); 0.4% in a market taking WBTC (Wrapped BTC (Wormhole)), FDUSD (First Digital USD), LBTC (Lombard Staked BTC), zBTC",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -252,19 +261,20 @@
    "assets": "USX (synthetic dollar), lent into 1 klend reserve(s) in 1 market(s)",
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 4, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0% management",
-   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus a flat 0.000001 USX (1 base unit)",
    "tvl_usd": 18137.13,
-   "tvl_slot": 450802143,
+   "tvl_slot": 450804749,
    "tvl_amount": 18137.13,
    "tvl_symbol": "USX",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USX is a synthetic dollar, counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.009% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USX",
@@ -273,39 +283,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "100.0% in a market taking PT-eUSX (Exponent PT-eUSX-16SEP26), eUSX, PT-USX (PT-USX-01JUN26), PT-USX (Exponent PT-USX-16SEP26), PT-eUSX (PT-eUSX-11MAR26) and 4 more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -322,18 +334,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0.75% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 127175.78,
-   "tvl_slot": 450802143,
-   "tvl_amount": 127175.78,
+   "tvl_usd": 127175.96,
+   "tvl_slot": 450804749,
+   "tvl_amount": 127175.96,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -342,39 +355,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "99.8% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -391,18 +406,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0.5% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 1779864.53,
-   "tvl_slot": 450802143,
-   "tvl_amount": 1779864.53,
+   "tvl_usd": 1779867.64,
+   "tvl_slot": 450804749,
+   "tvl_amount": 1779867.64,
    "tvl_symbol": "USDG",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDG",
@@ -411,39 +427,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "99.8% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -460,18 +478,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0.25% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 129134.58,
-   "tvl_slot": 450802143,
-   "tvl_amount": 129134.58,
+   "tvl_usd": 129134.8,
+   "tvl_slot": 450804749,
+   "tvl_amount": 129134.8,
    "tvl_symbol": "USDS",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDS counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.003% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDS",
@@ -480,39 +499,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "99.9% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -530,17 +551,18 @@
    "fees": "0% performance, 0.25% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
    "tvl_usd": 6286.72,
-   "tvl_slot": 450802143,
+   "tvl_slot": 450804749,
    "tvl_amount": 6286.72,
    "tvl_symbol": "USDT",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDT counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.070% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDT",
@@ -549,39 +571,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "100.0% in a market taking Fartcoin",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -597,19 +621,20 @@
    "assets": "USDG, lent into 2 klend reserve(s) in 2 market(s)",
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
-   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus a flat 0.000001 USDG (1 base unit)",
    "tvl_usd": 446544.21,
-   "tvl_slot": 450802143,
+   "tvl_slot": 450804749,
    "tvl_amount": 446544.21,
    "tvl_symbol": "USDG",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.086% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDG",
@@ -618,39 +643,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "100.0% in a market taking sUSDe (Staked USDe)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -666,19 +693,20 @@
    "assets": "PYUSD, lent into 1 klend reserve(s) in 1 market(s)",
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
-   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus a flat 0.000001 PYUSD (1 base unit)",
    "tvl_usd": 227421583.19,
-   "tvl_slot": 450802143,
+   "tvl_slot": 450804749,
    "tvl_amount": 227421583.19,
    "tvl_symbol": "PYUSD",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; PYUSD counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.002% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "PYUSD",
@@ -687,39 +715,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "100.0% in a market taking sUSDe (Staked USDe)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -735,19 +765,20 @@
    "assets": "USDC, lent into 4 klend reserve(s) in 4 market(s)",
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0.25% management",
-   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
-   "tvl_usd": 2048199.86,
-   "tvl_slot": 450802143,
-   "tvl_amount": 2048199.86,
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus a flat 0.000001 USDC (1 base unit)",
+   "tvl_usd": 2048202.07,
+   "tvl_slot": 450804749,
+   "tvl_amount": 2048202.07,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.005% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -756,39 +787,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "39.1% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 29.3% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL); 19.6% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 9.8% in a market taking PST (PayFi Strategy Token)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -804,19 +837,20 @@
    "assets": "USDT, lent into 2 klend reserve(s) in 2 market(s)",
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0.25% management",
-   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
-   "tvl_usd": 2624435.56,
-   "tvl_slot": 450802143,
-   "tvl_amount": 2624435.56,
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus a flat 0.000001 USDT (1 base unit)",
+   "tvl_usd": 2624437.63,
+   "tvl_slot": 450804749,
+   "tvl_amount": 2624437.63,
    "tvl_symbol": "USDT",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDT counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.002% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDT",
@@ -825,39 +859,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "60.0% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 40.0% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -874,18 +910,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 260576.68,
-   "tvl_slot": 450802143,
-   "tvl_amount": 260576.68,
+   "tvl_usd": 260588.95,
+   "tvl_slot": 450804749,
+   "tvl_amount": 260588.95,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
-   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.003% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -894,39 +931,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "100.0% in a market taking PRIME, wYLDS",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -943,18 +982,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 3, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 209860.34,
-   "tvl_slot": 450802143,
-   "tvl_amount": 209860.34,
+   "tvl_usd": 209860.56,
+   "tvl_slot": 450804749,
+   "tvl_amount": 209860.56,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.200% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -963,39 +1003,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "98.8% in a market taking PRIME, wYLDS; 1.2% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1012,18 +1054,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 2023735.18,
-   "tvl_slot": 450802143,
-   "tvl_amount": 2023735.18,
+   "tvl_usd": 2023736.88,
+   "tvl_slot": 450804749,
+   "tvl_amount": 2023736.88,
    "tvl_symbol": "CASH",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; CASH counted at 1 USD per token (face value, not a market price)",
-   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_reconciliation": "does not reconcile: cToken balance differs from the vault's record on 2 reserve(s); the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "CASH",
@@ -1032,39 +1075,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "59.5% in a market taking PRIME, wYLDS; 36.0% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 4.5% in a market taking syrupUSDC (Syrup USDC)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1081,18 +1126,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: program-derived address; traced, controller not identified; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 1599218.81,
-   "tvl_slot": 450802143,
-   "tvl_amount": 1599218.81,
+   "tvl_usd": 1599220.87,
+   "tvl_slot": 450804749,
+   "tvl_amount": 1599220.87,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1101,39 +1147,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "79.9% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 20.0% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1150,18 +1198,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 3, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 1146063.22,
-   "tvl_slot": 450802143,
-   "tvl_amount": 1146063.22,
+   "tvl_usd": 1146064.53,
+   "tvl_slot": 450804749,
+   "tvl_amount": 1146064.53,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1170,39 +1219,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "99.9% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 0.0% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 0.0% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL); 0.0% in a market taking WBTC (Wrapped BTC (Wormhole)), FDUSD (First Digital USD), LBTC (Lombard Staked BTC), zBTC; and more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1219,18 +1270,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 3, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "1% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 17081.96,
-   "tvl_slot": 450802143,
-   "tvl_amount": 17081.96,
+   "tvl_usd": 17081.98,
+   "tvl_slot": 450804749,
+   "tvl_amount": 17081.98,
    "tvl_symbol": "USDS",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDS counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDS",
@@ -1239,39 +1291,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "94.1% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1288,18 +1342,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0.25% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 1459457.24,
-   "tvl_slot": 450802143,
-   "tvl_amount": 1459457.24,
+   "tvl_usd": 1459458.88,
+   "tvl_slot": 450804749,
+   "tvl_amount": 1459458.88,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1308,39 +1363,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "99.9% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1356,19 +1413,20 @@
    "assets": "USDC, lent into 1 klend reserve(s) in 1 market(s)",
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "10% performance, 0% management",
-   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
-   "tvl_usd": 5127525.26,
-   "tvl_slot": 450802143,
-   "tvl_amount": 5127525.26,
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus a flat 0.000001 USDC (1 base unit)",
+   "tvl_usd": 5127530.54,
+   "tvl_slot": 450804749,
+   "tvl_amount": 5127530.54,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1377,39 +1435,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "100.0% in a market taking nOPAL (Nest BlackOpal LiquidStone II)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1426,18 +1486,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 78918211.89,
-   "tvl_slot": 450802143,
-   "tvl_amount": 78918211.89,
+   "tvl_usd": 78918309.69,
+   "tvl_slot": 450804749,
+   "tvl_amount": 78918309.69,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1446,39 +1507,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "42.7% in a market taking PST (PayFi Strategy Token); 40.8% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 6.4% in a market taking oTFY (Obligate Trade Finance Yield); 5.0% in a market taking PRIME, wYLDS; and more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1495,18 +1558,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 134483583.33,
-   "tvl_slot": 450802143,
-   "tvl_amount": 134483583.33,
+   "tvl_usd": 134483593.65,
+   "tvl_slot": 450804749,
+   "tvl_amount": 134483593.65,
    "tvl_symbol": "PYUSD",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; PYUSD counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "PYUSD",
@@ -1515,39 +1579,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "45.0% in a market taking syrupUSDC (Syrup USDC); 28.0% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 22.9% in a market taking PRIME, wYLDS; 2.1% in a market taking wYLDS, AUTO (Hastra AUTO); and more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1563,19 +1629,20 @@
    "assets": "USDC, lent into 1 klend reserve(s) in 1 market(s)",
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: program-derived address; traced, controller not identified; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0.25% management",
-   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
-   "tvl_usd": 1362923.88,
-   "tvl_slot": 450802143,
-   "tvl_amount": 1362923.88,
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus a flat 0.000001 USDC (1 base unit)",
+   "tvl_usd": 1364218.77,
+   "tvl_slot": 450804749,
+   "tvl_amount": 1364218.77,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1584,39 +1651,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "88.9% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1633,18 +1702,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "2% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 837663.33,
-   "tvl_slot": 450802143,
-   "tvl_amount": 837663.33,
+   "tvl_usd": 837664.0,
+   "tvl_slot": 450804749,
+   "tvl_amount": 837664.0,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1653,39 +1723,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "79.9% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1703,17 +1775,18 @@
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
    "tvl_usd": 29341.28,
-   "tvl_slot": 450802143,
+   "tvl_slot": 450804749,
    "tvl_amount": 29341.28,
    "tvl_symbol": "USD1",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USD1 counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.123% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USD1",
@@ -1722,39 +1795,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "98.9% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1771,18 +1846,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 2940259.97,
-   "tvl_slot": 450802143,
-   "tvl_amount": 2940259.97,
+   "tvl_usd": 2940262.11,
+   "tvl_slot": 450804749,
+   "tvl_amount": 2940262.11,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1791,39 +1867,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "64.6% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 15.6% in a market taking reUSD (Re Protocol reUSD); 10.0% in a market taking solmFONE (Midas Fasanara ONE); 6.6% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL); and more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1840,18 +1918,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "2.5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 44841012.59,
-   "tvl_slot": 450802143,
-   "tvl_amount": 44841012.59,
+   "tvl_usd": 44841067.52,
+   "tvl_slot": 450804749,
+   "tvl_amount": 44841067.52,
    "tvl_symbol": "USDG",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDG",
@@ -1860,39 +1939,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "52.6% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 22.3% in a market taking reUSD (Re Protocol reUSD); 19.2% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 2.0% in a market taking PAXG (PAX Gold); and more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1909,18 +1990,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 19465298.41,
-   "tvl_slot": 450802143,
-   "tvl_amount": 19465298.41,
+   "tvl_usd": 19465315.77,
+   "tvl_slot": 450804749,
+   "tvl_amount": 19465315.77,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -1929,39 +2011,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "77.6% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 20.7% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL); 1.2% in a market taking WBTC (Wrapped BTC (Wormhole)), FDUSD (First Digital USD), LBTC (Lombard Staked BTC), zBTC",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -1978,18 +2062,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "5% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 432551.86,
-   "tvl_slot": 450802143,
-   "tvl_amount": 432551.86,
+   "tvl_usd": 432552.2,
+   "tvl_slot": 450804749,
+   "tvl_amount": 432552.2,
    "tvl_symbol": "USDG",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDG",
@@ -1998,39 +2083,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "92.5% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; 5.6% in a market taking WBTC (Wrapped BTC (Wormhole)), FDUSD (First Digital USD), LBTC (Lombard Staked BTC), zBTC; 1.3% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL)",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -2047,18 +2134,19 @@
    "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
    "fees": "0% performance, 0% management",
    "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
-   "tvl_usd": 1449609.74,
-   "tvl_slot": 450802143,
-   "tvl_amount": 1449609.74,
+   "tvl_usd": 1449611.27,
+   "tvl_slot": 450804749,
+   "tvl_amount": 1449611.27,
    "tvl_symbol": "USDC",
    "tvl_source": "computed_from_chain",
    "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
-   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.002% (within the 0.5% flag)",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_computed_at": "2026-09-26T22:09Z",
+   "tvl_recorded_at": null,
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
@@ -2067,39 +2155,41 @@
    "nested_in": [],
    "contains_nested": [],
    "nesting_note": null,
+   "lends_against": "89.3% in a market taking JLP (Jupiter Perps LP), SOL (Wrapped SOL); 10.7% in a market taking WBTC (Wrapped BTC (Wormhole)), FDUSD (First Digital USD), LBTC (Lombard Staked BTC), zBTC",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "assets": {
      "class": "A",
-     "slot": 450802138
+     "slot": 450804743
     },
     "controls": {
      "class": "A",
-     "slot": 450802147
+     "slot": 450804752
     },
     "fees": {
      "class": "A",
-     "slot": 450802112
+     "slot": 450804720
     },
     "lockup": {
      "class": "A",
-     "slot": 450802117
+     "slot": 450804724
     },
     "audits": {
      "class": "D",
+     "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
      "url": "https://kamino.com/docs/security/audits.md",
      "read_on": "2026-09-26"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802143,
+     "slot": 450804749,
      "source": "computed_from_chain"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   },
   {
@@ -2113,72 +2203,77 @@
    "manager": "Manager: single key (inferred); admin: single key (inferred)",
    "audits": "Sec3 X-RAY, FYEO, Certora (platform's audit pages, read 2026-09-25)",
    "assets": "USDC; positions as recorded by the vault: Kamino vault",
-   "controls": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step",
+   "controls": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step; strategy attached to Elemental USDC Turbo, not listed here (currently 0)",
    "fees": "0% performance, 0% management",
    "lockup": "Withdrawal waiting period: none",
-   "tvl_usd": 32173.4,
-   "tvl_slot": 450802160,
-   "tvl_amount": 32173.4,
+   "tvl_usd": 32173.43,
+   "tvl_slot": 450804765,
+   "tvl_amount": 32173.43,
    "tvl_symbol": "USDC",
    "tvl_source": "vault_recorded",
-   "tvl_basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T21:50Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T22:00Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
    "tvl_reconciliation": "recorded by the vault, not reconciled: strategy positions are the vault's own records",
    "tvl_partial": false,
-   "tvl_last_written": "2026-09-26T21:50Z",
+   "tvl_computed_at": null,
+   "tvl_recorded_at": "2026-09-26T22:00Z",
    "tvl_age_days": 0.0,
    "tvl_stale": false,
-   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
    "tvl_aum_flag": false,
    "read_stale": false,
    "token_symbol": "USDC",
    "token_kind": "stablecoin",
    "notes": [
     "Drift strategy attached (currently 0)",
-    "manager: single key, can move funds between strategies without an admin step"
+    "manager: single key, can move funds between strategies without an admin step",
+    "strategy attached to Elemental USDC Turbo, not listed here (currently 0)"
    ],
    "nested_in": [
     {
      "platform_key": "kamino",
      "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
-     "tokens": 28119.78,
+     "tokens": 28119.81,
      "name": "Allez USDC"
     }
    ],
    "contains_nested": [],
-   "nesting_note": "Part of this vault's funds sit in another listed vault; do not add the two TVLs together.",
+   "nesting_note": "Part of this vault's funds sit in Allez USDC, also listed; do not add the two TVLs together.",
+   "lends_against": "87.4% through Allez USDC (listed): 55.1% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 20.9% in a market taking sUSDai (Staked USDai); 8.9% in a market taking ZEC (Zcash); 8.1% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; and more",
    "provenance": {
     "manager": {
      "class": "A",
-     "slot": 450802160
+     "slot": 450804765
     },
     "assets": {
-     "class": "A (positions as recorded by the vault)",
-     "slot": 450802163
+     "class": "A",
+     "note": "positions as recorded by the vault",
+     "slot": 450804767
     },
     "controls": {
      "class": "A",
-     "slot": 450802160
+     "slot": 450804765
     },
     "fees": {
      "class": "A",
-     "slot": 450802160
+     "slot": 450804765
     },
     "lockup": {
      "class": "A",
-     "slot": 450802160
+     "slot": 450804765
     },
     "audits": {
      "class": "D",
+     "note": "No audit was found for the individual Kamino, Drift, Jupiter or Trustful adaptors. Program source is not public.",
      "url": "https://docs.voltr.xyz/security/audits",
      "read_on": "2026-09-25"
     },
     "tvl": {
      "class": "A",
-     "slot": 450802160,
+     "slot": 450804765,
      "source": "vault_recorded"
     }
    },
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "stale": false
   }
  ],
@@ -2191,8 +2286,8 @@
    "status": "none_qualifying",
    "listed": 0,
    "as_of": "2026-09-26",
-   "read_at": "2026-09-26T21:58:48Z",
-   "text": "No qualifying vault found as of 2026-09-26: 73 GLAM vault accounts read on chain at slot 450802183, none qualifies: 44 base asset is not a stablecoin; 7 not a tokenized vault (no share token; a managed account); 6 empty or under 1,000 tokens; 5 named as a test, staging or demo vault; 5 assets allowlist includes non-stablecoin tokens; 3 Drift integration enabled (excluded by the owner's rule); 2 bridge integration enabled: assets can move off Solana, where they are not read; 1 holds positions in other protocols that this reader does not value.",
+   "read_at": "2026-09-26T22:10:25Z",
+   "text": "No qualifying vault found as of 2026-09-26: 73 GLAM vault accounts read on chain at slot 450804788, none qualifies: 44 base asset is not a stablecoin; 7 not a tokenized vault (no share token; a managed account); 6 empty or under 1,000 tokens; 5 named as a test, staging or demo vault; 5 assets allowlist includes non-stablecoin tokens; 3 Drift integration enabled (excluded by the owner's rule); 2 bridge integration enabled: assets can move off Solana, where they are not read; 1 holds positions in other protocols that this reader does not value.",
    "reason_class": "A",
    "excluded": [
     {
@@ -2229,12 +2324,12 @@
     }
    ],
    "named_exclusions": [],
-   "slot": 450802183,
+   "slot": 450804788,
    "discovered": 73,
    "upgrade": {
     "text": "Squads multisig 2 of 3, no timelock",
     "class": "A",
-    "slot": 450802181
+    "slot": 450804785
    }
   },
   {
@@ -2245,13 +2340,13 @@
    "status": "none_qualifying",
    "listed": 0,
    "as_of": "2026-09-26",
-   "read_at": "2026-09-26T21:58:49Z",
-   "text": "No qualifying vault found as of 2026-09-26: The two published HyperEVM vault contracts found are Hyperbeat wVLP, whose deposit contract reads paused() = true and which its docs say is being unwound, and Liminal xHYPE, a HYPE strategy, not a real-world asset. Neither has verified source on Sourcify, so neither's trading path is established.",
+   "read_at": "2026-09-26T22:10:26Z",
+   "text": "No qualifying vault found as of 2026-09-26: Two published HyperEVM vault contracts were read. Hyperbeat wVLP: its deposit contract reads paused() = true, so it takes no deposits (its docs say it is being unwound). Liminal xHYPE (share token xHYPE): a HYPE-denominated strategy, not a stablecoin deposit. Neither has verified source on Sourcify, so neither's trading path is established.",
    "reason_class": "A and D",
    "evidence": {
     "chain_id": 999,
-    "block": 46973463,
-    "read_at": "2026-09-26T21:58:49Z",
+    "block": 46974172,
+    "read_at": "2026-09-26T22:10:26Z",
     "rpc": "rpc.hyperliquid.xyz/evm",
     "wvlp": {
      "token": "0xD66d69c288d9a6FD735d7bE8b2e389970fC4fD42",
@@ -2279,13 +2374,13 @@
    "status": "none_qualifying",
    "listed": 0,
    "as_of": "2026-09-26",
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "text": "No qualifying vault found as of 2026-09-26: A Hyperliquid vault does not take a stablecoin deposit to lend it: HLP and the legacy user vaults trade crypto perpetuals at their leader's discretion (legacy vaults trade validator-operated perps only and cannot trade spot or HIP-3, per Hyperliquid's docs). HIP-3 equity markets are perpetuals tracking a stock, not the stock.",
    "reason_class": "D",
    "evidence": {
     "call": "info vaultDetails",
     "vault": "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303",
-    "read_at": "2026-09-26T21:58:48Z",
+    "read_at": "2026-09-26T22:10:25Z",
     "name": "Hyperliquidity Provider (HLP)",
     "is_closed": false,
     "leader": "0x677d831aef5328190852e24f13c46cac05f984e7",
@@ -2306,7 +2401,7 @@
    "status": "listed",
    "listed": 30,
    "as_of": "2026-09-26",
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "text": "30 listed of 182 vault accounts read on chain; 152 not listed, by reason below.",
    "excluded": [
     {
@@ -2322,7 +2417,7 @@
      "count": 28
     },
     {
-     "reason": "lends into an off-chain-backed single-collateral market (structure)",
+     "reason": "lends into Kamino's institutional-yield markets",
      "count": 4
     },
     {
@@ -2339,85 +2434,100 @@
     {
      "address": "8VoxRCLSAh791MWpsYYkgbWJoek55hkiU3aHE3VQadBv",
      "name": "Elaris USDC Optimizer",
-     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "reason": "lends into Kamino's institutional-yield market(s): collateral minted by Kamino's institutional mint authority 4gPJLzZo\u2026",
      "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
      "source_read_on": "2026-09-26",
      "share_of_vault": 1.0,
      "positions": [
       {
        "market": "DmSeodmEWqUEoMwxTHHNs2C7AxKnbgHTsnKfP2trWFCc",
-       "collateral": "kpvCmsqQkHcbsefaEtQ8ka2c89c6QE13LGGQUeQ2KuV",
-       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
-       "value_tokens": 0.0,
-       "share_of_reserve_supply": 0.0
+       "collateral": [
+        "kpvCredit (Kamino Private Vault Credit)"
+       ],
+       "collateral_mints": [
+        "kpvCmsqQkHcbsefaEtQ8ka2c89c6QE13LGGQUeQ2KuV"
+       ],
+       "value_tokens": 0.0
       },
       {
        "market": "Dwg1aeZFYtsyMEkoyJn2ak8pPqaXMWd1uui6FBkM1872",
-       "collateral": "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai",
-       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
-       "value_tokens": 276066.31,
-       "share_of_reserve_supply": 0.0057
+       "collateral": [
+        "kiyCredit (Kamino Institutional Yield Credit)"
+       ],
+       "collateral_mints": [
+        "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai"
+       ],
+       "value_tokens": 276067.23
       }
      ]
     },
     {
      "address": "91b1opzHNUQobfLZxGMNYT5qDRKoqV8FdsdQBmH4wBxy",
      "name": "Kamino Private Credit USDC",
-     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "reason": "lends into Kamino's institutional-yield market(s): collateral minted by Kamino's institutional mint authority 4gPJLzZo\u2026",
      "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
      "source_read_on": "2026-09-26",
      "share_of_vault": 0.97,
      "positions": [
       {
        "market": "DmSeodmEWqUEoMwxTHHNs2C7AxKnbgHTsnKfP2trWFCc",
-       "collateral": "kpvCmsqQkHcbsefaEtQ8ka2c89c6QE13LGGQUeQ2KuV",
-       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
-       "value_tokens": 7061835.22,
-       "share_of_reserve_supply": 1.0
+       "collateral": [
+        "kpvCredit (Kamino Private Vault Credit)"
+       ],
+       "collateral_mints": [
+        "kpvCmsqQkHcbsefaEtQ8ka2c89c6QE13LGGQUeQ2KuV"
+       ],
+       "value_tokens": 7061835.22
       }
      ]
     },
     {
      "address": "A3hTCWdnfV6uiQLxRmnv17EpiEtmc93v1AGQnWy44Mup",
      "name": "Elemental USDC Turbo",
-     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "reason": "lends into Kamino's institutional-yield market(s): collateral minted by Kamino's institutional mint authority 4gPJLzZo\u2026",
      "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
      "source_read_on": "2026-09-26",
      "share_of_vault": 0.3732,
      "positions": [
       {
        "market": "Dwg1aeZFYtsyMEkoyJn2ak8pPqaXMWd1uui6FBkM1872",
-       "collateral": "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai",
-       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
-       "value_tokens": 1500028.32,
-       "share_of_reserve_supply": 0.0309
+       "collateral": [
+        "kiyCredit (Kamino Institutional Yield Credit)"
+       ],
+       "collateral_mints": [
+        "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai"
+       ],
+       "value_tokens": 1500005.02
       }
      ]
     },
     {
      "address": "B5pjfZAiKjyUEuqB2694NHrsjcaM67uuJaWqjzTVtzR6",
      "name": "Kamino Institutional Commodity Yield",
-     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "reason": "lends into Kamino's institutional-yield market(s): collateral minted by Kamino's institutional mint authority 4gPJLzZo\u2026",
      "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
      "source_read_on": "2026-09-26",
      "share_of_vault": 0.9512,
      "positions": [
       {
        "market": "Dwg1aeZFYtsyMEkoyJn2ak8pPqaXMWd1uui6FBkM1872",
-       "collateral": "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai",
-       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
-       "value_tokens": 46729935.78,
-       "share_of_reserve_supply": 0.9634
+       "collateral": [
+        "kiyCredit (Kamino Institutional Yield Credit)"
+       ],
+       "collateral_mints": [
+        "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai"
+       ],
+       "value_tokens": 46730092.26
       }
      ]
     }
    ],
-   "slot": 450802110,
+   "slot": 450804718,
    "discovered": 182,
    "upgrade": {
     "text": "Squads multisig 5 of 10, 24 h timelock",
     "class": "A",
-    "slot": 450802107
+    "slot": 450804716
    }
   },
   {
@@ -2428,7 +2538,7 @@
    "status": "listed",
    "listed": 1,
    "as_of": "2026-09-26",
-   "read_at": "2026-09-26T21:58:48Z",
+   "read_at": "2026-09-26T22:10:25Z",
    "text": "1 listed of 200 vault accounts read on chain; 199 not listed, by reason below.",
    "excluded": [
     {
@@ -2564,16 +2674,16 @@
      "name": "Elemental USDC Lending Pool",
      "reason": "places funds in a Kamino vault that is not listed here",
      "kamino_vault": "A3hTCWdnfV6uiQLxRmnv17EpiEtmc93v1AGQnWy44Mup",
-     "kamino_vault_reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "kamino_vault_reason": "lends into Kamino's institutional-yield market(s): collateral minted by Kamino's institutional mint authority 4gPJLzZo\u2026",
      "tokens_there": 2570.18
     }
    ],
-   "slot": 450802160,
+   "slot": 450804765,
    "discovered": 200,
    "upgrade": {
     "text": "Squads multisig 3 of 5, 12 h timelock",
     "class": "A",
-    "slot": 450802159
+    "slot": 450804762
    }
   }
  ]

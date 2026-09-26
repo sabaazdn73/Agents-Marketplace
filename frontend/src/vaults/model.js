@@ -20,6 +20,19 @@ export function staleOf(v) {
   return null;
 }
 
+/** When the TVL figure was made: computed by T6 (tvl_computed_at, Kamino
+ *  and GLAM) or written by the vault itself (tvl_recorded_at, Voltr).
+ *  tvl_last_written is the older name, still read. */
+export function tvlTime(v) {
+  if (!v) return null;
+  if (v.tvl_source === 'vault_recorded') {
+    const t = v.tvl_recorded_at || v.tvl_last_written;
+    return t ? { label: 'recorded', at: String(t) } : null;
+  }
+  const t = v.tvl_computed_at;
+  return t ? { label: 'computed', at: String(t) } : null;
+}
+
 export function tvlSourceLabel(src) {
   return src === 'computed_from_chain' ? 'computed from chain' : src === 'vault_recorded' ? 'as recorded by the vault' : null;
 }

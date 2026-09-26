@@ -1,0 +1,165 @@
+{
+ "tokens": 7279,
+ "issuers": 5,
+ "chains": 7,
+ "underlyings": 1378,
+ "computed_at": "2026-09-26T21:25:13Z",
+ "definition": {
+  "token": "one issuer's token on one chain (a version)",
+  "counted_when": [
+   "verified on chain by structure (proxy slot, beacon or authority set), never by symbol",
+   "the underlying is US-listed: issuer ISIN or listing country (class D), or a ticker match against Nasdaq Trader's symbol directory",
+   "total supply above zero at the read block",
+   "the chain is in the site's chain scope (SPEC B.1; owner decision D5 pending)"
+  ],
+  "issuers": "distinct issuers with at least one counted token",
+  "chains": "distinct chains with at least one counted token; chain_list sums to tokens"
+ },
+ "chain_list": [
+  {
+   "name": "BNB Chain",
+   "chain": "bsc",
+   "chain_id": 56,
+   "group": "evm",
+   "tokens": 1724
+  },
+  {
+   "name": "Ethereum",
+   "chain": "ethereum",
+   "chain_id": 1,
+   "group": "evm",
+   "tokens": 1641
+  },
+  {
+   "name": "Solana",
+   "chain": "solana",
+   "chain_id": null,
+   "group": "nonevm",
+   "tokens": 1370
+  },
+  {
+   "name": "HyperEVM",
+   "chain": "hyperevm",
+   "chain_id": 999,
+   "group": "evm",
+   "tokens": 1176
+  },
+  {
+   "name": "Arbitrum",
+   "chain": "arbitrum",
+   "chain_id": 42161,
+   "group": "evm",
+   "tokens": 1165
+  },
+  {
+   "name": "Robinhood Chain",
+   "chain": "robinhood",
+   "chain_id": 4663,
+   "group": "evm",
+   "tokens": 193
+  },
+  {
+   "name": "Base",
+   "chain": "base",
+   "chain_id": 8453,
+   "group": "evm",
+   "tokens": 10
+  }
+ ],
+ "issuer_list": [
+  {
+   "issuer": "xstocks",
+   "name": "xStocks",
+   "tokens": 5669
+  },
+  {
+   "issuer": "ondo",
+   "name": "Ondo",
+   "tokens": 1327
+  },
+  {
+   "issuer": "robinhood",
+   "name": "Robinhood",
+   "tokens": 193
+  },
+  {
+   "issuer": "bstocks",
+   "name": "bStocks",
+   "tokens": 80
+  },
+  {
+   "issuer": "coinbase",
+   "name": "Coinbase",
+   "tokens": 10
+  }
+ ],
+ "groups": {
+  "evm": 5909,
+  "nonevm": 1370
+ },
+ "left_out": {
+  "records_in_file": 14290,
+  "counted_once_under_the_first_test_failed": true,
+  "by_reason": [
+   {
+    "reason": "not_deployed",
+    "text": "not deployed on this chain: no code at the address at the read block",
+    "records": 64
+   },
+   {
+    "reason": "scope_not_established",
+    "text": "US listing not established: no issuer ISIN or listing country and no Nasdaq Trader ticker match",
+    "records": 591
+   },
+   {
+    "reason": "supply_zero",
+    "text": "total supply 0 at the read block",
+    "records": 330
+   },
+   {
+    "reason": "chain_out_of_scope",
+    "text": "chain outside the site's scope (SPEC B.1; owner decision D5 pending)",
+    "records": 6026
+   }
+  ],
+  "chains_out_of_scope": [
+   {
+    "name": "Ink",
+    "chain": "ink",
+    "records": 1194
+   },
+   {
+    "name": "Optimism",
+    "chain": "optimism",
+    "records": 1194
+   },
+   {
+    "name": "TON",
+    "chain": "ton",
+    "records": 1194
+   },
+   {
+    "name": "X Layer",
+    "chain": "xlayer",
+    "records": 1194
+   },
+   {
+    "name": "Mantle",
+    "chain": "mantle",
+    "records": 1187
+   },
+   {
+    "name": "Tron",
+    "chain": "tron",
+    "records": 63
+   }
+  ]
+ },
+ "source": {
+  "data_file": "backend/data/te_universe.json.gz",
+  "universe_generated_at": "2026-09-26T21:25:13Z",
+  "universe_sha256": "79e2b438ac457f56cf50924ceb63efed3c760a66fd484fe0cb957fbe5b2cabe2",
+  "reads": "chain reads taken 2026-09-26 between about 14:30 and 22:30 UTC; each record names its block or slot",
+  "class": "A (chain reads) for identity, supply and controls; D (issuer words, linked and dated) for eligibility"
+ }
+}

@@ -424,7 +424,7 @@ export function VaultTable({ state, compact = false, onOpen }) {
               <td className="px-4 py-2.5"><div className="text-fg font-semibold">{v.name}</div><div className="text-[12px] text-muted">{v.platform} · {v.chain}</div></td>
               <td className="py-2.5 text-fg">{v.manager}<div className="text-[12px] text-muted">{v.audits}</div></td>
               {!compact && <td className="py-2.5 text-fg">{v.assets}<div className="text-[12px] text-muted">{v.controls}</div></td>}
-              <td className="py-2.5 pr-4 md:pr-0 text-right tabular-nums text-fg" title={v.tvl_basis}>{fmtUsd0(v.tvl_usd)}<div className="text-[11px] text-muted">{v.tvl_source === 'computed_from_chain' ? 'computed from chain' : v.tvl_source === 'vault_recorded' ? `as recorded by the vault${v.tvl_last_written ? `, written ${String(v.tvl_last_written).slice(0, 10)}` : ''}` : ''}{v.stale ? ', stale' : ''}{v.nested_in ? ', inside another listed vault' : ''}</div><span className="sr-only">{v.tvl_basis}</span></td>
+              <td className="py-2.5 pr-4 md:pr-0 text-right tabular-nums text-fg" title={v.tvl_basis}>{fmtUsd0(v.tvl_usd)}<div className="text-[11px] text-muted">{v.tvl_source === 'computed_from_chain' ? 'computed from chain' : v.tvl_source === 'vault_recorded' ? `as recorded by the vault${(v.tvl_recorded_at || v.tvl_last_written) ? `, recorded ${String(v.tvl_recorded_at || v.tvl_last_written).slice(0, 10)}` : ''}` : ''}{v.stale ? ', stale' : ''}{v.nested_in ? ', inside another listed vault' : ''}</div><span className="sr-only">{v.tvl_basis}</span></td>
               {!compact && <td className="px-4 py-2.5 text-right text-fg">{v.fees}<div className="text-[12px] text-muted">{v.lockup}</div></td>}
             </tr>
           ))}

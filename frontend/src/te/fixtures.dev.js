@@ -23,6 +23,15 @@ export const FIXTURE_MARKER = 'TNEGA_DEV_FIXTURE_7f3a';
 import T6_VAULTS from './fixtures/t6-vaults.dev.json' with { type: 'json' };
 import T6_KAMINO from './fixtures/t6-vault-kamino.dev.json' with { type: 'json' };
 import T6_VOLTR from './fixtures/t6-vault-voltr.dev.json' with { type: 'json' };
+// T2's real answers (scratchpad/t2_resp__api_te_search_q_*.json and its
+// summary): the search answers are served for the queries they were taken
+// for; the real summary replaces the made-up one when
+// VITE_TE_REAL_SUMMARY=1, for checking the proof line against it (the
+// made-up lists then no longer reconcile with it, so checkFixtures skips the
+// summary checks in that mode).
+import T2_SEARCH from './fixtures/t2-search.dev.json' with { type: 'json' };
+import T2_SUMMARY from './fixtures/t2-summary.dev.json' with { type: 'json' };
+const REAL_SUMMARY = typeof import.meta.env !== 'undefined' && import.meta.env.VITE_TE_REAL_SUMMARY === '1';
 
 const T = '2026-01-01T12:00:00Z';
 const F = { _fixture: true, _marker: FIXTURE_MARKER, computed_at: T };
@@ -146,7 +155,8 @@ function summary() {
   const vs = ALL_VERSIONS();
   const chains = [...new Set(vs.map((v) => v.chain))];
   const chain_list = chains.map((name) => ({ name, group: CHAIN_GROUP(name), tokens: vs.filter((v) => v.chain === name).length }));
-  return { ...F, tokens: vs.length, issuers: new Set(vs.map((v) => v.issuer)).size, chains: chains.length, chain_list };
+  const withPool = vs.filter((v) => v.filled_fraction >= 1 && Number.isFinite(v.cost_bps)).length;
+  return { ...F, underlyings: UNIVERSE.length, versions_listed: vs.length, versions_with_pool: withPool, tokens: vs.length, issuers: new Set(vs.map((v) => v.issuer)).size, chains: chains.length, chain_list };
 }
 
 // The slider's stops (SPEC §A.1 #4) and how cost grows with size, a made-up
@@ -229,7 +239,7 @@ function basketDetail(code) {
 }
 
 const answers = {
-  '/api/te/summary': () => summary(),
+  '/api/te/summary': () => (REAL_SUMMARY ? { ...T2_SUMMARY, _fixture: true, _marker: FIXTURE_MARKER } : summary()),
   '/api/te/list': (q) => {
     const type = q.get('type') || 'stock';
     const group = q.get('group') || 'all';
@@ -239,9 +249,25 @@ const answers = {
     return { ...F, size: 1000, sort: q.get('sort') || 'popular', rows: rows.slice(0, Number(q.get('limit') || 50)) };
   },
   '/api/te/search': (q) => {
-    const s = (q.get('q') || '').toLowerCase();
-    const all = UNIVERSE.flatMap(([u, name, , raw]) => raw.map(([symbol, issuer, chain, group]) => ({ kind: 'instrument', underlying: u, key: `${chain}/${symbol}`, symbol, name, issuer, chain, group })));
-    return { ...F, results: all.filter((r) => `${r.underlying} ${r.name} ${r.symbol}`.toLowerCase().includes(s)) };
+    // T2's real answer when there is one for this query; otherwise a
+    // made-up answer in T2's shape over the made-up universe.
+    const term = (q.get('q') || '').trim().toLowerCase();
+    if (T2_SEARCH[term]) return { ...T2_SEARCH[term], _fixture: true, _marker: FIXTURE_MARKER };
+    const coverage = { instruments: 'every listed token (dev fixture)', vaults: null, vaults_reason: 'no vault is searched (dev fixture)' };
+    if (!term) return { ...F, q: '', coverage, results: [], reason: 'empty query' };
+    const results = UNIVERSE.map(([u, name, type, raw]) => {
+      const vs = raw.map((r) => version(u, r));
+      const byTicker = u.toLowerCase() === term || name.toLowerCase().includes(term);
+      const matched = vs.filter((v) => v.symbol.toLowerCase() === term);
+      if (!byTicker && !matched.length) return null;
+      const out = { kind: 'instrument', underlying: u, symbol: u, name, type, versions: vs.length,
+        issuers: [...new Set(vs.map((v) => v.issuer))], chains: [...new Set(vs.map((v) => v.chain))], groups: [...new Set(vs.map((v) => v.group))],
+        match: byTicker ? (u.toLowerCase() === term ? 'ticker' : 'name') : 'symbol' };
+      if (matched.length) out.matched_versions = matched.map((v) => ({ key: v.key, symbol: v.symbol, issuer: v.issuer, chain: v.chain, group: v.group, address: 'DevAddr', listed: true }));
+      return out;
+    }).filter(Boolean);
+    const unlisted_matches = term === 'foo' ? [{ underlying: 'FOOHK', symbol: 'FOOHK', name: 'Foo Corp Hong Kong (dev)', reason: 'Excluded: Hong Kong listing (dev fixture)' }] : [];
+    return { ...F, q: term, coverage, results, total_matches: results.length, unlisted_matches };
   },
   '/api/te/underlying/FOO': () => {
     const [u, name, , raw] = UNIVERSE[0];
@@ -315,8 +341,9 @@ export function checkFixtures() {
       ok(b && b.cost_bps === r.best.cost_bps && b.key === r.best.key, `${type}/${group} ${r.underlying}: best is not the minimum over its versions`);
     }
   }
-  const s = answer('/api/te/summary');
+  const s = REAL_SUMMARY ? summary() : answer('/api/te/summary');
   ok(sum(s.chain_list.map((c) => c.tokens)) === s.tokens && s.chain_list.length === s.chains, 'summary counts do not match its chain list');
+  ok(s.underlyings === UNIVERSE.length && s.versions_listed === s.tokens && s.versions_with_pool <= s.versions_listed, 'summary underlyings / versions do not match the universe');
   const vs = ALL_VERSIONS();
   ok(s.tokens === vs.length, 'summary tokens != versions in the universe');
   ok(s.issuers === new Set(vs.map((v) => v.issuer)).size, 'summary issuers != issuers in the universe');

@@ -14,33 +14,33 @@
   "kind": "stablecoin"
  },
  "slots": {
-  "vaults": 450802160,
-  "receipts": 450802163,
-  "idle": 450802170,
-  "strategies": 450802167
+  "vaults": 450804765,
+  "receipts": 450804767,
+  "idle": 450804775,
+  "strategies": 450804772
  },
  "tvl": {
-  "usd": 32173.4,
-  "amount": 32173.4,
+  "usd": 32173.43,
+  "amount": 32173.43,
   "symbol": "USDC",
-  "slot": 450802160,
+  "slot": 450804765,
   "source": "vault_recorded",
-  "basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T21:50Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
+  "basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T22:00Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
   "cross_check": {
    "idle_tokens": 4053.88,
-   "idle_slot": 450802170,
-   "strategy_positions_recorded": 28119.78,
-   "sum": 32173.67
+   "idle_slot": 450804775,
+   "strategy_positions_recorded": 28119.81,
+   "sum": 32173.7
   },
   "reconciliation": "recorded by the vault, not reconciled: strategy positions are the vault's own records",
-  "last_written": "2026-09-26T21:50Z",
-  "last_written_ts": 1790459430,
+  "recorded_at": "2026-09-26T22:00Z",
+  "recorded_at_ts": 1790460039,
   "partial": false
  },
  "fees": {
   "text": "0% performance, 0% management",
   "class": "A",
-  "slot": 450802160,
+  "slot": 450804765,
   "bps": {
    "manager_performance": 0,
    "admin_performance": 0,
@@ -55,13 +55,13 @@
  "lockup": {
   "text": "Withdrawal waiting period: none",
   "class": "A",
-  "slot": 450802160,
+  "slot": 450804765,
   "withdrawal_waiting_s": 0
  },
  "manager": {
   "text": "Manager: single key (inferred); admin: single key (inferred)",
   "class": "A",
-  "slot": 450802160,
+  "slot": 450804765,
   "admin": {
    "kind": "single_key",
    "address": "RAoEnBNgWR3H4L76UFtXNoJShLQ3yFSUcGPCDEzqmMb",
@@ -83,20 +83,22 @@
  },
  "notes": [
   "Drift strategy attached (currently 0)",
-  "manager: single key, can move funds between strategies without an admin step"
+  "manager: single key, can move funds between strategies without an admin step",
+  "strategy attached to Elemental USDC Turbo, not listed here (currently 0)"
  ],
  "nested_in": [
   {
    "platform_key": "kamino",
    "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
-   "tokens": 28119.78,
+   "tokens": 28119.81,
    "name": "Allez USDC"
   }
  ],
  "assets": {
   "text": "USDC; positions as recorded by the vault: Kamino vault",
-  "class": "A (positions as recorded by the vault)",
-  "slot": 450802163,
+  "class": "A",
+  "note": "positions as recorded by the vault",
+  "slot": 450804767,
   "strategies": [
    {
     "receipt": "d12ZbNWNN3eejXyTGcWQrUXtQVnCp3iCz1Rjmin9ZPg",
@@ -161,8 +163,8 @@
     "target": "Kamino vault",
     "target_class": "kvault",
     "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
-    "position_tokens": 28119.78,
-    "last_updated": "2026-09-26T21:50Z"
+    "position_tokens": 28119.81,
+    "last_updated": "2026-09-26T22:00Z"
    },
    {
     "receipt": "AecHfUhChAPD5apfrWMnBvRr8Ssnr2Ru2dyZiSNRmbs6",
@@ -230,18 +232,19 @@
     "position_tokens": 0.0,
     "last_updated": "2026-08-31T01:15Z"
    }
-  ]
+  ],
+  "lends_against_text": "87.4% through Allez USDC (listed): 55.1% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 20.9% in a market taking sUSDai (Staked USDai); 8.9% in a market taking ZEC (Zcash); 8.1% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; and more"
  },
  "controls": {
   "class": "A",
-  "slot": 450802160,
+  "slot": 450804765,
   "admin": "single key (inferred)",
   "allow_any_adaptor": 0,
   "disabled_operations": 0,
   "pause": {
    "text": "disabledOperations = 0",
    "class": "A",
-   "slot": 450802160
+   "slot": 450804765
   },
   "max_cap_tokens": 100000000.0,
   "upgrade": {
@@ -252,14 +255,14 @@
      "last_deploy_slot": 445223838,
      "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
      "state": "upgradeable",
-     "slot": 450802159,
+     "slot": 450804762,
      "authority_detail": {
       "kind": "squads_v4",
       "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
       "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
       "vault_index": 0,
       "how": "derivation re-checked",
-      "slot": 450802177,
+      "slot": 450804781,
       "threshold": 3,
       "timelock_s": 43200,
       "config_authority": null,
@@ -285,14 +288,14 @@
      "last_deploy_slot": 335558866,
      "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
      "state": "upgradeable",
-     "slot": 450802159,
+     "slot": 450804762,
      "authority_detail": {
       "kind": "squads_v4",
       "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
       "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
       "vault_index": 0,
       "how": "derivation re-checked",
-      "slot": 450802177,
+      "slot": 450804781,
       "threshold": 3,
       "timelock_s": 43200,
       "config_authority": null,
@@ -318,14 +321,14 @@
      "last_deploy_slot": 406317018,
      "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
      "state": "upgradeable",
-     "slot": 450802159,
+     "slot": 450804762,
      "authority_detail": {
       "kind": "squads_v4",
       "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
       "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
       "vault_index": 0,
       "how": "derivation re-checked",
-      "slot": 450802177,
+      "slot": 450804781,
       "threshold": 3,
       "timelock_s": 43200,
       "config_authority": null,
@@ -351,14 +354,14 @@
      "last_deploy_slot": 362887440,
      "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
      "state": "upgradeable",
-     "slot": 450802159,
+     "slot": 450804762,
      "authority_detail": {
       "kind": "squads_v4",
       "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
       "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
       "vault_index": 0,
       "how": "derivation re-checked",
-      "slot": 450802177,
+      "slot": 450804781,
       "threshold": 3,
       "timelock_s": 43200,
       "config_authority": null,
@@ -384,14 +387,14 @@
      "last_deploy_slot": 410721167,
      "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
      "state": "upgradeable",
-     "slot": 450802159,
+     "slot": 450804762,
      "authority_detail": {
       "kind": "squads_v4",
       "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
       "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
       "vault_index": 0,
       "how": "derivation re-checked",
-      "slot": 450802177,
+      "slot": 450804781,
       "threshold": 3,
       "timelock_s": 43200,
       "config_authority": null,
@@ -417,14 +420,14 @@
      "last_deploy_slot": 350823232,
      "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
      "state": "upgradeable",
-     "slot": 450802159,
+     "slot": 450804762,
      "authority_detail": {
       "kind": "squads_v4",
       "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
       "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
       "vault_index": 0,
       "how": "derivation re-checked",
-      "slot": 450802177,
+      "slot": 450804781,
       "threshold": 3,
       "timelock_s": 43200,
       "config_authority": null,
@@ -447,9 +450,9 @@
    ],
    "text": "Squads multisig 3 of 5, 12 h timelock",
    "class": "A",
-   "slot": 450802159
+   "slot": 450804762
   },
-  "text": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step"
+  "text": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step; strategy attached to Elemental USDC Turbo, not listed here (currently 0)"
  },
  "audits": {
   "text": "Sec3 X-RAY, FYEO, Certora (platform's audit pages, read 2026-09-25)",
@@ -494,7 +497,7 @@
   ],
   "moves": "The manager moves funds between the vault and its strategies. With the Trustful adaptor, funds can go to whitelisted addresses off chain; no listed vault has such a position."
  },
- "read_at": "2026-09-26T21:58:48Z",
+ "read_at": "2026-09-26T22:10:25Z",
  "row": {
   "name": "Hubra Copilot USDC",
   "platform": "Voltr",
@@ -506,72 +509,77 @@
   "manager": "Manager: single key (inferred); admin: single key (inferred)",
   "audits": "Sec3 X-RAY, FYEO, Certora (platform's audit pages, read 2026-09-25)",
   "assets": "USDC; positions as recorded by the vault: Kamino vault",
-  "controls": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step",
+  "controls": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step; strategy attached to Elemental USDC Turbo, not listed here (currently 0)",
   "fees": "0% performance, 0% management",
   "lockup": "Withdrawal waiting period: none",
-  "tvl_usd": 32173.4,
-  "tvl_slot": 450802160,
-  "tvl_amount": 32173.4,
+  "tvl_usd": 32173.43,
+  "tvl_slot": 450804765,
+  "tvl_amount": 32173.43,
   "tvl_symbol": "USDC",
   "tvl_source": "vault_recorded",
-  "tvl_basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T21:50Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
+  "tvl_basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T22:00Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
   "tvl_reconciliation": "recorded by the vault, not reconciled: strategy positions are the vault's own records",
   "tvl_partial": false,
-  "tvl_last_written": "2026-09-26T21:50Z",
+  "tvl_computed_at": null,
+  "tvl_recorded_at": "2026-09-26T22:00Z",
   "tvl_age_days": 0.0,
   "tvl_stale": false,
-  "tvl_stale_rule": "stale when last written more than 7 days before now",
+  "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
   "tvl_aum_flag": false,
   "read_stale": false,
   "token_symbol": "USDC",
   "token_kind": "stablecoin",
   "notes": [
    "Drift strategy attached (currently 0)",
-   "manager: single key, can move funds between strategies without an admin step"
+   "manager: single key, can move funds between strategies without an admin step",
+   "strategy attached to Elemental USDC Turbo, not listed here (currently 0)"
   ],
   "nested_in": [
    {
     "platform_key": "kamino",
     "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
-    "tokens": 28119.78,
+    "tokens": 28119.81,
     "name": "Allez USDC"
    }
   ],
   "contains_nested": [],
-  "nesting_note": "Part of this vault's funds sit in another listed vault; do not add the two TVLs together.",
+  "nesting_note": "Part of this vault's funds sit in Allez USDC, also listed; do not add the two TVLs together.",
+  "lends_against": "87.4% through Allez USDC (listed): 55.1% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 20.9% in a market taking sUSDai (Staked USDai); 8.9% in a market taking ZEC (Zcash); 8.1% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; and more",
   "provenance": {
    "manager": {
     "class": "A",
-    "slot": 450802160
+    "slot": 450804765
    },
    "assets": {
-    "class": "A (positions as recorded by the vault)",
-    "slot": 450802163
+    "class": "A",
+    "note": "positions as recorded by the vault",
+    "slot": 450804767
    },
    "controls": {
     "class": "A",
-    "slot": 450802160
+    "slot": 450804765
    },
    "fees": {
     "class": "A",
-    "slot": 450802160
+    "slot": 450804765
    },
    "lockup": {
     "class": "A",
-    "slot": 450802160
+    "slot": 450804765
    },
    "audits": {
     "class": "D",
+    "note": "No audit was found for the individual Kamino, Drift, Jupiter or Trustful adaptors. Program source is not public.",
     "url": "https://docs.voltr.xyz/security/audits",
     "read_on": "2026-09-25"
    },
    "tvl": {
     "class": "A",
-    "slot": 450802160,
+    "slot": 450804765,
     "source": "vault_recorded"
    }
   },
-  "read_at": "2026-09-26T21:58:48Z",
+  "read_at": "2026-09-26T22:10:25Z",
   "stale": false
  },
  "notice": "Deposits are made on each vault's own venue, signed in your own wallet; Tnega never holds funds and takes no deposit. We describe each vault as its chain state and its operator's documents show it. Nothing here is advice."

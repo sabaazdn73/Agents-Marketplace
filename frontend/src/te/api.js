@@ -18,9 +18,11 @@
 //
 // RESPONSE SHAPES the pages read (fields not listed are ignored):
 //
-//   GET /api/te/summary
-//     { tokens, issuers, chains, computed_at,
-//       chain_list: [{ name, group: 'evm'|'nonevm', tokens }] }
+//   GET /api/te/summary   (T2)
+//     { underlyings (stocks and ETFs), versions_listed (issuer-by-chain
+//       tokens), versions_with_pool (versions with a measured cost),
+//       issuers, chains, tokens (= versions; not a count of equities),
+//       computed_at, chain_list: [{ name, group: 'evm'|'nonevm', tokens }] }
 //   (eligibility and who_may_hold are always { text, url, read_on }: the
 //    issuer's own words, linked and dated, never shown without both.)
 //   GET /api/te/list?type=stock|etf&group=all|evm|nonevm&limit=&sort=
@@ -28,9 +30,17 @@
 //                best: { key, symbol, issuer, chain, group,
 //                        paid_per_token, cost_usd, cost_bps },
 //                spark: [number] }], sort, size, computed_at }
-//   GET /api/te/search?q=
-//     { results: [{ kind: 'instrument'|'vault', underlying?, key?, symbol,
-//                   name, issuer?, chain?, group?, platform? }] }
+//   GET /api/te/search?q=   (T2)
+//     { q, computed_at, total_matches?, reason? (e.g. "empty query"),
+//       coverage: { instruments, vaults: string|null, vaults_reason? },
+//       results: [{ kind: 'instrument', underlying, symbol, name, type,
+//                   versions, issuers: [string], chains: [string],
+//                   groups, match: 'ticker'|'name'|'symbol'|'address',
+//                   issuer?, chain? (single-version match only),
+//                   matched_versions?: [{ key, symbol, issuer, chain,
+//                     group, address, listed, not_listed_reason? }] }],
+//       unlisted_matches?: [{ underlying?, symbol?, name?, issuer?,
+//                             chain?, reason }] }
 //   GET /api/te/underlying/{ticker}?size=1000
 //     { ticker, name, size, computed_at,
 //       versions: [{ key, symbol, issuer, chain, group, cost_usd, cost_bps,

@@ -26,7 +26,7 @@ import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Card, DevTag, Sparkline, fmtUsd0 } from '../ui/primitives';
 import { SourceChip, shortAddr } from '../ui/detail';
-import { platformKeyOf, staleOf, tvlSourceLabel, checkMark, tvlTotal } from './model';
+import { platformKeyOf, staleOf, tvlSourceLabel, tvlTime, checkMark, tvlTotal } from './model';
 
 export { tvlSourceLabel, checkMark };
 
@@ -40,7 +40,7 @@ export function TvlNote({ v, align = 'right' }) {
     <div className={`mt-0.5 flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : ''}`} title={v.tvl_basis}>
       <SourceChip title={v.tvl_basis}>{tvlSourceLabel(v.tvl_source)}</SourceChip>
       {v.token_kind === 'synthetic dollar' && <SourceChip title={v.tvl_basis}>synthetic dollar</SourceChip>}
-      {v.tvl_source === 'vault_recorded' && v.tvl_last_written && <SourceChip title={v.tvl_basis}>written {String(v.tvl_last_written).slice(0, 10)}</SourceChip>}
+      {tvlTime(v) && <SourceChip title={`${v.tvl_basis}${v.tvl_stale_rule ? ` (${v.tvl_stale_rule})` : ''}`}>{tvlTime(v).label} {tvlTime(v).at.slice(0, 10)}</SourceChip>}
       {st && <span className="inline-flex items-center h-5 px-1.5 rounded border border-warn/60 text-warn text-[10px] font-semibold uppercase tracking-wide" title={st}>stale</span>}
       <span className="sr-only">{v.tvl_basis}</span>
     </div>
@@ -102,6 +102,9 @@ function VenueTable({ p, rows, onOpen, compact, nestedName }) {
                     <div className="text-[12px] text-muted font-mono">{shortAddr(v.address)}{compact ? ` · ${v.chain}` : ''}</div>
                     {parent && <div className="text-[11px] text-muted">Partly inside {parent.name || nestedName(parent.address)}</div>}
                     {(v.contains_nested || []).length > 0 && <div className="text-[11px] text-muted">Holds part of {v.contains_nested.map((n) => n.name || shortAddr(n.address)).join(', ')}</div>}
+                    {/* What the stablecoin is lent against: one line here, in
+                        full on hover and on the vault's page. */}
+                    {v.lends_against && <div className="text-[11px] text-muted truncate max-w-[320px]" title={`${v.lends_against}\n\nCollateral names as each token's own metadata declares them.`}>Lends against: {v.lends_against}</div>}
                   </td>
                   {!compact && (
                     <td className="py-2.5 text-fg">

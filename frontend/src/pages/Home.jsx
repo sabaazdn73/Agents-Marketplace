@@ -78,25 +78,29 @@ export default function Home({ layout = 'web', onNavigate }) {
   const [tour, setTour] = useState(false);
   const closeTour = useCallback(() => setTour(false), []);
 
-  const counts = summary && [summary.tokens, summary.issuers, summary.chains].every(Number.isFinite) ? summary : null;
+  const counts = summary && [summary.issuers, summary.chains].every(Number.isFinite) ? summary : null;
   const k = pricedCount(versions);
   const firstBasket = baskets.data?.baskets?.[0];
   const wrap = mobile ? '' : 'max-w-[1040px] mx-auto';
   const openRow = stocksLive ? (r) => go(`/stocks?q=${encodeURIComponent(r.underlying)}`) : undefined;
   const seeAll = stocksLive ? () => go('/stocks') : undefined;
 
-  const proof = counts && [
-    [counts.tokens.toLocaleString('en-US'), 'tokenized equities measured'],
-    [counts.issuers, 'issuers'],
-    [counts.chains, 'chains'],
-  ];
+  // The proof line names only what T2 serves, each part dropped when its
+  // field is absent. summary.tokens is issuer-by-chain versions (most with
+  // no pool), so it is never called "equities measured".
+  const proof = summary ? [
+    [summary.underlyings, 'stocks and ETFs'],
+    [summary.versions_with_pool, 'tokenized versions with a measured cost'],
+    [summary.issuers, 'issuers'],
+    [summary.chains, 'chains'],
+  ].filter(([n]) => Number.isFinite(n)).map(([n, label]) => [n.toLocaleString('en-US'), label]) : null;
 
   return (
     <div className={mobile ? '' : 'px-6'}>
       {/* HERO, home-01: the proof line (only with all three counts), a
           two-line headline, one line under it, search, Start now. */}
       <section className={`text-center ${mobile ? 'px-4 pt-10 pb-8' : 'pt-16 pb-12'}`}>
-        {proof && (
+        {proof?.length > 0 && (
           <p className="text-[14px] text-muted flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             {proof.map(([n, label], i) => (
               <span key={label} className="inline-flex items-center gap-4">
@@ -123,7 +127,7 @@ export default function Home({ layout = 'web', onNavigate }) {
               <Search size={17} className="text-muted shrink-0" aria-hidden="true" />
               <input
                 type="search" value={q} onChange={(e) => setQ(e.target.value)}
-                placeholder="Search a stock, ETF or vault" aria-label="Search a stock, ETF or vault"
+                placeholder="Search a stock or ETF" aria-label="Search a stock or ETF"
                 className="flex-1 min-w-0 bg-transparent text-[14px] placeholder:text-muted outline-none"
               />
             </form>
