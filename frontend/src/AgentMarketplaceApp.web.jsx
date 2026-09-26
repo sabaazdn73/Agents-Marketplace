@@ -100,6 +100,7 @@ import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
 import AgentsVideo from './AgentsVideo';
 import { PRODUCT_NAV, isLive, SEARCH_LIVE } from './shell/productNav';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
 import Vaults from './pages/Vaults';
@@ -385,7 +386,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
  // handler) is what pushes that choice into a real, bookmarkable URL.
   // Browser back/forward changes `initialNav` from outside, which the
   // effect below resyncs onto `nav`.
-  const [nav, setNav] = useState(initialNav || 'dashboard');
+  const [nav, setNav] = useState(initialNav || 'home');
   useEffect(() => {
     if (initialNav && initialNav !== nav) setNav(initialNav);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -822,42 +823,48 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           to spare. If a platform's fonts are wider, the
           last tab moves to More rather than anything overlapping.
 
-          While only Dashboard and Use with AI are live (shell/productNav.js),
-          the search is not drawn at all, since it opens Stocks & ETFs, and the
-          two tabs sit at the right beside the bell, the theme and the wallet. */}
+          2026-09-26, getquin's header (owner's reference): the logo and
+          "Tnega", a wide search in the middle, the five pages, the three-way
+          theme switch and Sign in. The search field shows from 1280 (xl) and
+          is an icon that opens Stocks & ETFs below that; tabs that do not
+          fit go into More (shell/HeaderNav.jsx). */}
       <header className="sticky top-0 z-30 bg-surface border-b border-line">
         <div className="max-w-[1440px] mx-auto h-16 px-6 xl:px-14 flex items-center gap-2">
           <a
             href="/"
-            onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
+            onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('home'); }}
             className="shrink-0 self-stretch flex items-center text-fg"
           >
-            <Brand markClassName="w-[52px] h-[52px]" wordClassName="text-[22px]" />
+            <Brand markClassName="w-[44px] h-[44px]" wordClassName="text-[21px]" />
           </a>
 
-          {/* The search opens Stocks & ETFs, so it shows only while that page
-              is live (shell/productNav.js SEARCH_LIVE). */}
-          {SEARCH_LIVE && (
-            <>
-              <TopSearch
-                key={query}
-                initial={query}
-                onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
-                className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-0.5"
-              />
-              <button
-                type="button"
-                onClick={() => goTo('stocks')}
-                aria-label="Search stocks, ETFs or vaults"
-                title="Search stocks, ETFs or vaults"
-                className="xl:hidden w-8 h-8 shrink-0 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-inset"
-              >
-                <Search size={16} />
-              </button>
-            </>
-          )}
+          {/* The wide search in the middle. It opens Stocks & ETFs with the
+              words in the address (shell/TopSearch.jsx). */}
+          <div className="flex-1 min-w-0 flex justify-center px-2">
+            {SEARCH_LIVE && (
+              <>
+                <TopSearch
+                  key={query}
+                  initial={query}
+                  onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
+                  className="hidden xl:flex w-full max-w-[380px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => goTo('stocks')}
+                  aria-label="Search stocks, ETFs or vaults"
+                  title="Search stocks, ETFs or vaults"
+                  className="xl:hidden w-8 h-8 shrink-0 rounded flex items-center justify-center text-muted hover:text-fg hover:bg-inset"
+                >
+                  <Search size={16} />
+                </button>
+              </>
+            )}
+          </div>
 
-          <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} align="end" />
+          <div className="flex min-w-[120px] shrink" style={{ width: 470 }}>
+            <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} align="end" />
+          </div>
 
           <div className="flex items-center gap-1 shrink-0">
             {/* The bell reports agent hires, so it shows on the agent pages only;
@@ -880,8 +887,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
         <div className="w-full flex-1">
           {/* The product pages. One component each, shared with the mobile
               app; `layout` changes spacing and never content. */}
+          {nav === 'home' && <Home layout="web" onNavigate={onNavigate} />}
           {nav === 'dashboard' && <Dashboard layout="web" onSignIn={() => onNavigate?.('/signin')} />}
-          {nav === 'stocks' && isLive('stocks') && <Stocks layout="web" query={query} />}
+          {nav === 'stocks' && isLive('stocks') && <Stocks layout="web" query={query} onNavigate={onNavigate} />}
           {nav === 'vaults' && isLive('vaults') && <Vaults layout="web" />}
           {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="web" />}
           {nav === 'ai' && <UseWithAi layout="web" />}
@@ -1689,15 +1697,15 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
         </div>
 
-        {/* The site footer: the secondary pages (Explore agents, My agents,
-            Docs, Status, Data sources, Privacy), where the figures come from,
-            and the social marks. Shared with the mobile sheet. */}
-        <SiteLinks
-          onNavigate={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
-          activePath={path}
-          className="mt-12"
-        />
       </main>
+
+      {/* The site footer, getquin's full-width band in columns (home-11):
+          Product, Tools, Legal, Status. Shared with the mobile app. */}
+      <div className="bg-surface border-t border-line mt-12">
+        <div className="max-w-[1440px] mx-auto px-6 xl:px-14 py-12">
+          <SiteLinks onNavigate={(to) => { dismissAgentDetail(); onNavigate?.(to); }} activePath={path} />
+        </div>
+      </div>
     </div>
   );
 }

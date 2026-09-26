@@ -6,7 +6,8 @@
 // import, shell/productNav.js, is plain too (lucide-react only).
 //
 // THE PRODUCT, 2026-09-25
-// Five pages: Dashboard (/), Stocks & ETFs, Vaults, My ETFs, Use with AI.
+// The home page (/), then Stocks & ETFs, Vaults, My ETFs, Dashboard
+// (/dashboard) and Use with AI.
 // Explore (/market) and My Agents (/my-agents, the hire flow) stay as routes,
 // reached from the footer rather than the main navigation. The tab ids are
 // the ones NAV_ITEMS uses in both apps (shell/productNav.js).
@@ -20,10 +21,11 @@
 import { HIDDEN_PRODUCT_PATHS } from './shell/productNav.js';
 
 export const MAIN_TAB_PATHS = {
-  '/': 'dashboard',
+  '/': 'home',
   '/stocks': 'stocks',
   '/vaults': 'vaults',
   '/my-etfs': 'my-etfs',
+  '/dashboard': 'dashboard',
   '/ai': 'ai',
   // Explore keeps /market, and the id 'market': shared links, the Chrome Web
   // Store listing and every `nav === 'market'` check read them.
@@ -48,7 +50,7 @@ export const REDIRECTS = {
   '/connect': '/ai',
   '/how-it-works': '/ai',
   '/home': '/',
-  '/wallet': '/',
+  '/wallet': '/dashboard',
   '/native-agents': '/',
   '/studio': '/',
   '/pay-b402': '/',
@@ -135,6 +137,7 @@ export function resolvePath(pathname) {
 }
 
 /** The tab a pathname opens. Expects a path already through resolvePath.
+ *  "/" is the home page.
  *  Explore's agent pages and chain views open Explore. So does "/" with the
  *  original share format, "?agent=<id>", which was written while "/" was
  *  Explore and is still out in shared links. Anything else opens the
@@ -143,5 +146,5 @@ export function tabForPath(pathname, search = '') {
   if (pathname === '/' && /[?&]agent=/.test(search)) return 'market';
   if (Object.prototype.hasOwnProperty.call(MAIN_TAB_PATHS, pathname)) return MAIN_TAB_PATHS[pathname];
   if (isExplorePath(pathname)) return 'market';
-  return 'dashboard';
+  return 'home';
 }

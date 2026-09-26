@@ -60,6 +60,7 @@ import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
 import AgentsVideo from './AgentsVideo';
 import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE } from './shell/productNav';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
 import Vaults from './pages/Vaults';
@@ -165,7 +166,8 @@ function MobileWalletSheet({ onClose, onNavigate, path }) {
         <SiteLinks
           onNavigate={onNavigate ? (to) => { onClose(); onNavigate(to); } : undefined}
           activePath={path}
-          className="mt-6"
+          variant="sheet"
+          className="mt-6 pt-5 border-t border-line"
         />
       </div>
     </div>
@@ -327,7 +329,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   // AgentMarketplaceApp.web.jsx.
  // per-tab URL routing, see the matching comment in
   // AgentMarketplaceApp.web.jsx; identical mechanism here.
-  const [nav, setNav] = useState(initialNav || 'dashboard');
+  const [nav, setNav] = useState(initialNav || 'home');
   useEffect(() => {
     if (initialNav && initialNav !== nav) setNav(initialNav);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -623,10 +625,10 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
         <div className="h-[68px] flex items-center justify-between gap-2 pl-4 pr-2">
           <a
             href="/"
-            onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
+            onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('home'); }}
             className="min-w-0 self-stretch flex items-center text-fg"
           >
-            <Brand markClassName="w-[59px] h-[59px]" wordClassName="text-[24px]" gapClassName="gap-2" />
+            <Brand markClassName="w-[44px] h-[44px]" wordClassName="text-[21px]" gapClassName="gap-2" />
           </a>
           <div className="flex items-center gap-0.5 shrink-0">
             {/* Hidden while Stocks & ETFs, where the search leads, is not
@@ -857,8 +859,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           // The product pages, the same components web renders; `layout`
           // changes spacing only.
           <>
+            {nav === 'home' && <Home layout="mobile" onNavigate={onNavigate} />}
             {nav === 'dashboard' && <Dashboard layout="mobile" onSignIn={() => onNavigate?.('/signin')} />}
-            {nav === 'stocks' && isLive('stocks') && <Stocks layout="mobile" query={query} />}
+            {nav === 'stocks' && isLive('stocks') && <Stocks layout="mobile" query={query} onNavigate={onNavigate} />}
             {nav === 'vaults' && isLive('vaults') && <Vaults layout="mobile" />}
             {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="mobile" />}
             {nav === 'ai' && <UseWithAi layout="mobile" />}
@@ -1216,7 +1219,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
         {/* The footer links, the same component the web shell and the menu
             sheet use. */}
         <div className="px-4 pb-6">
-          <SiteLinks onNavigate={(to) => { dismissAgentDetail(); onNavigate?.(to); }} activePath={path} className="mt-4" />
+          <SiteLinks onNavigate={(to) => { dismissAgentDetail(); onNavigate?.(to); }} activePath={path} className="mt-4 pt-8 border-t border-line" />
         </div>
       </main>
 

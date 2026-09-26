@@ -7,26 +7,24 @@
 //
 // THE FLOW
 // Connect a wallet here, then sign the sign-in message in the existing modal
-// (wallet/SignInProvider.jsx, SignInModal.jsx), then land on "/". The modal
+// (wallet/SignInProvider.jsx, SignInModal.jsx), then land on /dashboard. The modal
 // opens by itself only after a wallet was connected from this page, not for a
 // wallet that was already connected when the page loaded. A visitor already
-// signed in is sent straight to "/". Signing is never required to read
+// signed in is sent straight to /dashboard. Signing is never required to read
 // anything: "Continue without signing" and "Browse without a wallet" say so.
 //
-// THE PANELS
-// Left follows the theme: the page colour, black in dark. Right stays dark in
-// both themes, so its colours are written out rather than taken from the
-// theme roles. Its ground is a neutral near-black, #0b0b0d, not the page's
-// black: in the dark theme the two panels would otherwise be one colour and
-// the 40/60 split would not read. Its glow is our accent's hue (violet, about
-// 270 degrees), as a radial gradient.
+// THE PANELS, getquin's login (owner's reference, login-page.jpg): the
+// wallet sign-in on the left; on the right the hero line and a product shot.
+// Both follow the theme. The right panel is the card colour so the split
+// reads in both themes, with no glow or gradient (owner). The product shot
+// is the real lists and cost card, drawn only when their reads answer; with
+// no data the panel holds the line alone, never an empty frame.
 //
-// Below 1024px the wordmark is 26px and starts 28px under the theme button,
-// so the two do not crowd each other at the top of a phone screen. The frame is a placeholder for a screenshot of the
-// dashboard and holds nothing, on purpose: no figures that could be read as
-// data.
+// Below 1024px only the left panel shows.
 
 import React, { useEffect, useRef } from 'react';
+import { useTe } from '../te/api';
+import { InstrumentList, VersionsCard } from '../home/cards';
 import { useDisconnect } from 'wagmi';
 import { QRCodeCanvas } from 'qrcode.react';
 import { ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -135,36 +133,23 @@ function Connected({ address, openSignIn, onSkip, onSwitch }) {
 }
 
 function Showcase() {
+  const stocks = useTe('/api/te/list?type=stock&group=all&limit=5&sort=popular').data;
+  const versions = useTe('/api/te/underlying/NVDA?size=1000').data;
+  const shot = stocks?.rows?.length > 0 && versions?.versions?.length > 0;
   return (
-    <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden flex-col items-center px-12 pt-[100px] bg-[#0b0b0d] text-white dark:bg-surface dark:text-fg dark:border-l dark:border-line">
-      {/* The glow, our accent's hue, behind the top of the frame. Light
-          theme only: dark has no glow or gradient on any surface (owner,
-          2026-09-26). */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none dark:hidden"
-        style={{ background: 'radial-gradient(52% 38% at 50% 50%, rgba(150, 82, 245, 0.42) 0%, rgba(150, 82, 245, 0.14) 45%, rgba(11, 11, 13, 0) 78%)' }}
-      />
-      <h2 className="relative text-center max-w-[640px]">
-        <span className="block text-[34px] leading-[1.15] font-bold tracking-[-0.01em]">Wealth, borderless.</span>
-        <span className="block mt-3 text-[20px] leading-snug font-normal text-[#b3b3b3] dark:text-muted">
-          Your holdings, and what your trading has cost you.
+    <div className="hidden lg:flex lg:w-3/5 flex-col items-center px-12 pt-[100px] bg-surface border-l border-line text-fg overflow-hidden">
+      <h2 className="text-center max-w-[640px]">
+        <span className="block text-[34px] leading-[1.15] font-bold tracking-[-0.02em]">Wealth, borderless.</span>
+        <span className="block mt-3 text-[18px] leading-snug font-normal text-muted">
+          Every tokenized equity, and what it really costs to buy.
         </span>
       </h2>
-
-      {/* The screenshot frame, empty until there is a dashboard worth
-          photographing: a desktop, and a phone overlapping its lower right. */}
-      <div aria-hidden="true" className="relative mt-auto mb-[9vh] w-full max-w-[680px]">
-        <div className="relative w-[88%]">
-          <div className="rounded-t-[14px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] dark:border-line dark:border-t-line-strong dark:bg-page p-[10px] pb-[14px]">
-            <div className="rounded-[4px] border border-[#262628] bg-[#1a1a1b] dark:border-line dark:bg-inset" style={{ aspectRatio: '16 / 10' }} />
-          </div>
-          <div className="-mx-[4%] h-[12px] rounded-b-[12px] border border-t-0 border-[#414144] bg-[#161617] dark:border-line dark:bg-inset" />
+      {shot && (
+        <div className="mt-16 w-full max-w-[760px] rounded-md border border-line bg-page p-4 grid grid-cols-12 gap-4">
+          <div className="col-span-7"><InstrumentList title="Popular tokenized stocks" data={stocks} compact /></div>
+          <div className="col-span-5"><VersionsCard data={versions} compact /></div>
         </div>
-        <div className="absolute right-0 -bottom-[4%] w-[25%] rounded-[24px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] dark:border-line dark:border-t-line-strong dark:bg-page p-[6px]">
-          <div className="rounded-[18px] border border-[#262628] bg-[#1a1a1b] dark:border-line dark:bg-inset" style={{ aspectRatio: '9 / 19' }} />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -181,7 +166,7 @@ export default function SignInPage({ navigate }) {
     previous.current = status;
     if (status === 'signed') {
       closeSignIn();
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
       return;
     }
     if (prev === 'disconnected' && status === 'connected' && startedHere.current) {
@@ -213,7 +198,7 @@ export default function SignInPage({ navigate }) {
                 <Connected
                   address={address}
                   openSignIn={openSignIn}
-                  onSkip={() => navigate('/')}
+                  onSkip={() => navigate('/dashboard')}
                   onSwitch={() => disconnect()}
                 />
               ) : status === 'signed' ? (

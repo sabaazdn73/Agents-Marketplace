@@ -1,20 +1,26 @@
 // SiteLinks.jsx
 //
-// The site footer, shared by the web shell and the mobile menu sheet, so the
-// two list the same secondary pages in the same order.
+// The site footer, in getquin's column layout (owner's reference, home-11),
+// shared by the web shell, the mobile page foot and the mobile menu sheet,
+// so all three list the same pages in the same order.
 //
-// WHAT IS IN IT (2026-09-25)
-// The main navigation carries the five product pages. Everything else a
-// visitor may still want is here, small: Explore agents (/market) and My
-// agents (/my-agents, the hire flow), which left the navigation when the
-// product changed; then Docs, Status, Data sources and Privacy. Every entry
-// is a real link with an href, so it can be opened in a new tab and a crawler
-// can follow it; `onNavigate` turns a plain click into an in-app navigation
-// without a reload.
-//
-// Under the links, one line naming where the figures come from, beside the
-// link to the full list. Then the baseline: copyright on the left, the social
-// marks and any trailing control (the theme toggle, on web) on the right.
+// COLUMNS (owner, 2026-09-26)
+//   Product  the five pages of the main navigation
+//   Tools    Explore agents, Hyperliquid wallet costs, Hyperliquid
+//            order-book readings, Practice mode, Chrome extension
+//   Legal    Privacy, Data sources
+//   Status   the status page, and the social accounts (real ones only)
+// Where each Tools entry goes:
+//   Hyperliquid wallet costs        /dashboard: a connected wallet's habit
+//                                   costs on Hyperliquid are read there
+//   Hyperliquid order-book readings /chain/hyperliquid
+//   Practice mode                   the extension's store listing: practice
+//                                   mode is a panel of the extension on
+//                                   Hyperliquid's trading pages
+//   Chrome extension                the same listing (extensionLink.js)
+// Every entry is a real link with an href, so it opens in a new tab and a
+// crawler can follow it; `onNavigate` turns a plain click into an in-app
+// navigation without a reload.
 
 import React from 'react';
 import { Github, Linkedin } from 'lucide-react';
@@ -49,35 +55,32 @@ export function XMark({ size = 13, className = '' }) {
   );
 }
 
-// The secondary pages, once. Paths are the app's own routes (routePaths.js
-// and the standalone routes in App.jsx); `external` marks a link that leaves
-// the site and opens in a new tab.
-//
-// The set and its order are the owner's (2026-09-26). Where each goes:
-//   Hyperliquid wallet costs        "/", the Dashboard: a connected wallet's
-//                                   habit costs on Hyperliquid are read there
-//   Hyperliquid order-book readings /chain/hyperliquid, the post-only
-//                                   rejection measurements
-//   Practice mode                   the extension's store listing: practice
-//                                   mode is a panel of the extension on
-//                                   Hyperliquid's trading pages, and the site
-//                                   has no page of its own for it
-//   Chrome extension                the same listing (extensionLink.js)
-// My agents and Docs left the footer with this set; both still resolve.
-export const FOOTER_LINKS = [
-  { key: 'market', label: 'Explore agents', path: '/market' },
-  { key: 'hl-costs', label: 'Hyperliquid wallet costs', path: '/' },
-  { key: 'hl-book', label: 'Hyperliquid order-book readings', path: '/chain/hyperliquid' },
-  { key: 'practice', label: 'Practice mode', path: CHROME_EXTENSION_URL, external: true },
-  { key: 'extension', label: 'Chrome extension', path: CHROME_EXTENSION_URL, external: true },
-  { key: 'sources', label: 'Data sources', path: '/data-sources' },
-  { key: 'privacy', label: 'Privacy', path: '/privacy' },
-  { key: 'status', label: 'Status', path: '/status' },
+export const FOOTER_COLUMNS = [
+  { title: 'Product', links: [
+    { key: 'stocks', label: 'Stocks & ETFs', path: '/stocks' },
+    { key: 'vaults', label: 'Vaults', path: '/vaults' },
+    { key: 'my-etfs', label: 'My ETFs', path: '/my-etfs' },
+    { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
+    { key: 'ai', label: 'Use with AI', path: '/ai' },
+  ] },
+  { title: 'Tools', links: [
+    { key: 'market', label: 'Explore agents', path: '/market' },
+    { key: 'hl-costs', label: 'Hyperliquid wallet costs', path: '/dashboard' },
+    { key: 'hl-book', label: 'Hyperliquid order-book readings', path: '/chain/hyperliquid' },
+    { key: 'practice', label: 'Practice mode', path: CHROME_EXTENSION_URL, external: true },
+    { key: 'extension', label: 'Chrome extension', path: CHROME_EXTENSION_URL, external: true },
+  ] },
+  { title: 'Legal', links: [
+    { key: 'privacy', label: 'Privacy', path: '/privacy' },
+    { key: 'sources', label: 'Data sources', path: '/data-sources' },
+  ] },
+  { title: 'Status', links: [
+    { key: 'status', label: 'Status page', path: '/status' },
+  ] },
 ];
 
-// What the live pages read. No LI.FI quote is shown on any live page, so the
-// line does not name one; it returns with the page that uses it.
-export const SOURCES_LINE = "Figures come from chain reads, Hyperliquid's public API and the agent registries.";
+// Where the figures come from, in one line.
+export const SOURCES_LINE = "Costs: our own reads of each chain's pools. Issuer figures stay on the issuer's page. Nothing here is a recommendation.";
 
 export default function SiteLinks({
   // (path) => void. Called for a plain left click; modified clicks (new tab,
@@ -85,73 +88,70 @@ export default function SiteLinks({
   onNavigate,
   // The current path, so the page you are on is marked.
   activePath = null,
-  // The theme toggle, or anything else the host wants beside the marks.
-  trailing = null,
+  // 'full' for the page foot, 'sheet' for the mobile menu (no brand, two
+  // columns).
+  variant = 'full',
   className = '',
 }) {
-  const link = 'text-label font-medium text-muted hover:text-fg transition-colors';
-  const mark = 'inline-flex items-center justify-center p-1 -m-1 rounded transition-colors text-muted hover:text-fg';
-
   const go = (e, path) => {
     if (!onNavigate || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
     onNavigate(path);
   };
+  const sheet = variant === 'sheet';
+  const mark = 'inline-flex items-center justify-center p-1 -m-1 rounded transition-colors text-muted hover:text-fg';
+  const socials = (
+    <span className="flex items-center gap-3">
+      <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={mark} aria-label="GitHub" title="GitHub"><Github size={15} className="shrink-0" /></a>
+      <a href={LINKEDIN_URL} target="_blank" rel="noreferrer" className={mark} aria-label="LinkedIn" title="LinkedIn"><Linkedin size={15} className="shrink-0" /></a>
+      <a href={X_URL} target="_blank" rel="noreferrer" className={mark} aria-label="X" title="X"><XMark size={14} className="shrink-0" /></a>
+    </span>
+  );
 
   return (
-    <footer className={`border-t border-line pt-4 ${className}`}>
-      {/* Separated by spacing, not by dots: a wrapped row leaves no
-          punctuation stranded at a line end. */}
-      <nav className="flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Site links">
-        {FOOTER_LINKS.map((item) => {
-          const on = !item.external && activePath === item.path;
-          if (item.external) {
-            return (
-              <a key={item.key} href={item.path} target="_blank" rel="noopener noreferrer" className={link}>
-                {item.label}
-              </a>
-            );
-          }
-          return (
-            <a
-              key={item.key}
-              href={item.path}
-              onClick={(e) => go(e, item.path)}
-              aria-current={on ? 'page' : undefined}
-              className={`${link} ${on ? 'text-fg' : ''}`}
-            >
-              {item.label}
-            </a>
-          );
-        })}
-      </nav>
-      <p className="mt-3 text-micro text-muted">
-        {SOURCES_LINE}{' '}
-        <a href="/data-sources" onClick={(e) => go(e, '/data-sources')} className="underline underline-offset-2 hover:text-fg">
-          Every source
-        </a>
-      </p>
-
-      {/* The year is read from the clock: a typed one is wrong every January. */}
-      <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2">
-        <span className="text-micro text-muted">
-          &copy; {new Date().getFullYear()} Tnega
+    <footer className={className}>
+      <div className={sheet ? 'grid grid-cols-2 gap-x-6 gap-y-6' : 'grid grid-cols-2 md:grid-cols-[1.2fr_1fr_1.3fr_1fr_1fr] gap-x-8 gap-y-8'}>
+        {!sheet && (
+          <div className="col-span-2 md:col-span-1">
+            <span className="text-[20px] font-light tracking-[0.02em] text-fg">Tnega</span>
+          </div>
+        )}
+        {FOOTER_COLUMNS.map((col) => (
+          <nav key={col.title} aria-label={col.title}>
+            <h2 className="text-[13px] text-muted mb-3">{col.title}</h2>
+            <ul className="space-y-2.5">
+              {col.links.map((item) => {
+                const on = !item.external && activePath === item.path;
+                return (
+                  <li key={item.key}>
+                    <a
+                      href={item.path}
+                      {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : { onClick: (e) => go(e, item.path) })}
+                      aria-current={on ? 'page' : undefined}
+                      className="text-[13px] font-semibold text-fg hover:underline underline-offset-2"
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+            {col.title === 'Status' && (
+              <div className="mt-6">
+                <h2 className="text-[13px] text-muted mb-3">Connect</h2>
+                {socials}
+              </div>
+            )}
+          </nav>
+        ))}
+      </div>
+      <div className={`mt-8 pt-4 border-t border-line flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted`}>
+        <span>
+          {SOURCES_LINE}{' '}
+          <a href="/data-sources" onClick={(e) => go(e, '/data-sources')} className="underline underline-offset-2 hover:text-fg">Every source</a>
         </span>
-        <span className="flex items-center gap-2.5">
-          <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={mark}
-             aria-label="GitHub" title="GitHub">
-            <Github size={14} className="shrink-0" />
-          </a>
-          <a href={LINKEDIN_URL} target="_blank" rel="noreferrer" className={mark}
-             aria-label="LinkedIn" title="LinkedIn">
-            <Linkedin size={14} className="shrink-0" />
-          </a>
-          <a href={X_URL} target="_blank" rel="noreferrer" className={mark}
-             aria-label="X" title="X">
-            <XMark size={13} className="shrink-0" />
-          </a>
-          {trailing}
-        </span>
+        {/* The year is read from the clock: a typed one is wrong every January. */}
+        <span>&copy; {new Date().getFullYear()} Tnega</span>
       </div>
     </footer>
   );

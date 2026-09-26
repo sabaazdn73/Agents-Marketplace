@@ -1,15 +1,24 @@
 // Vaults.jsx
 //
-// /vaults. Real-world-asset vaults only, when it exists: stablecoins,
-// tokenized stocks and ETFs, treasuries. Nothing is listed yet.
+// /vaults. Real vaults only, read-only, from GET /api/vaults: what each
+// holds, who manages it, its audits and controls, and its TVL as read on
+// chain. There is no deposit anywhere in the tree (SPEC §0.7). The table
+// renders only with rows.
 
 import React from 'react';
-import { PageFrame, BeingBuilt } from './PageFrame';
+import { useTe } from '../te/api';
+import { VaultTable, VaultChecksCard } from '../home/cards';
+import { PageFrame } from './PageFrame';
 
 export default function Vaults({ layout = 'web' }) {
+  const mobile = layout === 'mobile';
+  const vaults = useTe('/api/vaults?limit=100').data;
   return (
     <PageFrame layout={layout} title="Vaults">
-      <BeingBuilt what="Vaults holding real-world assets on Solana and Hyperliquid, each with its platform, manager, assets, fees, lockup and audit status." />
+      <div className={mobile ? 'space-y-4' : 'grid grid-cols-12 gap-6 items-start'}>
+        <div className={mobile ? '' : 'col-span-8'}><VaultTable data={vaults} compact={mobile} /></div>
+        <div className={mobile ? '' : 'col-span-4'}><VaultChecksCard data={vaults} /></div>
+      </div>
     </PageFrame>
   );
 }

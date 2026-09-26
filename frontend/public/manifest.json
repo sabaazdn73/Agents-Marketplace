@@ -1,7 +1,7 @@
 {
   "name": "Tnega",
   "short_name": "Tnega",
-  "description": "Connect your wallet to see its holdings and what its Hyperliquid trading has cost it, and use Tnega from your AI tools.",
+  "description": "Every tokenized stock and ETF, across issuers and chains, with what each costs to buy at your size, measured on the pools.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

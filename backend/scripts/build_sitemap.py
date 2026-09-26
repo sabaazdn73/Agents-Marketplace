@@ -60,11 +60,11 @@ STATIC = [
     # /skills, /how-it-works, /learn, /report, /build, /sell) are gone from
     # this list: each now redirects (frontend/src/routePaths.js REDIRECTS),
     # and a sitemap lists pages, not redirects.
-    #
-    # /stocks, /vaults and /my-etfs are absent while they are not live
-    # (frontend/src/shell/productNav.js, `live: false`): each path redirects
-    # to "/" until then. Add a page back here in the same pass that turns its
-    # flag on.
+    # /dashboard is left out: it is per-wallet and shows nothing to a
+    # crawler.
+    ("/stocks", "daily", "0.9"),
+    ("/vaults", "daily", "0.9"),
+    ("/my-etfs", "weekly", "0.7"),
     ("/ai", "monthly", "0.8"),
     # Explore, reached from the footer now, and still where every agent page
     # below hangs from.

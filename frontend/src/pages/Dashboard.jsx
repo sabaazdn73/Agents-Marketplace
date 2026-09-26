@@ -1,26 +1,62 @@
 // Dashboard.jsx
 //
-// "/". The connected wallet's holdings: the whole of what /wallet used to
-// show (wallet/WalletHome.jsx), unchanged. With no wallet connected,
-// WalletHome shows what the page reads and a way to connect, and nothing
-// else: no list of instruments until one exists and works end to end.
+// /dashboard, laid out like getquin's dashboard (owner's reference,
+// dashboard-01 to 03). Left: Portfolio (value and chart), Positions,
+// Dividends. Right: Allocation, Performance by year and the cost breakdown.
+// The cards read POST /api/site/portfolio (dashboard/cards.jsx), and each
+// renders nothing where the answer has nothing for it.
 //
-// Nothing about agents: no hires panel (WalletHome showHires) and no
-// notification bell in either header while the Dashboard is open.
-//
-// `onSignIn` is what the connect button does with no wallet connected. Both
-// apps pass the /signin page, the same place the header's "Sign in" goes.
+// Until that endpoint serves, the wallet's holdings come from the existing
+// reads in wallet/* (WalletHome: the Hyperliquid account and the named
+// tokens on EVM chains, with what the Hyperliquid habits cost), shown under
+// the cards. With no wallet connected: a thin banner with one action, as
+// getquin shows a signed-out visitor.
 
 import React from 'react';
+import { useSignIn } from '../wallet/SignInProvider';
 import WalletHome from '../wallet/WalletHome';
-import { PageFrame } from './PageFrame';
+import { useTe } from '../te/api';
+import { Card, PrimaryButton } from '../ui/primitives';
+import { PortfolioCard, PositionsCard, AllocationCard, PerformanceCard, DividendsCard } from '../dashboard/cards';
 
 export default function Dashboard({ layout = 'web', onSignIn = null }) {
+  const mobile = layout === 'mobile';
+  const { status, address } = useSignIn();
+  const connected = status !== 'disconnected' && !!address;
+  const portfolio = useTe(connected ? '/api/site/portfolio' : null, { method: 'POST', body: connected ? { addresses: [address] } : undefined }).data;
+
+  if (!connected) {
+    return (
+      <div className={mobile ? 'px-4 pt-5 pb-6' : 'w-full'}>
+        <h1 className="sr-only">Dashboard</h1>
+        <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
+          <div>
+            <p className="text-[18px] font-bold text-fg">Connect a wallet to see what it holds.</p>
+            <p className="mt-1 text-[14px] text-muted">Every tokenized stock, ETF and vault it holds, with what each cost, read from the chain. Nothing to sign up for.</p>
+          </div>
+          <PrimaryButton onClick={() => onSignIn?.()}>Connect wallet</PrimaryButton>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <PageFrame layout={layout} title="Dashboard">
-      <section aria-label="Holdings of the connected wallet">
+    <div className={mobile ? 'px-4 pt-5 pb-6 space-y-4' : 'w-full space-y-6'}>
+      <h1 className="sr-only">Dashboard</h1>
+      <div className={mobile ? 'space-y-4' : 'grid grid-cols-12 gap-6 items-start'}>
+        <div className={mobile ? 'space-y-4' : 'col-span-8 space-y-6'}>
+          <PortfolioCard data={portfolio} />
+          <PositionsCard data={portfolio} compact={mobile} />
+          <DividendsCard data={portfolio} />
+        </div>
+        <div className={mobile ? 'space-y-4' : 'col-span-4 space-y-6'}>
+          <AllocationCard data={portfolio} />
+          <PerformanceCard data={portfolio} />
+        </div>
+      </div>
+      <section aria-label="Wallet holdings">
         <WalletHome layout={layout} embedded onConnect={onSignIn} showHires={false} />
       </section>
-    </PageFrame>
+    </div>
   );
 }
