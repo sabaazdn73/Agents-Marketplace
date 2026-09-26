@@ -20,7 +20,9 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, Request, Response
+from starlette.requests import ClientDisconnect
 
+from core.env_caps import cap_from_env  # telegram_bot imports it from here too
 from mcp_server import envelope, protocol, registry
 
 
@@ -138,20 +140,27 @@ _UNPARSEABLE = object()
 # only a body under the cap is parsed. At the 64 KB cap the worst shape
 # measured, the same `[{},{},...]`, peaks at 1.66 MB; scripts/mcp_selfcheck.py
 # measures it on every run.
-def cap_from_env(name: str, default: int) -> int:
-    import os
-    try:
-        n = int(os.environ.get(name, "") or default)
-    except ValueError:
-        n = default
-    return n if n > 0 else default
-
-
+#
+# The whole app also sits behind server.py's BodyCap middleware at 256 KB. This
+# cap is the tighter one for this route and still applies inside it: a body
+# between 64 KB and 256 KB is refused here, in JSON-RPC's shape.
 MAX_BODY_BYTES = cap_from_env("MCP_MAX_BODY_BYTES", 65_536)
 
 
 class BodyTooLarge(Exception):
     pass
+
+
+class ClientGone(ClientDisconnect):
+    """The client disconnected before its body was complete.
+
+    A subclass of Starlette's ClientDisconnect so that a caller which does not
+    catch it (the Telegram webhook) still hands the app-wide middleware an
+    exception it recognises and ends quietly, rather than reaching uvicorn as
+    "Exception in ASGI application" with a traceback. It has already been
+    logged once here, and the scope says so, so the middleware does not log
+    it again.
+    """
 
 
 async def read_body_capped(request: Request, cap: int) -> bytes:
@@ -171,10 +180,18 @@ async def read_body_capped(request: Request, cap: int) -> bytes:
         except ValueError:
             raise BodyTooLarge from None
     buf = bytearray()
-    async for chunk in request.stream():
-        buf += chunk
-        if len(buf) > cap:
-            raise BodyTooLarge
+    try:
+        async for chunk in request.stream():
+            buf += chunk
+            if len(buf) > cap:
+                raise BodyTooLarge
+    except ClientDisconnect:
+        # Nobody is left to answer. One line, with the path and the count and
+        # nothing from the body, and no traceback.
+        print(f"[body] client disconnected mid-body: {request.method} "
+              f"{request.url.path} after {len(buf)} bytes", flush=True)
+        request.scope["body_cap.disconnect_logged"] = True
+        raise ClientGone() from None
     return bytes(buf)
 
 
@@ -320,6 +337,10 @@ def build_router(providers: Providers) -> APIRouter:
             # Charged, so an oversized flood is not free, and refused before
             # a single byte past the cap is held.
             return _rate_refusal(None) or too_large(MAX_BODY_BYTES)
+        except ClientGone:
+            # Already logged. The client is gone, so this reply goes nowhere;
+            # it exists so the route returns rather than raises.
+            return Response(status_code=400)
         try:
             body = json.loads(raw)
         except (ValueError, UnicodeDecodeError, RecursionError):

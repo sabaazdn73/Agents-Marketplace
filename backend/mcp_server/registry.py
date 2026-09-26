@@ -233,8 +233,9 @@ def _retry_serialization(fn: Callable[[], Any]) -> Any:
     expects the client to run it again; it is a signal to retry, not a fault.
     coverage() runs six reads against tables the collector is writing, and
     one of them occasionally lost, which took the dataset's whole coverage
-    block to unavailable for that call. Once, not in a loop: a second failure
-    is reported as the failure it is.
+    block to unavailable for that call. makers() and address_series() read
+    tables the collectors write in the same way and take the same wrapper.
+    Once, not in a loop: a second failure is reported as the failure it is.
     """
     try:
         return fn()
@@ -258,7 +259,10 @@ def _hl_makers(hl) -> tuple[list[dict], bool]:
     in whatever order it liked, so a cursor walk could see one twice and miss
     another. The address breaks the tie here, over the same ordering.
     """
-    rows = hl.makers(HL_MAKERS_READ)
+    # Retried like coverage(): the same collector writes these tables, and a
+    # makers read that lost a conflict took the list, summary and every page
+    # of the dataset down with it for that call.
+    rows = _retry_serialization(lambda: hl.makers(HL_MAKERS_READ))
     return sorted(rows, key=_hl_order), len(rows) >= HL_MAKERS_READ
 
 
@@ -536,7 +540,10 @@ def build(providers) -> dict[str, Dataset]:
         # to rewrite.
         list=lambda *, limit, offset, **_: _hl_page(hl, limit, offset),
         summary=lambda **_: _hl_summary(hl),
-        series=hl.address_series,
+        # The series reads the WebSocket tables, which lose the same
+        # conflicts coverage() does, so it takes the same single retry.
+        series=lambda address, **kw: _retry_serialization(
+            lambda: hl.address_series(address, **kw)),
         # The REST collector's last poll for the dataset, and the WebSocket
         # series' last bucket for a series: the two coverage blocks carry one
         # key each and never both.

@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Depends
 from fastapi.responses import Response, JSONResponse, StreamingResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import ClientDisconnect
 from dotenv import load_dotenv
 
 # Before the core imports: first_visit and wallet_hash read their salts when
@@ -122,6 +123,204 @@ _extra = os.environ.get("CORS_ALLOWED_ORIGINS", "")
 ALLOWED_ORIGINS = _DEFAULT_ORIGINS + [
     o.strip() for o in _extra.split(",") if o.strip()
 ]
+
+# ── the request-body cap, for every route ────────────────────────────────────
+#
+# Eight public POST routes read their body with request.json(), which holds the
+# whole body and then parses it, whatever its size, and nothing is checked
+# before that read. Parsing a 10 MB body of `[{},{},...]` peaked at 250.8 MB
+# (tracemalloc, 2026-09-25, recorded in mcp_server/router.py), so two or three
+# such requests at once can take the 512 MiB container down. Capping each route
+# by hand is how /mcp, the Telegram webhook, /api/my-jobs and /api/wallet/habits
+# came to be safe, and how eight others were missed; this sits in front of all
+# of them, including routes not yet written.
+#
+# THE CAP, AND WHY IT IS FAR ABOVE ANY REAL BODY. 256 KB, API_MAX_BODY_BYTES to
+# change it. Every write route was checked for its largest legitimate body:
+# the admin batch routes, /api/build, /api/canary/check-pending and
+# /api/studio/runs/{id}/retry take no body at all (query parameters or none);
+# /api/my-jobs and /api/wallet/habits take one address and cap themselves at
+# 256 bytes; /api/studio/runs and /api/commerce/run refuse a request text over
+# 4,000 characters, which JSON-escaped is at most 24 KB; the paybox, canary,
+# negotiate and notify-funded bodies are a few fields and at most a signed
+# EIP-712 or x402 envelope, a few kilobytes. /mcp keeps its own 64 KB cap
+# inside this one. The Telegram webhook keeps its own cap too, and gets a
+# per-path entry below so that raising TELEGRAM_MAX_BODY_BYTES still raises
+# its limit rather than being silently held at this one.
+#
+# HOW. A declared Content-Length over the cap is refused with 413 before a
+# byte is read. A chunked or undeclared body is counted as it arrives, and the
+# read is stopped the moment the count passes the cap, so what any handler can
+# be holding is the cap plus one chunk. A handler that catches the stop in a
+# broad `except Exception` (none here does now, since they read through
+# _json_object below, but one could) would answer with its own status; the
+# response it then tries to start is replaced with the 413, so the caller is
+# told the real reason. If a response has already started when the cap is passed
+# (nothing here streams a response while reading a body, but a route could),
+# a 413 can no longer be sent: the response is left unfinished, the server
+# closes the connection, and one line is logged.
+#
+# WHAT THIS DOES NOT BOUND. Time. A client that sends a small body one byte a
+# minute holds a connection and a task without ever reaching the cap. Per-
+# request body timeouts, header timeouts and a ceiling on concurrent
+# connections belong to the server and the proxy in front of it (uvicorn's
+# --limit-concurrency and --timeout-keep-alive, Render's own proxy), not to
+# application code, which only sees a body once the server hands it over.
+from core.env_caps import cap_from_env
+
+API_MAX_BODY_BYTES = cap_from_env("API_MAX_BODY_BYTES", 262_144)
+BODY_CAP_PER_PATH = {
+    "/api/telegram/webhook": cap_from_env("TELEGRAM_MAX_BODY_BYTES", 262_144),
+}
+
+
+class _BodyOverCap(Exception):
+    """Raised from receive() once the running count passes the cap."""
+
+
+class BodyCap:
+    """Pure ASGI, so nothing is buffered on the way through: the body reaches
+    the handler chunk by chunk exactly as it would without this."""
+
+    def __init__(self, app, default_cap: int, per_path: dict[str, int] | None = None):
+        self.app = app
+        self.default_cap = default_cap
+        self.per_path = dict(per_path or {})
+
+    @staticmethod
+    async def _refuse(send, status: int, body: dict) -> None:
+        raw = json.dumps(body).encode()
+        await send({"type": "http.response.start", "status": status, "headers": [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(raw)).encode()),
+            # The rest of the body is not going to be read. Closing tells the
+            # server not to try to parse it as the next request.
+            (b"connection", b"close"),
+        ]})
+        await send({"type": "http.response.body", "body": raw})
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        path = scope.get("path") or ""
+        method = scope.get("method") or ""
+        cap = self.per_path.get(path, self.default_cap)
+        too_large = {"detail": f"Request body is larger than {cap} bytes.",
+                     "error": "too_large", "limit_bytes": cap}
+
+        declared = [v for k, v in scope.get("headers") or [] if k == b"content-length"]
+        if declared:
+            try:
+                lengths = {int(v) for v in declared}
+            except ValueError:
+                lengths = None
+            if not lengths or len(lengths) != 1 or min(lengths) < 0:
+                await self._refuse(send, 400, {"detail": "Invalid Content-Length header.",
+                                                "error": "bad_content_length"})
+                return
+            if lengths.pop() > cap:
+                await self._refuse(send, 413, too_large)
+                return
+
+        state = {"received": 0, "over": False, "started": False, "refused": False,
+                 "gone": False}
+
+        async def capped_receive():
+            if state["over"]:
+                # A handler that caught the stop and reads again gets the stop
+                # again, not a disconnect: a disconnect would be logged as the
+                # client leaving and the 413 would never be sent.
+                raise _BodyOverCap
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                state["gone"] = True
+            elif message["type"] == "http.request":
+                state["received"] += len(message.get("body") or b"")
+                if state["received"] > cap:
+                    state["over"] = True
+                    raise _BodyOverCap
+            return message
+
+        async def guarded_send(message):
+            if state["refused"]:
+                return
+            if message["type"] == "http.response.start" and not state["started"]:
+                if state["over"]:
+                    # The handler caught the stop and answered with its own
+                    # status. The caller is owed the real one.
+                    state["refused"] = True
+                    await self._refuse(send, 413, too_large)
+                    return
+                state["started"] = True
+            await send(message)
+
+        try:
+            await self.app(scope, capped_receive, guarded_send)
+        except _BodyOverCap:
+            pass
+        except ClientDisconnect:
+            # The client left mid-body and the handler let it propagate.
+            # Nobody is left to answer, and the default is a full traceback
+            # under "Exception in ASGI application". One line instead, below.
+            state["gone"] = True
+        if state["gone"]:
+            # Logged here whether the handler raised it or swallowed it in a
+            # broad `except`, and once: a reader that already wrote the line
+            # marks the scope
+            # (mcp_server.router.read_body_capped).
+            if not scope.get("body_cap.disconnect_logged"):
+                print(f"[body] client disconnected mid-body: {method} {path} "
+                      f"after {state['received']} bytes", flush=True)
+            return
+        if state["over"] and not state["refused"]:
+            if state["started"]:
+                print(f"[body] {method} {path} passed the {cap}-byte cap after its "
+                      f"response had started; the connection is closed unfinished",
+                      flush=True)
+            else:
+                await self._refuse(send, 413, too_large)
+
+
+# Added before CORS, which makes CORS the outer of the two: a 413 goes out
+# through it and carries the CORS headers, so the site can read the status.
+app.add_middleware(BodyCap, default_cap=API_MAX_BODY_BYTES, per_path=BODY_CAP_PER_PATH)
+
+
+# ── a JSON body, parsed once, the same way on every route ───────────────────
+#
+# Every route below that reads a JSON body then calls body.get(). Three of them
+# had no guard at all, so malformed JSON was a JSONDecodeError and a 500 with a
+# traceback; the other five caught it but each in its own `except Exception`,
+# which also caught the body cap's stop and a client disconnect and relabelled
+# both as bad JSON. And on all eight, valid JSON that is not an object (a list,
+# a string, a number, null) made body.get() an AttributeError and a 500.
+#
+# One reader instead. It parses, and it refuses with a 400 that says which of
+# the two things is wrong. It catches only what a parse raises, so the cap and
+# a disconnect pass through to the BodyCap middleware, which answers or logs
+# them as what they are. RecursionError as well: a deeply nested array is
+# valid JSON the parser cannot finish.
+class _BadJSONBody(Exception):
+    def __init__(self, error: str):
+        super().__init__(error)
+        self.error = error
+
+
+async def _json_object(request: Request) -> dict:
+    try:
+        body = await request.json()
+    except (ValueError, RecursionError):
+        raise _BadJSONBody("body is not valid JSON") from None
+    if not isinstance(body, dict):
+        raise _BadJSONBody("expected a JSON object")
+    return body
+
+
+@app.exception_handler(_BadJSONBody)
+async def _bad_json_body(request: Request, exc: _BadJSONBody):
+    return JSONResponse(status_code=400, content={"detail": exc.error, "error": exc.error})
+
 
 # The API serves both GET (agents, performance/history) and POST (build,
 # hire-adjacent writes), so cross-origin POST and its OPTIONS preflight
@@ -2365,7 +2564,7 @@ async def canary_record(request: Request):
     this route never signs or spends anything itself, it only logs a real
     transaction that already happened on-chain. Body: {owner_address,
     agent_name, job_id, budget_units, tx_hash?}."""
-    body = await request.json()
+    body = await _json_object(request)
     owner_address = body.get("owner_address")
     job_id = body.get("job_id")
     if not owner_address or job_id is None:
@@ -2441,7 +2640,7 @@ async def agent_negotiate(request: Request):
     negotiation-result envelope on a accepted quote, or a clean
     {"available": false} the frontend can fall back on, never a
     fabricated/synthesized quote."""
-    body = await request.json()
+    body = await _json_object(request)
     owner_address = body.get("owner_address")
     agent_id = body.get("agent_id")
     task_description = body.get("task_description")
@@ -2489,7 +2688,7 @@ async def agent_notify_funded(request: Request):
     doesn't implement notify_funded, timeout, rejection), the caller must
     treat that as "delivery may be slower, not that funding failed": the
     job is already funded on-chain by the time this is ever called."""
-    body = await request.json()
+    body = await _json_object(request)
     owner_address = body.get("owner_address")
     agent_id = body.get("agent_id")
     job_id = body.get("job_id")
@@ -3161,10 +3360,7 @@ async def paybox_create_session(request: Request):
     of requirements sourced from a live B402 /supported call, plus
     the `session_id` and `checkout_url` a merchant's own
     `checkout_handoff()` needs."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Body must be JSON.")
+    body = await _json_object(request)
 
     amount = body.get("amount")
     order_reference = body.get("order_reference")
@@ -3229,10 +3425,7 @@ async def paybox_submit_payment(session_id: str, request: Request):
     client-supplied payload against client-supplied requirements only
     proves the client agrees with itself, see core/paybox.py's own module
     docstring on why that's the one rule this whole layer exists for."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Body must be JSON.")
+    body = await _json_object(request)
 
     payment_payload = body.get("paymentPayload") or body.get("payment_payload")
     if not isinstance(payment_payload, dict):
@@ -3268,10 +3461,7 @@ async def studio_start_run(request: Request):
     is polled, because it takes long enough that a synchronous call would
     hide which agent is working."""
     from core.commerce import coordinator
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Body must be JSON.")
+    body = await _json_object(request)
 
     flow = (body or {}).get("flow")
     text = (body or {}).get("request")
@@ -3293,10 +3483,7 @@ async def studio_answer(run_id: str, request: Request):
     Stages before the waiting agent are not run again: their results are
     already in the shared state."""
     from core.commerce import coordinator
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Body must be JSON.")
+    body = await _json_object(request)
     answers = (body or {}).get("answers")
     if not isinstance(answers, dict):
         raise HTTPException(status_code=400, detail="`answers` (object) is required.")
@@ -3679,10 +3866,7 @@ async def commerce_run(request: Request):
     """
     from core.commerce.pipeline import run_pipeline
 
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Body must be JSON.")
+    body = await _json_object(request)
 
     text = (body or {}).get("request")
     if not isinstance(text, str) or not text.strip():
