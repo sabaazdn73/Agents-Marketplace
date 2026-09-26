@@ -37,7 +37,9 @@ header {
   border-bottom: 1px solid var(--line);
 }
 
-header img { width: 36px; height: 36px; object-fit: contain; flex: 0 0 auto; }
+/* The blue tile fills its square, so 43px draws it about 20% larger than the
+   36px box the earlier mark sat in. */
+header img { width: 43px; height: 43px; object-fit: contain; flex: 0 0 auto; }
 header h1 { font-size: 14px; font-weight: 600; margin: 0; color: #F3F4F6; }
 header p { margin: 0; font-size: 12px; color: var(--muted); }
 

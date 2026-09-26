@@ -3,21 +3,36 @@
 
     python3 extension-store/icons.py
 
-Master: extension/icons/tnega-128.png, the mark on transparency.
+Needs rsvg-convert (brew install librsvg) and Pillow.
+
+Master: frontend/public/icon_v2.svg, the mark: the arch and the hexagon
+network on the rounded blue tile. The site's favicon and app icons are
+rendered from the same file (frontend/scripts/render_icons.py), so the toolbar,
+the store listing and the website carry one drawing.
 Writes:
     extension/icons/tnega-16.png
     extension/icons/tnega-32.png
     extension/icons/tnega-48.png
-    extension-store/icon-128.png      byte-identical copy of the master
+    extension/icons/tnega-128.png     the manifest icon and the popup header
+    extension-store/icon-128.png      the store icon, 96px tile in 128px
     extension-store/promo-440x280.png the small promo tile
+    extension-store/promo-1400x560.png the marquee tile
 
 WHY THIS IS A SCRIPT
 --------------------
-These five files are one mark in five places: the toolbar at three sizes, the
-store icon, and the tile. Made by hand they drift, and the drift is invisible
+These files are one mark in several places: the toolbar at four sizes, the
+store icon, and the tiles. Made by hand they drift, and the drift is invisible
 until someone compares the toolbar against the listing. The tile is the one
 that proves the point: it was built from the site's app icon, so when the mark
 changed the tile silently kept the old one, background and all.
+
+Every size is rendered from the vector at that size, never scaled down from a
+larger raster, so the 16px toolbar icon is drawn for 16px.
+
+The store icon is not a copy of tnega-128.png. The Chrome Web Store's image
+guidance asks for a 128px icon whose artwork is 96x96 with 16px of
+transparent padding on each side; the toolbar and the popup want the tile
+filling its square, so the two are rendered separately from the same master.
 
 Edit the master, run this, rebuild the zip. Nothing else touches these files.
 
@@ -25,12 +40,12 @@ The panel's cat, Fendi, is not generated here. fendi-128.png is the owner's
 file as supplied; fendi-32.png and fendi-48.png are Lanczos downscales of the
 owner's 512px master, which is not in the repository, at the same framing.
 He is shown inside the panels only. This script makes the logo, which is what
-the toolbar, the store icon and the tile carry.
+the toolbar, the store icon and the tiles carry.
 """
 
 import base64
+import io
 import pathlib
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -38,14 +53,39 @@ import tempfile
 from PIL import Image
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MASTER = ROOT / "extension" / "icons" / "tnega-128.png"
+MASTER = ROOT / "frontend" / "public" / "icon_v2.svg"
 ICONS = ROOT / "extension" / "icons"
 STORE = ROOT / "extension-store"
 
-TOOLBAR_SIZES = (16, 32, 48)
+TOOLBAR_SIZES = (16, 32, 48, 128)
+
+# Where the tiles draw the mark, in their own pixels. The mark is rendered at
+# exactly this size and embedded, so rsvg-convert does not resample it.
+PROMO_MARK = 96
+MARQUEE_MARK = 220
 
 
-def promo_svg(master_b64):
+def render(size):
+    """The master rendered at size x size, as an RGBA image."""
+    try:
+        png = subprocess.run(
+            ["rsvg-convert", "-w", str(size), "-h", str(size), str(MASTER)],
+            check=True, capture_output=True,
+        ).stdout
+    except FileNotFoundError:
+        sys.exit("FAIL  rsvg-convert not found; install it with: brew install librsvg")
+    im = Image.open(io.BytesIO(png)).convert("RGBA")
+    assert im.size == (size, size), (size, im.size)
+    return im
+
+
+def png_b64(im):
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def promo_svg(mark_b64):
     """The 440x280 tile.
 
     Tnega's mark and wordmark on the panel's own ground, and one line saying
@@ -77,10 +117,9 @@ def promo_svg(master_b64):
   <rect width="440" height="280" fill="url(#ground)"/>
   <rect x="0" y="0" width="440" height="3" fill="url(#hair)"/>
 
-  <!-- The mark sits on the ground directly now that it carries no card of its
-       own, so it is drawn a little larger and a little higher than the version
-       that had one, to keep its optical weight against the wordmark. -->
-  <image x="32" y="34" width="96" height="96" xlink:href="data:image/png;base64,{master_b64}"/>
+  <!-- The mark on its own blue tile, which reads against this ground without
+       a card of its own. -->
+  <image x="32" y="34" width="96" height="96" xlink:href="data:image/png;base64,{mark_b64}"/>
 
   <text x="144" y="74" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
         font-size="27" font-weight="700" fill="#F3F4F6">Tnega</text>
@@ -101,7 +140,7 @@ def promo_svg(master_b64):
 '''
 
 
-def marquee_svg(master_b64):
+def marquee_svg(mark_b64):
     """The 1400x560 marquee tile.
 
     Not the small tile scaled up. At 1400 wide the same three lines would sit
@@ -128,7 +167,7 @@ def marquee_svg(master_b64):
   <rect width="1400" height="560" fill="url(#ground)"/>
   <rect x="0" y="0" width="1400" height="4" fill="url(#hair)"/>
 
-  <image x="96" y="170" width="220" height="220" xlink:href="data:image/png;base64,{master_b64}"/>
+  <image x="96" y="170" width="220" height="220" xlink:href="data:image/png;base64,{mark_b64}"/>
 
   <text x="360" y="246" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
         font-size="68" font-weight="700" fill="#F3F4F6">Tnega</text>
@@ -150,40 +189,36 @@ def marquee_svg(master_b64):
 
 
 def main():
-    master = Image.open(MASTER).convert("RGBA")
-    if master.size != (128, 128):
-        print(f"FAIL  master is {master.size}, expected 128x128")
+    if not MASTER.exists():
+        print(f"FAIL  master not found: {MASTER.relative_to(ROOT)}")
         return 1
-    if master.getchannel("A").getextrema()[0] != 0:
-        print("WARN  master has no transparent pixels; it may still carry a background")
 
     for size in TOOLBAR_SIZES:
         out = ICONS / f"tnega-{size}.png"
-        master.resize((size, size), Image.LANCZOS).save(out, optimize=True)
+        render(size).save(out, format="PNG", optimize=True)
         print(f"wrote {out.relative_to(ROOT)}")
 
+    # 96px of artwork centred in 128px, per the store's image guidance.
     store_icon = STORE / "icon-128.png"
-    shutil.copyfile(MASTER, store_icon)
-    print(f"wrote {store_icon.relative_to(ROOT)}  (copy of the master)")
+    canvas = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+    canvas.alpha_composite(render(96), (16, 16))
+    canvas.save(store_icon, format="PNG", optimize=True)
+    print(f"wrote {store_icon.relative_to(ROOT)}  (96px tile, 16px padding)")
 
     # The SVG is scaffolding for rsvg-convert, not a deliverable, so it is
     # written outside the repository. A copy of it sitting next to the PNG
     # would be one more thing that can fall out of step with the master.
     svg = pathlib.Path(tempfile.gettempdir()) / "tnega-promo.svg"
-    svg.write_text(promo_svg(base64.b64encode(MASTER.read_bytes()).decode()))
+    svg.write_text(promo_svg(png_b64(render(PROMO_MARK))))
     tile = STORE / "promo-440x280.png"
-    try:
-        subprocess.run(
-            ["rsvg-convert", "-w", "440", "-h", "280", "-o", str(tile), str(svg)],
-            check=True,
-        )
-    except FileNotFoundError:
-        print("FAIL  rsvg-convert not found; install it with: brew install librsvg")
-        return 1
+    subprocess.run(
+        ["rsvg-convert", "-w", "440", "-h", "280", "-o", str(tile), str(svg)],
+        check=True,
+    )
     print(f"wrote {tile.relative_to(ROOT)}")
 
     msvg = pathlib.Path(tempfile.gettempdir()) / "tnega-marquee.svg"
-    msvg.write_text(marquee_svg(base64.b64encode(MASTER.read_bytes()).decode()))
+    msvg.write_text(marquee_svg(png_b64(render(MARQUEE_MARK))))
     marquee = STORE / "promo-1400x560.png"
     subprocess.run(
         ["rsvg-convert", "-w", "1400", "-h", "560", "-o", str(marquee), str(msvg)],
