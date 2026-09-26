@@ -226,7 +226,7 @@ export function VaultChecksCard({ data }) {
           <span key={c} className="h-7 px-2.5 rounded border border-line-strong text-[12px] text-fg inline-flex items-center">{c}</span>
         ))}
       </div>
-      <p className="mt-3 text-[11px] text-muted">Read-only: deposits are off.</p>
+      <p className="mt-3 text-[11px] text-muted">Deposits happen on each venue; Tnega never holds funds.</p>
     </Card>
   );
 }
@@ -389,13 +389,13 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
 }
 
 /* Live lists · GET /api/vaults. */
-export function VaultTable({ state, compact = false }) {
+export function VaultTable({ state, compact = false, onOpen }) {
   const { data, error, stale, ever } = state || {};
   if (!data && !(error && ever)) return null;
   if (!data || !hasRows(data.vaults)) {
     return (
       <Card>
-        <div className="flex items-center justify-between gap-2"><h3 className="text-[15px] font-semibold text-fg">Vaults</h3><span className="text-[12px] text-muted">Read-only: deposits are off.</span></div>
+        <div className="flex items-center justify-between gap-2"><h3 className="text-[15px] font-semibold text-fg">Vaults</h3><span className="text-[12px] text-muted">Deposits happen on each venue; Tnega never holds funds.</span></div>
         <p className="mt-3 text-[13px] text-muted">{data ? 'No qualifying vault found.' : "Couldn't read the vaults. Try again later."}</p>
       </Card>
     );
@@ -404,7 +404,7 @@ export function VaultTable({ state, compact = false }) {
     <Card pad={false} className={`overflow-x-auto ${stale ? 'opacity-60' : ''}`}>
       <div className="px-4 pt-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2"><h3 className="text-[15px] font-semibold text-fg">Vaults</h3><DevTag data={data} /></div>
-        <span className="text-[12px] text-muted">Read-only: deposits are off.</span>
+        <span className="text-[12px] text-muted">Deposits happen on each venue; Tnega never holds funds.</span>
       </div>
       <table className={`w-full mt-2 text-[13px] ${compact ? '' : 'min-w-[560px]'}`}>
         <thead>
@@ -418,11 +418,11 @@ export function VaultTable({ state, compact = false }) {
         </thead>
         <tbody className="divide-y divide-line">
           {data.vaults.map((v) => (
-            <tr key={`${v.platform}-${v.name}`}>
+            <tr key={v.key || `${v.platform}-${v.name}`} className={onOpen ? 'cursor-pointer hover:bg-inset/60' : ''} onClick={onOpen ? () => onOpen(v) : undefined}>
               <td className="px-4 py-2.5"><div className="text-fg font-semibold">{v.name}</div><div className="text-[12px] text-muted">{v.platform} · {v.chain}</div></td>
               <td className="py-2.5 text-fg">{v.manager}<div className="text-[12px] text-muted">{v.audits}</div></td>
               {!compact && <td className="py-2.5 text-fg">{v.assets}<div className="text-[12px] text-muted">{v.controls}</div></td>}
-              <td className="py-2.5 pr-4 md:pr-0 text-right tabular-nums text-fg">{fmtUsd0(v.tvl_usd)}{v.tvl_slot ? <div className="text-[11px] text-muted">slot {v.tvl_slot.toLocaleString('en-US')}</div> : null}</td>
+              <td className="py-2.5 pr-4 md:pr-0 text-right tabular-nums text-fg" title={v.tvl_basis}>{fmtUsd0(v.tvl_usd)}<div className="text-[11px] text-muted">{v.tvl_source === 'computed_from_chain' ? 'computed from chain' : v.tvl_source === 'vault_recorded' ? `as recorded by the vault${v.tvl_last_written ? `, written ${String(v.tvl_last_written).slice(0, 10)}` : ''}` : ''}{v.stale ? ', stale' : ''}{v.nested_in ? ', inside another listed vault' : ''}</div><span className="sr-only">{v.tvl_basis}</span></td>
               {!compact && <td className="px-4 py-2.5 text-right text-fg">{v.fees}<div className="text-[12px] text-muted">{v.lockup}</div></td>}
             </tr>
           ))}

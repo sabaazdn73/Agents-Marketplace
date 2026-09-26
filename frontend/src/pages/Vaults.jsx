@@ -1,24 +1,31 @@
 // Vaults.jsx
 //
-// /vaults. Real vaults only, read-only, from GET /api/vaults: what each
-// holds, who manages it, its audits and controls, and its TVL as read on
-// chain. There is no deposit anywhere in the tree (SPEC §0.7). The table
-// renders only with rows.
+// /vaults and /vaults/<platform>/<address>: the list (vaults/VaultList.jsx)
+// or one vault (vaults/VaultDetail.jsx), in the layout of Hyperliquid's
+// vault pages (owner's reference). Real vaults only, from T6's GET
+// /api/vaults. Deposit and Withdraw hand off to the venue; nothing is signed
+// here. Behind DATA_LIVE (dataLive.js).
 
 import React from 'react';
 import { useTe } from '../te/api';
-import { VaultTable, VaultChecksCard } from '../home/cards';
+import { DATA_LIVE } from '../dataLive';
+import VaultList from '../vaults/VaultList';
+import VaultDetail from '../vaults/VaultDetail';
 import { PageFrame } from './PageFrame';
 
-export default function Vaults({ layout = 'web' }) {
-  const mobile = layout === 'mobile';
-  const vaults = useTe('/api/vaults?limit=100');
-  return (
-    <PageFrame layout={layout} title="Vaults">
-      <div className={mobile ? 'space-y-4' : 'grid grid-cols-12 gap-6 items-start'}>
-        <div className={mobile ? '' : 'col-span-8'}><VaultTable state={vaults} compact={mobile} /></div>
-        <div className={mobile ? '' : 'col-span-4'}><VaultChecksCard data={vaults.data} /></div>
+export default function Vaults({ layout = 'web', path = '/vaults', onNavigate }) {
+  const m = (path || '').split('#')[0].match(/^\/vaults\/([a-z]+)\/([A-Za-z0-9]+)$/);
+  const list = useTe(DATA_LIVE && !m ? '/api/vaults?limit=100' : null);
+  if (m) {
+    return (
+      <div className={layout === 'mobile' ? 'px-4 pt-5 pb-6' : 'w-full'}>
+        <VaultDetail platform={m[1]} address={m[2]} layout={layout} onNavigate={onNavigate} />
       </div>
+    );
+  }
+  return (
+    <PageFrame layout={layout} title="Vaults" sub="Vaults holding real-world assets, checked on chain. Tnega never holds funds.">
+      <VaultList state={list} layout={layout} onNavigate={onNavigate} />
     </PageFrame>
   );
 }

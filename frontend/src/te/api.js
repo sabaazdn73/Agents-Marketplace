@@ -47,9 +47,65 @@
 //   GET /api/baskets/curated
 //     { note, baskets: [{ name, code, legs: [{ ticker, symbol, weight_bps }],
 //         cost_bps_1k, signatures, evm, nonevm, cap_usd, cap_leg }] }
-//   GET /api/vaults?limit=
-//     { computed_at, vaults: [{ name, platform, chain, group, manager,
-//         audits, assets, controls, tvl_usd, tvl_slot, fees, lockup }] }
+//   GET /api/vaults?platform=&limit=&offset=   (T6, branch te-vaults; limit <= 100)
+//     { computed_at, as_of, read_only, deposits, notice, rule, order,
+//       total, count, offset, limit, partial?, missing?,
+//       vaults: [{ key, name, platform, chain, group, address, manager,
+//                  audits, assets, controls, fees, lockup,
+//                  tvl_usd, tvl_amount, tvl_symbol, tvl_slot,
+//                  tvl_source: 'computed_from_chain'|'vault_recorded',
+//                  tvl_basis, tvl_reconciliation, tvl_partial,
+//                  tvl_last_written, stale?: bool (the latest read of this
+//                  vault failed; the figures are the previous read's),
+//                  nested_in?: key of the listed vault this one sits
+//                  inside (its dollars are already in that vault's TVL),
+//                  provenance: { <field>: { class: 'A'|'D', slot?, url?,
+//                                           read_on?, source? } },
+//                  read_at,
+//                  // not served by T6 yet; rendered when present:
+//                  return_30d?: { pct, basis, from, to },
+//                  series?: { share_price: [[t_ms, v]], tvl: [[t_ms, usd]] },
+//                  age_days? }],
+//       platforms: [{ platform, platform_key, chain, group,
+//                     status: 'listed'|'none_qualifying', listed, as_of,
+//                     read_at, text, reason_class?, discovered?, slot?,
+//                     excluded?: [{ reason, count }],
+//                     named_exclusions?: [{ address, name?, reason }],
+//                     upgrade?: { text, class, slot },
+//                     evidence?, sources?, sources_read_on? }] }
+//   GET /api/vaults/{platform}/{address}   (T6)
+//     { kind, platform, platform_key, chain, group, address, program, name,
+//       token: { mint, symbol, decimals }, slots,
+//       tvl: { usd, amount, symbol, slot, source, basis, reconciliation,
+//              partial, vault_recorded?: { amount, field, slot },
+//              difference_pct? },
+//       fees, lockup: { text, class, slot, ... },
+//       manager: { text, class, slot, vault_admin?, allocation_admin?,
+//                  pending_admin? (each { kind, address, text, ... }) },
+//       assets: { text, class, slot, allocations?: [{ reserve,
+//                 lending_market, market_owner_text, target_weight,
+//                 value_tokens }] },
+//       controls: { class, slot, admin?, allocation_admin?,
+//                   global_admin?: { text }, market_owners?: [string],
+//                   pause?: { text, class },
+//                   upgrade?: { programs: [{ program, state, authority,
+//                                            last_deploy_slot, slot,
+//                                            authority_detail?: { text } }] } },
+//       audits: { text, class, url, read_on, entries?: [{ auditor,
+//                 date_as_stated, scope }], note? },
+//       powers: { class, source, read_on, rows: [[role, what]], moves },
+//       read_at, row (the list row), notice,
+//       // not served by T6 yet; rendered when present:
+//       return_30d?, series?, age_days?, depositors?: [...],
+//       activity?: [...] }
+//   GET /api/baskets/{code}
+//     { code, name, creator, created_at, version, description,
+//       legs: [{ ticker, symbol, issuer, chain, group, weight_bps }],
+//       value_usd_indicative?, value_basis?, return_since_creation_pct?,
+//       followers_count?, series?: [[t_ms, usd]],
+//       cost_at_size?: { stops: [usd], bps: [number|null] },
+//       changes: [{ version, at, legs: [...], note? }],
+//       followers?: [{ address, since }] }
 //   POST /api/site/portfolio { addresses: [address] }
 //     { total_usd, change_usd, change_pct, computed_at,
 //       series: { '1D'|'1W'|'1M'|'YTD'|'1Y'|'Max': [[t_ms, usd]] },
@@ -79,7 +135,8 @@ async function fixtureFor(path, body) {
 export async function teRead(path, { method = 'GET', body } = {}) {
   if (USE_FIXTURES) {
     const d = await fixtureFor(path, body);
-    return d ? { data: d } : { error: 'no fixture' };
+    // A path the fixtures do not know answers as the API would: not found.
+    return d ? { data: d } : { error: 'HTTP 404' };
   }
   try {
     const r = await fetch(`${API_BASE_URL}${path}`, {

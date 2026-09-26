@@ -88,6 +88,20 @@ const EXPLORE_PATTERNS = [
   new RegExp(`^/chain/(${CHAIN_VIEW_IDS.join('|')})$`),
 ];
 
+// Product detail pages: one vault (/vaults/<platform>/<address>, T6's
+// platform keys) and one public basket (/my-etfs/<code>). Each opens its
+// product tab, and is served only while that tab's page is live.
+const PRODUCT_DETAIL = [
+  [/^\/vaults\/(kamino|voltr|glam|hyperliquid|hyperevm)\/[A-Za-z0-9]{20,64}$/, 'vaults', '/vaults'],
+  [/^\/my-etfs\/[a-z0-9-]{1,40}$/, 'my-etfs', '/my-etfs'],
+];
+
+/** The product tab a detail path belongs to, or null. */
+export function productDetail(pathname) {
+  const hit = PRODUCT_DETAIL.find(([re]) => re.test(pathname));
+  return hit ? { tab: hit[1], parent: hit[2] } : null;
+}
+
 /** Is this an Explore deep link (an agent page or a chain view)? */
 export function isExplorePath(pathname) {
   return EXPLORE_PATTERNS.some((re) => re.test(pathname));
@@ -100,6 +114,8 @@ export function stripTrailingSlash(pathname) {
 }
 
 function isServed(p) {
+  const d = productDetail(p);
+  if (d) return !HIDDEN_PRODUCT_PATHS.includes(d.parent);
   return Object.prototype.hasOwnProperty.call(MAIN_TAB_PATHS, p)
     || STANDALONE_PATHS.includes(p)
     || p.startsWith('/docs/')
@@ -145,6 +161,8 @@ export function resolvePath(pathname) {
 export function tabForPath(pathname, search = '') {
   if (pathname === '/' && /[?&]agent=/.test(search)) return 'market';
   if (Object.prototype.hasOwnProperty.call(MAIN_TAB_PATHS, pathname)) return MAIN_TAB_PATHS[pathname];
+  const d = productDetail(pathname);
+  if (d) return d.tab;
   if (isExplorePath(pathname)) return 'market';
   return 'home';
 }

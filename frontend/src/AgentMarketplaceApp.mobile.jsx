@@ -862,8 +862,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'home' && <Home layout="mobile" onNavigate={onNavigate} />}
             {nav === 'dashboard' && <Dashboard layout="mobile" onSignIn={() => onNavigate?.('/signin')} />}
             {nav === 'stocks' && isLive('stocks') && <Stocks layout="mobile" query={query} onNavigate={onNavigate} />}
-            {nav === 'vaults' && isLive('vaults') && <Vaults layout="mobile" />}
-            {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="mobile" />}
+            {nav === 'vaults' && isLive('vaults') && <Vaults layout="mobile" path={path} onNavigate={onNavigate} />}
+            {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="mobile" path={path} onNavigate={onNavigate} />}
             {nav === 'ai' && <UseWithAi layout="mobile" />}
           </>
         ) : (

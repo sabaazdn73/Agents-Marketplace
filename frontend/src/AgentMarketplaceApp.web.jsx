@@ -890,8 +890,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           {nav === 'home' && <Home layout="web" onNavigate={onNavigate} />}
           {nav === 'dashboard' && <Dashboard layout="web" onSignIn={() => onNavigate?.('/signin')} />}
           {nav === 'stocks' && isLive('stocks') && <Stocks layout="web" query={query} onNavigate={onNavigate} />}
-          {nav === 'vaults' && isLive('vaults') && <Vaults layout="web" />}
-          {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="web" />}
+          {nav === 'vaults' && isLive('vaults') && <Vaults layout="web" path={path} onNavigate={onNavigate} />}
+          {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="web" path={path} onNavigate={onNavigate} />}
           {nav === 'ai' && <UseWithAi layout="web" />}
 
           {nav === 'market' && detailAgent && !hiring && (

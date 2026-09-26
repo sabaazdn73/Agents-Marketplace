@@ -140,7 +140,8 @@ export default function App() {
     // and chain views, which take Explore's copy until the agent loads.
     const bare = path.split('#')[0];
     const known = Object.prototype.hasOwnProperty.call(PAGE_META, bare);
-    const meta = known ? PAGE_META[bare] : PAGE_META[isExplorePath(bare) ? '/market' : '/'];
+    const detailParent = bare.startsWith('/vaults/') ? '/vaults' : bare.startsWith('/my-etfs/') ? '/my-etfs' : null;
+    const meta = known ? PAGE_META[bare] : PAGE_META[detailParent || (isExplorePath(bare) ? '/market' : '/')];
     // Spread rather than naming each field. Listing them one by one silently
     // drops anything added to PAGE_META later: ogTitle was added and went
     // missing here, so the homepage kept publishing a bare "Tnega" headline

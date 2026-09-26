@@ -220,7 +220,7 @@ export default function Home({ layout = 'web', onNavigate }) {
                 <h3 className="text-[15px] font-semibold text-fg mb-3">Curated ETFs</h3>
                 <div className={mobile ? 'space-y-3' : 'grid grid-cols-3 gap-4'}>
                   {baskets.data.baskets.slice(0, 3).map((b) => (
-                    <BasketCard key={b.code || b.name} basket={b} source={baskets.data} onOpen={isLive('my-etfs') ? () => go(`/my-etfs?b=${encodeURIComponent(b.code)}`) : undefined} />
+                    <BasketCard key={b.code || b.name} basket={b} source={baskets.data} onOpen={isLive('my-etfs') ? () => go(`/my-etfs/${encodeURIComponent(b.code)}`) : undefined} />
                   ))}
                 </div>
               </div>
@@ -230,7 +230,7 @@ export default function Home({ layout = 'web', onNavigate }) {
                 <p className="mt-3 text-[13px] text-muted">Couldn&apos;t read the baskets. Try again later.</p>
               </div>
             ) : null}
-            <VaultTable state={vaults} compact={mobile} />
+            <VaultTable state={vaults} compact={mobile} onOpen={isLive('vaults') ? (v) => go(`/vaults/${v.platform_key}/${v.address}`) : undefined} />
           </section>
         )}
       </div>
