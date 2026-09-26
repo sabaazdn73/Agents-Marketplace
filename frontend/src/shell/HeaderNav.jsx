@@ -41,7 +41,7 @@ const GAP = 2; // gap-0.5 between tabs, and ml-0.5 before More
 // difference between all five pages showing and two of them in More. The
 // icons stay in the More menu, where the width is free.
 function tabClass(active) {
-  return `relative shrink-0 h-full flex items-center px-[7px] text-body font-medium whitespace-nowrap transition-colors ${
+  return `relative shrink-0 h-full flex items-center gap-1.5 px-[7px] text-body font-medium whitespace-nowrap transition-colors ${
     active ? 'text-fg' : 'text-muted hover:text-fg'}`;
 }
 
@@ -160,6 +160,7 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
       <div ref={measureRef} aria-hidden="true" className="absolute left-0 top-0 h-0 overflow-hidden invisible flex gap-0.5 pointer-events-none">
         {items.map((item) => (
           <span key={item.id} className={tabClass(true)}>
+            {item.icon && <item.icon size={14} aria-hidden="true" />}
             <span>{item.label}</span>
           </span>
         ))}
@@ -179,6 +180,7 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
               aria-current={on ? 'page' : undefined}
               className={tabClass(on)}
             >
+              {item.icon && <item.icon size={14} aria-hidden="true" className="shrink-0" />}
               <span>{item.label}</span>
             </button>
           );

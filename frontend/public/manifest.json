@@ -1,7 +1,7 @@
 {
   "name": "Tnega",
   "short_name": "Tnega",
-  "description": "Every tokenized stock and ETF, across issuers and chains, with what each costs to buy at your size, measured on the pools.",
+  "description": "Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -21,6 +21,8 @@
 //   GET /api/te/summary
 //     { tokens, issuers, chains, computed_at,
 //       chain_list: [{ name, group: 'evm'|'nonevm', tokens }] }
+//   (eligibility and who_may_hold are always { text, url, read_on }: the
+//    issuer's own words, linked and dated, never shown without both.)
 //   GET /api/te/list?type=stock|etf&group=all|evm|nonevm&limit=&sort=
 //     { rows: [{ underlying, name, type, versions, eligibility,
 //                best: { key, symbol, issuer, chain, group,
@@ -72,37 +74,53 @@ async function fixtureFor(path, body) {
   return m.answer(path, body);
 }
 
-/** One read. Resolves to the parsed JSON, or null for anything else. */
-export async function teFetch(path, { method = 'GET', body } = {}) {
-  if (USE_FIXTURES) return fixtureFor(path, body);
+/** One read. Resolves to { data } with the parsed JSON, or { error } with
+ *  why it failed (a non-200 status or a network failure). */
+export async function teRead(path, { method = 'GET', body } = {}) {
+  if (USE_FIXTURES) {
+    const d = await fixtureFor(path, body);
+    return d ? { data: d } : { error: 'no fixture' };
+  }
   try {
     const r = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch {
-    return null;
+    if (!r.ok) return { error: `HTTP ${r.status}` };
+    return { data: await r.json() };
+  } catch (e) {
+    return { error: e?.message || 'network error' };
   }
 }
 
-/** A read as React state: { data, loading }. `path` null means "do not read". */
-export function useTe(path, opts = {}) {
-  const key = path ? `${opts.method || 'GET'} ${path} ${opts.body ? JSON.stringify(opts.body) : ''}` : null;
-  const [state, setState] = useState({ data: null, loading: !!path });
+/** A read as React state: { data, loading, error, stale }.
+ *
+ *  `path` null means "do not read" (all fields empty).
+ *
+ *  WHEN THE KEY CHANGES (a filter, a wallet): by default the old answer is
+ *  cleared at once, so nothing read for the previous key is ever shown under
+ *  the new one; the Dashboard relies on this when the wallet changes. With
+ *  `keep: true` (a list whose filter changed) the old rows stay on screen
+ *  with `stale: true` until the new answer arrives, and the list dims and
+ *  labels them "Updating". An answer that arrives after the key moved on is
+ *  dropped. */
+export function useTe(path, { method = 'GET', body, keep = false } = {}) {
+  const key = path ? `${method} ${path} ${body ? JSON.stringify(body) : ''}` : null;
+  const [state, setState] = useState({ key: null, data: null, error: null, loading: !!path });
   useEffect(() => {
-    if (!key) { setState({ data: null, loading: false }); return undefined; }
+    if (!key) { setState({ key: null, data: null, error: null, loading: false }); return undefined; }
     let live = true;
-    setState((s) => ({ data: s.data, loading: true }));
-    teFetch(path, opts).then((d) => { if (live) setState({ data: d, loading: false }); });
+    setState((s) => ({ key, data: keep ? s.data : null, error: null, loading: true, prevKey: s.key }));
+    teRead(path, { method, body }).then((r) => {
+      if (live) setState({ key, data: r.data ?? null, error: r.error ?? null, loading: false });
+    });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  return state;
+  const stale = state.loading && !!state.data;
+  return { data: state.data, error: state.error, loading: state.loading, stale };
 }
 
-/** Is a list present and non-empty? The one test every section uses before
- *  it renders. */
+/** Is a list present and non-empty? */
 export const hasRows = (a) => Array.isArray(a) && a.length > 0;

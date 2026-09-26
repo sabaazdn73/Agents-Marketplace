@@ -12,12 +12,12 @@ import { PageFrame } from './PageFrame';
 
 export default function Vaults({ layout = 'web' }) {
   const mobile = layout === 'mobile';
-  const vaults = useTe('/api/vaults?limit=100').data;
+  const vaults = useTe('/api/vaults?limit=100');
   return (
     <PageFrame layout={layout} title="Vaults">
       <div className={mobile ? 'space-y-4' : 'grid grid-cols-12 gap-6 items-start'}>
-        <div className={mobile ? '' : 'col-span-8'}><VaultTable data={vaults} compact={mobile} /></div>
-        <div className={mobile ? '' : 'col-span-4'}><VaultChecksCard data={vaults} /></div>
+        <div className={mobile ? '' : 'col-span-8'}><VaultTable state={vaults} compact={mobile} /></div>
+        <div className={mobile ? '' : 'col-span-4'}><VaultChecksCard data={vaults.data} /></div>
       </div>
     </PageFrame>
   );

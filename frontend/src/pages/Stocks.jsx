@@ -46,14 +46,14 @@ export default function Stocks({ layout = 'web', query = '', onNavigate }) {
   const [sg, setSg] = useState('all');
   const [eg, setEg] = useState('all');
   const search = useTe(q ? `/api/te/search?q=${encodeURIComponent(q)}` : null).data;
-  const stocks = useTe(`/api/te/list?type=stock&group=${sg}&limit=100&sort=popular`).data;
-  const etfs = useTe(`/api/te/list?type=etf&group=${eg}&limit=100&sort=popular`).data;
+  const stocks = useTe(`/api/te/list?type=stock&group=${sg}&limit=100&sort=popular`, { keep: true });
+  const etfs = useTe(`/api/te/list?type=etf&group=${eg}&limit=100&sort=popular`, { keep: true });
   const open = (r) => onNavigate?.(`/stocks?q=${encodeURIComponent(r.underlying)}`);
   return (
     <PageFrame layout={layout} title="Stocks & ETFs">
       <SearchResults q={q} data={search} />
-      <InstrumentList title="Tokenized stocks" data={stocks} group={sg} onGroup={setSg} onOpen={open} compact={mobile} />
-      <InstrumentList title="Tokenized ETFs" data={etfs} group={eg} onGroup={setEg} onOpen={open} compact={mobile} />
+      <InstrumentList title="Tokenized stocks" state={stocks} group={sg} onGroup={setSg} onOpen={open} compact={mobile} />
+      <InstrumentList title="Tokenized ETFs" state={etfs} group={eg} onGroup={setEg} onOpen={open} compact={mobile} />
     </PageFrame>
   );
 }

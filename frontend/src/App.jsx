@@ -29,9 +29,9 @@ const PAGE_META = {
   '/': {
     docTitle: 'Tnega: Every Tokenized Equity, and What It Costs to Buy',
     ogTitle: 'Tnega: Wealth, borderless.',
-    description: 'Every tokenized stock and ETF, across issuers and chains, with what each costs to buy at your size, measured on the pools.',
+    description: 'Tokenized stocks and ETFs across issuers and chains, and your wallet\'s holdings, read from the chain.',
   },
-  '/stocks': { title: 'Stocks & ETFs', description: 'Tokenized stocks and ETFs from every issuer we read, on every chain, with what each version costs to buy at your size.' },
+  '/stocks': { title: 'Stocks & ETFs', description: 'Tokenized stocks and ETFs from every issuer we read, on every chain, and every version of each.' },
   '/vaults': { title: 'Vaults', description: 'Real-asset vaults, read-only: who manages each, its audits and controls, and what it holds, read on chain.' },
   '/my-etfs': { title: 'My ETFs', description: 'Baskets of up to five tokenized stocks and ETFs, with the all-in cost and the largest size their thinnest leg allows.' },
   '/dashboard': { title: 'Dashboard', description: "Your wallet's tokenized equities, their value, cost and allocation, read from the chain." },
@@ -48,7 +48,7 @@ const PAGE_META = {
   // The Chrome extension's hosted privacy policy. The Web Store listing links
   // straight here, so it needs its own title and canonical rather than the
   // homepage's.
-  '/privacy': { title: 'Privacy', description: 'What the Tnega for Hyperliquid Chrome extension reads, what it sends, and what it stores, which is nothing.' },
+  '/privacy': { title: 'Privacy', description: 'What the Tnega website and the Tnega Chrome extension read, what they send, and what they store.' },
   // The Hyperliquid tab's own address, linked from the extension's panel.
   // ChainViewTabs.jsx reads the path and opens that tab; routePaths.js names
   // /chain/<view> as one of Explore's own addresses.
@@ -141,8 +141,9 @@ export default function App() {
     // Every path reaching here is one of the site's pages (useRoute replaced
     // the rest with "/"). The ones without an entry are Explore's agent pages
     // and chain views, which take Explore's copy until the agent loads.
-    const known = Object.prototype.hasOwnProperty.call(PAGE_META, path);
-    const meta = known ? PAGE_META[path] : PAGE_META[isExplorePath(path) ? '/market' : '/'];
+    const bare = path.split('#')[0];
+    const known = Object.prototype.hasOwnProperty.call(PAGE_META, bare);
+    const meta = known ? PAGE_META[bare] : PAGE_META[isExplorePath(bare) ? '/market' : '/'];
     // Spread rather than naming each field. Listing them one by one silently
     // drops anything added to PAGE_META later: ogTitle was added and went
     // missing here, so the homepage kept publishing a bare "Tnega" headline
@@ -159,7 +160,7 @@ export default function App() {
     //
     // The agent views overwrite title and description with the real agent
     // once it has loaded; this is the floor, not the final answer.
-    updatePageMeta({ ...meta, path });
+    updatePageMeta({ ...meta, path: bare });
   }, [path]);
 
   // Sign-in renders outside the app shell: a split screen of its own, one
@@ -180,7 +181,8 @@ export default function App() {
     return <DataSourcesPage onBack={backHome} />;
   }
 
-  if (path === '/privacy') {
+  // The footer links to /privacy#website; the hash travels on `path`.
+  if (path === '/privacy' || path.startsWith('/privacy#')) {
     return <PrivacyPage onBack={backHome} />;
   }
 

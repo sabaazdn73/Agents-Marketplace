@@ -23,7 +23,10 @@ export default function Dashboard({ layout = 'web', onSignIn = null }) {
   const mobile = layout === 'mobile';
   const { status, address } = useSignIn();
   const connected = status !== 'disconnected' && !!address;
-  const portfolio = useTe(connected ? '/api/site/portfolio' : null, { method: 'POST', body: connected ? { addresses: [address] } : undefined }).data;
+  // keep: false (the default): a wallet change clears the previous wallet's
+  // answer at once, so its figures never show under the new address.
+  const read = useTe(connected ? '/api/site/portfolio' : null, { method: 'POST', body: connected ? { addresses: [address] } : undefined });
+  const portfolio = read.data;
 
   if (!connected) {
     return (
@@ -43,6 +46,7 @@ export default function Dashboard({ layout = 'web', onSignIn = null }) {
   return (
     <div className={mobile ? 'px-4 pt-5 pb-6 space-y-4' : 'w-full space-y-6'}>
       <h1 className="sr-only">Dashboard</h1>
+      {read.loading && <p className="text-[13px] text-muted" role="status">Reading this wallet&apos;s tokenized equities.</p>}
       <div className={mobile ? 'space-y-4' : 'grid grid-cols-12 gap-6 items-start'}>
         <div className={mobile ? 'space-y-4' : 'col-span-8 space-y-6'}>
           <PortfolioCard data={portfolio} />

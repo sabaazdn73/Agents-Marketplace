@@ -25,6 +25,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useTe } from '../te/api';
 import { InstrumentList, VersionsCard } from '../home/cards';
+import { FEATURE_TICKER } from '../home/sections';
 import { useDisconnect } from 'wagmi';
 import { QRCodeCanvas } from 'qrcode.react';
 import { ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -132,30 +133,42 @@ function Connected({ address, openSignIn, onSkip, onSwitch }) {
   );
 }
 
-function Showcase() {
-  const stocks = useTe('/api/te/list?type=stock&group=all&limit=5&sort=popular').data;
-  const versions = useTe('/api/te/underlying/NVDA?size=1000').data;
-  const shot = stocks?.rows?.length > 0 && versions?.versions?.length > 0;
+/** The product shot's reads. Both must answer with rows for the right
+ *  panel to exist; otherwise there is no right panel at all, and the hero
+ *  line sits over the sign-in instead (no empty frame). */
+function useShowcase() {
+  const stocks = useTe('/api/te/list?type=stock&group=all&limit=5&sort=popular');
+  const versions = useTe(`/api/te/underlying/${FEATURE_TICKER}?size=1000`).data;
+  const shot = stocks.data?.rows?.length > 0 && versions?.versions?.length > 0;
+  return { stocks, versions, shot };
+}
+
+function HeroLine({ big = true }) {
+  return (
+    <h2 className="text-center max-w-[640px] mx-auto">
+      <span className={`block ${big ? 'text-[34px]' : 'text-[22px]'} leading-[1.15] font-bold tracking-[-0.02em]`}>Wealth, borderless.</span>
+      <span className={`block mt-2 ${big ? 'text-[18px]' : 'text-[14px]'} leading-snug font-normal text-muted`}>
+        Every tokenized equity, and what it really costs to buy.
+      </span>
+    </h2>
+  );
+}
+
+function Showcase({ stocks, versions }) {
   return (
     <div className="hidden lg:flex lg:w-3/5 flex-col items-center px-12 pt-[100px] bg-surface border-l border-line text-fg overflow-hidden">
-      <h2 className="text-center max-w-[640px]">
-        <span className="block text-[34px] leading-[1.15] font-bold tracking-[-0.02em]">Wealth, borderless.</span>
-        <span className="block mt-3 text-[18px] leading-snug font-normal text-muted">
-          Every tokenized equity, and what it really costs to buy.
-        </span>
-      </h2>
-      {shot && (
-        <div className="mt-16 w-full max-w-[760px] rounded-md border border-line bg-page p-4 grid grid-cols-12 gap-4">
-          <div className="col-span-7"><InstrumentList title="Popular tokenized stocks" data={stocks} compact /></div>
-          <div className="col-span-5"><VersionsCard data={versions} compact /></div>
-        </div>
-      )}
+      <HeroLine />
+      <div className="mt-16 w-full max-w-[760px] rounded border border-line bg-page p-4 grid grid-cols-12 gap-4">
+        <div className="col-span-7"><InstrumentList title="Popular tokenized stocks" state={stocks} compact /></div>
+        <div className="col-span-5"><VersionsCard data={versions} compact /></div>
+      </div>
     </div>
   );
 }
 
 export default function SignInPage({ navigate }) {
   const { status, address, openSignIn, closeSignIn } = useSignIn();
+  const show = useShowcase();
   const { disconnect } = useDisconnect();
   const w = useWalletButtons();
   const startedHere = useRef(false);
@@ -178,7 +191,7 @@ export default function SignInPage({ navigate }) {
 
   return (
     <div className="min-h-[100dvh] flex bg-page text-fg">
-      <div className="relative w-full lg:w-2/5 min-h-[100dvh] flex flex-col px-6 sm:px-10 xl:px-[70px] pt-[76px] lg:pt-[100px] pb-8">
+      <div className={`relative w-full ${show.shot ? 'lg:w-2/5' : ''} min-h-[100dvh] flex flex-col px-6 sm:px-10 xl:px-[70px] pt-[76px] lg:pt-[100px] pb-8`}>
         <div className="absolute top-4 left-4">
           <ThemeToggle />
         </div>
@@ -191,6 +204,7 @@ export default function SignInPage({ navigate }) {
             />
           </InternalLink>
 
+          {!show.shot && <div className="mt-8 hidden lg:block"><HeroLine big={false} /></div>}
           <main className="flex-1 flex flex-col justify-center py-10">
             <h1 className="text-h1 font-bold text-center">Sign in</h1>
             <div className="mt-9">
@@ -225,7 +239,7 @@ export default function SignInPage({ navigate }) {
           </footer>
         </div>
       </div>
-      <Showcase />
+      {show.shot && <Showcase stocks={show.stocks} versions={show.versions} />}
     </div>
   );
 }

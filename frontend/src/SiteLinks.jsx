@@ -4,20 +4,18 @@
 // shared by the web shell, the mobile page foot and the mobile menu sheet,
 // so all three list the same pages in the same order.
 //
-// COLUMNS (owner, 2026-09-26)
-//   Product  the five pages of the main navigation
-//   Tools    Explore agents, Hyperliquid wallet costs, Hyperliquid
-//            order-book readings, Practice mode, Chrome extension
+// COLUMNS (owner, 2026-09-26). No two links share a destination.
+//   Product  the pages of the main navigation that are live
+//   Tools    Explore agents; Hyperliquid order-book readings
+//            (/chain/hyperliquid; its collector's last bucket is
+//            2026-09-19, read from /api/hyperliquid/overview on 2026-09-26,
+//            so the link says it is suspended); Chrome extension, with
+//            practice mode (the store listing: practice mode is a panel of
+//            the extension on Hyperliquid's trading pages). Hyperliquid
+//            wallet costs are on the Dashboard, so they have no link of
+//            their own.
 //   Legal    Privacy, Data sources
 //   Status   the status page, and the social accounts (real ones only)
-// Where each Tools entry goes:
-//   Hyperliquid wallet costs        /dashboard: a connected wallet's habit
-//                                   costs on Hyperliquid are read there
-//   Hyperliquid order-book readings /chain/hyperliquid
-//   Practice mode                   the extension's store listing: practice
-//                                   mode is a panel of the extension on
-//                                   Hyperliquid's trading pages
-//   Chrome extension                the same listing (extensionLink.js)
 // Every entry is a real link with an href, so it opens in a new tab and a
 // crawler can follow it; `onNavigate` turns a plain click into an in-app
 // navigation without a reload.
@@ -25,6 +23,7 @@
 import React from 'react';
 import { Github, Linkedin } from 'lucide-react';
 import { CHROME_EXTENSION_URL } from './extensionLink';
+import { PRODUCT_NAV } from './shell/productNav';
 
 export const GITHUB_URL = 'https://github.com/sabaazdn73/Agents-Marketplace';
 export const LINKEDIN_URL = 'https://www.linkedin.com/in/saba-azadegan-2974b622a';
@@ -55,23 +54,15 @@ export function XMark({ size = 13, className = '' }) {
   );
 }
 
-export const FOOTER_COLUMNS = [
-  { title: 'Product', links: [
-    { key: 'stocks', label: 'Stocks & ETFs', path: '/stocks' },
-    { key: 'vaults', label: 'Vaults', path: '/vaults' },
-    { key: 'my-etfs', label: 'My ETFs', path: '/my-etfs' },
-    { key: 'dashboard', label: 'Dashboard', path: '/dashboard' },
-    { key: 'ai', label: 'Use with AI', path: '/ai' },
-  ] },
+export const FOOTER_COLUMNS = () => [
+  { title: 'Product', links: PRODUCT_NAV.map((i) => ({ key: i.id, label: i.label, path: i.path })) },
   { title: 'Tools', links: [
     { key: 'market', label: 'Explore agents', path: '/market' },
-    { key: 'hl-costs', label: 'Hyperliquid wallet costs', path: '/dashboard' },
-    { key: 'hl-book', label: 'Hyperliquid order-book readings', path: '/chain/hyperliquid' },
-    { key: 'practice', label: 'Practice mode', path: CHROME_EXTENSION_URL, external: true },
-    { key: 'extension', label: 'Chrome extension', path: CHROME_EXTENSION_URL, external: true },
+    { key: 'hl-book', label: 'Hyperliquid order-book readings', note: 'collector suspended since 19 Sept', path: '/chain/hyperliquid' },
+    { key: 'extension', label: 'Chrome extension', note: 'with practice mode', path: CHROME_EXTENSION_URL, external: true },
   ] },
   { title: 'Legal', links: [
-    { key: 'privacy', label: 'Privacy', path: '/privacy' },
+    { key: 'privacy', label: 'Privacy', path: '/privacy#website' },
     { key: 'sources', label: 'Data sources', path: '/data-sources' },
   ] },
   { title: 'Status', links: [
@@ -80,7 +71,9 @@ export const FOOTER_COLUMNS = [
 ];
 
 // Where the figures come from, in one line.
-export const SOURCES_LINE = "Costs: our own reads of each chain's pools. Issuer figures stay on the issuer's page. Nothing here is a recommendation.";
+// It names only what a page shows today; the pool costs join it when the
+// lists go live.
+export const SOURCES_LINE = "Figures come from our own reads of each chain. Issuer figures stay on the issuer's page. Nothing here is a recommendation.";
 
 export default function SiteLinks({
   // (path) => void. Called for a plain left click; modified clicks (new tab,
@@ -110,13 +103,13 @@ export default function SiteLinks({
 
   return (
     <footer className={className}>
-      <div className={sheet ? 'grid grid-cols-2 gap-x-6 gap-y-6' : 'grid grid-cols-2 md:grid-cols-[1.2fr_1fr_1.3fr_1fr_1fr] gap-x-8 gap-y-8'}>
+      <div className={sheet ? 'grid grid-cols-2 gap-x-6 gap-y-6' : 'grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-8'}>
         {!sheet && (
           <div className="col-span-2 md:col-span-1">
             <span className="text-[20px] font-light tracking-[0.02em] text-fg">Tnega</span>
           </div>
         )}
-        {FOOTER_COLUMNS.map((col) => (
+        {FOOTER_COLUMNS().map((col) => (
           <nav key={col.title} aria-label={col.title}>
             <h2 className="text-[13px] text-muted mb-3">{col.title}</h2>
             <ul className="space-y-2.5">
@@ -132,6 +125,7 @@ export default function SiteLinks({
                     >
                       {item.label}
                     </a>
+                    {item.note && <span className="block text-[12px] text-muted">{item.note}</span>}
                   </li>
                 );
               })}

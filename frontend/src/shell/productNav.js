@@ -10,21 +10,28 @@
 //
 // `live` IS THE ONE SWITCH FOR A PAGE (SPEC.md §0.10). With `live: false`
 // a page is left out of the header, the bottom bar and the sitemap, and its
-// path redirects to "/" (routePaths.js). Every page is live: each shows what
-// its reads return and draws nothing where a read has nothing, so no page
-// needs hiding while its data arrives (owner, 2026-09-26).
-// backend/scripts/build_sitemap.py keeps its own list of the site's pages;
-// change it in the same pass.
+// path redirects to "/" (routePaths.js). A page is live only when what it
+// shows works: Stocks & ETFs, Vaults and My ETFs read endpoints the backend
+// has not served yet (SPEC §B.7), so they stay off until it does, and the
+// sitemap (public/sitemap.xml, backend/scripts/build_sitemap.py) leaves them
+// out in step. The Dashboard reads the wallet's holdings, which work, and
+// Use with AI works. A dev server with the fixtures on (VITE_TE_FIXTURES=1)
+// turns every page on so the layout can be seen; a production build never
+// does.
 //
 // The order is the owner's: Stocks & ETFs, Vaults, My ETFs, Dashboard, Use
 // with AI. The home page is "/" and is reached from the logo.
 
 import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal } from 'lucide-react';
 
+const DEV_LAYOUT = !!(import.meta.env?.DEV && import.meta.env?.VITE_TE_FIXTURES === '1');
+// Flip to true in the pass that proves each page's endpoint serves real data.
+const DATA_LIVE = DEV_LAYOUT || false;
+
 export const ALL_PRODUCT_NAV = [
-  { id: 'stocks', path: '/stocks', label: 'Stocks & ETFs', barLabel: 'Stocks', icon: LineChart, live: true },
-  { id: 'vaults', path: '/vaults', label: 'Vaults', barLabel: 'Vaults', icon: Landmark, live: true },
-  { id: 'my-etfs', path: '/my-etfs', label: 'My ETFs', barLabel: 'My ETFs', icon: PieChart, live: true },
+  { id: 'stocks', path: '/stocks', label: 'Stocks & ETFs', barLabel: 'Stocks', icon: LineChart, live: DATA_LIVE },
+  { id: 'vaults', path: '/vaults', label: 'Vaults', barLabel: 'Vaults', icon: Landmark, live: DATA_LIVE },
+  { id: 'my-etfs', path: '/my-etfs', label: 'My ETFs', barLabel: 'My ETFs', icon: PieChart, live: DATA_LIVE },
   { id: 'dashboard', path: '/dashboard', label: 'Dashboard', barLabel: 'Dashboard', icon: LayoutDashboard, live: true },
   { id: 'ai', path: '/ai', label: 'Use with AI', barLabel: 'AI', icon: Terminal, live: true },
 ];

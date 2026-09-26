@@ -154,6 +154,14 @@ html.dark {
   color-scheme: dark;
 }
 
+/* The WalletConnect modal (@reown/appkit-ui) takes its face from this
+   variable on :root; `html:root` outranks the modal's own `:root` rule, so it
+   draws in our self-hosted Hanken Grotesk. Its Google Fonts @import is
+   removed at build time (vite.config.js). */
+html:root {
+  --w3m-font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
 html {
   background-color: rgb(var(--page));
   color: rgb(var(--fg));
@@ -178,9 +186,11 @@ html {
   .card-bleed {
     @apply bg-surface border-y border-line;
   }
-  /* Money and counts. Tabular figures so a column of numbers lines up. */
+  /* Money, counts and addresses: Hanken's tabular figures, so a column of
+     numbers lines up, in the site's own face rather than the system
+     monospace. */
   .figure {
-    @apply font-mono tabular-nums;
+    @apply font-sans tabular-nums;
   }
 }
 

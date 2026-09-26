@@ -840,14 +840,14 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
           {/* The wide search in the middle. It opens Stocks & ETFs with the
               words in the address (shell/TopSearch.jsx). */}
-          <div className="flex-1 min-w-0 flex justify-center px-2">
+          <div className="flex-1 min-w-0 xl:min-w-[266px] flex justify-center px-2">
             {SEARCH_LIVE && (
               <>
                 <TopSearch
                   key={query}
                   initial={query}
                   onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
-                  className="hidden xl:flex w-full max-w-[380px]"
+                  className="hidden xl:flex w-full max-w-[380px] min-w-[250px]"
                 />
                 <button
                   type="button"
@@ -862,7 +862,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             )}
           </div>
 
-          <div className="flex min-w-[120px] shrink" style={{ width: 470 }}>
+          <div className="flex min-w-[120px] shrink" style={{ width: 590 }}>
             <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} align="end" />
           </div>
 

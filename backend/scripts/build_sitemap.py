@@ -61,10 +61,12 @@ STATIC = [
     # this list: each now redirects (frontend/src/routePaths.js REDIRECTS),
     # and a sitemap lists pages, not redirects.
     # /dashboard is left out: it is per-wallet and shows nothing to a
-    # crawler.
-    ("/stocks", "daily", "0.9"),
-    ("/vaults", "daily", "0.9"),
-    ("/my-etfs", "weekly", "0.7"),
+    # crawler. /stocks, /vaults and /my-etfs are left out while they are not
+    # live (frontend/src/shell/productNav.js): each redirects to "/" until
+    # its endpoint serves real data. Add them back, in this order, in the
+    # pass that turns their flag on:
+    #   ("/stocks", "daily", "0.9"), ("/vaults", "daily", "0.9"),
+    #   ("/my-etfs", "weekly", "0.7"),
     ("/ai", "monthly", "0.8"),
     # Explore, reached from the footer now, and still where every agent page
     # below hangs from.

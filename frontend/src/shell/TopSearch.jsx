@@ -1,6 +1,8 @@
 // TopSearch.jsx
 //
 // The search field at the top of both apps: "Search stocks, ETFs or vaults".
+// Its boundary is line-strong (3:1 or more on every surface, index.css) and
+// it shows a focus ring while its input has focus (focus-within).
 // Until the instrument list exists (build step 2) it searches nothing here;
 // submitting opens Stocks & ETFs with the words in the URL (/stocks?q=), and
 // that page says plainly that nothing is listed yet. One component, so the
@@ -22,7 +24,7 @@ export default function TopSearch({ onSearch, initial = '', autoFocus = false, c
     <form
       role="search"
       onSubmit={(e) => { e.preventDefault(); onSearch(searchPath(q)); }}
-      className={`h-10 flex items-center gap-2 px-3 rounded bg-field text-fg ${className}`}
+      className={`h-10 flex items-center gap-2 px-3 rounded bg-field text-fg border border-line-strong focus-within:ring-2 focus-within:ring-accent focus-within:ring-offset-1 focus-within:ring-offset-surface ${className}`}
     >
       <Search size={16} className="shrink-0 text-muted" aria-hidden="true" />
       <input

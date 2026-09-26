@@ -14,17 +14,38 @@ import {
 } from '../ui/primitives';
 import { hasRows } from '../te/api';
 
-/* 02 · One stock, many tokens. GET /api/te/underlying/{T}?size=1000 */
+/* 02 · One stock, many tokens. GET /api/te/underlying/{T}?size=1000
+ *
+ * Every version renders, in three kinds of row:
+ *   filled   the pool fills the whole size: ranked by cost, the cheapest in
+ *            green and the dearest in red (only among filled rows);
+ *   thin     the pool fills part of it: "Pool too thin for $1,000: its pool
+ *            holds $x", unranked;
+ *   no pool  no pool found on that chain, unranked.
+ * versionRows() is the one list, so the count a headline quotes ("k tokens")
+ * is the number of rows this card draws. */
+export function versionRows(data) {
+  if (!data || !hasRows(data.versions)) return [];
+  const filled = (v) => Number.isFinite(v.cost_bps) && v.filled_fraction >= 1;
+  const thin = (v) => !filled(v) && Number.isFinite(v.pool_usd) && v.pool_usd > 0;
+  const kind = (v) => (filled(v) ? 'filled' : thin(v) ? 'thin' : 'nopool');
+  const order = { filled: 0, thin: 1, nopool: 2 };
+  return data.versions
+    .map((v) => ({ ...v, kind: kind(v) }))
+    .sort((a, b) => order[a.kind] - order[b.kind] || (a.kind === 'filled' ? a.cost_bps - b.cost_bps : 0));
+}
+
 export function VersionsCard({ data, compact = false }) {
-  if (!data || !hasRows(data.versions)) return null;
-  const vs = [...data.versions].filter((v) => Number.isFinite(v.cost_bps)).sort((a, b) => a.cost_bps - b.cost_bps);
-  if (!vs.length) return null;
-  const lo = vs[0].cost_bps, hi = vs[vs.length - 1].cost_bps;
+  const rows = versionRows(data);
+  if (!rows.length) return null;
+  const filled = rows.filter((r) => r.kind === 'filled');
+  const lo = filled[0]?.cost_bps, hi = filled[filled.length - 1]?.cost_bps;
+  const size = fmtUsd0(data.size);
   return (
     <Card>
-      <CardTitle right={<DevTag data={data} />}>{data.name || data.ticker}: cost to buy {fmtUsd0(data.size)}</CardTitle>
+      <CardTitle right={<DevTag data={data} />}>{data.name || data.ticker}: cost to buy {size}</CardTitle>
       <ul className="divide-y divide-line">
-        {vs.map((v) => (
+        {rows.map((v) => (
           <li key={v.key} className="py-2.5 flex items-center gap-3">
             <SymbolTile symbol={v.symbol} />
             <div className="min-w-0 flex-1">
@@ -32,9 +53,15 @@ export function VersionsCard({ data, compact = false }) {
               <div className="text-[12px] text-muted truncate">{v.issuer} · {v.chain}</div>
             </div>
             {!compact && <GroupChip group={v.group} />}
-            <div className={`w-20 shrink-0 text-right tabular-nums text-[14px] ${v.cost_bps === lo && lo !== hi ? 'text-pos' : v.cost_bps === hi && lo !== hi ? 'text-neg' : 'text-fg'}`}>
-              {fmtBps(v.cost_bps)}
-            </div>
+            {v.kind === 'filled' ? (
+              <div className={`w-20 shrink-0 text-right tabular-nums text-[14px] ${filled.length > 1 && v.cost_bps === lo ? 'text-pos' : filled.length > 1 && v.cost_bps === hi ? 'text-neg' : 'text-fg'}`}>
+                {fmtBps(v.cost_bps)}
+              </div>
+            ) : (
+              <div className="w-32 shrink-0 text-right text-[11px] leading-snug text-muted">
+                {v.kind === 'thin' ? `Pool too thin for ${size}: its pool holds ${fmtUsd0(v.pool_usd)}` : `No pool found on ${v.chain}`}
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -164,32 +191,51 @@ export function BasketCard({ basket, source, onOpen }) {
         {Number.isFinite(basket.signatures) && (<><dt className="text-muted">Signatures</dt><dd className="text-right tabular-nums text-fg">{basket.signatures}, one per stock</dd></>)}
         {Number.isFinite(basket.cap_usd) && (<><dt className="text-muted">Largest size under 1% cost</dt><dd className="text-right tabular-nums text-fg">{fmtUsd0(basket.cap_usd)}{basket.cap_leg ? `, set by ${basket.cap_leg}` : ''}</dd></>)}
       </dl>
+      <p className="mt-3 text-[11px] text-muted">{source?.note || 'A fixed example basket; not a recommendation.'}</p>
       {onOpen && (
-        <button type="button" onClick={onOpen} className="mt-3 text-[12px] font-semibold text-accent hover:underline">Open this basket</button>
+        <button type="button" onClick={onOpen} className="mt-2 text-[12px] font-semibold text-accent hover:underline">Open this basket</button>
       )}
     </Card>
   );
 }
 
-/* 08 · Vault due diligence. GET /api/vaults?limit=4 */
+/* 08 · Vault due diligence. GET /api/vaults?limit=4
+ * The five checks are the fields every vault page carries, named as fields:
+ * a tick would claim a vault passed them. The chips name the platforms and
+ * assets read, once each. */
 const CHECKS = ['Real-world assets only', 'Audits and auditors', 'Upgrade authority, read on chain', 'Timelock on admin changes', 'What the manager can move'];
 export function VaultChecksCard({ data }) {
   if (!data || !hasRows(data.vaults)) return null;
+  const chips = [...new Set(data.vaults.map((v) => `${v.platform} · ${v.assets}`))].slice(0, 6);
   return (
     <Card>
-      <CardTitle right={<DevTag data={data} />}>What we check on every vault</CardTitle>
-      <ul className="space-y-2 text-[13px] text-fg">
+      <CardTitle right={<DevTag data={data} />}>Every vault page shows</CardTitle>
+      <ul className="divide-y divide-line text-[13px]">
         {CHECKS.map((c) => (
-          <li key={c} className="flex items-center gap-2"><Check size={14} className="text-muted" aria-hidden="true" />{c}</li>
+          <li key={c} className="py-2 text-fg">{c}</li>
         ))}
       </ul>
       <div className="mt-4 flex flex-wrap gap-2">
-        {data.vaults.slice(0, 4).map((v) => (
-          <span key={`${v.platform}-${v.name}`} className="h-7 px-2.5 rounded border border-line-strong text-[12px] text-fg inline-flex items-center">{v.platform} · {v.assets}</span>
+        {chips.map((c) => (
+          <span key={c} className="h-7 px-2.5 rounded border border-line-strong text-[12px] text-fg inline-flex items-center">{c}</span>
         ))}
       </div>
       <p className="mt-3 text-[11px] text-muted">Read-only: deposits are off.</p>
     </Card>
+  );
+}
+
+/** The issuer's own words on who may hold a token, always with the link to
+ *  where they are written and the date they were read. Without both, the
+ *  words are not shown. */
+export function Eligibility({ e }) {
+  if (!e || !e.text || !e.url || !e.read_on) return <span className="text-muted">not read</span>;
+  return (
+    <span>
+      {e.text}{' '}
+      <a href={e.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 text-muted hover:text-fg">issuer&apos;s terms</a>
+      <span className="block text-[11px] text-muted">read on {e.read_on}</span>
+    </span>
   );
 }
 
@@ -216,7 +262,7 @@ export function ControlsCard({ data, compact = false }) {
             <tr key={r.programme}>
               <td className="py-2 pr-3 text-fg font-semibold">{r.issuer}<div className="font-normal text-muted">{(r.chains || []).join(', ')}</div></td>
               {COLS.map(([k]) => <td key={k} className="py-2 pr-3 text-fg">{r[k]?.text || <span className="text-muted">not established</span>}</td>)}
-              <td className="py-2 text-fg">{r.who_may_hold?.text}</td>
+              <td className="py-2 text-fg"><Eligibility e={r.who_may_hold} /></td>
             </tr>
           ))}
         </tbody>
@@ -249,21 +295,47 @@ export function AiCard() {
   );
 }
 
-/* Live lists · GET /api/te/list. One table for stocks and for ETFs. */
-export function InstrumentList({ title, data, group, onGroup, onOpen, onSeeAll, compact = false }) {
-  if (!data || !hasRows(data.rows)) return null;
-  return (
-    <Card pad={false}>
-      <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[15px] font-semibold text-fg">{title}</h3>
-          <DevTag data={data} />
-        </div>
-        <div className="flex items-center gap-2">
-          {onGroup && <Pills label="Chain group" value={group} onChange={onGroup} options={[{ id: 'all', label: 'All' }, { id: 'evm', label: 'EVM' }, { id: 'nonevm', label: 'Non-EVM' }]} />}
-          {onSeeAll && <button type="button" onClick={onSeeAll} className="text-[12px] font-semibold text-accent hover:underline">See all</button>}
-        </div>
+/* Live lists · GET /api/te/list. One table for stocks and for ETFs.
+ *
+ * Takes the whole read state from useTe ({ data, error, loading, stale }):
+ *   loading, nothing yet    renders nothing (no frame flashes in);
+ *   the read failed         the card, titled, with "Couldn't read the list";
+ *   the answer has no rows  the card and its filter stay, with "No non-EVM
+ *                           version listed" (or EVM, or nothing listed), so
+ *                           the visitor can switch back;
+ *   a filter changed        the previous rows stay, dimmed and labelled
+ *                           "Updating", until the new answer replaces them. */
+function emptyLine(group) {
+  if (group === 'nonevm') return 'No non-EVM version listed.';
+  if (group === 'evm') return 'No EVM version listed.';
+  return 'Nothing listed.';
+}
+
+export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll, compact = false }) {
+  const { data, error, stale } = state || {};
+  if (!data && !error) return null;
+  const head = (
+    <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-2">
+        <h3 className="text-[15px] font-semibold text-fg">{title}</h3>
+        <DevTag data={data} />
+        {stale && <span className="text-[11px] text-muted">Updating</span>}
       </div>
+      <div className="flex items-center gap-2">
+        {onGroup && !error && <Pills label="Chain group" value={group} onChange={onGroup} options={[{ id: 'all', label: 'All' }, { id: 'evm', label: 'EVM' }, { id: 'nonevm', label: 'Non-EVM' }]} />}
+        {onSeeAll && <button type="button" onClick={onSeeAll} className="text-[12px] font-semibold text-accent hover:underline">See all</button>}
+      </div>
+    </div>
+  );
+  if (!data) {
+    return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">Couldn&apos;t read the list. Try again later.</p></Card>;
+  }
+  if (!hasRows(data.rows)) {
+    return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">{emptyLine(group)}</p></Card>;
+  }
+  return (
+    <Card pad={false} className={stale ? 'opacity-60 transition-opacity' : ''}>
+      {head}
       <table className={`w-full mt-2 text-[13px] ${compact ? 'table-fixed' : ''}`}>
         <thead>
           <tr className="text-muted text-left text-[12px]">
@@ -308,15 +380,24 @@ export function InstrumentList({ title, data, group, onGroup, onOpen, onSeeAll, 
 }
 
 /* Live lists · GET /api/vaults. */
-export function VaultTable({ data, compact = false }) {
-  if (!data || !hasRows(data.vaults)) return null;
+export function VaultTable({ state, compact = false }) {
+  const { data, error, stale } = state || {};
+  if (!data && !error) return null;
+  if (!data || !hasRows(data.vaults)) {
+    return (
+      <Card>
+        <div className="flex items-center justify-between gap-2"><h3 className="text-[15px] font-semibold text-fg">Vaults</h3><span className="text-[12px] text-muted">Read-only: deposits are off.</span></div>
+        <p className="mt-3 text-[13px] text-muted">{data ? 'No qualifying vault found.' : "Couldn't read the vaults. Try again later."}</p>
+      </Card>
+    );
+  }
   return (
-    <Card pad={false} className="overflow-x-auto">
+    <Card pad={false} className={`overflow-x-auto ${stale ? 'opacity-60' : ''}`}>
       <div className="px-4 pt-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2"><h3 className="text-[15px] font-semibold text-fg">Vaults</h3><DevTag data={data} /></div>
         <span className="text-[12px] text-muted">Read-only: deposits are off.</span>
       </div>
-      <table className="w-full mt-2 text-[13px] min-w-[560px]">
+      <table className={`w-full mt-2 text-[13px] ${compact ? '' : 'min-w-[560px]'}`}>
         <thead>
           <tr className="text-muted text-left text-[12px]">
             <th className="font-medium px-4 py-2">Vault</th>

@@ -29,7 +29,7 @@ export function PortfolioCard({ data }) {
         <div>
           <BigMoney value={data.total_usd} className="text-[44px]" />
           <div className="mt-2 text-[13px]">
-            <Delta value={data.change_usd}>{data.change_usd > 0 ? '↗' : '↘'} {fmtUsd(data.change_usd)} ({fmtPct(data.change_pct)})</Delta>
+            <Delta value={data.change_usd}>{data.change_usd > 0 ? '↗ ' : data.change_usd < 0 ? '↘ ' : ''}{fmtUsd(data.change_usd)} ({fmtPct(data.change_pct)})</Delta>
           </div>
         </div>
         {available.length > 0 && <Pills label="Range" options={available} value={shown} onChange={setRange} />}

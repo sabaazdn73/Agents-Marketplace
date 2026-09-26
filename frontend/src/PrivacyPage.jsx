@@ -53,10 +53,10 @@
 // /privacy before it picks between the two app shells, and the footer entry
 // lives in SiteLinks, which both apps render.
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import StandaloneBar from './shell/StandaloneBar';
 
-const UPDATED = '25 September 2026';
+const UPDATED = '26 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
 const CONTACT = 'sabaazad93@gmail.com';
 
@@ -75,9 +75,9 @@ const SITES = [
   ['8004scan.io', 'agent and owner pages'],
 ];
 
-function Section({ title, children }) {
+function Section({ title, id, children }) {
   return (
-    <section className="mb-8">
+    <section id={id} className="mb-8 scroll-mt-6">
       <h2 className="text-base font-semibold mb-2">{title}</h2>
       <div className="text-sm text-muted space-y-3 leading-relaxed">
         {children}
@@ -87,6 +87,11 @@ function Section({ title, children }) {
 }
 
 export default function PrivacyPage({ onBack }) {
+  // A link to one section (/privacy#website) opens at that section.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
   return (
     <div className="min-h-screen bg-page text-fg">
       <div className="max-w-[1400px] mx-auto px-6 py-10">
@@ -94,8 +99,47 @@ export default function PrivacyPage({ onBack }) {
 
         <h1 className="text-2xl font-bold mb-1">Privacy</h1>
         <p className="text-sm text-muted mb-8">
-          For the Chrome extension, Tnega, and for the website&apos;s wallet sign-in and the two routes on the website that receive your own wallet address. Last updated {UPDATED}.
+          For the website, tnega.app, and for the Chrome extension, Tnega. Last updated {UPDATED}.
         </p>
+
+        <Section id="website" title="The website">
+          <p>
+            There is no account, no email address and no password. The site sets no cookies and
+            runs no analytics or advertising script. The theme you pick and a signed sign-in message
+            are kept in your browser&apos;s own storage and are not sent to us.
+          </p>
+          <p>
+            The pages are served by Vercel, which receives each request as any web host does. The
+            figures come from our server at {API}, hosted on Render behind Cloudflare. Your browser
+            asks it for lists and measurements; those requests carry nothing about you beyond what
+            any request carries (your IP address and browser). Two routes receive a wallet address,
+            and only when you connect one: they are described under &quot;Your wallet address on the
+            website&quot;, below.
+          </p>
+          <p>
+            Our server limits how often one network address may call it: a burst of 120 requests,
+            then two a second. To count, it keeps the address (an IPv6 address by its /64) and one
+            number, the time its allowance is full again, in memory only. The table is bounded, the
+            least recently seen address is dropped first, and nothing is written to disk or kept
+            after a restart.
+          </p>
+          <p>
+            Fonts are served from this site. No page loads a font from a font service: the wallet
+            window&apos;s own request for a Google font is removed when the site is built, and it
+            uses our font instead.
+          </p>
+          <p>
+            Wallet sign-in uses RainbowKit and WalletConnect. When a page loads, WalletConnect&apos;s
+            library asks WalletConnect&apos;s servers (api.web3modal.org) for the list of wallets and
+            sends its own usage events (pulse.walletconnect.org); like any request, these carry your
+            IP address, and they carry this site&apos;s WalletConnect project identifier. If you
+            connect a phone wallet through WalletConnect, the connection between this page and your
+            wallet passes through WalletConnect&apos;s relay, which then carries your wallet&apos;s
+            address and the requests you approve. Connecting a browser wallet such as MetaMask does
+            not use the relay. What the site does with a connected address is under &quot;Your wallet
+            address on the website&quot;.
+          </p>
+        </Section>
 
         <Section title="What the extension is">
           <p>
@@ -421,7 +465,7 @@ export default function PrivacyPage({ onBack }) {
           </p>
         </Section>
 
-        <Section title="Your wallet address on the website">
+        <Section id="website-wallet" title="Your wallet address on the website">
           <p>
             Two routes on our server receive the address of a wallet you connect to the website.
             Both take it in the body of the request, never in the web address, so it does not appear
@@ -441,7 +485,7 @@ export default function PrivacyPage({ onBack }) {
             again. It is not written to disk, and it is gone when the server restarts.
           </p>
           <p>
-            The wallet page (/wallet) calls that route when you open it with a wallet connected, for
+            The Dashboard (/dashboard) calls that route when you open it with a wallet connected, for
             the connected address, and again when you press Read again. Opening the page again
             within five minutes reuses the answer it already has instead of asking. A connected
             wallet that has not signed in triggers it too: signing in changes only whether the page

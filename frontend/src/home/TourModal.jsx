@@ -24,9 +24,18 @@ export default function TourModal({ src, poster, onClose }) {
       }
     };
     document.addEventListener('keydown', onKey);
+    // Lock the page behind the modal. The mobile shell scrolls inside its
+    // <main>, the web shell scrolls the document, so both are held.
+    const main = document.querySelector('main');
+    const prevBody = document.body.style.overflow;
+    const prevMain = main ? main.style.overflow : '';
+    document.body.style.overflow = 'hidden';
+    if (main) main.style.overflow = 'hidden';
     const v = video.current;
     return () => {
       document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevBody;
+      if (main) main.style.overflow = prevMain;
       try { v?.pause(); } catch { /* not fatal */ }
       prev?.focus?.();
     };

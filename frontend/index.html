@@ -8,7 +8,7 @@
          2026-09-26: the tokenized-equity product, which goes live together
          with its real lists. -->
     <title>Tnega: Every Tokenized Equity, and What It Costs to Buy</title>
-    <meta name="description" content="Every tokenized stock and ETF, across issuers and chains, with what each costs to buy at your size, measured on the pools." />
+    <meta name="description" content="Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain." />
 
     <!-- Favicon: what browsers show in the tab bar, and what Google's own
          guidance (developers.google.com/search/docs/appearance/favicon-in-search,
@@ -60,7 +60,10 @@
          (resolveDark) once React is running; the two must agree.
          The two page colours below repeat --page from src/index.css so the
          first frame is right even before that stylesheet arrives. Change
-         them together. -->
+         them together.
+         The script below is allowed by its sha256 in vercel.json's
+         Content-Security-Policy. Editing it changes the hash; the build
+         fails until vercel.json matches (scripts/csp_hash_selfcheck.mjs). -->
     <style>html{background:#EDEDEF;color-scheme:light}html.dark{background:#000000;color-scheme:dark}</style>
     <script>
       // SITE DATA BLOCKED. Reading localStorage then throws a SecurityError,
@@ -125,7 +128,7 @@
     <meta property="og:title" content="Tnega: Wealth, borderless." />
     <!-- Must say what PAGE_META['/'] says in App.jsx: social scrapers read
          this static tag, search crawlers run the app and read that one. -->
-    <meta property="og:description" content="Every tokenized stock and ETF, across issuers and chains, with what each costs to buy at your size, measured on the pools." />
+    <meta property="og:description" content="Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain." />
     <!-- X and Facebook key a cached preview on the image URL, so the ?v=
          forces a refetch when the file changes under the same name. Bump it
          whenever the card does.
@@ -151,7 +154,7 @@
     <meta name="twitter:site" content="@SabaAzadegan" />
     <meta name="twitter:creator" content="@SabaAzadegan" />
     <meta name="twitter:title" content="Tnega: Wealth, borderless." />
-    <meta name="twitter:description" content="Every tokenized stock and ETF, across issuers and chains, with what each costs to buy at your size, measured on the pools." />
+    <meta name="twitter:description" content="Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain." />
     <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=3" />
     <meta name="twitter:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the Tnega wordmark in white on near-black." />
     <!-- Structured data. There was none, so Google had only the raw text
@@ -170,7 +173,7 @@
       "@id": "https://www.tnega.app/#website",
       "url": "https://www.tnega.app/",
       "name": "Tnega",
-      "description": "Every tokenized stock and ETF, across issuers and chains, with what each costs to buy at your size, measured on the pools.",
+      "description": "Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain.",
       "publisher": {
         "@id": "https://www.tnega.app/#org"
       }
