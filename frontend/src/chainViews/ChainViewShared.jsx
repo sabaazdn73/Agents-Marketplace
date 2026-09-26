@@ -19,6 +19,7 @@ import React from 'react';
 import { Loader2, AlertTriangle, Info, ExternalLink, CheckCircle2, XCircle } from 'lucide-react';
 import ServiceHealthBadge from '../ServiceHealthBadge';
 import ChainAgentEvaluation from '../ChainAgentEvaluation';
+import LazyDetails from '../shell/LazyDetails';
 import InteractionLine from '../InteractionLine';
 
 /** Block explorer per chain, so an agent is verifiable at source even
@@ -228,13 +229,18 @@ export function ChainAgentCard({ agent, mutedBorder }) {
           <ServiceHealthBadge status={agent.service_status} checkedAt={agent.service_checked_at} />
         </div>
       )}
-      {/* On demand, per agent. The list stays cheap -- these are calls
- against rate-limited keys, so they run only when someone actually
-          asks about one agent rather than for every card rendered. */}
-      <details className="mt-1">
-        <summary className="text-[11px] text-accent cursor-pointer hover:underline select-none">
-          Evaluate this agent
-        </summary>
+      {/* On demand, per agent. The evaluation is one request to our server,
+          which calls rate-limited upstream keys, so it is mounted, and
+          fetches, only when this card's "Evaluate this agent" is opened, and
+          then stays mounted (shell/LazyDetails.jsx). A plain <details> is not
+          enough: React mounts the children of a closed one, and until
+          2026-09-26 every card rendered sent its request, 24 per page and 24
+          more per "Load more". */}
+      <LazyDetails
+        className="mt-1"
+        summaryClassName="text-[11px] text-accent cursor-pointer hover:underline select-none"
+        summary="Evaluate this agent"
+      >
         <div className="mt-2">
           <ChainAgentEvaluation
             chainId={agent.chain_id}
@@ -242,7 +248,7 @@ export function ChainAgentCard({ agent, mutedBorder }) {
             ownerAddress={agent.owner_address}
           />
         </div>
-      </details>
+      </LazyDetails>
 
       <div className="flex items-center gap-3 text-[10px] text-muted mt-auto pt-2">
         {agent.token_id != null && <span className="font-mono">#{agent.token_id}</span>}
