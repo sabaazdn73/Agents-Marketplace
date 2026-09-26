@@ -104,6 +104,7 @@ function VenueTable({ p, rows, onOpen, compact, nestedName }) {
                     {(v.contains_nested || []).length > 0 && <div className="text-[11px] text-muted">Holds part of {v.contains_nested.map((n) => n.name || shortAddr(n.address)).join(', ')}</div>}
                     {/* What the stablecoin is lent against: one line here, in
                         full on hover and on the vault's page. */}
+                    {(v.notes || []).length > 0 && <div className="text-[11px] text-warn truncate max-w-[320px]" title={v.notes.join('\n')}>{v.notes[0]}{v.notes.length > 1 ? ` (+${v.notes.length - 1} more)` : ''}</div>}
                     {v.lends_against && <div className="text-[11px] text-muted truncate max-w-[320px]" title={`${v.lends_against}\n\nCollateral names as each token's own metadata declares them.`}>Lends against: {v.lends_against}</div>}
                   </td>
                   {!compact && (
@@ -177,7 +178,8 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
     return null;
   }
 
-  const tot = tvlTotal(vaults);
+  const filtering = filtered.length !== vaults.length;
+  const tot = tvlTotal(filtering ? filtered : vaults);
   const platforms = data.platforms || [];
   const listed = platforms.filter((p) => p.status === 'listed');
   const shownPlatforms = listed.filter((p) => filtered.some((v) => platformKeyOf(v) === p.platform_key));
@@ -198,7 +200,9 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
         </div>
         <div className="mt-1 text-[32px] font-light tabular-nums text-fg">{fmtUsd0(tot.total)}</div>
         <div className="mt-1 text-[11px] text-muted leading-relaxed">
-          Sum of the {vaults.length} vaults shown{truncated ? `, the first ${vaults.length} of ${data.total}` : ''}: {tot.bySource.computed_from_chain || 0} computed from chain reads, {tot.bySource.vault_recorded || 0} as the vault records it.
+          {filtering
+            ? (filtered.length === 1 ? 'The one vault matching your filter' : `Sum of the ${filtered.length} vaults matching your filter`)
+            : `Sum of the ${vaults.length} vaults shown${truncated ? `, the first ${vaults.length} of ${data.total}` : ''}`}: {tot.bySource.computed_from_chain || 0} computed from chain reads, {tot.bySource.vault_recorded || 0} as the vault records it.
           {tot.nested > 0 ? ` Each dollar once: ${fmtUsd0(tot.nested)} held by ${tot.nestedRows === 1 ? 'one vault' : `${tot.nestedRows} vaults`} inside another listed vault is counted in that vault only.` : ''}
           {tot.stale ? ` ${tot.stale} ${tot.stale === 1 ? 'is' : 'are'} stale.` : ''} Tokens at 1 USD each, face value. As of {data.as_of}.
         </div>
@@ -235,13 +239,18 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
         <h2 className="text-[15px] font-semibold text-fg">How a vault is listed</h2>
         <p className="mt-2 text-[13px] text-muted leading-relaxed">{data.rule}</p>
         {data.notice && <p className="mt-2 text-[12px] text-muted">{data.notice}</p>}
-        {data.deposits_note && data.deposits_note !== data.notice && <p className="mt-1 text-[12px] text-muted">{data.deposits_note}</p>}
+        {/* T6's deposits_note repeats the notice when the notice already
+            speaks of deposits; show it only when it adds something. */}
+        {data.deposits_note && !/deposit/i.test(data.notice || '') && <p className="mt-1 text-[12px] text-muted">{data.deposits_note}</p>}
       </Card>
 
       {nonePlatforms.length > 0 && (
         <Card>
           <h2 className="text-[15px] font-semibold text-fg">Venues with nothing listed</h2>
-          {data.statuses && <p className="mt-1 text-[12px] text-muted">Nothing qualifies: {data.statuses.none_qualifying}{data.statuses.read_failed ? `. Read failed: ${data.statuses.read_failed}` : ''}.</p>}
+          <p className="mt-1 text-[12px] text-muted">
+            A venue appears here when it was read and none of its vaults meets the rule above; the reason is given under each.
+            {nonePlatforms.some((p) => p.status === 'read_failed') ? ' "Read failed" means the latest read of that venue did not complete; its earlier results are kept and marked stale.' : ''}
+          </p>
           <ul className="mt-2 divide-y divide-line">
             {nonePlatforms.map((p) => (
               <li key={p.platform_key} className="py-3">

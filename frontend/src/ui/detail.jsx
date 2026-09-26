@@ -130,8 +130,9 @@ export function provText(p) {
   // vault)": the account was read on chain, but what it states is the
   // vault's own record.
   const qual = String(p.class || '').match(/^A \((.+)\)$/);
-  if (qual) return `Read on chain${slot}; ${qual[1]}`;
-  if (p.class === 'A') return `Read on chain${slot}`;
-  if (p.class === 'D') return p.read_on ? `From the operator's documents, read ${p.read_on}` : "From the operator's documents";
+  const note = p.note ? `; ${p.note}` : '';
+  if (qual) return `Read on chain${slot}; ${qual[1]}${note}`;
+  if (p.class === 'A') return `Read on chain${slot}${note}`;
+  if (p.class === 'D') return `${p.read_on ? `From the operator's documents, read ${p.read_on}` : "From the operator's documents"}${note}`;
   return null;
 }

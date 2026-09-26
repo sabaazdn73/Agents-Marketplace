@@ -228,7 +228,7 @@ export function VaultChecksCard({ data }) {
           <span key={c} className="h-7 px-2.5 rounded border border-line-strong text-[12px] text-fg inline-flex items-center">{c}</span>
         ))}
       </div>
-      {data.deposits_note && <p className="mt-3 text-[11px] text-muted">{data.deposits_note}</p>}
+      {(data.deposits_note || data.notice) && <p className="mt-3 text-[11px] text-muted">{data.deposits_note || data.notice}</p>}
     </Card>
   );
 }

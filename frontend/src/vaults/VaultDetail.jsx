@@ -125,6 +125,7 @@ function LendsAgainst({ v }) {
 }
 
 function DueDiligence({ v }) {
+  const notes = (v.notes || v.row?.notes || []).filter(Boolean);
   const m = v.manager || {};
   const c = v.controls || {};
   const programs = c.upgrade?.programs || [];
@@ -149,6 +150,11 @@ function DueDiligence({ v }) {
       {v.fees?.text && <Field label="Fees" prov={provText(v.fees)}>{v.fees.text}</Field>}
       {v.assets?.text && <Field label="What it holds" prov={provText(v.assets)}>{v.assets.text}</Field>}
       <LendsAgainst v={v} />
+      {notes.length > 0 && (
+        <Field label="Notes" prov={provText(v.row?.provenance?.assets || v.assets)}>
+          <ul className="list-disc pl-4 space-y-0.5">{notes.map((n) => <li key={n}>{n}</li>)}</ul>
+        </Field>
+      )}
       {v.powers?.rows?.length > 0 && (
         <Field label="What each role can do" prov={provText(v.powers)}>
           {v.powers.rows.map(([role, what]) => <div key={role} className="mt-1"><span className="font-semibold">{role}:</span> {what}</div>)}
@@ -156,7 +162,7 @@ function DueDiligence({ v }) {
         </Field>
       )}
       {v.audits?.text && (
-        <Field label="Audits" prov={v.audits.read_on ? `From the audit page, read ${v.audits.read_on}` : null}>
+        <Field label="Audits" prov={provText({ ...(v.row?.provenance?.audits || {}), class: 'D', read_on: v.audits.read_on })}>
           <ExtLink href={v.audits.url}>{v.audits.text}</ExtLink>
           {v.audits.note && <div className="mt-1 text-muted">{v.audits.note}</div>}
         </Field>
@@ -194,6 +200,11 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
   const r = v.return_30d;
   const allocations = v.assets?.allocations || [];
   const strategies = v.assets?.strategies || [];
+  // Voltr: what sits idle in the vault (T6 tvl.cross_check), so the
+  // strategies plus idle add up to the TVL on the page.
+  const cc = t.cross_check;
+  const idle = Number.isFinite(cc?.idle_tokens) ? cc.idle_tokens : null;
+  const stratSum = strategies.reduce((a, x) => a + (Number(x.position_tokens) || 0), 0);
   const nesting = [...(v.row?.nested_in || []).map((n) => ['Partly inside', n]), ...(v.row?.contains_nested || []).map((n) => ['Holds part of', n])];
   const programs = v.controls?.upgrade?.programs || [];
   return (
@@ -252,7 +263,12 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
             <tbody className="divide-y divide-line">{strategies.map((x) => (
               <tr key={x.receipt || x.strategy}><td className="px-4 py-2 text-fg">{x.target || 'Strategy'} <span className="font-mono text-muted">{shortAddr(x.strategy)}</span></td>{!mobile && <td className="py-2 text-fg">{x.adaptor_name || shortAddr(x.adaptor)}</td>}{!mobile && <td className="py-2 text-muted tabular-nums">{x.last_updated || '–'}</td>}<td className="px-4 py-2 text-right tabular-nums text-fg">{Number(x.position_tokens).toLocaleString('en-US', { maximumFractionDigits: 2 })}</td></tr>
             ))}</tbody></table>
-            <p className="px-4 py-2 text-[11px] text-muted">{provText(v.assets)}.</p></div>
+            {idle != null && (
+              <p className="px-4 pt-2 text-[12px] text-fg">
+                Idle in the vault: {idle.toLocaleString('en-US', { maximumFractionDigits: 2 })}. Strategies {stratSum.toLocaleString('en-US', { maximumFractionDigits: 2 })} + idle {idle.toLocaleString('en-US', { maximumFractionDigits: 2 })} = {(stratSum + idle).toLocaleString('en-US', { maximumFractionDigits: 2 })}, against a TVL of {Number(t.amount ?? t.usd).toLocaleString('en-US', { maximumFractionDigits: 2 })}{Number.isFinite(cc?.sum) ? ` (the vault's own cross-check: ${cc.sum.toLocaleString('en-US', { maximumFractionDigits: 2 })})` : ''}.
+              </p>
+            )}
+            <p className="px-4 py-2 text-[11px] text-muted">{provText({ ...v.assets, note: v.assets?.note })}.</p></div>
         ) },
         { id: 'nesting', label: 'Nested vaults', count: nesting.length, show: nesting.length > 0, render: () => (
           <div className="p-4 space-y-2 text-[13px]">

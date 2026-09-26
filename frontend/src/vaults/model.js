@@ -13,7 +13,12 @@ export const platformKeyOf = (v) => v?.platform_key || String(v?.key || '').spli
 export function staleOf(v) {
   if (!v) return null;
   if (v.read_stale) return 'The latest chain read of this vault failed; these figures are from the previous read.';
-  if (v.tvl_stale) return `The vault's recorded total is stale (${v.tvl_stale_rule || 'last written too long ago'}).`;
+  if (v.tvl_stale) {
+    const rule = v.tvl_stale_rule ? ` (${v.tvl_stale_rule})` : '';
+    return v.tvl_source === 'vault_recorded'
+      ? `The vault's recorded total is stale${rule}.`
+      : `Our computed figure is stale${rule}.`;
+  }
   // T6's per-row `stale` is tvl_stale OR read_stale; kept in case a reason
   // field is missing.
   if (v.stale) return 'Stale by the backend\'s rule.';
