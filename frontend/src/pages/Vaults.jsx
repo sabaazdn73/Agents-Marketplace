@@ -2,7 +2,7 @@
 //
 // /vaults and /vaults/<platform>/<address>: the list (vaults/VaultList.jsx)
 // or one vault (vaults/VaultDetail.jsx), in the layout of Hyperliquid's
-// vault pages (owner's reference). Real vaults only, from T6's GET
+// vault pages (owner's reference). Vaults taking a stablecoin deposit, from T6's GET
 // /api/vaults. Deposit and Withdraw hand off to the venue; nothing is signed
 // here. Behind DATA_LIVE (dataLive.js).
 
@@ -24,7 +24,7 @@ export default function Vaults({ layout = 'web', path = '/vaults', onNavigate })
     );
   }
   return (
-    <PageFrame layout={layout} title="Vaults" sub="Vaults holding real-world assets, checked on chain. Tnega never holds funds.">
+    <PageFrame layout={layout} title="Vaults" sub="Vaults taking a stablecoin deposit, checked on chain. Tnega never holds funds.">
       <VaultList state={list} layout={layout} onNavigate={onNavigate} />
     </PageFrame>
   );

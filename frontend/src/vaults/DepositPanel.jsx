@@ -13,7 +13,8 @@
 
 import React, { useEffect, useRef } from 'react';
 import { X, ExternalLink } from 'lucide-react';
-import { VENUES } from './venues';
+import { venueLink } from './venues';
+import { platformKeyOf } from './model';
 import { CopyAddress } from '../ui/detail';
 
 export default function DepositPanel({ vault, mode = 'deposit', onClose }) {
@@ -21,7 +22,16 @@ export default function DepositPanel({ vault, mode = 'deposit', onClose }) {
   useEffect(() => {
     const prev = document.activeElement;
     box.current?.querySelector('button')?.focus();
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); onClose(); } };
+    // Esc closes; Tab and Shift+Tab stay inside the panel.
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); return; }
+      if (e.key !== 'Tab' || !box.current) return;
+      const f = [...box.current.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+      if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      if (e.shiftKey && (i <= 0)) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && (i === -1 || i === f.length - 1)) { e.preventDefault(); f[0].focus(); }
+    };
     document.addEventListener('keydown', onKey);
     const main = document.querySelector('main');
     const prevBody = document.body.style.overflow;
@@ -36,7 +46,8 @@ export default function DepositPanel({ vault, mode = 'deposit', onClose }) {
     };
   }, [onClose]);
 
-  const venue = VENUES[vault.platform_key] || { name: vault.platform, url: null };
+  const link = venueLink(vault.platform_key || platformKeyOf(vault.row), vault.address) || { name: vault.platform, href: null };
+  const venue = { name: link.name };
   const verb = mode === 'withdraw' ? 'Withdraw' : 'Deposit';
   const powers = vault.powers?.rows || [];
   return (
@@ -63,7 +74,7 @@ export default function DepositPanel({ vault, mode = 'deposit', onClose }) {
           {vault.fees?.text && <div className="py-2.5"><dt className="text-muted">Fees</dt><dd className="mt-0.5 text-fg">{vault.fees.text}</dd></div>}
           {powers.length > 0 && (
             <div className="py-2.5">
-              <dt className="text-muted">What the curator and admins can do</dt>
+              <dt className="text-muted">What the admins and manager can do</dt>
               <dd className="mt-1 space-y-1.5">
                 {powers.map(([role, what]) => (
                   <div key={role} className="text-fg"><span className="font-semibold">{role}:</span> {what}</div>
@@ -73,17 +84,19 @@ export default function DepositPanel({ vault, mode = 'deposit', onClose }) {
             </div>
           )}
           <div className="py-2.5">
-            <dt className="text-muted">Vault address, to find it on {venue.name}</dt>
+            <dt className="text-muted">Vault address</dt>
             <dd className="mt-0.5"><CopyAddress address={vault.address} /></dd>
           </div>
         </dl>
 
-        {venue.url ? (
-          <a href={venue.url} target="_blank" rel="noopener noreferrer"
+        {link.href ? (
+          <a href={link.href} target="_blank" rel="noopener noreferrer"
             className="mt-5 w-full inline-flex items-center justify-center gap-2 h-10 rounded bg-accent text-accent-fg text-[14px] font-semibold hover:opacity-90">
             Open on {venue.name} <ExternalLink size={14} aria-hidden="true" />
           </a>
-        ) : (
+        ) : null}
+        {link.href && !link.own && <p className="mt-2 text-[12px] text-muted">This opens {venue.name}&apos;s list of vaults; find this one by the address above.</p>}
+        {!link.href && (
           <p className="mt-5 text-[13px] text-muted">{venue.name} has no public page we have checked to link to. Use the address above in the venue&apos;s own app.</p>
         )}
       </div>

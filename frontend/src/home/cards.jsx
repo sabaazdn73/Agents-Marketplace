@@ -209,15 +209,17 @@ export function BasketCard({ basket, source, onOpen }) {
  * The five checks are the fields every vault page carries, named as fields:
  * a tick would claim a vault passed them. The chips name the platforms and
  * assets read, once each. */
-const CHECKS = ['Real-world assets only', 'Audits and auditors', 'Upgrade authority, read on chain', 'Timelock on admin changes', 'What the manager can move'];
+const CHECKS = ['Stablecoin deposit, and what it is lent against', 'Audits and auditors, linked', 'Upgrade authority, read on chain', 'Timelock on admin changes', 'What the manager can move'];
 export function VaultChecksCard({ data }) {
   if (!data || !hasRows(data.vaults)) return null;
-  const chips = [...new Set(data.vaults.map((v) => `${v.platform} · ${v.assets}`))].slice(0, 6);
+  const chips = [...new Set(data.vaults.map((v) => `${v.platform} · ${v.token_symbol || v.tvl_symbol || ''}`))].slice(0, 6);
+  // The backend's own list of checks when it serves one (T6 `checks`).
+  const checks = Array.isArray(data.checks) && data.checks.length ? data.checks : CHECKS;
   return (
     <Card>
       <CardTitle right={<DevTag data={data} />}>Every vault page shows</CardTitle>
       <ul className="divide-y divide-line text-[13px]">
-        {CHECKS.map((c) => (
+        {checks.map((c) => (
           <li key={c} className="py-2 text-fg">{c}</li>
         ))}
       </ul>
@@ -226,7 +228,7 @@ export function VaultChecksCard({ data }) {
           <span key={c} className="h-7 px-2.5 rounded border border-line-strong text-[12px] text-fg inline-flex items-center">{c}</span>
         ))}
       </div>
-      <p className="mt-3 text-[11px] text-muted">Deposits happen on each venue; Tnega never holds funds.</p>
+      {data.deposits_note && <p className="mt-3 text-[11px] text-muted">{data.deposits_note}</p>}
     </Card>
   );
 }
@@ -410,7 +412,7 @@ export function VaultTable({ state, compact = false, onOpen }) {
         <thead>
           <tr className="text-muted text-left text-[12px]">
             <th className="font-medium px-4 py-2">Vault</th>
-            <th className="font-medium py-2">Manager and audits</th>
+            <th className="font-medium py-2">Admin / manager and audits</th>
             {!compact && <th className="font-medium py-2">Assets and controls</th>}
             <th className="font-medium py-2 text-right">TVL</th>
             {!compact && <th className="font-medium px-4 py-2 text-right">Fees and lockup</th>}

@@ -30,6 +30,7 @@ import { SECTION_LIVE, TOUR_VIDEO_URL, TOUR_POSTER_URL, FEATURE_TICKER } from '.
 import { isLive } from '../shell/productNav';
 import { DATA_LIVE } from '../dataLive';
 import TourModal from '../home/TourModal';
+import { platformKeyOf } from '../vaults/model';
 
 // Film still 01's stocks, and vaults; each chip opens the list filtered to it.
 const CHIPS = ['NVDA', 'TSLA', 'SPY', 'QQQ', 'GLD'];
@@ -187,7 +188,7 @@ export default function Home({ layout = 'web', onNavigate }) {
 
         <Feature layout={layout} icon={ShieldCheck} label="Vaults" flip
           title="Vaults, checked on chain before you trust them."
-          text="Who controls the money and what it holds, read on chain."
+          text="Who controls the money, what it lends and against what, read on chain."
           cta={cta('vaults', 'See the vaults', '/vaults')}
           card={vaults.data?.vaults?.length ? <VaultChecksCard data={vaults.data} /> : null} />
 
@@ -230,7 +231,7 @@ export default function Home({ layout = 'web', onNavigate }) {
                 <p className="mt-3 text-[13px] text-muted">Couldn&apos;t read the baskets. Try again later.</p>
               </div>
             ) : null}
-            <VaultTable state={vaults} compact={mobile} onOpen={isLive('vaults') ? (v) => go(`/vaults/${v.platform_key}/${v.address}`) : undefined} />
+            <VaultTable state={vaults} compact={mobile} onOpen={isLive('vaults') ? (v) => go(`/vaults/${platformKeyOf(v)}/${v.address}`) : undefined} />
           </section>
         )}
       </div>

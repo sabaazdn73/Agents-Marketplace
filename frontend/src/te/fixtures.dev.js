@@ -20,6 +20,10 @@
 
 export const FIXTURE_MARKER = 'TNEGA_DEV_FIXTURE_7f3a';
 
+import T6_VAULTS from './fixtures/t6-vaults.dev.json' with { type: 'json' };
+import T6_KAMINO from './fixtures/t6-vault-kamino.dev.json' with { type: 'json' };
+import T6_VOLTR from './fixtures/t6-vault-voltr.dev.json' with { type: 'json' };
+
 const T = '2026-01-01T12:00:00Z';
 const F = { _fixture: true, _marker: FIXTURE_MARKER, computed_at: T };
 
@@ -176,105 +180,27 @@ function curve(ticker) {
 }
 
 
-// VAULTS, in T6's shape (branch te-vaults, GET /api/vaults and
-// /api/vaults/{platform}/{address}), with made-up names, addresses and round
-// figures. The two venues with listed vaults, one venue with none, and each
-// kind of TVL source are all represented.
+// VAULTS: T6's REAL answers (branch te-vaults, samples rebuilt from its
+// final code, copied from scratchpad/t6/ into te/fixtures/*.dev.json). Real
+// vault names and figures, because the data is real: the pages are tested
+// against what the backend serves, not against a shape we imagined (a hand
+// fixture hid a missing platform_key once). Like the rest of this file,
+// they load only in a dev server with VITE_TE_FIXTURES=1.
+// Detail answers exist for the two vaults sampled (a nested pair: Allez USDC
+// on Kamino holds part of Hubra Copilot USDC on Voltr); any other address
+// answers as the API does, 404.
 const DAY = 86400e3;
-const addr = (n) => `DevVau1t${String(n).padStart(3, '0')}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`.slice(0, 44);
-const VAULTS = [
-  // key, name, platform, platform_key, tvl, source, 30-day change %, age days, holds tokenized equity
-  [1, 'Dev Stable One', 'Kamino', 'kamino', 3000000, 'computed_from_chain', 0.4, 400, false],
-  [2, 'Dev Stable Two', 'Kamino', 'kamino', 2000000, 'computed_from_chain', 0.3, 200, false],
-  [3, 'Dev Stock Basket', 'Kamino', 'kamino', 1000000, 'computed_from_chain', 0.6, 90, true],
-  [4, 'Dev Lending Pool', 'Voltr', 'voltr', 1500000, 'vault_recorded', 0.5, 120, false],
-  [5, 'Dev Nested Pool', 'Kamino', 'kamino', 500000, 'computed_from_chain', 0.2, 60, false],
-];
-// Vault 5 sits inside vault 1 (its dollars are in vault 1's TVL); vault 4's
-// latest read failed, so it carries the previous read, marked stale.
-const NESTED = { 5: 1 };
-const STALE = new Set([4]);
-function vaultRow([n, name, platform, platform_key, tvl, source, ret, age, rwa]) {
-  const series = (base, step) => Array.from({ length: 31 }, (_, i) => [Date.parse(T) - (30 - i) * DAY, Math.round((base + step * i) * 10000) / 10000]);
-  return {
-    key: `${platform_key}/${addr(n)}`, name, platform, platform_key, chain: 'Solana', group: 'nonevm', address: addr(n),
-    manager: n % 2 ? 'Vault admin: 2 of 3 multisig, 1 h timelock' : 'Vault admin: single key (inferred)',
-    audits: `${platform} audits (dev fixture, read 2026-01-01)`,
-    assets: rwa ? 'Tokenized stocks and USDC (dev fixture)' : 'USDC, lent into 2 markets (dev fixture)',
-    controls: 'Upgrade: 3 of 5 multisig, 24 h timelock (dev fixture)',
-    fees: '10% performance, 0% management', lockup: 'No lock-up field; withdrawals limited by available liquidity',
-    tvl_usd: tvl, tvl_amount: tvl, tvl_symbol: 'USDC', tvl_slot: 100000000,
-    tvl_source: source,
-    tvl_basis: source === 'computed_from_chain' ? 'computed from the vault\'s positions read on chain (dev fixture)' : 'the vault\'s own recorded total, not recomputed (dev fixture)',
-    tvl_reconciliation: source === 'computed_from_chain' ? 'reconciles (dev fixture)' : 'recorded by the vault, not reconciled (dev fixture)',
-    tvl_partial: false, tvl_last_written: source === 'vault_recorded' ? '2026-01-01T00:00Z' : null,
-    provenance: {
-      manager: { class: 'A', slot: 100000000 }, assets: { class: 'A', slot: 100000000 }, controls: { class: 'A', slot: 100000000 },
-      fees: { class: 'A', slot: 100000000 }, lockup: { class: 'A', slot: 100000000 },
-      audits: { class: 'D', url: 'https://example.invalid/audits', read_on: '2026-01-01' },
-      tvl: { class: 'A', slot: 100000000, source },
-    },
-    read_at: T,
-    return_30d: { pct: ret, basis: 'share price change over 30 days, read on chain (dev fixture)', from: '2025-12-02', to: '2026-01-01' },
-    series: { share_price: series(1, ret / 100 / 30), tvl: series(tvl * 0.9, tvl * 0.1 / 30) },
-    age_days: age, holds_tokenized_equity: rwa,
-    nested_in: NESTED[n] ? `${platform_key}/${addr(NESTED[n])}` : undefined,
-    stale: STALE.has(n) || undefined,
-  };
-}
-const PLATFORMS = [
-  { platform: 'Kamino', platform_key: 'kamino', chain: 'Solana', group: 'nonevm', status: 'listed', listed: 4, as_of: '2026-01-01', read_at: T,
-    text: '4 listed of 11 vault accounts read on chain; 7 not listed, by reason below.', discovered: 11, slot: 100000000,
-    excluded: [{ reason: 'empty or under 1,000 tokens', count: 4 }, { reason: 'deposit token is not a stablecoin (crypto or LST)', count: 2 }, { reason: 'named as a test, staging or demo vault', count: 1 }],
-    named_exclusions: [{ address: addr(90), name: 'Dev Off-chain Fund', reason: 'off-chain structure (dev fixture)' }],
-    upgrade: { text: '3 of 5 multisig, 24 h timelock', class: 'A', slot: 100000000 } },
-  { platform: 'Voltr', platform_key: 'voltr', chain: 'Solana', group: 'nonevm', status: 'listed', listed: 1, as_of: '2026-01-01', read_at: T,
-    text: '1 listed of 5 vault accounts read on chain; 4 not listed, by reason below.', discovered: 5, slot: 100000000,
-    excluded: [{ reason: 'places funds with Drift (excluded by the owner\'s rule)', count: 2 }, { reason: 'empty or under 1,000 tokens', count: 2 }],
-    named_exclusions: [], upgrade: { text: '2 of 3 multisig, no timelock', class: 'A', slot: 100000000 } },
-  { platform: 'GLAM', platform_key: 'glam', chain: 'Solana', group: 'nonevm', status: 'none_qualifying', listed: 0, as_of: '2026-01-01', read_at: T,
-    text: 'No qualifying vault found as of 2026-01-01: 6 GLAM vault accounts read on chain, none qualifies (dev fixture).', reason_class: 'A',
-    excluded: [{ reason: 'base asset is not a stablecoin', count: 4 }, { reason: 'named as a test, staging or demo vault', count: 2 }], named_exclusions: [], discovered: 6 },
-  { platform: 'Hyperliquid', platform_key: 'hyperliquid', chain: 'Hyperliquid', group: 'nonevm', status: 'none_qualifying', listed: 0, as_of: '2026-01-01', read_at: null,
-    text: 'No qualifying vault found as of 2026-01-01: none holds a real-world asset (dev fixture).', reason_class: 'D',
-    sources: ['https://example.invalid/docs'], sources_read_on: '2026-01-01' },
-];
-function vaultList() {
-  const vaults = VAULTS.map(vaultRow);
-  return {
-    ...F, as_of: '2026-01-01', read_only: true, deposits: 'off',
-    notice: 'Read-only: deposits are off. We describe each vault as its chain state and its operator\'s documents show it. Nothing here is advice.',
-    rule: 'Listed when: the deposit token is on the stablecoin list (by mint address); every position the vault holds is read on chain; the name is not a test, staging or demo name; and it holds at least 1,000 tokens. (dev fixture)',
-    order: 'platform, then name; no ranking', platform: null, total: vaults.length, count: vaults.length, offset: 0, limit: 100,
-    vaults, platforms: PLATFORMS,
-  };
+const addr = (n) => `DevAddr${String(n).padStart(3, '0')}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`.slice(0, 44);
+const T6_DETAILS = [T6_KAMINO, T6_VOLTR];
+const vaultPlatformKey = (v) => v.platform_key || String(v.key || '').split('/')[0];
+function vaultList(q) {
+  const limit = Math.min(100, Number(q?.get('limit') || 24));
+  const vaults = T6_VAULTS.vaults.slice(0, limit);
+  return { ...T6_VAULTS, _fixture: true, _marker: FIXTURE_MARKER, limit, count: vaults.length, vaults };
 }
 function vaultDetail(platformKey, address) {
-  const row = vaultList().vaults.find((v) => v.platform_key === platformKey && v.address === address);
-  if (!row) return null;
-  return {
-    ...F, kind: 'vault', platform: row.platform, platform_key: row.platform_key, chain: row.chain, group: row.group,
-    address: row.address, program: 'DevProgram1111111111111111111111111111111111'.slice(0, 44), name: row.name,
-    token: { mint: 'DevMint11111111111111111111111111111111111111'.slice(0, 44), symbol: 'USDC', decimals: 6 },
-    tvl: { usd: row.tvl_usd, amount: row.tvl_amount, symbol: 'USDC', slot: row.tvl_slot, source: row.tvl_source, basis: row.tvl_basis, reconciliation: row.tvl_reconciliation, partial: false },
-    fees: { text: row.fees, class: 'A', slot: 100000000, performance_bps: 1000, management_bps: 0 },
-    lockup: { text: row.lockup, class: 'A', slot: 100000000 },
-    manager: { text: row.manager, class: 'A', slot: 100000000,
-      vault_admin: { kind: 'squads_v4', address: addr(50), text: '2 of 3 multisig, 1 h timelock' },
-      allocation_admin: { kind: 'single_key', address: addr(51), text: 'single key (inferred)' } },
-    assets: { text: row.assets, class: 'A', slot: 100000000, allocations: [
-      { reserve: addr(60), lending_market: addr(61), market_owner_text: '3 of 5 multisig, 12 h timelock', target_weight: 600000, value_tokens: row.tvl_usd * 0.6 },
-      { reserve: addr(62), lending_market: addr(63), market_owner_text: '3 of 5 multisig, 12 h timelock', target_weight: 400000, value_tokens: row.tvl_usd * 0.4 },
-    ] },
-    controls: { class: 'A', slot: 100000000, admin: '2 of 3 multisig, 1 h timelock', allocation_admin: 'single key (inferred)',
-      global_admin: { text: '3 of 5 multisig, no timelock' }, market_owners: ['3 of 5 multisig, 12 h timelock'],
-      pause: { text: 'No pause field (dev fixture)', class: 'D' },
-      upgrade: { programs: [{ program: 'DevProgram1111111111111111111111111111111111'.slice(0, 44), state: 'upgradeable', authority: addr(70), last_deploy_slot: 90000000, slot: 100000000, authority_detail: { text: '3 of 5 multisig, 24 h timelock' } }] } },
-    audits: { text: row.audits, class: 'D', url: 'https://example.invalid/audits', read_on: '2026-01-01', entries: [{ auditor: 'Dev Auditor A', date_as_stated: '1 Jan 2025', scope: 'vault program' }] },
-    powers: { class: 'D', source: 'https://example.invalid/source', read_on: '2026-01-01', rows: [['vault admin', 'adds markets, sets fees (dev fixture)'], ['allocation admin', 'changes weights of markets already added (dev fixture)']], moves: 'No handler moves deposits to an arbitrary account (dev fixture).' },
-    read_at: T, row, notice: vaultList().notice,
-    return_30d: row.return_30d, series: row.series, age_days: row.age_days,
-  };
+  const d = T6_DETAILS.find((x) => (x.platform_key || vaultPlatformKey(x.row)) === platformKey && x.address === address);
+  return d ? { ...d, _fixture: true, _marker: FIXTURE_MARKER } : null;
 }
 
 // A public basket, /api/baskets/{code}. Made-up legs and round numbers; the
@@ -292,7 +218,7 @@ function basketDetail(code) {
     ...F, code, name: b.name, creator: addr(80), created_at: '2025-12-01', version: 2,
     description: 'A made-up basket for laying out the page (dev fixture).',
     legs, value_usd_indicative: 1060, value_basis: 'one unit priced at each leg\'s pool mid (dev fixture)',
-    return_since_creation_pct: 6, followers_count: 3, series,
+    return_since_creation_pct: 6, return_source: 'pool mids', return_basis: 'value at each leg\'s pool mid now against at creation, weights as created (dev fixture)', followers_count: 3, series,
     cost_at_size: { stops: [100, 1000, 10000], bps: [30, b.cost_bps_1k, 40] },
     changes: [
       { version: 2, at: '2025-12-15', legs, note: 'weights rebalanced (dev fixture)' },
@@ -346,7 +272,7 @@ const answers = {
       { name: 'Dev basket three', code: 'dev3', legs: [['IDXB', 'IDXBx', 10000]].map(([ticker, symbol, weight_bps]) => ({ ticker, symbol, weight_bps })), cost_bps_1k: 20, signatures: 1, evm: 0, nonevm: 1, cap_usd: 20000, cap_leg: 'IDXB' },
     ],
   }),
-  '/api/vaults': () => vaultList(),
+  '/api/vaults': (q) => vaultList(q),
   '/api/site/portfolio': () => portfolio(),
 };
 
@@ -417,19 +343,22 @@ export function checkFixtures() {
     }
   }
   for (const v of und.versions.filter((x) => !(x.filled_fraction > 0))) ok(!cv.chains.some((c) => c.chain === v.chain && c.symbol === v.symbol), `curve lists ${v.chain}, which has no pool`);
-  // Vaults: the list and each detail agree; the platforms' listed counts
-  // match the rows; a basket's weights sum to 10,000 at every version.
-  const vl = answer('/api/vaults');
-  const counted = vl.vaults.filter((v) => !v.nested_in);
-  ok(near(counted.reduce((a, v) => a + v.tvl_usd, 0), 7500000), 'vaults: the total counts a nested vault twice');
-  for (const v of vl.vaults.filter((x) => x.nested_in)) ok(vl.vaults.some((x) => x.key === v.nested_in), `vault ${v.name}: nested_in names no listed vault`);
-  for (const p of vl.platforms) ok((p.listed || 0) === vl.vaults.filter((v) => v.platform_key === p.platform_key).length, `vaults: ${p.platform} listed count != its rows`);
-  for (const v of vl.vaults) {
-    const d = answer(`/api/vaults/${v.platform_key}/${v.address}`);
-    ok(d && d.tvl.usd === v.tvl_usd && d.name === v.name, `vault ${v.name}: detail disagrees with the list`);
-    ok(near(d.assets.allocations.reduce((a, x) => a + x.value_tokens, 0), v.tvl_usd), `vault ${v.name}: holdings do not sum to TVL`);
-    ok(near(v.series.tvl.at(-1)[1], v.tvl_usd), `vault ${v.name}: TVL series does not end at TVL`);
+  // Vaults (T6's real answers): each platform's listed count matches its
+  // rows; each sampled detail agrees with its list row; every nesting link
+  // names a listed vault, both ways, with the same token amount.
+  const vl = answer('/api/vaults?limit=100');
+  for (const p of vl.platforms) ok((p.listed || 0) === vl.vaults.filter((v) => vaultPlatformKey(v) === p.platform_key).length, `vaults: ${p.platform} listed count != its rows`);
+  ok(vl.count === vl.vaults.length && vl.total >= vl.count, 'vaults: count/total disagree with the rows');
+  for (const d of T6_DETAILS) {
+    const row = vl.vaults.find((v) => v.address === d.address);
+    ok(row && row.tvl_usd === d.tvl.usd && row.name === d.name, `vault ${d.name}: detail disagrees with the list`);
   }
+  for (const v of vl.vaults) for (const n of v.nested_in || []) {
+    const parent = vl.vaults.find((x) => x.address === n.address);
+    ok(parent, `vault ${v.name}: nested_in names no listed vault`);
+    ok(parent && (parent.contains_nested || []).some((c) => c.address === v.address && c.tokens === n.tokens), `vault ${v.name}: its parent does not list it with the same amount`);
+  }
+  for (const p of vl.platforms) for (const x of p.named_exclusions || []) ok(!vl.vaults.some((v) => v.address === x.address), `vaults: ${x.address} is both listed and excluded`);
   for (const b of answer('/api/baskets/curated').baskets) {
     const d = answer(`/api/baskets/${b.code}`);
     ok(d && d.legs.reduce((a, l) => a + l.weight_bps, 0) === 10000, `basket ${b.code}: weights do not sum to 10,000`);

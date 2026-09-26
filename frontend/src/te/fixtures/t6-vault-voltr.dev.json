@@ -1,0 +1,578 @@
+{
+ "kind": "vault",
+ "platform": "Voltr",
+ "platform_key": "voltr",
+ "chain": "Solana",
+ "group": "nonevm",
+ "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+ "program": "vVoLTRjQmtFpiYoegx285Ze4gsLJ8ZxgFKVcuvmG1a8",
+ "name": "Hubra Copilot USDC",
+ "token": {
+  "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "symbol": "USDC",
+  "decimals": 6,
+  "kind": "stablecoin"
+ },
+ "slots": {
+  "vaults": 450802160,
+  "receipts": 450802163,
+  "idle": 450802170,
+  "strategies": 450802167
+ },
+ "tvl": {
+  "usd": 32173.4,
+  "amount": 32173.4,
+  "symbol": "USDC",
+  "slot": 450802160,
+  "source": "vault_recorded",
+  "basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T21:50Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
+  "cross_check": {
+   "idle_tokens": 4053.88,
+   "idle_slot": 450802170,
+   "strategy_positions_recorded": 28119.78,
+   "sum": 32173.67
+  },
+  "reconciliation": "recorded by the vault, not reconciled: strategy positions are the vault's own records",
+  "last_written": "2026-09-26T21:50Z",
+  "last_written_ts": 1790459430,
+  "partial": false
+ },
+ "fees": {
+  "text": "0% performance, 0% management",
+  "class": "A",
+  "slot": 450802160,
+  "bps": {
+   "manager_performance": 0,
+   "admin_performance": 0,
+   "manager_management": 0,
+   "admin_management": 0,
+   "redemption": 0,
+   "issuance": 0,
+   "protocol_performance": 0,
+   "protocol_management": 0
+  }
+ },
+ "lockup": {
+  "text": "Withdrawal waiting period: none",
+  "class": "A",
+  "slot": 450802160,
+  "withdrawal_waiting_s": 0
+ },
+ "manager": {
+  "text": "Manager: single key (inferred); admin: single key (inferred)",
+  "class": "A",
+  "slot": 450802160,
+  "admin": {
+   "kind": "single_key",
+   "address": "RAoEnBNgWR3H4L76UFtXNoJShLQ3yFSUcGPCDEzqmMb",
+   "basis": "on-curve key: a single key holds it (inferred)",
+   "text": "single key (inferred)"
+  },
+  "manager": {
+   "kind": "single_key",
+   "address": "RAmcBEAZDXY61VQfXesDd5N1fEFJhaMaG6dNNjYCzCP",
+   "basis": "on-curve key: a single key holds it (inferred)",
+   "text": "single key (inferred)"
+  },
+  "pending_admin": {
+   "kind": "single_key",
+   "address": "RAoEnBNgWR3H4L76UFtXNoJShLQ3yFSUcGPCDEzqmMb",
+   "basis": "on-curve key: a single key holds it (inferred)",
+   "text": "single key (inferred)"
+  }
+ },
+ "notes": [
+  "Drift strategy attached (currently 0)",
+  "manager: single key, can move funds between strategies without an admin step"
+ ],
+ "nested_in": [
+  {
+   "platform_key": "kamino",
+   "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+   "tokens": 28119.78,
+   "name": "Allez USDC"
+  }
+ ],
+ "assets": {
+  "text": "USDC; positions as recorded by the vault: Kamino vault",
+  "class": "A (positions as recorded by the vault)",
+  "slot": 450802163,
+  "strategies": [
+   {
+    "receipt": "d12ZbNWNN3eejXyTGcWQrUXtQVnCp3iCz1Rjmin9ZPg",
+    "strategy": "DWSXb18xZApz29vnQpgR2m6MynCT7PznaXt7Ut7M7KaP",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-08-12T01:52Z"
+   },
+   {
+    "receipt": "2e9i27FqrfjAA38QMwwrMKz5m2W9EpGDM4MDoyhzb3ui",
+    "strategy": "A3hTCWdnfV6uiQLxRmnv17EpiEtmc93v1AGQnWy44Mup",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-09-24T10:43Z"
+   },
+   {
+    "receipt": "2qXNB1d5gYEd14bJRNZEroERsVPeMmQHZz1q2k4i6Qvm",
+    "strategy": "2vVYHYM8VYnvZqQWpTJSj8o8DBf1wM8pVs3bsTgYZiqJ",
+    "adaptor": "EW35URAx3LiM13fFK3QxAXfGemHso9HWPixrv7YDY4AM",
+    "adaptor_name": "Jupiter Lend adaptor",
+    "target": "Jupiter Lend",
+    "target_class": "onchain",
+    "target_program": "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9",
+    "position_tokens": 0.0,
+    "last_updated": "2026-09-20T00:27Z"
+   },
+   {
+    "receipt": "64kWMFDRgtUsC8qShfkuNu6aXVieeCHgagzyGCQXcn3y",
+    "strategy": "GXWqPpjQpdz7KZw9p7f5PX2eGxHAhvpNXiviFkAB8zXg",
+    "adaptor": "EBN93eXs5fHGBABuajQqdsKRkCgaqtJa8vEFD6vKXiP",
+    "adaptor_name": "Drift adaptor",
+    "target": "Drift",
+    "target_class": "drift",
+    "target_program": "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
+    "position_tokens": 0.0,
+    "last_updated": "2026-02-26T07:48Z"
+   },
+   {
+    "receipt": "6UV2GNDxUWe9VAsiYxFKvyHL8y5NBuCX8rBWkz7F615g",
+    "strategy": "9E69U4GzWhryRaPe8DYpco6Z9vTZY6gg8w6W2QsBACEj",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-09-24T11:32Z"
+   },
+   {
+    "receipt": "6fpJSRWBJM2D5vuyuxXnuc118xafht3zthgSPsnLYhm7",
+    "strategy": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 28119.78,
+    "last_updated": "2026-09-26T21:50Z"
+   },
+   {
+    "receipt": "AecHfUhChAPD5apfrWMnBvRr8Ssnr2Ru2dyZiSNRmbs6",
+    "strategy": "GFiW6edsrtHZd4Vnz2qTSurVasRrgKrXE1ouHNtCVsft",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-08-28T16:54Z"
+   },
+   {
+    "receipt": "Ag5g6ge8Kf3LngLxPz9aZ5nKj82A6AC1jKSYCSe3vmW3",
+    "strategy": "HDsayqAsDWy3QvANGqh2yNraqcD8Fnjgh73Mhb3WRS5E",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-09-24T08:01Z"
+   },
+   {
+    "receipt": "BttXwWNqi54avun2qYZt36jJajFjda5YJrGGt3fk8qSK",
+    "strategy": "TMoWTkuPJHArEeohUTWy3RYoMgfWqeCpzjPTLeGVYP9",
+    "adaptor": "EBN93eXs5fHGBABuajQqdsKRkCgaqtJa8vEFD6vKXiP",
+    "adaptor_name": "Drift adaptor",
+    "target": "Drift",
+    "target_class": "drift",
+    "target_program": "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
+    "position_tokens": 0.0,
+    "last_updated": "2026-02-26T07:48Z"
+   },
+   {
+    "receipt": "FfALsQjD9aEvgugEqkEsXTBnpecdRumuSdjegev5jRho",
+    "strategy": "67dqmR76uAbjX6e81A1ganKv3ou31WUMEdeWJkwVfeXy",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-09-22T06:51Z"
+   },
+   {
+    "receipt": "GUf682s8eTwLuohQVicYxq9R6xFHmCsf7JF3zWvv8WrG",
+    "strategy": "EPC2N3AAv84P9TKsnDt2x41p6T7c5vTewBhQbh4RVx4r",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-09-22T02:19Z"
+   },
+   {
+    "receipt": "Hb82LVwYnBDv8xLfEkVqZotYDyLwmyCxB6XXjAzx1gbo",
+    "strategy": "BEEfo7xwgK2ZP13Pxo7qqTPzAteKJmXjVWtMWcXSvbn2",
+    "adaptor": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+    "adaptor_name": "Kamino adaptor",
+    "target": "Kamino vault",
+    "target_class": "kvault",
+    "target_program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+    "position_tokens": 0.0,
+    "last_updated": "2026-08-31T01:15Z"
+   }
+  ]
+ },
+ "controls": {
+  "class": "A",
+  "slot": 450802160,
+  "admin": "single key (inferred)",
+  "allow_any_adaptor": 0,
+  "disabled_operations": 0,
+  "pause": {
+   "text": "disabledOperations = 0",
+   "class": "A",
+   "slot": 450802160
+  },
+  "max_cap_tokens": 100000000.0,
+  "upgrade": {
+   "programs": [
+    {
+     "program": "vVoLTRjQmtFpiYoegx285Ze4gsLJ8ZxgFKVcuvmG1a8",
+     "programdata": "3fiAyUjktZkZf6hcbBPy6U6UdkMdEFoToS4sjtzAd5az",
+     "last_deploy_slot": 445223838,
+     "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+     "state": "upgradeable",
+     "slot": 450802159,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+      "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802177,
+      "threshold": 3,
+      "timelock_s": 43200,
+      "config_authority": null,
+      "members": 7,
+      "voters": 5,
+      "executors": 5,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       1,
+       1
+      ],
+      "text": "Squads multisig 3 of 5, 12 h timelock"
+     },
+     "authority_text": "Squads multisig 3 of 5, 12 h timelock"
+    },
+    {
+     "program": "aVoLTRCRt3NnnchvLYH6rMYehJHwM5m45RmLBZq7PGz",
+     "programdata": "8eX632HkSE6TT2bhiiM6BJZmj2njGwEhiyqLhJUrgL7J",
+     "last_deploy_slot": 335558866,
+     "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+     "state": "upgradeable",
+     "slot": 450802159,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+      "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802177,
+      "threshold": 3,
+      "timelock_s": 43200,
+      "config_authority": null,
+      "members": 7,
+      "voters": 5,
+      "executors": 5,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       1,
+       1
+      ],
+      "text": "Squads multisig 3 of 5, 12 h timelock"
+     },
+     "authority_text": "Squads multisig 3 of 5, 12 h timelock"
+    },
+    {
+     "program": "to6Eti9CsC5FGkAtqiPphvKD2hiQiLsS8zWiDBqBPKR",
+     "programdata": "9JAuHw1UPaKdpa1QhtzfSEQAGAP1NmTMdcuxgqiz1ovR",
+     "last_deploy_slot": 406317018,
+     "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+     "state": "upgradeable",
+     "slot": 450802159,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+      "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802177,
+      "threshold": 3,
+      "timelock_s": 43200,
+      "config_authority": null,
+      "members": 7,
+      "voters": 5,
+      "executors": 5,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       1,
+       1
+      ],
+      "text": "Squads multisig 3 of 5, 12 h timelock"
+     },
+     "authority_text": "Squads multisig 3 of 5, 12 h timelock"
+    },
+    {
+     "program": "EW35URAx3LiM13fFK3QxAXfGemHso9HWPixrv7YDY4AM",
+     "programdata": "Ho9GSicyiFqxmx6vmehCKwVXSdESgjdkqE5i3jsFZizV",
+     "last_deploy_slot": 362887440,
+     "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+     "state": "upgradeable",
+     "slot": 450802159,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+      "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802177,
+      "threshold": 3,
+      "timelock_s": 43200,
+      "config_authority": null,
+      "members": 7,
+      "voters": 5,
+      "executors": 5,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       1,
+       1
+      ],
+      "text": "Squads multisig 3 of 5, 12 h timelock"
+     },
+     "authority_text": "Squads multisig 3 of 5, 12 h timelock"
+    },
+    {
+     "program": "EBN93eXs5fHGBABuajQqdsKRkCgaqtJa8vEFD6vKXiP",
+     "programdata": "us259iXLduCiAzwrr3o61BmAAndn8DTWQBGknCzbwDm",
+     "last_deploy_slot": 410721167,
+     "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+     "state": "upgradeable",
+     "slot": 450802159,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+      "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802177,
+      "threshold": 3,
+      "timelock_s": 43200,
+      "config_authority": null,
+      "members": 7,
+      "voters": 5,
+      "executors": 5,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       1,
+       1
+      ],
+      "text": "Squads multisig 3 of 5, 12 h timelock"
+     },
+     "authority_text": "Squads multisig 3 of 5, 12 h timelock"
+    },
+    {
+     "program": "3pnpK9nrs1R65eMV1wqCXkDkhSgN18xb1G5pgYPwoZjJ",
+     "programdata": "5Kxv4s94zSqJjGwowGCHQ7NdDMCNPAkfzxfJqYTismwr",
+     "last_deploy_slot": 350823232,
+     "authority": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+     "state": "upgradeable",
+     "slot": 450802159,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "G2FCNGgQQ7MYyJvkXw1du86YGR6vXXejuQG9LsjX1kEs",
+      "multisig": "7szuzpoZzah95BsAu2LQm3bpor5ofiAV4HuinyfFEdse",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802177,
+      "threshold": 3,
+      "timelock_s": 43200,
+      "config_authority": null,
+      "members": 7,
+      "voters": 5,
+      "executors": 5,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       1,
+       1
+      ],
+      "text": "Squads multisig 3 of 5, 12 h timelock"
+     },
+     "authority_text": "Squads multisig 3 of 5, 12 h timelock"
+    }
+   ],
+   "text": "Squads multisig 3 of 5, 12 h timelock",
+   "class": "A",
+   "slot": 450802159
+  },
+  "text": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step"
+ },
+ "audits": {
+  "text": "Sec3 X-RAY, FYEO, Certora (platform's audit pages, read 2026-09-25)",
+  "class": "D",
+  "url": "https://docs.voltr.xyz/security/audits",
+  "read_on": "2026-09-25",
+  "entries": [
+   {
+    "auditor": "Sec3 X-RAY",
+    "date_as_stated": "not stated",
+    "scope": "vault and one adaptor; an automated scanner, not a manual audit",
+    "url": "https://docs.voltr.xyz/security/audits"
+   },
+   {
+    "auditor": "FYEO",
+    "date_as_stated": "not stated (a 2025 folder)",
+    "scope": "Vault v1.0",
+    "url": "https://docs.voltr.xyz/security/audits"
+   },
+   {
+    "auditor": "Certora",
+    "date_as_stated": "not stated",
+    "scope": "Ranger Finance, Voltr Vault",
+    "url": "https://docs.voltr.xyz/security/audits"
+   }
+  ],
+  "note": "No audit was found for the individual Kamino, Drift, Jupiter or Trustful adaptors. Program source is not public."
+ },
+ "powers": {
+  "class": "D",
+  "source": "https://docs.voltr.xyz/introduction/key-participants and @voltr/vault-sdk 2.1.1",
+  "read_on": "2026-09-25",
+  "rows": [
+   [
+    "admin",
+    "adds and removes adaptors; changes fees, caps, the withdrawal waiting period, the manager, the next admin and disabled operations; sets the adaptor policy"
+   ],
+   [
+    "manager",
+    "opens strategies and moves the vault's funds into and out of them"
+   ]
+  ],
+  "moves": "The manager moves funds between the vault and its strategies. With the Trustful adaptor, funds can go to whitelisted addresses off chain; no listed vault has such a position."
+ },
+ "read_at": "2026-09-26T21:58:48Z",
+ "row": {
+  "name": "Hubra Copilot USDC",
+  "platform": "Voltr",
+  "chain": "Solana",
+  "group": "nonevm",
+  "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+  "key": "voltr/3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+  "platform_key": "voltr",
+  "manager": "Manager: single key (inferred); admin: single key (inferred)",
+  "audits": "Sec3 X-RAY, FYEO, Certora (platform's audit pages, read 2026-09-25)",
+  "assets": "USDC; positions as recorded by the vault: Kamino vault",
+  "controls": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step",
+  "fees": "0% performance, 0% management",
+  "lockup": "Withdrawal waiting period: none",
+  "tvl_usd": 32173.4,
+  "tvl_slot": 450802160,
+  "tvl_amount": 32173.4,
+  "tvl_symbol": "USDC",
+  "tvl_source": "vault_recorded",
+  "tvl_basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T21:50Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
+  "tvl_reconciliation": "recorded by the vault, not reconciled: strategy positions are the vault's own records",
+  "tvl_partial": false,
+  "tvl_last_written": "2026-09-26T21:50Z",
+  "tvl_age_days": 0.0,
+  "tvl_stale": false,
+  "tvl_stale_rule": "stale when last written more than 7 days before now",
+  "tvl_aum_flag": false,
+  "read_stale": false,
+  "token_symbol": "USDC",
+  "token_kind": "stablecoin",
+  "notes": [
+   "Drift strategy attached (currently 0)",
+   "manager: single key, can move funds between strategies without an admin step"
+  ],
+  "nested_in": [
+   {
+    "platform_key": "kamino",
+    "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+    "tokens": 28119.78,
+    "name": "Allez USDC"
+   }
+  ],
+  "contains_nested": [],
+  "nesting_note": "Part of this vault's funds sit in another listed vault; do not add the two TVLs together.",
+  "provenance": {
+   "manager": {
+    "class": "A",
+    "slot": 450802160
+   },
+   "assets": {
+    "class": "A (positions as recorded by the vault)",
+    "slot": 450802163
+   },
+   "controls": {
+    "class": "A",
+    "slot": 450802160
+   },
+   "fees": {
+    "class": "A",
+    "slot": 450802160
+   },
+   "lockup": {
+    "class": "A",
+    "slot": 450802160
+   },
+   "audits": {
+    "class": "D",
+    "url": "https://docs.voltr.xyz/security/audits",
+    "read_on": "2026-09-25"
+   },
+   "tvl": {
+    "class": "A",
+    "slot": 450802160,
+    "source": "vault_recorded"
+   }
+  },
+  "read_at": "2026-09-26T21:58:48Z",
+  "stale": false
+ },
+ "notice": "Deposits are made on each vault's own venue, signed in your own wallet; Tnega never holds funds and takes no deposit. We describe each vault as its chain state and its operator's documents show it. Nothing here is advice."
+}

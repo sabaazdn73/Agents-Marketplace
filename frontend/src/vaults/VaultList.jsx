@@ -3,60 +3,68 @@
 // /vaults, in the layout and information order of Hyperliquid's vault list
 // (owner's reference, 01-vaults-list): a total-TVL card, a search box and
 // filters, then one table per venue with a sparkline column. Reads GET
-// /api/vaults (T6, branch te-vaults); te/api.js documents the shape.
+// /api/vaults (T6, branch te-vaults); te/api.js documents the shape, and the
+// dev fixtures are T6's real answers.
 //
 // WHAT EACH FIGURE IS
-//   TVL        the vault's own figure from T6, with its source beside it:
-//              "chain" when computed from the vault's positions read on
-//              chain, "vault-recorded" when it is the total the vault itself
-//              recorded (not recomputed by us). Stablecoins at 1 USD.
-//   30-day     the change in the vault's share price over 30 days, read on
-//              chain, when the answer carries it (return_30d); otherwise a
-//              dash. No APY from any other source is shown (owner, 26 Sep).
-//   Check      ✓ the TVL reconciles with the vault's records; ⚠ the TVL is
-//              the vault's own record, not reconciled; ? partial read.
-// The listing rule (the answer's `rule`) is shown on the page, and every
-// venue with nothing listed says why, as do the published exclusions.
+//   TVL        T6's figure, with its source beside it: "computed from chain"
+//              (the vault's positions read on chain) or "as recorded by the
+//              vault" (the vault's own total, not recomputed), when it was
+//              last written, and "stale" by T6's own rule. The basis (face
+//              value; USX and USDe labelled synthetic dollars) is on hover.
+//   30-day     the share-price change over 30 days, read on chain, when the
+//              answer carries it (return_30d); otherwise a dash. No APY from
+//              any other source (owner, 2026-09-26).
+//   Check      ✓ reconciles; ⚠ vault-recorded, not reconciled, or stale;
+//              ? partial read (vaults/model.js).
+//   Total      the rows shown, each dollar once when T6 marks one vault as
+//              sitting inside another (nested_in with its tokens), and says
+//              how. When the list is a page of a longer one, it says so.
+// The listing rule is T6's own text, shown as served, as is its notice.
 
 import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Card, DevTag, Sparkline, fmtUsd0 } from '../ui/primitives';
 import { SourceChip, shortAddr } from '../ui/detail';
+import { platformKeyOf, staleOf, tvlSourceLabel, checkMark, tvlTotal } from './model';
+
+export { tvlSourceLabel, checkMark };
 
 const ROWS_PER_PAGE = 10;
 
-export function tvlSourceLabel(src) {
-  return src === 'computed_from_chain' ? 'computed from chain' : src === 'vault_recorded' ? 'as recorded by the vault' : null;
-}
-
-/** Under a TVL figure: its source, when the vault last wrote it (for a
- *  vault-recorded total), whether this read is stale, and the full basis
- *  (face value, synthetic dollars and so on) on hover and for screen
- *  readers. */
+/** Under a TVL figure: source, last written, stale, and the basis for
+ *  hover and screen readers. */
 export function TvlNote({ v, align = 'right' }) {
+  const st = staleOf(v);
   return (
     <div className={`mt-0.5 flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : ''}`} title={v.tvl_basis}>
       <SourceChip title={v.tvl_basis}>{tvlSourceLabel(v.tvl_source)}</SourceChip>
-      {v.tvl_last_written && <SourceChip title={v.tvl_basis}>written {String(v.tvl_last_written).slice(0, 10)}</SourceChip>}
-      {v.stale && <span className="inline-flex items-center h-5 px-1.5 rounded border border-warn/60 text-warn text-[10px] font-semibold uppercase tracking-wide" title="The latest read of this vault failed; these are the previous read's figures">stale</span>}
+      {v.token_kind === 'synthetic dollar' && <SourceChip title={v.tvl_basis}>synthetic dollar</SourceChip>}
+      {v.tvl_source === 'vault_recorded' && v.tvl_last_written && <SourceChip title={v.tvl_basis}>written {String(v.tvl_last_written).slice(0, 10)}</SourceChip>}
+      {st && <span className="inline-flex items-center h-5 px-1.5 rounded border border-warn/60 text-warn text-[10px] font-semibold uppercase tracking-wide" title={st}>stale</span>}
       <span className="sr-only">{v.tvl_basis}</span>
     </div>
   );
 }
 
-export function checkMark(v) {
-  if (v.tvl_partial) return { mark: '?', label: 'Partial read: some positions could not be valued' };
-  if (v.tvl_source === 'computed_from_chain' && /^reconciles/.test(v.tvl_reconciliation || '')) return { mark: '✓', label: v.tvl_reconciliation };
-  return { mark: '⚠', label: v.tvl_reconciliation || 'Not reconciled' };
+function PlatformLine({ p }) {
+  if (!p) return null;
+  return (
+    <div className="px-4 text-[12px] text-muted">
+      {p.text}
+      {p.stale && <span className="ml-2 text-warn">Stale: {p.last_failure?.text || p.last_failure?.error || 'the latest read failed'}{p.last_failure?.at ? ` (${p.last_failure.at})` : ''}.</span>}
+    </div>
+  );
 }
 
-function VenueTable({ platform, rows, onOpen, compact, nestedName }) {
+function VenueTable({ p, rows, onOpen, compact, nestedName }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
   const view = rows.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
   return (
     <div className="mt-6 first:mt-2">
-      <h3 className="px-4 text-[15px] font-semibold text-fg">{platform}</h3>
+      <h3 className="px-4 text-[15px] font-semibold text-fg">{p.platform}</h3>
+      <div className="mt-1"><PlatformLine p={p} /></div>
       <div className="overflow-x-auto">
         {/* Fixed widths, so every venue's table lines up with the others. */}
         <table className={`w-full mt-2 text-[13px] ${compact ? '' : 'table-fixed min-w-[900px]'}`}>
@@ -69,7 +77,7 @@ function VenueTable({ platform, rows, onOpen, compact, nestedName }) {
           <thead>
             <tr className="text-muted text-left text-[12px]">
               <th className="font-medium px-4 py-2">Vault</th>
-              {!compact && <th className="font-medium py-2">Curator</th>}
+              {!compact && <th className="font-medium py-2">Admin / manager</th>}
               {!compact && <th className="font-medium py-2">Asset</th>}
               {!compact && <th className="font-medium py-2 text-right" title="Share price change over 30 days, read on chain">30-day change</th>}
               <th className="font-medium py-2 text-right pr-4 md:pr-0">TVL</th>
@@ -82,15 +90,26 @@ function VenueTable({ platform, rows, onOpen, compact, nestedName }) {
             {view.map((v) => {
               const c = checkMark(v);
               const r = v.return_30d?.pct;
+              const parent = (v.nested_in || [])[0];
               return (
                 <tr key={v.key} className="cursor-pointer hover:bg-inset/60" onClick={() => onOpen(v)}>
                   <td className="px-4 py-2.5">
-                    <div className="text-fg font-semibold">{v.name}</div>
+                    <div className="text-fg font-semibold flex items-center gap-1.5">
+                      {/* On a phone the check column is gone; its mark rides with the name. */}
+                      {compact && <span title={c.label} aria-label={c.label}>{c.mark}</span>}
+                      <span className="truncate">{v.name}</span>
+                    </div>
                     <div className="text-[12px] text-muted font-mono">{shortAddr(v.address)}{compact ? ` · ${v.chain}` : ''}</div>
-                    {v.nested_in && <div className="text-[11px] text-muted">Inside {nestedName(v.nested_in)}</div>}
+                    {parent && <div className="text-[11px] text-muted">Partly inside {parent.name || nestedName(parent.address)}</div>}
+                    {(v.contains_nested || []).length > 0 && <div className="text-[11px] text-muted">Holds part of {v.contains_nested.map((n) => n.name || shortAddr(n.address)).join(', ')}</div>}
                   </td>
-                  {!compact && <td className="py-2.5 text-fg max-w-[220px]"><div className="truncate" title={v.manager}>{v.manager}</div></td>}
-                  {!compact && <td className="py-2.5 text-fg">{v.tvl_symbol}</td>}
+                  {!compact && (
+                    <td className="py-2.5 text-fg">
+                      <div className="truncate" title={v.manager}>{v.manager}</div>
+                      {v.curator?.name && <div className="text-[11px] text-muted truncate" title={v.curator.basis}>Curator: {v.curator.name}</div>}
+                    </td>
+                  )}
+                  {!compact && <td className="py-2.5 text-fg">{v.token_symbol || v.tvl_symbol}</td>}
                   {!compact && (
                     <td className="py-2.5 text-right tabular-nums" title={v.return_30d?.basis || 'Not measured for this vault'}>
                       {Number.isFinite(r) ? <span className={r > 0 ? 'text-pos' : r < 0 ? 'text-neg' : 'text-fg'}>{r > 0 ? '+' : ''}{r.toFixed(2)}%</span> : <span className="text-muted">–</span>}
@@ -102,7 +121,7 @@ function VenueTable({ platform, rows, onOpen, compact, nestedName }) {
                   </td>
                   {!compact && <td className="py-2.5 text-right tabular-nums text-fg">{Number.isFinite(v.age_days) ? v.age_days : <span className="text-muted">–</span>}</td>}
                   {!compact && <td className="py-2.5 text-center text-fg" title={c.label} aria-label={c.label}>{c.mark}</td>}
-                  {!compact && <td className="px-4 py-2.5"><div className="flex justify-end"><Sparkline points={v.series?.share_price?.map((p) => p[1])} width={72} height={24} /></div></td>}
+                  {!compact && <td className="px-4 py-2.5"><div className="flex justify-end"><Sparkline points={v.series?.share_price?.map((pt) => pt[1])} width={72} height={24} /></div></td>}
                 </tr>
               );
             })}
@@ -140,11 +159,11 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
   const [chain, setChain] = useState('all');
   const [equity, setEquity] = useState(false);
 
-  const vaults = data?.vaults || [];
+  const vaults = useMemo(() => data?.vaults || [], [data]);
   const filtered = useMemo(() => vaults.filter((v) => {
     const s = q.trim().toLowerCase();
     if (s && !`${v.name} ${v.address} ${v.manager}`.toLowerCase().includes(s)) return false;
-    if (venue !== 'all' && v.platform_key !== venue) return false;
+    if (venue !== 'all' && platformKeyOf(v) !== venue) return false;
     if (chain !== 'all' && v.chain !== chain) return false;
     if (equity && !v.holds_tokenized_equity) return false;
     return true;
@@ -155,32 +174,30 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
     return null;
   }
 
-  // Each dollar once: a vault nested in another listed vault is already in
-  // that vault's TVL, so it is not added again.
-  const counted = vaults.filter((v) => !v.nested_in);
-  const nested = vaults.length - counted.length;
-  const total = counted.reduce((a, v) => a + (Number.isFinite(v.tvl_usd) ? v.tvl_usd : 0), 0);
-  const bySource = counted.reduce((a, v) => ({ ...a, [v.tvl_source]: (a[v.tvl_source] || 0) + 1 }), {});
-  const stale = vaults.filter((v) => v.stale).length;
-  const byKey = Object.fromEntries(vaults.map((v) => [v.key, v.name]));
-  const nestedName = (k) => byKey[k] || shortAddr(k.split('/')[1]);
+  const tot = tvlTotal(vaults);
   const platforms = data.platforms || [];
-  const listedPlatforms = platforms.filter((p) => filtered.some((v) => v.platform_key === p.platform_key));
+  const listed = platforms.filter((p) => p.status === 'listed');
+  const shownPlatforms = listed.filter((p) => filtered.some((v) => platformKeyOf(v) === p.platform_key));
   const nonePlatforms = platforms.filter((p) => p.status !== 'listed');
   const chains = [...new Set(vaults.map((v) => v.chain))];
   const anyEquity = vaults.some((v) => v.holds_tokenized_equity);
-  const open = (v) => onNavigate?.(`/vaults/${v.platform_key}/${v.address}`);
+  const byAddr = Object.fromEntries(vaults.map((v) => [v.address, v.name]));
+  const nestedName = (a) => byAddr[a] || shortAddr(a);
+  const open = (v) => onNavigate?.(`/vaults/${platformKeyOf(v)}/${v.address}`);
+  const truncated = Number.isFinite(data.total) && data.total > vaults.length;
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <Card className="max-w-[420px]">
+      <Card className="max-w-[460px]">
         <div className="flex items-center justify-between gap-2">
           <div className="text-[13px] text-muted">Total value locked, listed vaults</div>
           <DevTag data={data} />
         </div>
-        <div className="mt-1 text-[32px] font-light tabular-nums text-fg">{fmtUsd0(total)}</div>
-        <div className="mt-1 text-[11px] text-muted">
-          Sum of {counted.length} vaults, each dollar once: {bySource.computed_from_chain || 0} computed from chain reads, {bySource.vault_recorded || 0} as the vault records it.{nested ? ` ${nested} vault${nested > 1 ? 's' : ''} inside another listed vault ${nested > 1 ? 'are' : 'is'} not added again.` : ''}{stale ? ` ${stale} from an earlier read (stale).` : ''} Stablecoins at 1 USD per token, face value. As of {data.as_of}.
+        <div className="mt-1 text-[32px] font-light tabular-nums text-fg">{fmtUsd0(tot.total)}</div>
+        <div className="mt-1 text-[11px] text-muted leading-relaxed">
+          Sum of the {vaults.length} vaults shown{truncated ? `, the first ${vaults.length} of ${data.total}` : ''}: {tot.bySource.computed_from_chain || 0} computed from chain reads, {tot.bySource.vault_recorded || 0} as the vault records it.
+          {tot.nested > 0 ? ` Each dollar once: ${fmtUsd0(tot.nested)} held by ${tot.nestedRows === 1 ? 'one vault' : `${tot.nestedRows} vaults`} inside another listed vault is counted in that vault only.` : ''}
+          {tot.stale ? ` ${tot.stale} ${tot.stale === 1 ? 'is' : 'are'} stale.` : ''} Tokens at 1 USD each, face value. As of {data.as_of}.
         </div>
       </Card>
 
@@ -188,7 +205,7 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
         <div className="p-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex-1 min-w-[220px] max-w-[420px] h-9 flex items-center gap-2 px-3 rounded bg-field border border-line-strong focus-within:ring-2 focus-within:ring-accent">
             <Search size={15} className="text-muted shrink-0" aria-hidden="true" />
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by vault, address or curator" aria-label="Search by vault, address or curator"
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by vault, address or admin" aria-label="Search by vault, address or admin"
               className="flex-1 min-w-0 bg-transparent text-[13px] text-fg placeholder:text-muted outline-none" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -201,8 +218,8 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
             )}
           </div>
         </div>
-        {listedPlatforms.length ? listedPlatforms.map((p) => (
-          <VenueTable key={p.platform_key} platform={p.platform} rows={filtered.filter((v) => v.platform_key === p.platform_key)} onOpen={open} compact={compact} nestedName={nestedName} />
+        {shownPlatforms.length ? shownPlatforms.map((p) => (
+          <VenueTable key={p.platform_key} p={p} rows={filtered.filter((v) => platformKeyOf(v) === p.platform_key)} onOpen={open} compact={compact} nestedName={nestedName} />
         )) : <p className="px-4 pb-4 text-[13px] text-muted">No listed vault matches.</p>}
         <div className="h-3" />
       </Card>
@@ -215,16 +232,19 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
         <h2 className="text-[15px] font-semibold text-fg">How a vault is listed</h2>
         <p className="mt-2 text-[13px] text-muted leading-relaxed">{data.rule}</p>
         {data.notice && <p className="mt-2 text-[12px] text-muted">{data.notice}</p>}
+        {data.deposits_note && data.deposits_note !== data.notice && <p className="mt-1 text-[12px] text-muted">{data.deposits_note}</p>}
       </Card>
 
       {nonePlatforms.length > 0 && (
         <Card>
           <h2 className="text-[15px] font-semibold text-fg">Venues with nothing listed</h2>
+          {data.statuses && <p className="mt-1 text-[12px] text-muted">Nothing qualifies: {data.statuses.none_qualifying}{data.statuses.read_failed ? `. Read failed: ${data.statuses.read_failed}` : ''}.</p>}
           <ul className="mt-2 divide-y divide-line">
             {nonePlatforms.map((p) => (
               <li key={p.platform_key} className="py-3">
-                <div className="text-[13px] font-semibold text-fg">{p.platform} <span className="font-normal text-muted">· {p.chain}</span></div>
+                <div className="text-[13px] font-semibold text-fg">{p.platform} <span className="font-normal text-muted">· {p.chain}{p.status === 'read_failed' ? ' · read failed' : ''}</span></div>
                 <p className="mt-1 text-[13px] text-muted leading-relaxed">{p.text}</p>
+                {p.stale && <p className="mt-1 text-[12px] text-warn">Stale: {p.last_failure?.text || p.last_failure?.error || 'the latest read failed'}.</p>}
                 {p.sources?.length > 0 && (
                   <p className="mt-1 text-[11px] text-muted">
                     Sources{p.sources_read_on ? `, read ${p.sources_read_on}` : ''}: {p.sources.map((u, i) => <a key={u} href={u} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">{i ? ', ' : ''}{u.replace(/^https?:\/\//, '')}</a>)}
@@ -255,7 +275,9 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
             <ul className="mt-2 space-y-2 text-[13px]">
               {platforms.flatMap((p) => (p.named_exclusions || []).map((x) => (
                 <li key={`${p.platform_key}-${x.address}`}>
-                  <span className="text-fg">{x.name || shortAddr(x.address)}</span> <span className="text-muted font-mono text-[12px]">({p.platform}, {shortAddr(x.address)})</span>
+                  {x.name
+                    ? <><span className="text-fg">{x.name}</span> <span className="text-muted font-mono text-[12px]">({p.platform}, {shortAddr(x.address)})</span></>
+                    : <><span className="text-fg font-mono text-[12px]" title={x.address}>{shortAddr(x.address)}</span> <span className="text-muted">({p.platform})</span></>}
                   <div className="text-muted">{x.reason}</div>
                 </li>
               )))}

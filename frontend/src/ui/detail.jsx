@@ -63,27 +63,49 @@ export function SourceChip({ children, title }) {
   );
 }
 
-/** Tabs across the top of a card. Tabs whose `show` is false are left out,
- *  so a tab never opens onto nothing. */
+/** Tabs across the top of a card, as an ARIA tablist: arrow keys, Home and
+ *  End move between tabs; each tab controls its panel. Tabs whose `show` is
+ *  false are left out, so a tab never opens onto nothing. */
+let tabSeq = 0;
 export function TabbedCard({ tabs, right = null, className = '', pad = true }) {
   const shown = tabs.filter((t) => t.show !== false);
   const [cur, setCur] = useState(shown[0]?.id);
+  const [uid] = useState(() => `tabs${++tabSeq}`);
   if (!shown.length) return null;
   const active = shown.find((t) => t.id === cur) || shown[0];
+  const onKey = (e) => {
+    const i = shown.findIndex((t) => t.id === active.id);
+    let n = null;
+    if (e.key === 'ArrowRight') n = (i + 1) % shown.length;
+    else if (e.key === 'ArrowLeft') n = (i - 1 + shown.length) % shown.length;
+    else if (e.key === 'Home') n = 0;
+    else if (e.key === 'End') n = shown.length - 1;
+    if (n === null) return;
+    e.preventDefault();
+    setCur(shown[n].id);
+    document.getElementById(`${uid}-tab-${shown[n].id}`)?.focus();
+  };
   return (
     <Card pad={false} className={`min-w-0 ${className}`}>
       <div className="flex items-end justify-between gap-2 border-b border-line px-4 overflow-x-auto">
-        <div role="tablist" className="flex gap-5 text-[13px]">
-          {shown.map((t) => (
-            <button key={t.id} type="button" role="tab" aria-selected={active.id === t.id} onClick={() => setCur(t.id)}
-              className={`py-3 -mb-px border-b-2 whitespace-nowrap ${active.id === t.id ? 'border-fg text-fg font-semibold' : 'border-transparent text-muted hover:text-fg'}`}>
-              {t.label}{Number.isFinite(t.count) ? ` (${t.count})` : ''}
-            </button>
-          ))}
+        <div role="tablist" className="flex gap-5 text-[13px]" onKeyDown={onKey}>
+          {shown.map((t) => {
+            const on = active.id === t.id;
+            return (
+              <button key={t.id} id={`${uid}-tab-${t.id}`} type="button" role="tab" aria-selected={on}
+                aria-controls={`${uid}-panel-${t.id}`} tabIndex={on ? 0 : -1} onClick={() => setCur(t.id)}
+                className={`py-3 -mb-px border-b-2 whitespace-nowrap ${on ? 'border-fg text-fg font-semibold' : 'border-transparent text-muted hover:text-fg'}`}>
+                {t.label}{Number.isFinite(t.count) ? ` (${t.count})` : ''}
+              </button>
+            );
+          })}
         </div>
         {right && <div className="py-2">{right(active.id)}</div>}
       </div>
-      <div className={pad ? 'p-4' : ''}>{active.render()}</div>
+      <div id={`${uid}-panel-${active.id}`} role="tabpanel" aria-labelledby={`${uid}-tab-${active.id}`} tabIndex={0}
+        className={`${pad ? 'p-4' : ''} focus:outline-none focus-visible:ring-2 focus-visible:ring-accent`}>
+        {active.render()}
+      </div>
     </Card>
   );
 }
@@ -103,7 +125,13 @@ export function Field({ label, children, prov = null }) {
  *  class D is a document (linked, with the date it was read). */
 export function provText(p) {
   if (!p) return null;
-  if (p.class === 'A') return `Read on chain${p.slot ? `, slot ${Number(p.slot).toLocaleString('en-US')}` : ''}`;
+  const slot = p.slot ? `, slot ${Number(p.slot).toLocaleString('en-US')}` : '';
+  // T6 qualifies a class in words, e.g. "A (positions as recorded by the
+  // vault)": the account was read on chain, but what it states is the
+  // vault's own record.
+  const qual = String(p.class || '').match(/^A \((.+)\)$/);
+  if (qual) return `Read on chain${slot}; ${qual[1]}`;
+  if (p.class === 'A') return `Read on chain${slot}`;
   if (p.class === 'D') return p.read_on ? `From the operator's documents, read ${p.read_on}` : "From the operator's documents";
   return null;
 }

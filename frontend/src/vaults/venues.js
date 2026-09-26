@@ -1,11 +1,16 @@
 // vaults/venues.js
 //
-// Where "Open on {venue}" goes. Each is the venue's own app page for its
-// vaults, checked to answer (HTTP 200) on 2026-09-26. None of these venues
-// documents a link to one vault's page, so the link opens the venue's vault
-// list and the deposit panel shows the vault's address to find it there.
-// A venue with no verified page has url null, and the panel says so rather
-// than guess a link.
+// Where "Open on {venue}" goes: the vault's own page on its venue, where
+// the venue shows the vault at a stable address. Checked headless on
+// 2026-09-26:
+//   Kamino  kamino.com/earn/lend/<address>/vault-overview, the page
+//           app.kamino.finance/earn/lend/<address> redirects to, showing
+//           that vault (Allez USDC checked);
+//   Voltr   voltr.xyz/vault/<address>, the link Voltr's own list at
+//           voltr.xyz/earn gives each vault ("View More"; Hubra Copilot
+//           USDC checked).
+// Where no per-vault page was verified, the venue's vault list is used, or
+// null when the venue has no verified page; the panel then says so.
 //
 // Tnega never takes custody: depositing and withdrawing happen on the
 // venue, signed in the visitor's own wallet. In-site signing (LI.FI
@@ -13,12 +18,22 @@
 // owner's confirmation of vault Level 2.
 
 export const VENUES = {
-  kamino: { name: 'Kamino', url: 'https://app.kamino.finance/earn', checked: '2026-09-26' },
-  voltr: { name: 'Voltr', url: 'https://voltr.xyz/', checked: '2026-09-26' },
-  glam: { name: 'GLAM', url: null, checked: '2026-09-26' },
-  hyperliquid: { name: 'Hyperliquid', url: 'https://app.hyperliquid.xyz/vaults', checked: '2026-09-26' },
-  hyperevm: { name: 'HyperEVM', url: null, checked: '2026-09-26' },
+  kamino: { name: 'Kamino', vault: (a) => `https://kamino.com/earn/lend/${a}/vault-overview`, url: 'https://app.kamino.finance/earn', checked: '2026-09-26' },
+  voltr: { name: 'Voltr', vault: (a) => `https://voltr.xyz/vault/${a}`, url: 'https://voltr.xyz/earn', checked: '2026-09-26' },
+  glam: { name: 'GLAM', vault: null, url: null, checked: '2026-09-26' },
+  hyperliquid: { name: 'Hyperliquid', vault: null, url: 'https://app.hyperliquid.xyz/vaults', checked: '2026-09-26' },
+  hyperevm: { name: 'HyperEVM', vault: null, url: null, checked: '2026-09-26' },
 };
+
+/** The page "Open on {venue}" links to for one vault, and whether it is the
+ *  vault's own page or the venue's list. */
+export function venueLink(platformKey, address) {
+  const v = VENUES[platformKey];
+  if (!v) return null;
+  if (v.vault && address) return { href: v.vault(address), own: true, name: v.name };
+  if (v.url) return { href: v.url, own: false, name: v.name };
+  return { href: null, own: false, name: v.name };
+}
 
 /** Explorer link for an address on a chain, or null. */
 export function explorerUrl(chain, address) {

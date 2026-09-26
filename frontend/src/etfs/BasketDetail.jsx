@@ -5,7 +5,10 @@
 //   Creator in place of the leader, Followers in place of depositors, and
 //   "Buy this basket" in place of Deposit.
 //   A basket is a static list of up to five tokens and weights. Each
-//   follower buys the tokens into their own wallet, one signature per token.
+//   follower buys the tokens into their own wallet: one signature per token,
+//   plus a separate approval where a token needs one (SPEC.md C.3: legs run
+//   one prompt each, grouped by chain; there is no single signature across
+//   chains, so the page does not claim one).
 //   There is no pooled account, no discretion, no lock-up and no profit
 //   share, and nothing trades in a follower's wallet without their signature.
 // Stat cards: basket value (indicative), return since creation, your
@@ -65,7 +68,7 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
     return null;
   }
   const r = b.return_since_creation_pct;
-  const note = 'A static list of tokens and weights. Each follower buys into their own wallet, one signature per token: no pooled funds, no lock-up, no profit share.';
+  const note = 'A static list of tokens and weights. Each follower buys the tokens into their own wallet: one signature per token, plus an approval where a token needs one. No pooled funds, no lock-up, no profit share.';
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -82,7 +85,8 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
           value={Number.isFinite(b.value_usd_indicative) ? <span className="text-[28px] font-light tabular-nums text-fg" title={b.value_basis}>{fmtUsd(b.value_usd_indicative)}</span> : null}
           chip={Number.isFinite(b.value_usd_indicative) ? <SourceChip title={b.value_basis}>indicative</SourceChip> : null} />
         <StatCard label="Return since creation" note="Not measured"
-          value={Number.isFinite(r) ? <span className={`text-[28px] font-light tabular-nums ${r > 0 ? 'text-pos' : r < 0 ? 'text-neg' : 'text-fg'}`}>{r > 0 ? '+' : ''}{r.toFixed(2)}%</span> : null} />
+          value={Number.isFinite(r) ? <span className={`text-[28px] font-light tabular-nums ${r > 0 ? 'text-pos' : r < 0 ? 'text-neg' : 'text-fg'}`} title={b.return_basis}>{r > 0 ? '+' : ''}{r.toFixed(2)}%</span> : null}
+          chip={Number.isFinite(r) ? <SourceChip title={b.return_basis}>{b.return_source || 'indicative'}</SourceChip> : null} />
         <StatCard label="Your holding" value={null} note="Not read for this basket" />
         <StatCard label="Followers" note="Not counted"
           value={Number.isFinite(b.followers_count) ? <span className="text-[28px] font-light tabular-nums text-fg">{b.followers_count}</span> : null} />

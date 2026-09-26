@@ -20,11 +20,13 @@ import { useTe } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
 import { Card, DevTag, LineChart, Pills, PrimaryButton, SecondaryButton, fmtUsd0 } from '../ui/primitives';
 import { Breadcrumb, CopyAddress, StatCard, SourceChip, TabbedCard, Field, provText, shortAddr } from '../ui/detail';
-import { tvlSourceLabel } from './VaultList';
+import { TvlNote } from './VaultList';
+import { staleOf } from './model';
 import { explorerUrl } from './venues';
 import DepositPanel from './DepositPanel';
 
 const RANGES = [['7', '7D'], ['30', '30D'], ['all', 'All']];
+const cap = (x) => (x ? x[0].toUpperCase() + x.slice(1) : x);
 
 function ExtLink({ href, children }) {
   if (!href) return <span>{children}</span>;
@@ -59,6 +61,21 @@ function Chart({ v }) {
   );
 }
 
+/** The keys that hold a vault's powers, as T6 names them: Kamino's vault,
+ *  allocation and pending admins; Voltr's admin, manager and pending admin.
+ *  A pending admin that is the same address as the admin is not a second
+ *  key, so it is left out. */
+function keyRows(m) {
+  const rows = [];
+  const admin = m.vault_admin || m.admin;
+  if (m.vault_admin) rows.push(['Vault admin', m.vault_admin]);
+  if (m.admin) rows.push(['Admin', m.admin]);
+  if (m.manager && typeof m.manager === 'object') rows.push(['Manager', m.manager]);
+  if (m.allocation_admin) rows.push(['Allocation admin', m.allocation_admin]);
+  if (m.pending_admin && !(admin && m.pending_admin.address && m.pending_admin.address === admin.address)) rows.push(['Pending admin', m.pending_admin]);
+  return rows.filter(([, k]) => k && k.text);
+}
+
 function DueDiligence({ v }) {
   const m = v.manager || {};
   const c = v.controls || {};
@@ -66,9 +83,7 @@ function DueDiligence({ v }) {
   return (
     <div>
       <Field label="Who controls the money" prov={provText(m)}>
-        {m.vault_admin ? <div>Vault admin: {m.vault_admin.text}</div> : m.text}
-        {m.allocation_admin && <div>Allocation admin: {m.allocation_admin.text}</div>}
-        {m.pending_admin && <div>Pending admin: {m.pending_admin.text}</div>}
+        {keyRows(m).length ? keyRows(m).map(([label, k]) => <div key={label}>{label}: {k.text}</div>) : m.text}
       </Field>
       {(c.global_admin || c.market_owners?.length) && (
         <Field label="Other admin keys" prov={provText(c)}>
@@ -104,7 +119,8 @@ function DueDiligence({ v }) {
 function About({ v }) {
   return (
     <div>
-      <Field label="Curator">{v.manager?.text}</Field>
+      <Field label="Admin / manager">{v.manager?.text}</Field>
+      {v.curator?.name && <Field label="Curator" prov={v.curator.basis}>{v.curator.name}</Field>}
       <Field label="Venue and chain">{v.platform} · {v.chain}</Field>
       <Field label="Vault">
         <ExtLink href={explorerUrl(v.chain, v.address)}><span className="font-mono">{v.address}</span></ExtLink>
@@ -128,6 +144,8 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
   const t = v.tvl || {};
   const r = v.return_30d;
   const allocations = v.assets?.allocations || [];
+  const strategies = v.assets?.strategies || [];
+  const nesting = [...(v.row?.nested_in || []).map((n) => ['Partly inside', n]), ...(v.row?.contains_nested || []).map((n) => ['Holds part of', n])];
   const programs = v.controls?.upgrade?.programs || [];
   return (
     <div className="space-y-4">
@@ -145,11 +163,7 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
 
       <div className={`grid gap-4 ${mobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
         <StatCard label="TVL" value={Number.isFinite(t.usd) ? <span className="text-[28px] font-light tabular-nums text-fg" title={t.basis}>{fmtUsd0(t.usd)}</span> : null}
-          chip={<>
-            <SourceChip title={t.basis}>{tvlSourceLabel(t.source)}</SourceChip>
-            {(v.row?.tvl_last_written) && <SourceChip title={t.basis}>written {String(v.row.tvl_last_written).slice(0, 10)}</SourceChip>}
-            {(v.stale || v.row?.stale) && <span className="inline-flex items-center h-5 px-1.5 rounded border border-warn/60 text-warn text-[10px] font-semibold uppercase" title="The latest read of this vault failed; these are the previous read's figures">stale</span>}
-          </>} note="Not read" />
+          chip={v.row ? <TvlNote v={v.row} align="left" /> : null} note="Not read" />
         <StatCard label="30-day change" note="Not measured for this vault"
           value={Number.isFinite(r?.pct) ? <span className={`text-[28px] font-light tabular-nums ${r.pct > 0 ? 'text-pos' : r.pct < 0 ? 'text-neg' : 'text-fg'}`} title={r.basis}>{r.pct > 0 ? '+' : ''}{r.pct.toFixed(2)}%</span> : null}
           chip={Number.isFinite(r?.pct) ? <SourceChip title={r.basis}>share price, chain</SourceChip> : null} />
@@ -159,8 +173,9 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
 
       {t.basis && (
         <p className="text-[12px] text-muted">
-          TVL basis: {t.basis}{t.reconciliation ? `. ${t.reconciliation}` : ''}{t.slot ? `. Slot ${Number(t.slot).toLocaleString('en-US')}` : ''}.
-          {v.row?.nested_in ? ' This vault sits inside another listed vault, so its dollars are part of that vault\'s TVL too.' : ''}
+          TVL basis: {t.basis}.{t.reconciliation ? ` ${cap(t.reconciliation)}.` : ''}{t.slot ? ` Slot ${Number(t.slot).toLocaleString('en-US')}.` : ''}
+          {v.row?.nesting_note ? ` ${v.row.nesting_note}` : ''}
+          {staleOf(v.row) ? ` ${staleOf(v.row)}` : ''}
         </p>
       )}
 
@@ -181,6 +196,25 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
               <tr key={a.reserve}><td className="px-4 py-2 font-mono text-fg">{shortAddr(a.reserve)}</td>{!mobile && <td className="py-2 font-mono text-muted">{shortAddr(a.lending_market)}</td>}{!mobile && <td className="py-2 text-fg">{a.market_owner_text}</td>}<td className="px-4 py-2 text-right tabular-nums text-fg">{Number(a.value_tokens).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
             ))}</tbody></table>
             <p className="px-4 py-2 text-[11px] text-muted">{provText(v.assets)}.</p></div>
+        ) },
+        { id: 'strategies', label: 'Holdings', count: strategies.length, show: strategies.length > 0 && allocations.length === 0, render: () => (
+          <div className="overflow-x-auto"><table className="w-full text-[13px]">
+            <thead><tr className="text-muted text-left text-[12px]"><th className="font-medium px-4 py-2">Strategy</th>{!mobile && <th className="font-medium py-2">Adaptor</th>}{!mobile && <th className="font-medium py-2">Last updated</th>}<th className="font-medium px-4 py-2 text-right">Position ({v.token?.symbol || t.symbol})</th></tr></thead>
+            <tbody className="divide-y divide-line">{strategies.map((x) => (
+              <tr key={x.receipt || x.strategy}><td className="px-4 py-2 text-fg">{x.target || 'Strategy'} <span className="font-mono text-muted">{shortAddr(x.strategy)}</span></td>{!mobile && <td className="py-2 text-fg">{x.adaptor_name || shortAddr(x.adaptor)}</td>}{!mobile && <td className="py-2 text-muted tabular-nums">{x.last_updated || '–'}</td>}<td className="px-4 py-2 text-right tabular-nums text-fg">{Number(x.position_tokens).toLocaleString('en-US', { maximumFractionDigits: 2 })}</td></tr>
+            ))}</tbody></table>
+            <p className="px-4 py-2 text-[11px] text-muted">{provText(v.assets)}.</p></div>
+        ) },
+        { id: 'nesting', label: 'Nested vaults', count: nesting.length, show: nesting.length > 0, render: () => (
+          <div className="p-4 space-y-2 text-[13px]">
+            {nesting.map(([rel, n]) => (
+              <div key={`${rel}-${n.address}`} className="text-fg">{rel}{' '}
+                <a href={`/vaults/${n.platform_key}/${n.address}`} onClick={(e) => { if (!onNavigate || e.metaKey || e.ctrlKey) return; e.preventDefault(); onNavigate(`/vaults/${n.platform_key}/${n.address}`); }} className="underline underline-offset-2">{n.name || shortAddr(n.address)}</a>
+                {Number.isFinite(n.tokens) && <span className="text-muted">: {n.tokens.toLocaleString('en-US', { maximumFractionDigits: 2 })} tokens</span>}
+              </div>
+            ))}
+            {v.row?.nesting_note && <p className="text-muted">{v.row.nesting_note}</p>}
+          </div>
         ) },
         { id: 'controls', label: 'Controls', count: programs.length, show: programs.length > 0, render: () => (
           <div className="overflow-x-auto"><table className="w-full text-[13px]">

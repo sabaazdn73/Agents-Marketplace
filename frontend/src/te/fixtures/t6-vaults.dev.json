@@ -1,0 +1,2580 @@
+{
+ "computed_at": "2026-09-26T21:58:50Z",
+ "as_of": "2026-09-26",
+ "read_only": true,
+ "deposits": "venue",
+ "deposits_note": "Deposits happen on the venue, signed in the user's own wallet; this site has no deposit path and never holds funds.",
+ "notice": "Deposits are made on each vault's own venue, signed in your own wallet; Tnega never holds funds and takes no deposit. We describe each vault as its chain state and its operator's documents show it. Nothing here is advice.",
+ "statuses": {
+  "listed": "the platform was read this run and at least one vault qualifies",
+  "none_qualifying": "the platform was read this run and no vault qualifies; `text` gives the reason",
+  "read_failed": "this run's read of the platform failed (a fault in the call, not a fact about the vaults); earlier results, if any, are kept and marked stale"
+ },
+ "rule": "Listed: vaults taking a stablecoin deposit (by mint address; USX and USDe are synthetic dollars and are labelled so). A listed vault lends that stablecoin on Solana; its borrowers' collateral is often crypto, so it is not a real-world-asset vault. It is listed when: Kamino and GLAM positions are read on chain, and Voltr positions are as recorded by the vault; nothing is placed with Drift; it does not lend into a market whose only collateral is one bespoke off-chain-backed token; the name is not a test, staging or demo name; and it holds at least 1,000 tokens. Amounts are counted at 1 USD per token (face value, not a market price).",
+ "checks": [
+  "Stablecoin deposit, and what it is lent against",
+  "Audits and auditors, linked",
+  "Upgrade authority, read on chain",
+  "Timelock on admin changes",
+  "What the manager can move"
+ ],
+ "order": "platform, then name; no ranking",
+ "platform": null,
+ "total": 31,
+ "count": 31,
+ "offset": 0,
+ "limit": 100,
+ "vaults": [
+  {
+   "name": "Allez USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+   "key": "kamino/A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 7, 1 h timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 10 klend reserve(s) in 9 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 9559596.81,
+   "tvl_slot": 450802143,
+   "tvl_amount": 9559596.81,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "does not reconcile: cToken balance differs from the vault's record on 1 reserve(s); the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [
+    {
+     "platform_key": "voltr",
+     "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+     "name": "Hubra Copilot USDC",
+     "tokens": 28119.78
+    }
+   ],
+   "nesting_note": "Part of this vault's funds sit in another listed vault; do not add the two TVLs together.",
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Allez USDS",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "A1USdsC4kypCgPw5dHAwmqDjfFKrtdVHtXLhDY9QvHQ3",
+   "key": "kamino/A1USdsC4kypCgPw5dHAwmqDjfFKrtdVHtXLhDY9QvHQ3",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 7, 1 h timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDS, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 572055.43,
+   "tvl_slot": 450802143,
+   "tvl_amount": 572055.43,
+   "tvl_symbol": "USDS",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDS counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.002% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDS",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Allez USDT",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "A1USdT5BhSBpWiH4W6oZeykCDr9vq56qXVkMFhZjN48o",
+   "key": "kamino/A1USdT5BhSBpWiH4W6oZeykCDr9vq56qXVkMFhZjN48o",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 7, 1 h timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDT, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 239635.78,
+   "tvl_slot": 450802143,
+   "tvl_amount": 239635.78,
+   "tvl_symbol": "USDT",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDT counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDT",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Allez USX",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "USX2MAgmBpjNncSccFjaDV2uoc7BjXHDwGpUPqLQqsp",
+   "key": "kamino/USX2MAgmBpjNncSccFjaDV2uoc7BjXHDwGpUPqLQqsp",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 4, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USX (synthetic dollar), lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 4, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "tvl_usd": 18137.13,
+   "tvl_slot": 450802143,
+   "tvl_amount": 18137.13,
+   "tvl_symbol": "USX",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USX is a synthetic dollar, counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.009% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USX",
+   "token_kind": "synthetic dollar",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Echlon Optimized USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "6mrbfWrZbSyDYURPViwZitXoMvZpW6K7ACbxcrgKzhC5",
+   "key": "kamino/6mrbfWrZbSyDYURPViwZitXoMvZpW6K7ACbxcrgKzhC5",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.75% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 127175.78,
+   "tvl_slot": 450802143,
+   "tvl_amount": 127175.78,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Elemental USDG Optimizer",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "DJbRxuBckoJpFVUNtWx94NghcthfGaRV5NRmEazUaddE",
+   "key": "kamino/DJbRxuBckoJpFVUNtWx94NghcthfGaRV5NRmEazUaddE",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 2 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDG, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.5% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 1779864.53,
+   "tvl_slot": 450802143,
+   "tvl_amount": 1779864.53,
+   "tvl_symbol": "USDG",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDG",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Elemental USDS Optimizer",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "8wDtedCoYq2dH9UT1CoDC21v6kPHe32UNydhcvA8U9VS",
+   "key": "kamino/8wDtedCoYq2dH9UT1CoDC21v6kPHe32UNydhcvA8U9VS",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 2 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDS, lent into 2 klend reserve(s) in 2 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.25% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 129134.58,
+   "tvl_slot": 450802143,
+   "tvl_amount": 129134.58,
+   "tvl_symbol": "USDS",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDS counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.003% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDS",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Elemental USDT Optimizer",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "GFXX24s8VKbyxtQMx7pUDmK2sMFCnorQhtKuVoGqEdTZ",
+   "key": "kamino/GFXX24s8VKbyxtQMx7pUDmK2sMFCnorQhtKuVoGqEdTZ",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 2 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDT, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.25% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 6286.72,
+   "tvl_slot": 450802143,
+   "tvl_amount": 6286.72,
+   "tvl_symbol": "USDT",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDT counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.070% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDT",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Ethena Prime",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "D1XVxx4ur7kiSgpuerUmoJXvZ3yEBFZWPx1uN7qBADFb",
+   "key": "kamino/D1XVxx4ur7kiSgpuerUmoJXvZ3yEBFZWPx1uN7qBADFb",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDG, lent into 2 klend reserve(s) in 2 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "tvl_usd": 446544.21,
+   "tvl_slot": 450802143,
+   "tvl_amount": 446544.21,
+   "tvl_symbol": "USDG",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.086% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDG",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Ethena PYUSD Prime",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "4TwKA9JXEGeLEpAPLoarhSQoQwoiu12dkDCjSuVvHQUf",
+   "key": "kamino/4TwKA9JXEGeLEpAPLoarhSQoQwoiu12dkDCjSuVvHQUf",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "PYUSD, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "tvl_usd": 227421583.19,
+   "tvl_slot": 450802143,
+   "tvl_amount": 227421583.19,
+   "tvl_symbol": "PYUSD",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; PYUSD counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.002% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "PYUSD",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Galaxy USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "ADcgKvst9u9qRXgSCxg2eZtqKNYPuMbfqjntaLepxwE5",
+   "key": "kamino/ADcgKvst9u9qRXgSCxg2eZtqKNYPuMbfqjntaLepxwE5",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 4 klend reserve(s) in 4 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.25% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "tvl_usd": 2048199.86,
+   "tvl_slot": 450802143,
+   "tvl_amount": 2048199.86,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.005% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Galaxy USDT",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "FPQNECVaw9qCHTJ7JRQXQUV94YffmhX3he5khUgx4m3j",
+   "key": "kamino/FPQNECVaw9qCHTJ7JRQXQUV94YffmhX3he5khUgx4m3j",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDT, lent into 2 klend reserve(s) in 2 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.25% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "tvl_usd": 2624435.56,
+   "tvl_slot": 450802143,
+   "tvl_amount": 2624435.56,
+   "tvl_symbol": "USDT",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDT counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.002% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDT",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Gauntlet Frontier",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "GFiW6edsrtHZd4Vnz2qTSurVasRrgKrXE1ouHNtCVsft",
+   "key": "kamino/GFiW6edsrtHZd4Vnz2qTSurVasRrgKrXE1ouHNtCVsft",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 260576.68,
+   "tvl_slot": 450802143,
+   "tvl_amount": 260576.68,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Hyperithm USDC Apex",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "7p5PczFqftBcyfgWkozHiVEQEtK9yeDXbXwQFkxenh7C",
+   "key": "kamino/7p5PczFqftBcyfgWkozHiVEQEtK9yeDXbXwQFkxenh7C",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 2 of 3, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 3, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 209860.34,
+   "tvl_slot": 450802143,
+   "tvl_amount": 209860.34,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.200% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Kamino Vault CASH",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "NSSESC5s9Mk7uhUg7hdRiEeNaz7FQmZveJseF62Zjbc",
+   "key": "kamino/NSSESC5s9Mk7uhUg7hdRiEeNaz7FQmZveJseF62Zjbc",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "CASH, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 2023735.18,
+   "tvl_slot": 450802143,
+   "tvl_amount": 2023735.18,
+   "tvl_symbol": "CASH",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; CASH counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "CASH",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Marinade USD Vault",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "2TNCzzYJt3uHmpFpqeeJkza4pQUK9xoLa79DJH9AdgGA",
+   "key": "kamino/2TNCzzYJt3uHmpFpqeeJkza4pQUK9xoLa79DJH9AdgGA",
+   "platform_key": "kamino",
+   "manager": "Vault admin: program-derived address; traced, controller not identified",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 5 klend reserve(s) in 5 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: program-derived address; traced, controller not identified; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 1599218.81,
+   "tvl_slot": 450802143,
+   "tvl_amount": 1599218.81,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "MEV Capital USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "EPC2N3AAv84P9TKsnDt2x41p6T7c5vTewBhQbh4RVx4r",
+   "key": "kamino/EPC2N3AAv84P9TKsnDt2x41p6T7c5vTewBhQbh4RVx4r",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 2 of 3, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 5 klend reserve(s) in 5 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 3, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 1146063.22,
+   "tvl_slot": 450802143,
+   "tvl_amount": 1146063.22,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "MEV Capital USDS",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "BQ4P3SNg9xN3heQH87eGn5uRwE4hgUcuN78Ym8jsLEDn",
+   "key": "kamino/BQ4P3SNg9xN3heQH87eGn5uRwE4hgUcuN78Ym8jsLEDn",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 2 of 3, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDS, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 2 of 3, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "1% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 17081.96,
+   "tvl_slot": 450802143,
+   "tvl_amount": 17081.96,
+   "tvl_symbol": "USDS",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDS counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDS",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Neutral Trade USDC Max Yield",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "67dqmR76uAbjX6e81A1ganKv3ou31WUMEdeWJkwVfeXy",
+   "key": "kamino/67dqmR76uAbjX6e81A1ganKv3ou31WUMEdeWJkwVfeXy",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.25% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 1459457.24,
+   "tvl_slot": 450802143,
+   "tvl_amount": 1459457.24,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Plume x Re7 USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "HJFEPRRRLBfJBfSJaC69r3nMYskViL9Yy1QLLAqjvnW",
+   "key": "kamino/HJFEPRRRLBfJBfSJaC69r3nMYskViL9Yy1QLLAqjvnW",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "10% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "tvl_usd": 5127525.26,
+   "tvl_slot": 450802143,
+   "tvl_amount": 5127525.26,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "RWA USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "DWSXb18xZApz29vnQpgR2m6MynCT7PznaXt7Ut7M7KaP",
+   "key": "kamino/DWSXb18xZApz29vnQpgR2m6MynCT7PznaXt7Ut7M7KaP",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 6 klend reserve(s) in 5 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 78918211.89,
+   "tvl_slot": 450802143,
+   "tvl_amount": 78918211.89,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Sentora PYUSD",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "A2wsxhA7pF4B2UKVfXocb6TAAP9ipfPJam6oMKgDE5BK",
+   "key": "kamino/A2wsxhA7pF4B2UKVfXocb6TAAP9ipfPJam6oMKgDE5BK",
+   "platform_key": "kamino",
+   "manager": "Vault admin: single key (inferred)",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "PYUSD, lent into 6 klend reserve(s) in 6 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: single key (inferred); global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 134483583.33,
+   "tvl_slot": 450802143,
+   "tvl_amount": 134483583.33,
+   "tvl_symbol": "PYUSD",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; PYUSD counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "PYUSD",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Solana Mobile USDC Earn Vault",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "3SMNuqK7m13KorY9gX8DzjQAVXGbhgRVni65Pk6LTBgC",
+   "key": "kamino/3SMNuqK7m13KorY9gX8DzjQAVXGbhgRVni65Pk6LTBgC",
+   "platform_key": "kamino",
+   "manager": "Vault admin: program-derived address; traced, controller not identified",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: program-derived address; traced, controller not identified; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0.25% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity; withdrawal penalty 0.01% plus 1 lamports",
+   "tvl_usd": 1362923.88,
+   "tvl_slot": 450802143,
+   "tvl_amount": 1362923.88,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Squads USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "3DBvs2MraKsXoLdSGsQDue3RUQKxM6dp5KWWC6PWtUcg",
+   "key": "kamino/3DBvs2MraKsXoLdSGsQDue3RUQKxM6dp5KWWC6PWtUcg",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "2% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 837663.33,
+   "tvl_slot": 450802143,
+   "tvl_amount": 837663.33,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Steakhouse High Yield USD1",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "2eCcHyUfFmiLX5RnNY21Qfndqww7TmwaKBgNXX5Unu7o",
+   "key": "kamino/2eCcHyUfFmiLX5RnNY21Qfndqww7TmwaKBgNXX5Unu7o",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USD1, lent into 1 klend reserve(s) in 1 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 29341.28,
+   "tvl_slot": 450802143,
+   "tvl_amount": 29341.28,
+   "tvl_symbol": "USD1",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USD1 counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.123% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USD1",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Steakhouse High Yield USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "BEEfo7xwgK2ZP13Pxo7qqTPzAteKJmXjVWtMWcXSvbn2",
+   "key": "kamino/BEEfo7xwgK2ZP13Pxo7qqTPzAteKJmXjVWtMWcXSvbn2",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 6 klend reserve(s) in 6 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 2940259.97,
+   "tvl_slot": 450802143,
+   "tvl_amount": 2940259.97,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Steakhouse High Yield USDG",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "BoZDRc1RDY9FzUZZ19WT4GbtTnnbXQ8AGSU5ByEw3ut5",
+   "key": "kamino/BoZDRc1RDY9FzUZZ19WT4GbtTnnbXQ8AGSU5ByEw3ut5",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDG, lent into 8 klend reserve(s) in 8 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "2.5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 44841012.59,
+   "tvl_slot": 450802143,
+   "tvl_amount": 44841012.59,
+   "tvl_symbol": "USDG",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDG",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Steakhouse USDC",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "HDsayqAsDWy3QvANGqh2yNraqcD8Fnjgh73Mhb3WRS5E",
+   "key": "kamino/HDsayqAsDWy3QvANGqh2yNraqcD8Fnjgh73Mhb3WRS5E",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 19465298.41,
+   "tvl_slot": 450802143,
+   "tvl_amount": 19465298.41,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Steakhouse USDG",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "BqBsS4myH82S4yfqeKjXSF7yErWwSi5WTshSzKmHQgzw",
+   "key": "kamino/BqBsS4myH82S4yfqeKjXSF7yErWwSi5WTshSzKmHQgzw",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDG, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "5% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 432551.86,
+   "tvl_slot": 450802143,
+   "tvl_amount": 432551.86,
+   "tvl_symbol": "USDG",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDG counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDG",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "USDC Prime",
+   "platform": "Kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "9E69U4GzWhryRaPe8DYpco6Z9vTZY6gg8w6W2QsBACEj",
+   "key": "kamino/9E69U4GzWhryRaPe8DYpco6Z9vTZY6gg8w6W2QsBACEj",
+   "platform_key": "kamino",
+   "manager": "Vault admin: Squads multisig 3 of 6, no timelock",
+   "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+   "assets": "USDC, lent into 3 klend reserve(s) in 3 market(s)",
+   "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 6, no timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+   "fees": "0% performance, 0% management",
+   "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+   "tvl_usd": 1449609.74,
+   "tvl_slot": 450802143,
+   "tvl_amount": 1449609.74,
+   "tvl_symbol": "USDC",
+   "tvl_source": "computed_from_chain",
+   "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.001% (within the 0.5% flag)",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:58Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [],
+   "nested_in": [],
+   "contains_nested": [],
+   "nesting_note": null,
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "assets": {
+     "class": "A",
+     "slot": 450802138
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802147
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802112
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802117
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://kamino.com/docs/security/audits.md",
+     "read_on": "2026-09-26"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802143,
+     "source": "computed_from_chain"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  },
+  {
+   "name": "Hubra Copilot USDC",
+   "platform": "Voltr",
+   "chain": "Solana",
+   "group": "nonevm",
+   "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+   "key": "voltr/3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+   "platform_key": "voltr",
+   "manager": "Manager: single key (inferred); admin: single key (inferred)",
+   "audits": "Sec3 X-RAY, FYEO, Certora (platform's audit pages, read 2026-09-25)",
+   "assets": "USDC; positions as recorded by the vault: Kamino vault",
+   "controls": "Upgrade: Squads multisig 3 of 5, 12 h timelock; admin: single key (inferred); disabledOperations = 0; Drift strategy attached (currently 0); manager: single key, can move funds between strategies without an admin step",
+   "fees": "0% performance, 0% management",
+   "lockup": "Withdrawal waiting period: none",
+   "tvl_usd": 32173.4,
+   "tvl_slot": 450802160,
+   "tvl_amount": 32173.4,
+   "tvl_symbol": "USDC",
+   "tvl_source": "vault_recorded",
+   "tvl_basis": "the vault's own recorded total (asset.totalValue), last written 2026-09-26T21:50Z when the manager or a crank last updated it; positions as recorded by the vault, not recomputed by us; USDC counted at 1 USD per token (face value, not a market price)",
+   "tvl_reconciliation": "recorded by the vault, not reconciled: strategy positions are the vault's own records",
+   "tvl_partial": false,
+   "tvl_last_written": "2026-09-26T21:50Z",
+   "tvl_age_days": 0.0,
+   "tvl_stale": false,
+   "tvl_stale_rule": "stale when last written more than 7 days before now",
+   "tvl_aum_flag": false,
+   "read_stale": false,
+   "token_symbol": "USDC",
+   "token_kind": "stablecoin",
+   "notes": [
+    "Drift strategy attached (currently 0)",
+    "manager: single key, can move funds between strategies without an admin step"
+   ],
+   "nested_in": [
+    {
+     "platform_key": "kamino",
+     "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+     "tokens": 28119.78,
+     "name": "Allez USDC"
+    }
+   ],
+   "contains_nested": [],
+   "nesting_note": "Part of this vault's funds sit in another listed vault; do not add the two TVLs together.",
+   "provenance": {
+    "manager": {
+     "class": "A",
+     "slot": 450802160
+    },
+    "assets": {
+     "class": "A (positions as recorded by the vault)",
+     "slot": 450802163
+    },
+    "controls": {
+     "class": "A",
+     "slot": 450802160
+    },
+    "fees": {
+     "class": "A",
+     "slot": 450802160
+    },
+    "lockup": {
+     "class": "A",
+     "slot": 450802160
+    },
+    "audits": {
+     "class": "D",
+     "url": "https://docs.voltr.xyz/security/audits",
+     "read_on": "2026-09-25"
+    },
+    "tvl": {
+     "class": "A",
+     "slot": 450802160,
+     "source": "vault_recorded"
+    }
+   },
+   "read_at": "2026-09-26T21:58:48Z",
+   "stale": false
+  }
+ ],
+ "platforms": [
+  {
+   "platform": "GLAM",
+   "platform_key": "glam",
+   "chain": "Solana",
+   "group": "nonevm",
+   "status": "none_qualifying",
+   "listed": 0,
+   "as_of": "2026-09-26",
+   "read_at": "2026-09-26T21:58:48Z",
+   "text": "No qualifying vault found as of 2026-09-26: 73 GLAM vault accounts read on chain at slot 450802183, none qualifies: 44 base asset is not a stablecoin; 7 not a tokenized vault (no share token; a managed account); 6 empty or under 1,000 tokens; 5 named as a test, staging or demo vault; 5 assets allowlist includes non-stablecoin tokens; 3 Drift integration enabled (excluded by the owner's rule); 2 bridge integration enabled: assets can move off Solana, where they are not read; 1 holds positions in other protocols that this reader does not value.",
+   "reason_class": "A",
+   "excluded": [
+    {
+     "reason": "base asset is not a stablecoin",
+     "count": 44
+    },
+    {
+     "reason": "not a tokenized vault (no share token; a managed account)",
+     "count": 7
+    },
+    {
+     "reason": "empty or under 1,000 tokens",
+     "count": 6
+    },
+    {
+     "reason": "named as a test, staging or demo vault",
+     "count": 5
+    },
+    {
+     "reason": "assets allowlist includes non-stablecoin tokens",
+     "count": 5
+    },
+    {
+     "reason": "Drift integration enabled (excluded by the owner's rule)",
+     "count": 3
+    },
+    {
+     "reason": "bridge integration enabled: assets can move off Solana, where they are not read",
+     "count": 2
+    },
+    {
+     "reason": "holds positions in other protocols that this reader does not value",
+     "count": 1
+    }
+   ],
+   "named_exclusions": [],
+   "slot": 450802183,
+   "discovered": 73,
+   "upgrade": {
+    "text": "Squads multisig 2 of 3, no timelock",
+    "class": "A",
+    "slot": 450802181
+   }
+  },
+  {
+   "platform": "HyperEVM",
+   "platform_key": "hyperevm",
+   "chain": "HyperEVM",
+   "group": "evm",
+   "status": "none_qualifying",
+   "listed": 0,
+   "as_of": "2026-09-26",
+   "read_at": "2026-09-26T21:58:49Z",
+   "text": "No qualifying vault found as of 2026-09-26: The two published HyperEVM vault contracts found are Hyperbeat wVLP, whose deposit contract reads paused() = true and which its docs say is being unwound, and Liminal xHYPE, a HYPE strategy, not a real-world asset. Neither has verified source on Sourcify, so neither's trading path is established.",
+   "reason_class": "A and D",
+   "evidence": {
+    "chain_id": 999,
+    "block": 46973463,
+    "read_at": "2026-09-26T21:58:49Z",
+    "rpc": "rpc.hyperliquid.xyz/evm",
+    "wvlp": {
+     "token": "0xD66d69c288d9a6FD735d7bE8b2e389970fC4fD42",
+     "symbol": "wVLP",
+     "deposit_contract": "0xc800f672EE8693BC0138E513038C84fe2D1B8a78",
+     "paused": true
+    },
+    "xhype": {
+     "share_manager": "0xac962fa04bf91b7fd0dc0c5c32414e0ce3c51e03",
+     "symbol": "xHYPE",
+     "symbol_call": null
+    }
+   },
+   "evidence_ok": true,
+   "sources": [
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults"
+   ],
+   "sources_read_on": "2026-09-25"
+  },
+  {
+   "platform": "Hyperliquid",
+   "platform_key": "hyperliquid",
+   "chain": "Hyperliquid",
+   "group": "nonevm",
+   "status": "none_qualifying",
+   "listed": 0,
+   "as_of": "2026-09-26",
+   "read_at": "2026-09-26T21:58:48Z",
+   "text": "No qualifying vault found as of 2026-09-26: A Hyperliquid vault does not take a stablecoin deposit to lend it: HLP and the legacy user vaults trade crypto perpetuals at their leader's discretion (legacy vaults trade validator-operated perps only and cannot trade spot or HIP-3, per Hyperliquid's docs). HIP-3 equity markets are perpetuals tracking a stock, not the stock.",
+   "reason_class": "D",
+   "evidence": {
+    "call": "info vaultDetails",
+    "vault": "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303",
+    "read_at": "2026-09-26T21:58:48Z",
+    "name": "Hyperliquidity Provider (HLP)",
+    "is_closed": false,
+    "leader": "0x677d831aef5328190852e24f13c46cac05f984e7",
+    "child_vaults": 7
+   },
+   "evidence_ok": true,
+   "sources": [
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults"
+   ],
+   "sources_read_on": "2026-09-25"
+  },
+  {
+   "platform": "Kamino",
+   "platform_key": "kamino",
+   "chain": "Solana",
+   "group": "nonevm",
+   "status": "listed",
+   "listed": 30,
+   "as_of": "2026-09-26",
+   "read_at": "2026-09-26T21:58:48Z",
+   "text": "30 listed of 182 vault accounts read on chain; 152 not listed, by reason below.",
+   "excluded": [
+    {
+     "reason": "empty or under 1,000 tokens",
+     "count": 88
+    },
+    {
+     "reason": "deposit token is not a stablecoin (crypto or LST)",
+     "count": 31
+    },
+    {
+     "reason": "named as a test, staging or demo vault",
+     "count": 28
+    },
+    {
+     "reason": "lends into an off-chain-backed single-collateral market (structure)",
+     "count": 4
+    },
+    {
+     "reason": "deposit token not identified",
+     "count": 1
+    }
+   ],
+   "named_exclusions": [
+    {
+     "address": "CwptesNGAXj8S3aRsFHtUomb5zqAA1tMJBYkQVLJjXmd",
+     "reason": "deposit token not identified: on-chain metadata symbol wYLDS, empty name; issuer not identified",
+     "token_mint": "8fr7WGTVFszfyNWRMXj6fRjZZAnDwmXwEpCrtzmUkdih"
+    },
+    {
+     "address": "8VoxRCLSAh791MWpsYYkgbWJoek55hkiU3aHE3VQadBv",
+     "name": "Elaris USDC Optimizer",
+     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
+     "source_read_on": "2026-09-26",
+     "share_of_vault": 1.0,
+     "positions": [
+      {
+       "market": "DmSeodmEWqUEoMwxTHHNs2C7AxKnbgHTsnKfP2trWFCc",
+       "collateral": "kpvCmsqQkHcbsefaEtQ8ka2c89c6QE13LGGQUeQ2KuV",
+       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
+       "value_tokens": 0.0,
+       "share_of_reserve_supply": 0.0
+      },
+      {
+       "market": "Dwg1aeZFYtsyMEkoyJn2ak8pPqaXMWd1uui6FBkM1872",
+       "collateral": "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai",
+       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
+       "value_tokens": 276066.31,
+       "share_of_reserve_supply": 0.0057
+      }
+     ]
+    },
+    {
+     "address": "91b1opzHNUQobfLZxGMNYT5qDRKoqV8FdsdQBmH4wBxy",
+     "name": "Kamino Private Credit USDC",
+     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
+     "source_read_on": "2026-09-26",
+     "share_of_vault": 0.97,
+     "positions": [
+      {
+       "market": "DmSeodmEWqUEoMwxTHHNs2C7AxKnbgHTsnKfP2trWFCc",
+       "collateral": "kpvCmsqQkHcbsefaEtQ8ka2c89c6QE13LGGQUeQ2KuV",
+       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
+       "value_tokens": 7061835.22,
+       "share_of_reserve_supply": 1.0
+      }
+     ]
+    },
+    {
+     "address": "A3hTCWdnfV6uiQLxRmnv17EpiEtmc93v1AGQnWy44Mup",
+     "name": "Elemental USDC Turbo",
+     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
+     "source_read_on": "2026-09-26",
+     "share_of_vault": 0.3732,
+     "positions": [
+      {
+       "market": "Dwg1aeZFYtsyMEkoyJn2ak8pPqaXMWd1uui6FBkM1872",
+       "collateral": "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai",
+       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
+       "value_tokens": 1500028.32,
+       "share_of_reserve_supply": 0.0309
+      }
+     ]
+    },
+    {
+     "address": "B5pjfZAiKjyUEuqB2694NHrsjcaM67uuJaWqjzTVtzR6",
+     "name": "Kamino Institutional Commodity Yield",
+     "reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "source": "https://kamino.com/docs/products/institutional-yield/structure.md",
+     "source_read_on": "2026-09-26",
+     "share_of_vault": 0.9512,
+     "positions": [
+      {
+       "market": "Dwg1aeZFYtsyMEkoyJn2ak8pPqaXMWd1uui6FBkM1872",
+       "collateral": "CoLLWYpwqmkxoTPt23ZHvzqexoZNMjfWxRav4ij7QWai",
+       "collateral_mint_authority": "4gPJLzZoTHYfFdGwnFSoyNhWXaqWJ8mvoWeGDcsmb2kJ",
+       "value_tokens": 46729935.78,
+       "share_of_reserve_supply": 0.9634
+      }
+     ]
+    }
+   ],
+   "slot": 450802110,
+   "discovered": 182,
+   "upgrade": {
+    "text": "Squads multisig 5 of 10, 24 h timelock",
+    "class": "A",
+    "slot": 450802107
+   }
+  },
+  {
+   "platform": "Voltr",
+   "platform_key": "voltr",
+   "chain": "Solana",
+   "group": "nonevm",
+   "status": "listed",
+   "listed": 1,
+   "as_of": "2026-09-26",
+   "read_at": "2026-09-26T21:58:48Z",
+   "text": "1 listed of 200 vault accounts read on chain; 199 not listed, by reason below.",
+   "excluded": [
+    {
+     "reason": "empty or under 1,000 tokens",
+     "count": 107
+    },
+    {
+     "reason": "deposit token is not a stablecoin (crypto or LST)",
+     "count": 54
+    },
+    {
+     "reason": "named as a test, staging or demo vault",
+     "count": 21
+    },
+    {
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "count": 13
+    },
+    {
+     "reason": "places funds with Drift (excluded by the owner's rule)",
+     "count": 2
+    },
+    {
+     "reason": "records a position in a strategy whose account is closed",
+     "count": 1
+    },
+    {
+     "reason": "places funds in a Kamino vault that is not listed here",
+     "count": 1
+    }
+   ],
+   "named_exclusions": [
+    {
+     "address": "1VTBKh5gG75QjwnxX8CgpvTKgwSwLgCRLgaeGw8zzhG",
+     "name": "Syntropia USDC",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 1227480.98
+    },
+    {
+     "address": "HTXwG144SjgbSeRcCvQPCvuFNkd8LSf7qHi7QNZvtov",
+     "name": "Alpha100 Neutral",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 139668.2
+    },
+    {
+     "address": "LyraVpGGMofyvs8dXJuzQTwA8cztG1dxexGWXvp8Pcx",
+     "name": "Lyra Bluechip v1.2",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 13229.34
+    },
+    {
+     "address": "2UHNjqDGdX84KJiptokNtLp8foRpivtVZNQA1kY989Qh",
+     "name": "UltraX Arbitrage",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 53022.14
+    },
+    {
+     "address": "5fViCzNXTU4sNCpwkxCNwEnVeSn7BpVEodWwWmFGKJBA",
+     "name": "New Ultra X Vault",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 3938093.21
+    },
+    {
+     "address": "5mv1cURMSaPU3q3wFVoN4mKMWNFVvUtH3UZrG4Z2Mgfz",
+     "name": "Hubra copilot USDS",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 5178.8
+    },
+    {
+     "address": "663azFYEnHDTLGf4CEk8KpNTje8XxZVLnQwo9LjbSejy",
+     "name": "Hubra copilot USD1",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 5077.02
+    },
+    {
+     "address": "7VZ1XKK7Zns6UzRc1Wz54u6cypN7zaduasVXXr7NysxH",
+     "name": "Hubra copilot USDG",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 5301.09
+    },
+    {
+     "address": "9VTUJwN8paqF679yeMpDG6x6imtagCisYUSTCm1J8pXe",
+     "name": "Ranger USD",
+     "reason": "places funds with Drift (excluded by the owner's rule)",
+     "recorded_total_tokens": 249792.62,
+     "in_drift_tokens": 249792.62
+    },
+    {
+     "address": "BEfCK5fY8xUZdhY1GWfnkjUJ9e24XsHNZaJrySHzqP99",
+     "name": "DriftPack Arbitrage",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 71468.47
+    },
+    {
+     "address": "DT3srSkTf2tyoAyz9nHf112MChkKEG7LGTGaGWccwgkE",
+     "name": "Vectis Multi Lend (USDC)",
+     "reason": "places funds with Drift (excluded by the owner's rule)",
+     "recorded_total_tokens": 11660.44,
+     "in_drift_tokens": 6465.63
+    },
+    {
+     "address": "DjTLArpvnuHpJKTKtnbd1YydEBrVyWaXUtFZzTE8Ttyr",
+     "name": "HyperPack Arbitrage",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 113318.34
+    },
+    {
+     "address": "FajosXiYhqUDZ9cEB3pwS8n8pvcAbL3KzCGZnWDNvgLa",
+     "name": "JLP HyperLoop",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 304357.85
+    },
+    {
+     "address": "Fu9a4RijygLuhRdg7aJrggRvmxZX8TibC3GPRA6yUZFF",
+     "name": "Vega Finance JLP",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 50483.41
+    },
+    {
+     "address": "HHhRrLfdj9VXFe7oQnBSSxzDKVyHYoDX11U4LvqSkj9n",
+     "name": "K1",
+     "reason": "holds a manager-reported off-chain (custodial) position",
+     "recorded_total_tokens": 2533.12
+    },
+    {
+     "address": "JDCHyYKZMcq5jmpzQJeHVPxymzN9ZEoX9o7rJiwKsSXF",
+     "name": "PTW Adaptive Yield",
+     "reason": "records a position in a strategy whose account is closed",
+     "recorded_total_tokens": 1832.51
+    },
+    {
+     "address": "8oUwteX3SJELMGDPTEuLqz1WSd58yMdkQ6s4hKwB42nJ",
+     "name": "Elemental USDC Lending Pool",
+     "reason": "places funds in a Kamino vault that is not listed here",
+     "kamino_vault": "A3hTCWdnfV6uiQLxRmnv17EpiEtmc93v1AGQnWy44Mup",
+     "kamino_vault_reason": "lends into a klend market whose only collateral is one bespoke token (mint authority 4gPJLzZo\u2026), the off-chain SPV structure Kamino describes",
+     "tokens_there": 2570.18
+    }
+   ],
+   "slot": 450802160,
+   "discovered": 200,
+   "upgrade": {
+    "text": "Squads multisig 3 of 5, 12 h timelock",
+    "class": "A",
+    "slot": 450802159
+   }
+  }
+ ]
+}

@@ -1,0 +1,567 @@
+{
+ "kind": "vault",
+ "platform": "Kamino",
+ "platform_key": "kamino",
+ "chain": "Solana",
+ "group": "nonevm",
+ "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+ "program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+ "name": "Allez USDC",
+ "token": {
+  "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "symbol": "USDC",
+  "decimals": 6,
+  "kind": "stablecoin"
+ },
+ "slots": {
+  "discovery": 450802110,
+  "header": 450802112,
+  "tail": 450802117,
+  "full": 450802122,
+  "reserves": 450802138,
+  "ctoken_accounts": 450802143,
+  "markets": 450802147,
+  "global_config": 450802149
+ },
+ "tvl": {
+  "usd": 9559596.81,
+  "amount": 9559596.81,
+  "symbol": "USDC",
+  "slot": 450802143,
+  "source": "computed_from_chain",
+  "basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+  "last_written": "2026-09-26T21:58Z",
+  "aum_flag": false,
+  "vault_recorded": {
+   "amount": 9559566.43,
+   "field": "prev_aum_sf / 2^60",
+   "slot": 450802112
+  },
+  "difference_pct": 0.0003,
+  "reconciliation": "does not reconcile: cToken balance differs from the vault's record on 1 reserve(s); the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+  "partial": false
+ },
+ "fees": {
+  "text": "5% performance, 0% management",
+  "class": "A",
+  "slot": 450802112,
+  "performance_bps": 500,
+  "management_bps": 0
+ },
+ "lockup": {
+  "text": "No lock-up field; withdrawals limited by the vault's available liquidity",
+  "class": "A",
+  "slot": 450802117,
+  "withdrawal_penalty_bps": 0,
+  "withdrawal_penalty_lamports": 0
+ },
+ "manager": {
+  "text": "Vault admin: Squads multisig 3 of 7, 1 h timelock",
+  "class": "A",
+  "slot": 450802112,
+  "vault_admin": {
+   "kind": "squads_v4",
+   "address": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+   "multisig": "Eth5FJMLkdbG6fpbCstoJ44vapa1BBdcyGsJ5ovsjDNU",
+   "vault_index": 0,
+   "how": "derivation re-checked",
+   "slot": 450802151,
+   "threshold": 3,
+   "timelock_s": 3600,
+   "config_authority": null,
+   "members": 8,
+   "voters": 7,
+   "executors": 7,
+   "member_masks": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    1,
+    7
+   ],
+   "text": "Squads multisig 3 of 7, 1 h timelock"
+  },
+  "allocation_admin": {
+   "kind": "single_key",
+   "address": "FU76ac2Hm2mo4hoyckhAKDrbKTFwxyDPHnrrERfMXusE",
+   "basis": "on-curve key: a single key holds it (inferred)",
+   "text": "single key (inferred)"
+  },
+  "pending_admin": {
+   "kind": "squads_v4",
+   "address": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+   "multisig": "Eth5FJMLkdbG6fpbCstoJ44vapa1BBdcyGsJ5ovsjDNU",
+   "vault_index": 0,
+   "how": "derivation re-checked",
+   "slot": 450802151,
+   "threshold": 3,
+   "timelock_s": 3600,
+   "config_authority": null,
+   "members": 8,
+   "voters": 7,
+   "executors": 7,
+   "member_masks": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    1,
+    7
+   ],
+   "text": "Squads multisig 3 of 7, 1 h timelock"
+  }
+ },
+ "assets": {
+  "text": "USDC, lent into 10 klend reserve(s) in 9 market(s)",
+  "class": "A",
+  "slot": 450802138,
+  "allocations": [
+   {
+    "reserve": "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
+    "lending_market": "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 25429,
+    "ctokens_recorded": 641697045500,
+    "ctokens_held": 641697045500,
+    "value_tokens": 771364.83
+   },
+   {
+    "reserve": "Ga4rZytCpq1unD4DbEJ5bkHeUz9g3oh9AAFEi6vSauXp",
+    "lending_market": "DxXdAyU3kCjnyggvHmY5nAwg5cRbbmdyX3npfDMjjMek",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 1409,
+    "ctokens_recorded": 35546603022,
+    "ctokens_held": 35571847029,
+    "value_tokens": 42740.68
+   },
+   {
+    "reserve": "9FRZvAsjDJ6WM8BJ2S45h9PoDCLAq8DNY9zZDX7MyGzT",
+    "lending_market": "GMqmFygF5iSm5nkckYU6tieggFcR42SyjkkhK5rswFRs",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 7,
+    "ctokens_recorded": 197375818,
+    "ctokens_held": 197375818,
+    "value_tokens": 212.34
+   },
+   {
+    "reserve": "8trJaNUfkP9pNgrwzByfsuwVtZ5TmZpq568UkCpjFWbi",
+    "lending_market": "B7a2Dmdnfg8zfZX2814d6Xo6ctxs22jnTuCcjTq5KcPD",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 216,
+    "ctokens_recorded": 2179,
+    "ctokens_held": 2179,
+    "value_tokens": 0.0
+   },
+   {
+    "reserve": "8Lvi1DFPoAGPQ25qpRKzzRaSAnWdeVZqt9XmEapm8uLt",
+    "lending_market": "47tfyEG9SsdEnUm9cw5kY9BXngQGqu3LBoop9j5uTAv8",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 16483,
+    "ctokens_recorded": 494656708102,
+    "ctokens_held": 494656708102,
+    "value_tokens": 499996.25
+   },
+   {
+    "reserve": "Atj6UREVWa7WxbF2EMKNyfmYUY1U1txughe2gjhcPDCo",
+    "lending_market": "6WEGfej9B9wjxRs6t4BYpb9iCXd8CpTpJ8fVSNzHCC5y",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 0,
+    "ctokens_recorded": 0,
+    "ctokens_held": 0,
+    "value_tokens": 0.0
+   },
+   {
+    "reserve": "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu",
+    "lending_market": "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 3808,
+    "ctokens_recorded": 110803729146,
+    "ctokens_held": 110803729146,
+    "value_tokens": 115512.07
+   },
+   {
+    "reserve": "DD4RN8t37nmw7EANW37ejdDEuFz9Tmf3TZTN7jxKsE8i",
+    "lending_market": "FteaGMVCLDF4eonrTiQkRQ5kby5ohwCfaMD2mNiPkZL7",
+    "market_owner": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 16483,
+    "ctokens_recorded": 495495457613,
+    "ctokens_held": 495495457613,
+    "value_tokens": 499997.33
+   },
+   {
+    "reserve": "4QKFoFDzNFnvfkzVazABbCEfMwd3y1pZqUVzmpnkCphj",
+    "lending_market": "52FSGeeokLpgvgAMdqxyt5Hoc2TbUYj5b8yxrEdZ37Vf",
+    "market_owner": "CgXyAkezZAoQo8QYdC6R3G4RbdSyw7zR89bTioEQQMs8",
+    "market_owner_text": "Squads multisig 3 of 6, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 0,
+    "ctokens_recorded": 0,
+    "ctokens_held": 0,
+    "value_tokens": 0.0
+   },
+   {
+    "reserve": "AYL4LMc4ZCVyq3Z7XPJGWDM4H9PiWjqXAAuuHBEGVR2Z",
+    "lending_market": "47tfyEG9SsdEnUm9cw5kY9BXngQGqu3LBoop9j5uTAv8",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 157571,
+    "ctokens_recorded": 4512223487512,
+    "ctokens_held": 4512223487512,
+    "value_tokens": 4779768.05
+   },
+   {
+    "reserve": "EW9vT7g2VH2aTFfcbaXRUCbF7jEfaLwMiJpckwDZwUZd",
+    "lending_market": "GBJ3bzUiMfwC9ugaF3MM68EXMDyTUb5UryRRAcVjEowd",
+    "market_owner": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 28021,
+    "ctokens_recorded": 848145598329,
+    "ctokens_held": 848145598329,
+    "value_tokens": 849990.71
+   },
+   {
+    "reserve": "EfMKdLdPKooewofAcGSNTw9FNjc98oDMjbRMHXLJ6QqS",
+    "lending_market": "BVJ1FvFfYuLbGX4qDNezqU6z2N3p8M2XNeGzabm86BzE",
+    "market_owner": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 65932,
+    "ctokens_recorded": 1999175983921,
+    "ctokens_held": 1999175983921,
+    "value_tokens": 1999985.89
+   }
+  ],
+  "whitelisted_reserves_only": {
+   "allocations": 1,
+   "invest": 1
+  },
+  "deposit_cap_tokens": 0.0
+ },
+ "controls": {
+  "class": "A",
+  "slot": 450802147,
+  "admin": "Squads multisig 3 of 7, 1 h timelock",
+  "allocation_admin": "single key (inferred)",
+  "global_admin": {
+   "kind": "squads_v4",
+   "address": "F6ZX53XWTPqzyH4ZYHbJKUSXxqoTBXmLaVt8EvM1fYEX",
+   "multisig": "2TgbGtBq7zkAAnVUUzQQtEN4bF5sQEiXzYyVGo2tBJyb",
+   "vault_index": 0,
+   "how": "derivation re-checked",
+   "slot": 450802151,
+   "threshold": 5,
+   "timelock_s": 0,
+   "config_authority": null,
+   "members": 10,
+   "voters": 10,
+   "executors": 10,
+   "member_masks": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ],
+   "text": "Squads multisig 5 of 10, no timelock"
+  },
+  "market_owners": [
+   "Squads multisig 3 of 7, 1 h timelock",
+   "Squads multisig 4 of 10, 12 h timelock"
+  ],
+  "pause": {
+   "text": "No pause field in VaultState (kvault source); each klend market has an emergency mode, read per allocation",
+   "class": "D"
+  },
+  "upgrade": {
+   "programs": [
+    {
+     "program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+     "programdata": "GeZ7nkkcbJ6VVV1XVFbmFnLCY3F1LPBGk6cufDZvrbGn",
+     "last_deploy_slot": 432874668,
+     "authority": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+     "state": "upgradeable",
+     "slot": 450802107,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+      "multisig": "6hhBGCtmg7tPWUSgp3LG6X2rsmYWAc4tNsA6G4CnfQbM",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802154,
+      "threshold": 5,
+      "timelock_s": 86400,
+      "config_authority": null,
+      "members": 10,
+      "voters": 10,
+      "executors": 10,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7
+      ],
+      "text": "Squads multisig 5 of 10, 24 h timelock"
+     },
+     "authority_text": "Squads multisig 5 of 10, 24 h timelock"
+    },
+    {
+     "program": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+     "programdata": "9uSbGW1y9H5Av6H5TKxQ1wnFApSq2t3oEpfF2YfjDQGA",
+     "last_deploy_slot": 440486775,
+     "authority": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+     "state": "upgradeable",
+     "slot": 450802107,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+      "multisig": "6hhBGCtmg7tPWUSgp3LG6X2rsmYWAc4tNsA6G4CnfQbM",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450802154,
+      "threshold": 5,
+      "timelock_s": 86400,
+      "config_authority": null,
+      "members": 10,
+      "voters": 10,
+      "executors": 10,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7
+      ],
+      "text": "Squads multisig 5 of 10, 24 h timelock"
+     },
+     "authority_text": "Squads multisig 5 of 10, 24 h timelock"
+    }
+   ],
+   "text": "Squads multisig 5 of 10, 24 h timelock",
+   "class": "A",
+   "slot": 450802107
+  },
+  "text": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState"
+ },
+ "audits": {
+  "text": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+  "class": "D",
+  "url": "https://kamino.com/docs/security/audits.md",
+  "read_on": "2026-09-26",
+  "entries": [
+   {
+    "auditor": "OtterSec",
+    "date_as_stated": "9 December 2024",
+    "scope": "Earn Vaults (kVault)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_vault_osec.pdf"
+   },
+   {
+    "auditor": "Sec3",
+    "date_as_stated": "6 February 2025",
+    "scope": "Earn Vaults (kVault)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_vault_sec3.pdf"
+   },
+   {
+    "auditor": "Offside Labs",
+    "date_as_stated": "12 April 2025",
+    "scope": "Earn Vaults (kVault)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_vault_offside_labs.pdf"
+   },
+   {
+    "auditor": "RX Security",
+    "date_as_stated": "3 July 2023",
+    "scope": "Lend (klend)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_lend_rx.pdf"
+   },
+   {
+    "auditor": "OtterSec",
+    "date_as_stated": "6 September 2023",
+    "scope": "Lend (klend)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_lend_ottersec.pdf"
+   },
+   {
+    "auditor": "Sec3",
+    "date_as_stated": "6 February 2025",
+    "scope": "Lend (klend)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_klend_sec3.pdf"
+   },
+   {
+    "auditor": "Certora",
+    "date_as_stated": "27 June 2025",
+    "scope": "Earn Vaults (formal verification)",
+    "url": "https://kamino.com/docs/security/formal-verification.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_vault_certora.pdf"
+   },
+   {
+    "auditor": "Certora",
+    "date_as_stated": "13 May 2025",
+    "scope": "Lend (formal verification)",
+    "url": "https://kamino.com/docs/security/formal-verification.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_lend_certora.pdf"
+   },
+   {
+    "auditor": "OtterSec",
+    "date_as_stated": "6 October 2025",
+    "scope": "Lend (formal verification)",
+    "url": "https://kamino.com/docs/security/formal-verification.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/main/kamino_lend_osec_formal_verification.pdf"
+   }
+  ],
+  "also": "https://github.com/Kamino-Finance/audits",
+  "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated."
+ },
+ "powers": {
+  "class": "D",
+  "source": "https://github.com/Kamino-Finance/kvault (program handlers)",
+  "read_on": "2026-09-25",
+  "rows": [
+   [
+    "vault admin",
+    "adds lending reserves (same token, klend-owned; the source comment says 'Need to trust the admin'); sets fees (performance up to 100%, management up to 10%) and the withdrawal penalty (up to 10%); names the allocation admin and the next admin; withdraws accrued fees"
+   ],
+   [
+    "allocation admin",
+    "changes weights and caps of reserves already added"
+   ],
+   [
+    "global admin",
+    "maintains the reserve whitelist and can turn a vault's whitelist flags off (Kamino's docs call them irreversible; the source disagrees)"
+   ],
+   [
+    "lending-market owner",
+    "sets each klend market's reserve configuration: collateral accepted, LTVs, oracles and caps"
+   ]
+  ],
+  "moves": "No handler moves deposits to an arbitrary account (from reading the handler list). Risk paths: reserve selection, market owners' reserve settings, and program upgrade."
+ },
+ "contains_nested": [
+  {
+   "platform_key": "voltr",
+   "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+   "name": "Hubra Copilot USDC",
+   "tokens": 28119.78
+  }
+ ],
+ "read_at": "2026-09-26T21:58:48Z",
+ "row": {
+  "name": "Allez USDC",
+  "platform": "Kamino",
+  "chain": "Solana",
+  "group": "nonevm",
+  "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+  "key": "kamino/A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+  "platform_key": "kamino",
+  "manager": "Vault admin: Squads multisig 3 of 7, 1 h timelock",
+  "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+  "assets": "USDC, lent into 10 klend reserve(s) in 9 market(s)",
+  "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+  "fees": "5% performance, 0% management",
+  "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+  "tvl_usd": 9559596.81,
+  "tvl_slot": 450802143,
+  "tvl_amount": 9559596.81,
+  "tvl_symbol": "USDC",
+  "tvl_source": "computed_from_chain",
+  "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+  "tvl_reconciliation": "does not reconcile: cToken balance differs from the vault's record on 1 reserve(s); the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+  "tvl_partial": false,
+  "tvl_last_written": "2026-09-26T21:58Z",
+  "tvl_age_days": 0.0,
+  "tvl_stale": false,
+  "tvl_stale_rule": "stale when last written more than 7 days before now",
+  "tvl_aum_flag": false,
+  "read_stale": false,
+  "token_symbol": "USDC",
+  "token_kind": "stablecoin",
+  "notes": [],
+  "nested_in": [],
+  "contains_nested": [
+   {
+    "platform_key": "voltr",
+    "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+    "name": "Hubra Copilot USDC",
+    "tokens": 28119.78
+   }
+  ],
+  "nesting_note": "Part of this vault's funds sit in another listed vault; do not add the two TVLs together.",
+  "provenance": {
+   "manager": {
+    "class": "A",
+    "slot": 450802112
+   },
+   "assets": {
+    "class": "A",
+    "slot": 450802138
+   },
+   "controls": {
+    "class": "A",
+    "slot": 450802147
+   },
+   "fees": {
+    "class": "A",
+    "slot": 450802112
+   },
+   "lockup": {
+    "class": "A",
+    "slot": 450802117
+   },
+   "audits": {
+    "class": "D",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "read_on": "2026-09-26"
+   },
+   "tvl": {
+    "class": "A",
+    "slot": 450802143,
+    "source": "computed_from_chain"
+   }
+  },
+  "read_at": "2026-09-26T21:58:48Z",
+  "stale": false
+ },
+ "notice": "Deposits are made on each vault's own venue, signed in your own wallet; Tnega never holds funds and takes no deposit. We describe each vault as its chain state and its operator's documents show it. Nothing here is advice."
+}

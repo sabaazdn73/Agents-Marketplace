@@ -102,6 +102,7 @@
 //     { code, name, creator, created_at, version, description,
 //       legs: [{ ticker, symbol, issuer, chain, group, weight_bps }],
 //       value_usd_indicative?, value_basis?, return_since_creation_pct?,
+//       return_source?, return_basis?,
 //       followers_count?, series?: [[t_ms, usd]],
 //       cost_at_size?: { stops: [usd], bps: [number|null] },
 //       changes: [{ version, at, legs: [...], note? }],
