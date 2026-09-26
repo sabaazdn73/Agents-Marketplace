@@ -104,9 +104,8 @@ export default function PrivacyPage({ onBack }) {
 
         <Section id="website" title="The website">
           <p>
-            There is no account, no email address and no password. The site sets no cookies and
-            runs no analytics or advertising script. The theme you pick and a signed sign-in message
-            are kept in your browser&apos;s own storage and are not sent to us.
+            There is no account, no email address and no password. The site sets no cookies of its
+            own and runs no analytics or advertising script.
           </p>
           <p>
             The pages are served by Vercel, which receives each request as any web host does. The
@@ -138,6 +137,37 @@ export default function PrivacyPage({ onBack }) {
             address and the requests you approve. Connecting a browser wallet such as MetaMask does
             not use the relay. What the site does with a connected address is under &quot;Your wallet
             address on the website&quot;.
+          </p>
+                  <p>
+            Three routes on our server receive a wallet address, always in the body of the request,
+            never in the web address: My Agents, the Hyperliquid costs read, and the portfolio read
+            (POST /api/site/portfolio), which reads the tokenized stocks and ETFs an address holds.
+            The Dashboard calls the portfolio read only once that route is live; until then it sends
+            nothing to it. Each is described under &quot;Your wallet address on the website&quot;.
+          </p>
+          <p>
+            Some pages show other companies&apos; logos, loaded from each company&apos;s own site,
+            so your browser asks that site for the image and it receives your IP address. Use with
+            AI (/ai): cursor.com, code.visualstudio.com, zed.dev and cline.bot. Explore agents
+            (/market, /chain/..., agent pages): app.hyperliquid.xyz and solana.com, and on some
+            chains each agent&apos;s picture from api.8004scan.io or blob.8004scan.app. Data sources:
+            zerion.io, storage.thegraph.com and app.hyperliquid.xyz. Hackathon partners (/partners):
+            termix.ai and docs.altana.network. Two of these, zed.dev and zerion.io, answer with a
+            Cloudflare cookie (__cf_bm) of their own; it is theirs, set on their domain. The home
+            page, the Dashboard, sign-in and this page load no image from anyone else.
+          </p>
+          <p>
+            What is kept in your browser, and by whom. Ours: tnega_theme (the theme you pick),
+            tnega_signin_v1:&lt;address&gt; (a signed sign-in message, for 24 hours), and the list of
+            your agent hires and their notifications (aam_notifications_v2, aam_tracked_jobs_v1 and
+            aam_notifications_migrated_v1_to_v2).
+            The wallet libraries, as they are written: wagmi.store and wagmi.recentConnectorId
+            (wagmi, the wallet you connected), rk-version (RainbowKit), @appkit/active_namespace,
+            @appkit/active_caip_network_id and @appkit/connection_status (WalletConnect&apos;s
+            AppKit), base-acc-sdk.store (Coinbase&apos;s Base Account SDK), a key named after this
+            site&apos;s address, written when a wallet connects, and two IndexedDB databases,
+            WALLET_CONNECT_V2_INDEXED_DB (WalletConnect) and base-acc-sdk. None of it is sent to
+            our server. Clearing this site&apos;s data in your browser removes all of it.
           </p>
         </Section>
 
@@ -467,8 +497,8 @@ export default function PrivacyPage({ onBack }) {
 
         <Section id="website-wallet" title="Your wallet address on the website">
           <p>
-            Two routes on our server receive the address of a wallet you connect to the website.
-            Both take it in the body of the request, never in the web address, so it does not appear
+            Three routes on our server receive the address of a wallet you connect to the website.
+            All three take it in the body of the request, never in the web address, so it does not appear
             in our server&apos;s access log, which records the path and not the body.
           </p>
           <p>
@@ -518,6 +548,13 @@ export default function PrivacyPage({ onBack }) {
             account, email address or password, and no login provider holding anything about you.
             Signing changes only how the site describes the address, as your wallet rather than this
             address; everything it shows for an address is public and readable without signing.
+          </p>
+          <p>
+            The portfolio read (POST /api/site/portfolio), once it is live, receives the connected
+            address from the Dashboard and reads, from each chain, the tokenized stocks and ETFs it
+            holds and their history. The address is not written to any database or log by our code.
+            The answer is kept in the server&apos;s memory for up to two minutes, looked up by the
+            address, and is gone when the server restarts.
           </p>
         </Section>
 

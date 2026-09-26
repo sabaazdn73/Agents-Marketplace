@@ -94,32 +94,48 @@ export async function teRead(path, { method = 'GET', body } = {}) {
   }
 }
 
-/** A read as React state: { data, loading, error, stale }.
+/** A read as React state: { data, loading, error, stale, ever }.
  *
- *  `path` null means "do not read" (all fields empty).
+ *  `path` null means "do not read" (all fields empty, no request).
  *
- *  WHEN THE KEY CHANGES (a filter, a wallet): by default the old answer is
- *  cleared at once, so nothing read for the previous key is ever shown under
- *  the new one; the Dashboard relies on this when the wallet changes. With
- *  `keep: true` (a list whose filter changed) the old rows stay on screen
- *  with `stale: true` until the new answer arrives, and the list dims and
- *  labels them "Updating". An answer that arrives after the key moved on is
- *  dropped. */
+ *  NOTHING READ FOR ANOTHER KEY PAINTS AS CURRENT. The state records the
+ *  key it was read for; while it is not the current key (the render between
+ *  a key change and the effect), data is null, or with `keep` the old rows
+ *  marked stale. After that:
+ *    by default the old answer is gone at once, so a new wallet never shows
+ *    the previous wallet's figures (the Dashboard relies on this);
+ *    with `keep: true` (a list whose filter changed) the previous rows stay
+ *    on screen, dimmed and labelled "Updating" (`stale`), until the new
+ *    answer replaces them.
+ *  An answer that arrives after the key moved on is dropped.
+ *
+ *  `ever` is true once this hook has had an answer. A list shows its
+ *  "Couldn't read" state only then (a failed filter change), never as the
+ *  first thing a visitor sees. */
 export function useTe(path, { method = 'GET', body, keep = false } = {}) {
   const key = path ? `${method} ${path} ${body ? JSON.stringify(body) : ''}` : null;
-  const [state, setState] = useState({ key: null, data: null, error: null, loading: !!path });
+  const [state, setState] = useState({ key: null, data: null, error: null, loading: false, heldFrom: null });
+  const [ever, setEver] = useState(false);
   useEffect(() => {
-    if (!key) { setState({ key: null, data: null, error: null, loading: false }); return undefined; }
+    if (!key) { setState({ key: null, data: null, error: null, loading: false, heldFrom: null }); return undefined; }
     let live = true;
-    setState((s) => ({ key, data: keep ? s.data : null, error: null, loading: true, prevKey: s.key }));
+    setState((s) => ({ key, data: keep ? s.data : null, error: null, loading: true, heldFrom: keep && s.data ? s.key : null }));
     teRead(path, { method, body }).then((r) => {
-      if (live) setState({ key, data: r.data ?? null, error: r.error ?? null, loading: false });
+      if (!live) return;
+      setState({ key, data: r.data ?? null, error: r.error ?? null, loading: false, heldFrom: null });
+      if (r.data) setEver(true);
     });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  const stale = state.loading && !!state.data;
-  return { data: state.data, error: state.error, loading: state.loading, stale };
+  if (state.key !== key) {
+    // Never undimmed: with keep the old rows show only as stale; otherwise
+    // nothing shows until this key's answer arrives.
+    const held = keep && key ? state.data : null;
+    return { data: held, error: null, loading: !!key, stale: !!held, ever };
+  }
+  const stale = state.loading && !!state.data && state.heldFrom !== null;
+  return { data: state.data, error: state.error, loading: state.loading, stale, ever };
 }
 
 /** Is a list present and non-empty? */

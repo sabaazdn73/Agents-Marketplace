@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- The SERP headline as well as the tab label. seoMeta takes the same
          string from PAGE_META['/'].docTitle in App.jsx; change them together.
-         2026-09-26: the tokenized-equity product, which goes live together
-         with its real lists. -->
-    <title>Tnega: Every Tokenized Equity, and What It Costs to Buy</title>
-    <meta name="description" content="Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain." />
+         __TNEGA_...__ placeholders are filled at build and in dev from
+         src/siteCopy.js (vite.config.js), the one copy of the site's title
+         and description, which follows DATA_LIVE (src/dataLive.js). -->
+    <title>__TNEGA_TITLE__</title>
+    <meta name="description" content="__TNEGA_DESCRIPTION__" />
 
     <!-- Favicon: what browsers show in the tab bar, and what Google's own
          guidance (developers.google.com/search/docs/appearance/favicon-in-search,
@@ -125,10 +126,10 @@
          seoMeta.js takes the same string from PAGE_META's ogTitle, so the
          static tag a social scraper reads and the runtime tag a search
          crawler reads do not disagree. -->
-    <meta property="og:title" content="Tnega: Wealth, borderless." />
+    <meta property="og:title" content="__TNEGA_OG_TITLE__" />
     <!-- Must say what PAGE_META['/'] says in App.jsx: social scrapers read
          this static tag, search crawlers run the app and read that one. -->
-    <meta property="og:description" content="Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain." />
+    <meta property="og:description" content="__TNEGA_DESCRIPTION__" />
     <!-- X and Facebook key a cached preview on the image URL, so the ?v=
          forces a refetch when the file changes under the same name. Bump it
          whenever the card does.
@@ -153,8 +154,8 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@SabaAzadegan" />
     <meta name="twitter:creator" content="@SabaAzadegan" />
-    <meta name="twitter:title" content="Tnega: Wealth, borderless." />
-    <meta name="twitter:description" content="Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain." />
+    <meta name="twitter:title" content="__TNEGA_OG_TITLE__" />
+    <meta name="twitter:description" content="__TNEGA_DESCRIPTION__" />
     <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=3" />
     <meta name="twitter:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the Tnega wordmark in white on near-black." />
     <!-- Structured data. There was none, so Google had only the raw text
@@ -173,7 +174,7 @@
       "@id": "https://www.tnega.app/#website",
       "url": "https://www.tnega.app/",
       "name": "Tnega",
-      "description": "Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain.",
+      "description": "__TNEGA_DESCRIPTION__",
       "publisher": {
         "@id": "https://www.tnega.app/#org"
       }

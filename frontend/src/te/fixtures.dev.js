@@ -31,7 +31,7 @@ const UNIVERSE = [
     ['FOOc', 'Coinbase', 'Base', 'evm', 20, 1, 300000],
     ['FOOon', 'Ondo', 'Ethereum', 'evm', 30, 1, 200000],
     ['FOO', 'Robinhood', 'Robinhood Chain', 'evm', 40, 1, 100000],
-    ['FOOB', 'bStocks', 'BNB Chain', 'evm', 90, 0.4, 400],
+    ['FOOon', 'Ondo', 'BNB Chain', 'evm', 90, 0.4, 400],
     ['FOOx', 'xStocks', 'Arbitrum', 'evm', null, 0, null],
   ]],
   ['BAR', 'Bar Industries (dev)', 'stock', [
@@ -132,15 +132,51 @@ function portfolio() {
   };
 }
 
+// Every version in the universe, once.
+const ALL_VERSIONS = () => UNIVERSE.flatMap(([u, , , raw]) => raw.map((r) => version(u, r)));
+const CHAIN_GROUP = (chain) => ALL_VERSIONS().find((v) => v.chain === chain)?.group;
+
+/** The summary is counted from UNIVERSE, so it cannot disagree with the
+ *  lists: tokens = versions, issuers and chains = the distinct ones. */
+function summary() {
+  const vs = ALL_VERSIONS();
+  const chains = [...new Set(vs.map((v) => v.chain))];
+  const chain_list = chains.map((name) => ({ name, group: CHAIN_GROUP(name), tokens: vs.filter((v) => v.chain === name).length }));
+  return { ...F, tokens: vs.length, issuers: new Set(vs.map((v) => v.issuer)).size, chains: chains.length, chain_list };
+}
+
+// The slider's stops (SPEC §A.1 #4) and how cost grows with size, a made-up
+// shape. At $1,000 the multiplier is 1, so the curve's $1,000 column is the
+// versions card's cost exactly.
+const STOPS = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000];
+const SHAPE = [1.5, 1.3, 1.1, 1, 1.1, 1.2, 1.3, 1.5, 1.8, 2.2, 3];
+
+/** The largest size a version can take: a thin pool fills filled_fraction
+ *  of $1,000; a filled pool takes up to half its depth (made-up rule). */
+const capacity = (v) => (v.filled_fraction >= 1 ? v.pool_usd / 2 : v.filled_fraction > 0 ? v.filled_fraction * 1000 : 0);
+
+/** The curve, per chain: that chain's lowest-cost version at $1,000, with a
+ *  cost at every stop it can fill and null beyond. A chain whose versions
+ *  have no pool at all is left out, as it is from the cost card. */
+function curve(ticker) {
+  const [u, , , raw] = UNIVERSE.find((x) => x[0] === ticker);
+  const vs = raw.map((r) => version(u, r)).filter((v) => v.filled_fraction > 0);
+  const byChain = {};
+  for (const v of vs) {
+    const cur = byChain[v.chain];
+    const rank = (x) => (x.filled_fraction >= 1 ? x.cost_bps : Infinity);
+    if (!cur || rank(v) < rank(cur)) byChain[v.chain] = v;
+  }
+  const chains = Object.values(byChain).map((v) => ({
+    chain: v.chain, group: v.group, symbol: v.symbol, issuer: v.issuer, filled_fraction: v.filled_fraction,
+    bps: STOPS.map((s, i) => (s <= capacity(v) && Number.isFinite(v.cost_bps) ? Math.round(v.cost_bps * SHAPE[i] * 10) / 10 : null)),
+    pool_usd: STOPS.map(() => v.pool_usd),
+  }));
+  return { ...F, ticker, stops: STOPS, chains };
+}
+
 const answers = {
-  '/api/te/summary': () => {
-    const chain_list = [
-      { name: 'Ethereum', group: 'evm', tokens: 20 }, { name: 'Base', group: 'evm', tokens: 20 },
-      { name: 'BNB Chain', group: 'evm', tokens: 20 }, { name: 'Robinhood Chain', group: 'evm', tokens: 10 },
-      { name: 'Arbitrum', group: 'evm', tokens: 10 }, { name: 'Solana', group: 'nonevm', tokens: 20 },
-    ];
-    return { ...F, tokens: chain_list.reduce((a, c) => a + c.tokens, 0), issuers: 4, chains: chain_list.length, chain_list };
-  },
+  '/api/te/summary': () => summary(),
   '/api/te/list': (q) => {
     const type = q.get('type') || 'stock';
     const group = q.get('group') || 'all';
@@ -158,22 +194,14 @@ const answers = {
     const [u, name, , raw] = UNIVERSE[0];
     return { ...F, ticker: u, name, size: 1000, versions: raw.map((r) => version(u, r)) };
   },
-  '/api/te/curve/FOO': () => ({
-    ...F, ticker: 'FOO', stops: [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000],
-    chains: [
-      ['Solana', 'nonevm', 'FOOx', 'xStocks', [10, 10, 10, 10, 20, 20, 30, 40, 60, 90, null]],
-      ['Base', 'evm', 'FOOc', 'Coinbase', [20, 20, 20, 20, 20, 30, 30, 30, 40, 50, 80]],
-      ['Ethereum', 'evm', 'FOOon', 'Ondo', [100, 60, 40, 30, 30, 30, 40, 40, 50, 70, 100]],
-      ['BNB Chain', 'evm', 'FOOB', 'bStocks', [50, 50, 60, 90, null, null, null, null, null, null, null]],
-    ].map(([chain, group, symbol, issuer, bps]) => ({ chain, group, symbol, issuer, bps, pool_usd: bps.map((b) => (b == null ? 400 : 100000)) })),
-  }),
+  '/api/te/curve/FOO': () => curve('FOO'),
   '/api/te/controls': () => ({
     ...F,
     rows: [
       ['Robinhood', 'Robinhood', ['Robinhood Chain']],
-      ['bStocks', 'bStocks', ['BNB Chain']],
       ['xStocks', 'xStocks', ['Solana', 'Arbitrum']],
-      ['Ondo Global Markets', 'Ondo', ['Ethereum']],
+      ['Ondo Global Markets', 'Ondo', ['Ethereum', 'BNB Chain']],
+      ['Coinbase', 'Coinbase', ['Base']],
     ].map(([programme, issuer, chains], i) => ({
       programme, issuer, chains,
       pause: { text: i % 2 ? 'single key (inferred)' : '2 of 3 multisig', state: 'not paused' },
@@ -239,6 +267,32 @@ export function checkFixtures() {
   }
   const s = answer('/api/te/summary');
   ok(sum(s.chain_list.map((c) => c.tokens)) === s.tokens && s.chain_list.length === s.chains, 'summary counts do not match its chain list');
+  const vs = ALL_VERSIONS();
+  ok(s.tokens === vs.length, 'summary tokens != versions in the universe');
+  ok(s.issuers === new Set(vs.map((v) => v.issuer)).size, 'summary issuers != issuers in the universe');
+  for (const c of s.chain_list) ok(c.tokens === vs.filter((v) => v.chain === c.name).length, `summary ${c.name} count != its versions`);
+  const ctl = answer('/api/te/controls').rows.map((r) => r.issuer);
+  for (const i of new Set(vs.map((v) => v.issuer))) ok(ctl.includes(i), `no controls row for issuer ${i}`);
+  for (const i of ctl) ok(vs.some((v) => v.issuer === i), `controls row for ${i}, which has no token`);
+  // The curve and the versions card describe the same pools.
+  const und = answer('/api/te/underlying/FOO');
+  const cv = answer('/api/te/curve/FOO');
+  const at1k = cv.stops.indexOf(und.size);
+  ok(at1k >= 0, 'curve has no stop at the versions card size');
+  for (const c of cv.chains) {
+    const onChain = und.versions.filter((v) => v.chain === c.chain);
+    const filled = onChain.filter((v) => v.filled_fraction >= 1 && Number.isFinite(v.cost_bps));
+    const cheapest = filled.reduce((a, v) => (!a || v.cost_bps < a.cost_bps ? v : a), null);
+    if (cheapest) {
+      ok(c.bps[at1k] === cheapest.cost_bps, `curve ${c.chain} at $1,000 != versions card cost`);
+      ok(c.pool_usd[at1k] === cheapest.pool_usd, `curve ${c.chain} pool != versions card pool`);
+    } else {
+      const thin = onChain.find((v) => v.filled_fraction > 0 && v.filled_fraction < 1);
+      ok(thin && c.bps[at1k] === null, `curve ${c.chain} should be unfillable at $1,000, as the versions card is thin`);
+      ok(thin && c.pool_usd[at1k] === thin.pool_usd, `curve ${c.chain} pool != versions card pool (thin)`);
+    }
+  }
+  for (const v of und.versions.filter((x) => !(x.filled_fraction > 0))) ok(!cv.chains.some((c) => c.chain === v.chain && c.symbol === v.symbol), `curve lists ${v.chain}, which has no pool`);
   if (bad.length) bad.forEach((m) => console.error(`[dev fixture] ${m}`));
   else console.info('[dev fixture] all reconciliations hold');
   return bad.length;

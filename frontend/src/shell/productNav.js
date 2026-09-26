@@ -24,9 +24,7 @@
 
 import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal } from 'lucide-react';
 
-const DEV_LAYOUT = !!(import.meta.env?.DEV && import.meta.env?.VITE_TE_FIXTURES === '1');
-// Flip to true in the pass that proves each page's endpoint serves real data.
-const DATA_LIVE = DEV_LAYOUT || false;
+import { DATA_LIVE } from '../dataLive.js';
 
 export const ALL_PRODUCT_NAV = [
   { id: 'stocks', path: '/stocks', label: 'Stocks & ETFs', barLabel: 'Stocks', icon: LineChart, live: DATA_LIVE },

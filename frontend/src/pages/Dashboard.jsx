@@ -16,6 +16,7 @@ import React from 'react';
 import { useSignIn } from '../wallet/SignInProvider';
 import WalletHome from '../wallet/WalletHome';
 import { useTe } from '../te/api';
+import { DATA_LIVE } from '../dataLive';
 import { Card, PrimaryButton } from '../ui/primitives';
 import { PortfolioCard, PositionsCard, AllocationCard, PerformanceCard, DividendsCard } from '../dashboard/cards';
 
@@ -25,7 +26,8 @@ export default function Dashboard({ layout = 'web', onSignIn = null }) {
   const connected = status !== 'disconnected' && !!address;
   // keep: false (the default): a wallet change clears the previous wallet's
   // answer at once, so its figures never show under the new address.
-  const read = useTe(connected ? '/api/site/portfolio' : null, { method: 'POST', body: connected ? { addresses: [address] } : undefined });
+  // Not called until the portfolio route serves real data (dataLive.js).
+  const read = useTe(connected && DATA_LIVE ? '/api/site/portfolio' : null, { method: 'POST', body: connected ? { addresses: [address] } : undefined });
   const portfolio = read.data;
 
   if (!connected) {

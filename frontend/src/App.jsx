@@ -12,6 +12,7 @@ import CanaryTestingPanel from './CanaryTestingPanel.jsx';
 import { EcosystemBoundary, EcosystemFallback, hasWebGL } from './shell/EcosystemFallback.jsx';
 import { NAV_TO_PATH, resolvePath, tabForPath, isExplorePath } from './routePaths.js';
 import { updatePageMeta } from './seoMeta.js';
+import { SITE_COPY } from './siteCopy.js';
 
 // Real, page-specific title/description per route, used by the
 // per-route <title>/meta-description/canonical fix (seoMeta.js). Kept
@@ -24,13 +25,9 @@ const PAGE_META = {
   // og:/twitter: tags. Social scrapers read the raw HTML and never run this;
   // search crawlers run it and see this instead. If the two disagree, a
   // shared link and a search result describe the site differently.
-  // 2026-09-26: the tokenized-equity product. The home goes live together
-  // with the real lists (owner), so the description names what they show.
-  '/': {
-    docTitle: 'Tnega: Every Tokenized Equity, and What It Costs to Buy',
-    ogTitle: 'Tnega: Wealth, borderless.',
-    description: 'Tokenized stocks and ETFs across issuers and chains, and your wallet\'s holdings, read from the chain.',
-  },
+  // The one copy of the site's title and description, which also goes into
+  // index.html and the manifest at build time (siteCopy.js).
+  '/': { ...SITE_COPY },
   '/stocks': { title: 'Stocks & ETFs', description: 'Tokenized stocks and ETFs from every issuer we read, on every chain, and every version of each.' },
   '/vaults': { title: 'Vaults', description: 'Real-asset vaults, read-only: who manages each, its audits and controls, and what it holds, read on chain.' },
   '/my-etfs': { title: 'My ETFs', description: 'Baskets of up to five tokenized stocks and ETFs, with the all-in cost and the largest size their thinnest leg allows.' },

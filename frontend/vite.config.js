@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { SITE_COPY } from './src/siteCopy.js';
 
 // NO THIRD-PARTY FONT HOST. The WalletConnect modal (@reown/appkit-ui,
 // utils/ThemeUtil.js) writes `@import url('https://fonts.googleapis.com/
@@ -22,8 +25,34 @@ function stripGoogleFonts() {
   };
 }
 
+// THE SITE'S TITLE AND DESCRIPTION, from src/siteCopy.js (which follows
+// DATA_LIVE) into index.html's __TNEGA_*__ placeholders, and into the
+// built manifest.json, so the static tags a scraper reads, the manifest and
+// what App.jsx sets at runtime are one copy.
+const esc = (t) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+function siteCopy() {
+  let outDir = 'dist';
+  return {
+    name: 'tnega-site-copy',
+    configResolved(c) { outDir = c.build.outDir; },
+    transformIndexHtml(html) {
+      return html
+        .replaceAll('__TNEGA_TITLE__', esc(SITE_COPY.docTitle))
+        .replaceAll('__TNEGA_OG_TITLE__', esc(SITE_COPY.ogTitle))
+        .replaceAll('__TNEGA_DESCRIPTION__', esc(SITE_COPY.description));
+    },
+    closeBundle() {
+      const f = resolve(outDir, 'manifest.json');
+      if (!existsSync(f)) return;
+      const m = JSON.parse(readFileSync(f, 'utf8'));
+      m.description = SITE_COPY.description;
+      writeFileSync(f, `${JSON.stringify(m, null, 2)}\n`);
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [stripGoogleFonts(), react()],
+  plugins: [stripGoogleFonts(), siteCopy(), react()],
   // The dev server pre-bundles dependencies with esbuild, which the Rollup
   // transform above does not see; this does the same there.
   optimizeDeps: {

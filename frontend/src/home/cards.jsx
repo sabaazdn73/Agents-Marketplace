@@ -22,18 +22,22 @@ import { hasRows } from '../te/api';
  *   thin     the pool fills part of it: "Pool too thin for $1,000: its pool
  *            holds $x", unranked;
  *   no pool  no pool found on that chain, unranked.
- * versionRows() is the one list, so the count a headline quotes ("k tokens")
- * is the number of rows this card draws. */
+ * versionRows() is the one list the card draws; pricedCount() is how many
+ * of its rows have a cost, which is what a headline may count ("k different
+ * bills"): a thin or missing pool has no bill at that size. */
 export function versionRows(data) {
   if (!data || !hasRows(data.versions)) return [];
+  // The kind follows filled_fraction: all of the size, part of it, none.
   const filled = (v) => Number.isFinite(v.cost_bps) && v.filled_fraction >= 1;
-  const thin = (v) => !filled(v) && Number.isFinite(v.pool_usd) && v.pool_usd > 0;
+  const thin = (v) => !filled(v) && Number.isFinite(v.filled_fraction) && v.filled_fraction > 0;
   const kind = (v) => (filled(v) ? 'filled' : thin(v) ? 'thin' : 'nopool');
   const order = { filled: 0, thin: 1, nopool: 2 };
   return data.versions
     .map((v) => ({ ...v, kind: kind(v) }))
     .sort((a, b) => order[a.kind] - order[b.kind] || (a.kind === 'filled' ? a.cost_bps - b.cost_bps : 0));
 }
+
+export const pricedCount = (data) => versionRows(data).filter((r) => r.kind === 'filled').length;
 
 export function VersionsCard({ data, compact = false }) {
   const rows = versionRows(data);
@@ -59,7 +63,9 @@ export function VersionsCard({ data, compact = false }) {
               </div>
             ) : (
               <div className="w-32 shrink-0 text-right text-[11px] leading-snug text-muted">
-                {v.kind === 'thin' ? `Pool too thin for ${size}: its pool holds ${fmtUsd0(v.pool_usd)}` : `No pool found on ${v.chain}`}
+                {v.kind === 'thin'
+                  ? (Number.isFinite(v.pool_usd) ? `Pool too thin for ${size}: its pool holds ${fmtUsd0(v.pool_usd)}` : `Pool too thin for ${size}: it fills ${Math.round(v.filled_fraction * 100)}%`)
+                  : `No pool found on ${v.chain}`}
               </div>
             )}
           </li>
@@ -299,7 +305,8 @@ export function AiCard() {
  *
  * Takes the whole read state from useTe ({ data, error, loading, stale }):
  *   loading, nothing yet    renders nothing (no frame flashes in);
- *   the read failed         the card, titled, with "Couldn't read the list";
+ *   the first read failed   renders nothing;
+ *   a later read failed     the card, titled, with "Couldn't read the list";
  *   the answer has no rows  the card and its filter stay, with "No non-EVM
  *                           version listed" (or EVM, or nothing listed), so
  *                           the visitor can switch back;
@@ -312,8 +319,10 @@ function emptyLine(group) {
 }
 
 export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll, compact = false }) {
-  const { data, error, stale } = state || {};
-  if (!data && !error) return null;
+  const { data, error, stale, ever } = state || {};
+  // "Couldn't read" only after this list has shown rows once (a failed
+  // filter change); a first read that fails renders nothing.
+  if (!data && !(error && ever)) return null;
   const head = (
     <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2">
@@ -381,8 +390,8 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
 
 /* Live lists · GET /api/vaults. */
 export function VaultTable({ state, compact = false }) {
-  const { data, error, stale } = state || {};
-  if (!data && !error) return null;
+  const { data, error, stale, ever } = state || {};
+  if (!data && !(error && ever)) return null;
   if (!data || !hasRows(data.vaults)) {
     return (
       <Card>

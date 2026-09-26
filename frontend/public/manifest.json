@@ -1,7 +1,7 @@
 {
   "name": "Tnega",
   "short_name": "Tnega",
-  "description": "Tokenized stocks and ETFs across issuers and chains, and your wallet's holdings, read from the chain.",
+  "description": "Connect your wallet to see what it holds on Hyperliquid, BNB Chain, Arbitrum and Robinhood Chain, and what its Hyperliquid trading has cost it.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

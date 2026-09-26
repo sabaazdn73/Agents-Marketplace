@@ -26,6 +26,7 @@ import React, { useEffect, useRef } from 'react';
 import { useTe } from '../te/api';
 import { InstrumentList, VersionsCard } from '../home/cards';
 import { FEATURE_TICKER } from '../home/sections';
+import { DATA_LIVE } from '../dataLive';
 import { useDisconnect } from 'wagmi';
 import { QRCodeCanvas } from 'qrcode.react';
 import { ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -137,8 +138,8 @@ function Connected({ address, openSignIn, onSkip, onSwitch }) {
  *  panel to exist; otherwise there is no right panel at all, and the hero
  *  line sits over the sign-in instead (no empty frame). */
 function useShowcase() {
-  const stocks = useTe('/api/te/list?type=stock&group=all&limit=5&sort=popular');
-  const versions = useTe(`/api/te/underlying/${FEATURE_TICKER}?size=1000`).data;
+  const stocks = useTe(DATA_LIVE ? '/api/te/list?type=stock&group=all&limit=5&sort=popular' : null);
+  const versions = useTe(DATA_LIVE ? `/api/te/underlying/${FEATURE_TICKER}?size=1000` : null).data;
   const shot = stocks.data?.rows?.length > 0 && versions?.versions?.length > 0;
   return { stocks, versions, shot };
 }

@@ -23,11 +23,12 @@ import { Layers, Network, Gauge, PenLine, PieChart, ShieldCheck, Lock, Terminal,
 import { useTe } from '../te/api';
 import { Eyebrow, PrimaryButton, SecondaryButton, DevTag } from '../ui/primitives';
 import {
-  VersionsCard, versionRows, ChainsCard, CostCurveCard, BuyStepsCard, BasketCard,
+  VersionsCard, pricedCount, ChainsCard, CostCurveCard, BuyStepsCard, BasketCard,
   VaultChecksCard, ControlsCard, AiCard, InstrumentList, VaultTable,
 } from '../home/cards';
 import { SECTION_LIVE, TOUR_VIDEO_URL, TOUR_POSTER_URL, FEATURE_TICKER } from '../home/sections';
 import { isLive } from '../shell/productNav';
+import { DATA_LIVE } from '../dataLive';
 import TourModal from '../home/TourModal';
 
 // Film still 01's stocks, and vaults; each chip opens the list filtered to it.
@@ -58,22 +59,26 @@ export default function Home({ layout = 'web', onNavigate }) {
   // A call to action only where its page is live.
   const cta = (id, label, to) => (isLive(id) ? <PrimaryButton onClick={() => go(to)}>{label}</PrimaryButton> : null);
 
-  const summary = useTe('/api/te/summary').data;
-  const versions = useTe(`/api/te/underlying/${FEATURE_TICKER}?size=1000`).data;
-  const curve = useTe(`/api/te/curve/${FEATURE_TICKER}`).data;
-  const baskets = useTe('/api/baskets/curated');
-  const vaults = useTe('/api/vaults?limit=4');
-  const controls = useTe('/api/te/controls?by=issuer').data;
+  // Nothing is fetched until the endpoints serve real data (dataLive.js):
+  // before then, the home is the hero and the footer, with no request that
+  // can only fail.
+  const te = (p) => (DATA_LIVE ? p : null);
+  const summary = useTe(te('/api/te/summary')).data;
+  const versions = useTe(te(`/api/te/underlying/${FEATURE_TICKER}?size=1000`)).data;
+  const curve = useTe(te(`/api/te/curve/${FEATURE_TICKER}`)).data;
+  const baskets = useTe(te('/api/baskets/curated'));
+  const vaults = useTe(te('/api/vaults?limit=4'));
+  const controls = useTe(te('/api/te/controls?by=issuer')).data;
   const [stockGroup, setStockGroup] = useState('all');
   const [etfGroup, setEtfGroup] = useState('all');
-  const stocks = useTe(`/api/te/list?type=stock&group=${stockGroup}&limit=6&sort=popular`, { keep: true });
-  const etfs = useTe(`/api/te/list?type=etf&group=${etfGroup}&limit=6&sort=popular`, { keep: true });
+  const stocks = useTe(te(`/api/te/list?type=stock&group=${stockGroup}&limit=6&sort=popular`), { keep: true });
+  const etfs = useTe(te(`/api/te/list?type=etf&group=${etfGroup}&limit=6&sort=popular`), { keep: true });
   const [q, setQ] = useState('');
   const [tour, setTour] = useState(false);
   const closeTour = useCallback(() => setTour(false), []);
 
   const counts = summary && [summary.tokens, summary.issuers, summary.chains].every(Number.isFinite) ? summary : null;
-  const k = versionRows(versions).length;
+  const k = pricedCount(versions);
   const firstBasket = baskets.data?.baskets?.[0];
   const wrap = mobile ? '' : 'max-w-[1040px] mx-auto';
   const openRow = stocksLive ? (r) => go(`/stocks?q=${encodeURIComponent(r.underlying)}`) : undefined;
@@ -139,7 +144,7 @@ export default function Home({ layout = 'web', onNavigate }) {
 
       {/* PRODUCT SHOT, home-02: the live popular list, framed. It is the
           page's popular-stocks list; nothing below repeats it. */}
-      {(stocks.data || stocks.error) && (
+      {(stocks.data || (stocks.error && stocks.ever)) && (
         <section className={mobile ? 'px-4 pb-6' : `${wrap} pb-8`}>
           <div className={mobile ? '' : 'rounded border border-line bg-page p-4'}>
             <InstrumentList title="Popular tokenized stocks" state={stocks} group={stockGroup} onGroup={setStockGroup} onOpen={openRow} onSeeAll={seeAll} compact={mobile} />
@@ -202,7 +207,7 @@ export default function Home({ layout = 'web', onNavigate }) {
 
         {/* THE LIVE LISTS. Each keeps its card on an empty filter and says so
             when its read failed (home/cards.jsx). */}
-        {(etfs.data || etfs.error || baskets.data || baskets.error || vaults.data || vaults.error) && (
+        {(etfs.data || baskets.data || vaults.data || ((etfs.error && etfs.ever) || (baskets.error && baskets.ever) || (vaults.error && vaults.ever))) && (
           <section className={mobile ? 'px-4 py-10 space-y-4' : 'py-20 space-y-6'}>
             {/* "Live now" only over lists that answered; a failed read is
                 not live. */}
@@ -219,7 +224,7 @@ export default function Home({ layout = 'web', onNavigate }) {
                   ))}
                 </div>
               </div>
-            ) : baskets.error ? (
+            ) : baskets.error && baskets.ever ? (
               <div className="bg-surface border border-line rounded p-4">
                 <h3 className="text-[15px] font-semibold text-fg">Curated ETFs</h3>
                 <p className="mt-3 text-[13px] text-muted">Couldn&apos;t read the baskets. Try again later.</p>
