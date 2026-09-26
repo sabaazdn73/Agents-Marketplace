@@ -206,10 +206,13 @@ async def ingest_loop() -> None:
 # delivery signal at all: they have no ERC-8183, so a funded budget never
 # drawn from is the only record of a client who paid and got nothing.
 #
-# Cheap after the first pass. The cursor advances to the head each run, so a
-# later run scans only new blocks, and there are five budgets in total across
-# three chains. Hourly is far more often than the data changes.
-BUDGET_INDEX_CHAIN_IDS = (56, 42161, 4663)
+# Cheap after the first pass. The cursor advances page by page and each run
+# reads at most BUDGET_INDEX_MAX_PAGES_PER_PASS pages, so a backlog clears over
+# several runs and a later run scans only new blocks. There are five budgets in
+# total across three chains. Hourly is far more often than the data changes.
+# BSC runs last: its pass can take far longer than the others (a large backlog,
+# or a slow endpoint), and a slow BSC pass must not hold back the other two.
+BUDGET_INDEX_CHAIN_IDS = (42161, 4663, 56)
 BUDGET_INDEX_IDLE_SECONDS = 60 * 60
 
 

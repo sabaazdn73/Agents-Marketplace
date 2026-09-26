@@ -27,6 +27,7 @@ Contents:
 11. [MCP on our own chain reads instead of Zerion and LI.FI](#11-mcp-on-our-own-chain-reads-instead-of-zerion-and-lifi)
 12. [Jupiter: not used](#12-jupiter-not-used)
 13. [Other deferred items already recorded elsewhere in these docs](#13-other-deferred-items-already-recorded-elsewhere-in-these-docs)
+14. [Budget index: a free BSC fallback after the QuickNode trial](#14-budget-index-a-free-bsc-fallback-after-the-quicknode-trial)
 
 ---
 
@@ -647,3 +648,69 @@ is complete.
 | Tokenized assets agent | The RWA data researched on 2026-09-02 was CoinGecko's, whose free tier's terms, on the owner's reading, do not cover this site | A data source whose terms do, or our own chain reads | [Native Agents](native-agents.md#investigated-and-not-built) |
 | Lending and borrowing agent | Needs a collateral-enablement step and a live health-factor and liquidation-risk display | Building those as one complete piece | [Native Agents](native-agents.md#investigated-and-not-built) |
 | Token Radar (trending pools), removed 2026-09-25 | GeckoTerminal's terms do not clearly allow commercial use | Our own chain reads: rank BSC pools by recent PancakeSwap v3 Swap events, read with getLogs in 5,000-block chunks by our server, which reads the BNB price on chain the same way. Built only if the owner wants the skill kept, since the Skills page leaves the navigation | [CoinGecko Removed](coingecko-removal-2026-09-25.md#geckoterminal-removed-the-same-day) |
+
+---
+
+## 14. Budget index: a free BSC fallback after the QuickNode trial
+
+**What it is.** A free public BSC endpoint for the budget index
+(`backend/core/budget_index.py`) to fall back on once the QuickNode trial ends
+(30 days). The index reads AgentBudgetEscrow logs with `eth_getLogs`, back to
+budget #1's block, 120,311,961, in 4,901-block pages.
+
+**Status.** Deferred since 2026-09-26. The mechanism is built:
+`BSC_FALLBACK_RPC_URLS` (comma-separated) is tried after bloXroute and
+QuickNode, QuickNode is switched off for the process on its first 401 or 403,
+and public calls are counted in `rpc_credits` at 0 credits under
+`public:<host>`. What is deferred is the default list, which is empty.
+
+**What blocks it.** No free endpoint tested passes both required checks: the
+known-log control (an unfiltered `eth_getLogs` at block 120,311,961 must
+return at least one log) and one 4,901-block Drawn-topic page from that
+block. Measured from a local machine on 2026-09-26, one or two requests each:
+
+| Endpoint | Control at 120,311,961 | 4,901-block page | Range cap seen | Terms |
+|---|---|---|---|---|
+| bsc-rpc.publicnode.com | HTTP 403, -32602 "Archive requests require a personal token" | same | none seen at the head: a 4,901-block page at the head answered `[]` | Unclear. The PublicNode terms (publicnode.com/terms, read 2026-09-26) ban "commercial solicitation", not commercial use of the RPC |
+| bsc.drpc.org | HTTP 429, code 15 "Public endpoint rate limit" | HTTP 400, code 35 "ranges over 10000 blocks are not supported on free plan", also for 1,000 recent blocks | a 100-block unfiltered page near the head hit "max results 20000" | Unclear: the terms page is script-rendered and could not be read without a browser |
+| bsc-dataseed.bnbchain.org | -32005 "limit exceeded" | same | getLogs disabled | Excluded on function. BNB Chain's JSON-RPC docs (docs.bnbchain.org, read 2026-09-26) say "eth_getLogs is disabled on below Mainnet endpoints". The defibit and ninicoin dataseeds answer the same |
+| 1rpc.io/bnb | -32000 "header not found" | -32602 "eth_getLogs is limited to 0 - 50 blocks range" | 50 blocks | Unclear: the terms page is script-rendered |
+| bsc-mainnet.public.blastapi.io | HTTP 429, rate-limited | same | not measurable | not read |
+| bsc.meowrpc.com | "The method eth_getLogs is not supported" | HTTP 429 | not supported | not read |
+| rpc.ankr.com/bsc | "Unauthorized: You must authenticate your request with an API key" | same | needs a key | not read |
+| bsc.blockpi.network/v1/rpc/public | HTTP 521 | same | down | not read |
+| binance.llamarpc.com | connection refused | same | down | not read |
+
+**The load-balancer caveat, for any fallback added later.** A public
+endpoint is a pool of backend nodes behind one URL, and consecutive
+requests can land on different nodes. The control can reach an archive node
+while the next page reaches a pruned one, which may answer `[]` with HTTP
+200 for a range it does not hold. A control passed once per pass therefore
+proves less on a public endpoint than on a single provider. Any public
+fallback must be checked per page, not once per pass. Since 2026-09-26 the
+code does this for every URL in `BSC_FALLBACK_RPC_URLS`: its control is
+asked again on each empty page it returns, never read from the pass cache.
+That narrows the gap but does not close it, because the control and the page
+can still reach different nodes within the same second; a depth-aware probe
+as in option 2 would be closer still.
+
+**What unblocks it.** Any one of:
+
+1. A free endpoint that serves archive `eth_getLogs` at 4,901 blocks.
+   Add it to `DEFAULT_BSC_PUBLIC_FALLBACKS` after the two checks, or set it in
+   `BSC_FALLBACK_RPC_URLS` on Render.
+2. A depth-aware control. publicnode serves recent ranges, and once the
+   backlog is cleared during the trial, only recent ranges are needed. The
+   control could prove a provider at the depth of each page, not at budget
+   #1: an unfiltered `eth_getLogs` over a few blocks at the page's start
+   should return logs. One block near the head returned 208 logs on
+   2026-09-26; that nearly every BSC block carries some logs is expected
+   from its traffic but was not checked block by block, so the probe should
+   span a few blocks rather than rely on one. This changes the empty-page
+   safety rule, so it needs the owner's go-ahead. On publicnode's terms, the
+   facts are: they are unclear for this use (see the table), and the
+   owner's rule for unclear terms is to use the source, labelled, with the
+   source recorded here. That is not a finding that the terms allow it.
+3. A paid plan: QuickNode after the trial, or a keyed free tier (Ankr,
+   NodeReal, Alchemy) under a key held as a server secret.
+
