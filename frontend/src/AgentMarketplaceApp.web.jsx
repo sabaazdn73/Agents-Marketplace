@@ -796,7 +796,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
       {/* THE HEADER, following the reference dashboard (2026-09-25): the
           wordmark on the left, the search beside it, the pages on the right,
-          then the bell, the theme and the wallet. 56px on the surface colour
+          then the bell, the theme and the wallet. 64px on the surface colour
           with a 1px rule under it, sticky, capped at the same 1440 width and
           gutters as the content, so the wordmark lines up with the first
           card. The tabs that do not fit go into a More menu
@@ -809,29 +809,30 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           search field shows from 1280, 244px wide (the width at which its
           placeholder is not cut off; 236px cut the last letter, because a
           search input keeps room for its clear button) and 260px from 1440,
-          with an icon button in its place below 1280. The 38px mark
-          (shell/Brand.jsx) cost 44px with its gap; it was paid for by the
+          with an icon button in its place below 1280. The 52px mark
+          (shell/Brand.jsx) costs 58px with its gap; it was paid for by the
           row gap going from 12px to 8px, the search's left margin from 8px
-          to 4px, the tabs' side padding from 10px to 8px and the gap between
-          tabs from 4px to 2px. Measured at 1280 with a connected, unsigned
-          wallet (the widest badge, 298px), before and after the mark: all
-          five tabs and 15px to spare. If a platform's fonts are wider, the
+          to 2px, the tabs' side padding from 10px to 7px, the gap between
+          tabs from 4px to 2px and the wallet's left margin from 6px to 4px.
+          Measured at 1280 with a connected, unsigned wallet (the widest
+          badge, 298px), before and after the mark: all five tabs and 15px
+          to spare. If a platform's fonts are wider, the
           last tab moves to More rather than anything overlapping. */}
       <header className="sticky top-0 z-30 bg-surface border-b border-line">
-        <div className="max-w-[1440px] mx-auto h-14 px-6 xl:px-14 flex items-center gap-2">
+        <div className="max-w-[1440px] mx-auto h-16 px-6 xl:px-14 flex items-center gap-2">
           <a
             href="/"
             onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
             className="shrink-0 self-stretch flex items-center text-fg"
           >
-            <Brand markClassName="w-[38px] h-[38px]" wordClassName="text-[22px]" />
+            <Brand markClassName="w-[52px] h-[52px]" wordClassName="text-[22px]" />
           </a>
 
           <TopSearch
             key={query}
             initial={query}
             onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
-            className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-1"
+            className="hidden xl:flex w-[244px] min-[1440px]:w-[260px] shrink min-w-[160px] ml-0.5"
           />
           <button
             type="button"
@@ -848,7 +849,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           <div className="flex items-center gap-1 shrink-0">
             <NotificationBell />
             <ThemeToggle />
-            <div className="ml-1.5">
+            <div className="ml-1">
               {/* "Sign in" opens /signin with no wallet connected, and the
                   sign-in modal once one is. Shared with the mobile sheet:
                   wallet/WalletIdentity.jsx. */}

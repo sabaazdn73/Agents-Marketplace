@@ -619,13 +619,13 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
           target. Search opens a row under the header with the same field as
           the web header (shell/TopSearch.jsx). */}
       <header className="shrink-0 bg-surface border-b border-line z-20 pt-safe">
-        <div className="h-14 flex items-center justify-between gap-2 pl-4 pr-2">
+        <div className="h-[68px] flex items-center justify-between gap-2 pl-4 pr-2">
           <a
             href="/"
             onClick={(e) => { if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; e.preventDefault(); goTo('dashboard'); }}
             className="min-w-0 self-stretch flex items-center text-fg"
           >
-            <Brand markClassName="w-[43px] h-[43px]" wordClassName="text-[24px]" gapClassName="gap-2" />
+            <Brand markClassName="w-[59px] h-[59px]" wordClassName="text-[24px]" gapClassName="gap-2" />
           </a>
           <div className="flex items-center gap-0.5 shrink-0">
             <button

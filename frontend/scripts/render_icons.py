@@ -18,7 +18,7 @@ Writes:
     public/app-icon-maskable-512.png  square tile, manifest "maskable"
     public/apple-touch-icon.png     180 px, square tile; iOS rounds it itself
                                     and fills transparent corners with black
-    src/assets/tnega-mark.png       192 px, rounded tile; the header, the
+    src/assets/tnega-mark.png       256 px, rounded tile; the header, the
                                     sign-in page and the QR code centre
 
 Each size is rendered from the vector at that size, never scaled down from a
@@ -63,7 +63,7 @@ def main():
     save_png(render(ROUND, 512), PUBLIC / "app-icon-512.png")
     save_png(render(SQUARE, 512), PUBLIC / "app-icon-maskable-512.png")
     save_png(render(SQUARE, 180), PUBLIC / "apple-touch-icon.png")
-    save_png(render(ROUND, 192), ASSETS / "tnega-mark.png")
+    save_png(render(ROUND, 256), ASSETS / "tnega-mark.png")
 
     # One frame per size, each rendered at its own size. Pillow's ICO writer
     # takes a frame from append_images when its size matches one requested,

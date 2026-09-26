@@ -198,7 +198,7 @@ export default function SignInPage({ navigate }) {
         <div className="w-full max-w-[436px] mx-auto flex-1 flex flex-col">
           <InternalLink href="/" navigate={navigate} className="self-center text-fg">
             <Brand
-              markClassName="w-[43px] h-[43px] lg:w-[56px] lg:h-[56px]"
+              markClassName="w-[59px] h-[59px] lg:w-[77px] lg:h-[77px]"
               wordClassName="text-[26px] lg:text-[40px]"
               gapClassName="gap-2 lg:gap-3"
             />

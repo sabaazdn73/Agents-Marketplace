@@ -41,7 +41,7 @@ const GAP = 2; // gap-0.5 between tabs, and ml-0.5 before More
 // difference between all five pages showing and two of them in More. The
 // icons stay in the More menu, where the width is free.
 function tabClass(active) {
-  return `relative shrink-0 h-full flex items-center px-2 text-body font-medium whitespace-nowrap transition-colors ${
+  return `relative shrink-0 h-full flex items-center px-[7px] text-body font-medium whitespace-nowrap transition-colors ${
     active ? 'text-fg' : 'text-muted hover:text-fg'}`;
 }
 
