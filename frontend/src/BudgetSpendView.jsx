@@ -163,7 +163,7 @@ export default function BudgetSpendView({ budgetId, onRevoked, chainId: forcedCh
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] p-4">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-inset p-4">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <div className="text-sm font-bold">Budget #{String(budgetId)}</div>

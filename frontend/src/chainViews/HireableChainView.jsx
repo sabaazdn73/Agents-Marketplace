@@ -100,7 +100,7 @@ export default function HireableChainView({ view, label }) {
             className={`min-h-[44px] px-4 rounded-full text-[12px] font-semibold transition-colors ${
               active
                 ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                : 'bg-white dark:bg-[#1E293B] text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'
+                : 'bg-white dark:bg-inset text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800'
             }`}
           >
             {c.category}

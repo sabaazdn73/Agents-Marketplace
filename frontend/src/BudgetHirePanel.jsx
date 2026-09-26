@@ -249,7 +249,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
           <input
             type="number" step="0.001" min="0" value={total}
             onChange={(e) => { setTotal(e.target.value); setAckSingleDraw(false); }}
-            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <span className="text-[10px] text-gray-500">The most you can lose.</span>
         </label>
@@ -259,7 +259,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
             type="number" step="0.001" min="0.000000000000000001" value={maxPerDraw}
             onChange={(e) => { setMaxPerDraw(e.target.value); setAckSingleDraw(false); }}
             aria-invalid={refusal?.field === 'maxPerDraw' || undefined}
-            className={`mt-1 w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-[#0F172A] text-sm outline-none focus:ring-2 ${
+            className={`mt-1 w-full px-3 py-2.5 rounded-xl border bg-white dark:bg-surface text-sm outline-none focus:ring-2 ${
               refusal?.field === 'maxPerDraw'
                 ? 'border-red-400 dark:border-red-500 focus:ring-red-500'
                 : 'border-gray-200 dark:border-gray-700 focus:ring-indigo-500'
@@ -274,7 +274,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
           <span className="text-[11px] font-semibold text-gray-500">Draws stop after</span>
           <select
             value={hours} onChange={(e) => setHours(Number(e.target.value))}
-            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none"
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none"
           >
             {HOURS.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
           </select>
@@ -283,7 +283,7 @@ export default function BudgetHirePanel({ agent, requiredChainId = null }) {
           <span className="text-[11px] font-semibold text-gray-500">Wait between draws</span>
           <select
             value={cooldown} onChange={(e) => setCooldown(Number(e.target.value))}
-            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none"
+            className="mt-1 w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none"
           >
             {COOLDOWN_CHOICES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>

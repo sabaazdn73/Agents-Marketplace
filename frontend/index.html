@@ -58,7 +58,7 @@
          The two page colours below repeat --page from src/index.css so the
          first frame is right even before that stylesheet arrives. Change
          them together. -->
-    <style>html{background:#EDEDEF;color-scheme:light}html.dark{background:#000000;color-scheme:dark}</style>
+    <style>html{background:#EDEDEF;color-scheme:light}html.dark{background:#0B0D12;color-scheme:dark}</style>
     <script>
       // SITE DATA BLOCKED. Reading localStorage then throws a SecurityError,
       // and several libraries (RainbowKit's recent-wallet list, WalletConnect)
@@ -100,7 +100,7 @@
         root.setAttribute('data-theme-mode', mode);
         root.style.colorScheme = dark ? 'dark' : 'light';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', dark ? '#000000' : '#EDEDEF');
+        if (meta) meta.setAttribute('content', dark ? '#0B0D12' : '#EDEDEF');
       })();
     </script>
 
@@ -129,18 +129,19 @@
 
          public/og-card.png is the brand card: the mark on its blue tile
          (icon_v2.svg, rendered at 168px) beside the Wordmark component
-         (shell/Wordmark.jsx) in white, on the dark page colour with a glow
-         and a rule in our violet, captured at 1200x630 by headless Chromium.
+         (shell/Wordmark.jsx), "Tnega", in the dark foreground on the dark
+         page colour (#0B0D12), with no glow, and a rule in the accent blue
+         (#3D7BFF), captured at 1200x630 by headless Chromium (2026-09-26).
          PNG because it is flat colour, text and one small tile, which PNG
          keeps sharp. It replaced the agents artwork banner. -->
-    <meta property="og:image" content="https://www.tnega.app/og-card.png?v=2" />
+    <meta property="og:image" content="https://www.tnega.app/og-card.png?v=3" />
     <!-- Declared dimensions let a scraper commit to the large-image card
          before it has downloaded the file. Must match the file: 1200x630,
          the 1.91:1 every platform expects. -->
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the tnega wordmark in white on black." />
+    <meta property="og:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the Tnega wordmark in white on near-black." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -148,8 +149,8 @@
     <meta name="twitter:creator" content="@SabaAzadegan" />
     <meta name="twitter:title" content="Tnega: Wallet Holdings and Trading Costs" />
     <meta name="twitter:description" content="Connect your wallet to see its holdings and what its Hyperliquid trading has cost it, and use Tnega from your AI tools." />
-    <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=2" />
-    <meta name="twitter:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the tnega wordmark in white on black." />
+    <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=3" />
+    <meta name="twitter:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the Tnega wordmark in white on near-black." />
     <!-- Structured data. There was none, so Google had only the raw text
          of a JavaScript-rendered page to work from and nothing telling it
          what this site IS. Organization ties the name, logo and accounts

@@ -149,7 +149,7 @@ export default function ChainAgentDetail({ chainId, tokenId, onBack }) {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#1E293B] rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-xl">
+      <div className="bg-white dark:bg-inset rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-xl">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-4 min-w-0">
             <AgentAvatar agent={a} size={56} />

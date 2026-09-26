@@ -98,6 +98,7 @@ import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
+import AgentsVideo from './AgentsVideo';
 import { PRODUCT_NAV, isLive, SEARCH_LIVE } from './shell/productNav';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
@@ -806,7 +807,8 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
 
           WIDTH BUDGET. All five pages show at 1280 and up, a connected wallet
           included (its badge is about 250px). What pays for it: the tabs are
-          words without icons, the theme control is one 32px button, and the
+          words without icons, the theme control was one 32px button (it is
+          the three-way segmented control again since 2026-09-26, about 90px), and the
           search field shows from 1280, 244px wide (the width at which its
           placeholder is not cut off; 236px cut the last letter, because a
           search input keeps room for its clear button) and 260px from 1440,
@@ -858,7 +860,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} align="end" />
 
           <div className="flex items-center gap-1 shrink-0">
-            <NotificationBell />
+            {/* The bell reports agent hires, so it shows on the agent pages only;
+                the Dashboard carries nothing about agents. */}
+            {(nav === 'market' || nav === 'my-agents') && <NotificationBell />}
             <ThemeToggle />
             <div className="ml-1">
               {/* "Sign in" opens /signin with no wallet connected, and the
@@ -894,6 +898,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               headings below belong to whichever chain view is open, so none
               of them can stand for the page. Same in the mobile app. */}
           {nav === 'market' && !hiring && !detailAgent && <h1 className="sr-only">Explore agents</h1>}
+          {/* The agents clip, at the top of /market only (not over a chain
+              view's or an agent's own address). Shared with mobile. */}
+          {nav === 'market' && !hiring && !detailAgent && path === '/market' && <AgentsVideo layout="web" />}
           {nav === 'market' && !hiring && !detailAgent && (
             <ChainViewTabs mutedBorder="border-line">
               {/* The BNB Chain view below is the original marketplace,

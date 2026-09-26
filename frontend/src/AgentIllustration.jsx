@@ -15,7 +15,7 @@ const BODY_FILL = 'fill-indigo-50 dark:fill-indigo-500/10';
 const BODY_STROKE = 'stroke-indigo-300 dark:stroke-indigo-500/50';
 const ACCENT_FILL = 'fill-indigo-500 dark:fill-indigo-400';
 const SOFT_FILL = 'fill-indigo-300 dark:fill-indigo-600';
-const BADGE_FILL = 'fill-white dark:fill-[#1E293B]';
+const BADGE_FILL = 'fill-white dark:fill-inset';
 
 export default function AgentIllustration({ className = 'w-32 h-32' }) {
   return (

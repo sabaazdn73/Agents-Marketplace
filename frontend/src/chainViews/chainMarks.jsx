@@ -109,7 +109,7 @@ function ClusterLogo({ src, size, index }) {
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}
-      className="rounded-full ring-1 ring-white dark:ring-[#0B101B] object-contain bg-white"
+      className="rounded-full ring-1 ring-white dark:ring-surface object-contain bg-white"
       style={{ width: size, height: size, marginLeft: index === 0 ? 0 : -size * 0.36 }}
     />
   );

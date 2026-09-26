@@ -30,7 +30,7 @@ import {
   PAY_OUTCOME, BSCSCAN_TX,
 } from './b402Pay';
 
-const CARD = 'rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#131825]';
+const CARD = 'rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-surface';
 
 function Row({ ok, name, detail }) {
   return (

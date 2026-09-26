@@ -37,7 +37,33 @@ export default {
         gray: {
           50: '#fdfdfe',
           100: '#ecedf0',
+          // Per theme from here (src/index.css): stock in light, neutral in
+          // dark, where stock gray-900 is navy.
+          500: role('gray-500'),
+          700: role('gray-700'),
+          800: role('gray-800'),
+          900: role('gray-900'),
+          950: role('gray-950'),
         },
+        // Stock in light; the accent blues in dark, where stock indigo and
+        // purple read as a purple tint.
+        indigo: {
+          300: role('indigo-300'),
+          400: role('indigo-400'),
+          500: role('indigo-500'),
+          600: role('indigo-600'),
+          900: role('indigo-900'),
+        },
+        purple: {
+          400: role('purple-400'),
+          500: role('purple-500'),
+        },
+      },
+      // Text in the accent takes its own role: in dark the logo blue is too
+      // dark for text on inset and on its own tint (src/index.css), so text
+      // uses a lighter step of it. In light the two are the same colour.
+      textColor: {
+        accent: role('accent-text'),
       },
       // System faces only. No web-font host: fetching a font from a third
       // party would send every visitor's IP to it, which the privacy page

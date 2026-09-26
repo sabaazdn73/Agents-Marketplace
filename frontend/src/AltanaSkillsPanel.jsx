@@ -427,7 +427,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
               value={values[inp.id] ?? ''}
               disabled={!!step && step !== 'error' && step !== 'done'}
               onChange={(e) => setValues((v) => ({ ...v, [inp.id]: e.target.value }))}
-              className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`}
+              className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-field' : 'bg-white'}`}
             />
             {inp.help && <p className="text-[10px] opacity-40 mt-1">{inp.help}</p>}
           </div>
@@ -441,7 +441,7 @@ function SkillGuidedForm({ skill, accent, surface, mutedBorder, darkMode, onBack
         <div className="mb-5">
           <label className="text-xs font-semibold block mb-1">Your spending limit</label>
           <input type="number" value={spendCap} onChange={(e) => setSpendCap(e.target.value)} disabled={!!step && step !== 'error' && step !== 'done'}
-            className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`} />
+            className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-field' : 'bg-white'}`} />
           <p className="text-[10px] opacity-40 mt-1">Suggested amount: {skill.scope?.spendCapSuggested}. This limit is enforced automatically, no matter what the skill tries to do.</p>
         </div>
       )}

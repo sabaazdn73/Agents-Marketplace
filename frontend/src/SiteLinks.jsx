@@ -18,6 +18,7 @@
 
 import React from 'react';
 import { Github, Linkedin } from 'lucide-react';
+import { CHROME_EXTENSION_URL } from './extensionLink';
 
 export const GITHUB_URL = 'https://github.com/sabaazdn73/Agents-Marketplace';
 export const LINKEDIN_URL = 'https://www.linkedin.com/in/saba-azadegan-2974b622a';
@@ -49,14 +50,29 @@ export function XMark({ size = 13, className = '' }) {
 }
 
 // The secondary pages, once. Paths are the app's own routes (routePaths.js
-// and the standalone routes in App.jsx).
+// and the standalone routes in App.jsx); `external` marks a link that leaves
+// the site and opens in a new tab.
+//
+// The set and its order are the owner's (2026-09-26). Where each goes:
+//   Hyperliquid wallet costs        "/", the Dashboard: a connected wallet's
+//                                   habit costs on Hyperliquid are read there
+//   Hyperliquid order-book readings /chain/hyperliquid, the post-only
+//                                   rejection measurements
+//   Practice mode                   the extension's store listing: practice
+//                                   mode is a panel of the extension on
+//                                   Hyperliquid's trading pages, and the site
+//                                   has no page of its own for it
+//   Chrome extension                the same listing (extensionLink.js)
+// My agents and Docs left the footer with this set; both still resolve.
 export const FOOTER_LINKS = [
   { key: 'market', label: 'Explore agents', path: '/market' },
-  { key: 'my-agents', label: 'My agents', path: '/my-agents' },
-  { key: 'docs', label: 'Docs', path: '/docs' },
-  { key: 'status', label: 'Status', path: '/status' },
+  { key: 'hl-costs', label: 'Hyperliquid wallet costs', path: '/' },
+  { key: 'hl-book', label: 'Hyperliquid order-book readings', path: '/chain/hyperliquid' },
+  { key: 'practice', label: 'Practice mode', path: CHROME_EXTENSION_URL, external: true },
+  { key: 'extension', label: 'Chrome extension', path: CHROME_EXTENSION_URL, external: true },
   { key: 'sources', label: 'Data sources', path: '/data-sources' },
   { key: 'privacy', label: 'Privacy', path: '/privacy' },
+  { key: 'status', label: 'Status', path: '/status' },
 ];
 
 // What the live pages read. No LI.FI quote is shown on any live page, so the
@@ -88,7 +104,14 @@ export default function SiteLinks({
           punctuation stranded at a line end. */}
       <nav className="flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Site links">
         {FOOTER_LINKS.map((item) => {
-          const on = activePath === item.path;
+          const on = !item.external && activePath === item.path;
+          if (item.external) {
+            return (
+              <a key={item.key} href={item.path} target="_blank" rel="noopener noreferrer" className={link}>
+                {item.label}
+              </a>
+            );
+          }
           return (
             <a
               key={item.key}

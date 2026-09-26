@@ -80,7 +80,7 @@ export default function VerificationExplainerSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] overflow-hidden ${className}`}>
+    <div className={`rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-inset overflow-hidden ${className}`}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left"

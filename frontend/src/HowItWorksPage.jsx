@@ -261,7 +261,7 @@ function WeeklyProgress({ compact }) {
         {WEEKLY_UPDATES.map((u) => (
           <div
             key={u.week}
-            className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] p-4 sm:p-5"
+            className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-inset p-4 sm:p-5"
           >
             <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 mb-1.5">
               <span className="text-[11px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400">
@@ -448,7 +448,7 @@ function Cards({ cards, compact }) {
         return (
           <div
             key={key}
-            className="bg-white dark:bg-[#1E293B] rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden"
+            className="bg-white dark:bg-inset rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden"
           >
             {render ? (
               <button
@@ -978,7 +978,7 @@ export default function HowItWorksPage({ variant = 'web' }) {
           is should not have to open anything to find out. Every figure here
           was read from the live store on the day it was written, and the
           sentence that limits it travels with it. */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#1E293B] p-4 sm:p-5 mb-4">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-inset p-4 sm:p-5 mb-4">
         <h3 className={`font-bold text-gray-900 dark:text-gray-100 ${compact ? 'text-[15px]' : 'text-[17px]'} mb-2`}>
           Anyone can register an agent on chain. Almost nobody checks whether one works.
         </h3>

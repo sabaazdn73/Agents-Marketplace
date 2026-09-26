@@ -55,7 +55,7 @@ function capability(view) {
   if (budget && escrow) return 'Hire by escrow or from a funded budget';
   if (budget) return 'Hire from a funded budget';
   if (escrow) return 'Hire with payment held in escrow';
-  return 'Browse and verify; no hiring path here yet';
+  return 'Browse and verify; no hiring path on this chain';
 }
 
 function countLabel(view) {

@@ -194,7 +194,9 @@ function Hires() {
 // so the address is a second-level heading there rather than a second h1.
 // `onConnect`, when given, is what the connect button does with no wallet
 // connected (the Dashboard opens /signin); without it, the sign-in modal.
-export default function WalletHome({ layout = 'web', embedded = false, onConnect = null }) {
+// `showHires` is off on the Dashboard: "/" carries nothing about agents
+// (owner, 2026-09-26), and the hires panel is about hiring them.
+export default function WalletHome({ layout = 'web', embedded = false, onConnect = null, showHires = true }) {
   const { status, address, openSignIn } = useSignIn();
   const habits = useHabits(status === 'disconnected' ? null : address);
   const evm = useEvmHoldings(status === 'disconnected' ? null : address);
@@ -216,7 +218,7 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
           {data && <HyperliquidPositions data={data} layout="mobile" />}
           <EvmHoldings holdings={evm} />
           {data && <HabitCosts data={data} who={who} />}
-          <Hires />
+          {showHires && <Hires />}
         </div>
       </div>
     );
@@ -235,7 +237,7 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
         </div>
         <div className="lg:col-span-4 space-y-6 min-w-0">
           {data && <HabitCosts data={data} who={who} />}
-          <Hires />
+          {showHires && <Hires />}
         </div>
       </div>
     </div>

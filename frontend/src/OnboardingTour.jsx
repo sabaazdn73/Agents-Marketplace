@@ -22,7 +22,7 @@ export default function OnboardingTour({ onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={finish}>
       <div
-        className="w-full max-w-sm bg-white dark:bg-[#1E293B] rounded-3xl shadow-2xl p-6 relative"
+        className="w-full max-w-sm bg-white dark:bg-inset rounded-3xl shadow-2xl p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
         <button

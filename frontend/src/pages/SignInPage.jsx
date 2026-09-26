@@ -136,16 +136,18 @@ function Connected({ address, openSignIn, onSkip, onSwitch }) {
 
 function Showcase() {
   return (
-    <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden flex-col items-center px-12 pt-[100px] bg-[#0b0b0d] text-white">
-      {/* The glow, our accent's hue, behind the top of the frame. */}
+    <div className="hidden lg:flex lg:w-3/5 relative overflow-hidden flex-col items-center px-12 pt-[100px] bg-[#0b0b0d] text-white dark:bg-surface dark:text-fg dark:border-l dark:border-line">
+      {/* The glow, our accent's hue, behind the top of the frame. Light
+          theme only: dark has no glow or gradient on any surface (owner,
+          2026-09-26). */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none dark:hidden"
         style={{ background: 'radial-gradient(52% 38% at 50% 50%, rgba(150, 82, 245, 0.42) 0%, rgba(150, 82, 245, 0.14) 45%, rgba(11, 11, 13, 0) 78%)' }}
       />
       <h2 className="relative text-center max-w-[640px]">
         <span className="block text-[34px] leading-[1.15] font-bold tracking-[-0.01em]">Wealth, borderless.</span>
-        <span className="block mt-3 text-[20px] leading-snug font-normal text-[#b3b3b3]">
+        <span className="block mt-3 text-[20px] leading-snug font-normal text-[#b3b3b3] dark:text-muted">
           Your holdings, and what your trading has cost you.
         </span>
       </h2>
@@ -154,13 +156,13 @@ function Showcase() {
           photographing: a desktop, and a phone overlapping its lower right. */}
       <div aria-hidden="true" className="relative mt-auto mb-[9vh] w-full max-w-[680px]">
         <div className="relative w-[88%]">
-          <div className="rounded-t-[14px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] p-[10px] pb-[14px]">
-            <div className="rounded-[4px] border border-[#262628] bg-[#1a1a1b]" style={{ aspectRatio: '16 / 10' }} />
+          <div className="rounded-t-[14px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] dark:border-line dark:border-t-line-strong dark:bg-page p-[10px] pb-[14px]">
+            <div className="rounded-[4px] border border-[#262628] bg-[#1a1a1b] dark:border-line dark:bg-inset" style={{ aspectRatio: '16 / 10' }} />
           </div>
-          <div className="-mx-[4%] h-[12px] rounded-b-[12px] border border-t-0 border-[#414144] bg-[#161617]" />
+          <div className="-mx-[4%] h-[12px] rounded-b-[12px] border border-t-0 border-[#414144] bg-[#161617] dark:border-line dark:bg-inset" />
         </div>
-        <div className="absolute right-0 -bottom-[4%] w-[25%] rounded-[24px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] p-[6px]">
-          <div className="rounded-[18px] border border-[#262628] bg-[#1a1a1b]" style={{ aspectRatio: '9 / 19' }} />
+        <div className="absolute right-0 -bottom-[4%] w-[25%] rounded-[24px] border border-[#414144] border-t-[#7a52c7] bg-[#0c0c0d] dark:border-line dark:border-t-line-strong dark:bg-page p-[6px]">
+          <div className="rounded-[18px] border border-[#262628] bg-[#1a1a1b] dark:border-line dark:bg-inset" style={{ aspectRatio: '9 / 19' }} />
         </div>
       </div>
     </div>

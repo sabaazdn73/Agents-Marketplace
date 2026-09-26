@@ -56,7 +56,7 @@ export default function SolanaView({ mutedBorder = 'border-gray-200 dark:border-
       {/* The behaviour study. Solana-specific, so it sits inside the Solana
           tab instead of the sidebar, and collapsed so it does not displace
           the preview above. */}
-      <div className="mt-6 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-[#1E293B]">
+      <div className="mt-6 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-inset">
         <button
           type="button"
           onClick={() => setStudyOpen((v) => !v)}

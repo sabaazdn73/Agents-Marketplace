@@ -42,22 +42,43 @@
    inset, field and line step down below it. The accent is our own violet
    (hue about 270), well away from the reference's blue (hue 231).
 
+   DARK, 2026-09-26 (owner): natural, not synthetic. A neutral near-black
+   page, no navy or purple tint, and no glow or gradient on any surface.
+   page #0B0D12, surface #10131A, line #1E2430, fg #E8ECF2, muted #8A93A6 and
+   the accent is the logo's blue, #3D7BFF. Inset and field (#181C25), faint,
+   line-strong, accent-soft and the chart baseline are derived from those.
+   That blue clears 4.5:1 as text on page and surface but not on inset or on
+   its own tint, and white on it is 3.84, so in dark:
+     - text-accent is --accent-text, #6491FF (tailwind.config.js textColor),
+       and fills, borders and rings keep #3D7BFF;
+     - accent-fg, the label on an accent fill, is the page colour.
+   In light --accent-text is --accent, so light is unchanged.
+
    Contrast, WCAG 2 relative luminance, computed from the values below
    (recompute when one changes):
                     light: page surface inset    dark: page surface inset
-     fg                     17.96  21.00  16.69        21.00  17.20  12.98
-     muted                   5.28   6.17   4.91         8.63   7.06   5.33
-     faint                   5.06   5.92   4.70         8.03   6.58   4.96
-     accent                  6.18   7.22   5.74        10.44   8.55   6.45
-     pos                     5.80   6.79   5.40        11.38   9.32   7.03
-     neg                     5.62   6.57   5.22         8.15   6.67   5.04
-     warn                    5.46   6.38   5.07        11.43   9.36   7.07
-     line-strong (3:1)       3.38   3.95   3.14         5.92   4.85   3.66
-   accent-fg on accent: 7.22 light, 9.45 dark. The inverse primary button
-   (page colour on fg): 17.96 light, 21.00 dark. pos, neg, warn and accent on
-   their own 5 to 15% tint over surface: 5.11 or more in both themes.
-   The card hairline (line on surface) is 1.32:1 in light and 1.14:1 in dark;
-   it is decorative and carries no meaning, so 3:1 does not apply to it. */
+     fg                     17.96  21.00  16.69        16.39  15.67  14.38
+     muted                   5.28   6.17   4.91         6.30   6.02   5.52
+     faint                   5.06   5.92   4.70         5.83   5.57   5.11
+     accent (as text)        6.18   7.22   5.74         6.51   6.23   5.71
+     pos                     5.80   6.79   5.40        10.53  10.07   9.24
+     neg                     5.62   6.57   5.22         7.54   7.21   6.61
+     warn                    5.46   6.38   5.07        10.58  10.12   9.28
+     line-strong (3:1)       3.38   3.95   3.14         3.79   3.62   3.32
+   accent-fg on accent: 7.22 light, 5.07 dark. The inverse primary button
+   (page colour on fg): 17.96 light, 16.39 dark. pos, neg, warn and accent
+   text on their own 5 to 15% tint over surface: 5.11 or more light, 5.24 or
+   more dark. The accent fill against the dark page (a non-text boundary):
+   5.07. The card hairline (line on surface) is 1.32:1 in light and 1.19:1
+   in dark; it is decorative and carries no meaning, so 3:1 does not apply.
+
+   STOCK GREYS AND INDIGO IN DARK. Older components still use Tailwind's
+   gray-700 to 950 and indigo in dark: variants, and stock gray-900 (#111827)
+   and indigo are the navy and purple the owner ruled out. Those shades are
+   roles too (tailwind.config.js): stock values in light, so light does not
+   change, and in dark the neutral steps and the accent blues above. Dark
+   gray-500 is 124/133/151 so that gray-500 text clears 4.5:1 on inset
+   (4.59); stock was 3.53 there. */
 :root {
   --page: 237 237 239;
   --surface: 255 255 255;
@@ -69,32 +90,59 @@
   --muted: 98 97 97;
   --faint: 100 100 100;
   --accent: 118 40 200;
+  --accent-text: 118 40 200;
   --accent-fg: 255 255 255;
   --accent-soft: 243 236 255;
   --pos: 3 105 62;
   --neg: 180 35 26;
   --warn: 138 82 5;
   --chart-baseline: 196 196 198;
+  /* Tailwind's stock values; dark replaces them (see above). */
+  --gray-500: 107 114 128;
+  --gray-700: 55 65 81;
+  --gray-800: 31 41 55;
+  --gray-900: 17 24 39;
+  --gray-950: 3 7 18;
+  --indigo-300: 165 180 252;
+  --indigo-400: 129 140 248;
+  --indigo-500: 99 102 241;
+  --indigo-600: 79 70 229;
+  --indigo-900: 49 46 129;
+  --purple-400: 192 132 252;
+  --purple-500: 168 85 247;
   color-scheme: light;
 }
 
 html.dark {
-  --page: 0 0 0;
-  --surface: 27 27 29;
-  --inset: 49 49 51;
-  --field: 49 49 51;
-  --line: 38 38 40;
-  --line-strong: 136 136 136;
-  --fg: 255 255 255;
-  --muted: 166 166 166;
-  --faint: 160 160 160;
-  --accent: 208 164 255;
-  --accent-fg: 24 8 40;
-  --accent-soft: 52 38 80;
+  --page: 11 13 18;
+  --surface: 16 19 26;
+  --inset: 24 28 37;
+  --field: 24 28 37;
+  --line: 30 36 48;
+  --line-strong: 100 110 130;
+  --fg: 232 236 242;
+  --muted: 138 147 166;
+  --faint: 132 141 160;
+  --accent: 61 123 255;
+  --accent-text: 100 145 255;
+  --accent-fg: 11 13 18;
+  --accent-soft: 22 36 70;
   --pos: 89 214 132;
   --neg: 255 120 106;
   --warn: 236 184 20;
-  --chart-baseline: 70 70 70;
+  --chart-baseline: 52 60 76;
+  --gray-500: 124 133 151;
+  --gray-700: 42 49 64;
+  --gray-800: 30 36 48;
+  --gray-900: 16 19 26;
+  --gray-950: 11 13 18;
+  --indigo-300: 150 180 255;
+  --indigo-400: 100 145 255;
+  --indigo-500: 61 123 255;
+  --indigo-600: 45 100 230;
+  --indigo-900: 20 36 80;
+  --purple-400: 100 145 255;
+  --purple-500: 61 123 255;
   color-scheme: dark;
 }
 

@@ -58,6 +58,7 @@ import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
+import AgentsVideo from './AgentsVideo';
 import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE } from './shell/productNav';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
@@ -641,7 +642,12 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
                 <Search size={20} />
               </button>
             )}
-            <NotificationBell />
+            {/* The three-way theme control, visible in the header as on web
+                (theme/ThemeToggle.jsx); the menu sheet keeps the labelled form. */}
+            <ThemeToggle className="mr-1" />
+            {/* The bell reports agent hires, so it shows on the agent pages only;
+                the Dashboard carries nothing about agents. */}
+            {(nav === 'market' || nav === 'my-agents') && <NotificationBell />}
             <button onClick={() => setWalletSheetOpen(true)} aria-label="Menu and wallet" className="w-11 h-11 flex items-center justify-center rounded text-fg hover:bg-inset">
               <Menu size={20} />
             </button>
@@ -862,6 +868,8 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {/* The page's one h1, as on web: the visible headings below
                 belong to whichever chain view is open. */}
             {nav === 'market' && <h1 className="sr-only">Explore agents</h1>}
+            {/* The agents clip, at the top of /market only. Shared with web. */}
+            {nav === 'market' && path === '/market' && <AgentsVideo layout="mobile" />}
             {nav === 'market' && (
               <ChainViewTabs mutedBorder="border-line">
                 {/* BNB Chain view below is the original mobile marketplace,

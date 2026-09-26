@@ -132,7 +132,7 @@ export default function SellYourAgentForm() {
         <div>
           <label className="text-xs font-semibold block mb-1">Your agent's ID number</label>
           <input value={agentId} onChange={(e) => setAgentId(e.target.value)} inputMode="numeric" placeholder="e.g. 1024"
-            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none focus:ring-2 focus:ring-indigo-500/40" />
+            className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none focus:ring-2 focus:ring-indigo-500/40" />
           {idValid && (
             <div className="mt-1.5 text-[11px] flex items-center gap-1.5">
               {ownership.status === 'checking' && <span className="text-gray-400 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> checking…</span>}
@@ -177,7 +177,7 @@ export default function SellYourAgentForm() {
           <div>
             <label className="text-xs font-semibold block mb-1">Price ({ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol})</label>
             <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 25"
-              className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
+              className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none" />
           </div>
         )}
         {model === MODEL.SUBSCRIPTION && (
@@ -185,12 +185,12 @@ export default function SellYourAgentForm() {
             <div>
               <label className="text-xs font-semibold block mb-1">Price per period ({ACCEPTED_TOKENS.find((t) => t.address === token)?.symbol})</label>
               <input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="decimal" placeholder="e.g. 10"
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none" />
             </div>
             <div>
               <label className="text-xs font-semibold block mb-1">How often (days)</label>
               <input value={periodDays} onChange={(e) => setPeriodDays(e.target.value)} inputMode="numeric" placeholder="30"
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none" />
             </div>
           </div>
         )}
@@ -199,12 +199,12 @@ export default function SellYourAgentForm() {
             <div>
               <label className="text-xs font-semibold block mb-1">The web address people pay to use</label>
               <input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder="https://your-agent.example/api"
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none" />
             </div>
             <div>
               <label className="text-xs font-semibold block mb-1">Price per use <span className="font-normal text-gray-400" title="$U is a type of digital dollar, 1 $U is worth about $1.">($U, worth about $1 each)</span></label>
               <input value={perCall} onChange={(e) => setPerCall(e.target.value)} inputMode="decimal" placeholder="e.g. 0.05"
-                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-sm outline-none" />
+                className="w-full p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-sm outline-none" />
             </div>
             <p className="text-[11px] text-gray-400">Each use charges automatically and pays straight to your wallet. We never hold the money. This saves your settings here; your service still needs to be set up to accept these payments.</p>
 
@@ -218,9 +218,9 @@ export default function SellYourAgentForm() {
               {bazaarOptIn && (
                 <div className="grid grid-cols-1 gap-2 pt-1">
                   <input value={x402Name} onChange={(e) => setX402Name(e.target.value)} placeholder="Agent name (for discovery)"
-                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-xs outline-none" />
+                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-xs outline-none" />
                   <textarea value={x402Desc} onChange={(e) => setX402Desc(e.target.value)} placeholder="Short description of what your agent does" rows={2}
-                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#0F172A] text-xs outline-none resize-none" />
+                    className="w-full p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-surface text-xs outline-none resize-none" />
                 </div>
               )}
             </div>
