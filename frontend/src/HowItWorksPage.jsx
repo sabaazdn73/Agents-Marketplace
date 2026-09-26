@@ -177,14 +177,14 @@ function CodeBlock({ text, label }) {
       .catch(() => {});
   };
   return (
-    <div className="relative rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-[#0F172A] pr-10">
+    <div className="relative rounded border border-line bg-inset pr-10">
       {/* The copy button lives in a gutter OUTSIDE the scroll box, not on top
           of it. It was absolutely positioned over a `pre` whose `pr-*` padding
           sits at the end of the scrollable content, so at rest the button
           covered the middle of a long line: the endpoint rendered as
           "…onrender." [button] "/m" on a phone. The gutter is on the wrapper,
           so nothing can scroll under it at any width. */}
-      <pre className="overflow-x-auto p-3 text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 font-mono whitespace-pre">
+      <pre className="overflow-x-auto p-3 text-[11px] leading-relaxed text-fg font-mono whitespace-pre">
 {text}
       </pre>
       <button
@@ -192,7 +192,7 @@ function CodeBlock({ text, label }) {
         onClick={copy}
         aria-label={copied ? 'Copied' : `Copy ${label}`}
         title={copied ? 'Copied' : `Copy ${label}`}
-        className="absolute top-2 right-2 p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1E293B] text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+        className="absolute top-2 right-2 p-1.5 rounded border border-line bg-surface text-muted hover:text-fg transition-colors"
       >
         {copied ? <Check size={13} /> : <Copy size={13} />}
       </button>
@@ -345,7 +345,7 @@ function ClientMark({ client, compact }) {
   const pair = Boolean(client.markDark);
   return (
     <span
-      className={`inline-flex items-center gap-1.5 ${client.mark ? 'pl-1.5' : 'pl-2'} pr-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-white/[0.03]`}
+      className={`inline-flex items-center gap-1.5 ${client.mark ? 'pl-1.5' : 'pl-2'} pr-2 py-1 rounded border border-line bg-inset`}
       title={client.support}
     >
       {client.mark && !failed && (
@@ -373,7 +373,7 @@ function ClientMark({ client, compact }) {
           )}
         </>
       )}
-      <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap`}>
+      <span className={`${compact ? 'text-[10px]' : 'text-[11px]'} font-medium text-fg whitespace-nowrap`}>
         {client.name}
       </span>
     </span>
@@ -488,9 +488,196 @@ function Cards({ cards, compact }) {
 
 function Label({ children }) {
   return (
-    <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-500 mb-1.5">
+    <div className="text-[11px] font-bold uppercase tracking-wider text-muted mb-1.5">
       {children}
     </div>
+  );
+}
+
+// THE MCP SECTION, as its own components (2026-09-25), so /ai (pages/UseWithAi.jsx)
+// renders exactly this content while How It Works keeps using it in its card.
+// One copy of the words, two places it shows.
+export const MCP_TITLE = 'The MCP server';
+export const MCP_LINE = 'Point your own assistant at this site and it can read every measurement here, '
+  + 'with the coverage behind each one. No key, no account, no sign-up.';
+
+export function McpFront({ small, flush = false }) {
+  return (
+    <div className={small || flush ? '' : 'pl-[52px]'}>
+      <div className="flex flex-wrap gap-1.5">
+        {MCP_CLIENTS.map((c) => <ClientMark key={c.name} client={c} compact={small} />)}
+      </div>
+      <p className={`${small ? 'text-[10px]' : 'text-[11px]'} text-muted mt-1.5`}>
+        Each one checked against its own documentation for remote servers over HTTP, because
+        supporting MCP and reaching a server on the internet are not the same thing. A client
+        missing from this list was either not checked or could not be confirmed against a
+        server shaped like this one, and the two are not distinguished here. Some appear by
+        name without a mark: either their trademark terms do not permit showing it here, or no
+        asset of theirs could be verified.
+      </p>
+    </div>
+  );
+}
+
+export function McpDetails({ compact }) {
+  return (
+    <>
+      <p>
+        MCP is the protocol an assistant uses to call somebody else&apos;s tools. Pointing one at
+        this server gives it the measurements behind this site, so it answers from them instead
+        of guessing. The model stays yours: this server holds data and runs no model of its own.
+      </p>
+
+      <div>
+        <Label>Endpoint</Label>
+        <CodeBlock text={MCP_ENDPOINT} label="the endpoint" />
+        <p className="mt-2 text-[12px] text-muted">
+          Every tool declares <code className="font-mono">readOnlyHint: true</code> and{' '}
+          <code className="font-mono">destructiveHint: false</code> in the protocol itself,
+          so a client can establish that this server writes nothing before it calls anything,
+          rather than taking the claim from this page.
+          It speaks JSON-RPC over POST, with no authentication and no sign-up. There is no
+          server-initiated stream: a GET returns 405 and says to POST instead. Every reply
+          carries the coverage behind its number, and returns a stated reason rather than a
+          figure when there is nothing worth stating.
+        </p>
+      </div>
+
+      <div>
+        <Label>The six tools</Label>
+        <ul className="space-y-2">
+          {MCP_TOOLS.map((t) => (
+            <li key={t.name} className="border-l-2 border-line-strong pl-3">
+              <code className="text-[12px] font-mono font-semibold text-fg">{t.name}</code>
+              <div className="text-[12px] text-muted">{t.line}</div>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[12px] text-muted">
+          The list is six and stays six. A new measurement becomes a row in
+          {' '}<code className="font-mono">tnega_catalogue</code>, not a seventh tool, so a client
+          that read this list a month ago is still correct.
+        </p>
+      </div>
+
+      <div>
+        {/* ONE COMMAND FIRST, AND THE CONFIG SHAPES UNDER IT.
+            The config block led this section while the shortest path to a
+            working server was three lines further down. Someone who can run
+            one command should not have to read a JSON shape to find that
+            out, and someone whose client is not Claude Code still needs the
+            shapes, so both stay and the order changed. */}
+        <Label>The one command</Label>
+        <p className="mb-2 text-[12px] text-muted">
+          If you use Claude Code, this is the whole install. No key, no account,
+          no sign-up.
+        </p>
+        <CodeBlock text={MCP_NPX_COMMAND} label="the install command" />
+        <p className="mt-2 text-[12px] text-muted">
+          It writes one config entry by asking Claude Code&apos;s own CLI to write it,
+          and does nothing else: no server is started, no dependency is installed,
+          nothing runs afterwards. It prints the command it ran, then tells you to
+          start a new session and ask for <code className="font-mono">tnega_catalogue</code>.
+          Run it twice and it says the server is already configured and changes nothing.
+          Add <code className="font-mono">--scope user</code> for every project rather than
+          this one, or <code className="font-mono">--print</code> to see the config and paste
+          it yourself.
+        </p>
+        <p className="mt-2 text-[12px] text-muted">
+          Three files and no dependencies, so you can read it before you run it:{' '}
+          <a
+            href="https://www.npmjs.com/package/tnega-mcp"
+            target="_blank"
+            rel="noreferrer"
+            className="text-accent hover:underline"
+          >
+            tnega-mcp on npm
+          </a>.
+        </p>
+      </div>
+
+      <div>
+        <Label>Or the config entry, for any other client</Label>
+        {/* The shapes differ between clients by more than they look, and a
+            key in the wrong place fails quietly. So the copyable block is
+            labelled with the one client it is exactly right for, and every
+            other client's own shape is in the list under it rather than
+            left for the reader to assume. */}
+        <p className="mb-2 text-[12px] text-muted">
+          Most clients read a config file, and they do not agree on its shape. This is the
+          entry Claude Code takes:
+        </p>
+        <CodeBlock text={MCP_CONFIG_SNIPPET} label="the Claude Code config entry" />
+        <p className="mt-2 text-[12px] text-muted">
+          The others differ, sometimes by one word. Each line below is that client&apos;s own
+          shape, from its own documentation, with the date it was read.
+        </p>
+
+        <div className="mt-3">
+          {/* What npx tnega-mcp runs underneath, for anyone who would rather
+              run it themselves or does not want to run an npm package. */}
+          <Label>What that command runs</Label>
+          <p className="mb-2 text-[12px] text-muted">
+            The installer shells out to this, and you can run it yourself instead.
+            The same on macOS, Windows and Linux:
+          </p>
+          <CodeBlock text={MCP_ADD_COMMAND} label="the command" />
+          <p className="mt-2 text-[12px] text-muted">
+            It lands in{' '}
+            {MCP_CONFIG_HOMES.map((h, i) => (
+              <span key={h.os}>
+                <code className="font-mono">{h.path}</code> on {h.os}
+                {i < MCP_CONFIG_HOMES.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+            , under the project you ran it in. Restart the client afterwards so it reads the
+            config again.
+          </p>
+        </div>
+        <ul className="mt-3 space-y-1.5">
+          {MCP_CLIENTS.map((c) => (
+            <li key={c.name} className="text-[12px] text-muted">
+              <span className="font-semibold text-fg">{c.name}</span>
+              {': '}{c.howTo}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <Label>Calling it without a client</Label>
+        <p className="mb-2 text-[12px] text-muted">
+          Anything that can POST JSON can call it. This asks the server what tools it has:
+        </p>
+        <CodeBlock text={MCP_CURL_SNIPPET} label="the request" />
+      </div>
+
+      <div>
+        <Label>The sequence</Label>
+        <HowItWorksFlow compact={compact} steps={[
+          {
+            title: 'Add the server',
+            body: 'One command in Claude Code, or the entry above pasted into whichever '
+              + 'config file your client reads. One server, one URL, no key.',
+          },
+          {
+            title: 'Restart the client',
+            body: 'Most read the config once at start. Until it restarts, the server is '
+              + 'configured and not connected.',
+          },
+          {
+            title: 'Ask it for the catalogue first',
+            body: 'tnega_catalogue lists every dataset, what each measures, and how current '
+              + 'it is. It is the call that tells the assistant what it may ask next.',
+          },
+          {
+            title: 'Read the coverage, not just the number',
+            body: 'Every reply carries what it was measured over, and returns a stated reason '
+              + 'rather than a figure when there is nothing worth stating.',
+          },
+        ]} />
+      </div>
+    </>
   );
 }
 
@@ -555,7 +742,7 @@ export default function HowItWorksPage({ variant = 'web' }) {
     },
     {
       key: 'mcp',
-      title: 'The MCP server',
+      title: MCP_TITLE,
       icon: Terminal,
       // THE ONE SURFACE THAT INSTALLS IN A COMMAND HAD NO MARK, which made it
       // read as the least finished thing on a page where the extension beside
@@ -573,184 +760,11 @@ export default function HowItWorksPage({ variant = 'web' }) {
       markSrc: '/mcp-mark.svg',
       markAlt: 'Tnega MCP server',
       pill: <Pill tone="live">Live</Pill>,
-      line: 'Point your own assistant at this site and it can read every measurement here, '
-        + 'with the coverage behind each one. No key, no account, no sign-up.',
+      line: MCP_LINE,
       // The marks sit on the front, because "can the tool I already use read
       // this" is the question the card has to answer before it is opened.
-      front: (small) => (
-        <div className={small ? '' : 'pl-[52px]'}>
-          <div className="flex flex-wrap gap-1.5">
-            {MCP_CLIENTS.map((c) => <ClientMark key={c.name} client={c} compact={small} />)}
-          </div>
-          <p className={`${small ? 'text-[10px]' : 'text-[11px]'} text-gray-400 dark:text-gray-500 mt-1.5`}>
-            Each one checked against its own documentation for remote servers over HTTP, because
-            supporting MCP and reaching a server on the internet are not the same thing. A client
-            missing from this list was either not checked or could not be confirmed against a
-            server shaped like this one, and the two are not distinguished here. Some appear by
-            name without a mark: either their trademark terms do not permit showing it here, or no
-            asset of theirs could be verified.
-          </p>
-        </div>
-      ),
-      render: () => (
-        <>
-          <p>
-            MCP is the protocol an assistant uses to call somebody else&apos;s tools. Pointing one at
-            this server gives it the measurements behind this site, so it answers from them instead
-            of guessing. The model stays yours: this server holds data and runs no model of its own.
-          </p>
-
-          <div>
-            <Label>Endpoint</Label>
-            <CodeBlock text={MCP_ENDPOINT} label="the endpoint" />
-            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-              Every tool declares <code className="font-mono">readOnlyHint: true</code> and{' '}
-              <code className="font-mono">destructiveHint: false</code> in the protocol itself,
-              so a client can establish that this server writes nothing before it calls anything,
-              rather than taking the claim from this page.
-              It speaks JSON-RPC over POST, with no authentication and no sign-up. There is no
-              server-initiated stream: a GET returns 405 and says to POST instead. Every reply
-              carries the coverage behind its number, and returns a stated reason rather than a
-              figure when there is nothing worth stating.
-            </p>
-          </div>
-
-          <div>
-            <Label>The six tools</Label>
-            <ul className="space-y-2">
-              {MCP_TOOLS.map((t) => (
-                <li key={t.name} className="border-l-2 border-gray-200 dark:border-gray-700 pl-3">
-                  <code className="text-[12px] font-mono font-semibold text-gray-900 dark:text-gray-100">{t.name}</code>
-                  <div className="text-[12px] text-gray-600 dark:text-gray-400">{t.line}</div>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-              The list is six and stays six. A new measurement becomes a row in
-              {' '}<code className="font-mono">tnega_catalogue</code>, not a seventh tool, so a client
-              that read this list a month ago is still correct.
-            </p>
-          </div>
-
-          <div>
-            {/* ONE COMMAND FIRST, AND THE CONFIG SHAPES UNDER IT.
-                The config block led this section while the shortest path to a
-                working server was three lines further down. Someone who can run
-                one command should not have to read a JSON shape to find that
-                out, and someone whose client is not Claude Code still needs the
-                shapes, so both stay and the order changed. */}
-            <Label>The one command</Label>
-            <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
-              If you use Claude Code, this is the whole install. No key, no account,
-              no sign-up.
-            </p>
-            <CodeBlock text={MCP_NPX_COMMAND} label="the install command" />
-            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-              It writes one config entry by asking Claude Code&apos;s own CLI to write it,
-              and does nothing else: no server is started, no dependency is installed,
-              nothing runs afterwards. It prints the command it ran, then tells you to
-              start a new session and ask for <code className="font-mono">tnega_catalogue</code>.
-              Run it twice and it says the server is already configured and changes nothing.
-              Add <code className="font-mono">--scope user</code> for every project rather than
-              this one, or <code className="font-mono">--print</code> to see the config and paste
-              it yourself.
-            </p>
-            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-              Three files and no dependencies, so you can read it before you run it:{' '}
-              <a
-                href="https://www.npmjs.com/package/tnega-mcp"
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-600 dark:text-indigo-400 hover:underline"
-              >
-                tnega-mcp on npm
-              </a>.
-            </p>
-          </div>
-
-          <div>
-            <Label>Or the config entry, for any other client</Label>
-            {/* The shapes differ between clients by more than they look, and a
-                key in the wrong place fails quietly. So the copyable block is
-                labelled with the one client it is exactly right for, and every
-                other client's own shape is in the list under it rather than
-                left for the reader to assume. */}
-            <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
-              Most clients read a config file, and they do not agree on its shape. This is the
-              entry Claude Code takes:
-            </p>
-            <CodeBlock text={MCP_CONFIG_SNIPPET} label="the Claude Code config entry" />
-            <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-              The others differ, sometimes by one word. Each line below is that client&apos;s own
-              shape, from its own documentation, with the date it was read.
-            </p>
-
-            <div className="mt-3">
-              {/* What npx tnega-mcp runs underneath, for anyone who would rather
-                  run it themselves or does not want to run an npm package. */}
-              <Label>What that command runs</Label>
-              <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
-                The installer shells out to this, and you can run it yourself instead.
-                The same on macOS, Windows and Linux:
-              </p>
-              <CodeBlock text={MCP_ADD_COMMAND} label="the command" />
-              <p className="mt-2 text-[12px] text-gray-500 dark:text-gray-400">
-                It lands in{' '}
-                {MCP_CONFIG_HOMES.map((h, i) => (
-                  <span key={h.os}>
-                    <code className="font-mono">{h.path}</code> on {h.os}
-                    {i < MCP_CONFIG_HOMES.length - 1 ? ', ' : ''}
-                  </span>
-                ))}
-                , under the project you ran it in. Restart the client afterwards so it reads the
-                config again.
-              </p>
-            </div>
-            <ul className="mt-3 space-y-1.5">
-              {MCP_CLIENTS.map((c) => (
-                <li key={c.name} className="text-[12px] text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{c.name}</span>
-                  {': '}{c.howTo}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <Label>Calling it without a client</Label>
-            <p className="mb-2 text-[12px] text-gray-500 dark:text-gray-400">
-              Anything that can POST JSON can call it. This asks the server what tools it has:
-            </p>
-            <CodeBlock text={MCP_CURL_SNIPPET} label="the request" />
-          </div>
-
-          <div>
-            <Label>The sequence</Label>
-            <HowItWorksFlow compact={compact} steps={[
-              {
-                title: 'Add the server',
-                body: 'One command in Claude Code, or the entry above pasted into whichever '
-                  + 'config file your client reads. One server, one URL, no key.',
-              },
-              {
-                title: 'Restart the client',
-                body: 'Most read the config once at start. Until it restarts, the server is '
-                  + 'configured and not connected.',
-              },
-              {
-                title: 'Ask it for the catalogue first',
-                body: 'tnega_catalogue lists every dataset, what each measures, and how current '
-                  + 'it is. It is the call that tells the assistant what it may ask next.',
-              },
-              {
-                title: 'Read the coverage, not just the number',
-                body: 'Every reply carries what it was measured over, and returns a stated reason '
-                  + 'rather than a figure when there is nothing worth stating.',
-              },
-            ]} />
-          </div>
-        </>
-      ),
+      front: (small) => <McpFront small={small} />,
+      render: () => <McpDetails compact={compact} />,
     },
 
     {

@@ -14,33 +14,43 @@ import { useDisconnect } from 'wagmi';
 import { LogOut, ShieldCheck } from 'lucide-react';
 import { useSignIn } from './SignInProvider';
 import { shortAddress } from './useConnectedWallet';
+import { SIGN_IN_BUTTON } from './signInButton';
 
 export function identityLabel(status) {
   return status === 'signed' ? 'Your wallet' : 'This address';
 }
 
-export default function WalletIdentity({ layout = 'bar', onBeforeOpen }) {
+// `onOpenSignInPage`, when given, is what "Sign in" does for a visitor with
+// no wallet connected: it opens the /signin page, which lists the wallets.
+// Once a wallet is connected, signing happens in the modal, from wherever the
+// visitor is, because leaving the page to sign one message is a detour.
+export default function WalletIdentity({ layout = 'bar', onBeforeOpen, onOpenSignInPage }) {
   const { status, address, openSignIn } = useSignIn();
   const { disconnect } = useDisconnect();
   const open = () => { onBeforeOpen?.(); openSignIn(); };
+  const start = () => {
+    onBeforeOpen?.();
+    if (onOpenSignInPage) onOpenSignInPage();
+    else openSignIn();
+  };
 
   if (status === 'disconnected') {
     return layout === 'bar' ? (
       <button
         type="button"
-        onClick={open}
-        className="h-8 px-3 rounded-md bg-accent text-accent-fg text-label font-semibold hover:opacity-90 transition-opacity whitespace-nowrap"
+        onClick={start}
+        className={`h-8 px-3 text-label whitespace-nowrap ${SIGN_IN_BUTTON}`}
       >
         Sign in
       </button>
     ) : (
       <button
         type="button"
-        onClick={open}
-        className="w-full h-11 px-4 rounded-md bg-accent text-accent-fg text-body font-semibold flex items-center justify-between"
+        onClick={start}
+        className={`w-full h-11 px-4 text-body flex items-center justify-between ${SIGN_IN_BUTTON}`}
       >
         <span>Sign in with your wallet</span>
-        <span className="text-label font-medium opacity-90">Connect, then sign</span>
+        <span className="text-label font-medium opacity-80">Connect, then sign</span>
       </button>
     );
   }
@@ -70,7 +80,7 @@ export default function WalletIdentity({ layout = 'bar', onBeforeOpen }) {
       <div className="flex items-center h-8 rounded-md border border-line bg-surface">
         {badge}
         {!signed && (
-          <button type="button" onClick={open} className="h-6 px-2 mr-1 rounded bg-accent text-accent-fg text-micro font-semibold hover:opacity-90 whitespace-nowrap">
+          <button type="button" onClick={open} className={`h-6 px-2 mr-1 text-micro whitespace-nowrap ${SIGN_IN_BUTTON}`}>
             Sign in
           </button>
         )}
@@ -92,14 +102,14 @@ export default function WalletIdentity({ layout = 'bar', onBeforeOpen }) {
       <div className="flex items-center rounded-md border border-line bg-inset">{badge}</div>
       <div className="flex gap-2">
         {!signed && (
-          <button type="button" onClick={open} className="flex-1 h-11 rounded-md bg-accent text-accent-fg text-body font-semibold">
+          <button type="button" onClick={open} className={`flex-1 h-11 text-body ${SIGN_IN_BUTTON}`}>
             Sign in
           </button>
         )}
         <button
           type="button"
           onClick={() => disconnect()}
-          className="flex-1 h-11 rounded-md border border-line-strong text-neg text-body font-semibold flex items-center justify-center gap-2"
+          className="flex-1 h-11 rounded border border-line-strong text-neg text-body font-semibold flex items-center justify-center gap-2"
         >
           <LogOut size={16} aria-hidden="true" /> Disconnect
         </button>

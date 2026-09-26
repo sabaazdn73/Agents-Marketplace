@@ -51,3 +51,17 @@ export function updatePageMeta({ title, ogTitle, docTitle, description, path = '
   setMeta('meta[name="twitter:title"]', 'content', socialTitle);
   setMeta('meta[name="twitter:description"]', 'content', description);
 }
+
+/** Adds <meta name="robots" content="noindex"> while `on` is true, and takes
+ *  it away again. For a page shown under an address that names nothing, such
+ *  as an agent the store does not hold: the page explains itself to a
+ *  visitor, and search engines are told not to keep the address. Returns the
+ *  cleanup, for a useEffect. */
+export function setNoIndex(on) {
+  const existing = document.querySelector('meta[name="robots"][data-noindex]');
+  if (!on) { existing?.remove(); return () => {}; }
+  const el = existing || Object.assign(document.createElement('meta'), { name: 'robots', content: 'noindex' });
+  el.setAttribute('data-noindex', '');
+  if (!existing) document.head.appendChild(el);
+  return () => el.remove();
+}

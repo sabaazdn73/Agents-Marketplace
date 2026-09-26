@@ -80,7 +80,9 @@ function _completenessFrom(data) {
  * that way, but callers that care about the difference, e.g. showing
  * "couldn't load verification data" instead of silently implying zero
  * verified agents exist, now can). `retry()` forces a fresh attempt. */
-export function useAgentPerformanceBulk() {
+// `enabled` (default true): while false, nothing is requested; see
+// useMarketplacePage in marketplaceQuery.js.
+export function useAgentPerformanceBulk({ enabled = true } = {}) {
   const [state, setState] = useState(() =>
     _cached
       ? { status: 'ready', byOwner: _cached.by_owner, ..._completenessFrom(_cached) }
@@ -118,7 +120,7 @@ export function useAgentPerformanceBulk() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => (enabled ? load() : undefined), [load, enabled]);
 
   // Named one by one, which is why storeWideTotals was in the state and not in
   // this object for a whole deploy: the hook carried it, the docstring promised

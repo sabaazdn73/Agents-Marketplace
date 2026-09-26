@@ -3,11 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- 53 characters, not 5. This is the SERP headline as well as the tab
-         label, and "Tnega" alone used a twentieth of the space Google
-         gives it. seoMeta takes the same string from PAGE_META's docTitle. -->
-    <title>Tnega: Explore AI Agents and Bots, Hire On-Chain</title>
-    <meta name="description" content="Tnega measures whether an on-chain agent works before anyone pays. Browse and verify ERC-8004 agents and bots on BNB Chain, Ethereum, Arbitrum, Robinhood Chain and Monad, and hire them on-chain." />
+    <!-- The SERP headline as well as the tab label. seoMeta takes the same
+         string from PAGE_META['/'].docTitle in App.jsx; change them together.
+         Rewritten 2026-09-25 for the tokenized-equities product, and it says
+         "being built" because nothing on the new pages is live yet. -->
+    <title>Tnega: Tokenized Stocks, ETFs and Vaults, and What They Cost to Buy</title>
+    <meta name="description" content="Tnega is being built: connect a wallet, pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet. EVM chains, Solana and Hyperliquid." />
 
     <!-- Favicon: what browsers show in the tab bar, and what Google's own
          guidance (developers.google.com/search/docs/appearance/favicon-in-search,
@@ -15,19 +16,26 @@
          the conventional path Google's own example markup uses and some
          crawlers request even without a <link> tag pointing elsewhere;
          it didn't exist here before (fell through to the SPA's catch-all
-         rewrite) -- added, 512x512 source downsized into a real
-         multi-size .ico (16/32/48/64/128/256), square throughout, well
-         above Google's real 48x48px recommendation. -->
-    <!-- All generated from frontend/iconlogo.png on 2026-09-11, so the tab,
-         the Windows/macOS dock shortcut, the iOS home screen and the Android
-         launcher all show the same clay mark rather than the older flat one.
-         The SVG is gone from this list on purpose: it was a different
-         drawing, and a browser preferring it would have shown a different
-         icon from the one on the home screen. -->
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/app-icon-192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/app-icon-512.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+         rewrite). It is a real .ico with 16, 32 and 48px frames; 48px is
+         the minimum Google's guidance asks for, and the 192 and 512px PNGs
+         declared below give search a larger square to choose. -->
+    <!-- All rendered from public/icon_v2.svg (the blue tile) by
+         scripts/render_icons.py on 2026-09-26, so the tab, the dock shortcut,
+         the iOS home screen, the Android launcher and the site header show
+         one mark. favicon.ico carries 16, 32 and 48px frames, each drawn at
+         its own size. apple-touch-icon.png is the square variant
+         (icon_v2_maskable.svg) because iOS rounds the corners itself and
+         would fill transparent ones with black. No SVG link: icon_v2.svg has
+         drop-shadow filters a tab-sized render does not need.
+         The ?v=2 on these links, on the manifest link and on the manifest's
+         own icon srcs makes browsers and launchers that cache an icon by URL
+         fetch the blue tile rather than keep the arch they had. Bump it when
+         the icons change again. /favicon.ico itself is also requested bare by
+         crawlers, and gets the new file at that path. -->
+    <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/app-icon-192.png?v=2" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/app-icon-512.png?v=2" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
 
     <!-- Web app manifest (2026-09-04). Without one, an Android "Add to home
          screen" fell back to the bare icon link: no app name, no theme
@@ -38,8 +46,8 @@
          launcher cannot follow a theme. The theme-color meta below is kept
          current by the inline script and by theme/ThemeProvider.jsx. See public/icon_v2_maskable.svg for why the maskable
          icon is a separate file rather than reusing icon_v2.svg. -->
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#F4F5F7" />
+    <link rel="manifest" href="/manifest.json?v=2" />
+    <meta name="theme-color" content="#EDEDEF" />
 
     <!-- THEME BEFORE FIRST PAINT. The visitor's mode is in
          localStorage['tnega_theme'] (system, light or dark; system when
@@ -50,7 +58,7 @@
          The two page colours below repeat --page from src/index.css so the
          first frame is right even before that stylesheet arrives. Change
          them together. -->
-    <style>html{background:#F4F5F7;color-scheme:light}html.dark{background:#171820;color-scheme:dark}</style>
+    <style>html{background:#EDEDEF;color-scheme:light}html.dark{background:#000000;color-scheme:dark}</style>
     <script>
       // SITE DATA BLOCKED. Reading localStorage then throws a SecurityError,
       // and several libraries (RainbowKit's recent-wallet list, WalletConnect)
@@ -92,7 +100,7 @@
         root.setAttribute('data-theme-mode', mode);
         root.style.colorScheme = dark ? 'dark' : 'light';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', dark ? '#171820' : '#F4F5F7');
+        if (meta) meta.setAttribute('content', dark ? '#000000' : '#EDEDEF');
       })();
     </script>
 
@@ -111,56 +119,45 @@
          seoMeta.js takes the same string from PAGE_META's ogTitle, so the
          static tag a social scraper reads and the runtime tag a search
          crawler reads do not disagree. -->
-    <meta property="og:title" content="Tnega: Explore AI Agents and Bots" />
-    <!-- 114 characters. It has been cut twice: 235 first, then 142, which
-         was still past the ~125 a mobile preview shows before truncating.
-         The named chains are the ones you can actually hire on; the rest are
-         browse-only.
-
-         Chain counts here are load-bearing and go stale silently, because
-         nothing fails when they are wrong. This read "five chains" and named
-         only three hire chains until 2026-09-12, having missed Ethereum
-         going live on 09-11. Six are listed and indexed (BNB Chain,
-         Ethereum, Solana, Arbitrum, Robinhood Chain, Monad); four can be
-         hired on. Update the count and the list together. -->
-    <meta property="og:description" content="Verified AI agents on six chains. Hire on BNB Chain, Ethereum, Arbitrum or Robinhood Chain, payment held on-chain." />
+    <meta property="og:title" content="Tnega: Tokenized Stocks, ETFs and Vaults" />
+    <!-- Must say what PAGE_META['/'] says in App.jsx: social scrapers read
+         this static tag, search crawlers run the app and read that one. It
+         says "being built" until the pages hold something live. -->
+    <meta property="og:description" content="Being built: pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet." />
     <!-- X and Facebook key a cached preview on the image URL, so the ?v=
          forces a refetch when the file changes under the same name. Bump it
-         whenever the banner does.
+         whenever the card does.
 
-         JPEG, not PNG: this is photographic artwork, and at 1200x630 the
-         PNG weighs 1,067KB against the JPEG's 158KB. Scrapers give up on
-         slow images. -->
-    <meta property="og:image" content="https://www.tnega.app/banner.jpg?v=6" />
+         public/og-card.png is the brand card: the mark on its blue tile
+         (icon_v2.svg, rendered at 168px) beside the Wordmark component
+         (shell/Wordmark.jsx) in white, on the dark page colour with a glow
+         and a rule in our violet, captured at 1200x630 by headless Chromium.
+         PNG because it is flat colour, text and one small tile, which PNG
+         keeps sharp. It replaced the agents artwork banner. -->
+    <meta property="og:image" content="https://www.tnega.app/og-card.png?v=2" />
     <!-- Declared dimensions let a scraper commit to the large-image card
-         before it has downloaded the file. Must match the real file:
-         public/banner.jpg is 1200x630, the 1.91:1 every platform expects.
-
-         Reached by scaling the whole frame down and letterboxing it, NOT by
-         cropping. An earlier version cut 601px off the right to make the
-         ratio, which deleted the Arbitrum robot outright: content thrown
-         away to hit a number, when setting the ratio here is precisely what
-         stops a platform cropping it. The bars are exactly 60px top and
-         bottom, and they carry the headline and the call to action, so the
-         artwork keeps every pixel and nothing sits on top of it. -->
+         before it has downloaded the file. Must match the file: 1200x630,
+         the 1.91:1 every platform expects. -->
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the tnega wordmark in white on black." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@SabaAzadegan" />
     <meta name="twitter:creator" content="@SabaAzadegan" />
-    <meta name="twitter:title" content="Tnega: Explore AI Agents and Bots" />
-    <meta name="twitter:description" content="A multichain house of AI agents and bots. Browse, verify and hire ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain." />
-    <meta name="twitter:image" content="https://www.tnega.app/banner.jpg?v=6" />
-    <meta name="twitter:image:alt" content="Tnega: claymation robots carrying the BNB, Ethereum, Solana and Arbitrum marks, gathered on a neon platform marked WEB3 and AGENT ECONOMY." />
+    <meta name="twitter:title" content="Tnega: Tokenized Stocks, ETFs and Vaults" />
+    <meta name="twitter:description" content="Being built: pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet." />
+    <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=2" />
+    <meta name="twitter:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the tnega wordmark in white on black." />
     <!-- Structured data. There was none, so Google had only the raw text
          of a JavaScript-rendered page to work from and nothing telling it
-         what this site IS. WebSite + SearchAction also makes a sitelinks
-         search box possible; Organization ties the name, logo and
-         accounts together so they are treated as one entity. -->
+         what this site IS. Organization ties the name, logo and accounts
+         together so they are treated as one entity. The WebSite
+         description is the page's own meta description, word for word. No
+         SearchAction: the search field does not search anything yet, and a
+         sitelinks search box would send people to an empty result. -->
     <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -170,17 +167,9 @@
       "@id": "https://www.tnega.app/#website",
       "url": "https://www.tnega.app/",
       "name": "Tnega",
-      "description": "A multichain house of AI agents and bots. Browse and verify ERC-8004 agents on BNB Chain, Ethereum, Arbitrum and Robinhood Chain, and hire them on-chain.",
+      "description": "Tnega is being built: connect a wallet, pick a tokenized stock, ETF or vault, see what it costs to buy, and sign in your own wallet. EVM chains, Solana and Hyperliquid.",
       "publisher": {
         "@id": "https://www.tnega.app/#org"
-      },
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": {
-          "@type": "EntryPoint",
-          "urlTemplate": "https://www.tnega.app/market?q={search_term_string}"
-        },
-        "query-input": "required name=search_term_string"
       }
     },
     {

@@ -12,7 +12,7 @@
 import React from 'react';
 import { ArrowRight, Coins, Percent, Timer, Ban, Wallet } from 'lucide-react';
 import ThemeToggle from './theme/ThemeToggle';
-import appMark from './assets/app-mark.png';
+import { TnegaMark } from './shell/Brand';
 
 const WHAT = [
   { icon: Coins, title: 'Fees paid', body: 'As maker and as taker, per token, over the fills the venue returns, with how many fills and the hours they cover.' },
@@ -26,7 +26,7 @@ export default function LandingWallet({ onOpenWallet, onExplore }) {
     <section className="bg-page text-fg border-b border-line" aria-labelledby="wallet-lead">
       <div className="max-w-[1440px] mx-auto px-6 xl:px-14">
         <div className="h-14 flex items-center gap-3">
-          <img src={appMark} alt="" className="w-8 h-8" />
+          <TnegaMark className="w-[38px] h-[38px]" />
           <span className="text-title font-bold">Tnega</span>
           <div className="flex-1" />
           <a href="/market" onClick={(e) => { e.preventDefault(); onExplore?.(); }} className="hidden sm:inline text-body font-medium text-muted hover:text-fg">Explore agents</a>

@@ -1,6 +1,8 @@
 // WalletHome.jsx
 //
-// /wallet: the connected wallet's own page. Holdings, and what its trading
+// The connected wallet's holdings, shown at the top of the Dashboard ("/")
+// since 2026-09-25; /wallet now redirects there. It was /wallet: the connected
+// wallet's own page. Holdings, and what its trading
 // habits on Hyperliquid have cost it, measured. One component for both apps;
 // `layout` changes the arrangement, never the content.
 //
@@ -124,8 +126,9 @@ function PartialNote({ data }) {
   );
 }
 
-function Header({ status, address, habits, openSignIn }) {
+function Header({ status, address, habits, openSignIn, embedded }) {
   const signed = status === 'signed';
+  const Heading = embedded ? 'h2' : 'h1';
   const d = habits.status === 'ok' ? habits.data : null;
   return (
     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
@@ -134,7 +137,7 @@ function Header({ status, address, habits, openSignIn }) {
           {signed && <ShieldCheck size={13} className="text-pos" aria-hidden="true" />}
           {signed ? 'Your wallet' : 'This address'}
         </p>
-        <h1 className="figure text-title md:text-h1 font-bold text-fg break-all">{address}</h1>
+        <Heading className="figure text-title md:text-h1 font-bold text-fg break-all">{address}</Heading>
         {!signed && (
           <p className="text-label text-muted mt-1">
             Not signed in, so the page calls it this address. The figures are the same either way.{' '}
@@ -173,7 +176,9 @@ function Hires() {
   );
 }
 
-export default function WalletHome({ layout = 'web' }) {
+// `embedded` is set when the Dashboard shows this under its own page title,
+// so the address is a second-level heading there rather than a second h1.
+export default function WalletHome({ layout = 'web', embedded = false }) {
   const { status, address, openSignIn } = useSignIn();
   const habits = useHabits(status === 'disconnected' ? null : address);
   const evm = useEvmHoldings(status === 'disconnected' ? null : address);
@@ -187,7 +192,7 @@ export default function WalletHome({ layout = 'web' }) {
   if (layout === 'mobile') {
     return (
       <div>
-        <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} />
+        <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} embedded={embedded} />
         <div className="space-y-3">
           {server}
           {data && <PartialNote data={data} />}
@@ -203,7 +208,7 @@ export default function WalletHome({ layout = 'web' }) {
 
   return (
     <div>
-      <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} />
+      <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} embedded={embedded} />
       {data && <div className="mb-6"><PartialNote data={data} /></div>}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 space-y-6 min-w-0">

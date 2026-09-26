@@ -1,64 +1,136 @@
 // routePaths.js
 //
-// per-tab URL routing map for the main app's tabs, each gets its
-// own real, bookmarkable path (extending this file's existing standalone
-// routes like /ecosystem: a plain pathname check, same hand-rolled
-// useRoute() in App.jsx, no second/inconsistent routing approach). Only
-// the top-level tab gets a URL; in-tab state (which agent's detail
-// view is open, whether the hire flow is showing) stays local component
-// state, same as it always has, that matches the ask ("each major
-// section has its own URL"), not every possible sub-view.
+// Which URL opens which tab of the app shell, and which old URLs now land
+// somewhere else. A plain module with no JSX or React import, so a headless
+// check can read it without bundling the app (wagmi, RainbowKit).
 //
-// Pulled into its own plain module (no JSX/React import) specifically so
-// it can be verified directly in a headless test against the tab ids
-// NAV_ITEMS uses in AgentMarketplaceApp.web.jsx/.mobile.jsx, without
-// having to bundle the whole app (wagmi/RainbowKit) just to check a
-// lookup table.
+// THE PRODUCT, 2026-09-25
+// Five pages: Dashboard (/), Stocks & ETFs, Vaults, My ETFs, Use with AI.
+// Explore (/market) and My Agents (/my-agents, the hire flow) stay as routes,
+// reached from the footer rather than the main navigation. The tab ids are
+// the ones NAV_ITEMS uses in both apps (shell/productNav.js).
 //
-// '/skills' added 2026-08-29 alongside NAV_ITEMS' own new 'skills' tab,
-// without a path here, onNavChange('skills') (used by the "Try it
-// yourself" deep-link from an agent's detail page) would silently fall
-// back to '/market' in App.jsx's own `NAV_TO_PATH[id] || '/market'`,
-// leaving the URL bar wrong and breaking a direct link/refresh into Skills.
-// '/native-agents' added 2026-09-01 alongside NAV_ITEMS' own new
-// 'native' tab, same reasoning as '/skills' above.
-// '/connect' added 2026-09-17 alongside NAV_ITEMS' own new 'connect' tab,
-// same reasoning again.
+// Order matters: NAV_TO_PATH is built with Object.fromEntries over these
+// pairs, so if two paths ever share one id the LAST one wins.
 export const MAIN_TAB_PATHS = {
-  // A destination, not the entry point: '/' still resolves to the
-  // main agent listing, and this is reachable from the nav or its own URL.
-  '/home': 'landing',
-  // The connected wallet's own page (2026-09-25): holdings, and what its
-  // Hyperliquid habits cost, measured. A signed-in visitor arriving at "/" is
-  // sent here; see App.jsx.
-  '/wallet': 'wallet',
-  // The tab is now called Explore. The path is not: /market is
-  // in shared links, in the sitemap, and in the Chrome Web Store listing, and
-  // renaming a path breaks every one of them for nothing. The id stays
-  // 'market' for the same reason, since every `nav === 'market'` check in
-  // both apps reads it.
-  // Renamed to How It Works on 2026-09-18 and moved directly after Home,
-  // because a visitor arriving with no idea what this is had nowhere to start.
-  // /connect still resolves: it is in shared links and in the Chrome Web Store
-  // listing, and a rename that breaks a URL breaks those for nothing.
-  // Order matters here and it is not cosmetic: NAV_TO_PATH below is built with
-  // Object.fromEntries over these pairs, so for two paths sharing one tab id
-  // the LAST one wins. /how-it-works must therefore come second, or the app
-  // keeps navigating to /connect and the new URL is one nothing ever links to.
-  '/connect': 'connect',
-  '/how-it-works': 'connect',
+  '/': 'dashboard',
+  '/stocks': 'stocks',
+  '/vaults': 'vaults',
+  '/my-etfs': 'my-etfs',
+  '/ai': 'ai',
+  // Explore keeps /market, and the id 'market': shared links, the Chrome Web
+  // Store listing and every `nav === 'market'` check read them.
   '/market': 'market',
-  '/skills': 'skills',
-  '/native-agents': 'native',
   '/my-agents': 'my-agents',
-  '/report': 'report',
-  '/learn': 'learn',
-  '/build': 'build',
-  '/sell': 'sell',
-  // Pay.B402 folded into the studio. The old path still resolves so any
-  // link that exists keeps landing somewhere.
-  '/pay-b402': 'studio',
-  '/studio': 'studio',
 };
 
 export const NAV_TO_PATH = Object.fromEntries(Object.entries(MAIN_TAB_PATHS).map(([p, id]) => [id, p]));
+
+// OLD PATHS, AND WHERE THEY LAND NOW.
+//
+// Every one of these was a tab, and each is in someone's bookmarks, in shared
+// links or in the sitemap search engines already hold. A redirect, not a
+// 404, and a replace, so Back does not return to a URL that only bounces.
+// /connect and /how-it-works are also in the Chrome Web Store listing; they
+// go to /ai, which carries the MCP section they used to lead to.
+//
+// Not here, deliberately: /chain/hyperliquid (the extension links to it; it
+// still resolves to Explore while the owner decides), /agent/<id> and
+// /chain-agent/<chain>/<id> (Explore's own agent pages).
+export const REDIRECTS = {
+  '/connect': '/ai',
+  '/how-it-works': '/ai',
+  '/home': '/',
+  '/wallet': '/',
+  '/native-agents': '/',
+  '/studio': '/',
+  '/pay-b402': '/',
+  '/build': '/',
+  '/sell': '/',
+  '/skills': '/',
+  '/report': '/',
+  '/learn': '/',
+};
+
+// STANDALONE ROUTES: pages App.jsx renders outside the app shell. Listed
+// here so that "is this a page we serve" has one answer. /docs/<slug> is
+// matched by prefix below; DocsPage.jsx handles a slug it does not know.
+export const STANDALONE_PATHS = [
+  '/signin', '/status', '/data-sources', '/privacy', '/partners', '/docs',
+  '/canary', '/ecosystem',
+];
+
+// Explore's own addresses, which open the Explore tab: one agent's page
+// (/agent/<id>), one agent on another chain (/chain-agent/<chainId>/<id>) and
+// a chain view by name (/chain/<view>; the extension links to
+// /chain/hyperliquid). The view names are ChainViewTabs.jsx's FALLBACK_TABS.
+const CHAIN_VIEW_IDS = ['hyperliquid', 'bnb', 'ethereum', 'solana', 'arbitrum', 'robinhood', 'monad'];
+// The chains whose agents have a /chain-agent/ page: ChainViewTabs.jsx's
+// CHAIN_TO_VIEW (Arbitrum and Robinhood Chain). Any other chain id there
+// opened Explore's chooser under an address that named nothing.
+const CHAIN_AGENT_CHAIN_IDS = [42161, 4663];
+const EXPLORE_PATTERNS = [
+  /^\/agent\/[^/]+$/,
+  new RegExp(`^/chain-agent/(${CHAIN_AGENT_CHAIN_IDS.join('|')})/[^/]+$`),
+  new RegExp(`^/chain/(${CHAIN_VIEW_IDS.join('|')})$`),
+];
+
+/** Is this an Explore deep link (an agent page or a chain view)? */
+export function isExplorePath(pathname) {
+  return EXPLORE_PATTERNS.some((re) => re.test(pathname));
+}
+
+/** "/stocks/" and "/stocks" are one page. The root keeps its slash. */
+export function stripTrailingSlash(pathname) {
+  const p = pathname.replace(/\/+$/, '');
+  return p || '/';
+}
+
+function isServed(p) {
+  return Object.prototype.hasOwnProperty.call(MAIN_TAB_PATHS, p)
+    || STANDALONE_PATHS.includes(p)
+    || p.startsWith('/docs/')
+    || isExplorePath(p);
+}
+
+/** The path a pathname should be served at: itself, or its redirect target.
+ *  A trailing slash is ignored ("/wallet/" redirects like "/wallet"). */
+export function redirectTarget(pathname) {
+  const p = stripTrailingSlash(pathname);
+  return Object.prototype.hasOwnProperty.call(REDIRECTS, p) ? REDIRECTS[p] : null;
+}
+
+/** Where a pathname is served, and whether the address bar has to change.
+ *
+ *  In order: the trailing slash goes ("/ai/" is "/ai"); an old path takes
+ *  its redirect; a page name typed in capitals ("/Stocks") takes its
+ *  lowercase form, for page names only, since an agent id in a path may be
+ *  case-sensitive; and a path that is none of the site's pages goes to "/",
+ *  the Dashboard.
+ *
+ *  UNKNOWN PATHS GO TO THE DASHBOARD, NOT A NOT-FOUND PAGE. Until 2026-09-25
+ *  any unknown path rendered Explore under its own address, and published
+ *  that junk address as its canonical URL. Now the address itself is
+ *  replaced, so the canonical is always one of the site's real pages and
+ *  Back does not return to a URL that only bounces. */
+export function resolvePath(pathname) {
+  const p = stripTrailingSlash(pathname || '/');
+  const redirected = redirectTarget(p);
+  if (redirected) return { path: redirected, changed: true };
+  if (isServed(p)) return { path: p, changed: p !== pathname };
+  const lower = p.toLowerCase();
+  if (lower !== p && isServed(lower) && !isExplorePath(lower)) return { path: lower, changed: true };
+  return { path: '/', changed: true, unknown: true };
+}
+
+/** The tab a pathname opens. Expects a path already through resolvePath.
+ *  Explore's agent pages and chain views open Explore. So does "/" with the
+ *  original share format, "?agent=<id>", which was written while "/" was
+ *  Explore and is still out in shared links. Anything else opens the
+ *  Dashboard. */
+export function tabForPath(pathname, search = '') {
+  if (pathname === '/' && /[?&]agent=/.test(search)) return 'market';
+  if (Object.prototype.hasOwnProperty.call(MAIN_TAB_PATHS, pathname)) return MAIN_TAB_PATHS[pathname];
+  if (isExplorePath(pathname)) return 'market';
+  return 'dashboard';
+}
