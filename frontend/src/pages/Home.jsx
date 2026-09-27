@@ -85,12 +85,18 @@ export default function Home({ layout = 'web', onNavigate }) {
   const openRow = stocksLive ? (r) => go(`/stocks?q=${encodeURIComponent(r.underlying)}`) : undefined;
   const seeAll = stocksLive ? () => go('/stocks') : undefined;
 
-  // The proof line names only what T2 serves, each part dropped when its
+  // The proof line names only what is served, each part dropped when its
   // field is absent. summary.tokens is issuer-by-chain versions (most with
-  // no pool), so it is never called "equities measured".
+  // no pool), so it is never called "equities measured". A measured cost is
+  // the cost engine's count (summary.cost.versions_with_cost: versions whose
+  // best pool fills a $1,000 buy); without it, T2's versions_with_pool is
+  // only a pool found, and says so.
+  const measuredCost = summary?.cost?.versions_with_cost;
   const proof = summary ? [
     [summary.underlyings, 'stocks and ETFs'],
-    [summary.versions_with_pool, 'tokenized versions with a measured cost'],
+    Number.isFinite(measuredCost)
+      ? [measuredCost, 'tokenized versions with a measured cost']
+      : [summary.versions_with_pool, 'tokenized versions with a pool found'],
     [summary.issuers, 'issuers'],
     [summary.chains, 'chains'],
   ].filter(([n]) => Number.isFinite(n)).map(([n, label]) => [n.toLocaleString('en-US'), label]) : null;
@@ -152,7 +158,7 @@ export default function Home({ layout = 'web', onNavigate }) {
       {(stocks.data || (stocks.error && stocks.ever)) && (
         <section className={mobile ? 'px-4 pb-6' : `${wrap} pb-8`}>
           <div className={mobile ? '' : 'rounded border border-line bg-page p-4'}>
-            <InstrumentList title="Popular tokenized stocks" state={stocks} group={stockGroup} onGroup={setStockGroup} onOpen={openRow} onSeeAll={seeAll} compact={mobile} />
+            <InstrumentList title="Tokenized stocks" state={stocks} group={stockGroup} onGroup={setStockGroup} onOpen={openRow} onSeeAll={seeAll} compact={mobile} />
           </div>
         </section>
       )}

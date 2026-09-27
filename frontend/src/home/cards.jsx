@@ -7,70 +7,110 @@
 // measure. Both apps render these; `compact` tightens them for a phone.
 
 import React, { useMemo, useState } from 'react';
-import { Check, Copy, Pause, Snowflake, Flame, ArrowUpCircle, Globe } from 'lucide-react';
+import { Check, Copy, Pause, Snowflake, Flame, ArrowUpCircle, Globe, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Card, CardTitle, DevTag, GroupChip, SymbolTile, Sparkline, Pills,
   fmtUsd, fmtUsd0, fmtBps, fmtPct, BigMoney,
 } from '../ui/primitives';
 import { hasRows } from '../te/api';
+import {
+  headline, tokensText, bpsText, shareRatioText, depthText, blockText, refGap,
+  stateText, measuredLine, sentence,
+} from '../te/costText';
 
 /* 02 · One stock, many tokens. GET /api/te/underlying/{T}?size=1000
  *
- * Every version renders, in three kinds of row:
- *   filled   the pool fills the whole size: ranked by cost, the cheapest in
- *            green and the dearest in red (only among filled rows);
- *   thin     the pool fills part of it: "Pool too thin for $1,000: its pool
- *            holds $x", unranked;
- *   no pool  no pool found on that chain, unranked.
- * versionRows() is the one list the card draws; pricedCount() is how many
- * of its rows have a cost, which is what a headline may count ("k different
- * bills"): a thin or missing pool has no bill at that size. */
+ * Every version renders, in the engine's order (filled first, then by all-in
+ * price per share). A filled version shows its all-in price per share as the
+ * headline, tokens per $1,000 and cost_bps (labelled) under it, then its
+ * share ratio, the pool's depth and the block. The best (data.best) wears a
+ * crown; a filled version whose share ratio is not read is shown at its
+ * price per token, "not ranked", with the reason. Every other state is named
+ * apart (te/costText.js stateText) with the engine's reason: a partial fill,
+ * a failed quote, a pool too thin, not a venue, not searched, no pool, held.
+ * pricedCount() is how many versions have a cost at this size, which is
+ * what a headline may count ("k different bills"). */
 export function versionRows(data) {
   if (!data || !hasRows(data.versions)) return [];
-  // The kind follows filled_fraction: all of the size, part of it, none.
-  const filled = (v) => Number.isFinite(v.cost_bps) && v.filled_fraction >= 1;
-  const thin = (v) => !filled(v) && Number.isFinite(v.filled_fraction) && v.filled_fraction > 0;
-  const kind = (v) => (filled(v) ? 'filled' : thin(v) ? 'thin' : 'nopool');
-  const order = { filled: 0, thin: 1, nopool: 2 };
-  return data.versions
-    .map((v) => ({ ...v, kind: kind(v) }))
-    .sort((a, b) => order[a.kind] - order[b.kind] || (a.kind === 'filled' ? a.cost_bps - b.cost_bps : 0));
+  return data.versions;
 }
 
-export const pricedCount = (data) => versionRows(data).filter((r) => r.kind === 'filled').length;
+export const pricedCount = (data) => versionRows(data).filter((v) => v.state === 'filled').length;
+
+function VersionFigures({ v, best }) {
+  const h = headline(v);
+  return (
+    <div className="shrink-0 text-right">
+      <div className="flex items-center justify-end gap-1 text-[15px] font-semibold tabular-nums text-fg">
+        {best && <Crown size={13} className="text-pos" aria-hidden="true" />}
+        {h?.value}
+      </div>
+      <div className="text-[11px] text-muted">{h?.unit}</div>
+    </div>
+  );
+}
+
+function VersionDetail({ v, size, best }) {
+  if (v.state !== 'filled') {
+    // The state is named on the row; the engine's reason, which can run to
+    // a paragraph, opens under it.
+    const st = stateText(v, size);
+    return (
+      <div className="mt-1 text-[12px] leading-snug">
+        {st.reason ? (
+          <details>
+            <summary className="cursor-pointer font-semibold text-fg">{st.label}</summary>
+            <p className="mt-1 text-muted break-words">{sentence(st.reason)}</p>
+          </details>
+        ) : <span className="font-semibold text-fg">{st.label}</span>}
+      </div>
+    );
+  }
+  const gap = refGap(v);
+  const parts = [tokensText(v.tokens_per_1000), bpsText(v.cost_bps), shareRatioText(v), depthText(v.pool_usd), blockText(v.block)].filter(Boolean);
+  return (
+    <div className="mt-1 text-[12px] leading-snug text-muted">
+      <span>{parts.join(' · ')}</span>
+      {!v.comparable && <span className="block text-fg">Not ranked: {v.share_ratio_basis || 'share ratio not read'}, so its price per token is not set against other issuers.</span>}
+      {best && <span className="sr-only"> Best at this size.</span>}
+      {gap && <span className="block text-warn">{gap.text}{gap.basis ? ` (${gap.basis})` : ''}.</span>}
+    </div>
+  );
+}
 
 export function VersionsCard({ data, compact = false }) {
   const rows = versionRows(data);
   if (!rows.length) return null;
-  const filled = rows.filter((r) => r.kind === 'filled');
-  const lo = filled[0]?.cost_bps, hi = filled[filled.length - 1]?.cost_bps;
   const size = fmtUsd0(data.size);
+  const bestKey = data.best?.key;
+  const measured = measuredLine(data.computed_at, rows.map((v) => v.us_market_open));
   return (
     <Card>
-      <CardTitle right={<DevTag data={data} />}>{data.name || data.ticker}: cost to buy {size}</CardTitle>
+      <CardTitle right={<DevTag data={data} />}>{data.name || data.ticker}: what {size} buys</CardTitle>
       <ul className="divide-y divide-line">
         {rows.map((v) => (
-          <li key={v.key} className="py-2.5 flex items-center gap-3">
-            <SymbolTile symbol={v.symbol} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-semibold text-fg truncate">{v.symbol}</div>
-              <div className="text-[12px] text-muted truncate">{v.issuer} · {v.chain}</div>
+          <li key={v.key} className="py-2.5">
+            <div className="flex items-start gap-3">
+              <SymbolTile symbol={v.symbol} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-semibold text-fg truncate">{v.symbol}</span>
+                  {!compact && <GroupChip group={v.group} />}
+                </div>
+                <div className="text-[12px] text-muted truncate">{v.issuer} · {v.chain}</div>
+              </div>
+              {v.state === 'filled' && <VersionFigures v={v} best={v.key === bestKey} />}
             </div>
-            {!compact && <GroupChip group={v.group} />}
-            {v.kind === 'filled' ? (
-              <div className={`w-20 shrink-0 text-right tabular-nums text-[14px] ${filled.length > 1 && v.cost_bps === lo ? 'text-pos' : filled.length > 1 && v.cost_bps === hi ? 'text-neg' : 'text-fg'}`}>
-                {fmtBps(v.cost_bps)}
-              </div>
-            ) : (
-              <div className="w-32 shrink-0 text-right text-[11px] leading-snug text-muted">
-                {v.kind === 'thin'
-                  ? (Number.isFinite(v.pool_usd) ? `Pool too thin for ${size}: its pool holds ${fmtUsd0(v.pool_usd)}` : `Pool too thin for ${size}: it fills ${Math.round(v.filled_fraction * 100)}%`)
-                  : `No pool found on ${v.chain}`}
-              </div>
-            )}
+            <div className="pl-12"><VersionDetail v={v} size={data.size} best={v.key === bestKey} /></div>
           </li>
         ))}
       </ul>
+      <p className="mt-3 pt-3 border-t border-line text-[11px] leading-snug text-muted">
+        The crown marks the lowest all-in price per share among versions that fill {size} and whose share ratio is read.
+        Cost in bps is fees and price impact against the pool&apos;s own price, so it does not rank versions.
+        {data.lifi_fee_included ? ' Includes LI.FI’s 0.25% fee.' : ''}
+        {measured ? ` ${measured}` : ''}
+      </p>
     </Card>
   );
 }
@@ -102,16 +142,31 @@ export function ChainsCard({ data }) {
   );
 }
 
-/* 04 · The real cost at your size. GET /api/te/curve/{T} */
+/* 04 · The cost at your size. GET /api/te/curve/{T}
+ *
+ * Per chain, the best ranked version at each stop (the engine's rule) and
+ * its cost_bps, labelled as that. A chain with no figure at a stop says why,
+ * in the engine's words (null_reason: a partial fill, a failed quote, or
+ * filled only by versions whose share ratio is not read). Chains where no
+ * version has a quote at all are listed under the bars, each state named
+ * apart, with the reasons behind a disclosure. */
+const CHAIN_STATE = {
+  no_pool: 'no pool found', not_searched: 'not searched', too_thin: 'pool too thin',
+  not_a_venue: 'not a venue', held: 'held back', failed: 'quote failed', mixed: 'no quotable pool',
+};
+
 export function CostCurveCard({ data }) {
   const stops = data?.stops;
   const [i, setI] = useState(() => (Array.isArray(stops) ? Math.max(0, stops.indexOf(10000)) : 0));
-  if (!data || !hasRows(stops) || !hasRows(data.chains)) return null;
-  const size = stops[Math.min(i, stops.length - 1)];
-  const rows = data.chains
-    .map((c) => ({ ...c, v: c.bps?.[i] }))
+  if (!data || !hasRows(stops) || !(hasRows(data.chains) || hasRows(data.chains_without_pool))) return null;
+  const at = Math.min(i, stops.length - 1);
+  const size = stops[at];
+  const rows = (data.chains || [])
+    .map((c) => ({ ...c, v: c.bps?.[at], why: c.null_reason?.[at], depth: c.pool_usd?.[at], who: c.symbols?.[at] || c.symbol }))
     .sort((a, b) => (a.v == null) - (b.v == null) || (a.v ?? 0) - (b.v ?? 0));
   const max = Math.max(...rows.map((r) => r.v || 0), 1);
+  const without = data.chains_without_pool || [];
+  const measured = measuredLine(data.computed_at);
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
@@ -122,29 +177,48 @@ export function CostCurveCard({ data }) {
         <DevTag data={data} />
       </div>
       <input
-        type="range" min={0} max={stops.length - 1} step={1} value={i}
+        type="range" min={0} max={stops.length - 1} step={1} value={at}
         onChange={(e) => setI(Number(e.target.value))}
         aria-label="Order size" aria-valuetext={fmtUsd0(size)}
         className="w-full mt-4 accent-[rgb(var(--fg))]"
       />
       <ul className="mt-3 space-y-2.5">
         {rows.map((r) => (
-          <li key={`${r.chain}-${r.symbol}`} className="grid grid-cols-[110px_1fr_78px] items-center gap-3 text-[13px]">
+          <li key={`${r.chain}-${r.chain_id}`} className="grid grid-cols-[110px_1fr_78px] items-center gap-x-3 text-[13px]">
             <span className="text-fg truncate">{r.chain}</span>
             {r.v == null
-              ? <span className="text-muted text-[12px] col-span-2">Can&apos;t fill at this size</span>
+              ? <span className="text-muted text-[12px] col-span-2">{sentence(r.why) || 'No figure at this size'}</span>
               : (
                 <>
                   <span className="h-2 rounded-full bg-inset overflow-hidden">
                     <span className="block h-full rounded-full bg-chart" style={{ width: `${(r.v / max) * 100}%` }} />
                   </span>
                   <span className="text-right tabular-nums text-fg">{fmtBps(r.v)}</span>
+                  <span className="col-start-2 col-span-2 text-[11px] text-muted truncate">{[r.who, depthText(r.depth)].filter(Boolean).join(' · ')}</span>
                 </>
               )}
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[11px] text-muted">{data.ticker}, the lowest-cost version on each chain; measured on the pools, not quoted.</p>
+      {without.length > 0 && (
+        <details className="mt-3 pt-3 border-t border-line text-[12px]">
+          <summary className="cursor-pointer text-muted hover:text-fg">
+            {without.map((c) => `${c.chain}: ${CHAIN_STATE[c.state] || c.state}`).join(' · ')}
+          </summary>
+          <ul className="mt-2 space-y-2 text-muted">
+            {without.map((c) => (
+              <li key={c.chain_id}>
+                <span className="text-fg">{c.chain}</span> ({(c.symbols || []).join(', ')}): {(c.reasons || []).map(sentence).join('; ')}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      <p className="mt-3 text-[11px] leading-snug text-muted">
+        {data.ticker}: per chain, the best ranked version at this size, and its cost in bps (fees and price impact against the pool&apos;s own price). Simulated on the pools, not quoted.
+        {data.lifi_fee_included ? ' Includes LI.FI’s 0.25% fee.' : ''}
+        {measured ? ` ${measured}` : ''}
+      </p>
     </Card>
   );
 }
@@ -309,18 +383,88 @@ export function AiCard() {
  *   loading, nothing yet    renders nothing (no frame flashes in);
  *   the first read failed   renders nothing;
  *   a later read failed     the card, titled, with "Couldn't read the list";
- *   the answer has no rows  the card and its filter stay, with "No non-EVM
- *                           version listed" (or EVM, or nothing listed), so
+ *   the answer has no rows  the card and its filter stay, with the engine's
+ *                           group note (or "No EVM version listed"), so
  *                           the visitor can switch back;
  *   a filter changed        the previous rows stay, dimmed and labelled
- *                           "Updating", until the new answer replaces them. */
-function emptyLine(group) {
+ *                           "Updating", until the new answer replaces them.
+ *
+ * Each row is the underlying's best version at the list's size: its all-in
+ * price per share as the headline, tokens per $1,000 under it, then the
+ * cost to buy the size in dollars and in bps (labelled). A price the engine
+ * flags as far from the underlying's reference says so on the row.
+ * Paging follows rows_total and next_offset: `onOffset` draws Previous and
+ * Next (the Stocks page); without it the count reads "6 of 69" beside
+ * See all (the home). The footer carries the order and why (sort_reason),
+ * the underlyings not ranked and why, those with no version that fills,
+ * the 7-day column's absence and why (spark_reason), and when it was
+ * measured. */
+function emptyLine(data, group) {
+  if (data?.group_note) return `${sentence(data.group_note)}.`;
   if (group === 'nonevm') return 'No non-EVM version listed.';
   if (group === 'evm') return 'No EVM version listed.';
   return 'Nothing listed.';
 }
 
-export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll, compact = false }) {
+const NOUN = { stock: ['stock', 'stocks'], etf: ['ETF', 'ETFs'] };
+
+function ListFooter({ data, group }) {
+  const size = fmtUsd0(data.size || 1000);
+  const [one, many] = NOUN[data.type] || ['underlying', 'underlyings'];
+  const nr = data.rows_not_ranked;
+  // rows_not_ranked is counted over every group; under non-EVM, where
+  // nothing is measured, it would name EVM versions, so it is left out.
+  const notRanked = nr && nr.count > 0 && group !== 'nonevm' ? nr : null;
+  const unfilled = Number.isFinite(data.rows_without_filled_version) && data.rows_without_filled_version > 0 && group !== 'nonevm' ? data.rows_without_filled_version : 0;
+  const noSpark = data.rows?.length && data.rows.every((r) => !hasRows(r.spark)) ? data.rows.find((r) => r.spark_reason)?.spark_reason : null;
+  const measured = measuredLine(data.computed_at, (data.rows || []).map((r) => r.best?.us_market_open));
+  const lines = [
+    data.sort_reason ? `Order: ${data.sort_reason}.` : data.sort === 'cost1k' ? `Ordered by cost to buy ${size}.` : null,
+    `Each row is the version with the lowest all-in price per share that fills ${size}. Cost in bps is fees and price impact against the pool's own price.${data.lifi_fee_included ? ' Includes LI.FI’s 0.25% fee.' : ''}`,
+    notRanked ? `Not ranked here: ${notRanked.underlyings.join(', ')}${notRanked.count > notRanked.underlyings.length ? ` and ${notRanked.count - notRanked.underlyings.length} more` : ''}. A version fills ${size}, but none has a read share ratio, so its price per token is not set against other issuers.` : null,
+    unfilled ? `${unfilled.toLocaleString('en-US')} more ${unfilled === 1 ? one : many} have no version that fills ${size}.` : null,
+    noSpark ? `7-day prices: ${noSpark}.` : null,
+    measured,
+  ].filter(Boolean);
+  return (
+    <div className="px-4 py-3 border-t border-line space-y-1 text-[11px] leading-snug text-muted">
+      {lines.map((l) => <p key={l}>{l}</p>)}
+    </div>
+  );
+}
+
+function Pager({ data, onOffset }) {
+  const total = data.rows_total;
+  if (!Number.isFinite(total) || !data.rows?.length) return null;
+  const from = (data.offset || 0) + 1;
+  const to = (data.offset || 0) + data.rows.length;
+  const label = `${from.toLocaleString('en-US')}–${to.toLocaleString('en-US')} of ${total.toLocaleString('en-US')}`;
+  if (!onOffset) return <span className="text-[12px] text-muted tabular-nums">{data.rows.length} of {total.toLocaleString('en-US')}</span>;
+  if (!data.offset && data.next_offset == null) return <span className="text-[12px] text-muted tabular-nums">{total.toLocaleString('en-US')} listed</span>;
+  const prev = data.offset > 0 ? Math.max(0, data.offset - (data.limit || data.rows.length)) : null;
+  const btn = 'h-8 w-8 inline-flex items-center justify-center rounded border border-line-strong text-fg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-inset';
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[12px] text-muted tabular-nums">{label}</span>
+      <button type="button" className={btn} disabled={prev == null} onClick={() => onOffset(prev)} aria-label="Previous page"><ChevronLeft size={15} aria-hidden="true" /></button>
+      <button type="button" className={btn} disabled={data.next_offset == null} onClick={() => onOffset(data.next_offset)} aria-label="Next page"><ChevronRight size={15} aria-hidden="true" /></button>
+    </div>
+  );
+}
+
+function RowPrice({ b }) {
+  const h = headline(b || {});
+  const gap = refGap(b || {});
+  return (
+    <>
+      <div className="text-fg">{h?.value}</div>
+      <div className="text-[11px] text-muted whitespace-nowrap">{tokensText(b?.tokens_per_1000)}</div>
+      {gap && <div className="text-[11px] text-warn" title={gap.basis || undefined}>{gap.text}</div>}
+    </>
+  );
+}
+
+export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll, onOffset, compact = false }) {
   const { data, error, stale, ever } = state || {};
   // "Couldn't read" only after this list has shown rows once (a failed
   // filter change); a first read that fails renders nothing.
@@ -332,8 +476,9 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
         <DevTag data={data} />
         {stale && <span className="text-[11px] text-muted">Updating</span>}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {onGroup && !error && <Pills label="Chain group" value={group} onChange={onGroup} options={[{ id: 'all', label: 'All' }, { id: 'evm', label: 'EVM' }, { id: 'nonevm', label: 'Non-EVM' }]} />}
+        {data && !onOffset && <Pager data={data} />}
         {onSeeAll && <button type="button" onClick={onSeeAll} className="text-[12px] font-semibold text-accent hover:underline">See all</button>}
       </div>
     </div>
@@ -342,8 +487,10 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
     return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">Couldn&apos;t read the list. Try again later.</p></Card>;
   }
   if (!hasRows(data.rows)) {
-    return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">{emptyLine(group)}</p></Card>;
+    return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">{emptyLine(data, group)}</p><ListFooter data={data} group={group} /></Card>;
   }
+  const size = fmtUsd0(data.size || 1000);
+  const spark = data.rows.some((r) => hasRows(r.spark));
   return (
     <Card pad={false} className={stale ? 'opacity-60 transition-opacity' : ''}>
       {head}
@@ -352,10 +499,10 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
           <tr className="text-muted text-left text-[12px]">
             <th className="font-medium px-4 py-2">Instrument</th>
             {!compact && <th className="font-medium py-2">Chain</th>}
-            {!compact && <th className="font-medium py-2 text-right">Price per token</th>}
-            <th className={`font-medium py-2 pr-4 text-right whitespace-nowrap ${compact ? 'w-[112px]' : 'md:pr-0'}`}>{compact ? `Cost at ${fmtUsd0(data.size || 1000)}` : `Cost to buy ${fmtUsd0(data.size || 1000)}`}</th>
-            {!compact && <th className="font-medium py-2 text-right">Versions</th>}
-            {!compact && <th className="font-medium px-4 py-2 text-right">7 days</th>}
+            <th className={`font-medium py-2 text-right ${compact ? 'pr-4 w-[156px]' : ''}`}>Per share, all-in</th>
+            {!compact && <th className="font-medium py-2 pl-4 text-right whitespace-nowrap">Cost to buy {size}</th>}
+            {!compact && <th className={`font-medium py-2 text-right ${spark ? '' : 'pr-4'}`}>Versions</th>}
+            {!compact && spark && <th className="font-medium px-4 py-2 text-right">7 days</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -374,18 +521,24 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
                 </div>
               </td>
               {!compact && <td className="py-2.5"><div className="flex items-center gap-2 text-fg">{r.best?.chain}<GroupChip group={r.best?.group} /></div></td>}
-              {!compact && <td className="py-2.5 text-right tabular-nums text-fg">{fmtUsd(r.best?.paid_per_token)}</td>}
-              <td className={`py-2.5 pr-4 text-right tabular-nums ${compact ? '' : 'md:pr-0'}`}>
-                <div className="text-fg">{fmtUsd(r.best?.cost_usd)}</div>
-                <div className="text-[11px] text-muted">{fmtBps(r.best?.cost_bps)}</div>
+              <td className={`py-2.5 text-right tabular-nums align-top pt-3 ${compact ? 'pr-4' : ''}`}>
+                <RowPrice b={r.best} />
+                {compact && <div className="text-[11px] text-muted">{bpsText(r.best?.cost_bps)}</div>}
               </td>
-              {!compact && <td className="py-2.5 text-right text-muted tabular-nums">{r.versions}</td>}
-              {!compact && <td className="px-4 py-2.5"><div className="flex justify-end"><Sparkline points={r.spark} /></div></td>}
+              {!compact && (
+                <td className="py-2.5 pl-4 text-right tabular-nums align-top pt-3">
+                  <div className="text-fg">{fmtUsd(r.best?.cost_usd)}</div>
+                  <div className="text-[11px] text-muted">{bpsText(r.best?.cost_bps)}</div>
+                </td>
+              )}
+              {!compact && <td className={`py-2.5 text-right text-muted tabular-nums ${spark ? '' : 'pr-4'}`}>{r.versions}</td>}
+              {!compact && spark && <td className="px-4 py-2.5"><div className="flex justify-end"><Sparkline points={r.spark} /></div></td>}
             </tr>
           ))}
         </tbody>
       </table>
-      {data.sort === 'popular' && <p className="px-4 py-3 text-[11px] text-muted border-t border-line">Ordered by 7-day swap volume on the pools we read. Costs are the lowest-cost version, measured on its pool.</p>}
+      {onOffset && <div className="px-4 py-3 border-t border-line flex justify-end"><Pager data={data} onOffset={onOffset} /></div>}
+      <ListFooter data={data} group={group} />
     </Card>
   );
 }

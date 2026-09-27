@@ -18,18 +18,30 @@
 //
 // RESPONSE SHAPES the pages read (fields not listed are ignored):
 //
-//   GET /api/te/summary   (T2)
+//   GET /api/te/summary   (T2, with T3a's cost counts)
 //     { underlyings (stocks and ETFs), versions_listed (issuer-by-chain
-//       tokens), versions_with_pool (versions with a measured cost),
-//       issuers, chains, tokens (= versions; not a count of equities),
-//       computed_at, chain_list: [{ name, group: 'evm'|'nonevm', tokens }] }
+//       tokens), versions_with_pool (a pool FOUND, not a cost), issuers,
+//       chains, tokens (= versions; not a count of equities), computed_at,
+//       chain_list: [{ name, group: 'evm'|'nonevm', tokens }],
+//       cost: { versions_with_cost (best pool fills a $1,000 buy),
+//               versions_measured, by_chain: [...], definition,
+//               computed_at } | { versions_with_cost: null, reason } }
 //   (eligibility and who_may_hold are always { text, url, read_on }: the
 //    issuer's own words, linked and dated, never shown without both.)
-//   GET /api/te/list?type=stock|etf&group=all|evm|nonevm&limit=&sort=
+//   GET /api/te/list?type=stock|etf&group=all|evm|nonevm&limit=&sort=&offset=   (T3a)
 //     { rows: [{ underlying, name, type, versions, eligibility,
-//                best: { key, symbol, issuer, chain, group,
-//                        paid_per_token, cost_usd, cost_bps },
-//                spark: [number] }], sort, size, computed_at }
+//                best: { key, symbol, issuer, chain, group, block,
+//                        computed_at, us_market_open, allin_per_share,
+//                        allin_per_token, tokens_per_1000, share_ratio,
+//                        cost_usd, cost_bps, paid_per_token, pool_usd
+//                        (±2% depth), ref_gap_bps, ref_gap_flag },
+//                spark: [number] | null, spark_reason }],
+//       sort, sort_requested, sort_reason?, size, type, group,
+//       group_note?, computed_at, rows_total, offset, limit, next_offset,
+//       rows_without_filled_version,
+//       rows_not_ranked: { count, underlyings, reason },
+//       underlyings_without_type, lifi_fee_included, method, coverage,
+//       best_rule }
 //   GET /api/te/search?q=   (T2)
 //     { q, computed_at, total_matches?, reason? (e.g. "empty query"),
 //       coverage: { instruments, vaults: string|null, vaults_reason? },
@@ -41,15 +53,30 @@
 //                     group, address, listed, not_listed_reason? }] }],
 //       unlisted_matches?: [{ underlying?, symbol?, name?, issuer?,
 //                             chain?, reason }] }
-//   GET /api/te/underlying/{ticker}?size=1000
-//     { ticker, name, size, computed_at,
-//       versions: [{ key, symbol, issuer, chain, group, cost_usd, cost_bps,
-//                    paid_per_token, filled_fraction, pool_usd, eligibility,
-//                    controls: { pause, freeze, burn, upgrade } }] }
-//   GET /api/te/curve/{ticker}
-//     { ticker, stops: [usd], computed_at,
-//       chains: [{ chain, group, symbol, issuer, bps: [number|null],
-//                  pool_usd: [number|null] }] }
+//   GET /api/te/underlying/{ticker}?size=1000   (T3a)
+//     { ticker, name, type, size, computed_at, best: { key, cost_bps } | null,
+//       best_rule, blocks: [{ chain_id, block }], lifi_fee_included,
+//       method, coverage,
+//       versions: [{ key, symbol, issuer, chain, chain_id, group, block,
+//                    computed_at, us_market_open, share_ratio,
+//                    share_ratio_basis, comparable (ratio read),
+//                    ref_gap_bps, ref_gap_flag, ref_gap_basis,
+//                    state: 'filled'|'partial'|'failed'|'too_thin'|
+//                           'not_a_venue'|'not_searched'|'no_pool'|'held',
+//                    reason (every state but filled),
+//                    allin_per_share, allin_per_token, tokens_per_1000,
+//                    cost_usd, cost_bps, paid_per_token, filled_fraction,
+//                    pool_usd (±2% depth; the fill for a partial),
+//                    eligibility, controls, pool_search? }] }
+//   GET /api/te/curve/{ticker}   (T3a)
+//     { ticker, stops: [usd], computed_at, best_rule, lifi_fee_included,
+//       chains: [{ chain, chain_id, group, symbol, issuer,
+//                  bps: [number|null] (cost_bps of the best ranked
+//                  version), pool_usd: [number|null], keys, symbols,
+//                  null_reason: [string|null], version_states,
+//                  block, computed_at }],
+//       chains_without_pool: [{ chain, chain_id, group, symbols, states,
+//                               state, reasons }] }
 //   GET /api/te/controls?by=issuer
 //     { computed_at, rows: [{ programme, issuer, chains: [string],
 //         pause, freeze, burn, upgrade: { text, state? },

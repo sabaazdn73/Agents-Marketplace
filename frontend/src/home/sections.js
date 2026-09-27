@@ -25,6 +25,6 @@ export const SECTION_LIVE = {
 export const TOUR_VIDEO_URL = import.meta.env.VITE_TOUR_VIDEO_URL || null;
 export const TOUR_POSTER_URL = import.meta.env.VITE_TOUR_POSTER_URL || null;
 
-// The stock the feature sections show. NVDA in production (SPEC §A.1); the
-// dev fixture's made-up FOO when the fixtures are on.
-export const FEATURE_TICKER = DEV_LAYOUT ? 'FOO' : 'NVDA';
+// The stock the feature sections show (SPEC §A.1). NVDA with the fixtures
+// on too: they carry T3a's real NVDA answers.
+export const FEATURE_TICKER = 'NVDA';

@@ -1,8 +1,10 @@
 // te/fixtures.dev.js
 //
-// DEVELOPMENT ONLY. Invented answers in the shapes te/api.js documents, so
-// the pages can be laid out before the backend serves real ones. Nothing
-// here is a measurement. The tickers (FOO, BAR, BAZ, QUX, ...) and every
+// DEVELOPMENT ONLY. Answers in the shapes te/api.js documents. The cost
+// reads (summary, lists, underlying, curve), the vaults and some searches
+// are the backend's REAL answers, sampled (see the imports below). The rest
+// (portfolio, baskets, controls, other searches) is invented, and none of
+// it is a measurement. The tickers (FOO, BAR, BAZ, QUX, ...) and every
 // number are made up and round, and none repeats a figure from the launch
 // film or the references: a fixture that looks like the film would pass for
 // it in a screenshot.
@@ -11,8 +13,8 @@
 // asserts it in the console when the fixtures load:
 //   positions sum to the portfolio total; every allocation tab sums to it;
 //   the change percentage is change / (total - change); qty x price =
-//   value; P/L = value - buy-in; each list row's best cost is the minimum
-//   over that instrument's fully filled versions.
+//   value; P/L = value - buy-in; and the real cost samples agree with
+//   each other (see checkFixtures).
 //
 // Loaded only when import.meta.env.DEV is true and VITE_TE_FIXTURES=1; a
 // production build drops the import, and the build check greps the bundle
@@ -23,18 +25,22 @@ export const FIXTURE_MARKER = 'TNEGA_DEV_FIXTURE_7f3a';
 import T6_VAULTS from './fixtures/t6-vaults.dev.json' with { type: 'json' };
 import T6_KAMINO from './fixtures/t6-vault-kamino.dev.json' with { type: 'json' };
 import T6_VOLTR from './fixtures/t6-vault-voltr.dev.json' with { type: 'json' };
-// T2's real answers (scratchpad/t2_resp__api_te_search_q_*.json and its
-// summary): the search answers are served for the queries they were taken
-// for; the real summary replaces the made-up one when
-// VITE_TE_REAL_SUMMARY=1, for checking the proof line against it (the
-// made-up lists then no longer reconcile with it, so checkFixtures skips the
-// summary checks in that mode).
+// T2's real search answers (scratchpad/t2_resp__api_te_search_q_*.json),
+// served for the queries they were taken for.
 import T2_SEARCH from './fixtures/t2-search.dev.json' with { type: 'json' };
-import T2_SUMMARY from './fixtures/t2-summary.dev.json' with { type: 'json' };
-const REAL_SUMMARY = typeof import.meta.env !== 'undefined' && import.meta.env.VITE_TE_REAL_SUMMARY === '1';
+// T3a's REAL cost answers (branch te-cost, 6a6531d), taken from its own
+// routes served locally over a copy of its cost store: the summary with its
+// cost counts, the stock and ETF lists (All and non-EVM; EVM answers
+// byte-for-byte as All today, every measured version being EVM), NVDA, DIS,
+// INTC and FXI at $1,000 (NVDA also at $10,000) and the NVDA and DIS curves.
+// Same lesson as the vaults: the cost pages are built against what the
+// engine serves. A path not sampled answers 404, as the API would.
+import T3A from './fixtures/t3a-cost.dev.json' with { type: 'json' };
 
 const T = '2026-01-01T12:00:00Z';
 const F = { _fixture: true, _marker: FIXTURE_MARKER, computed_at: T };
+// A real sample, tagged as served from a fixture (the pages' Dev fixture tag).
+const real = (b) => ({ ...b, _fixture: true, _marker: FIXTURE_MARKER });
 
 // Instruments: underlying, name, type, and its versions
 // [symbol, issuer, chain, group, cost_bps at $1,000 | null, filled_fraction, pool_usd].
@@ -81,27 +87,6 @@ function version(u, [symbol, issuer, chain, group, bps, filled, pool]) {
 }
 
 /** The lowest-cost fully filled version, the row's "best". */
-function best(vs) {
-  const full = vs.filter((v) => v.filled_fraction >= 1 && Number.isFinite(v.cost_bps));
-  return full.reduce((a, v) => (a == null || v.cost_bps < a.cost_bps ? v : a), null);
-}
-
-const spark = (seed) => Array.from({ length: 12 }, (_, i) => 100 + ((i * seed) % 5) - 2 + i * (seed % 2 ? 1 : -0.5));
-
-function listRow([u, name, type, raw], i) {
-  const vs = raw.map((r) => version(u, r));
-  const b = best(vs);
-  return {
-    underlying: u, name, type, versions: vs.length, eligibility: ELIG,
-    best: b && { key: b.key, symbol: b.symbol, issuer: b.issuer, chain: b.chain, group: b.group, paid_per_token: b.paid_per_token, cost_usd: b.cost_usd, cost_bps: b.cost_bps },
-    spark: spark(i + 1),
-  };
-}
-
-function groupOf(vs, group) {
-  return group === 'all' ? vs : vs.filter((v) => v.group === group);
-}
-
 // Portfolio: made-up round numbers that reconcile.
 const POSITIONS = [
   // symbol, name, issuer, chain, group, type, qty, price, buy_in
@@ -147,47 +132,6 @@ function portfolio() {
 
 // Every version in the universe, once.
 const ALL_VERSIONS = () => UNIVERSE.flatMap(([u, , , raw]) => raw.map((r) => version(u, r)));
-const CHAIN_GROUP = (chain) => ALL_VERSIONS().find((v) => v.chain === chain)?.group;
-
-/** The summary is counted from UNIVERSE, so it cannot disagree with the
- *  lists: tokens = versions, issuers and chains = the distinct ones. */
-function summary() {
-  const vs = ALL_VERSIONS();
-  const chains = [...new Set(vs.map((v) => v.chain))];
-  const chain_list = chains.map((name) => ({ name, group: CHAIN_GROUP(name), tokens: vs.filter((v) => v.chain === name).length }));
-  const withPool = vs.filter((v) => v.filled_fraction >= 1 && Number.isFinite(v.cost_bps)).length;
-  return { ...F, underlyings: UNIVERSE.length, versions_listed: vs.length, versions_with_pool: withPool, tokens: vs.length, issuers: new Set(vs.map((v) => v.issuer)).size, chains: chains.length, chain_list };
-}
-
-// The slider's stops (SPEC §A.1 #4) and how cost grows with size, a made-up
-// shape. At $1,000 the multiplier is 1, so the curve's $1,000 column is the
-// versions card's cost exactly.
-const STOPS = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000];
-const SHAPE = [1.5, 1.3, 1.1, 1, 1.1, 1.2, 1.3, 1.5, 1.8, 2.2, 3];
-
-/** The largest size a version can take: a thin pool fills filled_fraction
- *  of $1,000; a filled pool takes up to half its depth (made-up rule). */
-const capacity = (v) => (v.filled_fraction >= 1 ? v.pool_usd / 2 : v.filled_fraction > 0 ? v.filled_fraction * 1000 : 0);
-
-/** The curve, per chain: that chain's lowest-cost version at $1,000, with a
- *  cost at every stop it can fill and null beyond. A chain whose versions
- *  have no pool at all is left out, as it is from the cost card. */
-function curve(ticker) {
-  const [u, , , raw] = UNIVERSE.find((x) => x[0] === ticker);
-  const vs = raw.map((r) => version(u, r)).filter((v) => v.filled_fraction > 0);
-  const byChain = {};
-  for (const v of vs) {
-    const cur = byChain[v.chain];
-    const rank = (x) => (x.filled_fraction >= 1 ? x.cost_bps : Infinity);
-    if (!cur || rank(v) < rank(cur)) byChain[v.chain] = v;
-  }
-  const chains = Object.values(byChain).map((v) => ({
-    chain: v.chain, group: v.group, symbol: v.symbol, issuer: v.issuer, filled_fraction: v.filled_fraction,
-    bps: STOPS.map((s, i) => (s <= capacity(v) && Number.isFinite(v.cost_bps) ? Math.round(v.cost_bps * SHAPE[i] * 10) / 10 : null)),
-    pool_usd: STOPS.map(() => v.pool_usd),
-  }));
-  return { ...F, ticker, stops: STOPS, chains };
-}
 
 
 // VAULTS: T6's REAL answers (branch te-vaults, samples rebuilt from its
@@ -239,14 +183,22 @@ function basketDetail(code) {
 }
 
 const answers = {
-  '/api/te/summary': () => (REAL_SUMMARY ? { ...T2_SUMMARY, _fixture: true, _marker: FIXTURE_MARKER } : summary()),
+  '/api/te/summary': () => real(T3A.summary),
   '/api/te/list': (q) => {
+    // One sampled answer per type and group (limit 100 holds every row);
+    // limit and offset page it the way the engine does.
     const type = q.get('type') || 'stock';
     const group = q.get('group') || 'all';
-    const rows = UNIVERSE.filter((u) => u[2] === type)
-      .map(([u, name, t, raw], i) => listRow([u, name, t, raw.filter((r) => group === 'all' || r[3] === group)], i))
-      .filter((r) => r.best);
-    return { ...F, size: 1000, sort: q.get('sort') || 'popular', rows: rows.slice(0, Number(q.get('limit') || 50)) };
+    const base = T3A.list[`${type}:${group === 'evm' ? 'all' : group}`];
+    if (!base) return null;
+    const limit = Number(q.get('limit') || 50);
+    const offset = Number(q.get('offset') || 0);
+    const total = base.rows.length;
+    return real({
+      ...base, group, limit, offset,
+      rows: base.rows.slice(offset, offset + limit),
+      next_offset: offset + limit < total ? offset + limit : null,
+    });
   },
   '/api/te/search': (q) => {
     // T2's real answer when there is one for this query; otherwise a
@@ -269,11 +221,6 @@ const answers = {
     const unlisted_matches = term === 'foo' ? [{ underlying: 'FOOHK', symbol: 'FOOHK', name: 'Foo Corp Hong Kong (dev)', reason: 'Excluded: Hong Kong listing (dev fixture)' }] : [];
     return { ...F, q: term, coverage, results, total_matches: results.length, unlisted_matches };
   },
-  '/api/te/underlying/FOO': () => {
-    const [u, name, , raw] = UNIVERSE[0];
-    return { ...F, ticker: u, name, size: 1000, versions: raw.map((r) => version(u, r)) };
-  },
-  '/api/te/curve/FOO': () => curve('FOO'),
   '/api/te/controls': () => ({
     ...F,
     rows: [
@@ -310,6 +257,10 @@ export function answer(path) {
   if (vd) return vaultDetail(vd[1], vd[2]);
   const bd = p.match(/^\/api\/baskets\/(?!curated$)([a-z0-9]+)$/);
   if (bd) return basketDetail(bd[1]);
+  const ud = p.match(/^\/api\/te\/underlying\/([A-Z0-9.-]+)$/);
+  if (ud) { const b = T3A.underlying[`${ud[1]}:${q.get('size') || 1000}`]; return b ? real(b) : null; }
+  const cd = p.match(/^\/api\/te\/curve\/([A-Z0-9.-]+)$/);
+  if (cd) { const b = T3A.curve[cd[1]]; return b ? real(b) : null; }
   const fn = answers[p];
   return fn ? fn(q) : null;
 }
@@ -333,43 +284,42 @@ export function checkFixtures() {
   ok(near(p.performance.price_gain_usd + p.performance.dividends_usd + p.performance.tx_costs_usd, p.performance.total_return_usd), 'performance rows do not sum to the total return');
   ok(near(sum(p.dividends.by_year.map((y) => y.usd)), p.dividends.received_usd), 'dividend years do not sum to received');
   ok(near(sum(p.dividends.payments.map((y) => y.usd)), p.dividends.received_usd), 'dividend payments do not sum to received');
-  for (const type of ['stock', 'etf']) for (const group of ['all', 'evm', 'nonevm']) {
-    const rows = answer(`/api/te/list?type=${type}&group=${group}`).rows;
-    for (const r of rows) {
-      const u = UNIVERSE.find((x) => x[0] === r.underlying);
-      const b = best(u[3].map((v) => version(r.underlying, v)).filter((v) => group === 'all' || v.group === group));
-      ok(b && b.cost_bps === r.best.cost_bps && b.key === r.best.key, `${type}/${group} ${r.underlying}: best is not the minimum over its versions`);
+  // The cost samples (T3a's real answers) agree with each other: a list
+  // row's best is the underlying page's best at the same size, with the
+  // same figures; a version whose share ratio is not read is never best;
+  // the curve's $1,000 figure on a chain is the cost_bps of the version it
+  // names there; the summary's cost counts add up by chain.
+  for (const type of ['stock', 'etf']) {
+    const l = answer(`/api/te/list?type=${type}&group=all&limit=100`);
+    ok(l.rows_total === l.rows.length, `list ${type}: rows_total != rows at limit 100`);
+    for (const r of l.rows) {
+      ok(r.best && r.best.share_ratio != null, `list ${type} ${r.underlying}: best has no read share ratio`);
+      const u = answer(`/api/te/underlying/${r.underlying}?size=1000`);
+      if (!u) continue;
+      const v = u.versions.find((x) => x.key === r.best.key);
+      ok(u.best?.key === r.best.key, `${r.underlying}: list best != underlying best`);
+      ok(v && v.allin_per_share === r.best.allin_per_share && v.cost_bps === r.best.cost_bps, `${r.underlying}: list figures != underlying figures`);
     }
   }
-  const s = REAL_SUMMARY ? summary() : answer('/api/te/summary');
-  ok(sum(s.chain_list.map((c) => c.tokens)) === s.tokens && s.chain_list.length === s.chains, 'summary counts do not match its chain list');
-  ok(s.underlyings === UNIVERSE.length && s.versions_listed === s.tokens && s.versions_with_pool <= s.versions_listed, 'summary underlyings / versions do not match the universe');
+  for (const key of Object.keys(T3A.underlying)) {
+    const u = T3A.underlying[key];
+    for (const v of u.versions) if (!v.comparable) ok(u.best?.key !== v.key, `${key}: ${v.symbol} is best without a read share ratio`);
+    const c = T3A.curve[u.ticker];
+    if (!c || u.size !== 1000) continue;
+    const i = c.stops.indexOf(1000);
+    for (const ch of c.chains) {
+      if (ch.keys[i] == null) continue;
+      const v = u.versions.find((x) => x.key === ch.keys[i]);
+      ok(v && v.cost_bps === ch.bps[i], `curve ${u.ticker} ${ch.chain} at $1,000 != that version's cost_bps`);
+    }
+  }
+  const s = answer('/api/te/summary');
+  ok(s.cost.versions_with_cost === s.cost.by_chain.reduce((a, c) => a + c.versions_with_cost, 0), 'summary cost: by_chain does not sum to versions_with_cost');
+  ok(s.cost.versions_with_cost <= s.versions_listed, 'summary cost: more versions with a cost than versions listed');
   const vs = ALL_VERSIONS();
-  ok(s.tokens === vs.length, 'summary tokens != versions in the universe');
-  ok(s.issuers === new Set(vs.map((v) => v.issuer)).size, 'summary issuers != issuers in the universe');
-  for (const c of s.chain_list) ok(c.tokens === vs.filter((v) => v.chain === c.name).length, `summary ${c.name} count != its versions`);
   const ctl = answer('/api/te/controls').rows.map((r) => r.issuer);
   for (const i of new Set(vs.map((v) => v.issuer))) ok(ctl.includes(i), `no controls row for issuer ${i}`);
   for (const i of ctl) ok(vs.some((v) => v.issuer === i), `controls row for ${i}, which has no token`);
-  // The curve and the versions card describe the same pools.
-  const und = answer('/api/te/underlying/FOO');
-  const cv = answer('/api/te/curve/FOO');
-  const at1k = cv.stops.indexOf(und.size);
-  ok(at1k >= 0, 'curve has no stop at the versions card size');
-  for (const c of cv.chains) {
-    const onChain = und.versions.filter((v) => v.chain === c.chain);
-    const filled = onChain.filter((v) => v.filled_fraction >= 1 && Number.isFinite(v.cost_bps));
-    const cheapest = filled.reduce((a, v) => (!a || v.cost_bps < a.cost_bps ? v : a), null);
-    if (cheapest) {
-      ok(c.bps[at1k] === cheapest.cost_bps, `curve ${c.chain} at $1,000 != versions card cost`);
-      ok(c.pool_usd[at1k] === cheapest.pool_usd, `curve ${c.chain} pool != versions card pool`);
-    } else {
-      const thin = onChain.find((v) => v.filled_fraction > 0 && v.filled_fraction < 1);
-      ok(thin && c.bps[at1k] === null, `curve ${c.chain} should be unfillable at $1,000, as the versions card is thin`);
-      ok(thin && c.pool_usd[at1k] === thin.pool_usd, `curve ${c.chain} pool != versions card pool (thin)`);
-    }
-  }
-  for (const v of und.versions.filter((x) => !(x.filled_fraction > 0))) ok(!cv.chains.some((c) => c.chain === v.chain && c.symbol === v.symbol), `curve lists ${v.chain}, which has no pool`);
   // Vaults (T6's real answers): each platform's listed count matches its
   // rows; each sampled detail agrees with its list row; every nesting link
   // names a listed vault, both ways, with the same token amount.

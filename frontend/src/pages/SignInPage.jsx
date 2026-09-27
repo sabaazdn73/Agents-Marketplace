@@ -160,7 +160,7 @@ function Showcase({ stocks, versions }) {
     <div className="hidden lg:flex lg:w-3/5 flex-col items-center px-12 pt-[100px] bg-surface border-l border-line text-fg overflow-hidden">
       <HeroLine />
       <div className="mt-16 w-full max-w-[760px] rounded border border-line bg-page p-4 grid grid-cols-12 gap-4">
-        <div className="col-span-7"><InstrumentList title="Popular tokenized stocks" state={stocks} compact /></div>
+        <div className="col-span-7"><InstrumentList title="Tokenized stocks" state={stocks} compact /></div>
         <div className="col-span-5"><VersionsCard data={versions} compact /></div>
       </div>
     </div>

@@ -3,7 +3,8 @@
 // /stocks, Stocks & ETFs. The two live lists from GET /api/te/list, each
 // with the All, EVM and non-EVM filter, and search over GET /api/te/search
 // when the address carries ?q= (the header search and the home search land
-// here). Each list renders only with rows (te/api.js). The instrument page
+// here). Each list renders only with rows (te/api.js) and pages through
+// rows_total, 25 at a time. The instrument page
 // and its buy panel arrive with their data and the buy flow (SPEC T3a, T4a).
 
 import React, { useState } from 'react';
@@ -82,20 +83,29 @@ function SearchResults({ q, data }) {
   );
 }
 
+// Rows per page of each list.
+const PAGE = 25;
+
 export default function Stocks({ layout = 'web', query = '', onNavigate }) {
   const mobile = layout === 'mobile';
   const q = (query || '').trim();
+  // Each list pages on its own: the group and the offset go into the read,
+  // and a new group starts again at the first page.
   const [sg, setSg] = useState('all');
   const [eg, setEg] = useState('all');
+  const [so, setSo] = useState(0);
+  const [eo, setEo] = useState(0);
   const search = useTe(q ? `/api/te/search?q=${encodeURIComponent(q)}` : null).data;
-  const stocks = useTe(`/api/te/list?type=stock&group=${sg}&limit=100&sort=popular`, { keep: true });
-  const etfs = useTe(`/api/te/list?type=etf&group=${eg}&limit=100&sort=popular`, { keep: true });
+  const stocks = useTe(`/api/te/list?type=stock&group=${sg}&limit=${PAGE}&sort=popular&offset=${so}`, { keep: true });
+  const etfs = useTe(`/api/te/list?type=etf&group=${eg}&limit=${PAGE}&sort=popular&offset=${eo}`, { keep: true });
+  const groupS = (g) => { setSg(g); setSo(0); };
+  const groupE = (g) => { setEg(g); setEo(0); };
   const open = (r) => onNavigate?.(`/stocks?q=${encodeURIComponent(r.underlying)}`);
   return (
     <PageFrame layout={layout} title="Stocks & ETFs">
       <SearchResults q={q} data={search} />
-      <InstrumentList title="Tokenized stocks" state={stocks} group={sg} onGroup={setSg} onOpen={open} compact={mobile} />
-      <InstrumentList title="Tokenized ETFs" state={etfs} group={eg} onGroup={setEg} onOpen={open} compact={mobile} />
+      <InstrumentList title="Tokenized stocks" state={stocks} group={sg} onGroup={groupS} onOffset={setSo} onOpen={open} compact={mobile} />
+      <InstrumentList title="Tokenized ETFs" state={etfs} group={eg} onGroup={groupE} onOffset={setEo} onOpen={open} compact={mobile} />
     </PageFrame>
   );
 }
