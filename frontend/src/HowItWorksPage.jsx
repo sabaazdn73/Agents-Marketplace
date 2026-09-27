@@ -204,14 +204,24 @@ function CodeBlock({ text, label }) {
  *  its name rather than three paragraphs down. */
 // The Colosseum progress updates, newest first. One entry per week, each one a
 // standalone deck under frontend/public/weekly/ that is self-contained enough to
-// record from without the site running. Adding week 2 is adding an object here
-// and a file beside week-1.html; nothing below this array needs to change.
+// record from without the site running. A week can instead be a recorded video
+// (`video`, a YouTube link), with no deck and no figures; the card then shows
+// only what the entry carries.
 //
 // `figures` is the short list a reader should be able to carry away. Every one
 // of them is measured, and the date is the date it was measured on, not the date
 // the deck was written, because these move: the pooled rate and the overlap
 // share both changed between the first draft of week 1 and its publication.
 const WEEKLY_UPDATES = [
+  {
+    week: 2,
+    // The owner's recorded report for the second week, on YouTube ("Report2"
+    // on her channel). No deck and no figures are listed for it here: the
+    // video is the report.
+    video: 'https://www.youtube.com/watch?v=UwEE3W5RCFU',
+    title: 'Week 2 report',
+    line: 'The second week\u2019s progress report, recorded as a video.',
+  },
   {
     week: 1,
     href: '/weekly/week-1.html',
@@ -252,9 +262,9 @@ function WeeklyProgress({ compact }) {
         <Pill tone="quiet">Week {WEEKLY_UPDATES[0].week}</Pill>
       </div>
       <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300 mb-4 max-w-[78ch]`}>
-        A short deck each week on what was built and what it measured. Each one states the date
-        its figures were read on, and where a figure could not be measured it is left out rather
-        than estimated.
+        A short report each week on what was built and what it measured, as a deck or a
+        recorded video. A deck states the date its figures were read on, and where a figure could
+        not be measured it is left out rather than estimated.
       </p>
 
       <div className="space-y-3">
@@ -270,13 +280,13 @@ function WeeklyProgress({ compact }) {
               <span className={`font-bold text-gray-900 dark:text-gray-100 ${compact ? 'text-[14px]' : 'text-[15px]'}`}>
                 {u.title}
               </span>
-              <span className="text-[11px] text-gray-400">{u.dates}</span>
+              {u.dates && <span className="text-[11px] text-gray-400">{u.dates}</span>}
             </div>
             <p className={`${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed text-gray-600 dark:text-gray-300 max-w-[80ch]`}>
               {u.line}
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+            {u.figures?.length > 0 && <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
               {u.figures.map(([n, what]) => (
                 <div key={n} className="rounded-xl bg-gray-50 dark:bg-white/5 px-3 py-2.5">
                   <div className={`font-bold tabular-nums text-gray-900 dark:text-gray-100 ${compact ? 'text-[17px]' : 'text-[20px]'}`}>
@@ -285,9 +295,20 @@ function WeeklyProgress({ compact }) {
                   <div className="text-[11px] leading-snug text-gray-500 dark:text-gray-400 mt-0.5">{what}</div>
                 </div>
               ))}
-            </div>
+            </div>}
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-4">
+              {u.video && (
+                <a
+                  href={u.video}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[12px] font-semibold transition-colors"
+                >
+                  Watch the report <ExternalLink size={12} />
+                </a>
+              )}
+              {u.href && (
               <a
                 href={u.href}
                 target="_blank"
@@ -296,6 +317,8 @@ function WeeklyProgress({ compact }) {
               >
                 Open the deck <ExternalLink size={12} />
               </a>
+              )}
+              {u.pdf && (
               <a
                 href={u.pdf}
                 target="_blank"
@@ -304,9 +327,12 @@ function WeeklyProgress({ compact }) {
               >
                 PDF <ExternalLink size={12} />
               </a>
-              <span className="text-[11px] text-gray-400">
-                Figures measured {u.measured}. Arrow keys to move, f for full screen.
-              </span>
+              )}
+              {u.measured && (
+                <span className="text-[11px] text-gray-400">
+                  Figures measured {u.measured}. Arrow keys to move, f for full screen.
+                </span>
+              )}
             </div>
           </div>
         ))}
