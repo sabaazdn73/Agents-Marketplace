@@ -130,10 +130,14 @@ class MongoStore:
                 old[r["_id"]] = await self.c.find_one({"_id": r["_id"]}) or old[r["_id"]]
         new = _merge(old, result)
         ops = [ReplaceOne({"_id": k}, v, upsert=True) for k, v in new.items()
-               if not (k in old and old[k] is v)]
+               if k != "meta" and not (k in old and old[k] is v)]
         ops += [DeleteOne({"_id": k}) for k in old if k not in new]
         if ops:
             await self.c.bulk_write(ops, ordered=False)
+        # The meta document last, on its own: its run stamp is what the web
+        # service's list cache is keyed on, so it must not name a run whose
+        # vault and platform documents are not all written yet.
+        await self.c.replace_one({"_id": "meta"}, new["meta"], upsert=True)
 
     async def rows(self, platform: str | None) -> list[dict]:
         q = {"kind": "vault"}
