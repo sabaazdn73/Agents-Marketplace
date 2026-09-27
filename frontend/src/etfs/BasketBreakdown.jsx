@@ -74,7 +74,7 @@ function LegCost({ l }) {
   return (
     <>
       <span className="text-fg">{fmtBps(l.leg_cost_bps)}</span>
-      {d && <span className="block text-[11px] text-muted" title={`${d.measured ? 'cost_usd_measured' : 'leg_cost_usd'}: ${d.usd}`}>{legDollarText(d.usd)}{d.measured ? ', measured' : ''}</span>}
+      {d && <span className="block text-[11px] text-muted" title={`${d.measured ? 'measured cost' : 'cost for this leg, from the measured size'}: $${d.usd}`}>{legDollarText(d.usd)}{d.measured ? ', measured' : ''}</span>}
       {l.leg_cost_basis && <span className="block text-[11px] text-muted max-w-[220px] ml-auto">{l.leg_cost_basis}</span>}
     </>
   );

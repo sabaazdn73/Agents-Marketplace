@@ -215,6 +215,12 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
   const hasValue = (x) => Number(x) > 0;
   const held = allocations.filter((a) => hasValue(a.value_tokens));
   const emptySlots = allocations.filter((a) => !hasValue(a.value_tokens));
+  // Reconciling with the served assets text ("10 klend reserve(s) in 9
+  // market(s)"), which counts the reserves with a target weight: markets are
+  // counted once each, since one market can hold two of the reserves.
+  const marketsOf = (xs) => new Set(xs.map((a) => a.lending_market).filter(Boolean)).size;
+  const weighted = allocations.filter((a) => Number(a.target_weight) > 0);
+  const weightedEmpty = weighted.filter((a) => !hasValue(a.value_tokens));
   const heldStrat = strategies.filter((x) => hasValue(x.position_tokens));
   const emptyStrat = strategies.filter((x) => !hasValue(x.position_tokens));
   const programs = v.controls?.upgrade?.programs || [];
@@ -271,6 +277,13 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
             <tbody className="divide-y divide-line">{held.map((a) => (
               <tr key={a.reserve}><td className="px-4 py-2 font-mono text-fg">{shortAddr(a.reserve)}</td>{!mobile && <td className="py-2 font-mono text-muted">{shortAddr(a.lending_market)}</td>}{!mobile && <td className="py-2 text-fg">{a.market_owner_text}</td>}<td className="px-4 py-2 text-right tabular-nums text-fg">{Number(a.value_tokens).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
             ))}</tbody></table>
+            <p className="px-4 pt-2 text-[12px] text-fg">
+              {held.length} {held.length === 1 ? 'reserve holds' : 'reserves hold'} something, in {marketsOf(held)} {marketsOf(held) === 1 ? 'market' : 'markets'}.
+              {weighted.length !== held.length && (
+                <> The vault&apos;s own description counts {weighted.length} reserves in {marketsOf(weighted)} markets: the reserves with a target weight.
+                  {weightedEmpty.length > 0 && <> {weightedEmpty.length === 1 ? 'One has' : `${weightedEmpty.length} have`} a weight but {weightedEmpty.length === 1 ? 'holds' : 'hold'} nothing: {weightedEmpty.map((a) => `${shortAddr(a.reserve)} (market ${shortAddr(a.lending_market)})`).join(', ')}.</>}</>
+              )}
+            </p>
             {emptySlots.length > 0 && (
               <p className="px-4 pt-2 text-[12px] text-muted">
                 {emptySlots.length} more with nothing held: {emptySlots.map((a) => `${shortAddr(a.reserve)}${Number(a.target_weight) > 0 ? ' (target weight set)' : ''}`).join(', ')}.

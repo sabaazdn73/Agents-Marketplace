@@ -214,6 +214,11 @@
 //                    payments: [{ date, symbol, step, usd }] } }
 
 import { useEffect, useState } from 'react';
+import { HEADERS_TIMEOUT_KEY } from '../apiRetry';
+
+// The vault list takes 6 to 7 s to its first byte live (2026-09-27), too
+// close to the 8 s default; its readers wait up to 15 s.
+export const VAULT_LIST_HEADERS_MS = 15000;
 
 // A dev server started with TE_API=<origin> reads that backend instead,
 // with the fixtures off (dataLive.js, vite.config.js). Dev only: a build
@@ -233,7 +238,11 @@ async function fixtureFor(path, body) {
  *  why it failed (a non-200 status or a network failure). A non-200 answer
  *  also carries its parsed body, when it has one, as `body`: the baskets
  *  routes explain a 400 in body.reason, and the builder shows it. */
-export async function teRead(path, { method = 'GET', body } = {}) {
+// `signal` cancels the read (a page unmounted or moved to another key); a
+// cancelled read resolves to { aborted: true } and is dropped by useTe.
+// `headersTimeoutMs` gives this endpoint a longer wait for its first byte
+// than apiRetry.js's 8 s default.
+export async function teRead(path, { method = 'GET', body, signal, headersTimeoutMs } = {}) {
   if (USE_FIXTURES) {
     const d = await fixtureFor(path, body);
     // A path the fixtures do not know answers as the API would: not found.
@@ -246,6 +255,8 @@ export async function teRead(path, { method = 'GET', body } = {}) {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
+      signal,
+      ...(headersTimeoutMs ? { [HEADERS_TIMEOUT_KEY]: headersTimeoutMs } : {}),
     });
     if (!r.ok) {
       let errBody = null;
@@ -254,6 +265,7 @@ export async function teRead(path, { method = 'GET', body } = {}) {
     }
     return { data: await r.json() };
   } catch (e) {
+    if (e?.name === 'AbortError' || signal?.aborted) return { aborted: true };
     return { error: e?.message || 'network error' };
   }
 }
@@ -276,20 +288,23 @@ export async function teRead(path, { method = 'GET', body } = {}) {
  *  `ever` is true once this hook has had an answer. A list shows its
  *  "Couldn't read" state only then (a failed filter change), never as the
  *  first thing a visitor sees. */
-export function useTe(path, { method = 'GET', body, keep = false } = {}) {
+export function useTe(path, { method = 'GET', body, keep = false, headersTimeoutMs } = {}) {
   const key = path ? `${method} ${path} ${body ? JSON.stringify(body) : ''}` : null;
   const [state, setState] = useState({ key: null, data: null, error: null, loading: false, heldFrom: null });
   const [ever, setEver] = useState(false);
   useEffect(() => {
     if (!key) { setState({ key: null, data: null, error: null, loading: false, heldFrom: null }); return undefined; }
     let live = true;
+    // Aborted when the component unmounts or the key changes (the page
+    // moved on), so the request and its retries stop.
+    const ctl = new AbortController();
     setState((s) => ({ key, data: keep ? s.data : null, error: null, loading: true, heldFrom: keep && s.data ? s.key : null }));
-    teRead(path, { method, body }).then((r) => {
-      if (!live) return;
+    teRead(path, { method, body, signal: ctl.signal, headersTimeoutMs }).then((r) => {
+      if (!live || r.aborted) return;
       setState({ key, data: r.data ?? null, error: r.error ?? null, errorBody: r.body ?? null, status: r.status ?? null, loading: false, heldFrom: null });
       if (r.data) setEver(true);
     });
-    return () => { live = false; };
+    return () => { live = false; ctl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   if (state.key !== key) {
