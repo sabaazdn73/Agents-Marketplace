@@ -161,7 +161,7 @@ export default function Home({ layout = 'web', onNavigate }) {
       {(stocks.data || (stocks.error && stocks.ever)) && (
         <section className={mobile ? 'px-4 pb-6' : `${wrap} pb-8`}>
           <div className={mobile ? '' : 'rounded border border-line bg-page p-4'}>
-            <InstrumentList title="Tokenized stocks" state={stocks} group={stockGroup} onGroup={setStockGroup} onOpen={openRow} onSeeAll={seeAll} compact={mobile} />
+            <InstrumentList title="Tokenized stocks" state={stocks} group={stockGroup} onGroup={setStockGroup} onOpen={openRow} onSeeAll={seeAll} compact={mobile} universe={summary?.underlyings} />
           </div>
         </section>
       )}
@@ -235,7 +235,7 @@ export default function Home({ layout = 'web', onNavigate }) {
             {(etfs.data?.rows?.length || baskets.data?.baskets?.length || vaults.data?.vaults?.length) ? (
               <h2 className={`${mobile ? 'text-[28px]' : 'text-[40px]'} font-bold tracking-[-0.02em] text-fg`}>Live now</h2>
             ) : null}
-            <InstrumentList title="Tokenized ETFs" state={etfs} group={etfGroup} onGroup={setEtfGroup} onOpen={openRow} onSeeAll={seeAll} compact={mobile} />
+            <InstrumentList title="Tokenized ETFs" state={etfs} group={etfGroup} onGroup={setEtfGroup} onOpen={openRow} onSeeAll={seeAll} compact={mobile} universe={summary?.underlyings} />
             {baskets.data?.baskets?.length > 0 ? (
               <div>
                 <h3 className="text-[15px] font-semibold text-fg mb-3">Curated ETFs</h3>

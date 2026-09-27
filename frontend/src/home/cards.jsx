@@ -429,21 +429,46 @@ function emptyLine(data, group) {
 
 const NOUN = { stock: ['stock', 'stocks'], etf: ['ETF', 'ETFs'] };
 
-function ListFooter({ data, group }) {
+/* WHAT THE COUNTS COUNT, beside the list (backend core/te/cost_views.py
+ * list_view). The list document holds one row per underlying with an EVM
+ * version the cost engine measures; for the list's type and group each
+ * falls in exactly one of three served counts: rows_total (a version fills
+ * the size and is ranked), rows_not_ranked (a version fills, but none has a
+ * read share ratio, so none is ranked) and rows_without_filled_version (no
+ * version fills). None of them is the universe: that is summary.underlyings,
+ * every stock and ETF listed on any chain, named when the page has it. */
+function CountsLine({ data, group, universe }) {
   const size = fmtUsd0(data.size || 1000);
   const [one, many] = NOUN[data.type] || ['underlying', 'underlyings'];
+  const n = (k) => `${k.toLocaleString('en-US')} ${k === 1 ? one : many}`;
   const nr = data.rows_not_ranked;
-  // rows_not_ranked is counted over every group; under non-EVM, where
-  // nothing is measured, it would name EVM versions, so it is left out.
+  // Counted over every group; under non-EVM, where nothing is measured, it
+  // would name EVM versions, so it is left out there.
   const notRanked = nr && nr.count > 0 && group !== 'nonevm' ? nr : null;
-  const unfilled = Number.isFinite(data.rows_without_filled_version) && data.rows_without_filled_version > 0 && group !== 'nonevm' ? data.rows_without_filled_version : 0;
+  const unfilled = Number.isFinite(data.rows_without_filled_version) && group !== 'nonevm' ? data.rows_without_filled_version : null;
+  if (!Number.isFinite(data.rows_total)) return null;
+  return (
+    <div className="px-4 pt-1 text-[12px] leading-snug text-muted space-y-0.5">
+      <p>
+        <span className="text-fg">{n(data.rows_total)} fill {size} and are ranked.</span>
+        {notRanked && <> {notRanked.count} more {notRanked.count === 1 ? 'fills' : 'fill'} but {notRanked.count === 1 ? "isn't" : "aren't"} ranked: {notRanked.count === 1 ? 'its' : 'their'} share ratio isn&apos;t read ({notRanked.underlyings.join(', ')}{notRanked.count > notRanked.underlyings.length ? ` and ${notRanked.count - notRanked.underlyings.length} more` : ''}).</>}
+        {unfilled ? <> {unfilled.toLocaleString('en-US')} more have no version that fills {size}.</> : null}
+      </p>
+      <p>
+        These counts cover only the {many} with an EVM version our cost engine measures
+        {Number.isFinite(universe) ? <>, not the {universe.toLocaleString('en-US')} stocks and ETFs Tnega lists on every chain.</> : '.'}
+      </p>
+    </div>
+  );
+}
+
+function ListFooter({ data, group }) {
+  const size = fmtUsd0(data.size || 1000);
   const noSpark = data.rows?.length && data.rows.every((r) => !hasRows(r.spark)) ? data.rows.find((r) => r.spark_reason)?.spark_reason : null;
   const measured = measuredLine(data.computed_at, (data.rows || []).map((r) => r.best?.us_market_open));
   const lines = [
     data.sort_reason ? `Order: ${data.sort_reason}.` : data.sort === 'cost1k' ? `Ordered by cost to buy ${size}.` : null,
     `Each row is the version with the lowest all-in price per share that fills ${size}. Cost in bps is fees and price impact against the pool's own price.${data.lifi_fee_included ? ' Includes LI.FI’s 0.25% fee.' : ''}`,
-    notRanked ? `Not ranked here: ${notRanked.underlyings.join(', ')}${notRanked.count > notRanked.underlyings.length ? ` and ${notRanked.count - notRanked.underlyings.length} more` : ''}. A version fills ${size}, but none has a read share ratio, so its price per token is not set against other issuers.` : null,
-    unfilled ? `${unfilled.toLocaleString('en-US')} more ${unfilled === 1 ? one : many} have no version that fills ${size}.` : null,
     noSpark ? `7-day prices: ${noSpark}.` : null,
     measured,
   ].filter(Boolean);
@@ -459,20 +484,18 @@ function Pager({ data, onOffset }) {
   if (!Number.isFinite(total) || !data.rows?.length) return null;
   const from = (data.offset || 0) + 1;
   const to = (data.offset || 0) + data.rows.length;
-  // What the total counts, beside it: underlyings with a version that fills
-  // the list's size; those with none are counted apart (served).
+  // The total is rows_total: underlyings with a version that fills the
+  // list's size and is ranked (CountsLine below the heading says the rest).
   const fillsAt = fmtUsd0(data.size || 1000);
-  const none = Number.isFinite(data.rows_without_filled_version) ? data.rows_without_filled_version : null;
-  const label = `${from.toLocaleString('en-US')}–${to.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} that fill ${fillsAt}`;
+  const label = `${from.toLocaleString('en-US')}–${to.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} ranked at ${fillsAt}`;
   if (!onOffset) {
     return (
       <span className="text-[12px] text-muted tabular-nums text-right">
-        {data.rows.length} of {total.toLocaleString('en-US')} that fill {fillsAt}
-        {none ? <span className="block">{none.toLocaleString('en-US')} more fill no version at {fillsAt}</span> : null}
+        {data.rows.length} of {total.toLocaleString('en-US')} ranked at {fillsAt}
       </span>
     );
   }
-  if (!data.offset && data.next_offset == null) return <span className="text-[12px] text-muted tabular-nums">{total.toLocaleString('en-US')} that fill {fillsAt}</span>;
+  if (!data.offset && data.next_offset == null) return <span className="text-[12px] text-muted tabular-nums">{total.toLocaleString('en-US')} ranked at {fillsAt}</span>;
   const prev = data.offset > 0 ? Math.max(0, data.offset - (data.limit || data.rows.length)) : null;
   const btn = 'h-8 w-8 inline-flex items-center justify-center rounded border border-line-strong text-fg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-inset';
   return (
@@ -496,7 +519,7 @@ function RowPrice({ b }) {
   );
 }
 
-export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll, onOffset, compact = false }) {
+export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll, onOffset, compact = false, universe = null }) {
   const { data, error, errorBody, stale } = state || {};
   // A read that failed says so, first read or not (te/ReadError.jsx).
   if (!data && !error) return null;
@@ -518,13 +541,14 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
     return <Card pad={false}>{head}<div className="px-4 py-5"><ReadError bare error={error} body={errorBody} what={`the list of ${title.replace(/^Tokenized /, 'tokenized ')}`} /></div></Card>;
   }
   if (!hasRows(data.rows)) {
-    return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">{emptyLine(data, group)}</p><ListFooter data={data} group={group} /></Card>;
+    return <Card pad={false}>{head}<CountsLine data={data} group={group} universe={universe} /><p className="px-4 py-5 text-[13px] text-muted">{emptyLine(data, group)}</p><ListFooter data={data} group={group} /></Card>;
   }
   const size = fmtUsd0(data.size || 1000);
   const spark = data.rows.some((r) => hasRows(r.spark));
   return (
     <Card pad={false} className={stale ? 'opacity-60 transition-opacity' : ''}>
       {head}
+      <CountsLine data={data} group={group} universe={universe} />
       <table className={`w-full mt-2 text-[13px] ${compact ? 'table-fixed' : ''}`}>
         <thead>
           <tr className="text-muted text-left text-[12px]">

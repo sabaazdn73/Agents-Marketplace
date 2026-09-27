@@ -112,6 +112,8 @@ function StockList({ layout, query, onNavigate }) {
   const [eo, setEo] = useState(0);
   const searchRead = useTe(q ? `/api/te/search?q=${encodeURIComponent(q)}` : null);
   const search = searchRead.data;
+  // The universe count the lists' counts are set against (CountsLine).
+  const summary = useTe('/api/te/summary').data;
   const stocks = useTe(`/api/te/list?type=stock&group=${sg}&limit=${PAGE}&sort=popular&offset=${so}`, { keep: true });
   const etfs = useTe(`/api/te/list?type=etf&group=${eg}&limit=${PAGE}&sort=popular&offset=${eo}`, { keep: true });
   const groupS = (g) => { setSg(g); setSo(0); };
@@ -121,8 +123,8 @@ function StockList({ layout, query, onNavigate }) {
     <PageFrame layout={layout} title="Stocks & ETFs">
       {q && !search && searchRead.error && <ReadError error={searchRead.error} body={searchRead.errorBody} what={`the results for "${q}"`} />}
       <SearchResults q={q} data={search} onNavigate={onNavigate} />
-      <InstrumentList title="Tokenized stocks" state={stocks} group={sg} onGroup={groupS} onOffset={setSo} onOpen={open} compact={mobile} />
-      <InstrumentList title="Tokenized ETFs" state={etfs} group={eg} onGroup={groupE} onOffset={setEo} onOpen={open} compact={mobile} />
+      <InstrumentList title="Tokenized stocks" state={stocks} group={sg} onGroup={groupS} onOffset={setSo} onOpen={open} compact={mobile} universe={summary?.underlyings} />
+      <InstrumentList title="Tokenized ETFs" state={etfs} group={eg} onGroup={groupE} onOffset={setEo} onOpen={open} compact={mobile} universe={summary?.underlyings} />
     </PageFrame>
   );
 }
