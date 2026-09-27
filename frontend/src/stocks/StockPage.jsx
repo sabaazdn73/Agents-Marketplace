@@ -24,7 +24,7 @@ import { Card, CardTitle, DevTag, GroupChip, SymbolTile, fmtUsd0 } from '../ui/p
 import SizeStrip from '../ui/SizeStrip';
 import { Breadcrumb } from '../ui/detail';
 import {
-  headline, tokensText, bpsText, depthText, blockText, refGap, stateText, measuredLine, sentence, shareRatioText,
+  headline, tokensText, tiedWithBest, tieLine, priceText4, bpsText, depthText, blockText, refGap, stateText, measuredLine, sentence, shareRatioText,
 } from '../te/costText';
 import { updatePageMeta } from '../seoMeta';
 import { isBuyChain, addressUrl, parseKey } from '../trade/chains';
@@ -58,18 +58,28 @@ function writeQuery(v, usd) {
   } catch { /* not fatal */ }
 }
 
-function Figures({ v, best }) {
+// The crown is the served best (data.best), which is also the version the
+// page opens on. When another version rounds to the same cent, both show
+// four decimals, so the reader can see which is lower, and the crowned one
+// says what it is ranked by.
+function Figures({ v, best, tied }) {
   const h = headline(v);
   if (!h) return null;
   return (
     <>
       <div className="flex items-center justify-end gap-1 text-fg font-semibold">
         {best && <Crown size={13} className="text-pos" aria-label="Lowest all-in price per share at this size" />}
-        {h.value}
+        {tied ? priceText4(v.allin_per_share) : h.value}
       </div>
       <div className="text-[11px] text-muted whitespace-nowrap">{h.unit}</div>
+      {best && <div className="text-[11px] text-pos whitespace-nowrap">lowest per share{tied ? ', tied to the cent' : ''}</div>}
     </>
   );
+}
+
+function TieNote({ data, size }) {
+  const line = tieLine(tiedWithBest(data.versions, data.best?.key), size);
+  return line ? <p className="px-4 pt-2 text-[12px] text-fg">{line}</p> : null;
 }
 
 function StateCell({ v, size }) {
@@ -101,12 +111,14 @@ const buyable = (v) => BUY_LIVE && v.group === 'evm' && isBuyChain(v.chain_id) &
 
 function VersionsTable({ data, size, selected, onSelect }) {
   const bestKey = data.best?.key;
+  const tied = new Set(tiedWithBest(data.versions, bestKey).map((x) => x.key));
   return (
     <Card pad={false} className="overflow-x-auto">
       <div className="px-4 pt-4 flex items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-fg">Every version at {fmtUsd0(size)}</h2>
         <DevTag data={data} />
       </div>
+      <TieNote data={data} size={size} />
       <table className="w-full mt-2 text-[13px] min-w-[900px]">
         <thead>
           <tr className="text-muted text-left text-[12px]">
@@ -135,7 +147,7 @@ function VersionsTable({ data, size, selected, onSelect }) {
                   </div>
                 </td>
                 <td className="py-2.5"><div className="flex items-center gap-2 text-fg whitespace-nowrap">{v.chain}<GroupChip group={v.group} /></div></td>
-                <td className="py-2.5 text-right tabular-nums align-top pt-3">{v.state === 'filled' && <Figures v={v} best={v.key === bestKey} />}</td>
+                <td className="py-2.5 text-right tabular-nums align-top pt-3">{v.state === 'filled' && <Figures v={v} best={v.key === bestKey} tied={tied.has(v.key)} />}</td>
                 <td className="py-2.5 pl-4 text-right tabular-nums text-fg">{v.state === 'filled' && typeof v.tokens_per_1000 === 'number' ? v.tokens_per_1000.toFixed(4) : ''}</td>
                 <td className="py-2.5 pl-4 text-right tabular-nums text-muted">{v.state === 'filled' ? bpsText(v.cost_bps) : ''}</td>
                 <td className="py-2.5 pl-4 text-right tabular-nums text-muted">{typeof v.pool_usd === 'number' ? fmtUsd0(v.pool_usd) : ''}</td>
@@ -158,12 +170,14 @@ function VersionsTable({ data, size, selected, onSelect }) {
 
 function VersionCards({ data, size, selected, onSelect }) {
   const bestKey = data.best?.key;
+  const tied = new Set(tiedWithBest(data.versions, bestKey).map((x) => x.key));
   return (
     <Card pad={false}>
       <div className="px-4 pt-4 flex items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-fg">Every version at {fmtUsd0(size)}</h2>
         <DevTag data={data} />
       </div>
+      <TieNote data={data} size={size} />
       <ul className="mt-2 divide-y divide-line">
         {data.versions.map((v) => {
           const on = v.key === selected;
@@ -176,7 +190,7 @@ function VersionCards({ data, size, selected, onSelect }) {
                   <div className="text-[14px] font-semibold text-fg">{v.symbol}</div>
                   <div className="text-[12px] text-muted flex items-center gap-1.5 flex-wrap">{v.issuer_name || v.issuer} · {v.chain}<GroupChip group={v.group} /></div>
                 </div>
-                <div className="text-right tabular-nums text-[14px]">{v.state === 'filled' && <Figures v={v} best={v.key === bestKey} />}</div>
+                <div className="text-right tabular-nums text-[14px]">{v.state === 'filled' && <Figures v={v} best={v.key === bestKey} tied={tied.has(v.key)} />}</div>
               </div>
               <div className="pl-12 mt-1">
                 {parts.length > 0 && <div className="text-[12px] text-muted">{parts.join(' · ')}</div>}

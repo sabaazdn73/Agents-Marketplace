@@ -102,3 +102,29 @@ export function measuredLine(computedAt, marketValues = []) {
 
 /** The first letter up, for a reason quoted as a sentence. */
 export const sentence = (s) => (typeof s === 'string' && s ? s[0].toUpperCase() + s.slice(1) : s);
+
+/** Versions whose all-in price per share rounds to the same cent as the
+ *  best version's: the engine still ranks them (by the unrounded figure),
+ *  so a page shows them to four decimals and says they are tied at this
+ *  size. Returns [] when the best stands alone. Only filled versions with
+ *  a read share ratio are compared, as the engine compares them. */
+export function tiedWithBest(versions, bestKey) {
+  const ok = (v) => v && v.state === 'filled' && v.comparable !== false && num(v.allin_per_share);
+  const best = (versions || []).find((v) => v.key === bestKey);
+  if (!ok(best)) return [];
+  const cent = (x) => Math.round(x * 100);
+  const tied = versions.filter((v) => v.key !== bestKey && ok(v) && cent(v.allin_per_share) === cent(best.allin_per_share));
+  return tied.length ? [best, ...tied] : [];
+}
+
+/** "$225.8798": four decimals, for figures that are tied to the cent. */
+export const priceText4 = (v) => (num(v) ? `$${v.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}` : null);
+
+/** One sentence naming the tie and the ranking basis. */
+export function tieLine(tied, size) {
+  if (!tied || tied.length < 2) return null;
+  const [best, ...rest] = tied;
+  const at = num(size) ? `$${size.toLocaleString('en-US')}` : 'this size';
+  const bps = (v) => (num(v.cost_bps) ? `${v.cost_bps.toFixed(1)} bps` : 'n/a');
+  return `Tied to the cent at ${at}: ${[best, ...rest].map((v) => `${v.symbol} on ${v.chain} ${priceText4(v.allin_per_share)}`).join(', ')} per share, all-in. The engine ranks by all-in price per share, so ${best.symbol} on ${best.chain} is first. The cost in bps (${[best, ...rest].map((v) => `${v.symbol} ${bps(v)}`).join(', ')}) is measured against each pool's own price and does not rank versions.`;
+}

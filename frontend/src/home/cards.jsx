@@ -16,7 +16,7 @@ import { hasRows } from '../te/api';
 import { capText } from '../etfs/BasketBreakdown';
 import {
   headline, tokensText, bpsText, shareRatioText, depthText, blockText, refGap,
-  stateText, measuredLine, sentence,
+  stateText, measuredLine, sentence, tiedWithBest, tieLine, priceText4,
 } from '../te/costText';
 
 /* 02 · One stock, many tokens. GET /api/te/underlying/{T}?size=1000
@@ -38,15 +38,16 @@ export function versionRows(data) {
 
 export const pricedCount = (data) => versionRows(data).filter((v) => v.state === 'filled').length;
 
-function VersionFigures({ v, best }) {
+function VersionFigures({ v, best, tied }) {
   const h = headline(v);
   return (
     <div className="shrink-0 text-right">
       <div className="flex items-center justify-end gap-1 text-[15px] font-semibold tabular-nums text-fg">
         {best && <Crown size={13} className="text-pos" aria-hidden="true" />}
-        {h?.value}
+        {tied ? priceText4(v.allin_per_share) : h?.value}
       </div>
       <div className="text-[11px] text-muted">{h?.unit}</div>
+      {best && <div className="text-[11px] text-pos">lowest per share{tied ? ', tied to the cent' : ''}</div>}
     </div>
   );
 }
@@ -84,10 +85,13 @@ export function VersionsCard({ data, compact = false }) {
   if (!rows.length) return null;
   const size = fmtUsd0(data.size);
   const bestKey = data.best?.key;
+  const tiedList = tiedWithBest(rows, bestKey);
+  const tied = new Set(tiedList.map((x) => x.key));
   const measured = measuredLine(data.computed_at, rows.map((v) => v.us_market_open));
   return (
     <Card>
       <CardTitle right={<DevTag data={data} />}>{data.name || data.ticker}: what {size} buys</CardTitle>
+      {tieLine(tiedList, data.size) && <p className="mb-2 text-[12px] text-fg">{tieLine(tiedList, data.size)}</p>}
       <ul className="divide-y divide-line">
         {rows.map((v) => (
           <li key={v.key} className="py-2.5">
@@ -100,7 +104,7 @@ export function VersionsCard({ data, compact = false }) {
                 </div>
                 <div className="text-[12px] text-muted truncate">{v.issuer} · {v.chain}</div>
               </div>
-              {v.state === 'filled' && <VersionFigures v={v} best={v.key === bestKey} />}
+              {v.state === 'filled' && <VersionFigures v={v} best={v.key === bestKey} tied={tied.has(v.key)} />}
             </div>
             <div className="pl-12"><VersionDetail v={v} size={data.size} best={v.key === bestKey} /></div>
           </li>
