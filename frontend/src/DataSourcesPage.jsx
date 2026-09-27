@@ -157,7 +157,7 @@ function LogoCredits() {
             <li key={t}>
               <span className="font-semibold">{t}</span>{' '}
               <a href={x.page} target="_blank" rel="noreferrer" className="text-accent hover:underline">{x.file}</a>
-              <span className="text-muted"> · {x.licence}{x.author ? ` · ${x.author}` : ''}{x.restrictions ? ` · ${x.restrictions}` : ''}</span>
+              <span className="text-muted"> · {x.licence}{x.author ? ` · ${x.author}` : ''}{x.restrictions ? ` · ${x.restrictions}` : ''}{x.note ? ` · ${x.note}` : ''}</span>
             </li>
           ))}
         </ul>
@@ -165,6 +165,9 @@ function LogoCredits() {
       <details className="mt-3 bg-surface rounded-2xl border border-line p-4 text-[12px]">
         <summary className="cursor-pointer font-semibold">xStocks token images</summary>
         <p className="mt-3 text-muted">{v.map(([sym]) => sym).join(', ')}</p>
+        {/* One licence line for all of them: the served entries carry the
+            same words (sources.json), stated once here. */}
+        {[...new Set(v.map(([, x]) => x.licence).filter(Boolean))].map((l) => <p key={l} className="mt-2 text-muted">Licence: {l}.</p>)}
       </details>
     </section>
   );

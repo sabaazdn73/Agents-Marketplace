@@ -51,6 +51,26 @@ PUBLIC = ROOT / "public" / "logos"
 INDEX = ROOT / "src" / "te" / "logos.json"
 UA = "tnega-logo-cache/1.0 (https://www.tnega.app)"
 SIZE = 96
+# A company's current mark where Wikidata's P154 still names an older one:
+# MicroStrategy became Strategy in 2025; Commons has the new mark, public
+# domain (checked 2026-09-27), while P154 points at the old GIF.
+PREFERRED = {"MSTR": "Strategy logo (2025).svg"}
+
+# The xStocks token images carry no licence from their source: the public
+# asset list states none. They are shown under the owner's proof-of-concept
+# decision (docs/deferred.md, entry 15), and each entry says so.
+XSTOCKS_LICENCE = ("none stated by the source (api.xstocks.fi's public asset list gives no licence); "
+                   "shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, "
+                   "until written permission before commercial use")
+
+
+def note_for(info):
+    """What a reader should know about a file beyond its licence."""
+    if "coreui" in (info.get("file") or "").lower():
+        return "a CoreUI icon-set drawing of the company's mark (CoreUI Icons v1.0.0), not the company's own file"
+    return ""
+
+
 FREE = ("public domain", "pd", "cc0", "cc by", "cc-by", "apache", "mit", "gfdl", "attribution")
 
 
@@ -184,20 +204,22 @@ def main():
         try:
             (PUBLIC / "v" / f"{sym}.webp").write_bytes(render(get(x["logo"], binary=True)))
             sources["versions"][sym] = {"source": "xStocks (issuer)", "url": x["logo"],
-                                        "list": "https://api.xstocks.fi/api/v2/public/assets"}
+                                        "list": "https://api.xstocks.fi/api/v2/public/assets",
+                                        "licence": XSTOCKS_LICENCE}
         except Exception as e:  # noqa: BLE001  a logo that fails is left out, not guessed
             print(f"  xStocks {sym}: {type(e).__name__}")
     print(f"{len(sources['versions'])} xStocks token images")
 
     wd = wikidata_logos(tickers)
     for t in tickers:
-        for f in pick(wd.get(t, [])):
+        for f in ([PREFERRED[t]] if t in PREFERRED else []) + pick(wd.get(t, [])):
             try:
                 info = commons_info(f)
                 if not info or not any(k in info["licence"].lower() for k in FREE):
                     continue
                 (PUBLIC / f"{t}.webp").write_bytes(render(get(info["thumb"], binary=True)))
-                sources["underlyings"][t] = {"source": "Wikimedia Commons (via Wikidata P154)", **{k: v for k, v in info.items() if k != "thumb"}}
+                src = "Wikimedia Commons (the company's current mark)" if f == PREFERRED.get(t) else "Wikimedia Commons (via Wikidata P154)"
+                sources["underlyings"][t] = {"source": src, **{k: v for k, v in info.items() if k != "thumb"}, "note": note_for(info)}
                 break
             except Exception as e:  # noqa: BLE001
                 print(f"  {t} {f}: {type(e).__name__}")

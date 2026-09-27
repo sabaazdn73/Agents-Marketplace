@@ -9,7 +9,8 @@
    "licence_url": "",
    "author": "Original:  Rob Janoff",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "AMC": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -19,7 +20,8 @@
    "licence_url": "",
    "author": "AMC Theatres",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "AMD": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -29,7 +31,8 @@
    "licence_url": "",
    "author": "Advanced Micro Devices, Inc.",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "AMZN": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -39,7 +42,8 @@
    "licence_url": "",
    "author": "Amazon.com, Inc., Koto, and NaN (typeface creator)",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "ASML": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -49,7 +53,8 @@
    "licence_url": "",
    "author": "ASML Holding",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "AVGO": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -59,7 +64,8 @@
    "licence_url": "",
    "author": "Unknown authorUnknown author",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "BA": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -69,7 +75,8 @@
    "licence_url": "",
    "author": "Boeing, Richard Burch Eiber",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "BABA": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -79,7 +86,8 @@
    "licence_url": "",
    "author": "Alibaba Group Holding Limited",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "BB": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -89,7 +97,8 @@
    "licence_url": "",
    "author": "Research In Motion",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "BE": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -99,7 +108,8 @@
    "licence_url": "",
    "author": "Unknown authorUnknown author",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "COIN": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -109,7 +119,8 @@
    "licence_url": "",
    "author": "Coinbase",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "COST": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -119,7 +130,8 @@
    "licence_url": "",
    "author": "Costco Wholesale",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "CRM": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -129,7 +141,8 @@
    "licence_url": "",
    "author": "™/®Salesforce.com",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "DIS": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -139,7 +152,8 @@
    "licence_url": "",
    "author": "\nFirst file vector graphics logo by TutterMouse",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "DJT": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -149,7 +163,8 @@
    "licence_url": "",
    "author": "Trump Media &amp; Technology Group",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "F": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -159,7 +174,8 @@
    "licence_url": "",
    "author": "Ford Motor Company",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "FIG": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -169,7 +185,8 @@
    "licence_url": "",
    "author": "Figma",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "GME": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -179,7 +196,8 @@
    "licence_url": "",
    "author": "McGarrah Jessee",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "GOOGL": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -189,7 +207,8 @@
    "licence_url": "",
    "author": "{{Lejonta Jones is Owner]|original|Alphabet Inc.}}",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "HOOD": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -199,7 +218,8 @@
    "licence_url": "",
    "author": "",
    "restrictions": "",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "IBM": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -209,7 +229,8 @@
    "licence_url": "",
    "author": "Paul Rand",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "INTC": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -219,7 +240,8 @@
    "licence_url": "",
    "author": "Intel",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "JNJ": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -229,7 +251,8 @@
    "licence_url": "",
    "author": "Johnson &amp; Johnson Services, Inc.",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "LLY": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -239,7 +262,8 @@
    "licence_url": "",
    "author": "Eli Lilly and Company, converted to PNG by Huwmanbeing",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "LMT": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -249,7 +273,8 @@
    "licence_url": "",
    "author": "Lockheed Martin",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "LULU": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -259,7 +284,8 @@
    "licence_url": "",
    "author": "Lululemon Athletica.\nThe original uploader was Esrever at English Wikipedia..\n\nLater version(s) were uploaded by KarimKoueider at en.wikipedia.",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "META": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -269,7 +295,8 @@
    "licence_url": "",
    "author": "Meta Platforms",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "MRNA": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -279,7 +306,8 @@
    "licence_url": "",
    "author": "Moderna",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "MSFT": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -289,17 +317,19 @@
    "licence_url": "",
    "author": "Ariesk47 \n\nOriginal:  Microsoft",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "MSTR": {
-   "source": "Wikimedia Commons (via Wikidata P154)",
-   "file": "Microstrategy-logo.gif",
-   "page": "https://commons.wikimedia.org/wiki/File:Microstrategy-logo.gif",
+   "source": "Wikimedia Commons (the company's current mark)",
+   "file": "Strategy logo (2025).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Strategy_logo_(2025).svg",
    "licence": "Public domain",
    "licence_url": "",
-   "author": "MicroStrategy",
+   "author": "Strategy",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "MU": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -309,7 +339,8 @@
    "licence_url": "",
    "author": "Micron Technology, Inc.",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "NET": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -319,7 +350,8 @@
    "licence_url": "",
    "author": "Cloudflare",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "NFLX": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -329,7 +361,8 @@
    "licence_url": "",
    "author": "Netflix",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "NOK": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -339,7 +372,8 @@
    "licence_url": "",
    "author": "Lippincott Studio, per source",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "NU": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -349,7 +383,8 @@
    "licence_url": "",
    "author": "Nubank",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "NVDA": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -359,7 +394,8 @@
    "licence_url": "http://www.apache.org/licenses/LICENSE-2.0",
    "author": "Nvidia",
    "restrictions": "trademarked",
-   "attribution_required": true
+   "attribution_required": true,
+   "note": ""
   },
   "ON": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -369,7 +405,8 @@
    "licence_url": "",
    "author": "onsemi",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "ORCL": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -379,7 +416,8 @@
    "licence_url": "",
    "author": "Oracle Corporation",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "PFE": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -389,7 +427,8 @@
    "licence_url": "",
    "author": "Pfizer, Team",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "PLTR": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -399,7 +438,8 @@
    "licence_url": "https://creativecommons.org/licenses/by/4.0",
    "author": "CoreUI",
    "restrictions": "",
-   "attribution_required": true
+   "attribution_required": true,
+   "note": "a CoreUI icon-set drawing of the company's mark (CoreUI Icons v1.0.0), not the company's own file"
   },
   "QCOM": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -409,7 +449,8 @@
    "licence_url": "",
    "author": "Original:  Qualcomm",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "RIVN": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -419,7 +460,8 @@
    "licence_url": "",
    "author": "Rivian, LLC",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "SHOP": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -429,7 +471,8 @@
    "licence_url": "",
    "author": "[[:w:|]]",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "SNAP": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -439,7 +482,8 @@
    "licence_url": "",
    "author": "Snap Inc.",
    "restrictions": "",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "SNDK": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -449,7 +493,8 @@
    "licence_url": "",
    "author": "Sandisk",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "SNOW": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -459,7 +504,8 @@
    "licence_url": "",
    "author": "Snowflake",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "SPCX": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -469,7 +515,8 @@
    "licence_url": "",
    "author": "SpaceX",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "TSLA": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -479,7 +526,8 @@
    "licence_url": "",
    "author": "Tesla (logo), Fry1989 eh? (vectorization)",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "TSM": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -489,7 +537,8 @@
    "licence_url": "",
    "author": "Taiwan Semiconductor Manufacturing Company Limited",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "TTWO": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -499,7 +548,8 @@
    "licence_url": "",
    "author": "Take-Two Interactive",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "UPS": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -509,7 +559,8 @@
    "licence_url": "",
    "author": "United Parcel Service (UPS)",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   },
   "XOM": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -519,354 +570,424 @@
    "licence_url": "",
    "author": "The original uploader was KUsam at English Wikipedia.",
    "restrictions": "trademarked",
-   "attribution_required": false
+   "attribution_required": false,
+   "note": ""
   }
  },
  "versions": {
   "AAPLx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/AAPLx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "AMDx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/AMDx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "AMZNx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/AMZNx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "ASMLx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/ASMLx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "AVGOx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/AVGOx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "BAx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/BAx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "BEx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/BEx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "BMNRx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/BMNRx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "CEGx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/CEGx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "COINx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/COINx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "CRCLx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/CRCLx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "CRMx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/CRMx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "CRWVx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/CRWVx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "DDOGx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/DDOGx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "DELLx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/DELLx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "DISx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/DISx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "DJTx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/DJTx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "FLNCx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/FLNCx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "Fx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/Fx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "GLDx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/GLDx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "GLXYx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/GLXYx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "GMEx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/GMEx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "GOOGLx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/GOOGLx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "HIMSx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/HIMSx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "HOODx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/HOODx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "IBMx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/IBMx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "INTCx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/INTCx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "JNJx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/JNJx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "LLYx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/LLYx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "LMTx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/LMTx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "LULUx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/LULUx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "METAx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/METAx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "MRNAx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/MRNAx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "MSFTx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/MSFTx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "MSTRx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/MSTRx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "MUx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/MUx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "NBISx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/NBISx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "NETx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/NETx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "NFLXx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/NFLXx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "NVDAx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/NVDAx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "ONx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/ONx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "ORCLx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/ORCLx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "PFEx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/PFEx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "PLTRx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/PLTRx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "QCOMx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/QCOMx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "QQQx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/QQQx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "QUBTx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/QUBTx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "RBLXx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/RBLXx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "RCATx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/RCATx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "RDDTx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/RDDTx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "RIVNx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/RIVNx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SGOVx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SGOVx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SKHYx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SKHYx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SLVx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SLVx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SNDKx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SNDKx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SNOWx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SNOWx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SOXXx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SOXXx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SPCXx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SPCXx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "SPYx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/SPYx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "STRCx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/STRCx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "TQQQx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/TQQQx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "TSLAx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/TSLAx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "TSMx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/TSMx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "TTWOx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/TTWOx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "UPSx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/UPSx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "USARx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/USARx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "VTIx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/VTIx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "WYFIx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/WYFIx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   },
   "XOMx": {
    "source": "xStocks (issuer)",
    "url": "https://xstocks-metadata.backed.fi/logos/tokens/XOMx.png",
-   "list": "https://api.xstocks.fi/api/v2/public/assets"
+   "list": "https://api.xstocks.fi/api/v2/public/assets",
+   "licence": "none stated by the source (api.xstocks.fi's public asset list gives no licence); shown under the owner's proof-of-concept decision, docs/deferred.md entry 15, until written permission before commercial use"
   }
  }
 }
