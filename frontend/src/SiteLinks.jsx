@@ -70,10 +70,9 @@ export const FOOTER_COLUMNS = () => [
   ] },
 ];
 
-// Where the figures come from, in one line.
-// It names only what a page shows today; the pool costs join it when the
-// lists go live.
-export const SOURCES_LINE = "Figures come from our own reads of each chain. Issuer figures stay on the issuer's page. Nothing here is a recommendation.";
+// Where the figures come from, in one line: the costs are our own swap
+// simulations on each pool, everything else our own reads of each chain.
+export const SOURCES_LINE = "Costs come from our own simulations on each pool; the other figures from our own reads of each chain. Issuer figures stay on the issuer's page. Nothing here is a recommendation.";
 
 export default function SiteLinks({
   // (path) => void. Called for a plain left click; modified clicks (new tab,
