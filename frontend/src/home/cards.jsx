@@ -458,9 +458,20 @@ function Pager({ data, onOffset }) {
   if (!Number.isFinite(total) || !data.rows?.length) return null;
   const from = (data.offset || 0) + 1;
   const to = (data.offset || 0) + data.rows.length;
-  const label = `${from.toLocaleString('en-US')}–${to.toLocaleString('en-US')} of ${total.toLocaleString('en-US')}`;
-  if (!onOffset) return <span className="text-[12px] text-muted tabular-nums">{data.rows.length} of {total.toLocaleString('en-US')}</span>;
-  if (!data.offset && data.next_offset == null) return <span className="text-[12px] text-muted tabular-nums">{total.toLocaleString('en-US')} listed</span>;
+  // What the total counts, beside it: underlyings with a version that fills
+  // the list's size; those with none are counted apart (served).
+  const fillsAt = fmtUsd0(data.size || 1000);
+  const none = Number.isFinite(data.rows_without_filled_version) ? data.rows_without_filled_version : null;
+  const label = `${from.toLocaleString('en-US')}–${to.toLocaleString('en-US')} of ${total.toLocaleString('en-US')} that fill ${fillsAt}`;
+  if (!onOffset) {
+    return (
+      <span className="text-[12px] text-muted tabular-nums text-right">
+        {data.rows.length} of {total.toLocaleString('en-US')} that fill {fillsAt}
+        {none ? <span className="block">{none.toLocaleString('en-US')} more fill no version at {fillsAt}</span> : null}
+      </span>
+    );
+  }
+  if (!data.offset && data.next_offset == null) return <span className="text-[12px] text-muted tabular-nums">{total.toLocaleString('en-US')} that fill {fillsAt}</span>;
   const prev = data.offset > 0 ? Math.max(0, data.offset - (data.limit || data.rows.length)) : null;
   const btn = 'h-8 w-8 inline-flex items-center justify-center rounded border border-line-strong text-fg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-inset';
   return (
