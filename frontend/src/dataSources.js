@@ -298,8 +298,8 @@ export const DATA_SOURCES = [
     name: 'Wikimedia Commons, through Wikidata',
     url: 'https://commons.wikimedia.org',
     logo: 'https://commons.wikimedia.org/static/favicon/commons.ico',
-    description: 'Company logos for the stocks listed, found through each company\u2019s Wikidata item (its US stock-exchange listing and its logo, property P154).',
+    description: 'Company logos for the stocks listed, found through each company\u2019s Wikidata item (its US stock-exchange listing and its logo, property P154), a few matched by hand; for an ETF, its fund issuer\u2019s mark (State Street, iShares by BlackRock, Vanguard, ProShares).',
     status: 'live',
-    statusNote: 'Only files Commons marks as public domain or under a free licence are used; each file\u2019s licence, author and trademark note are listed below. Company logos are trademarks of their owners and shown only to identify the company.',
+    statusNote: 'Only files Commons marks as public domain or under a free licence are used; each file\u2019s licence, author and trademark note are listed below. Logos are trademarks of their owners and shown only to identify the company or fund issuer. Invesco and USCF have no freely licensed logo file, so their funds show initials.',
   },
 ];

@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-09-27T20:12:33Z",
+ "generated_at": "2026-09-27T20:52:34Z",
  "underlyings": {
   "AAPL": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -80,8 +80,8 @@
   },
   "BABA": {
    "source": "Wikimedia Commons (via Wikidata P154)",
-   "file": "Alibaba en logo.svg",
-   "page": "https://commons.wikimedia.org/wiki/File:Alibaba_en_logo.svg",
+   "file": "Alibaba zh logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Alibaba_zh_logo.svg",
    "licence": "Public domain",
    "licence_url": "",
    "author": "Alibaba Group Holding Limited",
@@ -107,6 +107,17 @@
    "licence": "Public domain",
    "licence_url": "",
    "author": "Unknown authorUnknown author",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": ""
+  },
+  "CEG": {
+   "source": "Wikimedia Commons (the company's current mark)",
+   "file": "Constellation Logo 2012.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Constellation_Logo_2012.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Constellation Energy Inc.",
    "restrictions": "trademarked",
    "attribution_required": false,
    "note": ""
@@ -140,6 +151,28 @@
    "licence": "Public domain",
    "licence_url": "",
    "author": "™/®Salesforce.com",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": ""
+  },
+  "CRWV": {
+   "source": "Wikimedia Commons (the company's current mark)",
+   "file": "CoreWeave logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:CoreWeave_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "CoreWeave, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": ""
+  },
+  "DELL": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Dell Technologies logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Dell_Technologies_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "™/®Dell Technologies",
    "restrictions": "trademarked",
    "attribution_required": false,
    "note": ""
@@ -188,6 +221,28 @@
    "attribution_required": false,
    "note": ""
   },
+  "FXI": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "IShares by BlackRock Logo.png",
+   "page": "https://commons.wikimedia.org/wiki/File:IShares_by_BlackRock_Logo.png",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "BlackRock, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (BlackRock (iShares)), not a logo of the fund itself"
+  },
+  "GLD": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "State-street-logo-final.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:State-street-logo-final.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "State Street Corporation",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (State Street (SPDR)), not a logo of the fund itself"
+  },
   "GME": {
    "source": "Wikimedia Commons (via Wikidata P154)",
    "file": "GameStop Logo.svg",
@@ -231,6 +286,17 @@
    "restrictions": "trademarked",
    "attribution_required": false,
    "note": ""
+  },
+  "INDA": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "IShares by BlackRock Logo.png",
+   "page": "https://commons.wikimedia.org/wiki/File:IShares_by_BlackRock_Logo.png",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "BlackRock, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (BlackRock (iShares)), not a logo of the fund itself"
   },
   "INTC": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -452,6 +518,28 @@
    "attribution_required": false,
    "note": ""
   },
+  "RBLX": {
+   "source": "Wikimedia Commons (the company's current mark)",
+   "file": "Roblox Logo 2022.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Roblox_Logo_2022.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Roblox Corporation",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": ""
+  },
+  "RDDT": {
+   "source": "Wikimedia Commons (the company's current mark)",
+   "file": "Reddit logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Reddit_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Alexandre Concon",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": ""
+  },
   "RIVN": {
    "source": "Wikimedia Commons (via Wikidata P154)",
    "file": "Rivian logo and wordmark.svg",
@@ -463,6 +551,17 @@
    "attribution_required": false,
    "note": ""
   },
+  "SGOV": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "IShares by BlackRock Logo.png",
+   "page": "https://commons.wikimedia.org/wiki/File:IShares_by_BlackRock_Logo.png",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "BlackRock, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (BlackRock (iShares)), not a logo of the fund itself"
+  },
   "SHOP": {
    "source": "Wikimedia Commons (via Wikidata P154)",
    "file": "Shopify logo 2018.svg",
@@ -473,6 +572,17 @@
    "restrictions": "trademarked",
    "attribution_required": false,
    "note": ""
+  },
+  "SLV": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "IShares by BlackRock Logo.png",
+   "page": "https://commons.wikimedia.org/wiki/File:IShares_by_BlackRock_Logo.png",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "BlackRock, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (BlackRock (iShares)), not a logo of the fund itself"
   },
   "SNAP": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -507,6 +617,17 @@
    "attribution_required": false,
    "note": ""
   },
+  "SOXX": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "IShares by BlackRock Logo.png",
+   "page": "https://commons.wikimedia.org/wiki/File:IShares_by_BlackRock_Logo.png",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "BlackRock, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (BlackRock (iShares)), not a logo of the fund itself"
+  },
   "SPCX": {
    "source": "Wikimedia Commons (via Wikidata P154)",
    "file": "SpaceX logo black.svg",
@@ -517,6 +638,50 @@
    "restrictions": "trademarked",
    "attribution_required": false,
    "note": ""
+  },
+  "SPY": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "State-street-logo-final.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:State-street-logo-final.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "State Street Corporation",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (State Street (SPDR)), not a logo of the fund itself"
+  },
+  "SQQQ": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "ProShares.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:ProShares.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "ProShares",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (ProShares), not a logo of the fund itself"
+  },
+  "STRC": {
+   "source": "Wikimedia Commons (the company's current mark)",
+   "file": "Strategy logo (2025).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Strategy_logo_(2025).svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Strategy",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "Strategy's mark: STRC is Strategy's preferred stock"
+  },
+  "TQQQ": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "ProShares.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:ProShares.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "ProShares",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (ProShares), not a logo of the fund itself"
   },
   "TSLA": {
    "source": "Wikimedia Commons (via Wikidata P154)",
@@ -561,6 +726,17 @@
    "restrictions": "trademarked",
    "attribution_required": false,
    "note": ""
+  },
+  "VTI": {
+   "source": "Wikimedia Commons (the fund issuer's mark)",
+   "file": "Vanguard.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Vanguard.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "The Vanguard Group",
+   "restrictions": "trademarked",
+   "attribution_required": false,
+   "note": "the fund issuer's mark (Vanguard), not a logo of the fund itself"
   },
   "XOM": {
    "source": "Wikimedia Commons (via Wikidata P154)",

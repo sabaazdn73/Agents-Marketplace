@@ -147,11 +147,11 @@ function LogoCredits() {
     <section className="mt-10">
       <h2 className="text-[11px] uppercase tracking-wider font-semibold text-muted mb-1">Logo credits</h2>
       <p className="text-[11px] text-muted mb-3">
-        {u.length} company logos from Wikimedia Commons and {v.length} xStocks token images, fetched {String(data.generated_at || '').slice(0, 10)} and served from this site.
+        {u.length} logos from Wikimedia Commons (companies, and for an ETF its fund issuer&apos;s mark) and {v.length} xStocks token images, fetched {String(data.generated_at || '').slice(0, 10)} and served from this site.
         Where there is no logo, the stock&apos;s initials are shown instead.
       </p>
       <details className="bg-surface rounded-2xl border border-line p-4 text-[12px]">
-        <summary className="cursor-pointer font-semibold">Company logos, file by file</summary>
+        <summary className="cursor-pointer font-semibold">Company and fund issuer logos, file by file</summary>
         <ul className="mt-3 space-y-1.5">
           {u.map(([t, x]) => (
             <li key={t}>
