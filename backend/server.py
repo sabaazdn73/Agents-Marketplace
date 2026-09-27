@@ -4080,8 +4080,10 @@ except Exception as _mcp_error:  # noqa: BLE001
 # /api/te/*: reads what backend/worker.py's cost refresh stored; no chain call
 # in a request. One include per tokenized-equity router.
 from te.router import router as te_router  # noqa: E402
+from te.baskets_router import router as baskets_router  # noqa: E402
 
 app.include_router(te_router)
+app.include_router(baskets_router)  # /api/baskets/*: priced from the same stored costs
 
 
 # ── the Telegram surface ─────────────────────────────────────────────────────
