@@ -69,6 +69,46 @@ function LegPanel({ leg, onSent }) {
   );
 }
 
+const pctText = (x) => `${(x * 100).toFixed(x * 100 % 1 ? 1 : 0)}%`;
+
+/** What a buyer ends up with, said before the first leg, whenever that is
+ *  not simply the basket as shown: some legs are not bought here (so the
+ *  rest carry larger shares), or the size is above the largest basket
+ *  under the threshold. Every figure is served (weight_bps, leg_usd,
+ *  leg_cost_bps, cap_usd, threshold_bps); the shares are those weights
+ *  over their own sum. */
+function Outcome({ b, toBuy }) {
+  const all = b.legs.length;
+  const partial = toBuy.length < all;
+  const above = Number.isFinite(b.cap_usd) && !b.cap_lower_bound && b.size > b.cap_usd;
+  if (!partial && !above) return null;
+  const sumW = toBuy.reduce((a, l) => a + l.weight_bps, 0);
+  const shares = toBuy.map((l) => ({ t: l.ticker, share: l.weight_bps / sumW }));
+  const same = shares.every((x) => Math.abs(x.share - shares[0].share) < 1e-9);
+  const dollars = toBuy.reduce((a, l) => a + (Number.isFinite(l.leg_usd) ? l.leg_usd : 0), 0);
+  const priced = b.legs.filter((l) => l.state === 'filled' && Number.isFinite(l.leg_cost_bps));
+  const worst = priced.reduce((w, l) => (!w || l.leg_cost_bps > w.leg_cost_bps ? l : w), null);
+  const capLegs = (b.cap_legs || []).join(', ');
+  return (
+    <div className="mt-3 rounded border border-warn/60 p-3 text-[13px] text-fg space-y-1.5" role="note">
+      {partial && toBuy.length > 0 && (
+        <p>
+          {toBuy.length} of {all} legs can be bought here, so you would end up with {same
+            ? `${toBuy.length === 1 ? toBuy[0].ticker : `${toBuy.length} legs`} at ${pctText(shares[0].share)} each`
+            : shares.map((x) => `${x.t} ${pctText(x.share)}`).join(', ')}{' '}
+          ({fmtUsd0(dollars)} of the {fmtUsd0(b.size)}), not the basket&apos;s weights.
+        </p>
+      )}
+      {above && (
+        <p>
+          {fmtUsd0(b.size)} is above the largest basket under {b.threshold_bps ?? 100} bps, {fmtUsd0(b.cap_usd)}{capLegs ? `, set by ${capLegs}` : ''}.
+          {worst ? ` At this size the costliest leg is ${worst.ticker} at ${worst.leg_cost_bps.toFixed(1)} bps.` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function BasketBuy({ b, runId }) {
   const plan = useMemo(() => buyPlan(b), [b]);
   const toBuy = plan.filter((l) => l.buy);
@@ -107,6 +147,7 @@ export default function BasketBuy({ b, runId }) {
         })}
       </ol>
 
+      <Outcome b={b} toBuy={toBuy} />
       {toBuy.length === 0 ? (
         <p className="mt-3 text-[13px] text-muted">No leg of this basket can be bought here at this size.</p>
       ) : !next ? (
