@@ -3,7 +3,7 @@
 // DEVELOPMENT ONLY. Answers in the shapes te/api.js documents. The cost
 // reads (summary, lists, underlying, curve), the vaults and some searches
 // are the backend's REAL answers, sampled (see the imports below). The rest
-// (portfolio, baskets, controls, other searches) is invented, and none of
+// (portfolio, controls by issuer, other searches) is invented, and none of
 // it is a measurement. The tickers (FOO, BAR, BAZ, QUX, ...) and every
 // number are made up and round, and none repeats a figure from the launch
 // film or the references: a fixture that looks like the film would pass for
@@ -43,6 +43,15 @@ import T3A from './fixtures/t3a-cost.dev.json' with { type: 'json' };
 // NVDA's instrument page reads these; the home and the lists keep T3A's, so
 // the two show different measurement times, each labelled with its own.
 import T4A from './fixtures/t4a-stock.dev.json' with { type: 'json' };
+// T7's REAL basket answers (branch te-baskets, facf636): the curated list
+// at $1,000, $10,000 and $250,000, every curated basket at all 11 sizes,
+// and /api/baskets/evaluate for built baskets (legs= and b=, one with a
+// pinned version) at $100, $1,000, $10,000 and $250,000, from its own
+// core/te/baskets.py over the store its samples were served from; each
+// served sample (scratchpad/t7/v2_*.json) is equal to its answer here. The
+// 400 and 404 bodies are the served ones or the route's own text. Any
+// other built basket answers 404 here, saying it is not in the fixture.
+import T7 from './fixtures/t7-baskets.dev.json' with { type: 'json' };
 
 const T = '2026-01-01T12:00:00Z';
 const F = { _fixture: true, _marker: FIXTURE_MARKER, computed_at: T };
@@ -150,7 +159,7 @@ const ALL_VERSIONS = () => UNIVERSE.flatMap(([u, , , raw]) => raw.map((r) => ver
 // Detail answers exist for the two vaults sampled (a nested pair: Allez USDC
 // on Kamino holds part of Hubra Copilot USDC on Voltr); any other address
 // answers as the API does, 404.
-const DAY = 86400e3;
+const BASKET_SIZES = ['100', '250', '500', '1000', '2500', '5000', '10000', '25000', '50000', '100000', '250000'];
 const addr = (n) => `DevAddr${String(n).padStart(3, '0')}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`.slice(0, 44);
 const T6_DETAILS = [T6_KAMINO, T6_VOLTR];
 const vaultPlatformKey = (v) => v.platform_key || String(v.key || '').split('/')[0];
@@ -162,31 +171,6 @@ function vaultList(q) {
 function vaultDetail(platformKey, address) {
   const d = T6_DETAILS.find((x) => (x.platform_key || vaultPlatformKey(x.row)) === platformKey && x.address === address);
   return d ? { ...d, _fixture: true, _marker: FIXTURE_MARKER } : null;
-}
-
-// A public basket, /api/baskets/{code}. Made-up legs and round numbers; the
-// weights sum to 10,000 and the changes are versioned.
-function basketDetail(code) {
-  const b = answer('/api/baskets/curated').baskets.find((x) => x.code === code);
-  if (!b) return null;
-  const legs = b.legs.map((l) => {
-    const u = UNIVERSE.find((x) => x[0] === l.ticker);
-    const v = u[3].find((r) => r[0] === l.symbol) || u[3][0];
-    return { ...l, issuer: v[1], chain: v[2], group: v[3] };
-  });
-  const series = Array.from({ length: 31 }, (_, i) => [Date.parse(T) - (30 - i) * DAY, 1000 + i * 2]);
-  return {
-    ...F, code, name: b.name, creator: addr(80), created_at: '2025-12-01', version: 2,
-    description: 'A made-up basket for laying out the page (dev fixture).',
-    legs, value_usd_indicative: 1060, value_basis: 'one unit priced at each leg\'s pool mid (dev fixture)',
-    return_since_creation_pct: 6, return_source: 'pool mids', return_basis: 'value at each leg\'s pool mid now against at creation, weights as created (dev fixture)', followers_count: 3, series,
-    cost_at_size: { stops: [100, 1000, 10000], bps: [30, b.cost_bps_1k, 40] },
-    changes: [
-      { version: 2, at: '2025-12-15', legs, note: 'weights rebalanced (dev fixture)' },
-      { version: 1, at: '2025-12-01', legs: legs.map((l) => ({ ...l, weight_bps: Math.round(10000 / legs.length) })), note: 'created' },
-    ],
-    followers: [{ address: addr(81), since: '2025-12-02' }, { address: addr(82), since: '2025-12-10' }, { address: addr(83), since: '2025-12-20' }],
-  };
 }
 
 const answers = {
@@ -244,14 +228,23 @@ const answers = {
       who_may_hold: ELIG,
     })),
   }),
-  '/api/baskets/curated': () => ({
-    ...F, note: 'A fixed example basket, equal or stated weights; not a recommendation.',
-    baskets: [
-      { name: 'Dev basket one', code: 'dev1', legs: [['FOO', 'FOOx', 5000], ['BAR', 'BARx', 5000]].map(([ticker, symbol, weight_bps]) => ({ ticker, symbol, weight_bps })), cost_bps_1k: 20, signatures: 2, evm: 0, nonevm: 2, cap_usd: 10000, cap_leg: 'BAR' },
-      { name: 'Dev basket two', code: 'dev2', legs: [['IDXA', 'IDXAon', 5000], ['BAZ', 'BAZc', 3000], ['QUX', 'QUX', 2000]].map(([ticker, symbol, weight_bps]) => ({ ticker, symbol, weight_bps })), cost_bps_1k: 30, signatures: 3, evm: 3, nonevm: 0, cap_usd: 5000, cap_leg: 'QUX' },
-      { name: 'Dev basket three', code: 'dev3', legs: [['IDXB', 'IDXBx', 10000]].map(([ticker, symbol, weight_bps]) => ({ ticker, symbol, weight_bps })), cost_bps_1k: 20, signatures: 1, evm: 0, nonevm: 1, cap_usd: 20000, cap_leg: 'IDXB' },
-    ],
-  }),
+  '/api/baskets/curated': (q) => {
+    const size = q.get('size') || '1000';
+    if (!BASKET_SIZES.includes(size)) return { __status: 400, __body: T7.errors.size.body };
+    const b = T7.curated[size];
+    return b ? real(b) : null;
+  },
+  '/api/baskets/evaluate': (q) => {
+    const size = q.get('size') || '1000';
+    if (!BASKET_SIZES.includes(size)) return { __status: 400, __body: T7.errors.size.body };
+    const arg = q.get('b') != null ? `b=${q.get('b')}` : `legs=${q.get('legs') || ''}`;
+    const e = T7.errors[`${arg}|${size}`];
+    if (e) return { __status: e.status, __body: e.body };
+    const b = T7.evaluate[`${arg}|${size}`];
+    if (b) return real(b);
+    const held = [...new Set(Object.values(T7.evaluate).map((x) => x.legs_param))].join('; ');
+    return { __status: 404, __body: { error: 'not_found', reason: `this built basket is not in the dev fixture, which holds ${held}` } };
+  },
   '/api/vaults': (q) => vaultList(q),
   '/api/site/portfolio': () => portfolio(),
 };
@@ -262,8 +255,12 @@ export function answer(path) {
   const q = new URLSearchParams(qs || '');
   const vd = p.match(/^\/api\/vaults\/([a-z]+)\/([A-Za-z0-9]+)$/);
   if (vd) return vaultDetail(vd[1], vd[2]);
-  const bd = p.match(/^\/api\/baskets\/(?!curated$)([a-z0-9]+)$/);
-  if (bd) return basketDetail(bd[1]);
+  const bd = p.match(/^\/api\/baskets\/(?!curated$|evaluate$)([a-z0-9-]+)$/);
+  if (bd) {
+    if (!BASKET_SIZES.includes(q.get('size') || '1000')) return { __status: 400, __body: T7.errors.size.body };
+    const b = T7.detail[`${bd[1]}:${q.get('size') || 1000}`];
+    return b ? real(b) : { __status: 404, __body: T7.errors.not_found.body };
+  }
   const ud = p.match(/^\/api\/te\/underlying\/([A-Z0-9.-]+)$/);
   if (ud) { const k = `${ud[1]}:${q.get('size') || 1000}`; const b = T4A.underlying[k] || T3A.underlying[k]; return b ? real(b) : null; }
   const cd = p.match(/^\/api\/te\/curve\/([A-Z0-9.-]+)$/);
@@ -358,10 +355,20 @@ export function checkFixtures() {
     ok(parent && (parent.contains_nested || []).some((c) => c.address === v.address && c.tokens === n.tokens), `vault ${v.name}: its parent does not list it with the same amount`);
   }
   for (const p of vl.platforms) for (const x of p.named_exclusions || []) ok(!vl.vaults.some((v) => v.address === x.address), `vaults: ${x.address} is both listed and excluded`);
-  for (const b of answer('/api/baskets/curated').baskets) {
-    const d = answer(`/api/baskets/${b.code}`);
+  // Baskets (T7's real answers): each list row agrees with its detail at
+  // $1,000; weights sum to 10,000 in every version; the cost is the
+  // weighted sum of the legs' leg_cost_bps; signatures count priced legs;
+  // every tied cap leg is at the cap.
+  for (const b of T7.curated['1000'].baskets) {
+    const d = T7.detail[`${b.code}:1000`];
+    ok(d && d.cost_bps === b.cost_bps && d.cap_usd === b.cap_usd, `basket ${b.code}: list row != detail at $1,000`);
     ok(d && d.legs.reduce((a, l) => a + l.weight_bps, 0) === 10000, `basket ${b.code}: weights do not sum to 10,000`);
-    for (const c of d.changes) ok(Math.abs(c.legs.reduce((a, l) => a + l.weight_bps, 0) - 10000) <= c.legs.length, `basket ${b.code} v${c.version}: weights do not sum to 10,000`);
+    for (const c of d?.changes || []) ok(c.legs.reduce((a, l) => a + l.weight_bps, 0) === 10000, `basket ${b.code} v${c.version}: weights do not sum to 10,000`);
+  }
+  for (const [k, d] of [...Object.entries(T7.detail), ...Object.entries(T7.evaluate)]) {
+    if (d.cost_bps != null) ok(Math.abs(d.legs.reduce((a, l) => a + l.weight_bps * l.leg_cost_bps, 0) / 10000 - d.cost_bps) < 0.001, `basket ${k}: cost_bps != weighted leg_cost_bps`);
+    ok(d.signatures === d.legs.filter((l) => l.state === 'filled').length, `basket ${k}: signatures != priced legs`);
+    if (d.cap_usd != null) for (const t of d.cap_legs) { const l = d.legs.find((x) => x.ticker === t); ok(l && l.cap_usd <= d.cap_usd * 1.01, `basket ${k}: cap leg ${t} not at the cap`); }
   }
   if (bad.length) bad.forEach((m) => console.error(`[dev fixture] ${m}`));
   else console.info('[dev fixture] all reconciliations hold');

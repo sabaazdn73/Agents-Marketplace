@@ -81,9 +81,52 @@
 //     { computed_at, rows: [{ programme, issuer, chains: [string],
 //         pause, freeze, burn, upgrade: { text, state? },
 //         who_may_hold: { text, url, read_on } }] }
-//   GET /api/baskets/curated
-//     { note, baskets: [{ name, code, legs: [{ ticker, symbol, weight_bps }],
-//         cost_bps_1k, signatures, evm, nonevm, cap_usd, cap_leg }] }
+//   BASKETS (T7, branch te-baskets, facf636). Every route takes size= (one of the
+//   11 measured stops, default 1000; anything else answers 400 with
+//   allowed_size). An error answers { error, reason, rule? } with 400
+//   (a bad basket or size), 404 (no curated basket has this code) or 503
+//   (the cost store could not be read; `about` says it is the store, not
+//   the basket). teRead passes that body on as `body` (useTe: errorBody).
+//
+//   A BREAKDOWN is what the three routes share for one basket at one size:
+//     { size, legs: [LEG], complete, cost_bps | null, cost_usd | null,
+//       cost_reason (why cost_bps is null), unfilled_legs: [{ ticker,
+//       measured_at_usd, reason }], size_exact, signatures, evm, nonevm,
+//       (signatures counts priced legs only), legs_unresolved (legs with
+//       no priced version), by_chain: [{ chain, chain_id, group, legs: [ticker],
+//       swaps, approvals_up_to }], prompts: { swaps, approvals_up_to,
+//       signatures_up_to, chain_switches, basis, partial?, missing? },
+//       cap_usd | null, cap_leg, cap_legs (every tied limiting leg, or the
+//       legs with no cap), cap_lower_bound ("at least": a limiting leg is
+//       under the threshold at the largest size measured), cap_reason (why
+//       cap_usd is null), threshold_bps, computed_at, blocks,
+//       cost_at_size?: { stops, bps: [number|null], null_reason:
+//       [string|null] (each gap's own reason), basis },
+//       best_rule, size_basis, cost_basis, cap_basis, lifi_fee_included,
+//       coverage, engine_computed_at, source }
+//   LEG: { ticker, symbol, weight_bps, leg_usd (size x weight),
+//     measured_at_usd (the smallest measured size at or above leg_usd,
+//     where the leg is priced), size_exact (leg_usd is itself a measured
+//     size; the page says "priced at the $250 measured size" when not),
+//     below_smallest_stop (leg_usd under $100: costed from the parts
+//     measured at $100), state: 'filled'|'not_ranked'|'unfilled' (any
+//     other state is named as served), pinned (the visitor chose this
+//     version; an unfilled pinned leg still names it), reason (every state
+//     but filled), and when filled: key (as /api/te/underlying serves it),
+//     issuer, chain, chain_id, group, cost_bps (the engine's, at
+//     measured_at_usd), cost_usd_measured, cost_parts, allin_per_share,
+//     allin_per_token, paid_per_token, block, computed_at, us_market_open,
+//     leg_cost_bps and leg_cost_usd (what the leg itself costs; the basket
+//     cost is their weighted sum), leg_cost_basis (how, in words); always:
+//     cap_stop_usd, cap_usd (the largest basket this leg allows under the
+//     threshold), cap_lower_bound ("at least"), cap_reason (why none) }
+//
+//   GET /api/baskets/curated?size=
+//     { note, creator, size, file_version, selection_rule, best_rule,
+//       size_basis, cost_basis, cap_basis, lifi_fee_included, coverage,
+//       engine_computed_at, source, computed_at,
+//       baskets: [BREAKDOWN without cost_at_size, plus { code, name,
+//         version, created_at, cost_bps_1k }] }
 //   GET /api/vaults?platform=&limit=&offset=   (T6, branch te-vaults; limit <= 100)
 //     { computed_at, as_of, read_only, deposits, notice, rule, order,
 //       total, count, offset, limit, partial?, missing?,
@@ -135,15 +178,27 @@
 //       // not served by T6 yet; rendered when present:
 //       return_30d?, series?, age_days?, depositors?: [...],
 //       activity?: [...] }
-//   GET /api/baskets/{code}
-//     { code, name, creator, created_at, version, description,
-//       legs: [{ ticker, symbol, issuer, chain, group, weight_bps }],
-//       value_usd_indicative?, value_basis?, return_since_creation_pct?,
-//       return_source?, return_basis?,
-//       followers_count?, series?: [[t_ms, usd]],
-//       cost_at_size?: { stops: [usd], bps: [number|null] },
-//       changes: [{ version, at, legs: [...], note? }],
-//       followers?: [{ address, since }] }
+//   GET /api/baskets/{code}?size=   (codes are lowercase with hyphens:
+//     tech-4, sp500-nasdaq100, semis, gold-silver-tbills)
+//     BREAKDOWN with cost_at_size, plus { code, name, creator,
+//       creator_kind: 'curated' (drawn as "Tnega (curated)", never as an
+//       address) | an address kind, created_at, version, description, note,
+//       value_usd_indicative | null, value_basis, return_since_creation_pct
+//       | null, return_source, return_basis, series | null,
+//       followers_count | null, followers | null, followers_basis,
+//       changes: [{ version, at, note, legs: [{ ticker, weight_bps }] }]
+//       (a leg names an underlying, never a version),
+//       changes_basis }
+//   GET /api/baskets/evaluate?b=<base64url>&size=  or  ?legs=TICKER:bps,...
+//     Exactly one of b and legs. b is base64url JSON {v:1, legs:[{t, k?,
+//     w}]} without padding (baskets/codec.js), k a version key exactly as
+//     /api/te/underlying serves it; the builder always sends b, so a pin
+//     is priced. A basket someone built, priced and not stored: BREAKDOWN
+//     with cost_at_size, plus { legs_param, pinned: {ticker: key} | null,
+//     stored: false, stored_basis, b_param? (served: the share link is
+//     built from it when present, else from the page's own encoding, and
+//     never from legs_param, which drops pins) }. A 400 names what is
+//     wrong in `reason`, with `rule` or `allowed_size`.
 //   POST /api/site/portfolio { addresses: [address] }
 //     { total_usd, change_usd, change_pct, computed_at,
 //       series: { '1D'|'1W'|'1M'|'YTD'|'1Y'|'Max': [[t_ms, usd]] },
@@ -169,12 +224,16 @@ async function fixtureFor(path, body) {
 }
 
 /** One read. Resolves to { data } with the parsed JSON, or { error } with
- *  why it failed (a non-200 status or a network failure). */
+ *  why it failed (a non-200 status or a network failure). A non-200 answer
+ *  also carries its parsed body, when it has one, as `body`: the baskets
+ *  routes explain a 400 in body.reason, and the builder shows it. */
 export async function teRead(path, { method = 'GET', body } = {}) {
   if (USE_FIXTURES) {
     const d = await fixtureFor(path, body);
     // A path the fixtures do not know answers as the API would: not found.
-    return d ? { data: d } : { error: 'HTTP 404' };
+    // A fixture may answer with an error status and body, as the API does.
+    if (d && d.__status) return { error: `HTTP ${d.__status}`, status: d.__status, body: d.__body };
+    return d ? { data: d } : { error: 'HTTP 404', status: 404 };
   }
   try {
     const r = await fetch(`${API_BASE_URL}${path}`, {
@@ -182,7 +241,11 @@ export async function teRead(path, { method = 'GET', body } = {}) {
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!r.ok) return { error: `HTTP ${r.status}` };
+    if (!r.ok) {
+      let errBody = null;
+      try { errBody = await r.json(); } catch { errBody = null; }
+      return { error: `HTTP ${r.status}`, status: r.status, body: errBody };
+    }
     return { data: await r.json() };
   } catch (e) {
     return { error: e?.message || 'network error' };
@@ -217,7 +280,7 @@ export function useTe(path, { method = 'GET', body, keep = false } = {}) {
     setState((s) => ({ key, data: keep ? s.data : null, error: null, loading: true, heldFrom: keep && s.data ? s.key : null }));
     teRead(path, { method, body }).then((r) => {
       if (!live) return;
-      setState({ key, data: r.data ?? null, error: r.error ?? null, loading: false, heldFrom: null });
+      setState({ key, data: r.data ?? null, error: r.error ?? null, errorBody: r.body ?? null, loading: false, heldFrom: null });
       if (r.data) setEver(true);
     });
     return () => { live = false; };
@@ -230,7 +293,7 @@ export function useTe(path, { method = 'GET', body, keep = false } = {}) {
     return { data: held, error: null, loading: !!key, stale: !!held, ever };
   }
   const stale = state.loading && !!state.data && state.heldFrom !== null;
-  return { data: state.data, error: state.error, loading: state.loading, stale, ever };
+  return { data: state.data, error: state.error, errorBody: state.errorBody || null, loading: state.loading, stale, ever };
 }
 
 /** Is a list present and non-empty? */
