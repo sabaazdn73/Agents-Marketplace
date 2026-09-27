@@ -4123,3 +4123,24 @@ app.include_router(build_te_router())
 # ── Vaults: read-only due diligence, served from the worker's hourly reads ──
 from vaults.router import router as vaults_router  # noqa: E402
 app.include_router(vaults_router)
+
+
+@app.on_event("startup")
+async def _warm_vaults_list():
+    """One read of the stored vault run into the list cache, in the
+    background, so the first GET /api/vaults after a restart is answered from
+    it (core/vaults/service.py). On unless VAULTS_LIST_PREWARM=0."""
+    if os.environ.get("VAULTS_LIST_PREWARM", "1").strip().lower() in ("0", "false", "no"):
+        return
+
+    async def warm():
+        from core.vaults import service as vaults_service
+        from core.vaults.store import get_store as get_vaults_store
+        try:
+            store = get_vaults_store()
+        except Exception as e:  # noqa: BLE001
+            print(f"[vaults] list cache not warmed ({type(e).__name__}: {e})", flush=True)
+            return
+        print(f"[vaults] list cache warmed: {await vaults_service.warm_list(store)}", flush=True)
+
+    asyncio.create_task(warm())
