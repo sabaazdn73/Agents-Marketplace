@@ -430,23 +430,31 @@ function emptyLine(data, group) {
 const NOUN = { stock: ['stock', 'stocks'], etf: ['ETF', 'ETFs'] };
 
 /* WHAT THE COUNTS COUNT, beside the list (backend core/te/cost_views.py
- * list_view). The list document holds one row per underlying with an EVM
- * version the cost engine measures; for the list's type and group each
- * falls in exactly one of three served counts: rows_total (a version fills
- * the size and is ranked), rows_not_ranked (a version fills, but none has a
- * read share ratio, so none is ranked) and rows_without_filled_version (no
- * version fills). None of them is the universe: that is summary.underlyings,
- * every stock and ETF listed on any chain, named when the page has it. */
+ * list_view). The list document holds one row per underlying with at
+ * least one EVM version the cost engine reads, with a pool or without one
+ * (its no_pool and not_searched versions have documents too, so "at least
+ * one EVM pool" would overstate it); for the list's type and
+ * group each falls in exactly one of three served counts, each counted per
+ * group: rows_total (a version in the group fills the size and is ranked),
+ * rows_not_ranked (one fills, but none has a read share ratio, so none is
+ * ranked) and rows_without_filled_version (none fills). None of them is
+ * the universe: that is summary.underlyings, every stock and ETF listed
+ * across all chains. The remainder to it is worked out here from those
+ * served numbers, and labelled as worked out. */
 function CountsLine({ data, group, universe }) {
   const size = fmtUsd0(data.size || 1000);
   const [one, many] = NOUN[data.type] || ['underlying', 'underlyings'];
+  const other = data.type === 'etf' ? 'stocks' : data.type === 'stock' ? 'ETFs' : null;
   const n = (k) => `${k.toLocaleString('en-US')} ${k === 1 ? one : many}`;
   const nr = data.rows_not_ranked;
-  // Counted over every group; under non-EVM, where nothing is measured, it
-  // would name EVM versions, so it is left out there.
+  // Both are counted per group. Under non-EVM nothing is measured, so every
+  // underlying would count as "no version fills", which tells a reader
+  // nothing; the group note says why instead, and these are left out there.
   const notRanked = nr && nr.count > 0 && group !== 'nonevm' ? nr : null;
   const unfilled = Number.isFinite(data.rows_without_filled_version) && group !== 'nonevm' ? data.rows_without_filled_version : null;
   if (!Number.isFinite(data.rows_total)) return null;
+  const measured = data.rows_total + (notRanked?.count || 0) + (unfilled || 0);
+  const rest = Number.isFinite(universe) && group !== 'nonevm' ? universe - measured : null;
   return (
     <div className="px-4 pt-1 text-[12px] leading-snug text-muted space-y-0.5">
       <p>
@@ -455,8 +463,10 @@ function CountsLine({ data, group, universe }) {
         {unfilled ? <> {unfilled.toLocaleString('en-US')} more have no version that fills {size}.</> : null}
       </p>
       <p>
-        These counts cover only the {many} with an EVM version our cost engine measures
-        {Number.isFinite(universe) ? <>, not the {universe.toLocaleString('en-US')} stocks and ETFs Tnega lists on every chain.</> : '.'}
+        These counts cover only the {many} with at least one EVM version our cost engine reads, with or without a pool
+        {rest != null && rest >= 0
+          ? <>: {measured.toLocaleString('en-US')} of the {universe.toLocaleString('en-US')} stocks and ETFs Tnega lists across all chains. The other {rest.toLocaleString('en-US')} ({universe.toLocaleString('en-US')} minus {measured.toLocaleString('en-US')}, worked out on this page from the served counts) are {other ? `${other}, or ` : ''}{many} with no EVM version the engine reads.</>
+          : '.'}
       </p>
     </div>
   );
