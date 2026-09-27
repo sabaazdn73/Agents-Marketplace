@@ -221,14 +221,19 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
         </div>
       </div>
 
-      <div className={`grid gap-4 ${mobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
+      {/* 30-day change and Age show only when the vault carries them; no
+          vault does yet (the collector keeps its latest read, not a history),
+          and a card of dashes says nothing. */}
+      <div className={`grid gap-4 ${mobile ? 'grid-cols-2' : ['grid-cols-2', 'grid-cols-3', 'grid-cols-4'][Number(Number.isFinite(r?.pct)) + Number(Number.isFinite(v.age_days))]}`}>
         <StatCard label="TVL" value={Number.isFinite(t.usd) ? <span className="text-[28px] font-light tabular-nums text-fg" title={t.basis}>{fmtUsd0(t.usd)}</span> : null}
           chip={v.row ? <TvlNote v={v.row} align="left" /> : null} note="Not read" />
-        <StatCard label="30-day change" note="Not measured for this vault"
-          value={Number.isFinite(r?.pct) ? <span className={`text-[28px] font-light tabular-nums ${r.pct > 0 ? 'text-pos' : r.pct < 0 ? 'text-neg' : 'text-fg'}`} title={r.basis}>{r.pct > 0 ? '+' : ''}{r.pct.toFixed(2)}%</span> : null}
-          chip={Number.isFinite(r?.pct) ? <SourceChip title={r.basis}>share price, chain</SourceChip> : null} />
+        {Number.isFinite(r?.pct) && (
+          <StatCard label="30-day change"
+            value={<span className={`text-[28px] font-light tabular-nums ${r.pct > 0 ? 'text-pos' : r.pct < 0 ? 'text-neg' : 'text-fg'}`} title={r.basis}>{r.pct > 0 ? '+' : ''}{r.pct.toFixed(2)}%</span>}
+            chip={<SourceChip title={r.basis}>share price, chain</SourceChip>} />
+        )}
         <StatCard label="Your position" value={null} note="Not read for this vault" />
-        <StatCard label="Age (days)" value={Number.isFinite(v.age_days) ? <span className="text-[28px] font-light tabular-nums text-fg">{v.age_days}</span> : null} note="Not read" />
+        {Number.isFinite(v.age_days) && <StatCard label="Age (days)" value={<span className="text-[28px] font-light tabular-nums text-fg">{v.age_days}</span>} note="Not read" />}
       </div>
 
       {t.basis && (

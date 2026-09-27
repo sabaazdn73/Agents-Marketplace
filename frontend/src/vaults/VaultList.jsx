@@ -13,8 +13,13 @@
 //              last written, and "stale" by T6's own rule. The basis (face
 //              value; USX and USDe labelled synthetic dollars) is on hover.
 //   30-day     the share-price change over 30 days, read on chain, when the
-//              answer carries it (return_30d); otherwise a dash. No APY from
-//              any other source (owner, 2026-09-26).
+//              answer carries it (return_30d). No APY from any other source
+//              (owner, 2026-09-26).
+//   Columns    30-day change, Age and the 30-day line show only when at
+//              least one listed vault carries the figure (return_30d,
+//              age_days, series). None does yet: the collector keeps its
+//              latest read, not a history, so a column of dashes would say
+//              nothing. Each appears on its own once the answer carries it.
 //   Check      ✓ reconciles; ⚠ vault-recorded, not reconciled, or stale;
 //              ? partial read (vaults/model.js).
 //   Total      the rows shown, each dollar once when T6 marks one vault as
@@ -57,7 +62,19 @@ function PlatformLine({ p }) {
   );
 }
 
-function VenueTable({ p, rows, onOpen, compact, nestedName }) {
+// The table's columns, widths in percent. A column whose figure no listed
+// vault carries is left out, and the widths are shared out again, so every
+// venue's table still lines up with the others.
+function tableColumns(cols) {
+  const all = [
+    ['vault', 22], ['manager', 24], ['asset', 7], cols.r30 && ['r30', 10],
+    ['tvl', 15], cols.age && ['age', 8], ['check', 5], cols.spark && ['spark', 9],
+  ].filter(Boolean);
+  const sum = all.reduce((a, [, w]) => a + w, 0);
+  return all.map(([k, w]) => [k, (w / sum) * 100]);
+}
+
+function VenueTable({ p, rows, onOpen, compact, nestedName, cols }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
   const view = rows.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
@@ -70,8 +87,7 @@ function VenueTable({ p, rows, onOpen, compact, nestedName }) {
         <table className={`w-full mt-2 text-[13px] ${compact ? '' : 'table-fixed min-w-[900px]'}`}>
           {!compact && (
             <colgroup>
-              <col style={{ width: '22%' }} /><col style={{ width: '24%' }} /><col style={{ width: '7%' }} /><col style={{ width: '10%' }} />
-              <col style={{ width: '15%' }} /><col style={{ width: '8%' }} /><col style={{ width: '5%' }} /><col style={{ width: '9%' }} />
+              {tableColumns(cols).map(([k, w]) => <col key={k} style={{ width: `${w}%` }} />)}
             </colgroup>
           )}
           <thead>
@@ -79,11 +95,11 @@ function VenueTable({ p, rows, onOpen, compact, nestedName }) {
               <th className="font-medium px-4 py-2">Vault</th>
               {!compact && <th className="font-medium py-2">Admin / manager</th>}
               {!compact && <th className="font-medium py-2">Asset</th>}
-              {!compact && <th className="font-medium py-2 text-right" title="Share price change over 30 days, read on chain">30-day change</th>}
+              {!compact && cols.r30 && <th className="font-medium py-2 text-right" title="Share price change over 30 days, read on chain">30-day change</th>}
               <th className="font-medium py-2 text-right pr-4 md:pr-0">TVL</th>
-              {!compact && <th className="font-medium py-2 text-right">Age (days)</th>}
+              {!compact && cols.age && <th className="font-medium py-2 text-right">Age (days)</th>}
               {!compact && <th className="font-medium py-2 text-center">Check</th>}
-              {!compact && <th className="font-medium px-4 py-2 text-right">30 days</th>}
+              {!compact && cols.spark && <th className="font-medium px-4 py-2 text-right">30 days</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -114,7 +130,7 @@ function VenueTable({ p, rows, onOpen, compact, nestedName }) {
                     </td>
                   )}
                   {!compact && <td className="py-2.5 text-fg">{v.token_symbol || v.tvl_symbol}</td>}
-                  {!compact && (
+                  {!compact && cols.r30 && (
                     <td className="py-2.5 text-right tabular-nums" title={v.return_30d?.basis || 'Not measured for this vault'}>
                       {Number.isFinite(r) ? <span className={r > 0 ? 'text-pos' : r < 0 ? 'text-neg' : 'text-fg'}>{r > 0 ? '+' : ''}{r.toFixed(2)}%</span> : <span className="text-muted">–</span>}
                     </td>
@@ -123,9 +139,9 @@ function VenueTable({ p, rows, onOpen, compact, nestedName }) {
                     <div className="tabular-nums text-fg">{fmtUsd0(v.tvl_usd)}</div>
                     <TvlNote v={v} />
                   </td>
-                  {!compact && <td className="py-2.5 text-right tabular-nums text-fg">{Number.isFinite(v.age_days) ? v.age_days : <span className="text-muted">–</span>}</td>}
+                  {!compact && cols.age && <td className="py-2.5 text-right tabular-nums text-fg">{Number.isFinite(v.age_days) ? v.age_days : <span className="text-muted">–</span>}</td>}
                   {!compact && <td className="py-2.5 text-center text-fg" title={c.label} aria-label={c.label}>{c.mark}</td>}
-                  {!compact && <td className="px-4 py-2.5"><div className="flex justify-end"><Sparkline points={v.series?.share_price?.map((pt) => pt[1])} width={72} height={24} /></div></td>}
+                  {!compact && cols.spark && <td className="px-4 py-2.5"><div className="flex justify-end"><Sparkline points={v.series?.share_price?.map((pt) => pt[1])} width={72} height={24} /></div></td>}
                 </tr>
               );
             })}
@@ -190,6 +206,13 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
   const nestedName = (a) => byAddr[a] || shortAddr(a);
   const open = (v) => onNavigate?.(`/vaults/${platformKeyOf(v)}/${v.address}`);
   const truncated = Number.isFinite(data.total) && data.total > vaults.length;
+  // Over every listed vault, not only the filtered ones, so a column does not
+  // come and go as the visitor types in the search box.
+  const cols = {
+    r30: vaults.some((v) => Number.isFinite(v.return_30d?.pct)),
+    age: vaults.some((v) => Number.isFinite(v.age_days)),
+    spark: vaults.some((v) => (v.series?.share_price || []).length >= 2),
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -226,7 +249,7 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
           </div>
         </div>
         {shownPlatforms.length ? shownPlatforms.map((p) => (
-          <VenueTable key={p.platform_key} p={p} rows={filtered.filter((v) => platformKeyOf(v) === p.platform_key)} onOpen={open} compact={compact} nestedName={nestedName} />
+          <VenueTable key={p.platform_key} p={p} rows={filtered.filter((v) => platformKeyOf(v) === p.platform_key)} onOpen={open} compact={compact} nestedName={nestedName} cols={cols} />
         )) : <p className="px-4 pb-4 text-[13px] text-muted">No listed vault matches.</p>}
         <div className="h-3" />
       </Card>

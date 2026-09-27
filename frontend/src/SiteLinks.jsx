@@ -60,6 +60,8 @@ export const FOOTER_COLUMNS = () => [
     { key: 'market', label: 'Explore agents', path: '/market' },
     { key: 'hl-book', label: 'Hyperliquid order-book readings', note: 'collector suspended since 19 Sept', path: '/chain/hyperliquid' },
     { key: 'extension', label: 'Chrome extension', note: 'with practice mode', path: CHROME_EXTENSION_URL, external: true },
+    // The walkthrough film (DEMO_VIDEO_URL above), in a new tab.
+    { key: 'walkthrough', label: 'Walkthrough', note: 'video, on YouTube', path: DEMO_VIDEO_URL, external: true },
   ] },
   { title: 'Legal', links: [
     { key: 'privacy', label: 'Privacy', path: '/privacy#website' },

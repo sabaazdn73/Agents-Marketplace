@@ -45,7 +45,9 @@ export function legsProblem(legs) {
   if (legs.length > MAX_LEGS) return `a basket has at most ${MAX_LEGS} legs`;
   const seen = new Set();
   for (const l of legs) {
-    if (!TICKER.test(l.t || '')) return `"${l.t || ''}" is not a ticker`;
+    // An empty leg is not a wrong ticker; it has not been filled in yet.
+    if (!l.t) return 'every leg needs a stock or ETF';
+    if (!TICKER.test(l.t)) return `"${l.t}" is not a ticker`;
     if (seen.has(l.t)) return `${l.t} is in the basket twice`;
     seen.add(l.t);
     if (!Number.isInteger(l.w) || l.w <= 0 || l.w > BPS) return `${l.t}: the weight must be a whole number of basis points from 1 to ${BPS.toLocaleString('en-US')}`;
