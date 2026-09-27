@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 
 COSTS = "te_cost"
@@ -54,6 +55,24 @@ class MongoStore:
 
     async def put_meta(self, _id: str, doc: dict) -> None:
         await self.db[META].replace_one({"_id": _id}, {**doc, "_id": _id}, upsert=True)
+
+    async def acquire_lease(self, name: str, owner: str, seconds: float) -> bool:
+        """True if `owner` now holds the lease. A held, unexpired lease makes
+        the upsert collide on _id, which is the refusal."""
+        from pymongo import ReturnDocument
+        from pymongo.errors import DuplicateKeyError
+        now = time.time()
+        try:
+            d = await self.db[META].find_one_and_update(
+                {"_id": f"lease:{name}", "$or": [{"until": {"$lt": now}}, {"owner": owner}]},
+                {"$set": {"owner": owner, "until": now + seconds}}, upsert=True,
+                return_document=ReturnDocument.AFTER)
+        except DuplicateKeyError:
+            return False
+        return bool(d) and d.get("owner") == owner
+
+    async def release_lease(self, name: str, owner: str) -> None:
+        await self.db[META].delete_one({"_id": f"lease:{name}", "owner": owner})
 
 
 class FileStore:
@@ -100,6 +119,28 @@ class FileStore:
 
     async def put_meta(self, _id: str, doc: dict) -> None:
         await asyncio.to_thread(self._write, META, {**doc, "_id": _id})
+
+    def _lease(self, name: str, owner: str, seconds: float | None) -> bool:
+        import fcntl
+        p = self.root / f"lease_{name}.json"
+        with open(self.root / f"lease_{name}.lock", "a") as lk:
+            fcntl.flock(lk, fcntl.LOCK_EX)
+            cur = json.loads(p.read_text()) if p.exists() else None
+            now = time.time()
+            if seconds is None:                       # release
+                if cur and cur.get("owner") == owner:
+                    p.unlink()
+                return True
+            if cur and cur.get("until", 0) >= now and cur.get("owner") != owner:
+                return False
+            p.write_text(json.dumps({"owner": owner, "until": now + seconds}))
+            return True
+
+    async def acquire_lease(self, name: str, owner: str, seconds: float) -> bool:
+        return await asyncio.to_thread(self._lease, name, owner, seconds)
+
+    async def release_lease(self, name: str, owner: str) -> None:
+        await asyncio.to_thread(self._lease, name, owner, None)
 
 
 _store = None

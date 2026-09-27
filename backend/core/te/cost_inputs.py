@@ -24,6 +24,9 @@ never silent.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from .chains import CHAINS, NATIVE
 from .universe import ISSUER_NAMES
 
@@ -72,6 +75,16 @@ def _control_words(ctl: dict | None) -> tuple[dict | None, int | None]:
     return words, block
 
 
+def _type_overrides() -> dict:
+    """Stock or ETF for underlyings the universe gives no type, from Nasdaq
+    Trader's directory ETF flag (data/te/type_overrides.json, with its source)."""
+    p = Path(__file__).resolve().parents[2] / "data" / "te" / "type_overrides.json"
+    try:
+        return json.loads(p.read_text())
+    except (OSError, ValueError):
+        return {"source": None, "types": {}}
+
+
 def load_inputs(universe=None) -> dict:
     from .universe import get_pools, iter_listed, load_universe
 
@@ -105,9 +118,17 @@ def load_inputs(universe=None) -> dict:
         full = u.record(r["key"], controls=True) or {}
         r["controls"], r["controls_block"] = _control_words(full.get("controls"))
     unders = {}
+    over = _type_overrides()
     for t in measured:
         info = u.underlying(t) or {}
-        unders[t] = {"name": info.get("name"), "type": info.get("type"), "type_basis": info.get("type_basis")}
+        unders[t] = {"name": info.get("name"), "name_basis": info.get("name_basis"), "type": info.get("type"),
+                     "type_basis": info.get("type_basis")}
+        if not info.get("name") and t in (over.get("names") or {}):
+            n = over["names"][t]
+            unders[t].update(name=n["security_name"], name_basis=f"{over['source']}: security name")
+        if not info.get("type") and t in over["types"]:
+            o = over["types"][t]
+            unders[t].update(type=o["type"], type_basis=f"{over['source']}: ETF column = {o['etf_flag']} ({o['security_name']})")
     issuers = {k: {"name": ISSUER_NAMES.get(k, k), "eligibility": u.eligibility(k)} for k in ISSUER_NAMES}
     prov = u.provenance() if hasattr(u, "provenance") else {}
     return {"records": sorted(recs, key=lambda r: (r["underlying"], r["chain_id"], r["issuer"])),

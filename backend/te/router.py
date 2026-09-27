@@ -38,7 +38,7 @@ def _answer(status: int, body: dict) -> JSONResponse:
 
 
 @router.get("/api/te/list")
-async def te_list(type: str = "", group: str = "all", limit: int = 50, sort: str = "popular"):
+async def te_list(type: str = "", group: str = "all", limit: int = 50, sort: str = "popular", offset: int = 0):
     if type not in ("", "stock", "etf"):
         return _bad("type must be stock or etf", allowed_type=["stock", "etf"])
     if group not in GROUPS:
@@ -47,7 +47,9 @@ async def te_list(type: str = "", group: str = "all", limit: int = 50, sort: str
         return _bad("unknown sort", allowed_sort={k: {"size": v} for k, v in LIST_SIZES.items()})
     if not 1 <= limit <= 100:
         return _bad("limit must be between 1 and 100")
-    return _answer(*await list_view(get_store(), type_=type, group=group, limit=limit, sort=sort))
+    if not 0 <= offset <= 100_000:
+        return _bad("offset must be between 0 and 100000")
+    return _answer(*await list_view(get_store(), type_=type, group=group, limit=limit, sort=sort, offset=offset))
 
 
 @router.get("/api/te/underlying/{ticker}")

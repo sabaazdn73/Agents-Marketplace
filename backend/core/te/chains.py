@@ -1,14 +1,22 @@
 """
 chains.py
 
-Per-chain facts the cost engine needs, each with where it came from. The
-RPC choices follow the T0 matrix (2026-09-26):
+Per-chain facts the cost engine needs, each with where it came from.
 
-- 1: Infura, then ethereum-rpc.publicnode.com (latest state, keyless, state
-  override and Multicall3 checked in T0). eth.llamarpc.com answered HTTP 525
-  to every call and is not used.
-- 8453: mainnet.base.org, then Infura. 42161: arb1, then Infura.
-- 56: bloXroute, then Infura. dRPC refuses state override on BSC.
+Public RPCs only, paced. No keyed endpoint is used anywhere in the engine
+(the shared Infura key's quota is production's, and was spent on
+2026-09-26). The choices follow the T0 matrix (2026-09-26) and a re-test of
+public endpoints on 2026-09-27:
+
+- 1: ethereum-rpc.publicnode.com, then rpc.mevblocker.io. Both accept state
+  override; mevblocker also serves historical state (checked honest at
+  head-500,000) and 10,000-block log ranges, so it is the archive and log
+  endpoint. eth.llamarpc.com answered HTTP 525 or nothing and is not used.
+- 8453: mainnet.base.org (full history), then base-rpc.publicnode.com.
+- 42161: arb1.arbitrum.io (about 30 minutes of state), then
+  arbitrum-one-rpc.publicnode.com.
+- 56: bloXroute (about 110 blocks of state), then bsc-rpc.publicnode.com
+  (about 90). dRPC refuses state override on BSC.
 - 4663: the chain's public RPC alone, paced at 2 calls a second with long
   retries on 429 (publicnode keeps only 64 blocks there). Its state window
   is about 10 minutes, so everything a refresh reads is stored with the
@@ -17,9 +25,9 @@ RPC choices follow the T0 matrix (2026-09-26):
   hypurrscan answer every historical block tag with latest state, silently;
   dRPC was the only honest history found.
 
-Block-pinned reads for the self-check (`archive`): Infura on 1, 8453,
-42161 and 56 (full history, honest), dRPC on 999, and on 4663 the public
-RPC inside its window only.
+Block-pinned reads for the self-check (`archive`): mainnet.base.org and
+dRPC hold full history; elsewhere the check runs inside each endpoint's
+state window (te_cost_selfcheck --fresh).
 """
 
 from __future__ import annotations
@@ -29,11 +37,6 @@ import os
 from .rpcclient import ChainRpc, Endpoint
 
 NATIVE = "0x0000000000000000000000000000000000000000"
-
-
-def _infura(path: str) -> Endpoint | None:
-    key = os.environ.get("INFURA_API_KEY")
-    return Endpoint(f"{path}.infura.io", f"https://{path}.infura.io/v3/{key}") if key else None
 
 
 def _ep(url: str) -> Endpoint:
@@ -110,13 +113,15 @@ def router_for(chain_id: int, family: str) -> str | None:
 
 def latest_endpoints(chain_id: int) -> list[Endpoint]:
     if chain_id == 1:
-        eps = [_infura("mainnet"), _ep("https://ethereum-rpc.publicnode.com")]
+        eps = [_ep("https://ethereum-rpc.publicnode.com"), _ep("https://rpc.mevblocker.io")]
     elif chain_id == 8453:
-        eps = [_ep("https://mainnet.base.org"), _infura("base-mainnet")]
+        eps = [_ep("https://mainnet.base.org"), _ep("https://base-rpc.publicnode.com")]
     elif chain_id == 42161:
-        eps = [_ep("https://arb1.arbitrum.io/rpc"), _infura("arbitrum-mainnet")]
+        eps = [_ep("https://arb1.arbitrum.io/rpc"), _ep("https://arbitrum-one-rpc.publicnode.com")]
     elif chain_id == 56:
-        eps = [_ep(os.environ.get("BSC_MAINNET_RPC_URL") or "https://bsc.rpc.blxrbdn.com"), _infura("bsc-mainnet")]
+        # Deliberately not BSC_MAINNET_RPC_URL: the engine uses public keyless
+        # endpoints only, and that variable may hold a keyed URL.
+        eps = [_ep("https://bsc.rpc.blxrbdn.com"), _ep("https://bsc-rpc.publicnode.com")]
     elif chain_id == 4663:
         # Primary only. publicnode's window on 4663 is 64 blocks (about 6 s at
         # 0.1 s blocks), so a read pinned to the refresh's block fails there
@@ -127,20 +132,21 @@ def latest_endpoints(chain_id: int) -> list[Endpoint]:
         eps = [_ep("https://hyperliquid.drpc.org")]
     else:
         raise ValueError(f"chain {chain_id} is not in the cost engine")
-    return [e for e in eps if e]
+    return eps
 
 
 def archive_endpoints(chain_id: int) -> list[Endpoint]:
-    """Endpoints that answer a pinned historical block honestly."""
-    if chain_id in (1, 8453, 42161, 56):
-        path = {1: "mainnet", 8453: "base-mainnet", 42161: "arbitrum-mainnet", 56: "bsc-mainnet"}[chain_id]
-        e = _infura(path)
-        return [e] if e else []
-    if chain_id == 999:
-        return [_ep("https://hyperliquid.drpc.org")]
-    if chain_id == 4663:
-        return [_ep("https://rpc.mainnet.chain.robinhood.com")]
-    return []
+    """Public endpoints that answer a pinned historical block honestly, in the
+    order to try. Only Base (mainnet.base.org), Ethereum (mevblocker) and
+    HyperEVM (dRPC) hold long history; the rest hold minutes."""
+    return {
+        1: [_ep("https://rpc.mevblocker.io"), _ep("https://ethereum-rpc.publicnode.com")],
+        8453: [_ep("https://mainnet.base.org")],
+        42161: [_ep("https://arb1.arbitrum.io/rpc")],
+        56: [_ep("https://bsc.rpc.blxrbdn.com"), _ep("https://bsc-rpc.publicnode.com")],
+        4663: [_ep("https://rpc.mainnet.chain.robinhood.com")],
+        999: [_ep("https://hyperliquid.drpc.org")],
+    }[chain_id]
 
 
 def rpc_for(chain_id: int, *, archive: bool = False) -> ChainRpc:

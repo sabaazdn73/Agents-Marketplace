@@ -19,6 +19,8 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from core.te import controls as te_controls
+from core.te import cost_store as te_cost_store
+from core.te import cost_views as te_cost_views
 from core.te import search as te_search
 from core.te.universe import CHAINS, ISSUER_NAMES, UniverseUnavailable, load_universe
 
@@ -65,7 +67,16 @@ def build_router() -> APIRouter:
             u = await _universe()
         except Exception as e:  # noqa: BLE001
             return _unavailable(e)
-        return _ok(u.summary())
+        body = dict(u.summary())
+        # The cost engine's count beside the universe's pool count:
+        # versions_with_pool means a pool was found; cost.versions_with_cost
+        # means a $1,000 buy was measured on a pool that passed the venue checks.
+        try:
+            body["cost"] = await te_cost_views.measured_counts(te_cost_store.get_store()) or {
+                "versions_with_cost": None, "reason": "the cost worker has not written a count yet"}
+        except Exception as e:  # noqa: BLE001  the store, not any token
+            body["cost"] = {"versions_with_cost": None, "reason": f"cost store unavailable ({type(e).__name__})"}
+        return _ok(body)
 
     @router.get("/api/te/search")
     async def te_search_route(q: str = Query("", max_length=te_search.MAX_Q * 2),

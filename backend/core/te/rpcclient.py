@@ -16,14 +16,24 @@ What counts as a transient failure (retried, then failed over):
 - HTTP 429 and HTTP 5xx;
 - a JSON-RPC error inside an HTTP 200 whose code is -32005 (limit exceeded),
   -32603 (internal error) or 429, or whose message says rate limit,
-  timed out or temporarily. Infura BSC answered -32603 intermittently in T0,
-  and Infura's rate limit arrives as -32005 inside a 429.
+  timed out or temporarily. A keyed provider answered -32603 intermittently
+  in T0, and a rate limit can arrive as -32005 inside a 429.
 Anything else (an execution revert, a malformed request, "historical state
 not available") is returned to the caller as an RpcError at once: another
 node would say the same thing.
 
-Keys: URLs carry API keys (Infura), so an endpoint is only ever logged or
-returned by its label, and every error string is passed through redact().
+Keys: an endpoint is only ever logged or returned by its label (the host),
+and every error string is passed through redact(). The engine uses public
+endpoints only; the redaction stays as a guard.
+
+Deadline: a client made with `deadline` (a time.monotonic() value) checks it
+before every attempt and caps each request's timeout at the time left, and
+raises RpcError(kind="deadline") once it has passed. A job running in a
+thread therefore stops at its deadline, rather than running on after the
+caller's asyncio timeout has given up on it.
+
+public_reason() turns an error into a short category for anything served
+publicly; an upstream error body is never served.
 """
 
 from __future__ import annotations
@@ -42,7 +52,7 @@ log = logging.getLogger("te.rpc")
 
 _TRANSIENT_CODES = {-32005, -32603, 429}
 
-# An endpoint that answered HTTP 402 (a spent quota, Infura's daily limit) is
+# An endpoint that answered HTTP 402 (a spent quota) is
 # skipped by every client in this process for this long.
 _QUOTA_SKIP_SECONDS = 1800
 _quota_spent: dict[str, float] = {}
@@ -67,6 +77,26 @@ def redact(s: str) -> str:
             s = s.replace(v, "<redacted>")
     # Anything that still looks like a URL path segment of 24+ hex/alnum chars.
     return re.sub(r"(/v3/|/v2/)[A-Za-z0-9]{16,}", r"\1<redacted>", s)
+
+
+def public_reason(e: "RpcError | Exception") -> str:
+    """A short, fixed-vocabulary account of a failure, safe to serve."""
+    kind = getattr(e, "kind", None)
+    code = getattr(e, "code", None)
+    msg = str(getattr(e, "message", e)).lower()
+    if kind == "deadline":
+        return "stopped at the run's deadline"
+    if code == 402 or "payment required" in msg or "quota" in msg:
+        return "the provider's quota is spent"
+    if code == 429 or "rate" in msg or "too many" in msg:
+        return "rate limited by the provider"
+    if "range" in msg or "exceeds" in msg or "limit" in msg:
+        return "the provider refused the block range"
+    if "timeout" in msg or "timed out" in msg:
+        return "the provider timed out"
+    if "not available" in msg or "missing trie" in msg or "pruned" in msg or "archive" in msg or "unknown state" in msg:
+        return "the provider no longer holds that block's state"
+    return "RPC error"
 
 
 class RpcError(Exception):
@@ -110,7 +140,7 @@ class ChainRpc:
     """Paced JSON-RPC for one chain. `endpoints` in failover order."""
 
     def __init__(self, chain_id: int, endpoints: list[Endpoint], *, min_interval: float = 0.0,
-                 retries_per_endpoint: int = 3, timeout: float = 30.0):
+                 retries_per_endpoint: int = 3, timeout: float = 30.0, deadline: float | None = None):
         if not endpoints:
             raise ValueError(f"no endpoint configured for chain {chain_id}")
         self.chain_id = chain_id
@@ -118,6 +148,7 @@ class ChainRpc:
         self.min_interval = min_interval
         self.retries = retries_per_endpoint
         self.timeout = timeout
+        self.deadline = deadline
         self.stats = CallStats()
         self._last = 0.0
         self._lock = threading.Lock()
@@ -147,17 +178,21 @@ class ChainRpc:
                         self.stats.retries += 1
                         time.sleep(min(10.0, 1.5 * (2 ** (attempt - 1))))
                     self._pace()
+                    left = None if self.deadline is None else self.deadline - time.monotonic()
+                    if left is not None and left <= 0.5:
+                        raise RpcError("deadline", "the job's deadline passed", ep.label)
                     self.stats.calls += 1
                     self.stats.by_endpoint[ep.label] = self.stats.by_endpoint.get(ep.label, 0) + 1
                     self.stats.by_method[method] = self.stats.by_method.get(method, 0) + 1
                     body = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
                     try:
-                        r = self._client.post(ep.url, content=json.dumps(body), timeout=timeout or self.timeout)
+                        t = timeout or self.timeout
+                        r = self._client.post(ep.url, content=json.dumps(body), timeout=min(t, left) if left else t)
                     except httpx.HTTPError as e:
                         last = RpcError("transient", f"{type(e).__name__}", ep.label)
                         continue
                     if r.status_code == 402:
-                        # Quota spent (Infura's daily limit): no retry will help today.
+                        # Quota spent: no retry will help today.
                         last = RpcError("transient", f"HTTP 402 {r.text[:200]}", ep.label, 402)
                         _quota_spent[ep.label] = time.monotonic() + _QUOTA_SKIP_SECONDS
                         break

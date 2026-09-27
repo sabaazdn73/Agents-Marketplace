@@ -9,52 +9,78 @@ pool (the hook address is part of the key), and hooked pools are where some
 of these tokens trade: T0's best NVDA pool on Robinhood Chain has a
 dynamic-fee hook.
 
-The log search takes the token in BOTH currency positions (topic2 is
-currency0, topic3 is currency1), so the other side may sort below the token,
-including the native currency, address 0x0. A pool against something other
-than a dollar stablecoin is kept and marked with why it is not measured.
+Two walks per chain, both public RPCs only:
+- forward: from the last block seen to the head, every run, reading every
+  Initialize event of the chain's managers (no token filter) and keeping the
+  ones that involve a listed token, in either currency slot (so the native
+  currency 0x0 and stables that sort below the token are caught);
+- back: from the first block seen towards the managers' deployment, a
+  bounded number of windows per run, filtered by the listed tokens in
+  currency0 and then currency1. Only where a public endpoint serves old logs
+  at a usable rate: Ethereum (mevblocker, 10,000-block ranges), Base
+  (mainnet.base.org, 2,000), Arbitrum (arb1), Robinhood Chain (its own RPC,
+  complete). BSC has none: publicnode keeps about 10,000 blocks of logs,
+  bloXroute times out on 5,000-block ranges, and fastnode refuses queries of
+  more than about 20 topics (HTTP 413) and times out unfiltered (HTTP 504),
+  all measured 2026-09-27. BSC history is therefore "not searched", and says
+  so; its forward walk runs from the first run on.
 
-Scanning is incremental and bounded per run. Each (chain, manager) keeps a
-cursor: `hi` moves forward to the head every run; `lo` walks backwards
-towards the manager's deployment block a few windows per run, newest first,
-so the pools created recently are found first. The coverage (lo..hi) is
-reported with every result, so "not found" always says how far was looked.
+Progress is written into the state dict after every window, so a run that
+hits its deadline keeps what it read. Errors are kept as a short category
+(public_reason), never an upstream body.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 
 from eth_abi import decode
 from eth_utils import keccak
 
-from .chains import CHAINS, NATIVE, Endpoint, _ep, _infura
-from .rpcclient import ChainRpc, RpcError
+from .chains import CHAINS, NATIVE, _ep
+from .rpcclient import ChainRpc, RpcError, public_reason
 
 log = logging.getLogger("te.pools")
 
 INIT_V4 = "0x" + keccak(text="Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)").hex()
 INIT_INFINITY = "0x" + keccak(text="Initialize(bytes32,address,address,address,uint24,bytes32,uint160,int24)").hex()
 
-# (kind, manager, log endpoint builder, window in blocks)
-# Windows follow the T0 range limits: Infura 10,000; arb1 and the Robinhood
-# Chain RPC answered multi-million-block ranges (4663 caps results at 10,000,
-# which a token-filtered Initialize query stays far below).
+# Per chain: the log endpoint, the window it accepts, and how history is
+# walked. `floor` is where the back walk stops: "token" = the earliest listed
+# token's deployment (bisected once; a pool cannot predate its token),
+# "manager" = the manager's deployment (bisected), else a fixed block before
+# V4's launch on that chain (31 January 2025) when bisection is unavailable.
+DISCOVERY = {
+    1: {"endpoint": "https://rpc.mevblocker.io", "window": 10_000, "back": True, "floor": "manager",
+        "floor_fallback": 21_600_000, "min_interval": 0.25},
+    8453: {"endpoint": "https://mainnet.base.org", "window": 2_000, "back": True, "floor": "token",
+           "floor_fallback": 24_000_000, "min_interval": 0.3},
+    42161: {"endpoint": "https://arb1.arbitrum.io/rpc", "window": 5_000_000, "back": True, "floor": "fixed",
+            "floor_fallback": 280_000_000, "min_interval": 0.12},
+    56: {"endpoint": "https://bsc-rpc.publicnode.com", "window": 5_000, "back": False, "min_interval": 0.25,
+         # Walking forward from each token's deployment was also considered: the
+         # bStocks tokens all predate the universe pass of 2026-09-26, and
+         # publicnode answers no log query older than about 9,765 blocks (1.2
+         # hours), measured 2026-09-27, so no deployment block is in reach.
+         "no_back_reason": ("no public RPC serves BSC log history at a usable rate (publicnode answers only the "
+                            "last ~9,765 blocks, about 1.2 hours, so even the tokens' deployment blocks are out of "
+                            "reach; bloXroute times out on 5,000-block ranges; fastnode refuses more than about 20 "
+                            "topics and times out unfiltered; measured 2026-09-27)")},
+    4663: {"endpoint": "https://rpc.mainnet.chain.robinhood.com", "window": 2_000_000, "back": True, "floor": "fixed",
+           "floor_fallback": 0, "min_interval": 0.5},
+}
+
+
 def managers(chain_id: int) -> list[dict]:
     c = CHAINS[chain_id]
     out = []
-    # Base: mainnet.base.org (keyless, full history, 2,000-block ranges) rather
-    # than Infura, so the Coinbase tokens' short history is read without the
-    # shared key; see TOKEN_FLOOR_CHAINS.
-    ep = {1: lambda: _infura("mainnet"), 8453: lambda: _ep("https://mainnet.base.org"), 56: lambda: _infura("bsc-mainnet"),
-          42161: lambda: _ep("https://arb1.arbitrum.io/rpc"), 4663: lambda: _ep("https://rpc.mainnet.chain.robinhood.com")}
-    win = {1: 10_000, 8453: 2_000, 56: 10_000, 42161: 5_000_000, 4663: 2_000_000}
-    if chain_id not in ep:
+    if chain_id not in DISCOVERY:
         return out
     if c.get("v4_manager"):
-        out.append({"kind": "v4", "manager": c["v4_manager"], "endpoint": ep[chain_id], "window": win[chain_id]})
+        out.append({"kind": "v4", "manager": c["v4_manager"], "topic": INIT_V4})
     if c.get("infinity_cl_manager"):
-        out.append({"kind": "infinity_cl", "manager": c["infinity_cl_manager"], "endpoint": ep[chain_id], "window": win[chain_id]})
+        out.append({"kind": "infinity_cl", "manager": c["infinity_cl_manager"], "topic": INIT_INFINITY})
     return out
 
 
@@ -74,7 +100,7 @@ def _decode(kind: str, lg: dict, tokens: set[str], chain_id: int) -> dict | None
         return None
     stables = {a.lower(): s for s, (a, _d) in CHAINS[chain_id]["stables"].items()}
     p = {"token": token, "id": lg["topics"][1], "c0": c0, "c1": c1, "qa": other, "q": stables.get(other),
-         "src": "initialize_log", "block": int(lg["blockNumber"], 16)}
+         "src": "initialize_log", "block": int(lg["blockNumber"], 16), "mgr": lg["address"].lower()}
     if kind == "v4":
         fee, ts, hooks, _sp, _tick = decode(["uint24", "int24", "address", "uint160", "int24"], data)
         p.update(f="v4", fee=fee, ts=ts, hooks=hooks.lower(), venue="uniswap_v4 (Initialize log)")
@@ -88,23 +114,9 @@ def _decode(kind: str, lg: dict, tokens: set[str], chain_id: int) -> dict | None
     return p
 
 
-# Where to start when the deployment block cannot be bisected (no archive
-# endpoint answering): a block before 31 January 2025, when Uniswap V4
-# launched, on each chain; PancakeSwap Infinity came later. Starting early
-# only costs empty log windows, never a missed pool.
-FLOOR_FALLBACK = {1: 21_400_000, 8453: 24_000_000, 42161: 280_000_000, 56: 44_000_000, 4663: 0}
-
-# Chains with few tokens and an honest archive endpoint: the scan starts at
-# the earliest token's deployment (a pool cannot predate its token), found by
-# bisection once. Base: the 10 Coinbase tokens were deployed at blocks
-# 49,145,181 to 49,145,336 (read 2026-09-26), 2.7M blocks back rather than
-# the 27M since V4's launch.
-TOKEN_FLOOR_CHAINS = {8453}
-
-
 def _deploy_block(rpc: ChainRpc, addr: str, head: int) -> int | None:
-    """First block at which `addr` has code, by bisection over eth_getCode on
-    an archive endpoint. None if the endpoint cannot answer old blocks."""
+    """First block at which `addr` has code, by bisection over eth_getCode.
+    None if the endpoint cannot answer old blocks."""
     lo, hi = 0, head
     try:
         if len(rpc.call("eth_getCode", [addr, hex(head)])) <= 2:
@@ -116,11 +128,13 @@ def _deploy_block(rpc: ChainRpc, addr: str, head: int) -> int | None:
             else:
                 lo = mid + 1
         return lo
-    except RpcError:
+    except RpcError as e:
+        if e.kind == "deadline":
+            raise
         return None
 
 
-def _logs(rpc: ChainRpc, address: str, lo: int, hi: int, topics: list, depth: int = 0) -> list:
+def _logs(rpc: ChainRpc, address, lo: int, hi: int, topics: list, depth: int = 0) -> list:
     """eth_getLogs over [lo, hi], halving the range when the node refuses it
     for matching too many logs (4663 caps results at 10,000)."""
     try:
@@ -132,73 +146,76 @@ def _logs(rpc: ChainRpc, address: str, lo: int, hi: int, topics: list, depth: in
         raise
 
 
-def scan(chain_id: int, tokens: list[str], state: dict | None, *, max_calls: int = 24,
-         min_interval: float | None = None) -> tuple[list[dict], dict]:
-    """One bounded discovery pass for a chain. Returns (pools found in this
-    pass, new state). `state` is what the previous pass returned (or None)."""
-    state = dict(state or {})
-    toks = sorted({t.lower() for t in tokens})
+def _floor(cfg: dict, rpc: ChainRpc, mgrs: list[dict], toks: list[str], head: int) -> tuple[int, str]:
+    how = cfg.get("floor")
+    if how == "token" and len(toks) <= 20:
+        tb = [b for b in (_deploy_block(rpc, t, head) for t in toks) if b is not None]
+        if tb:
+            return min(tb), "earliest listed token's deployment (bisected)"
+    if how in ("manager", "token"):
+        mb = [b for b in (_deploy_block(rpc, m["manager"], head) for m in mgrs) if b is not None]
+        if mb:
+            return min(mb), "pool manager's deployment (bisected)"
+    return cfg["floor_fallback"], "a block before V4's launch on this chain (bisection unavailable)"
+
+
+def scan(chain_id: int, tokens: list[str], state: dict | None, *, deadline: float | None = None,
+         max_calls: int = 40) -> tuple[list[dict], dict]:
+    """One bounded discovery pass for a chain. Returns (pools found, new
+    state). State is updated after every window, so an exception (the
+    deadline, an RPC failure) leaves the progress made so far in `state`,
+    which the caller persists."""
+    cfg = DISCOVERY.get(chain_id)
+    mgrs = managers(chain_id)
+    state = state if state is not None else {}
     found: list[dict] = []
-    for m in managers(chain_id):
-        ep: Endpoint | None = m["endpoint"]()
-        if not ep:
-            continue
-        rpc = ChainRpc(chain_id, [ep], min_interval=min_interval if min_interval is not None else CHAINS[chain_id]["min_interval"])
-        key = f"{m['kind']}:{m['manager']}"
-        st = dict(state.get(key) or {})
-        topic0 = INIT_V4 if m["kind"] == "v4" else INIT_INFINITY
-        try:
-            head = rpc.block_number()
+    if not cfg or not mgrs:
+        return found, state
+    toks = sorted({t.lower() for t in tokens})
+    tokset = set(toks)
+    st = state.setdefault("walk", {})
+    st.update(endpoint=_ep(cfg["endpoint"]).label, managers=[m["kind"] + ":" + m["manager"] for m in mgrs])
+    rpc = ChainRpc(chain_id, [_ep(cfg["endpoint"])], min_interval=cfg["min_interval"], retries_per_endpoint=3,
+                   deadline=deadline)
+    addrs = [m["manager"] for m in mgrs]
+    kinds = {m["manager"]: m["kind"] for m in mgrs}
+    try:
+        head = rpc.block_number()
+        if "hi" not in st:
+            st["hi"] = st["lo"] = head + 1          # empty range: both walks start at the head
+            st["started_at_block"] = head + 1
+        # forward: every Initialize event, then a local token filter
+        b = st["hi"]
+        while b <= head and rpc.stats.calls < max_calls:
+            hi = min(head, b + cfg["window"] - 1)
+            for lg in _logs(rpc, addrs, b, hi, [[m["topic"] for m in mgrs]]):
+                p = _decode(kinds[lg["address"].lower()], lg, tokset, chain_id)
+                if p:
+                    found.append(p)
+            st["hi"] = b = hi + 1
+        # back: token-filtered, both currency slots, towards the floor
+        if cfg.get("back"):
             if st.get("floor") is None:
-                st["floor"] = 0 if chain_id == 4663 else _deploy_block(rpc, m["manager"], head)
-                if st["floor"] is not None and chain_id in TOKEN_FLOOR_CHAINS and len(toks) <= 20:
-                    tb = [b for b in (_deploy_block(rpc, t, head) for t in toks) if b is not None]
-                    if tb and min(tb) > st["floor"]:
-                        st["floor"] = min(tb)
-                        st["floor_basis"] = "earliest token deployment on this chain (bisected)"
-                if st["floor"] is None and chain_id in FLOOR_FALLBACK:
-                    st["floor"] = FLOOR_FALLBACK[chain_id]
-                    st["floor_basis"] = "fallback: a block before V4's launch (archive bisection unavailable)"
-            if st.get("floor") is None:
-                st["error"] = "deployment block not found on the archive endpoint"
-                state[key] = st
-                continue
-            if "hi" not in st:
-                st["hi"] = st["lo"] = head + 1   # empty range; both walks start at the head
-            windows = []
-            b = st["hi"]
-            while b <= head:
-                windows.append((b, min(head, b + m["window"] - 1), "fwd"))
-                b += m["window"]
-            b = st["lo"] - 1
-            while b >= st["floor"] and len(windows) < 400:
-                windows.append((max(st["floor"], b - m["window"] + 1), b, "back"))
-                b -= m["window"]
-            for lo, hi, direction in windows:
-                if rpc.stats.calls + 2 * max(1, (len(toks) + 199) // 200) > max_calls:
-                    break
-                for i in range(0, len(toks), 200):
-                    part = [_topic(t) for t in toks[i:i + 200]]
-                    for topics in ([topic0, None, part], [topic0, None, None, part]):
-                        logs = _logs(rpc, m["manager"], lo, hi, topics)
-                        for lg in logs:
-                            p = _decode(m["kind"], lg, set(toks), chain_id)
+                st["floor"], st["floor_basis"] = _floor(cfg, rpc, mgrs, toks, head)
+            chunks = [toks[i:i + 200] for i in range(0, len(toks), 200)] or [[]]
+            per_window = 2 * len(chunks)
+            while st["lo"] > st["floor"] and rpc.stats.calls + per_window <= max_calls:
+                lo = max(st["floor"], st["lo"] - cfg["window"])
+                hi = st["lo"] - 1
+                for part in chunks:
+                    tt = [_topic(t) for t in part]
+                    for topics in ([[m["topic"] for m in mgrs], None, tt], [[m["topic"] for m in mgrs], None, None, tt]):
+                        for lg in _logs(rpc, addrs, lo, hi, topics):
+                            p = _decode(kinds[lg["address"].lower()], lg, tokset, chain_id)
                             if p:
-                                p["mgr"] = m["manager"]
                                 found.append(p)
-                if direction == "fwd":
-                    st["hi"] = hi + 1
-                else:
-                    st["lo"] = lo
-            st.pop("error", None)
-        except RpcError as e:
-            st["error"] = f"{e.kind}: {e.message[:200]}"
-            log.warning("[te-pools] chain %s %s: %s", chain_id, key, st["error"])
-        st["complete_back"] = st.get("lo") is not None and st.get("floor") is not None and st["lo"] <= st["floor"]
-        st["last_calls"] = rpc.stats.calls
-        st["endpoint"] = ep.label
-        state[key] = st
-    # de-duplicate by pool id
+                st["lo"] = lo
+        st.pop("error", None)
+    except RpcError as e:
+        st["error"] = public_reason(e)
+        log.warning("[te-pools] chain %s: %s (%s)", chain_id, st["error"], e.message[:200])
+    st["last_calls"] = rpc.stats.calls
+    rpc.close()
     seen, out = set(), []
     for p in found:
         if p["id"] not in seen:
@@ -207,10 +224,28 @@ def scan(chain_id: int, tokens: list[str], state: dict | None, *, max_calls: int
     return out, state
 
 
-def coverage(state: dict) -> list[dict]:
-    return [{"manager": k, "scanned_from": v.get("lo"), "scanned_to": (v.get("hi") or 1) - 1,
-             "deployed_at": v.get("floor"), "complete": bool(v.get("complete_back")), "error": v.get("error")}
-            for k, v in (state or {}).items()]
+def coverage(chain_id: int, state: dict | None) -> dict:
+    """What the hooked-pool search on this chain has covered, in public terms."""
+    cfg = DISCOVERY.get(chain_id)
+    if not cfg or not managers(chain_id):
+        return {"status": "not_applicable", "reason": "no V4 or Infinity pool manager on this chain"}
+    st = (state or {}).get("walk") or {}
+    if "hi" not in st:
+        return {"status": "not_searched", "reason": st.get("error") or "the search has not run yet"}
+    out = {"managers": st.get("managers"), "endpoint": st.get("endpoint"), "to_block": st["hi"] - 1,
+           "forward_from_block": st.get("started_at_block")}
+    if cfg.get("back"):
+        done = st.get("floor") is not None and st["lo"] <= st["floor"]
+        out.update(from_block=st["lo"], floor_block=st.get("floor"), floor_basis=st.get("floor_basis"),
+                   status="complete" if done else "in_progress")
+        if not done:
+            out["reason"] = f"blocks {st.get('floor')} to {st['lo'] - 1} not yet read"
+    else:
+        out.update(from_block=st.get("started_at_block"), status="forward_only",
+                   reason=f"not searched before block {st.get('started_at_block')}: {cfg['no_back_reason']}")
+    if st.get("error"):
+        out["last_error"] = st["error"]
+    return out
 
 
 # ── Screening: active liquidity and price, read in one Multicall3 pass ──────
@@ -223,6 +258,7 @@ from .multicall import aggregate3  # noqa: E402
 _SLOT0 = bytes.fromhex("3850c7bd")
 _GLOBAL_STATE = bytes.fromhex("e76c01e4")
 _LIQUIDITY = bytes.fromhex("1a686502")
+_FEE = bytes.fromhex("ddca3f43")          # fee() on V3 and its forks
 _EXTSLOAD = _sel("extsload(bytes32)")
 _GET_SLOT0 = _sel("getSlot0(bytes32)")
 _GET_LIQ = _sel("getLiquidity(bytes32)")
@@ -261,7 +297,7 @@ def screen(rpc: ChainRpc, chain_id: int, cands: list[tuple[dict, dict]], block: 
     for i, (rec, p) in enumerate(cands):
         tok = rec["address"]
         if p["f"] == "v3":
-            for c in (_SLOT0, _GLOBAL_STATE, _LIQUIDITY):
+            for c in (_SLOT0, _GLOBAL_STATE, _LIQUIDITY, _FEE):
                 calls.append((p["pool"], c)); idx.append(i)
         elif p["f"] == "v4":
             slot = keccak(_enc(["bytes32", "uint256"], [v4_pool_id(p, tok), 6]))
@@ -279,18 +315,32 @@ def screen(rpc: ChainRpc, chain_id: int, cands: list[tuple[dict, dict]], block: 
     out = []
     for i, (rec, p) in enumerate(cands):
         r = per.get(i) or []
-        if p["f"] == "v3" and len(r) == 3:
+        fee = None       # current LP fee, millionths (1,000,000 = 100%)
+        proto = None     # V4 / Infinity protocol fee, both directions packed
+        if p["f"] == "v3" and len(r) == 4:
             sp = _word(r[0]) if r[0] else _word(r[1])
             L = _word(r[2])
+            fee = _word(r[3])
+            if fee is None and r[1] and len(r[1]) >= 96:
+                fee = _word(r[1][64:96])        # Algebra Integral globalState: (price, tick, lastFee, ...)
         elif len(r) == 2:
             sp, L = _word(r[0]), _word(r[1])
+            if p["f"] == "v4" and sp is not None:
+                fee = (sp >> 208) & 0xFFFFFF    # V4 slot0: sqrtPrice 160 | tick 24 | protocolFee 24 | lpFee 24
+                proto = (sp >> 184) & 0xFFFFFF  # two 12-bit values: bits 0-11 zeroForOne, 12-23 oneForZero
+            elif p["f"] == "infinity_cl" and r[0] and len(r[0]) >= 128:
+                fee = _word(r[0][96:128])       # getSlot0: (sqrtPriceX96, tick, protocolFee, lpFee)
+                proto = _word(r[0][64:96])
         else:
             sp = L = None
         if sp is not None:
             sp &= (1 << 160) - 1
         if L is not None:
             L &= (1 << 128) - 1
-        s = {"screen": "ok", "sqrtp": sp, "L": L}
+        s = {"screen": "ok", "sqrtp": sp, "L": L, "fee_ppm": fee}
+        if proto is not None:
+            buy_zf = p["qa"] == sort_pair(rec["address"], p["qa"])[0]     # buying: paying the stable
+            s["protocol_fee_ppm"] = (proto & 0xFFF) if buy_zf else ((proto >> 12) & 0xFFF)
         dstab = stables.get(p["qa"])
         if not sp or not L or dstab is None or rec.get("decimals") is None:
             s["screen"] = "no_price" if not sp else ("no_liquidity" if not L else "not_dollar")

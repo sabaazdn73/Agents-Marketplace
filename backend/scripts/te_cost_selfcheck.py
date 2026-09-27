@@ -1,8 +1,9 @@
 """
 te_cost_selfcheck.py
 
-Checks the tokenized-equity costs the API serves against an independent
-re-run of the probe, and checks that the served figures reconcile.
+Checks the tokenized-equity costs the API serves, by two routes that do not
+share code with each other, and checks that the served figures reconcile.
+Public RPCs only.
 
     ./venv/bin/python scripts/te_cost_selfcheck.py [--fresh] [--samples 20] [--chains 8453,4663] [--out report.json]
 
@@ -12,17 +13,23 @@ re-run of the probe, and checks that the served figures reconcile.
    the same pool at the stored block. tokens out must equal the stored raw
    figure exactly, and the cost recomputed from it must be within 1 bp of
    what /api/te/underlying serves for that version and size.
-   Historical state is short-lived on some chains (BSC public RPC about 110
-   blocks, Robinhood Chain about 10 minutes), so --fresh refreshes each
-   chain and checks it straight away. A pair whose block is no longer
-   served is reported as "outside the state window", not as a pass.
-3. Reconciliation, over every stored version:
+3. Independent re-quote, for pairs on V3-math pools: core/te/v3_walk.py reads
+   the pool's state at the block (slot0, liquidity, fee, tick bitmap, ticks)
+   and computes the swap in Python from ports of V3's swap arithmetic; no
+   pool code runs. Its output must equal the stored figure to the wei.
+   Historical state is short-lived on most public RPCs (BSC about 110
+   blocks, Robinhood Chain about 10 minutes), so --fresh refreshes each chain
+   (under the cost cycle's lease) and checks it straight away. A pair that
+   cannot be re-read at its block is a FAILURE, not a skip.
+4. Reconciliation, over every stored version:
    - a filled row has filled_fraction 1 and a cost; a partial row has
-     filled_fraction below 1, no cost and pool_usd above 0; no_pool and failed
+     filled_fraction below 1, no cost and pool_usd above 0; rows with no
+     quote (no_pool, not_searched, too_thin, not_a_venue, held) and failed
      rows have no cost and a reason;
-   - the served best at each size is the minimum over the filled versions, and
-     never a partial one (/underlying at 1,000 and 10,000, /list for every
-     group, /curve per chain and stop).
+   - the served best at each size follows the rule: the lowest all-in price
+     per share among filled versions with a read share ratio, never a partial
+     one or one whose ratio is not read (/underlying at 1,000 and 10,000,
+     /list for every group, /curve per chain and stop).
 
 Exit status 0 only when every check passes.
 """
@@ -51,14 +58,15 @@ from core.te.chains import CHAINS, archive_endpoints, latest_endpoints, router_f
 from core.te.cost import LIFI_FEE_RATE, SIZES, _family, _mid, build_req, unpack  # noqa: E402
 from core.te.cost_inputs import load_inputs  # noqa: E402
 from core.te.cost_store import get_store  # noqa: E402
-from core.te.cost_worker import _native_prices, _coverage  # noqa: E402
-from core.te.cost_job import run_chain  # noqa: E402
+from core.te.cost_worker import _native_prices, lease_owner, run_one_chain, write_list  # noqa: E402
 from core.te.gasusd import ROUTER_ALLOWANCE_GAS, TX_BASE_GAS  # noqa: E402
 from core.te.probe import quote_many  # noqa: E402
 from core.te.probe_bytecode import RUNTIME_HEX, RUNTIME_SHA256, SOURCE_SHA256  # noqa: E402
-from core.te.rpcclient import ChainRpc, RpcError  # noqa: E402
+from core.te.rpcclient import ChainRpc, RpcError, public_reason  # noqa: E402
+from core.te import v3_walk  # noqa: E402
 
 REPO = ROOT.parent
+OWNER = None  # set in main(): hostname:pid:selfcheck
 results: list[dict] = []
 
 
@@ -135,9 +143,15 @@ async def requote(store, docs: list[dict], recs: dict, n: int, rng: random.Rando
             window = "outside the state window" if "not available" in (r["error"] or "") or "missing trie" in (r["error"] or "") \
                 or "archive" in (r["error"] or "").lower() or "Unknown state" in (r["error"] or "") \
                 or '"not supported"' in (r["error"] or "") else "rpc error"
-            check(name, None, f"{window}: {r['error']}")
+            # A figure that cannot be re-checked is a failure of the check, not a pass
+            # and not a skip: run with --fresh inside the chains' state windows.
+            check(name, False, f"{window}: {public_reason(RpcError('rpc', r['error'] or ''))}")
             continue
         q = r["q"]
+        # The independent path: a tick walk in Python from the pool's state at
+        # the block (V3-math pools); no pool code is run.
+        if r["pool"]["f"] == "v3":
+            await independent(d, rec, r["pool"], s, i)
         if d["status"][i] == "partial":
             ok = q.get("status") == "partial" and str(q.get("received")) == d["tokens_out_raw"][i] \
                 and abs(q["filled_fraction"] - d["filled_fraction"][i]) < 1e-6
@@ -153,6 +167,27 @@ async def requote(store, docs: list[dict], recs: dict, n: int, rng: random.Rando
               f"recomputed {bps and round(bps, 3)} bps, diff {diff and round(diff, 4)}; via {r['endpoint']}")
 
 
+async def independent(d: dict, rec: dict, p: dict, s: int, i: int) -> None:
+    req = build_req(rec, p, s)
+    name = f"tick walk {d['symbol']} {d['chain']} ${s:,} at block {d['block']}"
+    errors = []
+    for ep in _requote_endpoints(rec["chain_id"]):
+        rpc = ChainRpc(rec["chain_id"], [ep], min_interval=0.3, retries_per_endpoint=5, timeout=20)
+        try:
+            w = await asyncio.to_thread(v3_walk.quote_exact_in, rpc, p["pool"], req.zero_for_one, req.amount_in, d["block"])
+        except RpcError as e:
+            errors.append(f"{ep.label}: {public_reason(e)}")
+            continue
+        if not w.get("ok"):
+            check(name, None, f"not V3 math: {w.get('reason')}")
+            return
+        same = str(w["out"]) == d["tokens_out_raw"][i]
+        check(name, same, f"walk {w['out']} vs stored {d['tokens_out_raw'][i]} ({w['steps']} steps, {w['reads']} reads, "
+                          f"fee {w['fee_ppm']}); via {ep.label}")
+        return
+    check(name, False, "could not read the pool at the block: " + "; ".join(errors))
+
+
 # ── 3. reconciliation ────────────────────────────────────────────────────────
 
 async def reconcile(store, docs: list[dict]) -> None:
@@ -160,7 +195,7 @@ async def reconcile(store, docs: list[dict]) -> None:
     bad = []
     for d in docs:
         st = d.get("state")
-        if st == "no_pool":
+        if st in ("no_pool", "not_searched", "too_thin", "not_a_venue"):
             if not d.get("reason"):
                 bad.append(f"{d['key']} no_pool without reason")
             continue
@@ -180,9 +215,17 @@ async def reconcile(store, docs: list[dict]) -> None:
         by_u.setdefault(d["underlying"], []).append(d)
 
     def min_filled(ds, s, group="all"):
-        c = [(d["cost_bps"][SIZES.index(s)], d["key"]) for d in ds if d.get("state") != "no_pool"
-             and d["status"][SIZES.index(s)] == "filled" and (group == "all" or d["group"] == group)]
-        return min(c) if c else None
+        """(cost_bps, key) of the version the rule crowns, recomputed from the
+        stored documents: the lowest all-in price per share among filled
+        versions whose share ratio is read."""
+        i = SIZES.index(s)
+        c = [(d["allin_per_share"][i], d["key"], d["cost_bps"][i]) for d in ds
+             if d.get("status") and d["status"][i] == "filled" and d.get("comparable")
+             and (d.get("allin_per_share") or [None] * 11)[i] and (group == "all" or d["group"] == group)]
+        if not c:
+            return None
+        _p, k, bps = min(c, key=lambda x: (x[0], x[1]))
+        return (bps, k)
 
     bad_u, bad_c = [], []
     for u, ds in by_u.items():
@@ -193,9 +236,11 @@ async def reconcile(store, docs: list[dict]) -> None:
             if (m is None) != (got is None) or (m and (got["key"] != m[1] or got["cost_bps"] != m[0])):
                 bad_u.append(f"{u} ${s}: served {got}, min {m}")
             if got:
-                partial = next((x for x in v["versions"] if x["key"] == got["key"] and x["state"] != "filled"), None)
-                if partial:
+                bv = next((x for x in v["versions"] if x["key"] == got["key"]), {})
+                if bv.get("state") != "filled":
                     bad_u.append(f"{u} ${s}: best is not a filled version")
+                if not bv.get("comparable"):
+                    bad_u.append(f"{u} ${s}: best has no share ratio read")
         _code, c = await cost_views.curve_view(store, u)
         for ch in c.get("chains", []):
             cds = [d for d in ds if d["chain_id"] == ch["chain_id"]]
@@ -203,8 +248,9 @@ async def reconcile(store, docs: list[dict]) -> None:
                 m = min_filled(cds, s)
                 if (m[0] if m else None) != ch["bps"][j]:
                     bad_c.append(f"{u} {ch['chain']} ${s}: served {ch['bps'][j]}, min {m}")
-    check("underlying: best = min over filled versions at $1,000 and $10,000", not bad_u, "; ".join(bad_u[:5]))
-    check("curve: each chain and stop = min over that chain's filled versions", not bad_c, "; ".join(bad_c[:5]))
+    check("underlying: best = lowest all-in price per share among filled, ratio-read versions ($1,000, $10,000)",
+          not bad_u, "; ".join(bad_u[:5]))
+    check("curve: each chain and stop = that chain's best by the same rule", not bad_c, "; ".join(bad_c[:5]))
 
     bad_l = []
     ld = await store.get_meta("list")
@@ -219,8 +265,22 @@ async def reconcile(store, docs: list[dict]) -> None:
             costs = [r["best"]["cost_bps"] for r in body.get("rows", [])]
             if costs != sorted(costs):
                 bad_l.append(f"{sort}/{g} not in cost order")
-    check("list: every row's best = min over filled versions in its group, rows in cost order", not bad_l, "; ".join(bad_l[:5]))
+    check("list: every row's best follows the rule in its group; rows in cost order", not bad_l, "; ".join(bad_l[:5]))
     check("list document present", bool(ld))
+
+    # D1: a discovered pool that failed a check is still held, and a version
+    # holding one is never served as no_pool.
+    by_key = {d["key"]: d for d in docs}
+    held_bad, held_total = [], 0
+    for ch in sorted({d["chain_id"] for d in docs}):
+        meta = await store.get_meta(f"chain:{ch}") or {}
+        for k, pools in (meta.get("discovered") or {}).items():
+            held_total += len(pools)
+            failed = any(len(x) > 8 and x[8] in ("not_a_venue", "too_thin") for x in pools)
+            if failed and (by_key.get(k) or {}).get("state") == "no_pool":
+                held_bad.append(k)
+    check(f"no version holding a failed pool is served as no_pool ({held_total} discovered pools held)",
+          not held_bad, ", ".join(held_bad[:5]))
 
 
 async def main() -> int:
@@ -233,7 +293,12 @@ async def main() -> int:
     a = ap.parse_args()
     rng = random.Random(a.seed)
     chains = [int(x) for x in a.chains.split(",")]
+    global OWNER
+    OWNER = lease_owner("selfcheck")
     store = get_store()
+    if a.fresh and not await store.acquire_lease("te_cost_cycle", OWNER, 3600):
+        print("another process holds the cost-cycle lease; run without --fresh or wait")
+        return 1
     inputs = load_inputs()
     recs = {r["key"]: r for r in inputs["records"]}
     probe_identity()
@@ -242,15 +307,10 @@ async def main() -> int:
     for ch in chains:
         print(f"re-quote, chain {ch}")
         if a.fresh:
-            meta = await store.get_meta(f"chain:{ch}") or {}
-            px = prices.get(CHAINS[ch]["native"])
-            docs, meta = await asyncio.to_thread(run_chain, ch, inputs, meta, px)
-            meta.pop("last_error", None)
-            await store.put_costs(docs)
-            await store.put_meta(f"chain:{ch}", meta)
-            all_docs = [d for d in await store.all_costs() if d["_id"] in recs]
-            cov = {str(c): _coverage(await store.get_meta(f"chain:{c}") or {}) for c in chains}
-            await store.put_meta("list", cost_views.build_list_doc(all_docs, inputs, {k: v for k, v in cov.items() if v}))
+            # the worker's own per-chain step, then the list, straight away
+            r = await run_one_chain(store, ch, inputs, prices.get(CHAINS[ch]["native"]))
+            print(f"  refreshed: {r}")
+            await write_list(store, inputs)
             cost_views._list_cache["doc"] = None
         docs = [d for d in await store.all_costs() if d.get("chain_id") == ch and d["_id"] in recs]
         await requote(store, docs, recs, per_chain, rng)
@@ -261,6 +321,8 @@ async def main() -> int:
     print(f"\n{len(results) - len(fails) - len(skips)} passed, {len(fails)} failed, {len(skips)} skipped")
     if a.out:
         Path(a.out).write_text(json.dumps(results, indent=1))
+    if a.fresh:
+        await store.release_lease("te_cost_cycle", OWNER)
     return 1 if fails else 0
 
 

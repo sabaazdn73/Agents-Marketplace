@@ -1,0 +1,124 @@
+{
+ "source": "Nasdaq Trader symbol directory (nasdaqlisted.txt and otherlisted.txt, 'File Creation Time: 0925202621:31', fetched 2026-09-26T15:31:45Z by the universe pass); class D",
+ "applies": "only where the universe gives no type",
+ "types": {
+  "ABCL": {
+   "type": "stock",
+   "security_name": "AbCellera Biologics Inc. - Common Shares",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "AGPU": {
+   "type": "stock",
+   "security_name": "Axe Compute Inc. - Common Stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "BNC": {
+   "type": "stock",
+   "security_name": "CEA Industries Inc. - Common Stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "BULL": {
+   "type": "stock",
+   "security_name": "Webull Corporation - Class A Ordinary Shares",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "CLOV": {
+   "type": "stock",
+   "security_name": "Clover Health Investments, Corp.  - Class A Common stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "CYPH": {
+   "type": "stock",
+   "security_name": "Cypherpunk Technologies Inc. - Common Stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "JOBY": {
+   "type": "stock",
+   "security_name": "Joby Aviation, Inc. Common Stock",
+   "directory": "otherlisted.txt",
+   "etf_flag": "N"
+  },
+  "KSS": {
+   "type": "stock",
+   "security_name": "Kohl's Corporation Common Stock",
+   "directory": "otherlisted.txt",
+   "etf_flag": "N"
+  },
+  "NAVN": {
+   "type": "stock",
+   "security_name": "Navan, Inc. - Class A Common Stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "RUN": {
+   "type": "stock",
+   "security_name": "Sunrun Inc. - Common Stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "SCHD": {
+   "type": "etf",
+   "security_name": "Schwab US Dividend Equity ETF",
+   "directory": "otherlisted.txt",
+   "etf_flag": "Y"
+  },
+  "SLS": {
+   "type": "stock",
+   "security_name": "SELLAS Life Sciences Group, Inc.  - Common Stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "SPMO": {
+   "type": "etf",
+   "security_name": "Invesco S&P 500 Momentum ETF",
+   "directory": "otherlisted.txt",
+   "etf_flag": "Y"
+  },
+  "VSAT": {
+   "type": "stock",
+   "security_name": "ViaSat, Inc. - Common Stock",
+   "directory": "nasdaqlisted.txt",
+   "etf_flag": "N"
+  },
+  "XLK": {
+   "type": "etf",
+   "security_name": "State Street Technology Select Sector SPDR ETF",
+   "directory": "otherlisted.txt",
+   "etf_flag": "Y"
+  }
+ },
+ "names": {
+  "IONQ": {
+   "security_name": "IonQ, Inc. Common Stock",
+   "directory": "otherlisted.txt",
+   "etf_flag": "N"
+  },
+  "NU": {
+   "security_name": "Nu Holdings Ltd. Class A Ordinary Shares",
+   "directory": "otherlisted.txt",
+   "etf_flag": "N"
+  },
+  "OKLO": {
+   "security_name": "Oklo Inc. Class A common stock",
+   "directory": "otherlisted.txt",
+   "etf_flag": "N"
+  },
+  "SNAP": {
+   "security_name": "Snap Inc. Class A Common Stock",
+   "directory": "otherlisted.txt",
+   "etf_flag": "N"
+  },
+  "UBER": {
+   "security_name": "Uber Technologies, Inc. Common Stock",
+   "directory": "otherlisted.txt",
+   "etf_flag": "N"
+  }
+ },
+ "names_note": "security name as the directory gives it, for underlyings the universe has no name for; applies only there"
+}
