@@ -55,6 +55,26 @@ _SOL = re.compile(r"^solana/([1-9A-HJ-NP-Za-km-z]{32,44})(?:/(supply))?$")
 _TICKER = re.compile(r"^[A-Z0-9.\-]{1,12}$")
 
 
+# The filters the six tools pass (tools.list_ and tools.summary), named so a
+# dataset can say which it applies and refuse the rest rather than ignore it.
+LIST_FILTERS = ("key", "chain_id", "category", "search", "verified", "sort")
+
+
+def _filters(given: dict, supported: tuple) -> tuple[dict, list[str]]:
+    """(the filters applied, the ones given that this dataset cannot apply)."""
+    given = {k: v for k, v in given.items() if k in LIST_FILTERS and v not in (None, "")}
+    return ({k: v for k, v in given.items() if k in supported},
+            sorted(k for k in given if k not in supported))
+
+
+def _refused(dataset: str, bad: list[str], supported: tuple) -> dict:
+    return {"rows": [], "total": None, "partial": True, "withheld_reason": "filter_not_supported",
+            "filters": {"not_supported": bad, "supported": list(supported)},
+            "explanation": f"{dataset} cannot apply {', '.join(bad)}; it applies "
+                           f"{', '.join(supported) or 'no filter'}. Nothing was filtered, so no rows are returned "
+                           f"rather than rows that ignore the filter."}
+
+
 def _num(v, nd=2):
     return round(v, nd) if isinstance(v, (int, float)) else None
 
@@ -105,27 +125,55 @@ def build_te(providers=None) -> list[Dataset]:
     async def list_doc():
         return await cv._list_doc(get_store())
 
+    # ONE SNAPSHOT for coverage, list and summary: every per-version document,
+    # read once and kept for 60 seconds (the site's list cache time). The
+    # summary used to count from the list document and the list to read the
+    # per-version store, so the two could be a cycle apart and disagree by a
+    # version. Now both come from the same read, and as_of is the newest
+    # measurement in it: the time of what is actually served.
+    snap = {"t": -1e9, "docs": None}
+
+    async def snapshot() -> list[dict]:
+        import time
+        if snap["docs"] is None or time.monotonic() - snap["t"] > 60:
+            snap["docs"] = await get_store().all_costs()
+            snap["t"] = time.monotonic()
+        return snap["docs"]
+
+    def _scope(read: int, listed: int, solana: int) -> str:
+        return (f"The list holds only the EVM versions the cost engine reads: {read:,} of {listed:,} listed "
+                f"versions. The engine reads listed tokens on its six EVM chains (Ethereum, Base, Arbitrum, BNB "
+                f"Chain, Robinhood Chain, HyperEVM), for the underlyings that have at least one pool it can "
+                f"simulate, every version of such an underlying, pool or not. Absent: the {solana:,} Solana "
+                f"versions (listed, not measured yet) and the EVM versions of underlyings with no pool it can "
+                f"simulate.")
+
     # ── coverage ─────────────────────────────────────────────────────────────
     async def coverage():
         u = await universe()
         s = u.summary()
-        ld = await list_doc()
-        counts = (ld or {}).get("counts") or {}
+        docs = await snapshot()
+        counts = cv.count_docs(docs) if docs else {}
+        solana = sum(c["tokens"] for c in s.get("chain_list") or [] if c.get("group") == "nonevm")
+        newest = max((d.get("computed_at") or "" for d in docs), default="") or None
         return {
             "instruments": s.get("versions_listed"),
+            "instruments_read": counts.get("versions_read"),
             "instruments_measured": counts.get("versions_measured"),
             "instruments_with_a_measured_cost": counts.get("versions_with_cost"),
+            "measured_definition": cv.COUNTS_DEFINITION,
+            "scope": _scope(counts.get("versions_read") or 0, s.get("versions_listed") or 0, solana),
             "underlyings": s.get("underlyings"),
-            "underlyings_with_a_filled_version": len((ld or {}).get("rows") or []),
             "chains": [c["name"] for c in s.get("chain_list") or []],
             "issuers": sorted(ISSUER_NAMES.values()),
             "sizes_quoted_usd": list(SIZES),
             "numeraire": "USD, dollar stablecoins at $1 (an assumption)",
             "quote_staleness_bound_seconds": STALENESS_BOUND_S,
-            "last_poll": (ld or {}).get("computed_at"),
+            "last_poll": newest,
+            "last_poll_basis": "the newest measurement among the versions served; each version carries its own",
             "universe_read_at": s.get("computed_at"),
-            "partial": ld is None,
-            **({"note": "the cost worker has not written its first list yet"} if ld is None else {}),
+            "partial": not docs,
+            **({"note": "the cost worker has not written yet"} if not docs else {}),
         }
 
     # ── get ──────────────────────────────────────────────────────────────────
@@ -224,7 +272,8 @@ def build_te(providers=None) -> list[Dataset]:
         cells = {size: _cell(doc, size) for size in SIZES}
         c0 = cells[SIZES[0]]
         return {
-            "key": key, "chain_id": chain_id, "token_address": key.split("/")[1], "symbol": doc.get("symbol"),
+            "key": key, "measured_at": doc.get("computed_at"),
+            "chain_id": chain_id, "token_address": key.split("/")[1], "symbol": doc.get("symbol"),
             "issuer": ISSUER_NAMES.get(doc.get("issuer"), doc.get("issuer")), "issuer_key": f"issuer/{doc.get('issuer')}",
             "underlying_key": f"underlying/{doc.get('underlying')}",
             "shares_per_token": _num(doc.get("share_ratio"), 6),
@@ -251,7 +300,8 @@ def build_te(providers=None) -> list[Dataset]:
         u = await universe()
         rows = (await asyncio.to_thread(te_controls.by_issuer, u, iid, None)).get("rows") or []
         ld = await list_doc()
-        return {"key": f"issuer/{iid}", "issuer": ISSUER_NAMES[iid],
+        ctl_all = await asyncio.to_thread(te_controls.by_issuer, u, iid, None)
+        return {"key": f"issuer/{iid}", "issuer": ISSUER_NAMES[iid], "measured_at": ctl_all.get("computed_at"),
                 "programmes": [{"programme": r.get("programme"), "family": r.get("family"), "chains": r.get("chains"),
                                 "tokens": r.get("tokens"), "powers": _powers(r)} for r in rows],
                 "powers_detail": f"https://agents-marketplace-q3k4.onrender.com/api/te/controls?by=issuer&issuer={iid}",
@@ -260,15 +310,23 @@ def build_te(providers=None) -> list[Dataset]:
                 "source": UNIVERSE_SOURCE}
 
     # ── list ─────────────────────────────────────────────────────────────────
-    async def list_(*, limit, offset, chain_id=None, search=None, key=None, **_):
-        """One row per measured version, in key order. `search` matches a
-        ticker, a token symbol or a name; `key` narrows to underlying/<T>."""
+    TE_LIST_FILTERS = ("key", "chain_id", "search")
+
+    async def list_(*, limit, offset, **given):
+        """One row per version the engine reads, in key order. `search`
+        matches a ticker, a token symbol or a name; `key` narrows to
+        underlying/<T>; chain_id to one chain."""
         from core.te.cost_views import _cell
-        store = get_store()
+        applied, bad = _filters(given, TE_LIST_FILTERS)
+        if bad:
+            return _refused("tokenized_equities", bad, TE_LIST_FILTERS)
+        chain_id, search, key = applied.get("chain_id"), applied.get("search"), applied.get("key")
         ld = await list_doc()
-        if ld is None:
-            return {"rows": [], "total": None, "partial": True, "note": "the cost worker has not written yet"}
-        docs = await store.all_costs()
+        docs = await snapshot()
+        if not docs:
+            return {"rows": [], "total": None, "partial": True, "note": "the cost worker has not written yet",
+                    "filters": {"applied": applied}}
+        ld = ld or {}
         q = str(search or "").strip().upper()
         want_u = str(key).split("/", 1)[1].upper() if key and str(key).startswith("underlying/") else None
         names = {r["u"]: (r.get("name") or "") for r in ld.get("rows") or []}
@@ -295,32 +353,53 @@ def build_te(providers=None) -> list[Dataset]:
                 "cost_bps_1k": _num(c1.get("cost_bps")), "cost_bps_10k": _num(c10.get("cost_bps")),
                 "state_10k": c10.get("state"),
                 "measured_at": d.get("computed_at"),
+                "source": "cost engine",
             })
-        return {"rows": out, "total": len(rows), "partial": False,
-                "note": "one row per version, in key order, side by side and not ranked; cost_bps is against the "
-                        "pool's own mid, so allin_per_share_usd_1k is the figure that compares versions. Source: "
-                        + COST_SOURCE}
+            # Under the 300-byte row guidance: a state that is "filled" is
+            # said by the cost beside it.
+            # A figure with no value is left out rather than sent as null.
+            for tag in ("1k", "10k"):
+                if out[-1][f"state_{tag}"] == "filled":
+                    del out[-1][f"state_{tag}"]
+            out[-1] = {k: v for k, v in out[-1].items() if v is not None}
+        return {"rows": out, "total": len(rows), "partial": False, "filters": {"applied": applied}}
 
     # ── summary ──────────────────────────────────────────────────────────────
-    async def summary(*, chain_id=None, **_):
-        ld = await list_doc()
+    TE_SUMMARY_FILTERS = ("chain_id",)
+
+    async def summary(**given):
+        applied, bad = _filters(given, TE_SUMMARY_FILTERS)
+        if bad:
+            return {"filters": {"not_supported": bad, "supported": list(TE_SUMMARY_FILTERS)},
+                    "note": f"tokenized_equities summary cannot apply {', '.join(bad)}; no counts are given rather "
+                            f"than counts that ignore it. It applies chain_id."}
         u = await universe()
         s = u.summary()
-        counts = (ld or {}).get("counts") or {}
-        by_chain = counts.get("by_chain") or []
+        docs = await snapshot()
+        chain_id = applied.get("chain_id")
         if chain_id is not None:
-            by_chain = [c for c in by_chain if c.get("chain_id") == int(chain_id)]
-        return {
-            "instruments_listed": s.get("versions_listed"),
-            "underlyings_listed": s.get("underlyings"),
-            "instruments_measured": counts.get("versions_measured"),
-            "instruments_with_a_measured_cost": counts.get("versions_with_cost"),
-            "definition": counts.get("definition"),
-            "by_chain": by_chain,
-            "tokens_by_chain": [{"chain": c["name"], "tokens": c["tokens"]} for c in s.get("chain_list") or []],
-            "measured_at": (ld or {}).get("computed_at"),
+            docs = [d for d in docs if d.get("chain_id") == int(chain_id)]
+        counts = cv.count_docs(docs)
+        listed = s.get("chain_list") or []
+        if chain_id is not None:
+            listed = [c for c in listed if c.get("chain_id") == int(chain_id)]
+        out = {
+            "filters": {"applied": applied},
+            "instruments_listed": sum(c["tokens"] for c in listed),
+            "instruments_read": counts["versions_read"],
+            "instruments_measured": counts["versions_measured"],
+            "instruments_with_a_measured_cost": counts["versions_with_cost"],
+            "definition": counts["definition"],
+            "by_chain": counts["by_chain"],
+            "tokens_by_chain": [{"chain": c["name"], "chain_id": c.get("chain_id"), "tokens": c["tokens"]} for c in listed],
+            "measured_at": max((d.get("computed_at") or "" for d in docs), default="") or None,
             "source": COST_SOURCE,
         }
+        if chain_id is None:
+            out["underlyings_listed"] = s.get("underlyings")
+        if chain_id is not None and not docs:
+            out["note"] = f"the cost engine reads no version on chain {chain_id}"
+        return out
 
     caveats = [
         "Cost to fill leads. Every figure is simulated on the pool at a stated block by this collector; "
@@ -333,8 +412,11 @@ def build_te(providers=None) -> list[Dataset]:
         "words, linked and dated.",
         "Read-only: nothing is signed, built or held. The unsigned route of the spec is not built.",
         "Solana versions are listed but not measured yet.",
-        "as_of is the cost engine's last poll, coverage.last_poll; each version also carries its own block "
-        "and measured_at, which can be older when a chain's read failed.",
+        "as_of is coverage.last_poll: the newest measurement among the versions served, and get, list and "
+        "summary read the same snapshot. Each version carries its own block and measured_at, which can be "
+        "older when a chain's read failed.",
+        "Only EVM versions the engine reads are listed: see coverage.scope for how many and why the rest are "
+        "absent. Row field source: cost engine means " + COST_SOURCE + ".",
     ]
     return [Dataset(
         id="tokenized_equities",
@@ -348,6 +430,9 @@ def build_te(providers=None) -> list[Dataset]:
         example_filters={"search": "NVDA"},
         coverage=coverage, get=get, list=list_, summary=summary,
         as_of=lambda c: iso_utc(c.get("last_poll")),
+        # A record states its own time: a version's quote, an underlying's
+        # newest version, an issuer's controls read.
+        record_as_of=lambda r: iso_utc((r or {}).get("measured_at")),
         caveats=caveats,
     )]
 
@@ -367,6 +452,8 @@ def build_vaults(providers=None) -> list[Dataset]:
                 "read_at": body.get("computed_at"),
                 "partial": bool(body.get("partial"))}
 
+    VAULT_LIST_FILTERS = ("search",)
+
     def _row(v: dict) -> dict:
         # About 250 bytes: what to choose a vault by. Who controls it, what it
         # lends against, fees and audits are one tnega_get away.
@@ -374,22 +461,35 @@ def build_vaults(providers=None) -> list[Dataset]:
                 "token": v.get("token_symbol") or v.get("tvl_symbol"),
                 "tvl_usd": v.get("tvl_usd"), "tvl_source": v.get("tvl_source"),
                 "tvl_stale": v.get("tvl_stale"),
-                "inside_another_listed_vault": bool(v.get("nested_in"))}
+                "inside_another_listed_vault": bool(v.get("nested_in")),
+                "source": "vault collector"}
 
-    async def list_(*, limit, offset, search=None, **_):
+    async def list_(*, limit, offset, **given):
+        applied, bad = _filters(given, VAULT_LIST_FILTERS)
+        if bad:
+            return _refused("vaults.stablecoin", bad, VAULT_LIST_FILTERS)
+        search = applied.get("search")
         body = await service.list_vaults(get_store(), None, 1000, 0)
         if body is None:
-            return {"rows": [], "total": None, "partial": True, "note": "no vault read has been stored yet"}
+            return {"rows": [], "total": None, "partial": True, "note": "no vault read has been stored yet",
+                    "filters": {"applied": applied}}
         rows = body.get("vaults") or []
         q = str(search or "").strip().lower()
         if q:
             rows = [v for v in rows if q in (v.get("name") or "").lower() or q in (v.get("platform") or "").lower()
                     or q in (v.get("address") or "").lower() or q in (v.get("token_symbol") or "").lower()]
         return {"rows": [_row(v) for v in rows[offset:offset + limit]], "total": len(rows),
-                "partial": bool(body.get("partial")),
+                "partial": bool(body.get("partial")), "filters": {"applied": applied},
                 "note": "in the site's order (platform, then name), not ranked. tvl_usd counts tokens at 1 USD "
                         "(face value); a vault inside another listed vault is named in nested_in, and its dollars "
                         "are already in that vault's TVL. Source: " + VAULT_SOURCE}
+
+    def _field(x):
+        """A due-diligence field as its text with its provenance class (and the
+        slot, link or date behind it), as the collector stored them."""
+        if not isinstance(x, dict):
+            return x
+        return {k: x[k] for k in ("text", "class", "slot", "url", "read_on", "source") if x.get(k) is not None}
 
     async def get(key: str):
         parts = str(key).split("/")
@@ -402,17 +502,21 @@ def build_vaults(providers=None) -> list[Dataset]:
         return {"key": key, "name": d.get("name"), "platform": d.get("platform"), "chain": d.get("chain"),
                 "address": d.get("address"), "token": d.get("token"),
                 "tvl": {k: v for k, v in (d.get("tvl") or {}).items() if k not in ("allocations",)},
-                "manager": (d.get("manager") or {}).get("text"), "controls": (d.get("controls") or {}).get("text"),
-                "fees": (d.get("fees") or {}).get("text"), "lockup": (d.get("lockup") or {}).get("text"),
-                "audits": (d.get("audits") or {}).get("text"),
-                "assets": (d.get("assets") or {}).get("text"),
+                **{f: _field(d.get(f)) for f in ("manager", "controls", "fees", "lockup", "audits", "assets")},
+                "provenance_classes": "A: read on chain at the slot given; D: the operator's own document, "
+                                      "linked and dated",
                 "lends_against": row.get("lends_against"), "notes": row.get("notes"),
                 "nested_in": row.get("nested_in"), "contains_nested": row.get("contains_nested"),
                 "read_at": d.get("read_at"), "deposits": "on the venue, signed in the user's own wallet; this "
                                                          "server never holds funds and has no deposit path",
                 "source": VAULT_SOURCE}
 
-    async def summary(**_):
+    async def summary(**given):
+        applied, bad = _filters(given, ())
+        if bad:
+            return {"filters": {"not_supported": bad, "supported": []},
+                    "note": f"vaults.stablecoin summary applies no filter; {', '.join(bad)} not applied, so no "
+                            f"totals are given."}
         body = await service.list_vaults(get_store(), None, 1000, 0)
         if body is None:
             return {"note": "no vault read has been stored yet"}
@@ -423,7 +527,7 @@ def build_vaults(providers=None) -> list[Dataset]:
             p = by_platform.setdefault(v.get("platform"), {"vaults": 0, "tvl_usd": 0.0})
             p["vaults"] += 1
             p["tvl_usd"] = round(p["tvl_usd"] + (v.get("tvl_usd") or 0), 2)
-        return {"vaults": len(vs), "by_platform": by_platform,
+        return {"filters": {"applied": {}}, "vaults": len(vs), "by_platform": by_platform,
                 "tvl_usd_sum": round(sum(v.get("tvl_usd") or 0 for v in vs), 2),
                 "tvl_usd_sum_basis": "the sum of each listed vault's TVL, tokens at 1 USD; vaults inside another "
                                      "listed vault are counted in both, so this sum counts those dollars twice",
@@ -438,8 +542,10 @@ def build_vaults(providers=None) -> list[Dataset]:
         keys=["platform/address, as kamino/A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo"],
         coverage=coverage, get=get, list=list_, summary=summary,
         as_of=lambda c: iso_utc(c.get("read_at")),
+        record_as_of=lambda r: iso_utc((r or {}).get("read_at")),
         caveats=["Read on chain and from each operator's documents; not a recommendation, not ranked. "
-                 "Deposits happen on each venue, signed in the user's own wallet.",
+                 "Deposits happen on each venue, signed in the user's own wallet. Row field source: vault "
+                 "collector means " + VAULT_SOURCE + ".",
                  "TVL counts stablecoins at 1 USD (face value). No 30-day return or age is served yet: the "
                  "collector keeps its latest read, not a history.",
                  "as_of is the collector's last pass, coverage.read_at; a vault marked tvl_stale carries an "
@@ -461,21 +567,35 @@ def build_baskets(providers=None) -> list[Dataset]:
                 "sizes": "any measured size; lists use 1,000 USD", "priced_at": priced_at,
                 "partial": priced_at is None}
 
+    # What a buyer's wallet asks for, as the REST basket record serves it:
+    # a swap signature per priced leg, plus approvals where an allowance is
+    # too low, so signatures_up_to is a ceiling and not a count; and the chain
+    # switches. Never a bare `signatures`, which read as the total.
+    def _prompts(p: dict | None, with_basis: bool) -> dict | None:
+        if not p:
+            return None
+        keep = ("swaps", "approvals_up_to", "signatures_up_to", "chain_switches") + (("basis",) if with_basis else ())
+        return {k: p.get(k) for k in keep if k in p}
+
     def _card(b: dict) -> dict:
         # Tickers and weights only; the version each leg buys, with its cost,
         # is in the basket's own record.
         return {"key": b.get("code"), "name": b.get("name"), "complete": b.get("complete"),
                 "legs": ", ".join(f"{l.get('ticker')} {round((l.get('weight_bps') or 0) / 100)}%"
                                   for l in b.get("legs") or []),
-                "cost_bps_at_1000_usd": b.get("cost_bps"), "signatures": b.get("signatures"),
-                "largest_size_under_1pct_usd": b.get("cap_usd")}
+                "cost_bps_at_1000_usd": b.get("cost_bps"),
+                "wallet_prompts": {k: (b.get("prompts") or {}).get(k) for k in ("signatures_up_to", "chain_switches")},
+                "largest_size_under_1pct_usd": b.get("cap_usd"),
+                "source": "curated baskets"}
 
-    async def list_(*, limit, offset, **_):
+    async def list_(*, limit, offset, **given):
+        applied, bad = _filters(given, ())
+        if bad:
+            return _refused("baskets.curated", bad, ())
         body = await core.curated_list(get_store(), 1000)
         cards = [_card(b) for b in body.get("baskets") or []]
         return {"rows": cards[offset:offset + limit], "total": len(cards), "partial": False,
-                "note": body.get("note", "") + " Each leg's version is the cost engine's lowest all-in price per "
-                        "share at the leg's own size when read. Source: " + BASKET_SOURCE}
+                "filters": {"applied": {}}}
 
     async def get(key: str):
         code = str(key).strip().lower()
@@ -485,32 +605,47 @@ def build_baskets(providers=None) -> list[Dataset]:
         if d is None:
             return None
         keep = ("code", "name", "description", "version", "created_at", "note", "size", "complete", "cost_bps",
-                "cost_usd", "cost_reason", "signatures", "evm", "nonevm", "cap_usd", "cap_leg", "cap_lower_bound",
-                "computed_at", "cost_basis", "cap_basis")
+                "cost_usd", "cost_reason", "evm", "nonevm", "cap_usd", "cap_leg", "cap_lower_bound",
+                "computed_at", "size_basis", "cost_basis", "cap_basis")
         out = {k: d.get(k) for k in keep}
+        out["wallet_prompts"] = _prompts(d.get("prompts"), True)
         out["legs"] = [{k: l.get(k) for k in ("ticker", "weight_bps", "symbol", "issuer", "chain", "state",
-                                              "leg_usd", "leg_cost_bps", "reason")} for l in d.get("legs") or []]
+                                              "leg_usd", "measured_at_usd", "size_exact", "below_smallest_stop",
+                                              "leg_cost_bps", "reason")} for l in d.get("legs") or []]
         out["return_since_creation_pct"] = None
         out["return_basis"] = d.get("return_basis")
+        out["measured_at"] = d.get("computed_at")
         out["source"] = BASKET_SOURCE
         return out
 
-    async def summary(**_):
+    async def summary(**given):
+        applied, bad = _filters(given, ())
+        if bad:
+            return {"filters": {"not_supported": bad, "supported": []},
+                    "note": f"baskets.curated summary applies no filter; {', '.join(bad)} not applied, so nothing "
+                            f"is summarised."}
         body = await core.curated_list(get_store(), 1000)
-        return {"baskets": [{"key": b.get("code"), "name": b.get("name"), "legs": len(b.get("legs") or []),
+        return {"filters": {"applied": {}},
+                "baskets": [{"key": b.get("code"), "name": b.get("name"), "legs": len(b.get("legs") or []),
                              "cost_bps_at_1000_usd": b.get("cost_bps")} for b in body.get("baskets") or []],
                 "computed_at": body.get("computed_at"), "source": BASKET_SOURCE}
 
     return [Dataset(
         id="baskets.curated",
         title="Curated baskets: a fixed example, priced",
-        measures="Tnega's fixed example baskets of tokenized stocks and ETFs, each leg priced at 1,000 USD "
-                 "from the cost engine's measurements",
+        measures="Tnega's fixed example baskets of tokenized stocks and ETFs, priced for 1,000 USD in total: "
+                 "each leg buys its weight's share of that, and is priced at the smallest measured size at or "
+                 "above its own amount (measured_at_usd), from the cost engine's measurements",
         keys=["basket code, as tech-4"],
         coverage=coverage, get=get, list=list_, summary=summary,
         as_of=lambda c: iso_utc(c.get("priced_at")),
+        record_as_of=lambda r: iso_utc((r or {}).get("measured_at")),
         caveats=["A fixed example basket, equal or stated weights; not a recommendation. No return is served: "
                  "price history is not kept.",
+                 "The basket is 1,000 USD in total; a leg of 25% is a 250 USD buy, priced at the measured size "
+                 "at or above it (measured_at_usd, size_exact on each leg). wallet_prompts.signatures_up_to is "
+                 "a ceiling (a swap per leg plus approvals where an allowance is too low), not a count. Row "
+                 "field source: curated baskets means " + BASKET_SOURCE + ".",
                  "as_of is when the legs were priced, coverage.priced_at: the cost engine's reading the basket "
                  "was priced from."],
     )]
