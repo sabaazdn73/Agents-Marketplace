@@ -229,7 +229,11 @@ def render(raw):
     box = im.getbbox()
     if box:
         im = im.crop(box)
-    im.thumbnail((SIZE - 10, SIZE - 10), Image.LANCZOS)
+    # A wide wordmark (Strategy's is 3.7 to 1) is fitted to the tile's full
+    # width, with 2 px either side rather than 5, so its letters are as large
+    # as a square tile allows; a square mark keeps the usual margin.
+    pad = 4 if im.width > 2.5 * im.height else 10
+    im.thumbnail((SIZE - pad, SIZE - pad), Image.LANCZOS)
     px = [p for p in im.getdata() if p[3] > 128]
     lum = sum(0.2126 * r + 0.7152 * g + 0.0722 * b for r, g, b, _ in px) / (255 * len(px)) if px else 0
     tile = (20, 20, 22, 255) if lum > 0.82 else (255, 255, 255, 255)
