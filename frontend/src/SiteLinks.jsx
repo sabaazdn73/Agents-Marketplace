@@ -24,6 +24,7 @@ import React from 'react';
 import { Github, Linkedin } from 'lucide-react';
 import { CHROME_EXTENSION_URL } from './extensionLink';
 import { PRODUCT_NAV } from './shell/productNav';
+import { weeklyLinks } from './weeklyUpdates';
 
 export const GITHUB_URL = 'https://github.com/sabaazdn73/Agents-Marketplace';
 export const LINKEDIN_URL = 'https://www.linkedin.com/in/saba-azadegan-2974b622a';
@@ -63,6 +64,10 @@ export const FOOTER_COLUMNS = () => [
     // The walkthrough film (DEMO_VIDEO_URL above), in a new tab.
     { key: 'walkthrough', label: 'Walkthrough', note: 'video, on YouTube', path: DEMO_VIDEO_URL, external: true },
   ] },
+  // The weekly reports (weeklyUpdates.js). They were listed on How It Works,
+  // which is no longer routed (/how-it-works now redirects), so until this
+  // column the week 2 report showed nowhere.
+  { title: 'Progress', links: weeklyLinks() },
   { title: 'Legal', links: [
     { key: 'privacy', label: 'Privacy', path: '/privacy#website' },
     { key: 'sources', label: 'Data sources', path: '/data-sources' },
@@ -104,7 +109,7 @@ export default function SiteLinks({
 
   return (
     <footer className={className}>
-      <div className={sheet ? 'grid grid-cols-2 gap-x-6 gap-y-6' : 'grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-8'}>
+      <div className={sheet ? 'grid grid-cols-2 gap-x-6 gap-y-6' : 'grid grid-cols-2 md:grid-cols-6 gap-x-8 gap-y-8'}>
         {!sheet && (
           <div className="col-span-2 md:col-span-1">
             <span className="text-[20px] font-light tracking-[0.02em] text-fg">Tnega</span>
@@ -120,7 +125,7 @@ export default function SiteLinks({
                   <li key={item.key}>
                     <a
                       href={item.path}
-                      {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : { onClick: (e) => go(e, item.path) })}
+                      {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : item.plain ? {} : { onClick: (e) => go(e, item.path) })}
                       aria-current={on ? 'page' : undefined}
                       className="text-[13px] font-semibold text-fg hover:underline underline-offset-2"
                     >
