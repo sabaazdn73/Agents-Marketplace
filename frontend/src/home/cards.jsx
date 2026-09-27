@@ -13,6 +13,7 @@ import {
   fmtUsd, fmtUsd0, fmtBps, fmtPct, BigMoney,
 } from '../ui/primitives';
 import { hasRows } from '../te/api';
+import { capText } from '../etfs/BasketBreakdown';
 import {
   headline, tokensText, bpsText, shareRatioText, depthText, blockText, refGap,
   stateText, measuredLine, sentence,
@@ -252,7 +253,10 @@ export function BuyStepsCard() {
   );
 }
 
-/* 07 · A basket. GET /api/baskets/curated (one basket) */
+/* 07 · A basket. GET /api/baskets/curated (one basket). The cost at the
+ * list's size or the served reason there is none; the wallet prompts, with
+ * approvals as "up to"; the cap as capText words it ("at least" and every
+ * tied leg). */
 export function BasketCard({ basket, source, onOpen }) {
   if (!basket || !hasRows(basket.legs)) return null;
   const COLORS = ['bg-chart', 'bg-chart-3', 'bg-chart-4', 'bg-chart-2', 'bg-chart-5'];
@@ -260,21 +264,27 @@ export function BasketCard({ basket, source, onOpen }) {
     <Card>
       <CardTitle right={<DevTag data={source} />}>{basket.name}</CardTitle>
       <div className="flex h-2 rounded-full overflow-hidden bg-inset mb-3" aria-hidden="true">
-        {basket.legs.map((l, i) => <span key={l.symbol} className={COLORS[i % COLORS.length]} style={{ width: `${l.weight_bps / 100}%` }} />)}
+        {basket.legs.map((l, i) => <span key={l.ticker || l.symbol} className={COLORS[i % COLORS.length]} style={{ width: `${l.weight_bps / 100}%` }} />)}
       </div>
       <ul className="space-y-1.5 text-[13px]">
         {basket.legs.map((l, i) => (
-          <li key={l.symbol} className="flex items-center gap-2">
+          <li key={l.ticker || l.symbol} className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" />
-            <span className="text-fg flex-1">{l.symbol}</span>
+            <span className="text-fg flex-1">{l.ticker || l.symbol}{l.ticker && l.symbol && l.symbol !== l.ticker ? <span className="text-muted"> · {l.symbol}</span> : null}</span>
             <span className="tabular-nums text-muted">{(l.weight_bps / 100).toFixed(0)}%</span>
           </li>
         ))}
       </ul>
       <dl className="mt-3 pt-3 border-t border-line grid grid-cols-2 gap-y-1 text-[12px]">
-        {Number.isFinite(basket.cost_bps_1k) && (<><dt className="text-muted">All-in to buy $1,000</dt><dd className="text-right tabular-nums text-fg">{fmtBps(basket.cost_bps_1k)}</dd></>)}
-        {Number.isFinite(basket.signatures) && (<><dt className="text-muted">Signatures</dt><dd className="text-right tabular-nums text-fg">{basket.signatures}, one per stock</dd></>)}
-        {Number.isFinite(basket.cap_usd) && (<><dt className="text-muted">Largest size under 1% cost</dt><dd className="text-right tabular-nums text-fg">{fmtUsd0(basket.cap_usd)}{basket.cap_leg ? `, set by ${basket.cap_leg}` : ''}</dd></>)}
+        {(() => {
+          const size = source?.size || 1000;
+          const bps = Number.isFinite(basket.cost_bps) ? basket.cost_bps : basket.cost_bps_1k;
+          return Number.isFinite(bps)
+            ? <><dt className="text-muted">Cost to buy {fmtUsd0(size)}</dt><dd className="text-right tabular-nums text-fg">{fmtBps(bps)}</dd></>
+            : basket.cost_reason ? <><dt className="text-muted">Cost to buy {fmtUsd0(size)}</dt><dd className="text-right text-fg">{sentence(basket.cost_reason)}</dd></> : null;
+        })()}
+        {basket.prompts && Number.isFinite(basket.prompts.swaps) && (<><dt className="text-muted">Wallet prompts</dt><dd className="text-right tabular-nums text-fg">{basket.prompts.swaps} swaps{basket.prompts.approvals_up_to ? `, up to ${basket.prompts.approvals_up_to} approvals` : ''}</dd></>)}
+        {capText(basket) && (<><dt className="text-muted">Largest size under 1% cost</dt><dd className="text-right tabular-nums text-fg">{capText(basket)}</dd></>)}
       </dl>
       <p className="mt-3 text-[11px] text-muted">{source?.note || 'A fixed example basket; not a recommendation.'}</p>
       {onOpen && (

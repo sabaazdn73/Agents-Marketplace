@@ -57,7 +57,10 @@ function Ext({ href, children }) {
 const btn = 'h-10 px-4 rounded bg-accent text-accent-fg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 const btn2 = 'h-10 px-4 rounded border border-line-strong text-fg text-[13px] font-semibold hover:bg-inset disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 
-export default function TradePanel({ v, size, compact = false }) {
+// `onSent(hash)` tells a caller (the basket buy, trade/BasketBuy.jsx) that
+// the swap was handed to the wallet and came back with a hash. `title`
+// replaces the heading.
+export default function TradePanel({ v, size, compact = false, onSent = null, title = null }) {
   const { address } = useConnectedWallet();
   const { openConnectModal } = useConnectModal();
   const target = parseKey(v.key);
@@ -207,6 +210,7 @@ export default function TradePanel({ v, size, compact = false }) {
       setWallet({ status: 'sent' });
       setTx({ hash, fromChain: pay.chainId, lifi: null });
       recordBuy({ hash, fromChain: pay.chainId, toChain, key: v.key, symbol: v.symbol });
+      onSent?.(hash);
       setBuysTick((t) => t + 1);
       const g = gen.current;
       const from = pay.chainId;
@@ -225,7 +229,7 @@ export default function TradePanel({ v, size, compact = false }) {
   return (
     <section aria-label={`Buy ${v.symbol}`} className="rounded border border-line bg-surface p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[15px] font-semibold text-fg">Buy {v.symbol} on {v.chain}</h3>
+        <h3 className="text-[15px] font-semibold text-fg">{title || `Buy ${v.symbol} on ${v.chain}`}</h3>
         <span className="text-[12px] text-muted">Routed by LI.FI in your browser. Your wallet signs; Tnega never holds funds.</span>
       </div>
 
