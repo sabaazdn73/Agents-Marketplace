@@ -36,6 +36,12 @@ const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:800
 
 export const PAGE_SIZE = 24;
 
+// The backend's read cap on the catalogue it serves (SERVE_LIMIT in
+// backend/core/agent_store.py). The served set stops here, so a count at or
+// near it is the size of what we serve, not the size of the registry. Shown
+// beside the Listed figure on web and mobile. Change both together.
+export const SERVE_READ_CAP = 15_000;
+
 // Same backoff discipline the old full-list fetch used, and for the same
 // reason: the backend is OOM-killed and restarts in seconds, so a single fetch
 // that lands in one of those windows should retry rather than render an error.
@@ -117,7 +123,12 @@ async function fetchWithRetry(url, isCancelled) {
  * it already holds. The alternative, a second request per filter change, would
  * be two round trips to render one grid.
  */
-export function useMarketplacePage(filters, mapAgent) {
+/*
+ * `enabled` (default true): while false, nothing is requested. The apps pass
+ * false until Explore is first shown, because the Dashboard on "/" has no use
+ * for the agent list and should not pay for it (2026-09-25).
+ */
+export function useMarketplacePage(filters, mapAgent, { enabled = true } = {}) {
   const [state, setState] = useState({
     agents: [], total: 0, tiers: null,
     loading: true, error: null, refreshing: false, confirmedFresh: false,
@@ -129,6 +140,7 @@ export function useMarketplacePage(filters, mapAgent) {
   const hasLoaded = useRef(false);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     let cancelled = false;
     setState((s) => ({ ...s, refreshing: hasLoaded.current, loading: !hasLoaded.current }));
     fetchWithRetry(`${API_BASE_URL}/api/agents?${query}`, () => cancelled)
@@ -152,7 +164,7 @@ export function useMarketplacePage(filters, mapAgent) {
         }));
       });
     return () => { cancelled = true; };
-  }, [query, mapAgent]);
+  }, [query, mapAgent, enabled]);
 
   // setAgents is exposed because the grid mutates the agent it is showing (a
   // revoked session clears on one card). That edit belongs to the page on
@@ -174,7 +186,7 @@ export function useMarketplacePage(filters, mapAgent) {
  * would re-download every row already on screen to add twelve, and the page
  * cap is 100 anyway.
  */
-export function useMarketplaceInfinite(filters, mapAgent, pageSize = 12) {
+export function useMarketplaceInfinite(filters, mapAgent, pageSize = 12, { enabled = true } = {}) {
   const [state, setState] = useState({
     agents: [], total: 0, tiers: null,
     loading: true, error: null, confirmedFresh: false, loadingMore: false,
@@ -187,6 +199,7 @@ export function useMarketplaceInfinite(filters, mapAgent, pageSize = 12) {
   useEffect(() => { setOffset(0); }, [query]);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     let cancelled = false;
     const url = `${API_BASE_URL}/api/agents?${query}&offset=${offset}`;
     setState((s) => ({ ...s, loadingMore: offset > 0, loading: offset === 0 && !s.confirmedFresh }));
@@ -209,7 +222,7 @@ export function useMarketplaceInfinite(filters, mapAgent, pageSize = 12) {
         }));
       });
     return () => { cancelled = true; };
-  }, [query, offset, mapAgent]);
+  }, [query, offset, mapAgent, enabled]);
 
   const setAgents = (fn) => setState((s) => ({
     ...s, agents: typeof fn === 'function' ? fn(s.agents) : fn,
@@ -219,12 +232,15 @@ export function useMarketplaceInfinite(filters, mapAgent, pageSize = 12) {
   return { ...state, setAgents, loadMore, hasMore };
 }
 
-/** Resolves one agent by id or token_id, for the ?agent= deep link. */
+/** Resolves one agent by id or token_id, for the ?agent= deep link.
+ *  null means the backend has no such agent (404). Any other failure throws,
+ *  so a backend mid-restart is not mistaken for a dead link. */
 export async function fetchAgentById(agentId) {
   const res = await fetch(
     `${API_BASE_URL}/api/agents/by-id?agent_id=${encodeURIComponent(agentId)}`
   );
-  if (!res.ok) return null;
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Backend returned ${res.status}`);
   const d = await res.json();
   return d.agent || null;
 }
@@ -233,20 +249,23 @@ export async function fetchAgentById(agentId) {
  * Catalogue-wide counts: the stat cards, the group and category chips, and
  * which categories exist at all.
  *
- * Fetched once and unfiltered, because everything it feeds describes the whole
- * marketplace rather than the current view. `real_names_only=false` keeps these
- * numbers identical to what the client produced when it counted the raw array
- * itself, so this change moves bytes without moving any number on the page.
+ * Fetched once, with no chain, category or search filter, because everything
+ * it feeds describes the whole marketplace rather than the current view. It
+ * takes the grid's default name filter (no `real_names_only` parameter), so
+ * the Listed card, the grid's "of N" and the chain chip count the same set.
+ * Passing `real_names_only=false` here once made Listed larger than the grid
+ * total it sits above.
  */
-export function useMarketplaceFacets() {
+export function useMarketplaceFacets({ enabled = true } = {}) {
   const [facets, setFacets] = useState({
     total: 0, categories: [], tiers: null, livenessCoverage: null,
     totalFeedbacks: 0, loaded: false,
   });
 
   useEffect(() => {
+    if (!enabled) return undefined;
     let cancelled = false;
-    fetchWithRetry(`${API_BASE_URL}/api/agents/facets?real_names_only=false`, () => cancelled)
+    fetchWithRetry(`${API_BASE_URL}/api/agents/facets`, () => cancelled)
       .then((d) => {
         if (cancelled || d == null) return;
         setFacets({
@@ -264,7 +283,7 @@ export function useMarketplaceFacets() {
       })
       .catch(() => { if (!cancelled) setFacets((f) => ({ ...f, loaded: true })); });
     return () => { cancelled = true; };
-  }, []);
+  }, [enabled]);
 
   return facets;
 }
@@ -292,4 +311,17 @@ export function hackathonCountsFromFacets(categories) {
     if (h) counts[h] = (counts[h] || 0) + count;
   }
   return counts;
+}
+
+/**
+ * True from the first render on which `on` is true, and from then on.
+ *
+ * The apps load Explore's data only once Explore has been shown (the
+ * `enabled` option above). Latching it keeps that data when the visitor
+ * moves to another tab and back, rather than dropping and refetching it.
+ */
+export function useLatch(on) {
+  const [seen, setSeen] = useState(Boolean(on));
+  if (on && !seen) setSeen(true);
+  return seen || Boolean(on);
 }

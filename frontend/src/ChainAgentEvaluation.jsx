@@ -11,7 +11,10 @@
 // chainid. Only the ERC-8183 signals are genuinely BSC-exclusive, because
 // that contract exists on chains 56 and 97 and nowhere else.
 //
-// Loaded on demand, per agent. Each source is rendered independently and
+// Loaded on demand, per agent: the chain views mount this only when a card's
+// "Evaluate this agent" is opened (shell/LazyDetails.jsx). A failed read,
+// a 429 from the per-IP limit included, shows "Try again", which reads again.
+// Each source is rendered independently and
 // reports its own availability, because "we couldn't read this" and "this
 // agent scored nothing" are completely different statements and the
 // Quality Center endpoint returns intermittent 500s. A failure must never
@@ -31,6 +34,8 @@ const SEVERITY = {
 
 export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress }) {
   const [state, setState] = useState({ loading: true, data: null, error: null });
+  // Bumped by "Try again", which re-runs the read below.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (chainId == null || tokenId == null) return undefined;
@@ -42,7 +47,7 @@ export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress })
       .then((d) => { if (!cancelled) setState({ loading: false, data: d, error: null }); })
       .catch((e) => { if (!cancelled) setState({ loading: false, data: null, error: e.message }); });
     return () => { cancelled = true; };
-  }, [chainId, tokenId, ownerAddress]);
+  }, [chainId, tokenId, ownerAddress, attempt]);
 
   if (state.loading) {
     return (
@@ -52,7 +57,21 @@ export default function ChainAgentEvaluation({ chainId, tokenId, ownerAddress })
     );
   }
   if (state.error) {
-    return <div className="py-3 text-[12px] text-gray-500">Couldn't load the evaluation ({state.error}).</div>;
+    const busy = state.error === 'HTTP 429';
+    return (
+      <div className="py-3 text-[12px] text-gray-500" role="status">
+        {busy
+          ? 'Too many requests from your connection just now, so the evaluation was not read.'
+          : `Couldn't load the evaluation (${state.error}).`}{' '}
+        <button
+          type="button"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="text-accent font-semibold hover:underline"
+        >
+          Try again
+        </button>
+      </div>
+    );
   }
 
   const d = state.data;

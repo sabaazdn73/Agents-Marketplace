@@ -83,7 +83,7 @@ export default function CreatorEarningsPanel() {
           ) : (
             <div className="space-y-2">
               {nonzero.map((r) => (
-                <div key={r.address} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-[#1E293B] border border-gray-100 dark:border-gray-800">
+                <div key={r.address} className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-inset border border-gray-100 dark:border-gray-800">
                   <div className="text-sm"><span className="font-bold" style={{ color: ACCENT }}>{fromRawUnits(r.balance, 18)}</span> <span className="text-[11px] text-gray-500">{r.symbol} withdrawable</span></div>
                   <button onClick={() => onWithdraw(r.address)} disabled={busy === 'wd:' + r.address}
                     className="px-3 py-1.5 rounded-lg text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1.5" style={{ background: ACCENT }}>
@@ -102,7 +102,7 @@ export default function CreatorEarningsPanel() {
             ) : (
               <div className="space-y-2">
                 {listings.map((l) => (
-                  <div key={l.agentId} className="p-2.5 rounded-xl bg-white dark:bg-[#1E293B] border border-gray-100 dark:border-gray-800">
+                  <div key={l.agentId} className="p-2.5 rounded-xl bg-white dark:bg-inset border border-gray-100 dark:border-gray-800">
                     <div className="text-xs font-bold mb-1.5">Agent #{l.agentId}</div>
                     <div className="space-y-1.5">
                       {l.offers.map((o) => (

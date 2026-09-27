@@ -12,7 +12,7 @@ import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import ThemeToggle from '../theme/ThemeToggle';
 
-export default function StandaloneBar({ onBack, backLabel = 'Back to Explore', className = 'mb-8', children = null }) {
+export default function StandaloneBar({ onBack, backLabel = 'Back to Dashboard', className = 'mb-8', children = null }) {
   return (
     <div className={`flex items-center justify-between gap-3 ${className}`}>
       <div className="flex items-center gap-3 min-w-0">

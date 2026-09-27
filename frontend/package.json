@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/chain_contracts_selfcheck.mjs && vite build",
+    "build": "node scripts/chain_contracts_selfcheck.mjs && node scripts/csp_hash_selfcheck.mjs && vite build",
     "preview": "vite preview",
-    "check:chains": "node scripts/chain_contracts_selfcheck.mjs"
+    "check:chains": "node scripts/chain_contracts_selfcheck.mjs",
+    "check:csp": "node scripts/csp_hash_selfcheck.mjs"
   },
   "dependencies": {
     "@altananetwork/sdk": "^0.9.0",

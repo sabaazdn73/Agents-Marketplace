@@ -34,7 +34,7 @@ const NEW = 'MriyaNN8TMp6qRWjfr723PK7xgQK7yCt7Kg2v2PQu7X';
 
 function Card({ icon: Icon, title, tag, tagColor = '#64748B', children }) {
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-[#1E293B]">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-inset">
       <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <Icon size={16} style={{ color: ACCENT }} className="shrink-0" />

@@ -30,7 +30,7 @@ const STEPS = [
 
 export default function SessionModesExplainer() {
   return (
-    <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-inset rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
       <div className="px-6 sm:px-8 py-5 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-200 dark:border-gray-800">
         <h3 className="font-bold text-lg">How paying an agent works</h3>
       </div>

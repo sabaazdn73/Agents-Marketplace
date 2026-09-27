@@ -51,7 +51,7 @@ export default function InfoTooltip({ label, children, align = 'left', size = 14
       {open && (
         <div
           className={`absolute z-20 top-full mt-2 w-72 max-w-[80vw] p-3 rounded-xl border shadow-lg text-[11px] leading-relaxed
-            bg-white border-gray-200 text-gray-600 dark:bg-[#1E293B] dark:border-gray-700 dark:text-gray-300
+            bg-white border-gray-200 text-gray-600 dark:bg-inset dark:border-gray-700 dark:text-gray-300
             ${align === 'right' ? 'right-0' : 'left-0'}`}
         >
           {children}

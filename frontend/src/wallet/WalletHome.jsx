@@ -1,6 +1,8 @@
 // WalletHome.jsx
 //
-// /wallet: the connected wallet's own page. Holdings, and what its trading
+// The connected wallet's holdings, shown at the top of the Dashboard ("/")
+// since 2026-09-25; /wallet now redirects there. It was /wallet: the connected
+// wallet's own page. Holdings, and what its trading
 // habits on Hyperliquid have cost it, measured. One component for both apps;
 // `layout` changes the arrangement, never the content.
 //
@@ -32,22 +34,36 @@ import EvmHoldings from './EvmHoldings';
 import MyJobsPanel from '../MyJobsPanel';
 import { fmtAge, fmtUtc, reasonText, sectionName } from './format';
 
-function Intro({ onSignIn }) {
+// With no wallet connected. On the Dashboard (`embedded`) the page title is
+// already the h1, so this card's heading is an h2 and the card carries the
+// whole prompt: what connecting shows, what is read and by whom, and the
+// button.
+function Intro({ onSignIn, embedded = false }) {
+  const Heading = embedded ? 'h2' : 'h1';
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-h1 font-bold">Your wallet</h1>
-      <p className="text-body text-muted mt-1">
-        Connect a wallet to see what it holds and what its trading habits on Hyperliquid have cost it, measured.
-      </p>
-      <div className="card p-4 mt-5 space-y-3 text-body text-fg">
+    <section className="card p-4 md:p-6 max-w-3xl" aria-labelledby="wallet-intro-title">
+      <div className="flex items-start gap-3">
+        <span className="p-2 rounded bg-inset shrink-0 text-fg">
+          <Wallet size={18} aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <Heading id="wallet-intro-title" className={`${embedded ? 'text-title' : 'text-h1'} font-bold text-fg`}>
+            Your wallet
+          </Heading>
+          <p className="text-body text-muted mt-0.5">
+            Connect one to see what it holds and what its trading habits on Hyperliquid have cost it, measured.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 space-y-3 text-body text-fg">
         <p><span className="font-semibold">Holdings.</span> Its Hyperliquid perp accounts and positions, its Hyperliquid spot balances, and its native coin and a short named list of stablecoins on BNB Chain, Arbitrum and Robinhood Chain.</p>
         <p><span className="font-semibold">What its habits cost.</span> Fees paid as maker and as taker, the share of volume it took rather than made, funding paid and received, how often its post-only orders were refused, and cancels per fill. Each figure carries the window and the number of records behind it, and where something could not be read the page says why instead of showing a zero. There are no estimates and no what-ifs.</p>
         <p><span className="font-semibold">What is read, and by whom.</span> The address is sent to our server in the body of one request, which reads its public Hyperliquid record and keeps the answer in memory for five minutes; and from your browser to each chain&apos;s public RPC provider to read balances. Nothing is stored, and you do not need to sign anything to see the figures.</p>
-        <button type="button" onClick={onSignIn} className="h-10 px-4 rounded-md bg-accent text-accent-fg text-body font-semibold hover:opacity-90 inline-flex items-center gap-2">
-          <Wallet size={16} aria-hidden="true" /> Connect a wallet
-        </button>
       </div>
-    </div>
+      <button type="button" onClick={onSignIn} className="mt-5 h-10 px-4 rounded-md bg-accent text-accent-fg text-body font-semibold hover:opacity-90 inline-flex items-center gap-2">
+        <Wallet size={16} aria-hidden="true" /> Connect a wallet
+      </button>
+    </section>
   );
 }
 
@@ -124,8 +140,9 @@ function PartialNote({ data }) {
   );
 }
 
-function Header({ status, address, habits, openSignIn }) {
+function Header({ status, address, habits, openSignIn, embedded }) {
   const signed = status === 'signed';
+  const Heading = embedded ? 'h2' : 'h1';
   const d = habits.status === 'ok' ? habits.data : null;
   return (
     <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-5">
@@ -134,7 +151,7 @@ function Header({ status, address, habits, openSignIn }) {
           {signed && <ShieldCheck size={13} className="text-pos" aria-hidden="true" />}
           {signed ? 'Your wallet' : 'This address'}
         </p>
-        <h1 className="figure text-title md:text-h1 font-bold text-fg break-all">{address}</h1>
+        <Heading className="figure text-title md:text-h1 font-bold text-fg break-all">{address}</Heading>
         {!signed && (
           <p className="text-label text-muted mt-1">
             Not signed in, so the page calls it this address. The figures are the same either way.{' '}
@@ -173,12 +190,18 @@ function Hires() {
   );
 }
 
-export default function WalletHome({ layout = 'web' }) {
+// `embedded` is set when the Dashboard shows this under its own page title,
+// so the address is a second-level heading there rather than a second h1.
+// `onConnect`, when given, is what the connect button does with no wallet
+// connected (the Dashboard opens /signin); without it, the sign-in modal.
+// `showHires` is off on the Dashboard: "/" carries nothing about agents
+// (owner, 2026-09-26), and the hires panel is about hiring them.
+export default function WalletHome({ layout = 'web', embedded = false, onConnect = null, showHires = true }) {
   const { status, address, openSignIn } = useSignIn();
   const habits = useHabits(status === 'disconnected' ? null : address);
   const evm = useEvmHoldings(status === 'disconnected' ? null : address);
 
-  if (status === 'disconnected') return <Intro onSignIn={() => openSignIn()} />;
+  if (status === 'disconnected') return <Intro embedded={embedded} onSignIn={onConnect || (() => openSignIn())} />;
 
   const who = status === 'signed' ? 'your wallet' : 'this address';
   const data = habits.status === 'ok' ? habits.data : null;
@@ -187,7 +210,7 @@ export default function WalletHome({ layout = 'web' }) {
   if (layout === 'mobile') {
     return (
       <div>
-        <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} />
+        <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} embedded={embedded} />
         <div className="space-y-3">
           {server}
           {data && <PartialNote data={data} />}
@@ -195,7 +218,7 @@ export default function WalletHome({ layout = 'web' }) {
           {data && <HyperliquidPositions data={data} layout="mobile" />}
           <EvmHoldings holdings={evm} />
           {data && <HabitCosts data={data} who={who} />}
-          <Hires />
+          {showHires && <Hires />}
         </div>
       </div>
     );
@@ -203,7 +226,7 @@ export default function WalletHome({ layout = 'web' }) {
 
   return (
     <div>
-      <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} />
+      <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} embedded={embedded} />
       {data && <div className="mb-6"><PartialNote data={data} /></div>}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 space-y-6 min-w-0">
@@ -214,7 +237,7 @@ export default function WalletHome({ layout = 'web' }) {
         </div>
         <div className="lg:col-span-4 space-y-6 min-w-0">
           {data && <HabitCosts data={data} who={who} />}
-          <Hires />
+          {showHires && <Hires />}
         </div>
       </div>
     </div>

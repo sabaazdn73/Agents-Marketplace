@@ -207,7 +207,7 @@ function StakingNativeAgentCard({ accent, surface, mutedBorder, darkMode, bare =
               type="number" value={bnbAmount} disabled={!!step && step !== 'error' && step !== 'done'}
               onChange={(e) => setBnbAmount(e.target.value)}
               placeholder={selected ? `min ${selected.min_stake_bnb}` : ''}
-              className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`}
+              className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-field' : 'bg-white'}`}
             />
           </div>
 
@@ -387,7 +387,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
               type="text" value={tokenAddress} disabled={!!step && step !== 'error' && step !== 'done'}
               onChange={(e) => setTokenAddress(e.target.value.trim())}
               placeholder="0x..."
-              className={`w-full p-2.5 rounded-lg border text-sm font-mono outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`}
+              className={`w-full p-2.5 rounded-lg border text-sm font-mono outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-field' : 'bg-white'}`}
             />
           </div>
 
@@ -397,7 +397,7 @@ function TradingNativeAgentCard({ accent, surface, mutedBorder, darkMode }) {
               type="number" value={usdtAmount} disabled={!!step && step !== 'error' && step !== 'done'}
               onChange={(e) => setUsdtAmount(e.target.value)}
               placeholder="10"
-              className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-[#0F172A]' : 'bg-white'}`}
+              className={`w-full p-2.5 rounded-lg border text-sm outline-none disabled:opacity-50 ${mutedBorder} ${darkMode ? 'bg-field' : 'bg-white'}`}
             />
           </div>
 

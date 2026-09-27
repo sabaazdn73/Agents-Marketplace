@@ -2,74 +2,164 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Font ────────────────────────────────────────────────────────────────────
+   Hanken Grotesk (SIL Open Font License 1.1, public/fonts/HankenGrotesk-OFL.txt),
+   the variable weight axis, served from this site's own origin. Never from
+   Google's font servers: that would send every visitor's IP to a third party,
+   which the privacy page says this site does not do. Latin and Latin
+   Extended only; other scripts fall back to the system face. */
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/hanken-grotesk-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Hanken Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/hanken-grotesk-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
 /* ── Theme roles ─────────────────────────────────────────────────────────────
    Every colour the shell uses is one of these roles, never a hex in a class.
    Components ask for a role (bg-surface, text-muted, border-line) and the
    theme decides what it is. Values are space-separated RGB so Tailwind can
    apply an alpha: bg-surface/80.
 
-   Two rules the values follow in both themes:
-   1. The page is darker than a card, so a card lifts by lightness, not by a
-      shadow. Cards carry a hairline border and no shadow.
-   2. Gain and loss colours are tuned per theme rather than reused, because a
-      green that reads on white is too dark on near-black and the reverse.
-      pos, neg, warn and accent also clear 4.5:1 on their own 5 to 15% tint,
-      so a chip written as text-pos bg-pos/10 is legible without checking.
+   THE LOOK IS GETQUIN'S (owner, 2026-09-26; ~/Desktop/Tnega-design-reference
+   README-design.md). Dark, measured on their dashboard: page #000000, cards
+   #212122 with a 1px #2B2B2C border, radius 4px, padding 16px, white text,
+   #999999 secondary text, gains #59E184. No gradient, glow or tint on any
+   surface. Light is the same layout on white cards over a light grey page.
+
+   THE ACCENT IS THE FOREGROUND. Main buttons are white on dark and black on
+   light, links and the active tab are the foreground colour, and the logo
+   blue appears only in charts and the allocation donut (--chart, --chart-2
+   to --chart-5). So --accent is white in dark and black in light, and
+   --accent-fg, the label on a main button, is the opposite. Secondary
+   buttons are outlined (border-line-strong).
+
+   `line` is a decorative hairline (cards, dividers). `line-strong` is a
+   control's own boundary (an input, an outlined button) and clears 3:1
+   against page, surface and inset in both themes (WCAG 1.4.11).
+
+   Contrast, WCAG 2 relative luminance, computed from the values below
+   (recompute when one changes):
+                    light: page surface inset    dark: page surface inset
+     fg, accent             17.96  21.00  16.69        21.00  16.09  14.14
+     muted                   5.28   6.17   4.91         7.37   5.65   4.96
+     faint                   5.06   5.92   4.70         7.37   5.65   4.96
+     pos                     5.80   6.79   5.40        12.53   9.60   8.44
+     neg                     5.62   6.57   5.22         7.44   5.70   5.01
+     warn                    5.46   6.38   5.07        11.43   8.76   7.70
+     line-strong (3:1)       3.38   3.95   3.14         4.63   3.55   3.12
+   Main button label on its fill: 21.00 in both themes (black on white, white
+   on black). pos and neg on their own 5 to 15% tint over surface: 5.11 or
+   more light, 4.57 or more dark. The chart blue is a non-text colour; as a
+   chart line against the card it is 4.19:1 in dark and 3.84:1 in light,
+   above the 3:1 WCAG asks of a graphical object. The card hairline (line on
+   surface) is decorative, so 3:1 does not apply to it.
+
+   STOCK GREYS AND INDIGO IN DARK. Older components (Explore and the agent
+   pages) use Tailwind's gray-500 to 950 and indigo in dark: variants. Stock
+   gray-900 is navy, so in dark those greys take neutral steps of this
+   palette (tailwind.config.js reads them as roles; light keeps the stock
+   values). Dark gray-500 is 150/150/152 so gray-500 text clears 4.5:1 on
+   inset (4.98). Indigo there becomes the logo blue family: those pages use
+   it as their chart and highlight colour.
 
    The `dark` class lives on <html>, set before first paint by the inline
-   script in index.html and kept current by theme/ThemeProvider.jsx. Keeping
-   Tailwind's class strategy means every existing dark: utility still works.
-
-   `line` is a decorative hairline (cards, dividers) and is deliberately
-   quiet. `line-strong` is the role for a control's own boundary (an input,
-   an outlined button) and clears 3:1 against surface, page and inset in both
-   themes, which is what WCAG 1.4.11 asks of a component boundary. Every text
-   role clears 4.5:1 on page, surface and inset in both themes. Recompute
-   the ratios whenever a value here changes.
-
-   index.html repeats the two page colours in its inline style so the very
-   first frame is right before this file loads. Change them together. */
+   script in index.html and kept current by theme/ThemeProvider.jsx.
+   index.html repeats the two page colours so the first frame is right before
+   this file loads. Change them together. */
 :root {
-  --page: 244 245 247;
+  --page: 237 237 239;
   --surface: 255 255 255;
-  --inset: 240 242 245;
-  --field: 255 255 255;
-  --line: 226 229 234;
-  --line-strong: 128 135 148;
-  --fg: 18 28 28;
-  --muted: 84 92 107;
-  --faint: 100 108 122;
-  --accent: 79 70 229;
+  --inset: 229 229 231;
+  --field: 229 229 231;
+  --line: 224 224 226;
+  --line-strong: 128 128 128;
+  --fg: 0 0 0;
+  --muted: 98 97 97;
+  --faint: 100 100 100;
+  --accent: 0 0 0;
+  --accent-text: 0 0 0;
   --accent-fg: 255 255 255;
-  --accent-soft: 238 240 255;
+  --accent-soft: 229 229 231;
   --pos: 3 105 62;
   --neg: 180 35 26;
   --warn: 138 82 5;
-  --chart-baseline: 176 183 195;
+  --chart: 61 123 255;
+  --chart-2: 38 70 200;
+  --chart-3: 120 165 255;
+  --chart-4: 70 190 210;
+  --chart-5: 170 200 255;
+  --chart-baseline: 196 196 198;
+  /* Tailwind's stock values; dark replaces them (see above). */
+  --gray-500: 107 114 128;
+  --gray-700: 55 65 81;
+  --gray-800: 31 41 55;
+  --gray-900: 17 24 39;
+  --gray-950: 3 7 18;
+  --indigo-300: 165 180 252;
+  --indigo-400: 129 140 248;
+  --indigo-500: 99 102 241;
+  --indigo-600: 79 70 229;
+  --indigo-900: 49 46 129;
+  --purple-400: 192 132 252;
+  --purple-500: 168 85 247;
   color-scheme: light;
 }
 
 html.dark {
-  /* A dim dark, blue-tinted, rather than near-black. Each neutral here sits
-     at least 12 units (RGB distance) from the reference product's dark
-     neutrals, so the theme is ours and not a copy of theirs. */
-  --page: 23 24 32;
-  --surface: 43 44 60;
-  --inset: 50 54 68;
-  --field: 32 32 43;
-  --line: 62 66 82;
-  --line-strong: 122 129 148;
-  --fg: 240 242 246;
-  --muted: 170 177 191;
-  --faint: 156 163 178;
-  --accent: 150 160 252;
-  --accent-fg: 12 5 30;
-  --accent-soft: 52 55 100;
-  --pos: 84 214 148;
-  --neg: 252 130 120;
+  --page: 0 0 0;
+  --surface: 33 33 34;
+  --inset: 43 43 44;
+  --field: 43 43 44;
+  --line: 43 43 44;
+  --line-strong: 118 118 120;
+  --fg: 255 255 255;
+  --muted: 153 153 153;
+  --faint: 153 153 153;
+  --accent: 255 255 255;
+  --accent-text: 255 255 255;
+  --accent-fg: 0 0 0;
+  --accent-soft: 43 43 44;
+  --pos: 89 225 132;
+  --neg: 255 105 95;
   --warn: 236 184 20;
-  --chart-baseline: 88 94 112;
+  --chart: 61 123 255;
+  --chart-2: 38 70 200;
+  --chart-3: 120 165 255;
+  --chart-4: 110 225 215;
+  --chart-5: 170 200 255;
+  --chart-baseline: 70 70 72;
+  --gray-500: 150 150 152;
+  --gray-700: 58 58 60;
+  --gray-800: 43 43 44;
+  --gray-900: 33 33 34;
+  --gray-950: 0 0 0;
+  --indigo-300: 150 180 255;
+  --indigo-400: 100 145 255;
+  --indigo-500: 61 123 255;
+  --indigo-600: 45 100 230;
+  --indigo-900: 20 36 80;
+  --purple-400: 100 145 255;
+  --purple-500: 61 123 255;
   color-scheme: dark;
+}
+
+/* The WalletConnect modal (@reown/appkit-ui) takes its face from this
+   variable on :root; `html:root` outranks the modal's own `:root` rule, so it
+   draws in our self-hosted Hanken Grotesk. Its Google Fonts @import is
+   removed at build time (vite.config.js). */
+html:root {
+  --w3m-font-family: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 html {
@@ -86,19 +176,21 @@ html {
 }
 
 @layer components {
-  /* The one card. Radius 6, hairline border, 16px padding, no shadow. On a
+  /* The one card. Radius 4, hairline border, 16px padding, no shadow. On a
      phone the shell uses .card-bleed instead, which drops the radius and the
      side borders so the card runs edge to edge and the page colour between
      cards does the separating. */
   .card {
-    @apply bg-surface border border-line rounded-md;
+    @apply bg-surface border border-line rounded;
   }
   .card-bleed {
     @apply bg-surface border-y border-line;
   }
-  /* Money and counts. Tabular figures so a column of numbers lines up. */
+  /* Money, counts and addresses: Hanken's tabular figures, so a column of
+     numbers lines up, in the site's own face rather than the system
+     monospace. */
   .figure {
-    @apply font-mono tabular-nums;
+    @apply font-sans tabular-nums;
   }
 }
 

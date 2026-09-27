@@ -4,13 +4,17 @@
 // landing page and every standalone page, so there is one control with one
 // behaviour rather than a copy per surface.
 //
-// Three positions, System, Light and Dark, as a radio group. A single button
-// that flips between two colours cannot express "follow my system", and that
-// is the default.
+// Three positions, System, Light and Dark. A control that flips between two
+// colours cannot express "follow my system", and that is the default.
 //
-// `labels` shows the words beside the icons, for places with the width for
-// them (the mobile sheet). Without it the control is three 28px icon buttons
-// whose names are in aria-label and title.
+// One segmented control, visible in full everywhere (owner, 2026-09-26: keep
+// the three-way toggle), in two sizes:
+// - `labels`: the words beside the icons, full width, for places with the
+//   room (the mobile menu sheet).
+// - otherwise the three icons alone, 28px each, for the web header, the
+//   mobile header and the standalone pages. It replaced a single button that
+//   cycled through the three positions and showed only the current one.
+// Either way it is a radio group: arrow keys move between the positions.
 
 import React from 'react';
 import { Monitor, Sun, Moon } from 'lucide-react';
@@ -43,7 +47,7 @@ export default function ThemeToggle({ labels = false, className = '' }) {
       aria-label="Theme"
       onKeyDown={onKeyDown}
       title={persisted ? undefined : 'This browser is not saving site data, so the theme resets on the next visit.'}
-      className={`inline-flex items-center gap-0.5 p-0.5 rounded-md border border-line bg-inset ${labels ? 'w-full' : ''} ${className}`}
+      className={`inline-flex ${labels ? 'w-full' : 'shrink-0'} items-center gap-0.5 p-0.5 rounded-md border border-line bg-inset ${className}`}
     >
       {OPTIONS.map(({ mode: m, label, title, Icon }) => {
         const on = mode === m;
@@ -53,8 +57,8 @@ export default function ThemeToggle({ labels = false, className = '' }) {
             type="button"
             role="radio"
             aria-checked={on}
-            aria-label={labels ? undefined : title}
             title={title}
+            aria-label={labels ? undefined : label}
             data-mode={m}
             tabIndex={on ? 0 : -1}
             onClick={() => setMode(m)}

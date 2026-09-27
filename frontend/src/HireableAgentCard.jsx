@@ -51,7 +51,7 @@ export default function HireableAgentCard({
   const score = agent.totalScore != null ? agent.totalScore.toFixed(1) : null;
 
   return (
-    <div className="bg-white dark:bg-[#1E293B] rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
+    <div className="bg-white dark:bg-inset rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden">
       <div
         className={`p-6 flex-1 ${onOpen ? 'cursor-pointer' : ''}`}
         onClick={onOpen ? () => onOpen(agent) : undefined}

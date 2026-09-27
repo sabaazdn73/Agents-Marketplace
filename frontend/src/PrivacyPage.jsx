@@ -53,10 +53,15 @@
 // /privacy before it picks between the two app shells, and the footer entry
 // lives in SiteLinks, which both apps render.
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import StandaloneBar from './shell/StandaloneBar';
+import { BUY_LIVE } from './trade/buyLive';
 
-const UPDATED = '25 September 2026';
+// The buy flow's paragraph, and the three chains it adds to sign-in, exist
+// only while the Buy panel is shown (trade/buyLive.js).
+const BUY_SHOWN = BUY_LIVE;
+
+const UPDATED = '27 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
 const CONTACT = 'sabaazad93@gmail.com';
 
@@ -75,9 +80,9 @@ const SITES = [
   ['8004scan.io', 'agent and owner pages'],
 ];
 
-function Section({ title, children }) {
+function Section({ title, id, children }) {
   return (
-    <section className="mb-8">
+    <section id={id} className="mb-8 scroll-mt-6">
       <h2 className="text-base font-semibold mb-2">{title}</h2>
       <div className="text-sm text-muted space-y-3 leading-relaxed">
         {children}
@@ -87,6 +92,11 @@ function Section({ title, children }) {
 }
 
 export default function PrivacyPage({ onBack }) {
+  // A link to one section (/privacy#website) opens at that section.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
   return (
     <div className="min-h-screen bg-page text-fg">
       <div className="max-w-[1400px] mx-auto px-6 py-10">
@@ -94,8 +104,77 @@ export default function PrivacyPage({ onBack }) {
 
         <h1 className="text-2xl font-bold mb-1">Privacy</h1>
         <p className="text-sm text-muted mb-8">
-          For the Chrome extension, Tnega, and for the website&apos;s wallet sign-in and the two routes on the website that receive your own wallet address. Last updated {UPDATED}.
+          For the website, tnega.app, and for the Chrome extension, Tnega. Last updated {UPDATED}.
         </p>
+
+        <Section id="website" title="The website">
+          <p>
+            There is no account, no email address and no password. The site sets no cookies of its
+            own and runs no analytics or advertising script.
+          </p>
+          <p>
+            The pages are served by Vercel, which receives each request as any web host does. The
+            figures come from our server at {API}, hosted on Render behind Cloudflare. Your browser
+            asks it for lists and measurements; those requests carry nothing about you beyond what
+            any request carries (your IP address and browser). Two routes receive a wallet address,
+            and only when you connect one: they are described under &quot;Your wallet address on the
+            website&quot;, below.
+          </p>
+          <p>
+            Our server limits how often one network address may call it: a burst of 120 requests,
+            then two a second. To count, it keeps the address (an IPv6 address by its /64) and one
+            number, the time its allowance is full again, in memory only. The table is bounded, the
+            least recently seen address is dropped first, and nothing is written to disk or kept
+            after a restart.
+          </p>
+          <p>
+            Fonts are served from this site. No page loads a font from a font service: the wallet
+            window&apos;s own request for a Google font is removed when the site is built, and it
+            uses our font instead.
+          </p>
+          <p>
+            Wallet sign-in uses RainbowKit and WalletConnect. When a page loads, WalletConnect&apos;s
+            library asks WalletConnect&apos;s servers (api.web3modal.org) for the list of wallets and
+            sends its own usage events (pulse.walletconnect.org); like any request, these carry your
+            IP address, and they carry this site&apos;s WalletConnect project identifier. If you
+            connect a phone wallet through WalletConnect, the connection between this page and your
+            wallet passes through WalletConnect&apos;s relay, which then carries your wallet&apos;s
+            address and the requests you approve. Connecting a browser wallet such as MetaMask does
+            not use the relay. What the site does with a connected address is under &quot;Your wallet
+            address on the website&quot;.
+          </p>
+                  <p>
+            Three routes on our server receive a wallet address, always in the body of the request,
+            never in the web address: My Agents, the Hyperliquid costs read, and the portfolio read
+            (POST /api/site/portfolio), which reads the tokenized stocks and ETFs an address holds.
+            The Dashboard calls the portfolio read only once that route is live; until then it sends
+            nothing to it. Each is described under &quot;Your wallet address on the website&quot;.
+          </p>
+          <p>
+            Some pages show other companies&apos; logos, loaded from each company&apos;s own site,
+            so your browser asks that site for the image and it receives your IP address. Use with
+            AI (/ai): cursor.com, code.visualstudio.com, zed.dev and cline.bot. Explore agents
+            (/market, /chain/..., agent pages): app.hyperliquid.xyz and solana.com, and on some
+            chains each agent&apos;s picture from api.8004scan.io or blob.8004scan.app. Data sources:
+            zerion.io, storage.thegraph.com and app.hyperliquid.xyz. Hackathon partners (/partners):
+            termix.ai and docs.altana.network. Two of these, zed.dev and zerion.io, answer with a
+            Cloudflare cookie (__cf_bm) of their own; it is theirs, set on their domain. The home
+            page, the Dashboard, sign-in and this page load no image from anyone else.
+          </p>
+          <p>
+            What is kept in your browser, and by whom. Ours: tnega_theme (the theme you pick),
+            tnega_signin_v1:&lt;address&gt; (a signed sign-in message, for 24 hours), and the list of
+            your agent hires and their notifications (aam_notifications_v2, aam_tracked_jobs_v1 and
+            aam_notifications_migrated_v1_to_v2).
+            The wallet libraries, as they are written: wagmi.store and wagmi.recentConnectorId
+            (wagmi, the wallet you connected), rk-version (RainbowKit), @appkit/active_namespace,
+            @appkit/active_caip_network_id and @appkit/connection_status (WalletConnect&apos;s
+            AppKit), base-acc-sdk.store (Coinbase&apos;s Base Account SDK), a key named after this
+            site&apos;s address, written when a wallet connects, and two IndexedDB databases,
+            WALLET_CONNECT_V2_INDEXED_DB (WalletConnect) and base-acc-sdk. None of it is sent to
+            our server. Clearing this site&apos;s data in your browser removes all of it.
+          </p>
+        </Section>
 
         <Section title="What the extension is">
           <p>
@@ -421,10 +500,10 @@ export default function PrivacyPage({ onBack }) {
           </p>
         </Section>
 
-        <Section title="Your wallet address on the website">
+        <Section id="website-wallet" title="Your wallet address on the website">
           <p>
-            Two routes on our server receive the address of a wallet you connect to the website.
-            Both take it in the body of the request, never in the web address, so it does not appear
+            Three routes on our server receive the address of a wallet you connect to the website.
+            All three take it in the body of the request, never in the web address, so it does not appear
             in our server&apos;s access log, which records the path and not the body.
           </p>
           <p>
@@ -441,7 +520,7 @@ export default function PrivacyPage({ onBack }) {
             again. It is not written to disk, and it is gone when the server restarts.
           </p>
           <p>
-            The wallet page (/wallet) calls that route when you open it with a wallet connected, for
+            The Dashboard (/dashboard) calls that route when you open it with a wallet connected, for
             the connected address, and again when you press Read again. Opening the page again
             within five minutes reuses the answer it already has instead of asking. A connected
             wallet that has not signed in triggers it too: signing in changes only whether the page
@@ -455,6 +534,20 @@ export default function PrivacyPage({ onBack }) {
             public RPC providers named below for sign-in. Those reads are not sent to our server and
             nothing about them is stored.
           </p>
+          {/* Shown while the Buy panel is (home/sections.js, dataLive.js). */}
+          {BUY_SHOWN && (<p>
+            Buying a tokenized stock, from the Buy panel on a stock&apos;s page, happens between your
+            browser, your wallet and LI.FI (li.quest). When you press the button for a quote, your
+            browser sends LI.FI your wallet address, the chains, the two tokens and the amount; LI.FI
+            answers with a route and the transaction for your wallet to sign. Nothing is sent to
+            LI.FI before you press it. Before the quote, your browser reads your stablecoin balances,
+            and after it your allowance to LI.FI&apos;s contract, from the chain&apos;s public RPC
+            provider named below. After you sign, your browser asks LI.FI for the transaction&apos;s
+            status by its hash. None of this goes to our server. Your browser keeps a count of the
+            quotes it asked for in the last two hours (to stay inside LI.FI&apos;s limit) and a list
+            of the buys it sent (the transaction hash, the chains, the token and the time), in its
+            own storage only.
+          </p>)}
           <p>
             Signing in on the website is a signature from your wallet over a short message that
             moves no funds and approves nothing. For an ordinary wallet, such as MetaMask, it is
@@ -463,8 +556,10 @@ export default function PrivacyPage({ onBack }) {
             address, the message and the signature are sent to the public RPC provider of the chain
             the message names: bloXroute on BNB Chain, with Infura as a backup where it is
             configured; Arbitrum&apos;s public endpoint on Arbitrum, with dRPC as a backup; and
-            Robinhood Chain&apos;s public endpoint on Robinhood Chain, with PublicNode as a backup. A
-            backup receives the same request when the first provider does not answer. If a signature
+            Robinhood Chain&apos;s public endpoint on Robinhood Chain, with PublicNode as a
+            backup{BUY_SHOWN ? <>; PublicNode on Ethereum, with eth.merkle.io as a backup;
+            Base&apos;s public endpoint on Base, with PublicNode as a backup; and Hyperliquid&apos;s
+            public endpoint on HyperEVM</> : null}. A backup receives the same request when the first provider does not answer. If a signature
             does not match, the browser asks that provider whether the address is a contract,
             sending the address alone.
           </p>
@@ -474,6 +569,13 @@ export default function PrivacyPage({ onBack }) {
             account, email address or password, and no login provider holding anything about you.
             Signing changes only how the site describes the address, as your wallet rather than this
             address; everything it shows for an address is public and readable without signing.
+          </p>
+          <p>
+            The portfolio read (POST /api/site/portfolio), once it is live, receives the connected
+            address from the Dashboard and reads, from each chain, the tokenized stocks and ETFs it
+            holds and their history. The address is not written to any database or log by our code.
+            The answer is kept in the server&apos;s memory for up to two minutes, looked up by the
+            address, and is gone when the server restarts.
           </p>
         </Section>
 

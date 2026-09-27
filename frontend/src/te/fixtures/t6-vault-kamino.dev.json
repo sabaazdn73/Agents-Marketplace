@@ -1,0 +1,1170 @@
+{
+ "kind": "vault",
+ "platform": "Kamino",
+ "platform_key": "kamino",
+ "chain": "Solana",
+ "group": "nonevm",
+ "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+ "program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+ "name": "Allez USDC",
+ "token": {
+  "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "symbol": "USDC",
+  "decimals": 6,
+  "kind": "stablecoin"
+ },
+ "slots": {
+  "discovery": 450804718,
+  "header": 450804720,
+  "tail": 450804724,
+  "full": 450804729,
+  "reserves": 450804743,
+  "ctoken_accounts": 450804749,
+  "markets": 450804752,
+  "global_config": 450804754
+ },
+ "tvl": {
+  "usd": 9559572.48,
+  "amount": 9559572.48,
+  "symbol": "USDC",
+  "slot": 450804749,
+  "source": "computed_from_chain",
+  "basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+  "computed_at": "2026-09-26T22:09Z",
+  "aum_flag": false,
+  "vault_recorded": {
+   "amount": 9559570.56,
+   "field": "prev_aum_sf / 2^60",
+   "slot": 450804720
+  },
+  "difference_pct": 0.0,
+  "reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+  "partial": false
+ },
+ "fees": {
+  "text": "5% performance, 0% management",
+  "class": "A",
+  "slot": 450804720,
+  "performance_bps": 500,
+  "management_bps": 0
+ },
+ "lockup": {
+  "text": "No lock-up field; withdrawals limited by the vault's available liquidity",
+  "class": "A",
+  "slot": 450804724,
+  "withdrawal_penalty_bps": 0,
+  "withdrawal_penalty_lamports": 0
+ },
+ "manager": {
+  "text": "Vault admin: Squads multisig 3 of 7, 1 h timelock",
+  "class": "A",
+  "slot": 450804720,
+  "vault_admin": {
+   "kind": "squads_v4",
+   "address": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+   "multisig": "Eth5FJMLkdbG6fpbCstoJ44vapa1BBdcyGsJ5ovsjDNU",
+   "vault_index": 0,
+   "how": "derivation re-checked",
+   "slot": 450804756,
+   "threshold": 3,
+   "timelock_s": 3600,
+   "config_authority": null,
+   "members": 8,
+   "voters": 7,
+   "executors": 7,
+   "member_masks": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    1,
+    7
+   ],
+   "text": "Squads multisig 3 of 7, 1 h timelock"
+  },
+  "allocation_admin": {
+   "kind": "single_key",
+   "address": "FU76ac2Hm2mo4hoyckhAKDrbKTFwxyDPHnrrERfMXusE",
+   "basis": "on-curve key: a single key holds it (inferred)",
+   "text": "single key (inferred)"
+  },
+  "pending_admin": {
+   "kind": "squads_v4",
+   "address": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+   "multisig": "Eth5FJMLkdbG6fpbCstoJ44vapa1BBdcyGsJ5ovsjDNU",
+   "vault_index": 0,
+   "how": "derivation re-checked",
+   "slot": 450804756,
+   "threshold": 3,
+   "timelock_s": 3600,
+   "config_authority": null,
+   "members": 8,
+   "voters": 7,
+   "executors": 7,
+   "member_masks": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    1,
+    7
+   ],
+   "text": "Squads multisig 3 of 7, 1 h timelock"
+  }
+ },
+ "assets": {
+  "text": "USDC, lent into 10 klend reserve(s) in 9 market(s)",
+  "class": "A",
+  "slot": 450804743,
+  "allocations": [
+   {
+    "reserve": "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
+    "lending_market": "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 25531,
+    "ctokens_recorded": 644270970641,
+    "ctokens_held": 644270970641,
+    "value_tokens": 774459.66
+   },
+   {
+    "reserve": "Ga4rZytCpq1unD4DbEJ5bkHeUz9g3oh9AAFEi6vSauXp",
+    "lending_market": "DxXdAyU3kCjnyggvHmY5nAwg5cRbbmdyX3npfDMjjMek",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 1306,
+    "ctokens_recorded": 32971503029,
+    "ctokens_held": 32971503029,
+    "value_tokens": 39616.33
+   },
+   {
+    "reserve": "9FRZvAsjDJ6WM8BJ2S45h9PoDCLAq8DNY9zZDX7MyGzT",
+    "lending_market": "GMqmFygF5iSm5nkckYU6tieggFcR42SyjkkhK5rswFRs",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 7,
+    "ctokens_recorded": 197375818,
+    "ctokens_held": 197375818,
+    "value_tokens": 212.34
+   },
+   {
+    "reserve": "8trJaNUfkP9pNgrwzByfsuwVtZ5TmZpq568UkCpjFWbi",
+    "lending_market": "B7a2Dmdnfg8zfZX2814d6Xo6ctxs22jnTuCcjTq5KcPD",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 216,
+    "ctokens_recorded": 2179,
+    "ctokens_held": 2179,
+    "value_tokens": 0.0
+   },
+   {
+    "reserve": "8Lvi1DFPoAGPQ25qpRKzzRaSAnWdeVZqt9XmEapm8uLt",
+    "lending_market": "47tfyEG9SsdEnUm9cw5kY9BXngQGqu3LBoop9j5uTAv8",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 16483,
+    "ctokens_recorded": 494656708102,
+    "ctokens_held": 494656708102,
+    "value_tokens": 499996.74
+   },
+   {
+    "reserve": "Atj6UREVWa7WxbF2EMKNyfmYUY1U1txughe2gjhcPDCo",
+    "lending_market": "6WEGfej9B9wjxRs6t4BYpb9iCXd8CpTpJ8fVSNzHCC5y",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 0,
+    "ctokens_recorded": 0,
+    "ctokens_held": 0,
+    "value_tokens": 0.0
+   },
+   {
+    "reserve": "9GJ9GBRwCp4pHmWrQ43L5xpc9Vykg7jnfwcFGN8FoHYu",
+    "lending_market": "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 3809,
+    "ctokens_recorded": 110832868228,
+    "ctokens_held": 110832868228,
+    "value_tokens": 115542.57
+   },
+   {
+    "reserve": "DD4RN8t37nmw7EANW37ejdDEuFz9Tmf3TZTN7jxKsE8i",
+    "lending_market": "FteaGMVCLDF4eonrTiQkRQ5kby5ohwCfaMD2mNiPkZL7",
+    "market_owner": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 16483,
+    "ctokens_recorded": 495495457613,
+    "ctokens_held": 495495457613,
+    "value_tokens": 499998.27
+   },
+   {
+    "reserve": "4QKFoFDzNFnvfkzVazABbCEfMwd3y1pZqUVzmpnkCphj",
+    "lending_market": "52FSGeeokLpgvgAMdqxyt5Hoc2TbUYj5b8yxrEdZ37Vf",
+    "market_owner": "CgXyAkezZAoQo8QYdC6R3G4RbdSyw7zR89bTioEQQMs8",
+    "market_owner_text": "Squads multisig 3 of 6, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 0,
+    "ctokens_recorded": 0,
+    "ctokens_held": 0,
+    "value_tokens": 0.0
+   },
+   {
+    "reserve": "AYL4LMc4ZCVyq3Z7XPJGWDM4H9PiWjqXAAuuHBEGVR2Z",
+    "lending_market": "47tfyEG9SsdEnUm9cw5kY9BXngQGqu3LBoop9j5uTAv8",
+    "market_owner": "24LjDBukaUSHgPowcF2wY1XscnhChcBUDETN2UhBZMMT",
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 157571,
+    "ctokens_recorded": 4512223487512,
+    "ctokens_held": 4512223487512,
+    "value_tokens": 4779774.54
+   },
+   {
+    "reserve": "EW9vT7g2VH2aTFfcbaXRUCbF7jEfaLwMiJpckwDZwUZd",
+    "lending_market": "GBJ3bzUiMfwC9ugaF3MM68EXMDyTUb5UryRRAcVjEowd",
+    "market_owner": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 28021,
+    "ctokens_recorded": 848145598329,
+    "ctokens_held": 848145598329,
+    "value_tokens": 849991.77
+   },
+   {
+    "reserve": "EfMKdLdPKooewofAcGSNTw9FNjc98oDMjbRMHXLJ6QqS",
+    "lending_market": "BVJ1FvFfYuLbGX4qDNezqU6z2N3p8M2XNeGzabm86BzE",
+    "market_owner": "A11EznxnJM3JrjUvAq16wqoVyPRNz522mdQm6mSmzMeR",
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "market_emergency_mode": 0,
+    "target_weight": 65932,
+    "ctokens_recorded": 1999175983921,
+    "ctokens_held": 1999175983921,
+    "value_tokens": 1999987.96
+   }
+  ],
+  "lends_against": [
+   {
+    "market": "47tfyEG9SsdEnUm9cw5kY9BXngQGqu3LBoop9j5uTAv8",
+    "share_of_vault": 0.5512,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 5279771.28,
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "collateral": [
+     {
+      "mint": "2W5zZccVq8AMdrg7P4b3NvBKJyzbdnytRy2CKEDHvhiJ",
+      "label": "PT-ONyc (PT-ONyc-10SEP26)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      "label": "USDG",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "5Y8NV33Vv7WbnLfq3zBcKSdYPrk7g2KoiQoe7M2tcxp5",
+      "label": "ONyc (OnRe Tokenized Reinsurance)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "AUSD1jCcCyPLybk1YnvPWsHQSrZ46dxwoMniN4N2UEB9",
+      "label": "AUSD",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "label": "USDT",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "HH7FiYbEfDwQoK2ZJpkMz1T6wG6TqPsWcxWCtEVgigrZ",
+      "label": "PT-ONyc (Exponent PT-ONyc-10JAN27)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA",
+      "label": "USDS",
+      "stablecoin": true,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804100
+   },
+   {
+    "market": "BVJ1FvFfYuLbGX4qDNezqU6z2N3p8M2XNeGzabm86BzE",
+    "share_of_vault": 0.2088,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 1999987.96,
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "collateral": [
+     {
+      "mint": "sUSDai6Y3GxysDEtA9BVcEFTaog6UZpYUVxJiMhAKYE",
+      "label": "sUSDai (Staked USDai)",
+      "stablecoin": false,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804160
+   },
+   {
+    "market": "GBJ3bzUiMfwC9ugaF3MM68EXMDyTUb5UryRRAcVjEowd",
+    "share_of_vault": 0.0887,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 849991.77,
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "collateral": [
+     {
+      "mint": "A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS",
+      "label": "ZEC (Zcash)",
+      "stablecoin": false,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804178
+   },
+   {
+    "market": "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF",
+    "share_of_vault": 0.0808,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 774459.66,
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "collateral": [
+     {
+      "mint": "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4",
+      "label": "JLP (Jupiter Perps LP)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "label": "PYUSD",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      "label": "USDG",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "3Fb5DMRWoBLWD36Lp4BtG41LaFjVeEJNCH9YLNPYdVqj",
+      "label": "kSOL-MSOL (Kamino SOL-mSOL (Raydium))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+      "label": "WBTC (Wrapped BTC (Wormhole))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "3jsFX1tx2Z8ewmamiwSU851GzyzM2DJMq7KWW5DM8Py3",
+      "label": "CHAI (Chai (Wormhole))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "3orqhCKM5admbcHkHQhRAEKbXhUT5VPgsQqz7fBa6QdF",
+      "label": "FBTC (FunctionBTC)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "4G9USgnbg6fDTQ5AUfpCjM89zqbzWj32xfqvsaAu66DM",
+      "label": "kUXD-USDC (Kamino UXD-USDC (Orca))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "6DNSN2BJsaPFdFFc1zP37kkeNe4Usc1Sqkzr9C9vPWcU",
+      "label": "tBTC (tBTC v2)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "7Q2afV64in6N6SeZsAAB81TJzwDoD6zpqmHkzi9Dcavn",
+      "label": "JSOL (JPool Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "7dHbWXmci3dT8UFYWYZweBLXgycu7Y3iL6trKn1Y7ARj",
+      "label": "stSOL (Lido Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "7kbnvuGBxxj8AG9qp8Scn56muWGaRaFqxg1FsRp3PaFT",
+      "label": "unidentified token 7kbnvuGBxxj8AG9qp8Scn56muWGaRaFqxg1FsRp3PaFT",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+      "label": "WETH (Wrapped Ether (Wormhole))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "9HB4kAMLSYfGFfN142DKMyPyHyZQ8pXF8M1STbDudodY",
+      "label": "kSOL-BSOL (Kamino SOL-bSOL (Orca))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "9zNQRsGLjNKwCUU5Gq5LR8beUCPzQMVMqKAi3SSZh54u",
+      "label": "FDUSD (First Digital USD)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "BNso1VUJnh4zcfpZa6986Ea66P6TCp59hvtNJ8b1X85",
+      "label": "BNSOL (Binance Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "BonK1YhkXEGLZzwtcvRTip3gAL9nCeQD7ppZBLXhtTs",
+      "label": "bonkSOL",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Bybit2vBJGhPF52GBdNaQfUJ6ZpThSgHBobjWZpLPb4B",
+      "label": "bbSOL (BybitSOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH",
+      "label": "CASH",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "CDCSoLckzozyktpAp9FWT3w92KFJVEUxAU7cNu2Jn3aX",
+      "label": "CDCSOL (Crypto.com Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "CgnTSoL3DgY9SFHxcLj6CgCgKKoTBr6tp4CPAEWy25DE",
+      "label": "cgntSOL (Cogent SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "CtzPWv73Sn1dMGVU3ZtLv9yWSyUAanBni19YWDaznnkn",
+      "label": "xBTC (OKX Wrapped BTC)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Dk2X1HCbwJae44P7FpqdFoeT6LEw4JVyyHvZMHUzHWbi",
+      "label": "kSOL-JSOL (Kamino SOL-jSOL (Orca))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Dso1bDeDjCQxTrWHqUUi63oBvV7Mdm6WaobLbQ7gnPQ",
+      "label": "dSOL (Drift Staked Sol)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "label": "USDT",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "GYiUmJ8reqYAdTQtx6CRFawHqPXx9yzkUFvaUVE8PskP",
+      "label": "kSOL-JITO (Kamino SOL-JITO (Raydium))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "HUBsveNpjo5pWqNkH57QzxjQASdTVXcSK7bVKTSZtcSX",
+      "label": "raSOL (Hubra staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
+      "label": "EURC",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn",
+      "label": "JitoSOL (Jito Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+      "label": "JUP (Jupiter)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "LAinEtNLgpmCP9Rvsf5Hn8W6EhNiKLZQti1xfWMLy6X",
+      "label": "laineSOL (Laine Stake Token)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "LnTRntk2kTfWEY6cVB8K9649pgJbt6dJLS1Ns1GZCWg",
+      "label": "lanternSOL (Lantern Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "So11111111111111111111111111111111111111112",
+      "label": "SOL (Wrapped SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "StepAscQoEioFxxWGnh2sLBDFp9d8rvKz2Yp39iDpyT",
+      "label": "STEP",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+      "label": "USD1",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "USDH1SM1ojwWUga67PGrgFWUHibbjqMvuMaDkRJTgkX",
+      "label": "unidentified token USDH1SM1ojwWUga67PGrgFWUHibbjqMvuMaDkRJTgkX",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA",
+      "label": "USDS",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "ZScHuTtqZukUrtZS43teTKGs2VqkKL8k4QCouR2n6Uo",
+      "label": "wstETH (Wrapped liquid staked (Wormhole))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1",
+      "label": "unidentified token bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "cPQPBN7WubB3zyQDpzTK2ormx1BMdAym9xkrYUJsctm",
+      "label": "fwdSOL (Forward Industries Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "cbbtcf3aa214zXHbiAZQwf4122FBYbraNdFqgw4iMij",
+      "label": "cbBTC (Coinbase Wrapped BTC)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "he1iusmfkpAdwvxLNGV8Y1iSbj4rUy6yMhEA3fotn9A",
+      "label": "hSOL (Helius Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+      "label": "JTO (JITO)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v",
+      "label": "JupSOL (Jupiter Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",
+      "label": "mSOL (Marinade staked SOL (mSOL))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "pSo1f9nQXWgXibFtKf7NWYxb5enAM4qfP6UJSiXRQfL",
+      "label": "PSOL (Phantom Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "picobAEvs6w7QEknPce34wAE4gknZA9v5tTonnmHYdX",
+      "label": "picoSOL",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "sctmB7GPi5L2Q5G9tUSzXvhZ4YiDMEGcRov9KfArQpx",
+      "label": "dfdvSOL (DeFi Development Corp Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "sctmTAsDn4tLUcemqoqYijfuRkiEfAMPi84PNq2EueR",
+      "label": "nxSOL (Nansen Staked SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "sctmY8fJucsJatwHz6P48RuWBBkdBMNmSMuBYrWFdrw",
+      "label": "adraSOL (Adra LST)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "stke7uu3fXHsGqKVVjKnkmj65LRPVrqr4bLG2SJg7rh",
+      "label": "STKESOL (STKE SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "strng7mqqc1MBJJV6vMzYbEqnwVGvKKGKedeCvtktWA",
+      "label": "strongSOL (Stronghold LST)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "vSoLxydx6akxyMD9XEcPvGYNGq6Nn66oqVb3UkGkei7",
+      "label": "vSOL",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "xStpgUCss9piqeFUk2iLVcvJEGhAdJxJQuwLkXP555G",
+      "label": "xSTEP (Staked Step)",
+      "stablecoin": false,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804111
+   },
+   {
+    "market": "FteaGMVCLDF4eonrTiQkRQ5kby5ohwCfaMD2mNiPkZL7",
+    "share_of_vault": 0.0522,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 499998.27,
+    "market_owner_text": "Squads multisig 3 of 7, 1 h timelock",
+    "collateral": [
+     {
+      "mint": "98sMhvDwXj1RQi5c5Mndm3vPe9cBqPrbLaufMXFNMh5g",
+      "label": "HYPE",
+      "stablecoin": false,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804176
+   },
+   {
+    "market": "CqAoLuqWtavaVE8deBjMKe8ZfSt9ghR6Vb8nfsyabyHA",
+    "share_of_vault": 0.0121,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 115542.57,
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "collateral": [
+     {
+      "mint": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "label": "PYUSD",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "3b8X44fLF9ooXaUm3hhSgjpmVs6rZZ3pPoGnGahc3Uu7",
+      "label": "PRIME",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "8fr7WGTVFszfyNWRMXj6fRjZZAnDwmXwEpCrtzmUkdih",
+      "label": "wYLDS",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "CASHx9KJUStyftLFWGvEVf59SGeG9sh5FfcnZMVPCASH",
+      "label": "CASH",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "label": "USDT",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "USDSwr9ApdHk5bvJKMjzff41FfuX8bSxdKcR81vTwcA",
+      "label": "USDS",
+      "stablecoin": true,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804165
+   },
+   {
+    "market": "DxXdAyU3kCjnyggvHmY5nAwg5cRbbmdyX3npfDMjjMek",
+    "share_of_vault": 0.0041,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 39616.33,
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "collateral": [
+     {
+      "mint": "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4",
+      "label": "JLP (Jupiter Perps LP)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
+      "label": "PYUSD",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      "label": "USDG",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "label": "USDT",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "So11111111111111111111111111111111111111112",
+      "label": "SOL (Wrapped SOL)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB",
+      "label": "USD1",
+      "stablecoin": true,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804173
+   },
+   {
+    "market": "GMqmFygF5iSm5nkckYU6tieggFcR42SyjkkhK5rswFRs",
+    "share_of_vault": 0.0,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 212.34,
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "collateral": [
+     {
+      "mint": "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH",
+      "label": "USDG",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+      "label": "WBTC (Wrapped BTC (Wormhole))",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "9zNQRsGLjNKwCUU5Gq5LR8beUCPzQMVMqKAi3SSZh54u",
+      "label": "FDUSD (First Digital USD)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "label": "USDT",
+      "stablecoin": true,
+      "offchain_backed": null
+     },
+     {
+      "mint": "LBTCgU4b3wsFKsPwBn1rRZDx5DoFutM6RPiEt1TPDsY",
+      "label": "LBTC (Lombard Staked BTC)",
+      "stablecoin": false,
+      "offchain_backed": null
+     },
+     {
+      "mint": "zBTCug3er3tLyffELcvDNrKkCymbPWysGcWihESYfLg",
+      "label": "zBTC",
+      "stablecoin": false,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804179
+   },
+   {
+    "market": "B7a2Dmdnfg8zfZX2814d6Xo6ctxs22jnTuCcjTq5KcPD",
+    "share_of_vault": 0.0,
+    "share_basis": "value in this market over the vault's gross holdings (before pending fees)",
+    "value_tokens": 0.0,
+    "market_owner_text": "Squads multisig 4 of 10, 12 h timelock",
+    "collateral": [
+     {
+      "mint": "Xs78JED6PFZxWc2wCEPspZW9kL3Se5J7L5TChKgsidH",
+      "label": "STRCx (Strategy PP Variable xStock)",
+      "stablecoin": false,
+      "offchain_backed": null
+     }
+    ],
+    "collateral_class": "A (reserve mints, read on chain); names are each token's own metadata (D)",
+    "slot": 450804156
+   }
+  ],
+  "lends_against_text": "55.1% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 20.9% in a market taking sUSDai (Staked USDai); 8.9% in a market taking ZEC (Zcash); 8.1% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; and more",
+  "whitelisted_reserves_only": {
+   "allocations": 1,
+   "invest": 1
+  },
+  "deposit_cap_tokens": 0.0
+ },
+ "controls": {
+  "class": "A",
+  "slot": 450804752,
+  "admin": "Squads multisig 3 of 7, 1 h timelock",
+  "allocation_admin": "single key (inferred)",
+  "global_admin": {
+   "kind": "squads_v4",
+   "address": "F6ZX53XWTPqzyH4ZYHbJKUSXxqoTBXmLaVt8EvM1fYEX",
+   "multisig": "2TgbGtBq7zkAAnVUUzQQtEN4bF5sQEiXzYyVGo2tBJyb",
+   "vault_index": 0,
+   "how": "derivation re-checked",
+   "slot": 450804756,
+   "threshold": 5,
+   "timelock_s": 0,
+   "config_authority": null,
+   "members": 10,
+   "voters": 10,
+   "executors": 10,
+   "member_masks": [
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7
+   ],
+   "text": "Squads multisig 5 of 10, no timelock"
+  },
+  "market_owners": [
+   "Squads multisig 3 of 7, 1 h timelock",
+   "Squads multisig 4 of 10, 12 h timelock"
+  ],
+  "pause": {
+   "text": "No pause field in VaultState (kvault source); each klend market has an emergency mode, read per allocation",
+   "class": "D"
+  },
+  "upgrade": {
+   "programs": [
+    {
+     "program": "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd",
+     "programdata": "GeZ7nkkcbJ6VVV1XVFbmFnLCY3F1LPBGk6cufDZvrbGn",
+     "last_deploy_slot": 432874668,
+     "authority": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+     "state": "upgradeable",
+     "slot": 450804716,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+      "multisig": "6hhBGCtmg7tPWUSgp3LG6X2rsmYWAc4tNsA6G4CnfQbM",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450804758,
+      "threshold": 5,
+      "timelock_s": 86400,
+      "config_authority": null,
+      "members": 10,
+      "voters": 10,
+      "executors": 10,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7
+      ],
+      "text": "Squads multisig 5 of 10, 24 h timelock"
+     },
+     "authority_text": "Squads multisig 5 of 10, 24 h timelock"
+    },
+    {
+     "program": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+     "programdata": "9uSbGW1y9H5Av6H5TKxQ1wnFApSq2t3oEpfF2YfjDQGA",
+     "last_deploy_slot": 440486775,
+     "authority": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+     "state": "upgradeable",
+     "slot": 450804716,
+     "authority_detail": {
+      "kind": "squads_v4",
+      "address": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+      "multisig": "6hhBGCtmg7tPWUSgp3LG6X2rsmYWAc4tNsA6G4CnfQbM",
+      "vault_index": 0,
+      "how": "derivation re-checked",
+      "slot": 450804758,
+      "threshold": 5,
+      "timelock_s": 86400,
+      "config_authority": null,
+      "members": 10,
+      "voters": 10,
+      "executors": 10,
+      "member_masks": [
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7,
+       7
+      ],
+      "text": "Squads multisig 5 of 10, 24 h timelock"
+     },
+     "authority_text": "Squads multisig 5 of 10, 24 h timelock"
+    }
+   ],
+   "text": "Squads multisig 5 of 10, 24 h timelock",
+   "class": "A",
+   "slot": 450804716
+  },
+  "text": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState"
+ },
+ "audits": {
+  "text": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+  "class": "D",
+  "url": "https://kamino.com/docs/security/audits.md",
+  "read_on": "2026-09-26",
+  "entries": [
+   {
+    "auditor": "OtterSec",
+    "date_as_stated": "9 December 2024",
+    "scope": "Earn Vaults (kVault)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_vault_osec.pdf"
+   },
+   {
+    "auditor": "Sec3",
+    "date_as_stated": "6 February 2025",
+    "scope": "Earn Vaults (kVault)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_vault_sec3.pdf"
+   },
+   {
+    "auditor": "Offside Labs",
+    "date_as_stated": "12 April 2025",
+    "scope": "Earn Vaults (kVault)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_vault_offside_labs.pdf"
+   },
+   {
+    "auditor": "RX Security",
+    "date_as_stated": "3 July 2023",
+    "scope": "Lend (klend)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_lend_rx.pdf"
+   },
+   {
+    "auditor": "OtterSec",
+    "date_as_stated": "6 September 2023",
+    "scope": "Lend (klend)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_lend_ottersec.pdf"
+   },
+   {
+    "auditor": "Sec3",
+    "date_as_stated": "6 February 2025",
+    "scope": "Lend (klend)",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_klend_sec3.pdf"
+   },
+   {
+    "auditor": "Certora",
+    "date_as_stated": "27 June 2025",
+    "scope": "Earn Vaults (formal verification)",
+    "url": "https://kamino.com/docs/security/formal-verification.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_vault_certora.pdf"
+   },
+   {
+    "auditor": "Certora",
+    "date_as_stated": "13 May 2025",
+    "scope": "Lend (formal verification)",
+    "url": "https://kamino.com/docs/security/formal-verification.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_lend_certora.pdf"
+   },
+   {
+    "auditor": "OtterSec",
+    "date_as_stated": "6 October 2025",
+    "scope": "Lend (formal verification)",
+    "url": "https://kamino.com/docs/security/formal-verification.md",
+    "report": "https://github.com/Kamino-Finance/audits/blob/master/kamino_lend_osec_formal_verification.pdf"
+   }
+  ],
+  "also": "https://github.com/Kamino-Finance/audits",
+  "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated."
+ },
+ "powers": {
+  "class": "D",
+  "source": "https://github.com/Kamino-Finance/kvault (program handlers)",
+  "read_on": "2026-09-25",
+  "rows": [
+   [
+    "vault admin",
+    "adds lending reserves (same token, klend-owned; the source comment says 'Need to trust the admin'); sets fees (performance up to 100%, management up to 10%) and the withdrawal penalty (up to 10%); names the allocation admin and the next admin; withdraws accrued fees"
+   ],
+   [
+    "allocation admin",
+    "changes weights and caps of reserves already added"
+   ],
+   [
+    "global admin",
+    "maintains the reserve whitelist and can turn a vault's whitelist flags off (Kamino's docs call them irreversible; the source disagrees)"
+   ],
+   [
+    "lending-market owner",
+    "sets each klend market's reserve configuration: collateral accepted, LTVs, oracles and caps"
+   ]
+  ],
+  "moves": "No handler moves deposits to an arbitrary account (from reading the handler list). Risk paths: reserve selection, market owners' reserve settings, and program upgrade."
+ },
+ "contains_nested": [
+  {
+   "platform_key": "voltr",
+   "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+   "name": "Hubra Copilot USDC",
+   "tokens": 28119.81
+  }
+ ],
+ "read_at": "2026-09-26T22:10:25Z",
+ "row": {
+  "name": "Allez USDC",
+  "platform": "Kamino",
+  "chain": "Solana",
+  "group": "nonevm",
+  "address": "A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+  "key": "kamino/A1USdzqDHmw5oz97AkqAGLxEQZfFjASZFuy4T6Qdvnpo",
+  "platform_key": "kamino",
+  "manager": "Vault admin: Squads multisig 3 of 7, 1 h timelock",
+  "audits": "OtterSec, Sec3, Offside Labs, RX Security, Certora (platform's audit pages, read 2026-09-26)",
+  "assets": "USDC, lent into 10 klend reserve(s) in 9 market(s)",
+  "controls": "Upgrade: Squads multisig 5 of 10, 24 h timelock; admin: Squads multisig 3 of 7, 1 h timelock; global admin: Squads multisig 5 of 10, no timelock; no pause field in VaultState",
+  "fees": "5% performance, 0% management",
+  "lockup": "No lock-up field; withdrawals limited by the vault's available liquidity",
+  "tvl_usd": 9559572.48,
+  "tvl_slot": 450804749,
+  "tvl_amount": 9559572.48,
+  "tvl_symbol": "USDC",
+  "tvl_source": "computed_from_chain",
+  "tvl_basis": "token_available plus each cToken account's balance times its reserve's exchange rate, minus pending fees; USDC counted at 1 USD per token (face value, not a market price)",
+  "tvl_reconciliation": "reconciles: every cToken account holds what the vault records; the vault's recorded AUM differs by +0.000% (within the 0.5% flag)",
+  "tvl_partial": false,
+  "tvl_computed_at": "2026-09-26T22:09Z",
+  "tvl_recorded_at": null,
+  "tvl_age_days": 0.0,
+  "tvl_stale": false,
+  "tvl_stale_rule": "stale when the figure (tvl_recorded_at for a vault-recorded figure, tvl_computed_at for one we compute) is more than 7 days old",
+  "tvl_aum_flag": false,
+  "read_stale": false,
+  "token_symbol": "USDC",
+  "token_kind": "stablecoin",
+  "notes": [],
+  "nested_in": [],
+  "contains_nested": [
+   {
+    "platform_key": "voltr",
+    "address": "3maCuTJVPteZ2dFA8dADxz2EbpJHfoAG5txYhXDs6gNQ",
+    "name": "Hubra Copilot USDC",
+    "tokens": 28119.81
+   }
+  ],
+  "nesting_note": "This vault's TVL includes funds placed by Hubra Copilot USDC, also listed; do not add the two TVLs together.",
+  "lends_against": "55.1% in a market taking PT-ONyc (PT-ONyc-10SEP26), ONyc (OnRe Tokenized Reinsurance), PT-ONyc (Exponent PT-ONyc-10JAN27); 20.9% in a market taking sUSDai (Staked USDai); 8.9% in a market taking ZEC (Zcash); 8.1% in a market taking JLP (Jupiter Perps LP), kSOL-MSOL (Kamino SOL-mSOL (Raydium)), WBTC (Wrapped BTC (Wormhole)), CHAI (Chai (Wormhole)), FBTC (FunctionBTC) and 43 more; and more",
+  "provenance": {
+   "manager": {
+    "class": "A",
+    "slot": 450804720
+   },
+   "assets": {
+    "class": "A",
+    "slot": 450804743
+   },
+   "controls": {
+    "class": "A",
+    "slot": 450804752
+   },
+   "fees": {
+    "class": "A",
+    "slot": 450804720
+   },
+   "lockup": {
+    "class": "A",
+    "slot": 450804724
+   },
+   "audits": {
+    "class": "D",
+    "note": "Audits from the audits page; formal verifications from the formal-verification page (Certora's 21 February 2025 entry there covers Limit Orders, not these programs). No count is stated.",
+    "url": "https://kamino.com/docs/security/audits.md",
+    "read_on": "2026-09-26"
+   },
+   "tvl": {
+    "class": "A",
+    "slot": 450804749,
+    "source": "computed_from_chain"
+   }
+  },
+  "read_at": "2026-09-26T22:10:25Z",
+  "stale": false
+ },
+ "notice": "Deposits are made on each vault's own venue, signed in your own wallet; Tnega never holds funds and takes no deposit. We describe each vault as its chain state and its operator's documents show it. Nothing here is advice."
+}

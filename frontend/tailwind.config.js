@@ -30,12 +30,47 @@ export default {
         neg: role('neg'),
         warn: role('warn'),
         'chart-baseline': role('chart-baseline'),
+        // The logo blue and its steps: charts and the allocation donut only.
+        chart: role('chart'),
+        'chart-2': role('chart-2'),
+        'chart-3': role('chart-3'),
+        'chart-4': role('chart-4'),
+        'chart-5': role('chart-5'),
+        gray: {
+          // Per theme from here (src/index.css): stock in light, neutral in
+          // dark, where stock gray-900 is navy.
+          500: role('gray-500'),
+          700: role('gray-700'),
+          800: role('gray-800'),
+          900: role('gray-900'),
+          950: role('gray-950'),
+        },
+        // Stock in light; the accent blues in dark, where stock indigo and
+        // purple read as a purple tint.
+        indigo: {
+          300: role('indigo-300'),
+          400: role('indigo-400'),
+          500: role('indigo-500'),
+          600: role('indigo-600'),
+          900: role('indigo-900'),
+        },
+        purple: {
+          400: role('purple-400'),
+          500: role('purple-500'),
+        },
       },
-      // System faces only. No web-font host: fetching a font from a third
-      // party would send every visitor's IP to it, which the privacy page
-      // says this site does not do.
+      // Text in the accent reads its own role, so the text and fill forms
+      // of the accent can differ if a theme ever needs it. Today both are
+      // the foreground colour (src/index.css).
+      textColor: {
+        accent: role('accent-text'),
+      },
+      // Hanken Grotesk, self-hosted from public/fonts (src/index.css
+      // @font-face), then the system faces. Never from a font host: fetching
+      // a font from a third party would send every visitor's IP to it, which
+      // the privacy page says this site does not do.
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        sans: ['"Hanken Grotesk"', 'ui-sans-serif', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', '"Liberation Mono"', 'monospace'],
       },
       // The shell's type scale. Small base (13px), 15px section titles, one
