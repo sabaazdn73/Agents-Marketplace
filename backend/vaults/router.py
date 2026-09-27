@@ -12,16 +12,22 @@ from __future__ import annotations
 import json
 import re
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response
+from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse, Response
 
 from core.json_encoding import json_default
 from core.vaults import service
 from core.vaults.store import get_store
+from core.vaults.switch import collector_enabled
 
 router = APIRouter()
 _ADDR = re.compile(r"^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$")
 MAX_LIMIT = 100
+
+
+def _err(status: int, error: str, reason: str) -> JSONResponse:
+    """The te routes' error shape, {error, reason}; `detail` kept for older callers."""
+    return JSONResponse(status_code=status, content={"error": error, "reason": reason, "detail": reason})
 
 
 def _json(body: dict, max_age: int = 300) -> Response:
@@ -31,21 +37,24 @@ def _json(body: dict, max_age: int = 300) -> Response:
 
 
 @router.get("/api/vaults")
-async def vaults_list(platform: str | None = Query(None), limit: int = Query(24, ge=1, le=MAX_LIMIT),
-                      offset: int = Query(0, ge=0, le=10_000)):
+async def vaults_list(platform: str | None = Query(None), limit: int = Query(24), offset: int = Query(0)):
     if platform is not None and platform not in service.PLATFORM_KEYS:
-        raise HTTPException(status_code=400, detail=f"platform must be one of {', '.join(service.PLATFORM_KEYS)}")
+        return _err(400, "bad_request", f"platform must be one of {', '.join(service.PLATFORM_KEYS)}")
+    if not 1 <= limit <= MAX_LIMIT or not 0 <= offset <= 10_000:
+        return _err(400, "bad_request", f"limit must be 1 to {MAX_LIMIT} and offset 0 to 10000")
     body = await service.list_vaults(get_store(), platform, limit, offset)
     if body is None:
-        raise HTTPException(status_code=503, detail="Vault reads have not been collected yet; the collector runs hourly.")
+        if not collector_enabled():
+            return _err(503, "collector_off", "Vault reads are switched off on this server.")
+        return _err(503, "not_collected_yet", "The first vault read has not finished yet; reads run at most hourly.")
     return _json(body)
 
 
 @router.get("/api/vaults/{platform}/{address}")
 async def vault_detail(platform: str, address: str):
     if platform not in service.PLATFORM_KEYS or not _ADDR.match(address):
-        raise HTTPException(status_code=400, detail="unknown platform or malformed address")
+        return _err(400, "bad_request", "unknown platform or malformed address")
     body = await service.vault_detail(get_store(), platform, address)
     if body is None:
-        raise HTTPException(status_code=404, detail="No listed vault at that address on that platform.")
+        return _err(404, "not_listed", "No listed vault at that address on that platform.")
     return _json(body)

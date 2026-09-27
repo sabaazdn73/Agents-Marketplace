@@ -284,12 +284,8 @@ VAULTS_TIMEOUT_SECONDS = 12 * 60
 
 
 def _vaults_enabled() -> bool:
-    flag = os.environ.get("VAULTS_COLLECTOR_ENABLED", "").strip().lower()
-    if flag in ("1", "true", "yes"):
-        return True
-    if flag in ("0", "false", "no"):
-        return False
-    return bool(os.environ.get("HELIUS_API_KEY", "").strip())
+    from core.vaults.switch import collector_enabled
+    return collector_enabled()
 
 
 async def vaults_loop() -> None:
