@@ -59,13 +59,22 @@ export function legDollars(l) {
   return Number.isFinite(l.leg_cost_usd) ? { usd: l.leg_cost_usd, measured: false } : null;
 }
 
+/** A leg's dollars for display: to the cent, or two significant figures
+ *  under $1 ($0.67, $0.0084); the exact served value is in the tooltip. */
+export function legDollarText(usd) {
+  if (!Number.isFinite(usd)) return null;
+  if (Math.abs(usd) >= 1) return usd.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (Math.abs(usd) < 0.0001) return usd === 0 ? '$0.00' : 'under $0.0001';
+  return `$${usd.toPrecision(2)}`;
+}
+
 function LegCost({ l }) {
   if (l.state !== 'filled' || !Number.isFinite(l.leg_cost_bps)) return null;
   const d = legDollars(l);
   return (
     <>
       <span className="text-fg">{fmtBps(l.leg_cost_bps)}</span>
-      {d && <span className="block text-[11px] text-muted">{d.usd.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 })}{d.measured ? ', measured' : ''}</span>}
+      {d && <span className="block text-[11px] text-muted" title={`${d.measured ? 'cost_usd_measured' : 'leg_cost_usd'}: ${d.usd}`}>{legDollarText(d.usd)}{d.measured ? ', measured' : ''}</span>}
       {l.leg_cost_basis && <span className="block text-[11px] text-muted max-w-[220px] ml-auto">{l.leg_cost_basis}</span>}
     </>
   );
