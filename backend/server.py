@@ -4117,3 +4117,7 @@ except Exception as _tg_error:  # noqa: BLE001
 from te_api.router import build_router as build_te_router  # noqa: E402
 
 app.include_router(build_te_router())
+
+# ── Vaults: read-only due diligence, served from the worker's hourly reads ──
+from vaults.router import router as vaults_router  # noqa: E402
+app.include_router(vaults_router)

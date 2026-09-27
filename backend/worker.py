@@ -67,6 +67,9 @@ from core.db import get_db  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("worker")
+# httpx logs every request URL at INFO. A Helius URL carries its key, so the
+# request log stays off.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 # ── Escrow-compat audit loop, unchanged, see the original single-loop
 # worker's own commit for the reasoning behind these numbers. ──
@@ -266,10 +269,57 @@ async def te_cost_loop() -> None:
         await asyncio.sleep(max(60.0, TE_COST_INTERVAL_SECONDS - (time.time() - started)))
 
 
+# ── Vaults ──
+#
+# Read-only vault due diligence (core/vaults). One pass reads Kamino, Voltr
+# and GLAM on Solana and the Hyperliquid and HyperEVM evidence, then writes
+# the results to the `vaults` collection, which the web service serves.
+#
+# Off unless HELIUS_API_KEY is set: production never polls the public Solana
+# RPC on a schedule. VAULTS_COLLECTOR_ENABLED=1 or 0 overrides that either
+# way. Runs are spaced by their measured credit cost so the collector stays
+# under 3,000 Helius credits a day (never more often than hourly). A pass has
+# its own 10-minute RPC deadline and a slightly longer await timeout.
+VAULTS_TIMEOUT_SECONDS = 12 * 60
+
+
+def _vaults_enabled() -> bool:
+    flag = os.environ.get("VAULTS_COLLECTOR_ENABLED", "").strip().lower()
+    if flag in ("1", "true", "yes"):
+        return True
+    if flag in ("0", "false", "no"):
+        return False
+    return bool(os.environ.get("HELIUS_API_KEY", "").strip())
+
+
+async def vaults_loop() -> None:
+    if not _vaults_enabled():
+        log.info("[vaults] collector off (no HELIUS_API_KEY, and VAULTS_COLLECTOR_ENABLED not set to 1).")
+        return
+    from core.vaults.collect import next_run_delay_s, run_collection
+    from core.vaults.store import get_store
+
+    log.info("Vaults loop starting.")
+    delay = 3600
+    while True:
+        try:
+            store = get_store()
+            meta = await store.meta() or {}
+            result = await asyncio.wait_for(asyncio.to_thread(run_collection, meta),
+                                            timeout=VAULTS_TIMEOUT_SECONDS)
+            await store.write_run(result)
+            delay = next_run_delay_s(result["run"]["solana_credits"])
+            log.info("[vaults] pass done: listed=%d failed=%s run=%s next in %ds",
+                     len(result["vaults"]), result["failed"], result["run"], delay)
+        except Exception:
+            log.exception("[vaults] pass failed; earlier results stay in place")
+        await asyncio.sleep(delay)
+
+
 async def main() -> None:
     log.info("Worker starting: escrow-compat audit + full-registry ingestion + full-registry analysis + budget index "
-             "+ tokenized-equity cost refresh (if enabled), concurrently.")
-    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop(), budget_index_loop(), te_cost_loop())
+             "+ tokenized-equity cost refresh (if enabled) + vaults (if enabled), concurrently.")
+    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop(), budget_index_loop(), te_cost_loop(), vaults_loop())
 
 
 if __name__ == "__main__":
