@@ -14,6 +14,8 @@ export function readErrorText(error, what, body = null) {
   const m = /^HTTP (\d{3})$/.exec(error || '');
   const reason = body && typeof body.reason === 'string' ? ` (${body.reason})` : '';
   if (m) return `Tnega's data service answered with an error, HTTP ${m[1]}${reason}, so ${what} can't be shown right now.`;
+  const stall = /^no answer within (\d+) s$/.exec(error || '');
+  if (stall) return `Tnega's data service didn't answer within ${stall[1]} seconds, so ${what} can't be shown right now. Try again in a moment.`;
   return `Couldn't reach Tnega's data service, so ${what} can't be shown right now. Check your connection, or try again in a moment.`;
 }
 

@@ -36,6 +36,15 @@
 // retries would make a bug look like slowness.
 
 const RETRY_DELAYS_MS = [1200, 3500, 9000];   // 4 attempts, ~14s total
+// A STALLED API. Each attempt is given ATTEMPT_TIMEOUT_MS, headers and body
+// together. Without it a request to an API that accepts the connection and
+// never answers waited for the browser's own limit (minutes), and the page
+// showed its heading with nothing under it. A timed-out attempt is not
+// retried: a restarting service refuses at once (the case the retries are
+// for), while one that stalls tends to stay stalled, and four stalls would
+// be half a minute. So a stall ends in the page's notice after ~8 s, a
+// refusal after the retries, ~14 s.
+const ATTEMPT_TIMEOUT_MS = 8000;
 const RETRYABLE_STATUS = new Set([502, 503, 504]);
 const RETRYABLE_METHODS = new Set(['GET', 'HEAD']);
 
@@ -76,12 +85,29 @@ export function installApiRetry(apiBaseUrl) {
 
     let lastError;
     for (let attempt = 0; ; attempt++) {
+      // The caller's own signal still cancels; the timeout is added to it.
+      const timer = new AbortController();
+      const t = setTimeout(() => timer.abort(), ATTEMPT_TIMEOUT_MS);
+      const signals = [timer.signal, init?.signal].filter(Boolean);
+      const signal = signals.length > 1 && typeof AbortSignal.any === 'function' ? AbortSignal.any(signals) : timer.signal;
+      if (signals.length > 1 && typeof AbortSignal.any !== 'function') init.signal.addEventListener('abort', () => timer.abort(), { once: true });
       try {
-        const res = await nativeFetch(input, init);
-        if (!RETRYABLE_STATUS.has(res.status)) return res;
+        const res = await nativeFetch(input, { ...(init || {}), signal });
+        if (!RETRYABLE_STATUS.has(res.status)) {
+          // The body is read by the caller, still under this attempt's timer;
+          // clear it only once the body has been consumed.
+          return res;
+        }
+        clearTimeout(t);
         lastError = new Error(`HTTP ${res.status}`);
       } catch (err) {
-        if (err?.name === 'AbortError') throw err;   // caller cancelled
+        clearTimeout(t);
+        if (init?.signal?.aborted) throw err;   // caller cancelled
+        if (timer.signal.aborted) {
+          const e = new Error(`no answer within ${ATTEMPT_TIMEOUT_MS / 1000} s`);
+          e.name = 'TimeoutError';
+          throw e;
+        }
         lastError = err;
       }
       const wait = RETRY_DELAYS_MS[attempt];
