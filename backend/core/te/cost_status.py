@@ -18,7 +18,11 @@ import time
 
 from .chains import CHAINS
 from .cost_store import FileStore, get_store
+from .cost_views import last_unavailable
 from .cost_worker import CHAIN_ORDER
+
+
+STARTED = time.time()
 
 
 def _iso(t) -> str | None:
@@ -60,6 +64,8 @@ async def status_view(cache: dict) -> tuple[int, dict]:
         "written_at": _iso((ld or {}).get("written_at")),
     }
     held = cache.get("doc")
+    body["web_started_at"] = _iso(STARTED)
+    body["web_503_no_list"] = dict(last_unavailable)
     body["web_cache"] = {"holds_list": held is not None,
                          "age_seconds": round(time.monotonic() - cache.get("t", 0.0), 1) if held is not None else None}
     chains = []

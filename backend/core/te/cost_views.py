@@ -22,10 +22,13 @@ document, cached for a minute.
 
 from __future__ import annotations
 
+import logging
 import time
 
 from .cost import LIFI_FEE_RATE, METHOD, SIZES
 from .universe import ISSUER_NAMES
+
+log = logging.getLogger("te.cost")
 
 # States with no quote at all. no_pool: every pool family was searched and
 # none holds a dollar pool; not_searched: a family was not (fully) searched.
@@ -242,10 +245,26 @@ def _unavailable(reason: str) -> dict:
     return {"error": "not_measured", "reason": reason}
 
 
+# The last time this process answered "no list", kept for /api/te/status and
+# logged, so a 503 can be traced after the fact: which route, what the cache
+# held, and what the store returned. Nothing secret.
+last_unavailable: dict = {"count": 0, "at": None, "route": None, "cache_age_seconds": None}
+
+
+def _no_list(route: str) -> tuple[int, dict]:
+    last_unavailable["count"] += 1
+    last_unavailable["at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    last_unavailable["route"] = route
+    last_unavailable["cache_age_seconds"] = round(time.monotonic() - _list_cache["t"], 1)
+    log.warning("[te] %s answered 503: the store returned no list document (cache age %ss)",
+                route, last_unavailable["cache_age_seconds"])
+    return 503, _unavailable("the cost worker has not written a list yet")
+
+
 async def list_view(store, *, type_: str, group: str, limit: int, sort: str, offset: int = 0) -> tuple[int, dict]:
     ld = await _list_doc(store)
     if not ld:
-        return 503, _unavailable("the cost worker has not written a list yet")
+        return _no_list("list")
     size = LIST_SIZES[sort]
     applied = "cost1k" if sort == "popular" else sort
     out_rows, unfilled, not_ranked, untyped = [], 0, [], 0
@@ -286,7 +305,7 @@ async def list_view(store, *, type_: str, group: str, limit: int, sort: str, off
 async def underlying_view(store, ticker: str, size: int) -> tuple[int, dict]:
     ld = await _list_doc(store)
     if not ld:
-        return 503, _unavailable("the cost worker has not written a list yet")
+        return _no_list("underlying")
     row = next((r for r in ld["rows"] if r["u"] == ticker), None)
     if not row:
         if ticker in (ld.get("tickers_without_measured_pool") or []):
@@ -324,7 +343,7 @@ async def underlying_view(store, ticker: str, size: int) -> tuple[int, dict]:
 async def curve_view(store, ticker: str) -> tuple[int, dict]:
     ld = await _list_doc(store)
     if not ld:
-        return 503, _unavailable("the cost worker has not written a list yet")
+        return _no_list("curve")
     if not any(r["u"] == ticker for r in ld["rows"]):
         return 404, {"error": "unknown_ticker" if ticker not in (ld.get("tickers_without_measured_pool") or []) else "not_measured",
                      "reason": f"no measured version of {ticker}"}
