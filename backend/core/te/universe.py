@@ -124,7 +124,7 @@ DEFINITION = {
         "the underlying is US-listed: issuer ISIN or listing country (class D), or a ticker match "
         "against Nasdaq Trader's symbol directory",
         "total supply above zero at the read block",
-        "the chain is in the site's chain scope (SPEC B.1; owner decision D5 pending)",
+        "the chain is one of the seven chains the site covers",
     ],
     "issuers": "distinct issuers with at least one counted token",
     "chains": "distinct chains with at least one counted token; chain_list sums to tokens",
@@ -141,7 +141,7 @@ LEFT_OUT_REASONS = {
     "not_deployed": "not deployed on this chain: no code at the address at the read block",
     "scope_not_established": "US listing not established: no issuer ISIN or listing country and no Nasdaq Trader ticker match",
     "supply_zero": "total supply 0 at the read block",
-    "chain_out_of_scope": "chain outside the site's scope (SPEC B.1; owner decision D5 pending)",
+    "chain_out_of_scope": "chain scope: the site covers seven chains (Ethereum, BNB Chain, Arbitrum, Base, Robinhood Chain, HyperEVM, Solana), and this is not one of them",
 }
 
 CONTROL_KEYS = ("pause", "freeze", "burn", "upgrade", "mint", "allowlist")
@@ -241,6 +241,7 @@ class Universe:
         # token), kept compact: [key, issuer, chain, symbol, reason].
         self._excluded: dict[str, tuple] = {x[0]: tuple(_intern(v) for v in x[1:]) for x in art.get("excluded") or []}
         self.coverage: list = art.get("coverage") or []
+        self.venues: dict = art.get("venues") or {}
         self.corrections: list = art.get("corrections") or []
         art.clear()
         self._by_key: dict[str, int] = {}
@@ -451,7 +452,6 @@ class Universe:
         for c in chain_list:
             groups[c["group"]] = groups.get(c["group"], 0) + c["tokens"]
         with_pool = 0
-        venues: dict[str, set] = {}
         pools_by_chain: dict[str, list] = {}
         not_searched = 0
         for i in self._listed:
@@ -467,8 +467,6 @@ class Universe:
                 pc[1] += 1
                 if st == "not_measured":
                     not_searched += 1
-            if liq and liq[10]:
-                venues.setdefault(c, set()).update(v.strip() for v in liq[10].split(",") if v.strip())
         records_read = int(self.source.get("records") or 0) + int(self.source.get("excluded_candidates") or 0)
         return {
             "tokens": tokens,
@@ -487,7 +485,9 @@ class Universe:
             "issuer_list": [{"issuer": s, "name": ISSUER_NAMES.get(s, s), "tokens": n}
                             for s, n in sorted(per_issuer.items(), key=lambda kv: (-kv[1], kv[0]))],
             "groups": groups,
-            "venues_searched": [{"chain": CHAINS[c]["name"], "venues": sorted(v)} for c, v in sorted(venues.items())],
+            "venues_searched": [{"chain": CHAINS[c["chain"]]["name"], "venues": (self.venues.get(c["chain"]) or {}).get("venues") or [],
+                                 "quote_assets": (self.venues.get(c["chain"]) or {}).get("quote_assets")}
+                                for c in chain_list],
             "pools_method": ("our pool reads at a named block per chain: factory construction for every token against "
                              "each listed quote asset, plus creation logs where a log API answered; Solana is Raydium "
                              "only; depth is an upper bound"),
@@ -520,7 +520,6 @@ class Universe:
 
     def provenance(self) -> dict:
         return {
-            "data_file": f"backend/data/{self.path.name}",
             "universe_generated_at": self.source.get("generated_at"),
             "universe_sha256": self.source.get("sha256"),
             "reads": self.source.get("reads_note"),
@@ -581,12 +580,12 @@ _POOLS: dict | None = None
 
 def _read_gz(path: Path) -> tuple[dict, int]:
     if not path.exists():
-        raise UniverseUnavailable(f"{path.name} is not in backend/data; run scripts/te_build_universe.py")
+        raise UniverseUnavailable("the tokenized-equity data file is missing on this server")
     try:
         with gzip.open(path, "rb") as fh:
             return json.loads(fh.read()), path.stat().st_size
     except (OSError, ValueError) as e:
-        raise UniverseUnavailable(f"{path.name} could not be read: {type(e).__name__}") from e
+        raise UniverseUnavailable(f"the tokenized-equity data file could not be read ({type(e).__name__})") from e
 
 
 def load_universe(path: Path | None = None) -> Universe:

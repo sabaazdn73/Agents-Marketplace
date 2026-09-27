@@ -121,7 +121,7 @@ def _liquidity(liq: dict | None) -> list | None:
     outliers = liq.get("pools_price_outliers") or 0
     n = max((liq.get("pool_count") or len(all_pools)) - outliers, 0)
     block, unit, label = _block_int(liq.get("block"), liq.get("meta"))
-    venues = liq.get("venues_scope") or ", ".join(liq.get("venues_searched") or [])
+    venues = _venue_list(liq)
     if n == 0:
         return ["no_pool_found", 0, outliers, None, None, None, block, unit, label, [], venues, None]
     tvl = liq.get("tvl_usd_total_v2v3", liq.get("tvl_usd_total"))
@@ -136,6 +136,51 @@ def _pool_entry(v: dict) -> dict:
     out = {k: w for k, w in v.items() if k != "block"}
     out.update({"block": block, "block_unit": unit or "block", "block_label": label})
     return clean_all(out)
+
+
+SOLANA_VENUES = ["Raydium CLMM", "Raydium CPMM", "Raydium AMM v4"]
+
+
+def _venue_list(liq: dict) -> list:
+    """The venues searched, as a list. Solana's record carries a sentence
+    ("Raydium only (CLMM, CPMM, AMM v4), pools against …"); it is served as
+    the three Raydium programs, with the quote assets listed separately."""
+    if liq.get("venues_scope"):
+        return list(SOLANA_VENUES)
+    return list(liq.get("venues_searched") or [])
+
+
+def venues_by_chain(u: dict, src: Path) -> dict:
+    """Per chain: the venues searched and the quote assets pools were sought
+    against, as the universe pass searched them (its venues.py for EVM
+    chains; the Solana record's scope sentence for Solana)."""
+    quotes: dict = {}
+    try:
+        sys.path.insert(0, str(src))
+        from venues import QUOTES  # the universe pass's own quote table
+        quotes = {c: list(q) for c, q in QUOTES.items()}
+    except Exception:  # noqa: BLE001
+        pass
+    finally:
+        if sys.path and sys.path[0] == str(src):
+            sys.path.pop(0)
+    out: dict = {}
+    for r in u["records"]:
+        liq = r.get("liquidity") or {}
+        if liq.get("status") != "measured":
+            continue
+        c = r["chain"]
+        e = out.setdefault(c, {"venues": [], "quote_assets": None})
+        for v in _venue_list(liq):
+            if v not in e["venues"]:
+                e["venues"].append(v)
+        if liq.get("venues_scope") and e["quote_assets"] is None:
+            m = re.search(r"against\s+([A-Za-z0-9/.]+)", liq["venues_scope"])
+            e["quote_assets"] = m.group(1).split("/") if m else None
+    for c, e in out.items():
+        if e["quote_assets"] is None:
+            e["quote_assets"] = quotes.get(c)
+    return out
 
 
 def _read_on(read: str | None) -> str | None:
@@ -273,11 +318,11 @@ def prepare(u: dict, src: Path) -> dict:
                 r["verification"]["basis"] = (
                     "identity from the xStocks asset list of 2026-09-24 plus the authority fields read on chain: mint "
                     "authority, freeze authority and permanent delegate equal the xStocks set (7pt9…, JDq14…, 5aMNN…). "
-                    "Per E10 the authorities alone are not an issuer identification")
+                    "The authorities alone are not an issuer identification")
             elif r["issuer"] == "ondo":
                 r["verification"]["basis"] = (
                     "identity from Ondo's address CSV of 2026-09-25 plus the mint authority read on chain (the PDA "
-                    "9foMHs… shared by all 450 CSV mints). Per E10 the authority alone is not an issuer identification")
+                    "9foMHs… shared by all 450 CSV mints). The authority alone is not an issuer identification")
         r["verification"]["basis"] = clean_text(r["verification"].get("basis"))
 
     ex_by_ticker = {}
@@ -393,7 +438,8 @@ def build(src: Path) -> tuple[dict, dict]:
             "programme": iss.get("programme"),
             "eligibility": {
                 "text": e.get("text"), "url": e.get("url"), "read_on": _read_on(e.get("read")),
-                "read_note": clean_text(e.get("read")), "class": e.get("class", "D"),
+                "read_note": re.sub(r";\s*not re-read: E20 covers the issuer site", "; not re-read since", clean_text(e.get("read")) or ""),
+                "class": e.get("class", "D"),
                 **({"also": e["also"]} if e.get("also") else {}),
             },
         }
@@ -493,6 +539,7 @@ def build(src: Path) -> tuple[dict, dict]:
         "columns": columns,
         "excluded": prep["excluded"],
         "coverage": coverage(u),
+        "venues": venues_by_chain(u, src),
         "corrections": prep["notes"],
     }
 

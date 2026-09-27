@@ -23,7 +23,7 @@ MAX_LIMIT = 50
 COVERAGE = {
     "instruments": "every listed token (see /api/te/summary for the definition)",
     "vaults": None,
-    "vaults_reason": "vault index not built yet (SPEC B.5, track T6); no vault is searched",
+    "vaults_reason": "vaults are searched on the Vaults page, not here",
 }
 
 _EVM = re.compile(r"^0x[0-9a-fA-F]{40}$")

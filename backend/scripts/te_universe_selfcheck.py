@@ -227,6 +227,10 @@ def group_summary(u, src: Path | None, base_url: str | None):
           "versions with and without a pool sum to the versions listed",
           f"{s['versions_with_pool']:,} + {s['versions_without_pool']:,}")
     check(sum(c["with_pool"] for c in s["chain_list"]) == s["versions_with_pool"], "per-chain with_pool sums")
+    sol = next((v for v in s["venues_searched"] if v["chain"] == "Solana"), {})
+    check(sol.get("venues") == ["Raydium CLMM", "Raydium CPMM", "Raydium AMM v4"] and bool(sol.get("quote_assets"))
+          and all(v["venues"] and v["quote_assets"] for v in s["venues_searched"]),
+          "venues_searched is a proper list with quote assets for every chain", str(sol))
     check("issuer-by-chain versions" in s["definition"]["token"], "the token definition says issuer-by-chain versions")
     check({c["scope"] for c in s["coverage"]} == {"xStocks on Solana", "Ondo on Solana", "Coinbase on Base"},
           "coverage caveats present", f"Solana xStocks missing {s['coverage'][0].get('missing_us_underlyings')}")
@@ -292,7 +296,9 @@ def group_content(u, s):
 
     # Served text: booleans for capability, no local file names, no Python
     # reprs, no mis-decoded UTF-8, no earlier-pass claims without a block.
-    served = [C.by_issuer(u), C.by_chain(u)] + [C.by_key(u, k) for k in u.listed_keys()[::97]]
+    from core.te import search as S0
+    served = ([C.by_issuer(u), C.by_chain(u), C.by_issuer(u, None, "ton"), S0.search(u, "NVDA")]
+              + [C.by_key(u, k) for k in u.listed_keys()[::97]])
     caps = []
 
     def walk(x):
@@ -313,7 +319,8 @@ def group_content(u, s):
         "backend/data/te_universe.json.gz", "")
     for pat, label in ((r"reads/|src/|scratch/|UNIVERSE\.md|NOTES\.md|\.json\b", "no local file names"),
                        (r"\{'", "no Python dict reprs"), (r"Ã|â€", "no mis-decoded UTF-8"),
-                       (r"earlier pass", "no earlier-pass claims")):
+                       (r"earlier pass", "no earlier-pass claims"),
+                       (r"SPEC|\bD5\b|track T\d|owner decision|backend/|scripts/", "no internal references")):
         hits = re.findall(r".{0,30}(?:" + pat + r").{0,30}", blob)
         check(not hits, f"served controls and summary: {label}", hits[0] if hits else "")
 

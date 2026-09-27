@@ -183,8 +183,8 @@ def _programme_name(u: Universe, issuer: str, kind: str, kinds_of_issuer: set) -
 def _out_of_scope(u: Universe, by: str, chain: str) -> dict:
     n = u.chain_record_count(chain)
     return {"by": by, "computed_at": u.source.get("generated_at"), "scope": _scope_note(), "rows": [],
-            "reason": (f"{CHAINS[chain]['name']} is outside the site's chain scope (SPEC B.1; owner decision D5 "
-                       f"pending): {n:,} records on it are read and kept, none is listed"),
+            "reason": (f"chain scope: the site covers seven chains and {CHAINS[chain]['name']} is not one of them; "
+                       f"{n:,} records on it are read and kept, none is listed"),
             "records_on_chain": n, "source": u.provenance()}
 
 
