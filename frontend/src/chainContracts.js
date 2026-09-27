@@ -96,8 +96,26 @@ const isAddress = (a) => /^0x[a-fA-F0-9]{40}$/.test(a || '');
  * VITE_BUDGET_ESCROW_ADDRESS would have overridden every chain at once, which
  * is the same "one address everywhere" assumption this module exists to stop.
  */
+// Each name is read as import.meta.env.NAME, which Vite replaces by its
+// value at build time. A computed name (import.meta.env[`${prefix}_${id}`])
+// made Vite inline the whole env object, every VITE_ variable set at build
+// time, into the public bundle. The node self-checks (scripts/) import this
+// file, where import.meta.env does not exist: each read is guarded there.
+const envRead = (read) => { try { return read(); } catch { return undefined; } };
+const ENV_OVERRIDES = {
+  VITE_BUDGET_ESCROW_ADDRESS: {
+    56: envRead(() => import.meta.env.VITE_BUDGET_ESCROW_ADDRESS_56),
+    1: envRead(() => import.meta.env.VITE_BUDGET_ESCROW_ADDRESS_1),
+    42161: envRead(() => import.meta.env.VITE_BUDGET_ESCROW_ADDRESS_42161),
+    4663: envRead(() => import.meta.env.VITE_BUDGET_ESCROW_ADDRESS_4663),
+  },
+  VITE_AGENT_MARKET_ADDRESS: {
+    56: envRead(() => import.meta.env.VITE_AGENT_MARKET_ADDRESS_56),
+  },
+};
+
 function envOverride(prefix, chainId) {
-  const v = import.meta.env?.[`${prefix}_${chainId}`];
+  const v = ENV_OVERRIDES[prefix]?.[chainId];
   return isAddress(v) ? v : null;
 }
 

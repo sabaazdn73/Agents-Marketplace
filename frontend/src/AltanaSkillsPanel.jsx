@@ -38,7 +38,7 @@ import { getRecentWalletSwaps } from './researchSkills';
 
 // Single source of truth for the backend base URL, matching the main app
 // (web/mobile both read VITE_API_BASE_URL). Default suits local dev.
-const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // Bug fixed 2026-08-19: this used to be a direct browser fetch to
 // raw.githubusercontent.com/altananetwork/skills/main/index.json, GitHub's

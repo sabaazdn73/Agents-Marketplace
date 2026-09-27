@@ -24,7 +24,7 @@ const PAIR_ABI = parseAbi(['function token0() view returns (address)', 'function
 // How many blocks back to scan by default. 1000 (~50 min of BSC) is served by
 // dRPC's address-less getLogs; bump via VITE_SKILL_SCAN_BLOCKS on a read RPC
 // that permits a wider range.
-export const SCAN_BLOCKS = BigInt(import.meta.env?.VITE_SKILL_SCAN_BLOCKS || 1000);
+export const SCAN_BLOCKS = BigInt(import.meta.env.VITE_SKILL_SCAN_BLOCKS || 1000);
 
 /**
  * leader-trade detection: filters Swap logs where the indexed `to` is

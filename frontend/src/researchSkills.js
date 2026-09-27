@@ -40,7 +40,7 @@ const SWAP_EVENT = parseAbiItem('event Swap(address indexed sender, uint256 amou
 
 // Default scan depth: 1000 blocks (~50 min of BSC), served by dRPC's
 // address-less getLogs. Override via VITE_SKILL_SCAN_BLOCKS.
-export const SCAN_BLOCKS = BigInt(import.meta.env?.VITE_SKILL_SCAN_BLOCKS || 1000);
+export const SCAN_BLOCKS = BigInt(import.meta.env.VITE_SKILL_SCAN_BLOCKS || 1000);
 
 export async function getRecentWalletSwaps(publicClient, walletAddress, { blockWindow = SCAN_BLOCKS } = {}) {
   const latestBlock = await publicClient.getBlockNumber();

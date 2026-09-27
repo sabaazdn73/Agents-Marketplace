@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from '../extensionLink';
 
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 // This is the switch for what the Brain section says. The three cases were
 // written before the test ran so that a negative result had somewhere to land,

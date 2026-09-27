@@ -48,7 +48,7 @@ import Pagination from './Pagination';
 // QR linking to this same (responsive) site, a phone opens the mobile app.
 // Level H (30% error correction) tolerates the centered, excavated logo.
 function QrToMobile() {
-  const url = import.meta.env?.VITE_MOBILE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
+  const url = import.meta.env.VITE_MOBILE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
   return (
     <div className="bg-surface p-3 rounded-md border border-line flex items-center gap-3 lg:w-72 shrink-0">
       {/* 120px code, 24px mark, 4-module quiet zone.

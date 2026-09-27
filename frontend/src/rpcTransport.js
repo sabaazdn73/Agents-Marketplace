@@ -22,8 +22,8 @@
 // primary can't stall the app waiting to fail over.
 import { http, fallback } from 'viem';
 
-const PRIMARY_RPC = import.meta.env?.VITE_MAINNET_READ_RPC || 'https://bsc.rpc.blxrbdn.com';
-const INFURA_API_KEY = import.meta.env?.VITE_INFURA_API_KEY;
+const PRIMARY_RPC = import.meta.env.VITE_MAINNET_READ_RPC || 'https://bsc.rpc.blxrbdn.com';
+const INFURA_API_KEY = import.meta.env.VITE_INFURA_API_KEY;
 const BACKUP_RPC = INFURA_API_KEY ? `https://bsc-mainnet.infura.io/v3/${INFURA_API_KEY}` : null;
 
 // A few seconds, not a stall, short enough that a user waiting on a

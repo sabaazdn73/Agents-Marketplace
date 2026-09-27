@@ -65,7 +65,7 @@ const HOLDER_FIELD_LABELS = {
   new_wallet_holding_pct: 'New wallets',
 };
 
-const API_BASE = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const STAKING_RECOMMENDATION_URL = `${API_BASE}/api/native-agents/staking/recommendation`;
 
 const PREFLIGHT_FNS = { lista: listaStakePreflight, ankr: ankrStakePreflight };
