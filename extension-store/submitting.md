@@ -55,15 +55,15 @@ running full width.
 Rebuild the package with `python3 extension-store/build.py`. It refuses to write
 a zip if any check fails, so a passing run is the evidence, not a promise.
 
-The tile lives in one file, frontend/public/icon_v2.svg, the blue tile. The
-popup header and the panels carry Fendi, the Tnega cat, from the owner's
-files. Change the tile there, run
-`python3 extension-store/icons.py`, then rebuild. That renders the three
-toolbar sizes, the padded 128px icon the manifest names (96px of artwork, 16px
-of transparent padding, per the store's image rules), the website's copy of
-the full tile, the store icon and both promo tiles together, so the icon on the
-toolbar and the icon on the listing cannot come from different versions of the
-logo.
+The mark is Fendi's head (from 0.2.1), one file: frontend/public/fendi-head-512.png,
+the site's own mark. Change it there, run `python3 extension-store/icons.py`,
+then rebuild. That renders the three toolbar sizes (the 16px one from the face,
+cropped closer, and all three with a thin outline for light toolbars), the
+padded 128px icon the manifest names (96px of artwork, 16px of transparent
+padding, per the store's image rules), the website's copy of the full head,
+the store icon and both promo tiles together, so the icon on the toolbar and
+the icon on the listing cannot come from different versions of the mark. The
+popup header and the panels carry the owner's own Fendi files.
 
 ## Before you start
 

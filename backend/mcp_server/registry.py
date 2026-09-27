@@ -903,6 +903,15 @@ def build(providers) -> dict[str, Dataset]:
                  "which carries a fuller record for the same kind of agent."],
     ))
 
+    # ── tokenized equities, vaults, curated baskets ──────────────────────
+    #
+    # mcp/TOKENIZED-EQUITIES.md: one dataset, no new tools; the vault and
+    # basket datasets follow the same pattern. They read what /api/te/*,
+    # /api/vaults and /api/baskets/curated read. Registered in their own
+    # module so this one stays the agents surface it was.
+    from mcp_server.te_datasets import build_baskets, build_te, build_vaults
+    datasets += build_te(providers) + build_vaults(providers) + build_baskets(providers)
+
     out: dict[str, Dataset] = {}
     for d in datasets:
         if d.coverage is None:

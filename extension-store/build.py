@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Package extension/ for the Chrome Web Store, and refuse to if it is wrong.
 
-    python3 extension-store/build.py
+    python3 extension-store/build.py [--out <folder>]
 
-Writes extension-store/tnega-<version>.zip.
+Writes <folder>/tnega-<version>.zip, extension-store/ by default. Pass a
+folder outside the repository to keep the package out of git.
 
 WHY THIS IS A SCRIPT AND NOT A ZIP COMMAND
 ------------------------------------------
@@ -63,10 +64,10 @@ FILES = [
     "popup.css",
     "panel.css",
     "paper.css",
-    "icons/tnega-16.png",
-    "icons/tnega-32.png",
-    "icons/tnega-48.png",
-    "icons/tnega-128.png",
+    "icons/icon-16.png",
+    "icons/icon-32.png",
+    "icons/icon-48.png",
+    "icons/icon-128.png",
     # Fendi's head, the Tnega mark in the popup header.
     "icons/fendi-head-128.png",
     # The full-body Fendi in the Hyperliquid panels. One framing at three
@@ -201,8 +202,11 @@ def main():
         print(f"\n{problems} problem(s). Nothing was written.")
         return 1
 
-    OUT_DIR.mkdir(exist_ok=True)
-    zip_path = OUT_DIR / f"tnega-{version}.zip"
+    out_dir = OUT_DIR
+    if "--out" in sys.argv:
+        out_dir = pathlib.Path(sys.argv[sys.argv.index("--out") + 1]).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = out_dir / f"tnega-{version}.zip"
     if zip_path.exists():
         zip_path.unlink()
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
@@ -219,7 +223,7 @@ def main():
           f"{[m for cs in manifest.get('content_scripts', []) for m in cs['matches']]}")
     print(f"OK    background service worker: "
           f"{'declared' if 'background' in manifest else 'none'}")
-    print(f"\nwrote {zip_path.relative_to(ROOT)}  "
+    print(f"\nwrote {zip_path}  "
           f"{zip_path.stat().st_size:,} bytes\nsha256 {digest}")
     return 0
 

@@ -675,6 +675,27 @@ def check_audit_findings(datasets) -> None:
 # at the size that failed rather than at the synthetic index's.
 
 PRODUCTION_COVERAGE = {
+    # The three tokenized-equity datasets, from their coverage on the live
+    # data of 2026-09-27 (a fresh cost cycle on public RPCs, the vault store).
+    "tokenized_equities": {
+        "instruments": 7279, "instruments_measured": 1395, "instruments_with_a_measured_cost": 125,
+        "underlyings": 1378, "underlyings_with_a_filled_version": 237,
+        "chains": ["BNB Chain", "Ethereum", "Solana", "HyperEVM", "Arbitrum", "Robinhood Chain", "Base"],
+        "issuers": ["Coinbase", "Ondo", "Robinhood", "bStocks", "xStocks"], "sizes_quoted_usd": [1000, 10000],
+        "numeraire": "USD, dollar stablecoins at $1 (an assumption)", "quote_staleness_bound_seconds": 900,
+        "last_poll": "2026-09-27T21:03:19Z", "universe_read_at": "2026-09-26T21:25:13Z", "partial": False},
+    "vaults.stablecoin": {
+        "vaults": 31, "platforms": [
+            {"platform": "GLAM", "listed": 0, "status": "none_qualifying"},
+            {"platform": "HyperEVM", "listed": 0, "status": "none_qualifying"},
+            {"platform": "Hyperliquid", "listed": 0, "status": "none_qualifying"},
+            {"platform": "Kamino", "listed": 30, "status": "listed"},
+            {"platform": "Voltr", "listed": 1, "status": "listed"}],
+        "listing_rule_at": "https://agents-marketplace-q3k4.onrender.com/api/vaults (field rule)",
+        "read_at": "2026-09-26T22:26:34Z", "partial": False},
+    "baskets.curated": {"baskets": 4, "file_version": 1,
+                        "sizes": "any measured size; lists use 1,000 USD",
+                        "priced_at": "2026-09-27T21:03:19Z", "partial": False},
     "agents.index": {
         "agents": 15000, "selectable": 14880,
         "tiers": {"verified": 27, "canary_verified": 0, "responding": 1259,
