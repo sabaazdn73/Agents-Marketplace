@@ -30,11 +30,14 @@ claims the path it has checked.
 
 ## What it connects you to
 
-Six tools over six datasets. Start with `tnega_catalogue`, which lists every
+Six tools over nine datasets. Start with `tnega_catalogue`, which lists every
 dataset, the keys each accepts, and its live coverage.
 
 | | |
 |---|---|
+| `tokenized_equities` | tokenized stocks and ETFs, every issuer's version on each chain side by side, with what a 1,000 or 10,000 USD buy costs, simulated on the pools at a stated block; transfer controls and who may hold each, in the issuer's own words |
+| `vaults.stablecoin` | vaults taking a stablecoin deposit, read on chain: TVL, who controls them, what they lend against, fees, lockup and audits |
+| `baskets.curated` | fixed example baskets of tokenized stocks and ETFs, each leg priced from the same measurements; not recommendations |
 | `agents.index` | ERC-8004 agents on BNB Chain, ranked by what they have delivered rather than what they claim |
 | `chains.agents` | the same registries on Ethereum, Arbitrum, Robinhood Chain, Solana and Monad |
 | `chains.views` | which chains are covered, which can be hired on, and by which contract. Hiring runs either through ERC-8183 escrow, where payment is held until delivery, or through a spending budget, which is not an escrow |
