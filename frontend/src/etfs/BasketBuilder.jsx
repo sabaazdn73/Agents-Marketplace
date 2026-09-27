@@ -18,14 +18,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Plus, X } from 'lucide-react';
 import { useTe, hasRows } from '../te/api';
-import { Card, DevTag, Pills } from '../ui/primitives';
+import { Card, DevTag } from '../ui/primitives';
+import SizeStrip from '../ui/SizeStrip';
 import { sentence } from '../te/costText';
-import { MAX_LEGS, BPS, legsProblem, legsParam, shareUrl, encodeB } from '../baskets/codec';
+import { MAX_LEGS, BPS, legsProblem, shareUrl, encodeB } from '../baskets/codec';
 import { BUY_LIVE } from '../trade/buyLive';
 import BasketBreakdown, { CostAtSize, STOPS } from './BasketBreakdown';
 import BasketBuy from '../trade/BasketBuy';
 
-const stopLabel = (s) => (s >= 1000 ? `$${s / 1000}k` : `$${s}`);
 
 function useDebounced(v, ms) {
   const [d, setD] = useState(v);
@@ -92,6 +92,9 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
   // What was last asked of the evaluate route; the link opens with its legs.
   const [asked, setAsked] = useState(() => (initialLegs?.length && !linkError ? { legs: initialLegs, size: STOPS.includes(initialSize) ? initialSize : 1000 } : null));
   const [copied, setCopied] = useState(false);
+  // A rule is named once the visitor has typed something, or when a link
+  // brought the legs; an empty builder shows no error.
+  const [touched, setTouched] = useState(!!initialLegs?.length && !linkError);
 
   const legs = useMemo(() => rows.map((r) => ({ t: (r.t || '').toUpperCase(), k: r.k, w: Math.round(Number(r.pct) * 100) })), [rows]);
   const total = rows.reduce((a, r) => a + (Number(r.pct) || 0), 0);
@@ -102,10 +105,10 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
   const b = res.data;
 
   // A new ticker drops the leg's pinned version, which belongs to the old one.
-  const set = (i, patch) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch, ...(patch.t != null && patch.t !== r.t ? { k: undefined } : {}) } : r)));
-  const add = () => setRows((rs) => (rs.length >= MAX_LEGS ? rs : [...rs, { t: '', pct: 0 }]));
-  const remove = (i) => setRows((rs) => rs.filter((_, j) => j !== i));
-  const even = () => setRows((rs) => {
+  const set = (i, patch) => setTouched(true) || setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch, ...(patch.t != null && patch.t !== r.t ? { k: undefined } : {}) } : r)));
+  const add = () => setTouched(true) || setRows((rs) => (rs.length >= MAX_LEGS ? rs : [...rs, { t: '', pct: 0 }]));
+  const remove = (i) => setTouched(true) || setRows((rs) => rs.filter((_, j) => j !== i));
+  const even = () => setTouched(true) || setRows((rs) => {
     const n = rs.length;
     const base = Math.floor(100 / n);
     return rs.map((r, j) => ({ ...r, pct: base + (j < 100 - base * n ? 1 : 0) }));
@@ -156,10 +159,10 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
           <button type="button" onClick={even} className="text-accent hover:underline">Split evenly</button>
           <span className={`ml-auto tabular-nums ${total === 100 ? 'text-muted' : 'text-warn'}`}>Total {Number.isFinite(total) ? total : 0}%</span>
         </div>
-        <div className="mt-3 overflow-x-auto"><Pills label="Basket size" value={size} onChange={onSize} options={STOPS.map((s) => ({ id: s, label: stopLabel(s) }))} /></div>
+        <SizeStrip className="mt-3" onSurface ariaLabel="Basket size" stops={STOPS} value={size} onChange={(s) => { setTouched(true); onSize(s); }} />
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button type="button" onClick={evaluate} disabled={!!problem} className="h-10 px-4 rounded bg-accent text-accent-fg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">Price this basket</button>
-          {problem && <span className="text-[12px] text-muted">{sentence(problem)}.</span>}
+          {problem && touched && <span className="text-[12px] text-muted">{sentence(problem)}.</span>}
         </div>
         <p className="mt-2 text-[11px] text-muted">Weights are stored in the link as basis points (100% = {BPS.toLocaleString('en-US')}).</p>
       </Card>
@@ -180,7 +183,7 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
           </Card>
           <BasketBreakdown b={b} compact={compact} />
           {hasRows(b.cost_at_size?.stops) && <Card><h3 className="text-[15px] font-semibold text-fg mb-2">Cost at every measured size</h3><CostAtSize c={b.cost_at_size} size={b.size} /></Card>}
-          {BUY_LIVE && <BasketBuy b={b} runId={`b:${legsParam(asked.legs)}:${b.size}`} />}
+          {BUY_LIVE && <BasketBuy b={b} runId={`b:${encodeB(asked.legs)}:${b.size}`} />}
           <p className="text-[12px] text-muted">A basket you built; not a recommendation.</p>
         </div>
       )}

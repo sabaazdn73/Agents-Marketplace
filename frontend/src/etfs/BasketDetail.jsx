@@ -30,12 +30,12 @@ import React, { useState } from 'react';
 import { useTe } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
 import { BUY_LIVE } from '../trade/buyLive';
-import { Card, DevTag, LineChart, GroupChip, Pills, fmtUsd } from '../ui/primitives';
+import { Card, DevTag, LineChart, GroupChip, fmtUsd } from '../ui/primitives';
+import SizeStrip from '../ui/SizeStrip';
 import { Breadcrumb, CopyAddress, StatCard, SourceChip, TabbedCard, Field, shortAddr } from '../ui/detail';
 import BasketBreakdown, { CostAtSize, measuredNote, STOPS } from './BasketBreakdown';
 import BasketBuy from '../trade/BasketBuy';
 
-const stopLabel = (s) => (s >= 1000 ? `$${s / 1000}k` : `$${s}`);
 
 function Creator({ b }) {
   if (b.creator_kind === 'curated') return <span>{b.creator || 'Tnega (curated)'}</span>;
@@ -93,7 +93,7 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
         </div>
       </div>
 
-      <div className="overflow-x-auto"><Pills label="Basket size" value={size} onChange={pickSize} options={STOPS.map((s) => ({ id: s, label: stopLabel(s) }))} /></div>
+      <SizeStrip ariaLabel="Basket size" stops={STOPS} value={size} onChange={pickSize} />
 
       <div className={`grid gap-4 ${mobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
         <StatCard label="Basket value" note="Not measured"
@@ -150,7 +150,7 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
         ) },
       ]} />
       <div className={stale ? 'opacity-60' : ''}><BasketBreakdown b={b} compact={mobile} /></div>
-      {BUY_LIVE && <BasketBuy key={`${code}-${b.size}`} b={b} runId={`c:${code}:${b.size}`} />}
+      {BUY_LIVE && <BasketBuy key={`${code}-${b.size}`} b={b} runId={`c:${code}:v${b.version}:${b.size}`} />}
       <p className="text-[12px] text-muted">{note} Not a recommendation.</p>
     </div>
   );

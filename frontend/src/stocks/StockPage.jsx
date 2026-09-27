@@ -20,7 +20,8 @@ import { useTe, hasRows } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
 import { BUY_LIVE } from '../trade/buyLive';
 import { CostCurveCard, Eligibility } from '../home/cards';
-import { Card, CardTitle, DevTag, GroupChip, SymbolTile, Pills, fmtUsd0 } from '../ui/primitives';
+import { Card, CardTitle, DevTag, GroupChip, SymbolTile, fmtUsd0 } from '../ui/primitives';
+import SizeStrip from '../ui/SizeStrip';
 import { Breadcrumb } from '../ui/detail';
 import {
   headline, tokensText, bpsText, depthText, blockText, refGap, stateText, measuredLine, sentence, shareRatioText,
@@ -33,7 +34,6 @@ import TradePanel from '../trade/TradePanel';
 // The engine's 11 sizes (SPEC B.3). The curve's own stops win when it
 // answers; these are the same numbers.
 export const STOPS = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000];
-const stopLabel = (s) => (s >= 1000 ? `$${s / 1000}k` : `$${s}`);
 
 function readQuery() {
   try {
@@ -339,9 +339,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
         </div>
       </div>
 
-      <div className="mt-4 overflow-x-auto">
-        <Pills label="Order size" value={size} onChange={setSize} options={stops.map((s) => ({ id: s, label: stopLabel(s) }))} />
-      </div>
+      <SizeStrip className="mt-4" ariaLabel="Order size" stops={stops} value={size} onChange={setSize} />
       {u.stale && <p className="mt-1 text-[11px] text-muted">Updating to {fmtUsd0(size)}</p>}
 
       <div className={`mt-4 ${mobile ? 'space-y-4' : 'space-y-6'}`}>
