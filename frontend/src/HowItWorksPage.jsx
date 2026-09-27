@@ -59,7 +59,7 @@ import {
 import HowItWorksFlow from './HowItWorksFlow';
 import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from './extensionLink';
 import { MCP_CLIENTS, EXTENSION_MARK } from './connectMarks';
-import fendiUrl from './assets/fendi-mark.png';
+import fendiUrl from './assets/fendi-head.png';
 
 // The bot's handle, in one place. Registered with BotFather on
 // 2026-09-17 and answering on a webhook mounted into this project's own
@@ -745,8 +745,8 @@ export default function HowItWorksPage({ variant = 'web' }) {
       key: 'mcp',
       title: MCP_TITLE,
       icon: Terminal,
-      // The server and the package carry Fendi, the Tnega mark (owner's
-      // decision, 2026-09-27: Fendi replaces the logo everywhere). The
+      // The server and the package carry Fendi's head, the Tnega mark
+      // (owner's decisions, 2026-09-27). The
       // extension beside it keeps its own toolbar tile, which is what a
       // reader will find in their browser.
       markSrc: fendiUrl,

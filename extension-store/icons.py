@@ -47,7 +47,8 @@ Edit the master, run this, rebuild the zip. Nothing else touches these files.
 The panel's cat, Fendi, is not generated here. fendi-128.png is the owner's
 file as supplied; fendi-32.png and fendi-48.png are Lanczos downscales of the
 owner's 512px master, which is not in the repository, at the same framing.
-He heads the popup and is shown inside the panels. This script makes the
+His head (fendi-head-128.png, the owner's fendi-head-512.png scaled down)
+heads the popup; the full body is shown inside the panels. This script makes the
 tile, which is what the toolbar, the store icon and the promo tiles carry.
 """
 

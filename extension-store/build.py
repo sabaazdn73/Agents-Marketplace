@@ -67,10 +67,11 @@ FILES = [
     "icons/tnega-32.png",
     "icons/tnega-48.png",
     "icons/tnega-128.png",
-    # Fendi, the Tnega mark: the popup header (fendi-128.png) and the
-    # Hyperliquid panels. One framing at three sizes, picked by srcset.
-    # Declared in the manifest's web_accessible_resources, so all three have
-    # to be in the package.
+    # Fendi's head, the Tnega mark in the popup header.
+    "icons/fendi-head-128.png",
+    # The full-body Fendi in the Hyperliquid panels. One framing at three
+    # sizes, picked by srcset. Declared in the manifest's
+    # web_accessible_resources, so all three have to be in the package.
     "icons/fendi-32.png",
     "icons/fendi-48.png",
     "icons/fendi-128.png",

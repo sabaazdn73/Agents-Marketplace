@@ -5,9 +5,9 @@ import {
   Loader2, AlertTriangle, Wallet, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
 } from 'lucide-react';
-// Fendi, the Tnega mark, in the centre of the QR code below (QrToMobile).
+// Fendi's head, the Tnega mark, in the centre of the QR code below (QrToMobile).
 // Same file as the header's mark; see shell/Brand.jsx.
-import iconLogo from './assets/fendi-mark.png';
+import iconLogo from './assets/fendi-head.png';
 
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';

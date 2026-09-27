@@ -11,8 +11,8 @@
 import React from 'react';
 import { McpFront, McpDetails, MCP_TITLE, MCP_LINE } from '../HowItWorksPage';
 import { PageFrame } from './PageFrame';
-// Fendi, the Tnega mark, heads the server's card as it heads every page.
-import fendiUrl from '../assets/fendi-mark.png';
+// Fendi's head, the Tnega mark, heads the server's card as it heads every page.
+import fendiUrl from '../assets/fendi-head.png';
 
 export default function UseWithAi({ layout = 'web' }) {
   const compact = layout === 'mobile';
