@@ -22,22 +22,34 @@ ROW_FIELDS = ("name", "platform", "platform_key", "chain", "group", "address", "
               "notes", "nested_in", "contains_nested", "curator")
 
 
+ROW_SUBDOCS = ("fees", "lockup", "manager", "assets", "controls", "audits", "tvl", "token")
+ROW_SUBKEYS = ("text", "class", "slot", "url", "read_on", "usd", "amount", "symbol", "source", "basis",
+               "reconciliation", "partial", "computed_at", "recorded_at", "aum_flag", "kind", "mint", "decimals",
+               "note", "lends_against_text")
+# What Mongo sends for a list row: only the sub-keys _strip_row keeps. A
+# Kamino vault's `assets` alone is about 20 KB of per-allocation detail that
+# no list row shows; projecting it away cuts a full read of the rows from
+# about 600 KB to a small fraction of that.
+ROW_PROJECTION = {**{k: 1 for k in ROW_FIELDS if k not in ROW_SUBDOCS},
+                  **{f"{k}.{kk}": 1 for k in ROW_SUBDOCS for kk in ROW_SUBKEYS}}
+# Platform-row fields that service.platform_row never reads.
+PLATFORM_UNREAD = ("rule", "links", "audits", "platform_reads")
+
+
 def _strip_row(d: dict) -> dict:
     """A list row carries the texts and provenance, not the per-allocation
     detail, so a page of rows stays small."""
     out = {k: d.get(k) for k in ROW_FIELDS}
-    for k in ("fees", "lockup", "manager", "assets", "controls", "audits", "tvl", "token"):
+    for k in ROW_SUBDOCS:
         v = out.get(k) or {}
-        keep = {"text", "class", "slot", "url", "read_on", "usd", "amount", "symbol", "source", "basis",
-                "reconciliation", "partial", "computed_at", "recorded_at", "aum_flag", "kind", "mint", "decimals",
-                "note", "lends_against_text"}
-        out[k] = {kk: vv for kk, vv in v.items() if kk in keep}
+        out[k] = {kk: vv for kk, vv in v.items() if kk in ROW_SUBKEYS}
     return out
 
 
 class FileStore:
     def __init__(self, path: str):
         self.path = path
+        self.cache_id = f"file:{os.path.abspath(path)}"
 
     def _load(self) -> list[dict]:
         if not os.path.exists(self.path):
@@ -71,6 +83,10 @@ class FileStore:
     async def meta(self) -> dict | None:
         return next((d for d in await self.all_docs() if d.get("_id") == "meta"), None)
 
+    async def meta_head(self) -> dict | None:
+        m = await self.meta()
+        return None if m is None else {k: m[k] for k in ("_id", "run", "failed") if k in m}
+
     async def get(self, platform: str, address: str) -> dict | None:
         return next((d for d in await self.all_docs() if d.get("_id") == f"{platform}:{address}"), None)
 
@@ -99,6 +115,7 @@ def _merge(old: dict, result: dict) -> dict:
 class MongoStore:
     def __init__(self, db):
         self.c = db[COLLECTION]
+        self.cache_id = f"mongo:{db.name}.{COLLECTION}"
 
     async def all_docs(self) -> list[dict]:
         return [d async for d in self.c.find({})]
@@ -113,23 +130,32 @@ class MongoStore:
                 old[r["_id"]] = await self.c.find_one({"_id": r["_id"]}) or old[r["_id"]]
         new = _merge(old, result)
         ops = [ReplaceOne({"_id": k}, v, upsert=True) for k, v in new.items()
-               if not (k in old and old[k] is v)]
+               if k != "meta" and not (k in old and old[k] is v)]
         ops += [DeleteOne({"_id": k}) for k in old if k not in new]
         if ops:
             await self.c.bulk_write(ops, ordered=False)
+        # The meta document last, on its own: its run stamp is what the web
+        # service's list cache is keyed on, so it must not name a run whose
+        # vault and platform documents are not all written yet.
+        await self.c.replace_one({"_id": "meta"}, new["meta"], upsert=True)
 
     async def rows(self, platform: str | None) -> list[dict]:
         q = {"kind": "vault"}
         if platform:
             q["platform_key"] = platform
-        proj = {k: 1 for k in ROW_FIELDS}
-        return [_strip_row(d) async for d in self.c.find(q, proj)]
+        return [_strip_row(d) async for d in self.c.find(q, ROW_PROJECTION)]
 
     async def platforms(self) -> list[dict]:
-        return [d async for d in self.c.find({"kind": "platform"})]
+        return [d async for d in self.c.find({"kind": "platform"}, {k: 0 for k in PLATFORM_UNREAD})]
 
     async def meta(self) -> dict | None:
+        """The whole meta document, the collector's state included (its
+        market cache alone is tens of KB): for the worker, not a request."""
         return await self.c.find_one({"_id": "meta"})
+
+    async def meta_head(self) -> dict | None:
+        """What a list request needs of meta: the run stamp and the failures."""
+        return await self.c.find_one({"_id": "meta"}, {"run": 1, "failed": 1})
 
     async def get(self, platform: str, address: str) -> dict | None:
         return await self.c.find_one({"_id": f"{platform}:{address}"})
