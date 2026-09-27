@@ -41,6 +41,10 @@ real, short per-attempt timeout; only on a failure of the primary
 same request against Infura. A HTTP 4xx from the primary is NOT
 retried against the backup, that's a real, deterministic rejection
 (a malformed request), not a reliability problem a different node fixes.
+Amended 2026-09-26: 429, and a rate-limit or internal-error code inside
+the JSON-RPC body (-32005, -32603), are the exceptions. They say the node
+is busy, not that the request is wrong, and Infura's 429 had been leaving
+Ethereum with no failover at all. See is_transient_response().
 Every call site that used to POST directly to `get_bsc_rpc_url()`
 now goes through `rpc_post()` instead, so this one fallback layer
 covers every on-chain read this backend makes, not a handful.
@@ -70,6 +74,38 @@ _FALLBACK_RPC_URL = "https://bsc.rpc.blxrbdn.com"
 _PRIMARY_TIMEOUT_SECONDS = 5.0
 
 
+# JSON-RPC error codes that say "this node, now", not "this request":
+# -32005 is a rate limit or a range limit (Infura sends it inside a 429),
+# -32603 an internal error. Infura BSC answered -32603 intermittently in the
+# 2026-09-26 RPC matrix, and a rate limit can also arrive inside HTTP 200.
+# Another node may well answer these, so they fail over like a 5xx does.
+_TRANSIENT_RPC_CODES = {-32005, -32603, 429}
+
+
+def _is_transient_error(err) -> bool:
+    if not isinstance(err, dict):
+        return False
+    if err.get("code") in _TRANSIENT_RPC_CODES:
+        return True
+    msg = str(err.get("message", "")).lower()
+    return "rate limit" in msg or "too many requests" in msg
+
+
+def is_transient_response(resp: httpx.Response) -> bool:
+    """True when a different endpoint could plausibly answer this request:
+    HTTP 429, any 5xx, or a JSON-RPC error with a transient code inside any
+    status (for a batch, any element). A deterministic rejection (a revert,
+    a malformed request) is not transient and is returned to the caller."""
+    if resp.status_code == 429 or resp.status_code >= 500:
+        return True
+    try:
+        body = resp.json()
+    except ValueError:
+        return False
+    items = body if isinstance(body, list) else [body]
+    return any(isinstance(b, dict) and _is_transient_error(b.get("error")) for b in items)
+
+
 def get_bsc_rpc_url() -> str:
     """The one, real, current BSC mainnet RPC URL every backend on-chain
     read should use. env override takes priority; falls back to a
@@ -97,8 +133,9 @@ async def rpc_post(client: httpx.AsyncClient, payload: dict, *, timeout: float =
     a response once it has one.
 
     A failure that triggers the backup: any httpx-level exception
-    (a timeout, connection error, DNS failure) from the primary, or a
-    HTTP 5xx status. A real 4xx is returned immediately, no
+    (a timeout, connection error, DNS failure) from the primary, a
+    HTTP 5xx or 429, or a transient JSON-RPC error code in the body
+    (is_transient_response). Any other 4xx is returned immediately, no
     failover, that's the primary node correctly rejecting a malformed
     request, not a reliability problem. If every URL fails, the
     last response (or the last exception, if none of them even
@@ -117,7 +154,7 @@ async def rpc_post(client: httpx.AsyncClient, payload: dict, *, timeout: float =
         except httpx.HTTPError as exc:
             last_exc = exc
             continue
-        if resp.status_code >= 500:
+        if is_transient_response(resp):
             last_resp = resp
             continue
         return resp
@@ -300,7 +337,13 @@ _CHAIN_INFURA_PATH = {
 # explicitly because it is the one chain here where the paid endpoint is the
 # reliable one and the free one is what failed.
 _CHAIN_PUBLIC_BACKUP = {
-    1: "https://eth.llamarpc.com",
+    # Ethereum. eth.llamarpc.com answered HTTP 525 to every call in the
+    # 2026-09-26 RPC matrix and again when re-checked, so the chain had no
+    # working failover. publicnode replaces it: re-checked the same day, it
+    # returns chainId 1, the ERC-8004 registry's code at 0x8004A169.., and a
+    # current block. It serves recent state only (about 100 blocks), which is
+    # all a latest-block read needs.
+    1: "https://ethereum-rpc.publicnode.com",
     # Robinhood Chain. Infura does not cover this chain, so its failover is
     # a public endpoint rather than an Infura path. Verified against the
     # primary before being trusted, not taken from a list: it returns
@@ -370,7 +413,7 @@ async def chain_rpc_post(
     for url in urls:
         try:
             resp = await client.post(url, json=payload, timeout=timeout)
-            if resp.status_code >= 500:
+            if is_transient_response(resp):
                 last_resp = resp
                 continue
             return resp

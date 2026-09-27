@@ -239,9 +239,37 @@ async def budget_index_loop() -> None:
             await asyncio.sleep(backoff)
 
 
+# ── Tokenized-equity cost refresh ──
+#
+# Every 15 minutes, the cost of buying each tokenized-equity version at the
+# slider's 11 sizes, simulated on its own pools at one pinned block per chain
+# (core/te/cost.py). The web process only reads what this writes. Off unless
+# TE_COST_ENABLED=1, because it spends public-RPC calls (about 150 a run on
+# Robinhood Chain) and writes the te_cost collections.
+TE_COST_INTERVAL_SECONDS = 15 * 60
+
+
+async def te_cost_loop() -> None:
+    if os.environ.get("TE_COST_ENABLED") != "1":
+        log.info("[te-cost] TE_COST_ENABLED is not 1, cost refresh loop idle.")
+        return
+    from core.te.cost_store import get_store
+    from core.te.cost_worker import run_cycle
+    log.info("[te-cost] cost refresh loop starting, every %ss.", TE_COST_INTERVAL_SECONDS)
+    while True:
+        started = time.time()
+        try:
+            summary = await run_cycle(get_store())
+            log.info("[te-cost] cycle done: %s", summary)
+        except Exception:
+            log.exception("[te-cost] cycle failed")
+        await asyncio.sleep(max(60.0, TE_COST_INTERVAL_SECONDS - (time.time() - started)))
+
+
 async def main() -> None:
-    log.info("Worker starting: escrow-compat audit + full-registry ingestion + full-registry analysis + budget index, concurrently.")
-    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop(), budget_index_loop())
+    log.info("Worker starting: escrow-compat audit + full-registry ingestion + full-registry analysis + budget index "
+             "+ tokenized-equity cost refresh (if enabled), concurrently.")
+    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop(), budget_index_loop(), te_cost_loop())
 
 
 if __name__ == "__main__":

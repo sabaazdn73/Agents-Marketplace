@@ -4076,6 +4076,14 @@ except Exception as _mcp_error:  # noqa: BLE001
     print(f"[mcp] not mounted ({type(_mcp_error).__name__}: {_mcp_error})", flush=True)
 
 
+# ── tokenized equities ───────────────────────────────────────────────────────
+# /api/te/*: reads what backend/worker.py's cost refresh stored; no chain call
+# in a request. One include per tokenized-equity router.
+from te.router import router as te_router  # noqa: E402
+
+app.include_router(te_router)
+
+
 # ── the Telegram surface ─────────────────────────────────────────────────────
 #
 # One route, POST /api/telegram/webhook, mounted into this app rather than run
@@ -4099,3 +4107,13 @@ try:
     print("[telegram] mounted at POST /api/telegram/webhook", flush=True)
 except Exception as _tg_error:  # noqa: BLE001
     print(f"[telegram] not mounted ({type(_tg_error).__name__}: {_tg_error})", flush=True)
+
+
+# ── tokenized equities ───────────────────────────────────────────────────────
+#
+# GET /api/te/summary, /api/te/search, /api/te/controls. Static, versioned data
+# (data/te_universe.json.gz), loaded once off the event loop; te_api/router.py
+# holds the routes and core/te the logic.
+from te_api.router import build_router as build_te_router  # noqa: E402
+
+app.include_router(build_te_router())

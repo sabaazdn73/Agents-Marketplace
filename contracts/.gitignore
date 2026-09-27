@@ -1,5 +1,6 @@
 # Foundry
 out/
+out-probe/
 cache/
 broadcast/
 # Vendored dependencies — reinstall with:

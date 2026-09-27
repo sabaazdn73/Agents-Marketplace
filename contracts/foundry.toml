@@ -9,3 +9,16 @@ solc_version = "0.8.24"
 remappings = [
   "@openzeppelin/=lib/openzeppelin-contracts/",
 ]
+
+# The swap probe's runtime is committed in backend/core/te/probe_bytecode.py.
+# Rebuild: FOUNDRY_PROFILE=probe forge build src/TnegaSwapProbe.sol (paris, no metadata, so the
+# bytes are reproducible and the recorded sha256 can be checked).
+[profile.probe]
+src = "src"
+out = "out-probe"
+optimizer = true
+optimizer_runs = 200
+solc_version = "0.8.24"
+evm_version = "paris"
+bytecode_hash = "none"
+cbor_metadata = false
