@@ -283,7 +283,7 @@ export function BasketCard({ basket, source, onOpen }) {
             ? <><dt className="text-muted">Cost to buy {fmtUsd0(size)}</dt><dd className="text-right tabular-nums text-fg">{fmtBps(bps)}</dd></>
             : basket.cost_reason ? <><dt className="text-muted">Cost to buy {fmtUsd0(size)}</dt><dd className="text-right text-fg">{sentence(basket.cost_reason)}</dd></> : null;
         })()}
-        {basket.prompts && Number.isFinite(basket.prompts.swaps) && (<><dt className="text-muted">Wallet prompts</dt><dd className="text-right tabular-nums text-fg">{basket.prompts.swaps} swaps{basket.prompts.approvals_up_to ? `, up to ${basket.prompts.approvals_up_to} approvals` : ''}</dd></>)}
+        {basket.prompts && Number.isFinite(basket.prompts.swaps) && (<><dt className="text-muted">Signatures</dt><dd className="text-right tabular-nums text-fg">{basket.prompts.swaps} swaps{basket.prompts.approvals_up_to ? `, up to ${basket.prompts.approvals_up_to} approvals` : ''}{Number.isFinite(basket.prompts.chain_switches) ? `; ${basket.prompts.chain_switches} chain switch${basket.prompts.chain_switches === 1 ? '' : 'es'}` : ''}</dd></>)}
         {capText(basket) && (<><dt className="text-muted">Largest size under 1% cost</dt><dd className="text-right tabular-nums text-fg">{capText(basket)}</dd></>)}
       </dl>
       <p className="mt-3 text-[11px] text-muted">{source?.note || 'A fixed example basket; not a recommendation.'}</p>

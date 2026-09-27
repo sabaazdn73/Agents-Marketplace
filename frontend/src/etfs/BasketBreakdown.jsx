@@ -150,17 +150,22 @@ export function capText(b) {
   return b.cap_reason ? sentence(b.cap_reason) : null;
 }
 
+// Signatures and chain switches are two counts, as served: a chain switch
+// is a wallet prompt too, but no total of the two is served, so none is
+// added up here.
 function Prompts({ b }) {
   const p = b.prompts;
   if (!p) return null;
-  const parts = [
-    `${p.swaps} swap${p.swaps === 1 ? '' : 's'}`,
-    p.approvals_up_to ? `up to ${p.approvals_up_to} approval${p.approvals_up_to === 1 ? '' : 's'}` : null,
-    `${p.chain_switches} chain switch${p.chain_switches === 1 ? '' : 'es'}${Number.isFinite(p.chain_switches) ? ', plus one if your wallet starts on another chain' : ''}`,
-  ].filter(Boolean);
+  const n = (v, one, many) => `${v} ${v === 1 ? one : many}`;
   return (
     <div>
-      <div className="text-fg">{parts.join(', ')}: up to {p.signatures_up_to} wallet prompts, one leg at a time.</div>
+      <div className="text-fg">
+        Up to {n(p.signatures_up_to, 'signature', 'signatures')}: {n(p.swaps, 'swap', 'swaps')}
+        {p.approvals_up_to ? `, and up to ${n(p.approvals_up_to, 'approval', 'approvals')} where the allowance is short` : ''}, one leg at a time.
+      </div>
+      {Number.isFinite(p.chain_switches) && (
+        <div className="text-fg">{n(p.chain_switches, 'chain switch', 'chain switches')}, plus one if your wallet starts on another chain.</div>
+      )}
       {p.partial && hasMissing(p) && <div className="text-[12px] text-warn">Counted without {p.missing.join(', ')}: no priced version at this size.</div>}
       {p.basis && (
         <details className="mt-1 text-[12px] text-muted"><summary className="cursor-pointer hover:text-fg">How this is counted</summary><p className="mt-1">{sentence(p.basis)}</p></details>
@@ -229,7 +234,7 @@ export default function BasketBreakdown({ b, compact = false }) {
             <span className="text-fg">{capText(b) || 'Not measured'}</span>
             {b.cap_lower_bound && <span className="block text-[12px] text-muted">&quot;At least&quot;: a limiting leg is under the threshold even at the largest size measured.</span>}
           </Row>
-          <Row label="Wallet prompts"><Prompts b={b} /></Row>
+          <Row label="Signatures and chain switches"><Prompts b={b} /></Row>
           {Array.isArray(b.by_chain) && b.by_chain.length > 0 && (
             <Row label="By chain">
               <ul className="space-y-0.5">
