@@ -47,7 +47,8 @@ const RETRY_DELAYS_MS = [1200, 3500, 9000];   // 4 attempts, ~14s total
 //                       + 8, about 17 s.
 //   BODY_TIMEOUT_MS     for the body once the headers are in. A phone on a
 //                       slow network can take many seconds to receive the
-//                       vault list (about 75 KB), so this is generous, and
+//                       vault list (92.7 KB raw, about 10 KB as sent, Brotli-compressed; measured
+//                       2026-09-27), so this is generous, and
 //                       it is not retried: the server did answer.
 // The body is read here, under its own limit, and handed on as a fresh
 // Response, so the caller never waits on an unbounded stream.
