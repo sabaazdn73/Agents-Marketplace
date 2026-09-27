@@ -350,7 +350,8 @@ def _doc(v, rdec, cvaults, market, who, global_admin, market_cache, slots) -> di
     against_text = "; ".join(
         f"{round(a['share_of_vault'] * 100, 1) if a['share_of_vault'] is not None else '?'}% in a market taking "
         + _names([c["label"] for c in a["collateral"] if not c["stablecoin"]])
-        for a in shown[:4]) + ("; and more" if len(shown) > 4 else "")
+        for a in shown[:4]) + (f"; and {len(shown) - 4} more market{'s' if len(shown) > 5 else ''}"
+                               if len(shown) > 4 else "")
     pen_bps, pen_lam = v["withdrawal_penalty_bps"], v["withdrawal_penalty_lamports"]
     lock_text = "No lock-up field; withdrawals limited by the vault's available liquidity"
     if pen_bps or pen_lam:
