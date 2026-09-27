@@ -55,12 +55,11 @@
 
 import React, { useEffect } from 'react';
 import StandaloneBar from './shell/StandaloneBar';
-import { SECTION_LIVE } from './home/sections';
-import { DATA_LIVE } from './dataLive';
+import { BUY_LIVE } from './trade/buyLive';
 
-// The buy flow's paragraph describes a panel that exists only while both
-// switches are on.
-const BUY_SHOWN = DATA_LIVE && SECTION_LIVE.buy;
+// The buy flow's paragraph, and the three chains it adds to sign-in, exist
+// only while the Buy panel is shown (trade/buyLive.js).
+const BUY_SHOWN = BUY_LIVE;
 
 const UPDATED = '27 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
@@ -557,10 +556,10 @@ export default function PrivacyPage({ onBack }) {
             address, the message and the signature are sent to the public RPC provider of the chain
             the message names: bloXroute on BNB Chain, with Infura as a backup where it is
             configured; Arbitrum&apos;s public endpoint on Arbitrum, with dRPC as a backup; and
-            Robinhood Chain&apos;s public endpoint on Robinhood Chain, with PublicNode as a backup;
-            PublicNode on Ethereum, with eth.merkle.io as a backup; Base&apos;s public endpoint on
-            Base, with PublicNode as a backup; and Hyperliquid&apos;s public endpoint on HyperEVM. A
-            backup receives the same request when the first provider does not answer. If a signature
+            Robinhood Chain&apos;s public endpoint on Robinhood Chain, with PublicNode as a
+            backup{BUY_SHOWN ? <>; PublicNode on Ethereum, with eth.merkle.io as a backup;
+            Base&apos;s public endpoint on Base, with PublicNode as a backup; and Hyperliquid&apos;s
+            public endpoint on HyperEVM</> : null}. A backup receives the same request when the first provider does not answer. If a signature
             does not match, the browser asks that provider whether the address is a contract,
             sending the address alone.
           </p>

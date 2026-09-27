@@ -18,7 +18,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Crown, ExternalLink } from 'lucide-react';
 import { useTe, hasRows } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
-import { SECTION_LIVE } from '../home/sections';
+import { BUY_LIVE } from '../trade/buyLive';
 import { CostCurveCard, Eligibility } from '../home/cards';
 import { Card, CardTitle, DevTag, GroupChip, SymbolTile, Pills, fmtUsd0 } from '../ui/primitives';
 import { Breadcrumb } from '../ui/detail';
@@ -92,10 +92,12 @@ function StateCell({ v, size }) {
   ) : <span className="text-[12px] font-semibold text-fg">{st.label}</span>;
 }
 
-// A Buy button only where a quote could be checked: an EVM chain we can buy
-// on, and a measured price to hold LI.FI's answer against (trade/lifi.js
+// A Buy button only where a quote can be checked: the Buy panel is shown
+// (trade/buyLive.js), the version is on an EVM chain we can buy on, and it
+// fills this size on our own measurement, so its measured all-in price per
+// token is what LI.FI's answer is held against (trade/lifi.js
 // referencePrice). Every other row opens the same details without a Buy.
-const buyable = (v, data) => SECTION_LIVE.buy && v.group === 'evm' && isBuyChain(v.chain_id) && !!referencePrice(v, data);
+const buyable = (v) => BUY_LIVE && v.group === 'evm' && isBuyChain(v.chain_id) && !!referencePrice(v);
 
 function VersionsTable({ data, size, selected, onSelect }) {
   const bestKey = data.best?.key;
@@ -140,8 +142,8 @@ function VersionsTable({ data, size, selected, onSelect }) {
                 <td className="py-2.5 pl-4 align-top pt-3"><StateCell v={v} size={size} /></td>
                 <td className="px-4 py-2.5 text-right whitespace-nowrap">
                   <button type="button" onClick={() => onSelect(v.key)} aria-pressed={on}
-                    className={`h-8 px-3 rounded text-[12px] font-semibold ${buyable(v, data) ? 'bg-accent text-accent-fg hover:opacity-90' : 'border border-line-strong text-fg hover:bg-inset'}`}>
-                    {buyable(v, data) ? 'Buy' : 'Details'}
+                    className={`h-8 px-3 rounded text-[12px] font-semibold ${buyable(v) ? 'bg-accent text-accent-fg hover:opacity-90' : 'border border-line-strong text-fg hover:bg-inset'}`}>
+                    {buyable(v) ? 'Buy' : 'Details'}
                   </button>
                 </td>
               </tr>
@@ -180,8 +182,8 @@ function VersionCards({ data, size, selected, onSelect }) {
                 {parts.length > 0 && <div className="text-[12px] text-muted">{parts.join(' · ')}</div>}
                 <StateCell v={v} size={size} />
                 <button type="button" onClick={() => onSelect(v.key)} aria-pressed={on}
-                  className={`mt-2 h-9 px-3 rounded text-[12px] font-semibold ${buyable(v, data) ? 'bg-accent text-accent-fg' : 'border border-line-strong text-fg'}`}>
-                  {buyable(v, data) ? 'Buy' : 'Details'}
+                  className={`mt-2 h-9 px-3 rounded text-[12px] font-semibold ${buyable(v) ? 'bg-accent text-accent-fg' : 'border border-line-strong text-fg'}`}>
+                  {buyable(v) ? 'Buy' : 'Details'}
                 </button>
               </div>
             </li>
@@ -276,10 +278,10 @@ function SelectedVersion({ v, data, size, compact }) {
         Token <a href={addressUrl(v.chain_id, parseKey(v.key)?.address)} target="_blank" rel="noopener noreferrer" className="font-mono underline underline-offset-2 hover:text-fg">{parseKey(v.key)?.address}</a>
         {' · '}{shareRatioText(v)}{blockText(v.block) ? ` · ${blockText(v.block)}` : ''}
       </div>
-      {buyable(v, data) && <TradePanel v={v} data={data} size={size} compact={compact} />}
+      {buyable(v) && <TradePanel v={v} size={size} compact={compact} />}
       {/* The Buy panel carries these words beside its checkbox; without it
           they stand on their own. */}
-      {!buyable(v, data) && (
+      {!buyable(v) && (
         <Card>
           <CardTitle>Who may hold {v.symbol}</CardTitle>
           <div className="text-[13px] text-fg"><Eligibility e={elig} /></div>

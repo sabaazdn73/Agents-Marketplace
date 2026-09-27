@@ -33,7 +33,7 @@ import { timeText, blockText, tokensText } from '../te/costText';
 import { BUY_CHAINS, payOptions, txUrl, addressUrl, parseKey } from './chains';
 import {
   fetchQuote, fetchStatus, jupiterIn, quoteMismatch, quoteFacts, referencePrice, valueCheck,
-  quotaState, recordBuy, QUOTE_MAX_AGE_MS, units, QUOTA_LIMIT,
+  quotaState, recordBuy, readBuys, QUOTE_MAX_AGE_MS, units, QUOTA_LIMIT, SLIPPAGE, MIN_GAP, MAX_GAIN,
 } from './lifi';
 import { readBalance, readAllowance, approveExact, sendSwap, walletErrorText } from './evmExecute';
 
@@ -57,13 +57,13 @@ function Ext({ href, children }) {
 const btn = 'h-10 px-4 rounded bg-accent text-accent-fg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 const btn2 = 'h-10 px-4 rounded border border-line-strong text-fg text-[13px] font-semibold hover:bg-inset disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
 
-export default function TradePanel({ v, data, size, compact = false }) {
+export default function TradePanel({ v, size, compact = false }) {
   const { address } = useConnectedWallet();
   const { openConnectModal } = useConnectModal();
   const target = parseKey(v.key);
   const toChain = target?.chainId;
   const options = useMemo(() => (toChain ? payOptions(toChain) : []), [toChain]);
-  const ref = referencePrice(v, data);
+  const ref = referencePrice(v);
   const issuer = v.issuer_name || v.issuer;
 
   // Balances of each pay-with token, read once per wallet.
@@ -95,8 +95,15 @@ export default function TradePanel({ v, data, size, compact = false }) {
   const [wallet, setWallet] = useState({ status: 'idle' });
   const [tx, setTx] = useState(null);
   const [now, setNow] = useState(Date.now());
+  const [, setBuysTick] = useState(0);
+  // Every in-flight answer (a quote, a status) carries the generation it
+  // was asked in; a reset, a new quote or unmounting moves the generation
+  // on, so a late answer is dropped and the status timer stops.
+  const gen = useRef(0);
   const pollRef = useRef(null);
+  const stopAll = () => { gen.current += 1; clearTimeout(pollRef.current); pollRef.current = null; };
   useEffect(() => {
+    stopAll();
     setQ({ status: 'idle' }); setAgree(false); setAllowance(null); setWallet({ status: 'idle' }); setTx(null);
   }, [v.key, size, pay?.id, address]);
   useEffect(() => {
@@ -104,7 +111,7 @@ export default function TradePanel({ v, data, size, compact = false }) {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [q.status]);
-  useEffect(() => () => clearTimeout(pollRef.current), []);
+  useEffect(() => () => stopAll(), []);
 
   if (!target || !BUY_CHAINS[toChain]) return null;
 
@@ -115,8 +122,11 @@ export default function TradePanel({ v, data, size, compact = false }) {
 
   const getQuote = async () => {
     if (!params) return;
+    stopAll();
+    const g = gen.current;
     setQ({ status: 'quoting' }); setAgree(false); setAllowance(null); setWallet({ status: 'idle' }); setTx(null);
     const r = await fetchQuote(params);
+    if (g !== gen.current) return;
     if (r.error) { setQ({ status: 'error', error: r.error, kind: r.kind }); return; }
     const quote = r.quote;
     const facts = quoteFacts(quote);
@@ -124,11 +134,14 @@ export default function TradePanel({ v, data, size, compact = false }) {
     if (mismatch.length) { setQ({ status: 'refused', quote, facts, quotedAt: r.quotedAt, why: `LI.FI's answer does not match the request (${mismatch.join(', ')}), so it is not used.` }); return; }
     const jup = jupiterIn(quote);
     if (jup.length) { setQ({ status: 'refused', quote, facts, quotedAt: r.quotedAt, why: `This route goes through Jupiter (${jup.join(', ')}). Tnega does not use Jupiter, so the route is refused.` }); return; }
-    const check = valueCheck({ tokens: facts.toAmount, sizeUsd: size, ref });
+    const check = valueCheck({ tokens: facts.toAmount, minTokens: facts.toAmountMin, sizeUsd: size, ref });
     if (!check) { setQ({ status: 'refused', quote, facts, quotedAt: r.quotedAt, why: 'The quote could not be checked against our measured price, so it is not offered.' }); return; }
     if (!check.ok) {
-      setQ({ status: 'refused', quote, facts, check, quotedAt: r.quotedAt,
-        why: `Refused: LI.FI's route gives ${tok(check.tokens)} ${facts.toSymbol}, worth ${fmtUsd(check.valueOut)} at our measured price, for ${fmtUsd0(size)}. That is a ${pct(check.loss)} loss, over this check's ${pct(check.limit)} limit.` });
+      const lines = [];
+      if (check.why.includes('min')) lines.push(`LI.FI's route guarantees at least ${tok(check.minTokens)} ${facts.toSymbol}, ${pct(1 - check.minRatio)} below its estimate of ${tok(check.tokens)}; more than the ${pct(SLIPPAGE)} slippage asked for plus ${pct(MIN_GAP - SLIPPAGE)}.`);
+      if (check.why.includes('loss')) lines.push(`At least ${tok(check.minTokens)} ${facts.toSymbol} is worth ${fmtUsd(check.valueOut)} at our measured price, for ${fmtUsd0(size)}: a ${pct(check.loss)} loss, over this check's ${pct(check.limit)} limit.`);
+      if (check.why.includes('gain')) lines.push(`At least ${tok(check.minTokens)} ${facts.toSymbol} is worth ${fmtUsd(check.valueOut)} at our measured price, ${pct(-check.loss)} more than the ${fmtUsd0(size)} paid. More than ${pct(MAX_GAIN)} above points to a wrong token, decimals or price, not a bargain.`);
+      setQ({ status: 'refused', quote, facts, check, quotedAt: r.quotedAt, why: `Refused. ${lines.join(' ')}` });
       return;
     }
     setQ({ status: 'ready', quote, facts, check, quotedAt: r.quotedAt, at: Date.now() });
@@ -146,7 +159,16 @@ export default function TradePanel({ v, data, size, compact = false }) {
   const age = q.status === 'ready' ? now - q.at : 0;
   const stale = age > QUOTE_MAX_AGE_MS;
 
+  // The age is checked again at the click, not only by the 1 s timer.
+  const tooOld = () => {
+    if (Date.now() - q.at <= QUOTE_MAX_AGE_MS) return false;
+    setNow(Date.now());
+    setWallet({ status: 'error', error: 'This quote is over 60 s old. Get a new quote before signing.' });
+    return true;
+  };
+
   const approve = async () => {
+    if (tooOld()) return;
     setWallet({ status: 'approving' });
     try {
       const hash = await approveExact({ chainId: pay.chainId, token: pay.address, spender: q.facts.approvalAddress, amount });
@@ -158,28 +180,46 @@ export default function TradePanel({ v, data, size, compact = false }) {
     }
   };
 
-  const poll = (hash) => {
-    fetchStatus({ txHash: hash, fromChain: pay.chainId, toChain }).then((s) => {
-      setTx((t) => (t && t.hash === hash ? { ...t, lifi: s } : t));
-      if (s.status === 'DONE' || s.status === 'FAILED') return;
-      pollRef.current = setTimeout(() => poll(hash), 5000);
+  // LI.FI's status every 5 s until DONE or FAILED. NOT_FOUND (LI.FI has not
+  // seen the transaction yet) or a failed read counts toward a limit: after
+  // 120 of them, or 10 minutes, or an hour in any state, the page stops
+  // asking and says the status is unknown.
+  const POLL_MS = 5000;
+  const poll = (hash, fromChain, g, started, misses) => {
+    fetchStatus({ txHash: hash, fromChain, toChain }).then((st) => {
+      if (g !== gen.current) return;
+      const miss = !!st.error || st.status === 'NOT_FOUND';
+      const n = miss ? misses + 1 : misses;
+      const elapsed = Date.now() - started;
+      const done = st.status === 'DONE' || st.status === 'FAILED';
+      const giveUp = !done && ((miss && (n >= 120 || elapsed > 10 * 60e3)) || elapsed > 60 * 60e3);
+      setTx((t) => (t && t.hash === hash ? { ...t, lifi: st, unknown: giveUp } : t));
+      if (done || giveUp) return;
+      pollRef.current = setTimeout(() => poll(hash, fromChain, g, started, n), POLL_MS);
     });
   };
 
   const sign = async () => {
+    if (tooOld()) return;
     setWallet({ status: 'signing' });
     try {
       const hash = await sendSwap({ chainId: pay.chainId, transactionRequest: q.quote.transactionRequest });
       setWallet({ status: 'sent' });
-      setTx({ hash, lifi: null });
+      setTx({ hash, fromChain: pay.chainId, lifi: null });
       recordBuy({ hash, fromChain: pay.chainId, toChain, key: v.key, symbol: v.symbol });
-      pollRef.current = setTimeout(() => poll(hash), 5000);
+      setBuysTick((t) => t + 1);
+      const g = gen.current;
+      const from = pay.chainId;
+      pollRef.current = setTimeout(() => poll(hash, from, g, Date.now(), 0), POLL_MS);
     } catch (e) {
       setWallet({ status: 'error', error: walletErrorText(e) });
     }
   };
 
   const quota = quotaState();
+  // Kept in this browser (tnega_buys_v1), so a sent buy's link survives a
+  // new quote, a new size or a reload. The one on screen above is not repeated.
+  const recent = readBuys(v.key).filter((b) => b.hash !== tx?.hash);
   const f = q.facts;
 
   return (
@@ -262,7 +302,7 @@ export default function TradePanel({ v, data, size, compact = false }) {
                 {f.gas.map((g, i) => (
                   <Row key={`gas-${i}`} label="Network fee (LI.FI's estimate)">{tok(g.amount, 6)} {g.symbol}{Number.isFinite(g.usd) ? ` (${fmtUsd(g.usd)})` : ''}</Row>
                 ))}
-                <Row label="LI.FI's estimated time">{f.seconds != null ? `${f.seconds} s, LI.FI's estimate` : 'not given'}</Row>
+                <Row label="LI.FI's estimated time">{f.seconds == null ? 'not given' : f.seconds === 0 && pay.chainId === toChain ? "under a minute, LI.FI's estimate" : `${f.seconds} s, LI.FI's estimate`}</Row>
                 <Row label="Route">{f.tools.join(', ') || 'not named'}{f.steps ? `, ${f.steps} step${f.steps === 1 ? '' : 's'}` : ''}</Row>
                 <Row label="Quoted at">{timeText(q.quotedAt)}{stale ? ', over 60 s ago' : `, ${Math.round(age / 1000)} s ago`}</Row>
                 <Row label="Approval address">
@@ -276,8 +316,8 @@ export default function TradePanel({ v, data, size, compact = false }) {
                   <span className="block text-[12px] text-muted">Our simulation of the best single pool, not LI.FI&apos;s quote.</span>
                 </Row>
                 <Row label="Value check (ours)">
-                  {tok(q.check.tokens)} {f.toSymbol} x {fmtUsd(q.check.price)} = {fmtUsd(q.check.valueOut)} against {fmtUsd0(size)} paid: {q.check.loss >= 0 ? `${pct(q.check.loss)} less` : `${pct(-q.check.loss)} more`}, within the {pct(q.check.limit)} limit.
-                  <span className="block text-[12px] text-muted">Priced at {q.check.basis}. The stablecoin is taken at $1.</span>
+                  At least {tok(q.check.minTokens)} {f.toSymbol} x {fmtUsd(q.check.price)} = {fmtUsd(q.check.valueOut)} against {fmtUsd0(size)} paid: {q.check.loss >= 0 ? `${pct(q.check.loss)} less, within the ${pct(q.check.limit)} limit` : `${pct(-q.check.loss)} more, within ${pct(MAX_GAIN)}`}.
+                  <span className="block text-[12px] text-muted">Checked on the minimum the route guarantees, not the estimate. Priced at {q.check.basis}. The stablecoin is taken at $1.</span>
                 </Row>
               </dl>
 
@@ -290,7 +330,7 @@ export default function TradePanel({ v, data, size, compact = false }) {
                 </label>
               </div>
 
-              {stale && <p role="alert" className="mt-3 text-[13px] text-warn">This quote is over 60 s old. Get a new quote before signing.</p>}
+              {stale && !tx && <p role="alert" className="mt-3 text-[13px] text-warn">This quote is over 60 s old. Get a new quote before signing.</p>}
 
               <div className={`mt-4 flex ${compact ? 'flex-col' : 'flex-wrap'} gap-2`}>
                 {needsApproval && (
@@ -313,11 +353,21 @@ export default function TradePanel({ v, data, size, compact = false }) {
 
           {tx && (
             <div className="mt-4 rounded border border-line p-3 text-[13px]" aria-live="polite">
-              <div>Sent: <Ext href={txUrl(pay.chainId, tx.hash)}>{tx.hash}</Ext></div>
+              <div>Sent: <Ext href={txUrl(tx.fromChain, tx.hash)}>{tx.hash}</Ext></div>
               <div className="mt-1 text-muted">
-                LI.FI status: {tx.lifi?.status ? `${tx.lifi.status}${tx.lifi.substatus ? ` (${tx.lifi.substatus})` : ''}${tx.lifi.message ? `: ${tx.lifi.message}` : ''}` : tx.lifi?.error ? `not read yet: ${tx.lifi.error}` : 'checking every 5 s'}
+                {tx.unknown
+                  ? 'Status unknown: LI.FI has not reported it. Check the explorer.'
+                  : <>LI.FI status: {tx.lifi?.status ? `${tx.lifi.status}${tx.lifi.substatus ? ` (${tx.lifi.substatus})` : ''}${tx.lifi.message ? `: ${tx.lifi.message}` : ''}` : tx.lifi?.error ? `not read yet: ${tx.lifi.error}` : 'checking every 5 s'}</>}
               </div>
               {tx.lifi?.receiving && tx.lifi.receiving !== tx.hash && <div className="mt-1">Received on {v.chain}: <Ext href={txUrl(toChain, tx.lifi.receiving)}>{tx.lifi.receiving}</Ext></div>}
+            </div>
+          )}
+          {recent.length > 0 && (
+            <div className="mt-4 text-[12px] text-muted">
+              Your recent buys of {v.symbol} from this browser:{' '}
+              {recent.map((b, i) => (
+                <span key={b.hash}>{i ? ', ' : ''}<Ext href={txUrl(b.fromChain, b.hash)}>{shortAddress(b.hash)}</Ext> ({timeText(b.at)})</span>
+              ))}
             </div>
           )}
         </>

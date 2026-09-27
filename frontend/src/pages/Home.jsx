@@ -4,7 +4,7 @@
 // with the launch film's content and order:
 //   proof line, hero, product shot (the popular list, framed),
 //   feature sections, alternating text and card: one stock many tokens (02),
-//     every chain (03), the real cost (04), one signature (06), My ETFs (07),
+//     every chain (03), the real cost (04), the buy (06), My ETFs (07),
 //     vaults (08), issuer controls (09), use with AI (13),
 //   the live lists: tokenized ETFs, curated ETFs, vaults.
 // The footer is the shell's. No reviews (there are no users yet) and nothing
@@ -185,8 +185,8 @@ export default function Home({ layout = 'web', onNavigate }) {
 
         {SECTION_LIVE.buy && (
           <Feature layout={layout} icon={PenLine} label="Buy" flip
-            title="No account. One signature."
-            text="Tnega finds the route. Your wallet signs. Your funds never pass through us."
+            title="No account. Your wallet signs."
+            text="Tnega finds the route. Your wallet signs an approval for the exact amount, then one signature for the swap. Your funds never pass through us."
             cta={cta('stocks', 'Pick a stock', '/stocks')}
             card={<BuyStepsCard />} />
         )}

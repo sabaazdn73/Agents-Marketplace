@@ -4,7 +4,8 @@
 // switch: each renders only when its endpoint answers with real rows. These
 // two describe something that is not a read, so a switch says whether it
 // works end to end yet:
-//   buy   "No account. One signature." Describes the buy flow. On only
+//   buy   "No account. Your wallet signs." The buy flow itself (the Buy
+//         panel on a stock page) and the home section describing it. On only
 //         once a real run reaches the wallet's signature prompt (SPEC T4a).
 //   ai    "Your AI asks Tnega. You sign." Describes the stock tools on the
 //         MCP server. On only once tnega_search, tnega_quote and

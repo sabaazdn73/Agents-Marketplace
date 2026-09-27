@@ -146,36 +146,45 @@ export const units = (raw, decimals) => {
 };
 
 /** The price a quote is checked against: our own measured all-in price per
- *  token for this version at this size; failing that, the underlying's
- *  lowest measured all-in price per share times this token's read share
- *  ratio, named as such. null when neither exists, and then there is no
- *  Buy. */
-export function referencePrice(v, data) {
+ *  token for THIS version at THIS size, and nothing else. A version that
+ *  does not fill the size on our measurement has no price here, and so no
+ *  Buy (stocks/StockPage.jsx offers Buy only where this is not null). */
+export function referencePrice(v) {
   const num = (x) => typeof x === 'number' && Number.isFinite(x) && x > 0;
-  if (v.state === 'filled' && num(v.allin_per_token)) {
-    return { price: v.allin_per_token, costBps: num(v.cost_bps) ? v.cost_bps : 0, basis: `our measured all-in price per ${v.symbol} at this size${Number.isFinite(v.block) ? `, block ${v.block.toLocaleString('en-US')}` : ''}` };
-  }
-  const best = (data?.versions || []).find((x) => x.key === data?.best?.key);
-  if (best && num(best.allin_per_share) && num(v.share_ratio)) {
-    return {
-      price: best.allin_per_share * v.share_ratio,
-      costBps: num(best.cost_bps) ? best.cost_bps : 0,
-      basis: `this version has no measured price of its own, so the check uses ${data.ticker}'s lowest measured all-in price per share (${best.symbol} on ${best.chain}) times ${v.symbol}'s ${v.share_ratio.toFixed(4)} shares per token`,
-    };
-  }
-  return null;
+  if (v?.state !== 'filled' || !num(v.allin_per_token)) return null;
+  return {
+    price: v.allin_per_token,
+    costBps: num(v.cost_bps) ? v.cost_bps : 0,
+    basis: `our measured all-in price per ${v.symbol} at this size${Number.isFinite(v.block) ? `, block ${v.block.toLocaleString('en-US')}` : ''}`,
+  };
 }
 
+// The minimum may sit below the estimate by the slippage asked for, plus
+// 0.1% for rounding; a wider gap means the route allows more than we asked.
+export const MIN_GAP = SLIPPAGE + 0.001;
+// A value more than 5% ABOVE what is paid is refused too: at a measured
+// price that points to a wrong token, wrong decimals or a wrong price, not
+// to a bargain.
+export const MAX_GAIN = 0.05;
+
 /** OUR value check (SPEC T4a; T0 route 14 would have paid $1,000 for 0.74
- *  NVDA). Value out = tokens quoted x the reference price per token; value
- *  in = the size, the stablecoin taken at $1. The implied loss may not
- *  exceed max(2%, 3 x our cost in bps). */
-export function valueCheck({ tokens, sizeUsd, ref }) {
-  if (!ref || !(tokens > 0) || !(sizeUsd > 0)) return null;
-  const valueOut = tokens * ref.price;
+ *  NVDA). It prices the MINIMUM the route enforces (toAmountMin), not the
+ *  estimate: value out = minimum tokens x our measured all-in price per
+ *  token; value in = the size, the stablecoin taken at $1. Refused when:
+ *    the minimum is below the estimate by more than the slippage + 0.1%;
+ *    the loss on the minimum exceeds max(2%, 3 x our cost in bps);
+ *    the value is more than 5% above what is paid. */
+export function valueCheck({ tokens, minTokens, sizeUsd, ref }) {
+  if (!ref || !(tokens > 0) || !(minTokens > 0) || !(sizeUsd > 0)) return null;
+  const valueOut = minTokens * ref.price;
   const loss = 1 - valueOut / sizeUsd;
   const limit = Math.max(0.02, (3 * ref.costBps) / 10000);
-  return { tokens, price: ref.price, valueOut, sizeUsd, loss, limit, ok: loss <= limit, basis: ref.basis };
+  const minRatio = minTokens / tokens;
+  const why = [];
+  if (minRatio < 1 - MIN_GAP) why.push('min');
+  if (loss > limit) why.push('loss');
+  if (-loss > MAX_GAIN) why.push('gain');
+  return { tokens, minTokens, minRatio, price: ref.price, valueOut, sizeUsd, loss, limit, ok: why.length === 0, why, basis: ref.basis };
 }
 
 /** The figures shown before signing, read off the quote as LI.FI sent it. */
@@ -216,4 +225,9 @@ export function recordBuy({ hash, fromChain, toChain, key, symbol }) {
   const list = readStore(BUYS_KEY);
   list.push({ hash, fromChain, toChain, key, symbol, at: new Date().toISOString() });
   writeStore(BUYS_KEY, list.slice(-200));
+}
+
+/** This browser's buys of one version, newest first. */
+export function readBuys(key, n = 3) {
+  return readStore(BUYS_KEY).filter((b) => b && b.key === key && typeof b.hash === 'string').slice(-n).reverse();
 }

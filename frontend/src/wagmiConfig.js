@@ -3,6 +3,7 @@ import { createStorage } from 'wagmi';
 import { http, fallback } from 'viem';
 import { bsc, arbitrum, robinhood, mainnet, base, hyperEvm } from 'wagmi/chains';
 import { getBscTransport, MAINNET_READ_RPC, HAS_BSC_BACKUP } from './rpcTransport';
+import { BUY_LIVE } from './trade/buyLive';
 
 // Adapted from OnChain Oversight's wagmiConfig.js: same wagmi/RainbowKit
 // pattern, only the `chains` array changes. Get a free WalletConnect
@@ -57,6 +58,21 @@ const ROBINHOOD_RPCS = ['https://rpc.mainnet.chain.robinhood.com', 'https://robi
 const ETHEREUM_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://eth.merkle.io'];
 const BASE_RPCS = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'];
 const HYPEREVM_RPCS = ['https://rpc.hyperliquid.xyz/evm'];
+
+// THE BUY CHAINS ARE ADDED ONLY WHILE THE BUY PANEL IS SHOWN (trade/buyLive.js).
+// With it off the chain list is exactly bsc, arbitrum and robinhood, as
+// before the buy flow: the wallet's chain switcher and sign-in's accepted
+// chains (SignInProvider KNOWN_CHAIN_IDS) do not change, and no Ethereum
+// endpoint is called.
+//
+// NO ENS LOOKUP. With chain 1 configured, RainbowKit's AccountModal (always
+// mounted) resolves the connected address's ENS name on Ethereum at every
+// connect, which would send the address to the Ethereum endpoint without
+// the visitor doing anything. Ethereum is therefore configured without its
+// ENS universal resolver: viem's getEnsName throws before any request, and
+// RainbowKit shows the plain address. Only Multicall3 is kept.
+const mainnetNoEns = { ...mainnet, contracts: { multicall3: mainnet.contracts.multicall3 } };
+const BUY_CHAINS = BUY_LIVE ? [mainnetNoEns, base, hyperEvm] : [];
 const host = (url) => { try { return new URL(url).host; } catch { return url; } };
 
 // Who receives a read on each chain, named for people rather than for code.
@@ -67,9 +83,11 @@ export const RPC_PROVIDER_NAMES = {
   [bsc.id]: `${host(MAINNET_READ_RPC).includes('blxrbdn') ? `bloXroute (${host(MAINNET_READ_RPC)})` : host(MAINNET_READ_RPC)}${HAS_BSC_BACKUP ? ', with Infura as a backup' : ''}`,
   [arbitrum.id]: `Arbitrum's public endpoint (${host(ARBITRUM_RPCS[0])}), with dRPC as a backup`,
   [robinhood.id]: `Robinhood Chain's public endpoint (${host(ROBINHOOD_RPCS[0])}), with PublicNode as a backup`,
-  [mainnet.id]: `PublicNode (${host(ETHEREUM_RPCS[0])}), with ${host(ETHEREUM_RPCS[1])} as a backup`,
-  [base.id]: `Base's public endpoint (${host(BASE_RPCS[0])}), with PublicNode as a backup`,
-  [hyperEvm.id]: `Hyperliquid's public HyperEVM endpoint (${host(HYPEREVM_RPCS[0])})`,
+  ...(BUY_LIVE ? {
+    [mainnet.id]: `PublicNode (${host(ETHEREUM_RPCS[0])}), with ${host(ETHEREUM_RPCS[1])} as a backup`,
+    [base.id]: `Base's public endpoint (${host(BASE_RPCS[0])}), with PublicNode as a backup`,
+    [hyperEvm.id]: `Hyperliquid's public HyperEVM endpoint (${host(HYPEREVM_RPCS[0])})`,
+  } : {}),
 };
 
 // wagmi's storage, with the store's absence survived rather than thrown.
@@ -101,9 +119,9 @@ export const wagmiConfig = getDefaultConfig({
   projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID,
   // Every chain the app can switch to. bsc for hiring and Sell Your Agent,
   // arbitrum and robinhood because AgentBudgetEscrow is deployed on both and
-  // a budget there has to be opened on that chain. mainnet, base and hyperEvm
-  // for the buy flow (trade/), which pays and receives on the stock's chain.
-  chains: [bsc, arbitrum, robinhood, mainnet, base, hyperEvm],
+  // a budget there has to be opened on that chain. Ethereum, Base and
+  // HyperEVM for the buy flow (trade/), only while it is shown (above).
+  chains: [bsc, arbitrum, robinhood, ...BUY_CHAINS],
   transports: {
     [bsc.id]: getBscTransport(),
     // These two get a plain single-URL transport rather than the shared
@@ -133,9 +151,11 @@ export const wagmiConfig = getDefaultConfig({
       http(ROBINHOOD_RPCS[0]),
       http(ROBINHOOD_RPCS[1]),
     ], { rank: false }),
-    [mainnet.id]: fallback(ETHEREUM_RPCS.map((u) => http(u)), { rank: false }),
-    [base.id]: fallback(BASE_RPCS.map((u) => http(u)), { rank: false }),
-    [hyperEvm.id]: http(HYPEREVM_RPCS[0]),
+    ...(BUY_LIVE ? {
+      [mainnet.id]: fallback(ETHEREUM_RPCS.map((u) => http(u)), { rank: false }),
+      [base.id]: fallback(BASE_RPCS.map((u) => http(u)), { rank: false }),
+      [hyperEvm.id]: http(HYPEREVM_RPCS[0]),
+    } : {}),
   },
   ssr: false,
 });

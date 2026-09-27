@@ -6,10 +6,11 @@
 //
 //   approve    only when the allowance to LI.FI's approval address is below
 //              the amount, and for exactly the amount: never unlimited;
-//   swap       LI.FI's transactionRequest passed through unchanged: `to`,
-//              `data` and `value` as LI.FI sent them, and its gasLimit as
-//              the gas. Before the wallet is asked, the request built here
-//              is compared with the quote's, and any difference refuses it.
+//   swap       LI.FI's transactionRequest passed through: `to` and `data`
+//              are LI.FI's own values, not copied or re-encoded, `value` is
+//              LI.FI's hex read as a number, and its gasLimit is the gas.
+//              What the wallet receives was checked against the quote at the
+//              wallet in the headless run (scratchpad t4a), not here.
 //
 // Balances and allowances are read through the chain's public endpoint in
 // wagmiConfig.js, never through our API.
@@ -41,25 +42,15 @@ export async function approveExact({ chainId, token, spender, amount }) {
   return hash;
 }
 
-const hexValue = (v) => {
-  if (v == null || v === '') return 0n;
-  return BigInt(v);
-};
-
-/** The request sent to the wallet, from LI.FI's transactionRequest. Throws
- *  if it would differ from LI.FI's in `to`, `data` or `value`. */
+/** The request sent to the wallet, from LI.FI's transactionRequest. */
 export function swapRequest(tr, chainId) {
-  const req = {
+  return {
     chainId,
     to: tr.to,
     data: tr.data,
-    value: hexValue(tr.value),
+    value: tr.value == null || tr.value === '' ? 0n : BigInt(tr.value),
     ...(tr.gasLimit ? { gas: BigInt(tr.gasLimit) } : {}),
   };
-  if (req.to !== tr.to || req.data !== tr.data || req.value !== hexValue(tr.value)) {
-    throw new Error('The transaction differs from the one LI.FI quoted; nothing was sent to the wallet.');
-  }
-  return req;
 }
 
 /** One signature: the swap, as LI.FI built it. */
@@ -69,10 +60,13 @@ export async function sendSwap({ chainId, transactionRequest }) {
   return sendTransaction(wagmiConfig, req);
 }
 
-/** A wallet's refusal, told apart from a failure. */
+/** A wallet's refusal, told apart from a failure, wherever in the error's
+ *  chain of causes the wallet put its 4001 (viem and wagmi wrap it). */
 export function walletErrorText(e) {
-  const code = e?.code ?? e?.cause?.code;
-  const name = e?.name || e?.cause?.name || '';
-  if (code === 4001 || /UserRejected/i.test(name)) return 'You declined in the wallet. Nothing was sent.';
+  for (let x = e, depth = 0; x && depth < 10; x = x.cause, depth += 1) {
+    if (x.code === 4001 || /UserRejected/i.test(x.name || '') || /user rejected|user denied/i.test(x.message || '')) {
+      return 'You declined in the wallet. Nothing was sent.';
+    }
+  }
   return e?.shortMessage || e?.message || 'The wallet returned an error.';
 }

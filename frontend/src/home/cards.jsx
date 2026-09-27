@@ -233,7 +233,7 @@ export function BuyStepsCard() {
   const steps = [
     ['Pick the version', 'Every token of the stock, with what each costs at your size.'],
     ['See the route', 'LI.FI finds the route in your browser; its fee is shown before you sign.'],
-    ['Sign once', 'Your wallet signs the trade. The tokens go straight to it.'],
+    ['Approve, then sign', 'An approval for the exact amount, then one signature for the swap. The tokens go straight to your wallet.'],
   ];
   return (
     <Card>
