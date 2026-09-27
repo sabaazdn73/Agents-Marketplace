@@ -11,6 +11,8 @@
 import React from 'react';
 import { McpFront, McpDetails, MCP_TITLE, MCP_LINE } from '../HowItWorksPage';
 import { PageFrame } from './PageFrame';
+// Fendi, the Tnega mark, heads the server's card as it heads every page.
+import fendiUrl from '../assets/fendi-mark.png';
 
 export default function UseWithAi({ layout = 'web' }) {
   const compact = layout === 'mobile';
@@ -20,7 +22,7 @@ export default function UseWithAi({ layout = 'web' }) {
         <div className="p-4 md:p-6">
           <div className="flex items-start gap-3">
             <span className="p-2 rounded bg-inset shrink-0">
-              <img src="/mcp-mark.svg" alt="" width={18} height={18} className="object-contain" style={{ width: 18, height: 18 }} />
+              <img src={fendiUrl} alt="" width={22} height={22} className="object-contain" style={{ width: 22, height: 22 }} />
             </span>
             <div className="min-w-0">
               <h2 id="mcp-title" className="text-title font-bold text-fg">{MCP_TITLE}</h2>

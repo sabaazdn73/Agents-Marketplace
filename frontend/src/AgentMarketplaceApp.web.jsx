@@ -5,9 +5,9 @@ import {
   Loader2, AlertTriangle, Wallet, Hammer, Sparkles, Link2, BadgeCheck,
   Activity, Users, MessageSquare, ExternalLink, Zap, Coins, Search, Bell, Briefcase, HelpCircle, Bot, Clock, CreditCard, Plug, Compass,
 } from 'lucide-react';
-// The Tnega mark on its blue tile, in the centre of the QR code below
-// (QrToMobile). Same file as the header's mark; see shell/Brand.jsx.
-import iconLogo from './assets/tnega-mark.png';
+// Fendi, the Tnega mark, in the centre of the QR code below (QrToMobile).
+// Same file as the header's mark; see shell/Brand.jsx.
+import iconLogo from './assets/fendi-mark.png';
 
 import { QRCodeCanvas } from 'qrcode.react';
 import NotificationBell from './NotificationBell';
@@ -98,7 +98,6 @@ import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
-import AgentsVideo from './AgentsVideo';
 import { PRODUCT_NAV, isLive, SEARCH_LIVE } from './shell/productNav';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -906,9 +905,6 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
               headings below belong to whichever chain view is open, so none
               of them can stand for the page. Same in the mobile app. */}
           {nav === 'market' && !hiring && !detailAgent && <h1 className="sr-only">Explore agents</h1>}
-          {/* The agents clip, at the top of /market only (not over a chain
-              view's or an agent's own address). Shared with mobile. */}
-          {nav === 'market' && !hiring && !detailAgent && path === '/market' && <AgentsVideo layout="web" />}
           {nav === 'market' && !hiring && !detailAgent && (
             <ChainViewTabs mutedBorder="border-line">
               {/* The BNB Chain view below is the original marketplace,

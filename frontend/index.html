@@ -20,23 +20,22 @@
          rewrite). It is a real .ico with 16, 32 and 48px frames; 48px is
          the minimum Google's guidance asks for, and the 192 and 512px PNGs
          declared below give search a larger square to choose. -->
-    <!-- All rendered from public/icon_v2.svg (the blue tile) by
-         scripts/render_icons.py on 2026-09-26, so the tab, the dock shortcut,
-         the iOS home screen, the Android launcher and the site header show
-         one mark. favicon.ico carries 16, 32 and 48px frames, each drawn at
-         its own size. apple-touch-icon.png is the square variant
-         (icon_v2_maskable.svg) because iOS rounds the corners itself and
-         would fill transparent ones with black. No SVG link: icon_v2.svg has
-         drop-shadow filters a tab-sized render does not need.
-         The ?v=2 on these links, on the manifest link and on the manifest's
+    <!-- Fendi, the Tnega cat, on the navy tile (owner's decision,
+         2026-09-27: Fendi replaces the logo everywhere). These files are the
+         owner's brand assets, copied unchanged: favicon.ico carries 16, 32
+         and 48px frames of Fendi's face, drawn to be read at 16px;
+         app-icon-maskable-512.png keeps Fendi inside the maskable safe zone;
+         apple-touch-icon.png is square because iOS rounds the corners itself
+         and would fill transparent ones with black.
+         The ?v=3 on these links, on the manifest link and on the manifest's
          own icon srcs makes browsers and launchers that cache an icon by URL
-         fetch the blue tile rather than keep the arch they had. Bump it when
-         the icons change again. /favicon.ico itself is also requested bare by
+         fetch Fendi rather than keep the tile they had. Bump it when the
+         icons change again. /favicon.ico itself is also requested bare by
          crawlers, and gets the new file at that path. -->
-    <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/app-icon-192.png?v=2" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/app-icon-512.png?v=2" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2" />
+    <link rel="icon" href="/favicon.ico?v=3" sizes="any" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/app-icon-192.png?v=3" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/app-icon-512.png?v=3" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3" />
 
     <!-- Web app manifest (2026-09-04). Without one, an Android "Add to home
          screen" fell back to the bare icon link: no app name, no theme
@@ -45,9 +44,9 @@
          shortcut opened in a browser tab with visible chrome.
          theme_color/background_color in the manifest are fixed values; the
          launcher cannot follow a theme. The theme-color meta below is kept
-         current by the inline script and by theme/ThemeProvider.jsx. See public/icon_v2_maskable.svg for why the maskable
-         icon is a separate file rather than reusing icon_v2.svg. -->
-    <link rel="manifest" href="/manifest.json?v=2" />
+         current by the inline script and by theme/ThemeProvider.jsx. The maskable icon is its own file because a
+         launcher crops it to its own shape, so Fendi sits further in. -->
+    <link rel="manifest" href="/manifest.json?v=3" />
     <meta name="theme-color" content="#EDEDEF" />
     <!-- The one font file every page needs first, from this site's own
          origin (src/index.css @font-face; never a font host). -->
@@ -127,37 +126,35 @@
          static tag a social scraper reads and the runtime tag a search
          crawler reads do not disagree. -->
     <meta property="og:title" content="__TNEGA_OG_TITLE__" />
-    <!-- Must say what PAGE_META['/'] says in App.jsx: social scrapers read
-         this static tag, search crawlers run the app and read that one. -->
-    <meta property="og:description" content="__TNEGA_DESCRIPTION__" />
+    <!-- The link-preview line, the banner's own words (src/siteCopy.js
+         ogDescription). Must say what PAGE_META['/'] says in App.jsx: social
+         scrapers read this static tag, search crawlers run the app and read
+         that one. -->
+    <meta property="og:description" content="__TNEGA_OG_DESCRIPTION__" />
     <!-- X and Facebook key a cached preview on the image URL, so the ?v=
          forces a refetch when the file changes under the same name. Bump it
          whenever the card does.
 
-         public/og-card.png is the brand card: the mark on its blue tile
-         (icon_v2.svg, rendered at 168px) beside the Wordmark component
-         (shell/Wordmark.jsx), "Tnega", in the dark foreground on the dark
-         page colour (#0B0D12), with no glow, and a rule in the accent blue
-         (#3D7BFF), captured at 1200x630 by headless Chromium (2026-09-26).
-         PNG because it is flat colour, text and one small tile, which PNG
-         keeps sharp. It replaced the agents artwork banner. -->
-    <meta property="og:image" content="https://www.tnega.app/og-card.png?v=3" />
+         public/banner.jpg is the owner's banner (2026-09-27), 1200x630:
+         "Wealth, borderless." and its line, two product cards in the site's
+         own style (one marked EXAMPLE) and Fendi waving. -->
+    <meta property="og:image" content="https://www.tnega.app/banner.jpg?v=4" />
     <!-- Declared dimensions let a scraper commit to the large-image card
          before it has downloaded the file. Must match the file: 1200x630,
          the 1.91:1 every platform expects. -->
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:type" content="image/png" />
-    <meta property="og:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the Tnega wordmark in white on near-black." />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:alt" content="The words Wealth, borderless. and Every tokenized stock, on every chain, and what it really costs you to buy, beside two example Tnega cards and Fendi, the Tnega cat, waving." />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@SabaAzadegan" />
     <meta name="twitter:creator" content="@SabaAzadegan" />
     <meta name="twitter:title" content="__TNEGA_OG_TITLE__" />
-    <meta name="twitter:description" content="__TNEGA_DESCRIPTION__" />
-    <meta name="twitter:image" content="https://www.tnega.app/og-card.png?v=3" />
-    <meta name="twitter:image:alt" content="The Tnega mark, an arch around a hexagon network on a blue tile, beside the Tnega wordmark in white on near-black." />
+    <meta name="twitter:description" content="__TNEGA_OG_DESCRIPTION__" />
+    <meta name="twitter:image" content="https://www.tnega.app/banner.jpg?v=4" />
+    <meta name="twitter:image:alt" content="The words Wealth, borderless. and Every tokenized stock, on every chain, and what it really costs you to buy, beside two example Tnega cards and Fendi, the Tnega cat, waving." />
     <!-- Structured data. There was none, so Google had only the raw text
          of a JavaScript-rendered page to work from and nothing telling it
          what this site IS. Organization ties the name, logo and accounts

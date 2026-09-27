@@ -38,9 +38,10 @@
 // Claude on mobile: the custom-connectors article names the web app, Cowork
 // and Desktop, and nothing extends it to mobile.
 
-/** The extension's own icon, copied from extension/icons/tnega-tile-128.png
- *  (the blue tile filling its square; tnega-128.png carries the store's 16px
- *  padding and would draw smaller) into
+/** The extension's toolbar icon, the blue tile filling its square (written
+ *  here by extension-store/icons.py; tnega-128.png carries the store's 16px
+ *  padding and would draw smaller). It stays the tile, not Fendi, because it
+ *  stands for what a reader finds in their browser toolbar. Kept in
  *  public/ so it is served from this site at a fixed path. A file in public/
  *  is served verbatim by Vite with no content hash, which is the same rule the
  *  marks below are held to. 128x128 PNG with transparency. */

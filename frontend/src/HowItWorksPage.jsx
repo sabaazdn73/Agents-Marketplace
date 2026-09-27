@@ -59,6 +59,7 @@ import {
 import HowItWorksFlow from './HowItWorksFlow';
 import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from './extensionLink';
 import { MCP_CLIENTS, EXTENSION_MARK } from './connectMarks';
+import fendiUrl from './assets/fendi-mark.png';
 
 // The bot's handle, in one place. Registered with BotFather on
 // 2026-09-17 and answering on a webhook mounted into this project's own
@@ -744,20 +745,11 @@ export default function HowItWorksPage({ variant = 'web' }) {
       key: 'mcp',
       title: MCP_TITLE,
       icon: Terminal,
-      // THE ONE SURFACE THAT INSTALLS IN A COMMAND HAD NO MARK, which made it
-      // read as the least finished thing on a page where the extension beside
-      // it carries one. It stands for the server and the package together.
-      //
-      // Drawn in the family rather than as a new language: the arch, the two
-      // bands and the glass ground are lifted from icon_v2.svg unchanged, and
-      // only what stands inside the arch differs, which is the same way the
-      // extension mark differs. Three rows leaving the arch, ragged because
-      // some answers are withheld, and nothing flowing in, which is the
-      // read-only claim made by omission.
-      //
-      // Nothing is borrowed from a client that connects to it, for the reason
-      // the Claude Code and OpenAI marks are absent from this page.
-      markSrc: '/mcp-mark.svg',
+      // The server and the package carry Fendi, the Tnega mark (owner's
+      // decision, 2026-09-27: Fendi replaces the logo everywhere). The
+      // extension beside it keeps its own toolbar tile, which is what a
+      // reader will find in their browser.
+      markSrc: fendiUrl,
       markAlt: 'Tnega MCP server',
       pill: <Pill tone="live">Live</Pill>,
       line: MCP_LINE,

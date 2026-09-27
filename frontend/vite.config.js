@@ -39,13 +39,14 @@ function siteCopy() {
       return html
         .replaceAll('__TNEGA_TITLE__', esc(SITE_COPY.docTitle))
         .replaceAll('__TNEGA_OG_TITLE__', esc(SITE_COPY.ogTitle))
+        .replaceAll('__TNEGA_OG_DESCRIPTION__', esc(SITE_COPY.ogDescription))
         .replaceAll('__TNEGA_DESCRIPTION__', esc(SITE_COPY.description));
     },
     closeBundle() {
       const f = resolve(outDir, 'manifest.json');
       if (!existsSync(f)) return;
       const m = JSON.parse(readFileSync(f, 'utf8'));
-      m.description = SITE_COPY.description;
+      m.description = SITE_COPY.appDescription;
       writeFileSync(f, `${JSON.stringify(m, null, 2)}\n`);
     },
   };

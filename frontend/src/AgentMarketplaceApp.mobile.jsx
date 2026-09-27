@@ -58,7 +58,6 @@ import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
-import AgentsVideo from './AgentsVideo';
 import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE } from './shell/productNav';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -871,8 +870,6 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {/* The page's one h1, as on web: the visible headings below
                 belong to whichever chain view is open. */}
             {nav === 'market' && <h1 className="sr-only">Explore agents</h1>}
-            {/* The agents clip, at the top of /market only. Shared with web. */}
-            {nav === 'market' && path === '/market' && <AgentsVideo layout="mobile" />}
             {nav === 'market' && (
               <ChainViewTabs mutedBorder="border-line">
                 {/* BNB Chain view below is the original mobile marketplace,

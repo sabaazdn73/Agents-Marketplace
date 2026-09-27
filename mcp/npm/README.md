@@ -1,4 +1,4 @@
-<img src="https://www.tnega.app/mcp-mark-256.png" alt="" width="112" align="right" />
+<img src="https://www.tnega.app/fendi-mark-512.png" alt="" width="112" align="right" />
 
 # tnega-mcp
 

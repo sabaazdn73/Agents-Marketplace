@@ -6,17 +6,18 @@
 Needs rsvg-convert (brew install librsvg) and Pillow.
 
 Master: frontend/public/icon_v2.svg, the mark: the arch and the hexagon
-network on the rounded blue tile. The site's favicon and app icons are
-rendered from the same file (frontend/scripts/render_icons.py), so the toolbar,
-the store listing and the website carry one drawing.
+network on the rounded blue tile. Since 2026-09-27 the website's own icons
+and in-page marks are Fendi, the Tnega cat (the owner's brand assets); this
+tile stays where a small square mark is needed and Fendi cannot be read: the
+toolbar, the store icon and the promo tiles.
 Writes:
     extension/icons/tnega-16.png
     extension/icons/tnega-32.png
     extension/icons/tnega-48.png
     extension/icons/tnega-128.png     the manifest's 128 icon: 96px tile, 16px
                                       transparent padding
-    extension/icons/tnega-tile-128.png  the popup header: the tile filling
-                                      its square
+    frontend/public/extension-mark-128.png  the tile filling its square,
+                                      the extension's icon on the website
     extension-store/icon-128.png      the store icon, byte-identical copy of
                                       tnega-128.png
     extension-store/promo-440x280.png the small promo tile
@@ -37,8 +38,8 @@ The 128px icon follows the Chrome Web Store's image guidance: artwork 96x96
 with 16px of transparent padding on each side. That is the file the manifest
 names as "128" (under icons and action.default_icon), so the icon inside the
 package meets the rule, and the store icon is a copy of it. The toolbar sizes
-fill their square, as Chrome draws them. The popup header wants the tile
-filling its square too, so it has its own file, tnega-tile-128.png, rather
+fill their square, as Chrome draws them. The website draws the extension's
+icon filling its square, so it has its own file, extension-mark-128.png, rather
 than the padded one shrinking it by a quarter.
 
 Edit the master, run this, rebuild the zip. Nothing else touches these files.
@@ -46,8 +47,8 @@ Edit the master, run this, rebuild the zip. Nothing else touches these files.
 The panel's cat, Fendi, is not generated here. fendi-128.png is the owner's
 file as supplied; fendi-32.png and fendi-48.png are Lanczos downscales of the
 owner's 512px master, which is not in the repository, at the same framing.
-He is shown inside the panels only. This script makes the logo, which is what
-the toolbar, the store icon and the tiles carry.
+He heads the popup and is shown inside the panels. This script makes the
+tile, which is what the toolbar, the store icon and the promo tiles carry.
 """
 
 import base64
@@ -218,9 +219,9 @@ def main():
     shutil.copyfile(icon128, store_icon)
     print(f"wrote {store_icon.relative_to(ROOT)}  (copy of tnega-128.png)")
 
-    popup = ICONS / "tnega-tile-128.png"
-    render(128).save(popup, format="PNG", optimize=True)
-    print(f"wrote {popup.relative_to(ROOT)}  (full tile, for the popup)")
+    site_mark = ROOT / "frontend" / "public" / "extension-mark-128.png"
+    render(128).save(site_mark, format="PNG", optimize=True)
+    print(f"wrote {site_mark.relative_to(ROOT)}  (full tile, the extension on the website)")
 
     # The SVG is scaffolding for rsvg-convert, not a deliverable, so it is
     # written outside the repository. A copy of it sitting next to the PNG

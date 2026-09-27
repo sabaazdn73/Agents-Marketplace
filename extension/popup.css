@@ -37,8 +37,8 @@ header {
   border-bottom: 1px solid var(--line);
 }
 
-/* The blue tile fills its square, so 43px draws it about 20% larger than the
-   36px box the earlier mark sat in. */
+/* Fendi, the Tnega mark, heads the popup as he heads the site (owner's
+   decision, 2026-09-27). The toolbar icon stays the blue tile. */
 header img { width: 43px; height: 43px; object-fit: contain; flex: 0 0 auto; }
 header h1 { font-size: 14px; font-weight: 600; margin: 0; color: #F3F4F6; }
 header p { margin: 0; font-size: 12px; color: var(--muted); }

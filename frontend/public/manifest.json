@@ -1,7 +1,7 @@
 {
   "name": "Tnega",
   "short_name": "Tnega",
-  "description": "Connect your wallet to see what it holds on Hyperliquid, BNB Chain, Arbitrum and Robinhood Chain, and what its Hyperliquid trading has cost it.",
+  "description": "Tokenized stocks, ETFs and vaults across issuers and chains, with what each costs to buy at your size, and what your wallet holds.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -9,19 +9,19 @@
   "background_color": "#EDEDEF",
   "icons": [
     {
-      "src": "/app-icon-512.png?v=2",
+      "src": "/app-icon-512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/app-icon-192.png?v=2",
+      "src": "/app-icon-192.png?v=3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/app-icon-maskable-512.png?v=2",
+      "src": "/app-icon-maskable-512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
