@@ -205,7 +205,13 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
   const cc = t.cross_check;
   const idle = Number.isFinite(cc?.idle_tokens) ? cc.idle_tokens : null;
   const stratSum = strategies.reduce((a, x) => a + (Number(x.position_tokens) || 0), 0);
-  const nesting = [...(v.row?.nested_in || []).map((n) => ['Partly inside', n]), ...(v.row?.contains_nested || []).map((n) => ['Holds part of', n])];
+  // In the served nesting_note's words, as the list says them (VaultList.jsx).
+  const nesting = [...(v.row?.nested_in || []).map((n) => ['Part of its funds sit in', n]), ...(v.row?.contains_nested || []).map((n) => ['Includes funds placed by', n])];
+  // The allocation list can name reserve slots with target weight 0 and
+  // nothing held; the served assets text counts only the others ("10 klend
+  // reserve(s)"), so the tab counts the same and names the empty ones.
+  const held = allocations.filter((a) => Number(a.target_weight) > 0 || Number(a.value_tokens) > 0);
+  const emptySlots = allocations.filter((a) => !(Number(a.target_weight) > 0 || Number(a.value_tokens) > 0));
   const programs = v.controls?.upgrade?.programs || [];
   return (
     <div className="space-y-4">
@@ -254,12 +260,17 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
       </div>
 
       <TabbedCard pad={false} tabs={[
-        { id: 'holdings', label: 'Holdings', count: allocations.length, show: allocations.length > 0, render: () => (
+        { id: 'holdings', label: 'Holdings', count: held.length, show: allocations.length > 0, render: () => (
           <div className="overflow-x-auto"><table className="w-full text-[13px]">
             <thead><tr className="text-muted text-left text-[12px]"><th className="font-medium px-4 py-2">Reserve</th>{!mobile && <th className="font-medium py-2">Market</th>}{!mobile && <th className="font-medium py-2">Market owner</th>}<th className="font-medium px-4 py-2 text-right">Value ({v.token?.symbol || t.symbol})</th></tr></thead>
-            <tbody className="divide-y divide-line">{allocations.map((a) => (
+            <tbody className="divide-y divide-line">{held.map((a) => (
               <tr key={a.reserve}><td className="px-4 py-2 font-mono text-fg">{shortAddr(a.reserve)}</td>{!mobile && <td className="py-2 font-mono text-muted">{shortAddr(a.lending_market)}</td>}{!mobile && <td className="py-2 text-fg">{a.market_owner_text}</td>}<td className="px-4 py-2 text-right tabular-nums text-fg">{Number(a.value_tokens).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
             ))}</tbody></table>
+            {emptySlots.length > 0 && (
+              <p className="px-4 pt-2 text-[12px] text-muted">
+                Not counted: {emptySlots.length} more reserve {emptySlots.length === 1 ? 'slot' : 'slots'} in the vault&apos;s allocation list with target weight 0 and nothing held ({emptySlots.map((a) => shortAddr(a.reserve)).join(', ')}).
+              </p>
+            )}
             <p className="px-4 py-2 text-[11px] text-muted">{provText(v.assets)}.</p></div>
         ) },
         { id: 'strategies', label: 'Holdings', count: strategies.length, show: strategies.length > 0 && allocations.length === 0, render: () => (
