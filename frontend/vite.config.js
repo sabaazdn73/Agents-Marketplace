@@ -52,8 +52,13 @@ function siteCopy() {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [stripGoogleFonts(), siteCopy(), react()],
+  // DEV ONLY: `TE_API=<origin> npx vite` points the tokenized-equity reads
+  // at a real backend (te/api.js, dataLive.js). It is not a VITE_ variable,
+  // so it never joins import.meta.env, and a build defines it as "", so the
+  // origin cannot reach a production bundle even when TE_API is set.
+  define: { __TE_DEV_API__: JSON.stringify(command === 'serve' ? (process.env.TE_API || '') : '') },
   // The dev server pre-bundles dependencies with esbuild, which the Rollup
   // transform above does not see; this does the same there.
   optimizeDeps: {
@@ -80,4 +85,4 @@ export default defineConfig({
     // regardless of this setting.
     fs: { allow: ['..'] },
   },
-});
+}));

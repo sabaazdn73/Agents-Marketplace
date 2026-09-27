@@ -13,7 +13,9 @@
 // A dev server with VITE_TE_FIXTURES=1 turns both on so the layout can be
 // seen; a production build never does (import.meta.env.DEV is false there).
 
-const DEV_LAYOUT = import.meta.env.DEV && import.meta.env.VITE_TE_FIXTURES === '1';
+// TE_API (a dev server reading a real backend, dataLive.js) turns them on
+// too, so the buy panels can be run against real answers.
+const DEV_LAYOUT = import.meta.env.DEV && (import.meta.env.VITE_TE_FIXTURES === '1' || (typeof __TE_DEV_API__ !== 'undefined' && !!__TE_DEV_API__));
 
 export const SECTION_LIVE = {
   buy: DEV_LAYOUT || false,

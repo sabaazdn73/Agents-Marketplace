@@ -81,7 +81,7 @@
 //     { computed_at, rows: [{ programme, issuer, chains: [string],
 //         pause, freeze, burn, upgrade: { text, state? },
 //         who_may_hold: { text, url, read_on } }] }
-//   BASKETS (T7, branch te-baskets, facf636). Every route takes size= (one of the
+//   BASKETS (T7, branch te-baskets, c05df08). Every route takes size= (one of the
 //   11 measured stops, default 1000; anything else answers 400 with
 //   allowed_size). An error answers { error, reason, rule? } with 400
 //   (a bad basket or size), 404 (no curated basket has this code) or 503
@@ -194,10 +194,12 @@
 //     w}]} without padding (baskets/codec.js), k a version key exactly as
 //     /api/te/underlying serves it; the builder always sends b, so a pin
 //     is priced. A basket someone built, priced and not stored: BREAKDOWN
-//     with cost_at_size, plus { legs_param, pinned: {ticker: key} | null,
-//     stored: false, stored_basis, b_param? (served: the share link is
-//     built from it when present, else from the page's own encoding, and
-//     never from legs_param, which drops pins) }. A 400 names what is
+//     with cost_at_size, plus { legs_param (tickers and weights only),
+//     legs_param_basis, b_param (the canonical link, carrying pins; the
+//     share link is built from it, or from the page's own identical
+//     encoding, never from legs_param), pinned: {ticker: key} | null,
+//     stored: false, stored_basis }. The backend accepts b padded or not,
+//     and refuses a JSON object with a repeated key. A 400 names what is
 //     wrong in `reason`, with `rule` or `allowed_size`.
 //   POST /api/site/portfolio { addresses: [address] }
 //     { total_usd, change_usd, change_pct, computed_at,
@@ -213,9 +215,13 @@
 
 import { useEffect, useState } from 'react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// A dev server started with TE_API=<origin> reads that backend instead,
+// with the fixtures off (dataLive.js, vite.config.js). Dev only: a build
+// defines __TE_DEV_API__ as "".
+const DEV_API = (import.meta.env.DEV && typeof __TE_DEV_API__ !== 'undefined' && __TE_DEV_API__) || null;
+const API_BASE_URL = DEV_API || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-const USE_FIXTURES = import.meta.env.DEV && import.meta.env.VITE_TE_FIXTURES === '1';
+const USE_FIXTURES = import.meta.env.DEV && import.meta.env.VITE_TE_FIXTURES === '1' && !DEV_API;
 
 async function fixtureFor(path, body) {
   if (!USE_FIXTURES) return null;
