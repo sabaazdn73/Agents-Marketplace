@@ -54,12 +54,15 @@ async def status_view(cache: dict) -> tuple[int, dict]:
     except Exception as e:  # noqa: BLE001  the error class only, no message (it can carry a host)
         body["store_error"] = type(e).__name__
         return 503, body
+    from .cost_views import _chain_counts, _totals
+    _counts = _totals([_chain_counts(c) for c in ((ld or {}).get("counts") or {}).get("by_chain") or []]) if ld else {}
     body["list"] = {
         "exists": bool(ld),
         "computed_at": (ld or {}).get("computed_at"),
         "rows": len((ld or {}).get("rows") or []),
-        "versions_measured": ((ld or {}).get("counts") or {}).get("versions_measured"),
-        "versions_with_cost": ((ld or {}).get("counts") or {}).get("versions_with_cost"),
+        "versions_measured": _counts.get("versions_measured"),
+        "versions_read": _counts.get("versions_read"),
+        "versions_with_cost": _counts.get("versions_with_cost"),
         "writer_commit": (ld or {}).get("writer_commit"),
         "written_at": _iso((ld or {}).get("written_at")),
     }

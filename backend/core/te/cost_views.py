@@ -184,26 +184,55 @@ def build_list_doc(docs: list[dict], inputs: dict, discovery: dict | None = None
                      "not_ranked": uncrowned})
     issuers = {k: {"name": ISSUER_NAMES.get(k, v.get("name")), "eligibility": v.get("eligibility")}
                for k, v in inputs["issuers"].items()}
-    # The engine's own count: versions with a measured cost (filled at $1,000),
-    # by chain, and every version by state, for /api/te/summary.
-    i1k = _i(1000)
-    by_chain: dict[str, dict] = {}
-    for d in docs:
-        c = by_chain.setdefault(d["chain"], {"chain_name": d["chain"], "chain_id": d["chain_id"], "versions_measured": 0,
-                                             "versions_with_cost": 0, "by_state": {}})
-        c["versions_measured"] += 1
-        c["by_state"][d["state"]] = c["by_state"].get(d["state"], 0) + 1
-        if d.get("status") and d["status"][i1k] == "filled":
-            c["versions_with_cost"] += 1
-    counts = {"versions_with_cost": sum(c["versions_with_cost"] for c in by_chain.values()),
-              "versions_measured": len(docs), "by_chain": sorted(by_chain.values(), key=lambda c: -c["versions_with_cost"]),
-              "definition": ("versions_with_cost: versions whose best passing pool fills a $1,000 buy at the refresh "
-                             "block (all venue checks passed); versions_measured: versions the cost engine read")}
+    counts = count_docs(docs)
     return {"rows": rows, "versions": versions, "issuers": issuers, "counts": counts,
             "tickers_without_measured_pool": inputs.get("tickers_without_measured_pool", []),
             "discovery": discovery or {},
             "computed_at": max((d.get("computed_at") or "" for d in docs), default=None),
             "inputs": inputs.get("source")}
+
+
+# NOT MEASURED: a version whose pool search did not finish (not_searched) or
+# whose quote was held back (held: its share ratio is held after a change) has
+# no measurement of any kind. Every other state is one: a quote (measured), a
+# pool too thin or not a venue (its depth or fee was measured), or no pool
+# after every pool family was searched.
+NOT_MEASURED_STATES = ("not_searched", "held")
+COUNTS_DEFINITION = (
+    "versions_read: versions the cost engine read; versions_measured: those with a measurement of any kind, "
+    "which is every state except not_searched (the pool search did not finish) and held (the quote was held "
+    "back); versions_with_cost: versions whose best passing pool fills a $1,000 buy at the refresh block (all "
+    "venue checks passed). Only EVM versions are read: Solana versions are listed but not measured yet.")
+
+
+def _chain_counts(c: dict) -> dict:
+    read = sum((c.get("by_state") or {}).values())
+    unmeasured = sum((c.get("by_state") or {}).get(s, 0) for s in NOT_MEASURED_STATES)
+    return {**{k: v for k, v in c.items() if k not in ("versions_measured", "versions_read")},
+            "versions_read": read, "versions_measured": read - unmeasured}
+
+
+def count_docs(docs: list[dict]) -> dict:
+    """The engine's own count: versions read, measured and with a measured
+    cost (filled at $1,000), by chain, and every version by state. One
+    function, so /api/te/summary and the MCP datasets count alike."""
+    i1k = _i(1000)
+    by_chain: dict[str, dict] = {}
+    for d in docs:
+        c = by_chain.setdefault(d["chain"], {"chain_name": d["chain"], "chain_id": d["chain_id"],
+                                             "versions_with_cost": 0, "by_state": {}})
+        c["by_state"][d["state"]] = c["by_state"].get(d["state"], 0) + 1
+        if d.get("status") and d["status"][i1k] == "filled":
+            c["versions_with_cost"] += 1
+    return _totals([_chain_counts(c) for c in by_chain.values()])
+
+
+def _totals(chains: list[dict]) -> dict:
+    return {"versions_with_cost": sum(c["versions_with_cost"] for c in chains),
+            "versions_measured": sum(c["versions_measured"] for c in chains),
+            "versions_read": sum(c["versions_read"] for c in chains),
+            "by_chain": sorted(chains, key=lambda c: -c["versions_with_cost"]),
+            "definition": COUNTS_DEFINITION}
 
 
 def _row_best(ld: dict, row: dict, group: str, size: int) -> dict | None:
@@ -233,7 +262,10 @@ async def measured_counts(store) -> dict | None:
     ld = await _list_doc(store)
     if not ld or not ld.get("counts"):
         return None
-    return {**ld["counts"], "computed_at": ld.get("computed_at")}
+    # Recounted from by_state, so a list document written before the
+    # definition changed reads the same as one written after it.
+    counts = _totals([_chain_counts(c) for c in ld["counts"].get("by_chain") or []])
+    return {**counts, "computed_at": ld.get("computed_at")}
 
 
 def _elig(ld: dict, issuer_id: str) -> dict | None:
