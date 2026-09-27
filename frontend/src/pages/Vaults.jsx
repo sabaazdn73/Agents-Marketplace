@@ -7,7 +7,7 @@
 // here. Behind DATA_LIVE (dataLive.js).
 
 import React from 'react';
-import { useTe } from '../te/api';
+import { useTe, VAULT_LIST_HEADERS_MS } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
 import VaultList from '../vaults/VaultList';
 import VaultDetail from '../vaults/VaultDetail';
@@ -15,7 +15,7 @@ import { PageFrame } from './PageFrame';
 
 export default function Vaults({ layout = 'web', path = '/vaults', onNavigate }) {
   const m = (path || '').split('#')[0].match(/^\/vaults\/([a-z]+)\/([A-Za-z0-9]+)$/);
-  const list = useTe(DATA_LIVE && !m ? '/api/vaults?limit=100' : null);
+  const list = useTe(DATA_LIVE && !m ? '/api/vaults?limit=100' : null, { headersTimeoutMs: VAULT_LIST_HEADERS_MS });
   if (m) {
     return (
       <div className={layout === 'mobile' ? 'px-4 pt-5 pb-6' : 'w-full'}>

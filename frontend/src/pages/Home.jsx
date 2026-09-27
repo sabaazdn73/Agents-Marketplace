@@ -21,7 +21,7 @@
 import ReadError from '../te/ReadError';
 import React, { useCallback, useState } from 'react';
 import { Layers, Network, Gauge, PenLine, PieChart, ShieldCheck, Lock, Terminal, Search, Play } from 'lucide-react';
-import { useTe } from '../te/api';
+import { useTe, VAULT_LIST_HEADERS_MS } from '../te/api';
 import { Eyebrow, PrimaryButton, SecondaryButton, DevTag } from '../ui/primitives';
 import {
   VersionsCard, pricedCount, ChainsCard, CostCurveCard, BuyStepsCard, BasketCard,
@@ -71,7 +71,7 @@ export default function Home({ layout = 'web', onNavigate }) {
   const versions = useTe(te(`/api/te/underlying/${FEATURE_TICKER}?size=1000`)).data;
   const curve = useTe(te(`/api/te/curve/${FEATURE_TICKER}`)).data;
   const baskets = useTe(te('/api/baskets/curated'));
-  const vaults = useTe(te('/api/vaults?limit=4'));
+  const vaults = useTe(te('/api/vaults?limit=4'), { headersTimeoutMs: VAULT_LIST_HEADERS_MS });
   const controls = useTe(te('/api/te/controls?by=issuer')).data;
   const [stockGroup, setStockGroup] = useState('all');
   const [etfGroup, setEtfGroup] = useState('all');

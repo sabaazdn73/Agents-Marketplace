@@ -56,12 +56,27 @@ const HEADERS_TIMEOUT_MS = 8000;
 const BODY_TIMEOUT_MS = 20000;
 const HEADER_TIMEOUT_RETRIES = 1;
 
-function timeoutError(kind) {
+// A caller may give one endpoint a longer header limit, through the fetch
+// init key HEADERS_TIMEOUT_KEY (fetch ignores keys it does not know): the
+// vault list takes 6 to 7 s to its first byte live, too close to 8 s.
+export const HEADERS_TIMEOUT_KEY = 'tnegaHeadersTimeoutMs';
+
+// The limit that fired is in the message, so the notice names the right
+// number of seconds (te/ReadError.jsx reads it).
+function timeoutError(kind, ms) {
   const e = new Error(kind === 'body'
-    ? `answer not finished within ${BODY_TIMEOUT_MS / 1000} s`
-    : `no answer within ${HEADERS_TIMEOUT_MS / 1000} s, twice`);
+    ? `answer not finished within ${ms / 1000} s`
+    : `no answer within ${ms / 1000} s, twice`);
   e.name = 'TimeoutError';
   return e;
+}
+
+// What a caller's cancel looks like, whenever it happens, including during
+// the wait between two attempts.
+function abortError() {
+  try { return new DOMException('The request was cancelled.', 'AbortError'); } catch {
+    const e = new Error('The request was cancelled.'); e.name = 'AbortError'; return e;
+  }
 }
 const RETRYABLE_STATUS = new Set([502, 503, 504]);
 const RETRYABLE_METHODS = new Set(['GET', 'HEAD']);
@@ -101,18 +116,20 @@ export function installApiRetry(apiBaseUrl) {
     // An aborted request is the caller changing its mind, not a failure.
     if (init?.signal?.aborted) return nativeFetch(input, init);
 
+    const headersMs = Number(init?.[HEADERS_TIMEOUT_KEY]) > 0 ? Number(init[HEADERS_TIMEOUT_KEY]) : HEADERS_TIMEOUT_MS;
     let lastError;
     let headerTimeouts = 0;
     for (let attempt = 0; ; attempt++) {
       // The caller's own signal still cancels; the limits are added to it.
       const timer = new AbortController();
       let phase = 'headers';
-      let t = setTimeout(() => timer.abort(), HEADERS_TIMEOUT_MS);
+      let t = setTimeout(() => timer.abort(), headersMs);
       const signals = [timer.signal, init?.signal].filter(Boolean);
       const signal = signals.length > 1 && typeof AbortSignal.any === 'function' ? AbortSignal.any(signals) : timer.signal;
       if (signals.length > 1 && typeof AbortSignal.any !== 'function') init.signal.addEventListener('abort', () => timer.abort(), { once: true });
       try {
-        const res = await nativeFetch(input, { ...(init || {}), signal });
+        const { [HEADERS_TIMEOUT_KEY]: _unused, ...rest } = init || {};
+        const res = await nativeFetch(input, { ...rest, signal });
         clearTimeout(t);
         if (!RETRYABLE_STATUS.has(res.status)) {
           phase = 'body';
@@ -124,20 +141,24 @@ export function installApiRetry(apiBaseUrl) {
         lastError = new Error(`HTTP ${res.status}`);
       } catch (err) {
         clearTimeout(t);
-        if (init?.signal?.aborted) throw err;   // caller cancelled
+        if (init?.signal?.aborted) throw abortError();   // caller cancelled
         if (timer.signal.aborted) {
-          if (phase === 'body') throw timeoutError('body');
+          if (phase === 'body') throw timeoutError('body', BODY_TIMEOUT_MS);
           headerTimeouts += 1;
-          if (headerTimeouts > HEADER_TIMEOUT_RETRIES) throw timeoutError('headers');
-          lastError = timeoutError('headers');
+          if (headerTimeouts > HEADER_TIMEOUT_RETRIES) throw timeoutError('headers', headersMs);
+          lastError = timeoutError('headers', headersMs);
         } else {
           lastError = err;
         }
       }
       const wait = RETRY_DELAYS_MS[attempt];
       if (wait == null) break;
-      await new Promise((r) => setTimeout(r, wait));
-      if (init?.signal?.aborted) throw lastError;
+      // The wait itself ends early, with an AbortError, if the caller cancels.
+      await new Promise((resolve, reject) => {
+        const w = setTimeout(() => { init?.signal?.removeEventListener?.('abort', onAbort); resolve(); }, wait);
+        function onAbort() { clearTimeout(w); reject(abortError()); }
+        init?.signal?.addEventListener?.('abort', onAbort, { once: true });
+      });
     }
     throw lastError;
   };
