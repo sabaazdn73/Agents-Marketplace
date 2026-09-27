@@ -162,8 +162,8 @@ export default function TradePanel({ v, size, compact = false }) {
   // The age is checked again at the click, not only by the 1 s timer.
   const tooOld = () => {
     if (Date.now() - q.at <= QUOTE_MAX_AGE_MS) return false;
+    // Moving the clock on turns the quote stale, which shows its one message.
     setNow(Date.now());
-    setWallet({ status: 'error', error: 'This quote is over 60 s old. Get a new quote before signing.' });
     return true;
   };
 
@@ -193,7 +193,7 @@ export default function TradePanel({ v, size, compact = false }) {
       const elapsed = Date.now() - started;
       const done = st.status === 'DONE' || st.status === 'FAILED';
       const giveUp = !done && ((miss && (n >= 120 || elapsed > 10 * 60e3)) || elapsed > 60 * 60e3);
-      setTx((t) => (t && t.hash === hash ? { ...t, lifi: st, unknown: giveUp } : t));
+      setTx((t) => (t && t.hash === hash ? { ...t, lifi: st, unknown: giveUp ? (miss ? 'unseen' : 'pending') : false } : t));
       if (done || giveUp) return;
       pollRef.current = setTimeout(() => poll(hash, fromChain, g, started, n), POLL_MS);
     });
@@ -355,22 +355,25 @@ export default function TradePanel({ v, size, compact = false }) {
             <div className="mt-4 rounded border border-line p-3 text-[13px]" aria-live="polite">
               <div>Sent: <Ext href={txUrl(tx.fromChain, tx.hash)}>{tx.hash}</Ext></div>
               <div className="mt-1 text-muted">
-                {tx.unknown
+                {tx.unknown === 'pending'
+                  ? 'LI.FI still reports it as pending after an hour; check the explorer.'
+                  : tx.unknown
                   ? 'Status unknown: LI.FI has not reported it. Check the explorer.'
                   : <>LI.FI status: {tx.lifi?.status ? `${tx.lifi.status}${tx.lifi.substatus ? ` (${tx.lifi.substatus})` : ''}${tx.lifi.message ? `: ${tx.lifi.message}` : ''}` : tx.lifi?.error ? `not read yet: ${tx.lifi.error}` : 'checking every 5 s'}</>}
               </div>
               {tx.lifi?.receiving && tx.lifi.receiving !== tx.hash && <div className="mt-1">Received on {v.chain}: <Ext href={txUrl(toChain, tx.lifi.receiving)}>{tx.lifi.receiving}</Ext></div>}
             </div>
           )}
-          {recent.length > 0 && (
-            <div className="mt-4 text-[12px] text-muted">
-              Your recent buys of {v.symbol} from this browser:{' '}
-              {recent.map((b, i) => (
-                <span key={b.hash}>{i ? ', ' : ''}<Ext href={txUrl(b.fromChain, b.hash)}>{shortAddress(b.hash)}</Ext> ({timeText(b.at)})</span>
-              ))}
-            </div>
-          )}
         </>
+      )}
+      {/* Per browser, not per wallet: shown with or without one connected. */}
+      {recent.length > 0 && (
+        <div className="mt-4 text-[12px] text-muted">
+          Your recent buys of {v.symbol} from this browser:{' '}
+          {recent.map((b, i) => (
+            <span key={b.hash}>{i ? ', ' : ''}<Ext href={txUrl(b.fromChain, b.hash)}>{shortAddress(b.hash)}</Ext> ({timeText(b.at)})</span>
+          ))}
+        </div>
       )}
     </section>
   );
