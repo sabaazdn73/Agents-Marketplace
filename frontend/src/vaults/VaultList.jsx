@@ -27,6 +27,7 @@
 //              how. When the list is a page of a longer one, it says so.
 // The listing rule is T6's own text, shown as served, as is its notice.
 
+import ReadError from '../te/ReadError';
 import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Card, DevTag, Sparkline, fmtUsd0 } from '../ui/primitives';
@@ -235,7 +236,7 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
   }), [vaults, q, venue, chain, equity]);
 
   if (!data) {
-    if (state?.error && state?.ever) return <Card><p className="text-[13px] text-muted">Couldn&apos;t read the vaults. Try again later.</p></Card>;
+    if (state?.error) return <ReadError error={state.error} body={state.errorBody} what="the vaults" />;
     return null;
   }
 

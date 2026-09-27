@@ -286,7 +286,7 @@ export function useTe(path, { method = 'GET', body, keep = false } = {}) {
     setState((s) => ({ key, data: keep ? s.data : null, error: null, loading: true, heldFrom: keep && s.data ? s.key : null }));
     teRead(path, { method, body }).then((r) => {
       if (!live) return;
-      setState({ key, data: r.data ?? null, error: r.error ?? null, errorBody: r.body ?? null, loading: false, heldFrom: null });
+      setState({ key, data: r.data ?? null, error: r.error ?? null, errorBody: r.body ?? null, status: r.status ?? null, loading: false, heldFrom: null });
       if (r.data) setEver(true);
     });
     return () => { live = false; };
@@ -299,7 +299,7 @@ export function useTe(path, { method = 'GET', body, keep = false } = {}) {
     return { data: held, error: null, loading: !!key, stale: !!held, ever };
   }
   const stale = state.loading && !!state.data && state.heldFrom !== null;
-  return { data: state.data, error: state.error, errorBody: state.errorBody || null, loading: state.loading, stale, ever };
+  return { data: state.data, error: state.error, errorBody: state.errorBody || null, status: state.status || null, loading: state.loading, stale, ever };
 }
 
 /** Is a list present and non-empty? */

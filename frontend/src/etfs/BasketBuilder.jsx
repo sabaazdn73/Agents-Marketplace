@@ -15,6 +15,7 @@
 // (BasketBreakdown.jsx), and, while the Buy panel is shown, the same
 // one-leg-at-a-time buy (trade/BasketBuy.jsx).
 
+import ReadError from '../te/ReadError';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, Plus, X } from 'lucide-react';
 import { useTe, hasRows } from '../te/api';
@@ -168,7 +169,9 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
       </Card>
 
       {asked && !b && res.error && (
-        <Card><p role="alert" className="text-[13px] text-warn">{res.errorBody?.reason ? `${sentence(res.errorBody.reason)}.` : `Couldn't price this basket (${res.error}). Try again later.`}</p></Card>
+        res.status === 400 && res.errorBody?.reason
+          ? <Card><p role="alert" className="text-[13px] text-warn">{sentence(res.errorBody.reason)}.</p></Card>
+          : <ReadError error={res.error} body={res.errorBody} what="the price of this basket" />
       )}
       {asked && b && (
         <div className={`space-y-4 ${res.stale ? 'opacity-60' : ''}`}>

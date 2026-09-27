@@ -14,6 +14,7 @@
 // with nothing in it is not drawn. Deposit and Withdraw open the panel that
 // ends in a link to the venue (DepositPanel.jsx): nothing is signed here.
 
+import ReadError from '../te/ReadError';
 import React, { useCallback, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useTe } from '../te/api';
@@ -189,11 +190,12 @@ function About({ v }) {
 
 export default function VaultDetail({ platform, address, layout = 'web', onNavigate }) {
   const mobile = layout === 'mobile';
-  const { data: v, error } = useTe(DATA_LIVE ? `/api/vaults/${platform}/${address}` : null);
+  const { data: v, error, errorBody } = useTe(DATA_LIVE ? `/api/vaults/${platform}/${address}` : null);
   const [panel, setPanel] = useState(null);
   const close = useCallback(() => setPanel(null), []);
   if (!v) {
-    if (error) return <Card><p className="text-[13px] text-muted">{error === 'HTTP 404' ? 'No listed vault at that address on that venue.' : "Couldn't read this vault. Try again later."}</p></Card>;
+    if (error === 'HTTP 404') return <Card><p className="text-[13px] text-muted">No listed vault at that address on that venue.</p></Card>;
+    if (error) return <ReadError error={error} body={errorBody} what="this vault" />;
     return null;
   }
   const t = v.tvl || {};

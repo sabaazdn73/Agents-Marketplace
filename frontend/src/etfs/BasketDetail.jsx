@@ -26,6 +26,7 @@
 // words, never an address; a basket with an address for its creator shows
 // the address.
 
+import ReadError from '../te/ReadError';
 import React, { useState } from 'react';
 import { useTe } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
@@ -78,7 +79,8 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
     try { window.history.replaceState(window.history.state, '', `${window.location.pathname}${s === 1000 ? '' : `?size=${s}`}`); } catch { /* not fatal */ }
   };
   if (!b) {
-    if (error) return <Card><p className="text-[13px] text-muted">{error === 'HTTP 404' ? (errorBody?.reason ? `${errorBody.reason[0].toUpperCase()}${errorBody.reason.slice(1)}.` : 'No basket with that code.') : "Couldn't read this basket. Try again later."}</p></Card>;
+    if (error === 'HTTP 404') return <Card><p className="text-[13px] text-muted">{errorBody?.reason ? `${errorBody.reason[0].toUpperCase()}${errorBody.reason.slice(1)}.` : 'No basket with that code.'}</p></Card>;
+    if (error) return <ReadError error={error} body={errorBody} what="this basket" />;
     return null;
   }
   const r = b.return_since_creation_pct;

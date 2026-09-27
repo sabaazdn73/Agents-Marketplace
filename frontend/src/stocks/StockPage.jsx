@@ -14,6 +14,7 @@
 // (home/sections.js) and only for a version on an EVM chain we can buy on.
 // Behind DATA_LIVE, like every tokenized-equity page.
 
+import ReadError from '../te/ReadError';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Crown, ExternalLink } from 'lucide-react';
 import { useTe, hasRows } from '../te/api';
@@ -358,7 +359,9 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
 
       <div className={`mt-4 ${mobile ? 'space-y-4' : 'space-y-6'}`}>
         {failed && (
-          <Card><p className="text-[13px] text-muted">{u.error === 'HTTP 404' ? `No measured answer for ${T} at ${fmtUsd0(size)}.` : `Couldn't read ${T}. Try again later.`}</p></Card>
+          u.error === 'HTTP 404'
+            ? <Card><p className="text-[13px] text-muted">No measured answer for {T} at {fmtUsd0(size)}.</p></Card>
+            : <ReadError error={u.error} body={u.errorBody} what={`${T}'s versions`} />
         )}
         {versions.length > 0 && (
           <div className={u.stale ? 'opacity-60 transition-opacity' : ''}>

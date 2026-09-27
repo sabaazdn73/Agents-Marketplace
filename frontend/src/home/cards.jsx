@@ -13,6 +13,7 @@ import {
   fmtUsd, fmtUsd0, fmtBps, fmtPct, BigMoney,
 } from '../ui/primitives';
 import { hasRows } from '../te/api';
+import ReadError from '../te/ReadError';
 import { capText } from '../etfs/BasketBreakdown';
 import {
   headline, tokensText, bpsText, shareRatioText, depthText, blockText, refGap,
@@ -496,10 +497,9 @@ function RowPrice({ b }) {
 }
 
 export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll, onOffset, compact = false }) {
-  const { data, error, stale, ever } = state || {};
-  // "Couldn't read" only after this list has shown rows once (a failed
-  // filter change); a first read that fails renders nothing.
-  if (!data && !(error && ever)) return null;
+  const { data, error, errorBody, stale } = state || {};
+  // A read that failed says so, first read or not (te/ReadError.jsx).
+  if (!data && !error) return null;
   const head = (
     <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-3">
       <div className="flex items-center gap-2">
@@ -515,7 +515,7 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
     </div>
   );
   if (!data) {
-    return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">Couldn&apos;t read the list. Try again later.</p></Card>;
+    return <Card pad={false}>{head}<div className="px-4 py-5"><ReadError bare error={error} body={errorBody} what={`the list of ${title.replace(/^Tokenized /, 'tokenized ')}`} /></div></Card>;
   }
   if (!hasRows(data.rows)) {
     return <Card pad={false}>{head}<p className="px-4 py-5 text-[13px] text-muted">{emptyLine(data, group)}</p><ListFooter data={data} group={group} /></Card>;

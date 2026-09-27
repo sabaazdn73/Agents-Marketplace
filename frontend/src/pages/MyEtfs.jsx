@@ -7,6 +7,7 @@
 // (baskets/codec.js), with ?size= optional; the builder opens filled in and
 // priced. Behind DATA_LIVE (dataLive.js).
 
+import ReadError from '../te/ReadError';
 import React, { useEffect, useMemo } from 'react';
 import { useTe, hasRows } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
@@ -19,7 +20,8 @@ import { PageFrame } from './PageFrame';
 export default function MyEtfs({ layout = 'web', path = '/my-etfs', onNavigate }) {
   const mobile = layout === 'mobile';
   const m = (path || '').split('#')[0].match(/^\/my-etfs\/([a-z0-9-]+)$/);
-  const data = useTe(DATA_LIVE && !m ? '/api/baskets/curated' : null).data;
+  const curated = useTe(DATA_LIVE && !m ? '/api/baskets/curated' : null);
+  const data = curated.data;
   const link = useMemo(() => {
     try {
       const d = decodeLink(window.location.search);
@@ -42,6 +44,7 @@ export default function MyEtfs({ layout = 'web', path = '/my-etfs', onNavigate }
   }
   return (
     <PageFrame layout={layout} title="My ETFs" sub={data?.note || null}>
+      {!data && curated.error && <ReadError error={curated.error} body={curated.errorBody} what="the curated baskets" />}
       {hasRows(data?.baskets) && (
         <div className={mobile ? 'space-y-3' : 'grid grid-cols-2 xl:grid-cols-4 gap-6'}>
           {data.baskets.map((b) => <BasketCard key={b.code || b.name} basket={b} source={data} onOpen={() => onNavigate?.(`/my-etfs/${b.code}`)} />)}

@@ -18,6 +18,7 @@
 //
 // One component for both apps; `layout` changes spacing and columns only.
 
+import ReadError from '../te/ReadError';
 import React, { useCallback, useState } from 'react';
 import { Layers, Network, Gauge, PenLine, PieChart, ShieldCheck, Lock, Terminal, Search, Play } from 'lucide-react';
 import { useTe } from '../te/api';
@@ -65,7 +66,8 @@ export default function Home({ layout = 'web', onNavigate }) {
   // before then, the home is the hero and the footer, with no request that
   // can only fail.
   const te = (p) => (DATA_LIVE ? p : null);
-  const summary = useTe(te('/api/te/summary')).data;
+  const summaryRead = useTe(te('/api/te/summary'));
+  const summary = summaryRead.data;
   const versions = useTe(te(`/api/te/underlying/${FEATURE_TICKER}?size=1000`)).data;
   const curve = useTe(te(`/api/te/curve/${FEATURE_TICKER}`)).data;
   const baskets = useTe(te('/api/baskets/curated'));
@@ -164,6 +166,13 @@ export default function Home({ layout = 'web', onNavigate }) {
         </section>
       )}
 
+      {/* The features below draw only with data; when the service cannot be
+          read they would all vanish without a word, so one notice says so. */}
+      {!summary && summaryRead.error && (
+        <div className={`${wrap} ${mobile ? 'px-4' : ''} mb-6`}>
+          <ReadError error={summaryRead.error} body={summaryRead.errorBody} what="the live counts, costs, lists and vaults on this page" />
+        </div>
+      )}
       <div className={wrap}>
         <Feature layout={layout} icon={Layers} label="One stock, many tokens"
           title={k > 1 ? `${k} tokens. ${k} different bills.` : null}
