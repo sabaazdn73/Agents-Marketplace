@@ -163,6 +163,7 @@ export default function PrivacyPage({ onBack }) {
           </p>
           <p>
             What is kept in your browser, and by whom. Ours: tnega_theme (the theme you pick),
+            tnega_welcomed (on a phone, that the welcome screen was shown, for this session only),
             tnega_signin_v1:&lt;address&gt; (a signed sign-in message, for 24 hours), and the list of
             your agent hires and their notifications (aam_notifications_v2, aam_tracked_jobs_v1 and
             aam_notifications_migrated_v1_to_v2).

@@ -13,6 +13,7 @@ import { EcosystemBoundary, EcosystemFallback, hasWebGL } from './shell/Ecosyste
 import { NAV_TO_PATH, resolvePath, tabForPath, isExplorePath } from './routePaths.js';
 import { updatePageMeta } from './seoMeta.js';
 import { SITE_COPY } from './siteCopy.js';
+import MobileWelcome, { shouldWelcome } from './shell/MobileWelcome.jsx';
 
 // Real, page-specific title/description per route, used by the
 // per-route <title>/meta-description/canonical fix (seoMeta.js). Kept
@@ -122,7 +123,20 @@ function useIsMobile() {
 // wagmi's own reconnectOnMount restores a previously connected wallet after a
 // reload; nothing here needs to re-run it. See main.jsx.
 
+// THE PHONE WELCOME (shell/MobileWelcome.jsx) sits over whatever page the
+// address opens, once per session, on phones only. Decided once, when the
+// app mounts: a desktop window narrowed later does not get it.
 export default function App() {
+  const [welcome, setWelcome] = useState(() => shouldWelcome(typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT));
+  return (
+    <>
+      <AppRoutes />
+      {welcome && <MobileWelcome onEnter={() => setWelcome(false)} />}
+    </>
+  );
+}
+
+function AppRoutes() {
   const isMobile = useIsMobile();
   const [path, navigate, search] = useRoute();
 
