@@ -224,7 +224,8 @@ async def resolve(datasets: dict, args: dict) -> dict:
             measured="what a string could refer to",
             coverage={"searched": "stored data only", "partial": False},
             reason="empty_query",
-            explanation="Give a 0x address, a token id, an agent id, or a chain view name.")
+            explanation="Give a 0x address, a token id, an agent id, a chain view name, a stock ticker or "
+                        "company name, or a basket code.")
 
     candidates: list[dict] = []
     if _ADDRESS.match(query):
@@ -243,13 +244,39 @@ async def resolve(datasets: dict, args: dict) -> dict:
         if query.lower() in chain_views.view_ids():
             candidates.append({"dataset": "chains.views", "key": query.lower(),
                                "why": "as a chain view"})
+    # Tokenized equities (mcp/TOKENIZED-EQUITIES.md section 5): a ticker or a
+    # company name resolves to one underlying, which lists its versions; a
+    # token address resolves to that version. Stored data only: the same
+    # search the site's /api/te/search runs over the verified universe.
+    if "tokenized_equities" in datasets and len(query) <= 64:
+        try:
+            import asyncio
+            from core.te import search as te_search
+            from core.te.universe import load_universe
+            u = await asyncio.to_thread(load_universe)
+            hits = (await asyncio.to_thread(te_search.search, u, query, 3)).get("results") or []
+        except Exception:  # noqa: BLE001  the universe file, not the query
+            hits = []
+        for h in hits[:2]:
+            for m in (h.get("matched_versions") or [])[:1]:
+                if m.get("key") and m.get("listed", True):
+                    candidates.append({"dataset": "tokenized_equities", "key": m["key"],
+                                       "why": f"{m.get('symbol')} by {m.get('issuer')} on {m.get('chain')}"})
+            if h.get("underlying"):
+                candidates.append({"dataset": "tokenized_equities", "key": f"underlying/{h['underlying']}",
+                                   "why": f"{h.get('name') or h['underlying']}: every version side by side"})
+    if "baskets.curated" in datasets:
+        from core.te import baskets as te_baskets
+        if te_baskets.CODE.fullmatch(query.lower()) and any(
+                b.get("code") == query.lower() for b in te_baskets.load_curated().get("baskets") or []):
+            candidates.append({"dataset": "baskets.curated", "key": query.lower(), "why": "as a curated basket"})
 
     if not candidates:
         return envelope.withheld(
             measured=f"what '{_echo(query)}' could refer to",
             coverage={"searched": "stored data only", "partial": False},
             reason="unrecognised_identifier",
-            explanation="Not an address, token id, agent id or chain view name. "
+            explanation="Not an address, token id, agent id, chain view name, listed stock or basket code. "
                         "Free text is not searched here; use tnega_list with a "
                         "search filter instead.")
 
@@ -533,7 +560,8 @@ TOOLS = [
         },
         "description":
             "Turns one string into the datasets that accept it: a 0x address, an "
-            "ERC-8004 token id, an agent id, or a chain view name. Returns up to "
+            "ERC-8004 token id, an agent id, a chain view name, a stock or ETF "
+            "ticker or company name, or a basket code. Returns up to "
             "5 candidates under 2KB, from stored data only, with no live lookup. "
             "Use it before tnega_get when you hold an identifier and do not know "
             "which dataset it belongs to.",
