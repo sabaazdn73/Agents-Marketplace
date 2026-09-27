@@ -1,7 +1,9 @@
 """
 te/router.py
 
-GET /api/te/list, /api/te/underlying/{ticker} and /api/te/curve/{ticker}.
+GET /api/te/list, /api/te/underlying/{ticker} and /api/te/curve/{ticker}, and
+GET /api/te/status (where the figures live and how fresh they are; nothing
+secret).
 Thin: each route checks its parameters and hands over to
 core/te/cost_views.py, which reads what the cost worker stored. Nothing is
 computed from the chain in a request; a figure is at most 15 minutes old
@@ -21,7 +23,8 @@ from fastapi.responses import JSONResponse
 
 from core.te.cost import SIZES
 from core.te.cost_store import get_store
-from core.te.cost_views import GROUPS, LIST_SIZES, curve_view, list_view, underlying_view
+from core.te.cost_status import status_view
+from core.te.cost_views import GROUPS, LIST_SIZES, _list_cache, curve_view, list_view, underlying_view
 
 router = APIRouter()
 
@@ -68,3 +71,9 @@ async def te_curve(ticker: str):
     if not _TICKER.match(t):
         return _bad("not a ticker")
     return _answer(*await curve_view(get_store(), t))
+
+
+@router.get("/api/te/status")
+async def te_status():
+    status, body = await status_view(_list_cache)
+    return JSONResponse(status_code=status, content=body, headers={"Cache-Control": "no-store"})

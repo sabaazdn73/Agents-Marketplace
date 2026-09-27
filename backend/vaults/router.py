@@ -18,7 +18,6 @@ from fastapi.responses import JSONResponse, Response
 from core.json_encoding import json_default
 from core.vaults import service
 from core.vaults.store import get_store
-from core.vaults.switch import collector_enabled
 
 router = APIRouter()
 _ADDR = re.compile(r"^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$")
@@ -44,9 +43,13 @@ async def vaults_list(platform: str | None = Query(None), limit: int = Query(24)
         return _err(400, "bad_request", f"limit must be 1 to {MAX_LIMIT} and offset 0 to 10000")
     body = await service.list_vaults(get_store(), platform, limit, offset)
     if body is None:
-        if not collector_enabled():
-            return _err(503, "collector_off", "Vault reads are switched off on this server.")
-        return _err(503, "not_collected_yet", "The first vault read has not finished yet; reads run at most hourly.")
+        # Nothing stored yet. Whether the collector runs is decided by the
+        # WORKER's settings, which this web process cannot see (its own
+        # HELIUS_API_KEY may be unset while the worker's is set), so the
+        # answer says what is known: no pass has been stored.
+        return _err(503, "not_collected_yet",
+                    "No vault read has been stored yet: the collector runs on the worker, at most hourly, "
+                    "once reads are switched on there.")
     return _json(body)
 
 

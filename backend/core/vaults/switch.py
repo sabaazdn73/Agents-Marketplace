@@ -1,7 +1,7 @@
 """
-Whether the vault collector runs, decided once for both processes: the
-worker (which runs it) and the web service (which says why nothing is
-served yet).
+Whether the vault collector runs, on the worker. The web service does not
+consult it: the two services have their own environments, so the web's
+answer would describe its own settings, not the worker's.
 
 Off unless HELIUS_API_KEY is set, so production never polls the public
 Solana RPC on a schedule. VAULTS_COLLECTOR_ENABLED=1 or 0 overrides that

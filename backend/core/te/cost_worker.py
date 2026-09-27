@@ -122,4 +122,10 @@ async def write_list(store, inputs: dict) -> None:
     # versions no longer in the inputs (dropped from scope) are not listed
     keys = {r["key"] for r in inputs["records"]}
     all_docs = [d for d in await store.all_costs() if d["_id"] in keys]
-    await store.put_meta("list", build_list_doc(all_docs, inputs, discovery))
+    doc = build_list_doc(all_docs, inputs, discovery)
+    # Which commit wrote it, and when: /api/te/status shows both beside the
+    # web process's own commit, so a web and a worker on different code can
+    # be seen.
+    doc["writer_commit"] = os.environ.get("RENDER_GIT_COMMIT", "").strip()[:12] or None
+    doc["written_at"] = time.time()
+    await store.put_meta("list", doc)
