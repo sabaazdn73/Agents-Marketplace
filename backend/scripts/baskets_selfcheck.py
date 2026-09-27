@@ -352,14 +352,21 @@ def main() -> int:
     bad({"b": "eyJ2IjoxfQ==="}, "evaluate b three pad characters")
     bad({"b": "eyJ2IjoxfQ="}, "evaluate b padding to a non-multiple of 4")
     bad({"b": "=="}, "evaluate b padding only")
-    # padded and unpadded answer the same; b_param is canonical, carries k and round-trips
+    # padded and unpadded answer the same. The padding test uses a FIXED
+    # string whose length is not a multiple of 3, so its base64 always needs
+    # "=": a JSON built from the data (the pinned key) needed padding or not
+    # depending on the key's length, and the check failed on some stores.
+    fixed = b'{"v":1,"legs":[{"t":"NVDA","w":5000},{"t":"SPY","w":5000}]}'
+    assert len(fixed) % 3 != 0
+    fixed_padded = base64.urlsafe_b64encode(fixed).decode()
+    fixed_unpadded = fixed_padded.rstrip("=")
+    check(fixed_padded.endswith("=") and fixed_unpadded != fixed_padded, "the padded test link is padded")
+    f1 = c.get("/api/baskets/evaluate", params={"b": fixed_unpadded})
+    f2 = c.get("/api/baskets/evaluate", params={"b": fixed_padded})
+    check(f1.status_code == 200 and f2.status_code == 200 and f2.json() == f1.json(), "padded b answers as unpadded")
+    # b_param is canonical, carries k and round-trips
     base = {"v": 1, "legs": [{"t": "NVDA", "k": pins[0], "w": 5000}, {"t": "SPY", "w": 5000}]}
-    unpadded = b64(base)
-    padded = base64.urlsafe_b64encode(json.dumps(base).encode()).decode()
-    check(unpadded != padded and padded.endswith("="), "the padded test link is padded")
-    r1 = c.get("/api/baskets/evaluate", params={"b": unpadded}).json()
-    r2 = c.get("/api/baskets/evaluate", params={"b": padded})
-    check(r2.status_code == 200 and {k: v for k, v in r2.json().items()} == r1, "padded b answers as unpadded")
+    r1 = c.get("/api/baskets/evaluate", params={"b": b64(base)}).json()
     canon = base64.urlsafe_b64encode(json.dumps(
         {"v": 1, "legs": [{"t": "NVDA", "k": pins[0], "w": 5000}, {"t": "SPY", "w": 5000}]},
         separators=(",", ":")).encode()).decode().rstrip("=")
