@@ -43,7 +43,7 @@ import T3A from './fixtures/t3a-cost.dev.json' with { type: 'json' };
 // NVDA's instrument page reads these; the home and the lists keep T3A's, so
 // the two show different measurement times, each labelled with its own.
 import T4A from './fixtures/t4a-stock.dev.json' with { type: 'json' };
-// T7's REAL basket answers (branch te-baskets, facf636): the curated list
+// T7's REAL basket answers (branch te-baskets, c05df08): the curated list
 // at $1,000, $10,000 and $250,000, every curated basket at all 11 sizes,
 // and /api/baskets/evaluate for built baskets (legs= and b=, one with a
 // pinned version) at $100, $1,000, $10,000 and $250,000, from its own
