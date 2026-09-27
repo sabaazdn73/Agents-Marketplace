@@ -155,10 +155,15 @@ const CHAIN_STATE = {
   not_a_venue: 'not a venue', held: 'held back', failed: 'quote failed', mixed: 'no quotable pool',
 };
 
-export function CostCurveCard({ data }) {
+// `size` and `onSize` make the slider follow a size chosen elsewhere on the
+// page (the instrument page's size selector); without them it keeps its own.
+export function CostCurveCard({ data, size: sizeProp = null, onSize = null }) {
   const stops = data?.stops;
-  const [i, setI] = useState(() => (Array.isArray(stops) ? Math.max(0, stops.indexOf(10000)) : 0));
+  const [own, setOwn] = useState(() => (Array.isArray(stops) ? Math.max(0, stops.indexOf(10000)) : 0));
   if (!data || !hasRows(stops) || !(hasRows(data.chains) || hasRows(data.chains_without_pool))) return null;
+  const held = sizeProp != null ? stops.indexOf(sizeProp) : -1;
+  const i = held >= 0 ? held : own;
+  const setI = (n) => { if (held >= 0 && onSize) onSize(stops[n]); else setOwn(n); };
   const at = Math.min(i, stops.length - 1);
   const size = stops[at];
   const rows = (data.chains || [])

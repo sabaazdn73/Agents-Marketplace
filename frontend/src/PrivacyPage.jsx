@@ -55,8 +55,14 @@
 
 import React, { useEffect } from 'react';
 import StandaloneBar from './shell/StandaloneBar';
+import { SECTION_LIVE } from './home/sections';
+import { DATA_LIVE } from './dataLive';
 
-const UPDATED = '26 September 2026';
+// The buy flow's paragraph describes a panel that exists only while both
+// switches are on.
+const BUY_SHOWN = DATA_LIVE && SECTION_LIVE.buy;
+
+const UPDATED = '27 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
 const CONTACT = 'sabaazad93@gmail.com';
 
@@ -529,6 +535,20 @@ export default function PrivacyPage({ onBack }) {
             public RPC providers named below for sign-in. Those reads are not sent to our server and
             nothing about them is stored.
           </p>
+          {/* Shown while the Buy panel is (home/sections.js, dataLive.js). */}
+          {BUY_SHOWN && (<p>
+            Buying a tokenized stock, from the Buy panel on a stock&apos;s page, happens between your
+            browser, your wallet and LI.FI (li.quest). When you press the button for a quote, your
+            browser sends LI.FI your wallet address, the chains, the two tokens and the amount; LI.FI
+            answers with a route and the transaction for your wallet to sign. Nothing is sent to
+            LI.FI before you press it. Before the quote, your browser reads your stablecoin balances,
+            and after it your allowance to LI.FI&apos;s contract, from the chain&apos;s public RPC
+            provider named below. After you sign, your browser asks LI.FI for the transaction&apos;s
+            status by its hash. None of this goes to our server. Your browser keeps a count of the
+            quotes it asked for in the last two hours (to stay inside LI.FI&apos;s limit) and a list
+            of the buys it sent (the transaction hash, the chains, the token and the time), in its
+            own storage only.
+          </p>)}
           <p>
             Signing in on the website is a signature from your wallet over a short message that
             moves no funds and approves nothing. For an ordinary wallet, such as MetaMask, it is
@@ -537,7 +557,9 @@ export default function PrivacyPage({ onBack }) {
             address, the message and the signature are sent to the public RPC provider of the chain
             the message names: bloXroute on BNB Chain, with Infura as a backup where it is
             configured; Arbitrum&apos;s public endpoint on Arbitrum, with dRPC as a backup; and
-            Robinhood Chain&apos;s public endpoint on Robinhood Chain, with PublicNode as a backup. A
+            Robinhood Chain&apos;s public endpoint on Robinhood Chain, with PublicNode as a backup;
+            PublicNode on Ethereum, with eth.merkle.io as a backup; Base&apos;s public endpoint on
+            Base, with PublicNode as a backup; and Hyperliquid&apos;s public endpoint on HyperEVM. A
             backup receives the same request when the first provider does not answer. If a signature
             does not match, the browser asks that provider whether the address is a contract,
             sending the address alone.

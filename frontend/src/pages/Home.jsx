@@ -32,7 +32,8 @@ import { DATA_LIVE } from '../dataLive';
 import TourModal from '../home/TourModal';
 import { platformKeyOf } from '../vaults/model';
 
-// Film still 01's stocks, and vaults; each chip opens the list filtered to it.
+// Film still 01's stocks, and vaults; each chip opens that stock's page (SPEC
+// A.1 section 1), Vaults the vault list.
 const CHIPS = ['NVDA', 'TSLA', 'SPY', 'QQQ', 'GLD'];
 
 function Feature({ layout, icon, label, title, text, cta, card, flip }) {
@@ -82,7 +83,7 @@ export default function Home({ layout = 'web', onNavigate }) {
   const k = pricedCount(versions);
   const firstBasket = baskets.data?.baskets?.[0];
   const wrap = mobile ? '' : 'max-w-[1040px] mx-auto';
-  const openRow = stocksLive ? (r) => go(`/stocks?q=${encodeURIComponent(r.underlying)}`) : undefined;
+  const openRow = stocksLive ? (r) => go(`/stocks/${encodeURIComponent(r.underlying)}`) : undefined;
   const seeAll = stocksLive ? () => go('/stocks') : undefined;
 
   // The proof line names only what is served, each part dropped when its
@@ -139,7 +140,7 @@ export default function Home({ layout = 'web', onNavigate }) {
             </form>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
               {CHIPS.map((t) => (
-                <button key={t} type="button" onClick={() => go(`/stocks?q=${t}`)} className="h-8 px-3 rounded border border-line-strong text-[12px] font-semibold text-fg hover:bg-inset">{t}</button>
+                <button key={t} type="button" onClick={() => go(`/stocks/${t}`)} className="h-8 px-3 rounded border border-line-strong text-[12px] font-semibold text-fg hover:bg-inset">{t}</button>
               ))}
               {isLive('vaults') && <button type="button" onClick={() => go('/vaults')} className="h-8 px-3 rounded border border-line-strong text-[12px] font-semibold text-fg hover:bg-inset">Vaults</button>}
             </div>
@@ -167,7 +168,7 @@ export default function Home({ layout = 'web', onNavigate }) {
         <Feature layout={layout} icon={Layers} label="One stock, many tokens"
           title={k > 1 ? `${k} tokens. ${k} different bills.` : null}
           text="The same share, issued as separate tokens by different issuers on different chains. Here is what $1,000 of each costs to buy."
-          cta={cta('stocks', 'See every version', `/stocks?q=${FEATURE_TICKER}`)}
+          cta={cta('stocks', 'See every version', `/stocks/${FEATURE_TICKER}`)}
           card={k > 1 ? <VersionsCard data={versions} /> : null} />
 
         <Feature layout={layout} icon={Network} label="EVM and non-EVM" flip
@@ -179,7 +180,7 @@ export default function Home({ layout = 'web', onNavigate }) {
         <Feature layout={layout} icon={Gauge} label="The real cost"
           title="The price you see isn't the price you pay."
           text="Spread, slippage, depth and fees, measured on the pools at your order size."
-          cta={cta('stocks', 'Try your size', `/stocks?q=${FEATURE_TICKER}`)}
+          cta={cta('stocks', 'Try your size', `/stocks/${FEATURE_TICKER}?usd=10000`)}
           card={curve?.chains?.length ? <CostCurveCard data={curve} /> : null} />
 
         {SECTION_LIVE.buy && (

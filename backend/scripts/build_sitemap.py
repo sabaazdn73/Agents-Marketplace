@@ -67,6 +67,10 @@ STATIC = [
     # pass that turns their flag on:
     #   ("/stocks", "daily", "0.9"), ("/vaults", "daily", "0.9"),
     #   ("/my-etfs", "weekly", "0.7"),
+    # and with /stocks, one URL per listed underlying, /stocks/<TICKER>
+    # (frontend/src/stocks/StockPage.jsx), from GET /api/te/summary's
+    # universe, e.g. ("/stocks/NVDA", "daily", "0.8"). Its ?v= and ?usd=
+    # choose a version and a size on the same page, so they are not listed.
     ("/ai", "monthly", "0.8"),
     # Explore, reached from the footer now, and still where every agent page
     # below hangs from.

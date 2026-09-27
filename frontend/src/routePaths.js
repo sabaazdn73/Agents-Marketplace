@@ -88,10 +88,12 @@ const EXPLORE_PATTERNS = [
   new RegExp(`^/chain/(${CHAIN_VIEW_IDS.join('|')})$`),
 ];
 
-// Product detail pages: one vault (/vaults/<platform>/<address>, T6's
-// platform keys) and one public basket (/my-etfs/<code>). Each opens its
-// product tab, and is served only while that tab's page is live.
+// Product detail pages: one stock or ETF (/stocks/<ticker>, every tokenized
+// version of it), one vault (/vaults/<platform>/<address>, T6's platform
+// keys) and one public basket (/my-etfs/<code>). Each opens its product tab,
+// and is served only while that tab's page is live.
 const PRODUCT_DETAIL = [
+  [/^\/stocks\/[A-Za-z0-9][A-Za-z0-9.-]{0,14}$/, 'stocks', '/stocks'],
   [/^\/vaults\/(kamino|voltr|glam|hyperliquid|hyperevm)\/[A-Za-z0-9]{20,64}$/, 'vaults', '/vaults'],
   [/^\/my-etfs\/[a-z0-9-]{1,40}$/, 'my-etfs', '/my-etfs'],
 ];

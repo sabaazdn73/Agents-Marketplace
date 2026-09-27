@@ -36,6 +36,13 @@ import T2_SEARCH from './fixtures/t2-search.dev.json' with { type: 'json' };
 // Same lesson as the vaults: the cost pages are built against what the
 // engine serves. A path not sampled answers 404, as the API would.
 import T3A from './fixtures/t3a-cost.dev.json' with { type: 'json' };
+// T4a's REAL answers for the instrument page (/stocks/NVDA): NVDA at all 11
+// sizes and its curve, from te-cost's own views over the same store read
+// later (10:07 UTC, where T3A above is 09:46), and the issuer controls of
+// every NVDA version from te-cost's controls.by_key over the universe file.
+// NVDA's instrument page reads these; the home and the lists keep T3A's, so
+// the two show different measurement times, each labelled with its own.
+import T4A from './fixtures/t4a-stock.dev.json' with { type: 'json' };
 
 const T = '2026-01-01T12:00:00Z';
 const F = { _fixture: true, _marker: FIXTURE_MARKER, computed_at: T };
@@ -258,9 +265,10 @@ export function answer(path) {
   const bd = p.match(/^\/api\/baskets\/(?!curated$)([a-z0-9]+)$/);
   if (bd) return basketDetail(bd[1]);
   const ud = p.match(/^\/api\/te\/underlying\/([A-Z0-9.-]+)$/);
-  if (ud) { const b = T3A.underlying[`${ud[1]}:${q.get('size') || 1000}`]; return b ? real(b) : null; }
+  if (ud) { const k = `${ud[1]}:${q.get('size') || 1000}`; const b = T4A.underlying[k] || T3A.underlying[k]; return b ? real(b) : null; }
   const cd = p.match(/^\/api\/te\/curve\/([A-Z0-9.-]+)$/);
-  if (cd) { const b = T3A.curve[cd[1]]; return b ? real(b) : null; }
+  if (cd) { const b = T4A.curve[cd[1]] || T3A.curve[cd[1]]; return b ? real(b) : null; }
+  if (p === '/api/te/controls' && q.get('by') === 'key') { const b = T4A.controls[q.get('key')]; return b ? real(b) : null; }
   const fn = answers[p];
   return fn ? fn(q) : null;
 }
@@ -294,7 +302,7 @@ export function checkFixtures() {
     ok(l.rows_total === l.rows.length, `list ${type}: rows_total != rows at limit 100`);
     for (const r of l.rows) {
       ok(r.best && r.best.share_ratio != null, `list ${type} ${r.underlying}: best has no read share ratio`);
-      const u = answer(`/api/te/underlying/${r.underlying}?size=1000`);
+      const u = T3A.underlying[`${r.underlying}:1000`];
       if (!u) continue;
       const v = u.versions.find((x) => x.key === r.best.key);
       ok(u.best?.key === r.best.key, `${r.underlying}: list best != underlying best`);
@@ -312,6 +320,20 @@ export function checkFixtures() {
       const v = u.versions.find((x) => x.key === ch.keys[i]);
       ok(v && v.cost_bps === ch.bps[i], `curve ${u.ticker} ${ch.chain} at $1,000 != that version's cost_bps`);
     }
+  }
+  // T4a's NVDA set agrees with itself: at every stop, the curve's figure on
+  // a chain is the cost_bps of the version it names there, and every
+  // version has its controls.
+  for (const [k, u] of Object.entries(T4A.underlying)) {
+    const c = T4A.curve[u.ticker];
+    const i = c.stops.indexOf(u.size);
+    ok(i >= 0, `T4a ${k}: size is not a curve stop`);
+    for (const ch of c.chains) {
+      if (ch.keys[i] == null) continue;
+      const v = u.versions.find((x) => x.key === ch.keys[i]);
+      ok(v && v.cost_bps === ch.bps[i], `T4a curve ${ch.chain} at ${u.size} != that version's cost_bps`);
+    }
+    for (const v of u.versions) ok(T4A.controls[v.key], `T4a ${v.key}: no controls sample`);
   }
   const s = answer('/api/te/summary');
   ok(s.cost.versions_with_cost === s.cost.by_chain.reduce((a, c) => a + c.versions_with_cost, 0), 'summary cost: by_chain does not sum to versions_with_cost');
