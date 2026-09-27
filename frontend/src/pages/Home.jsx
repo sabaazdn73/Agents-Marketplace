@@ -194,7 +194,7 @@ export default function Home({ layout = 'web', onNavigate }) {
         <Feature layout={layout} icon={PieChart} label="My ETFs"
           title="Your ETF. Your rules. No fee from us."
           text="Up to five stocks, your weights, one shareable link, sized to real liquidity."
-          cta={cta('my-etfs', 'Build one', '/my-etfs')}
+          cta={cta('my-etfs', 'Build one', '/my-etfs#build')}
           card={firstBasket ? <BasketCard basket={firstBasket} source={baskets.data} /> : null} />
 
         <Feature layout={layout} icon={ShieldCheck} label="Vaults" flip
