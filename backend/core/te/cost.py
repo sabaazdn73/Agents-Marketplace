@@ -209,22 +209,44 @@ def venue_checks(rpc: ChainRpc, chain_id: int, pairs: list[tuple[dict, dict]], b
         # large and only estimated, so no hook take is inferred there); then a
         # hook take on pools deep enough for the $10 test to isolate it.
         if v["fee_ppm"] is not None and v["fee_ppm"] > FEE_CEILING_PPM:
-            v.update(verdict="not_a_venue", reason=f"LP fee {v['fee_ppm'] / 1e4:g}% exceeds 1%")
+            v.update(verdict="not_a_venue", code=["fee", v["fee_ppm"]])
         elif v["buy2_usd"] is None or v["sell2_usd"] is None:
-            v.update(verdict="too_thin", reason="its +-2% depth could not be measured (" +
-                     ", ".join(x.get("status", "missing") for x in (b, s) if not x.get("ok")) + ")")
+            v.update(verdict="too_thin", code=["depth_unmeasured",
+                                               ", ".join(x.get("status", "missing") for x in (b, s) if not x.get("ok"))])
         elif min(v["buy2_usd"], v["sell2_usd"]) < DEPTH_FLOOR_USD:
-            v.update(verdict="too_thin", reason=f"+-2% depth ${min(v['buy2_usd'], v['sell2_usd']):,.0f} is under the "
-                                               f"${DEPTH_FLOOR_USD:,} floor (buy ${v['buy2_usd']:,.0f}, sell ${v['sell2_usd']:,.0f})")
+            v.update(verdict="too_thin", code=["thin", round(v["buy2_usd"]), round(v["sell2_usd"])])
         elif hook_bps is not None and v["fee_ppm"] / 100 + max(0.0, hook_bps) > FEE_CEILING_PPM / 100 + ROUNDING_BPS:
-            v.update(verdict="not_a_venue", reason=f"LP fee {v['fee_ppm'] / 1e4:g}% plus a hook take of "
-                                                  f"{max(0.0, hook_bps) / 100:.2f}% exceeds 1%")
+            # unrounded: render_reason formats it once
+            v.update(verdict="not_a_venue", code=["fee_hook", v["fee_ppm"], max(0.0, hook_bps)])
         elif hook_bps is None and v["take_bps"] is not None and v["take_bps"] > TAKE_CEILING_BPS:
-            v.update(verdict="not_a_venue", reason=f"a ${TAKE_SIZE_USD} buy loses {v['take_bps'] / 100:.2f}% to fees or hooks, over 1%")
+            v.update(verdict="not_a_venue", code=["take", v["take_bps"]])
         else:
-            v.update(verdict="ok", reason=None)
+            v.update(verdict="ok", code=None)
+        v["reason"] = render_reason(v["code"])
         out.append(v)
     return out
+
+
+def render_reason(code) -> str | None:
+    """Text for a stored venue reason code. Codes are what is stored (short,
+    no repeated sentences); text is made when a document is built."""
+    if not code:
+        return None
+    if isinstance(code, str):          # a reason stored as text before codes
+        return code
+    kind = code[0]
+    if kind == "fee":
+        return f"LP fee {code[1] / 1e4:g}% exceeds 1%"
+    if kind == "fee_hook":
+        return f"LP fee {code[1] / 1e4:g}% plus a hook take of {code[2] / 100:.2f}% exceeds 1%"
+    if kind == "take":
+        return f"a ${TAKE_SIZE_USD} buy loses {code[1] / 100:.2f}% to fees or hooks, over 1%"
+    if kind == "thin":
+        return (f"+-2% depth ${min(code[1], code[2]):,.0f} is under the ${DEPTH_FLOOR_USD:,} floor "
+                f"(buy ${code[1]:,.0f}, sell ${code[2]:,.0f})")
+    if kind == "depth_unmeasured":
+        return f"its +-2% depth could not be measured ({code[1]})"
+    return str(code)
 
 
 # ── Selection: which pools each version is quoted on ────────────────────────
@@ -286,8 +308,9 @@ def rank(rpc: ChainRpc, chain_id: int, recs: dict[str, dict], cands: dict[str, l
             if v["verdict"] != "ok":
                 summary[k]["verdicts"].append((pack(p), v["verdict"]))
         why = summary[k]
-        why["not_a_venue"] = [p["venue_check"]["reason"] for p in dropped if p["venue_check"]["verdict"] == "not_a_venue"][:3]
-        why["too_thin"] = [p["venue_check"]["reason"] for p in dropped if p["venue_check"]["verdict"] == "too_thin"][:3]
+        # reason codes, not text: rendered when the version document is built
+        why["not_a_venue"] = [p["venue_check"]["code"] for p in dropped if p["venue_check"]["verdict"] == "not_a_venue"][:3]
+        why["too_thin"] = [p["venue_check"]["code"] for p in dropped if p["venue_check"]["verdict"] == "too_thin"][:3]
         why["dropped"] = len(dropped)
         thin = [p["depth2"] for p in dropped if p["venue_check"]["verdict"] == "too_thin" and p["depth2"]]
         if thin:
@@ -441,8 +464,8 @@ def _version_doc(rec: dict, pools: list[dict], why: dict, res: dict, ctx: dict, 
     if not ok_idx and (why.get("dropped") or pools):
         # Pools exist, and none passes: never measured, never best.
         vs = [v for v in venues if v.get("verdict") in ("not_a_venue", "too_thin")]
-        thin = why.get("too_thin") or [v["reason"] for v in vs if v["verdict"] == "too_thin"]
-        nav = why.get("not_a_venue") or [v["reason"] for v in vs if v["verdict"] == "not_a_venue"]
+        thin = [render_reason(c) for c in (why.get("too_thin") or [v.get("code") for v in vs if v["verdict"] == "too_thin"])]
+        nav = [render_reason(c) for c in (why.get("not_a_venue") or [v.get("code") for v in vs if v["verdict"] == "not_a_venue"])]
         depths = [min(v["buy2_usd"], v["sell2_usd"]) for v in vs if v.get("buy2_usd") is not None and v.get("sell2_usd") is not None]
         if thin or nav:
             state = "too_thin" if thin else "not_a_venue"

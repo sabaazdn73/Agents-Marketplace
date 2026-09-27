@@ -64,6 +64,10 @@ from core.te.probe import quote_many  # noqa: E402
 from core.te.probe_bytecode import RUNTIME_HEX, RUNTIME_SHA256, SOURCE_SHA256  # noqa: E402
 from core.te.rpcclient import ChainRpc, RpcError, public_reason  # noqa: E402
 from core.te import v3_walk  # noqa: E402
+from core.te.cost_job import decode_pools  # noqa: E402
+import bson  # noqa: E402  (pymongo's, for document sizes as Mongo counts them)
+
+MAX_DOC_BYTES = 1_000_000
 
 REPO = ROOT.parent
 OWNER = None  # set in main(): hostname:pid:selfcheck
@@ -271,16 +275,31 @@ async def reconcile(store, docs: list[dict]) -> None:
     # D1: a discovered pool that failed a check is still held, and a version
     # holding one is never served as no_pool.
     by_key = {d["key"]: d for d in docs}
-    held_bad, held_total = [], 0
+    held_bad, held_total, sizes = [], 0, {}
     for ch in sorted({d["chain_id"] for d in docs}):
         meta = await store.get_meta(f"chain:{ch}") or {}
-        for k, pools in (meta.get("discovered") or {}).items():
+        sizes[f"te_cost_meta chain:{ch}"] = len(bson.encode(meta))
+        for k, doc in (await store.get_pools_held(ch)).items():
+            sizes[f"te_cost_pools {k}"] = len(bson.encode(doc))
+            pools = decode_pools(ch, doc)
             held_total += len(pools)
-            failed = any(len(x) > 8 and x[8] in ("not_a_venue", "too_thin") for x in pools)
+            failed = any(x[8] in ("not_a_venue", "too_thin") for x in pools)
             if failed and (by_key.get(k) or {}).get("state") == "no_pool":
                 held_bad.append(k)
+        if meta.get("discovered"):
+            held_bad.append(f"chain {ch}: discovered pools still in the meta document")
     check(f"no version holding a failed pool is served as no_pool ({held_total} discovered pools held)",
           not held_bad, ", ".join(held_bad[:5]))
+
+    # Mongo refuses a document over 16 MB, and a refused write would stop a
+    # chain. Every cost meta and pools document must stay under 1 MB.
+    ld = await store.get_meta("list")
+    if ld:
+        sizes["te_cost_meta list"] = len(bson.encode(ld))
+    big = {k: v for k, v in sizes.items() if v > MAX_DOC_BYTES}
+    top = sorted(sizes.items(), key=lambda kv: -kv[1])[:3]
+    check(f"every te_cost_meta and te_cost_pools document is under 1 MB (largest: "
+          + ", ".join(f"{k} {v:,} B" for k, v in top) + ")", not big, ", ".join(f"{k} {v:,}" for k, v in big.items()))
 
 
 async def main() -> int:

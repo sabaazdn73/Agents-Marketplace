@@ -14,6 +14,7 @@ RPC use is logged per chain, per endpoint and per method on every run
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import os
 import socket
@@ -21,7 +22,7 @@ import time
 
 from .chains import CHAINS, rpc_for
 from .cost_inputs import load_inputs
-from .cost_job import run_chain
+from .cost_job import decode_pools, pools_doc, run_chain
 from .cost_views import build_list_doc
 from .gasusd import NATIVE_REF, native_usd
 
@@ -49,10 +50,29 @@ def _native_prices() -> dict:
     return out
 
 
+def _snapshot(obj, tries: int = 5):
+    """A deep copy of a structure another thread may be changing; None if it
+    kept changing while being copied."""
+    for _ in range(tries):
+        try:
+            return copy.deepcopy(obj)
+        except RuntimeError:          # "dictionary changed size during iteration"
+            time.sleep(0.05)
+    return None
+
+
 async def run_one_chain(store, ch: int, inputs: dict, px: dict) -> dict | str:
     """One chain: run to its deadline in a thread, then persist its meta (the
     discovery progress is in it even when the job failed) and its documents."""
     meta = await store.get_meta(f"chain:{ch}") or {}
+    # Discovered pools live in te_cost_pools, not in the chain's meta document
+    # (which reached 2.1 MB on Robinhood Chain in the list form). Pools still
+    # in meta from before are carried over on this run and written out below.
+    held = await store.get_pools_held(ch)
+    disc = {k: decode_pools(ch, d) for k, d in held.items()}
+    for k, v in (meta.get("discovered") or {}).items():
+        disc.setdefault(k, v)
+    meta["discovered"] = disc
     budget = CHAIN_BUDGET.get(ch, 120)
     deadline = time.monotonic() + budget
     try:
@@ -61,7 +81,21 @@ async def run_one_chain(store, ch: int, inputs: dict, px: dict) -> dict | str:
     except Exception as e:  # backstop only: the job raises nothing itself
         docs = None
         meta.setdefault("last_run", {})["error"] = f"{type(e).__name__}"
+    # The job's thread may still be running after the backstop fired, and
+    # would keep changing `meta`: persist a copy, never the live object.
+    snap = _snapshot(meta)
+    if snap is None:
+        log.warning("[te-cost] chain %s: state still changing after the backstop; not persisted this run", ch)
+        return "failed: state still changing after the backstop"
+    meta = snap
     lr = meta.get("last_run") or {}
+    now = int(time.time())
+    disc = meta.pop("discovered", None) or {}
+    docs_p = [pools_doc(ch, k, v, now) for k, v in disc.items() if v]
+    skipped = sum(d.get("skipped", 0) for d in docs_p)
+    if skipped:
+        lr["pools_not_stored"] = skipped
+    await store.put_pools_held(docs_p)
     await store.put_meta(f"chain:{ch}", meta)
     if docs is None:
         log.warning("[te-cost] chain %s stopped: %s", ch, lr.get("error"))

@@ -26,6 +26,7 @@ from pathlib import Path
 
 COSTS = "te_cost"
 META = "te_cost_meta"
+POOLS = "te_cost_pools"      # discovered pools, one small document per version (cost_job.encode_pools)
 
 
 class MongoStore:
@@ -56,6 +57,15 @@ class MongoStore:
     async def put_meta(self, _id: str, doc: dict) -> None:
         await self.db[META].replace_one({"_id": _id}, {**doc, "_id": _id}, upsert=True)
 
+    async def get_pools_held(self, chain_id: int) -> dict[str, dict]:
+        return {d["_id"]: d async for d in self.db[POOLS].find({"c": chain_id})}
+
+    async def put_pools_held(self, docs: list[dict]) -> None:
+        from pymongo import ReplaceOne
+        if docs:
+            await self.db[POOLS].create_index("c")
+            await self.db[POOLS].bulk_write([ReplaceOne({"_id": d["_id"]}, d, upsert=True) for d in docs], ordered=False)
+
     async def acquire_lease(self, name: str, owner: str, seconds: float) -> bool:
         """True if `owner` now holds the lease. A held, unexpired lease makes
         the upsert collide on _id, which is the refusal."""
@@ -82,6 +92,7 @@ class FileStore:
         self.root = Path(root)
         (self.root / COSTS).mkdir(parents=True, exist_ok=True)
         (self.root / META).mkdir(parents=True, exist_ok=True)
+        (self.root / POOLS).mkdir(parents=True, exist_ok=True)
 
     @staticmethod
     def _name(_id: str) -> str:
@@ -119,6 +130,19 @@ class FileStore:
 
     async def put_meta(self, _id: str, doc: dict) -> None:
         await asyncio.to_thread(self._write, META, {**doc, "_id": _id})
+
+    async def get_pools_held(self, chain_id: int) -> dict[str, dict]:
+        def load():
+            out = {}
+            for p in (self.root / POOLS).glob("*.json"):
+                d = json.loads(p.read_text())
+                if d.get("c") == chain_id:
+                    out[d["_id"]] = d
+            return out
+        return await asyncio.to_thread(load)
+
+    async def put_pools_held(self, docs: list[dict]) -> None:
+        await asyncio.to_thread(lambda: [self._write(POOLS, d) for d in docs])
 
     def _lease(self, name: str, owner: str, seconds: float | None) -> bool:
         import fcntl

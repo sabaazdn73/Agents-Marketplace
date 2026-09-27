@@ -61,5 +61,50 @@ doc = _version_doc(rec, [], {"screened": 1, "dropped": 1, "not_a_venue": ["LP fe
                    False, "test", {"status": "complete"}, [], None, 0)
 check(f"and as not_a_venue when none is merely thin (got {doc['state']})", doc["state"] == "not_a_venue")
 
+# ── the stored form: round trips ────────────────────────────────────────────
+from core.te import chains as chains_mod  # noqa: E402
+from core.te.cost_job import _sig, decode_pools, norm, pools_doc  # noqa: E402
+
+ZERO = "0x" + "00" * 20
+OTHER_MGR = "0x2222222222222222222222222222222222222222"
+v4_none = ["v4", MGR, 3000, 60, None, USDG, None, "initialize_log", "ok", 1790000000]
+v4_empty = ["v4", MGR, 500, 10, "", USDG, None, "initialize_log", "new", None]
+v4_foreign = ["v4", OTHER_MGR, 100, 1, ZERO, USDG, None, "initialize_log", "too_thin", 1790000001]
+v3 = ["v3", "0x3333333333333333333333333333333333333333", None, None, None, USDG, None, "universe", "ok", 1790000002]
+entries = [v4_none, v4_empty, v4_foreign, v3]
+doc = pools_doc(4663, rec["key"], entries, 1790000100)
+back = decode_pools(4663, doc)
+check("hooks None on a V4 pool decodes as the zero address, equal to the normalised input",
+      back[0] == norm(v4_none) and back[0][4] == ZERO)
+check("hooks \"\" likewise", back[1][4] == ZERO and back[1] == norm(v4_empty))
+same_zero = list(v4_none); same_zero[4] = ZERO
+meta2: dict = {}
+merge_discovered(meta2, [dict(good, hooks=None)], by_addr)
+check("None and zero-address hooks are the same pool for merging",
+      _sig(v4_none) == _sig(same_zero) and merge_discovered(meta2, [dict(good, hooks=ZERO)], by_addr) == 0)
+check("a manager other than the chain's own round-trips (no \"\" shorthand)", back[2][1] == OTHER_MGR)
+check("every entry round-trips exactly", back == [norm(x) for x in entries])
+check("a never-checked pool keeps no check time", back[1][9] is None)
+
+saved = dict(chains_mod.CHAINS[4663])
+try:
+    st = saved["stables"]
+    chains_mod.CHAINS[4663]["stables"] = dict(reversed(list(st.items())))      # reorder
+    chains_mod.CHAINS[4663]["v4_manager"] = OTHER_MGR                         # and move the manager
+    check("decode does not change when chains.py reorders stables or changes the manager",
+          decode_pools(4663, doc) == back)
+finally:
+    chains_mod.CHAINS[4663].clear()
+    chains_mod.CHAINS[4663].update(saved)
+
+bad = ["infinity_cl", MGR, 100, 1, ZERO, USDG, "0xab|cd", "initialize_log", "ok", None]
+doc2 = pools_doc(4663, rec["key"], [bad, v3], 1)
+check("an entry holding a separator is skipped and counted; the rest is stored",
+      doc2.get("skipped") == 1 and decode_pools(4663, doc2) == [norm(v3)])
+
+v1 = {"_id": rec["key"], "c": 4663, "p": "1||3000|60||0||L|1|1790000000", "n": 1}
+old = decode_pools(4663, v1)
+check("a format-1 document (no version) is still read", old and old[0][1] == MGR and old[0][4] == ZERO and old[0][5] == USDG)
+
 print(f"\n{'all passed' if not fails else f'{len(fails)} failed'}")
 sys.exit(1 if fails else 0)
