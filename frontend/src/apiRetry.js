@@ -36,15 +36,33 @@
 // retries would make a bug look like slowness.
 
 const RETRY_DELAYS_MS = [1200, 3500, 9000];   // 4 attempts, ~14s total
-// A STALLED API. Each attempt is given ATTEMPT_TIMEOUT_MS, headers and body
-// together. Without it a request to an API that accepts the connection and
-// never answers waited for the browser's own limit (minutes), and the page
-// showed its heading with nothing under it. A timed-out attempt is not
-// retried: a restarting service refuses at once (the case the retries are
-// for), while one that stalls tends to stay stalled, and four stalls would
-// be half a minute. So a stall ends in the page's notice after ~8 s, a
-// refusal after the retries, ~14 s.
-const ATTEMPT_TIMEOUT_MS = 8000;
+// A STALLED API. Without a limit, a request to an API that took the
+// connection and never answered waited for the browser's own (minutes), and
+// the page showed its heading with nothing under it. Two limits, because
+// the two waits are different:
+//   HEADERS_TIMEOUT_MS  until the response headers arrive. A server that
+//                       has not started answering by then is stalled; the
+//                       attempt is retried once (a Render restart can take
+//                       the first), then the page's notice shows: ~8 + 1.2
+//                       + 8, about 17 s.
+//   BODY_TIMEOUT_MS     for the body once the headers are in. A phone on a
+//                       slow network can take many seconds to receive the
+//                       vault list (about 75 KB), so this is generous, and
+//                       it is not retried: the server did answer.
+// The body is read here, under its own limit, and handed on as a fresh
+// Response, so the caller never waits on an unbounded stream.
+// A refused connection still takes the retries, ~14 s.
+const HEADERS_TIMEOUT_MS = 8000;
+const BODY_TIMEOUT_MS = 20000;
+const HEADER_TIMEOUT_RETRIES = 1;
+
+function timeoutError(kind) {
+  const e = new Error(kind === 'body'
+    ? `answer not finished within ${BODY_TIMEOUT_MS / 1000} s`
+    : `no answer within ${HEADERS_TIMEOUT_MS / 1000} s, twice`);
+  e.name = 'TimeoutError';
+  return e;
+}
 const RETRYABLE_STATUS = new Set([502, 503, 504]);
 const RETRYABLE_METHODS = new Set(['GET', 'HEAD']);
 
@@ -84,31 +102,37 @@ export function installApiRetry(apiBaseUrl) {
     if (init?.signal?.aborted) return nativeFetch(input, init);
 
     let lastError;
+    let headerTimeouts = 0;
     for (let attempt = 0; ; attempt++) {
-      // The caller's own signal still cancels; the timeout is added to it.
+      // The caller's own signal still cancels; the limits are added to it.
       const timer = new AbortController();
-      const t = setTimeout(() => timer.abort(), ATTEMPT_TIMEOUT_MS);
+      let phase = 'headers';
+      let t = setTimeout(() => timer.abort(), HEADERS_TIMEOUT_MS);
       const signals = [timer.signal, init?.signal].filter(Boolean);
       const signal = signals.length > 1 && typeof AbortSignal.any === 'function' ? AbortSignal.any(signals) : timer.signal;
       if (signals.length > 1 && typeof AbortSignal.any !== 'function') init.signal.addEventListener('abort', () => timer.abort(), { once: true });
       try {
         const res = await nativeFetch(input, { ...(init || {}), signal });
-        if (!RETRYABLE_STATUS.has(res.status)) {
-          // The body is read by the caller, still under this attempt's timer;
-          // clear it only once the body has been consumed.
-          return res;
-        }
         clearTimeout(t);
+        if (!RETRYABLE_STATUS.has(res.status)) {
+          phase = 'body';
+          t = setTimeout(() => timer.abort(), BODY_TIMEOUT_MS);
+          const body = await res.arrayBuffer();
+          clearTimeout(t);
+          return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers });
+        }
         lastError = new Error(`HTTP ${res.status}`);
       } catch (err) {
         clearTimeout(t);
         if (init?.signal?.aborted) throw err;   // caller cancelled
         if (timer.signal.aborted) {
-          const e = new Error(`no answer within ${ATTEMPT_TIMEOUT_MS / 1000} s`);
-          e.name = 'TimeoutError';
-          throw e;
+          if (phase === 'body') throw timeoutError('body');
+          headerTimeouts += 1;
+          if (headerTimeouts > HEADER_TIMEOUT_RETRIES) throw timeoutError('headers');
+          lastError = timeoutError('headers');
+        } else {
+          lastError = err;
         }
-        lastError = err;
       }
       const wait = RETRY_DELAYS_MS[attempt];
       if (wait == null) break;

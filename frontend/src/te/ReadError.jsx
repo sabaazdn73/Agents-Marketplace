@@ -14,9 +14,13 @@ export function readErrorText(error, what, body = null) {
   const m = /^HTTP (\d{3})$/.exec(error || '');
   const reason = body && typeof body.reason === 'string' ? ` (${body.reason})` : '';
   if (m) return `Tnega's data service answered with an error, HTTP ${m[1]}${reason}, so ${what} can't be shown right now.`;
-  const stall = /^no answer within (\d+) s$/.exec(error || '');
-  if (stall) return `Tnega's data service didn't answer within ${stall[1]} seconds, so ${what} can't be shown right now. Try again in a moment.`;
-  return `Couldn't reach Tnega's data service, so ${what} can't be shown right now. Check your connection, or try again in a moment.`;
+  // The four cases apiRetry.js ends in, each named: no answer at all, an
+  // answer too slow to finish, an error status, or no connection.
+  const stall = /^no answer within (\d+) s, twice$/.exec(error || '');
+  if (stall) return `Tnega's data service took the request but didn't start answering within ${stall[1]} seconds, twice, so ${what} can't be shown right now. Try again in a moment.`;
+  const slow = /^answer not finished within (\d+) s$/.exec(error || '');
+  if (slow) return `Tnega's data service started answering, but the answer didn't finish arriving within ${slow[1]} seconds (a slow connection can cause this), so ${what} can't be shown right now. Try again in a moment.`;
+  return `Couldn't reach Tnega's data service (the connection failed, after retries), so ${what} can't be shown right now. Check your connection, or try again in a moment.`;
 }
 
 export default function ReadError({ error, what, body = null, bare = false }) {
