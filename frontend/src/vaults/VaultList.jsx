@@ -74,6 +74,51 @@ function tableColumns(cols) {
   return all.map(([k, w]) => [k, (w / sum) * 100]);
 }
 
+// Nesting in the words of the served nesting_note (and the vault page):
+// the vault inside another "has part of its funds in" it; the vault that
+// holds the other's deposit "includes funds placed by" it.
+export function nestingLines(v, nameOf) {
+  return [
+    ...(v.nested_in || []).map((n) => `Part of its funds sit in ${n.name || nameOf(n.address)}`),
+    ...(v.contains_nested || []).map((n) => `Includes funds placed by ${n.name || nameOf(n.address)}`),
+  ];
+}
+
+/** A phone's list: one card per vault, the name and TVL on the first line,
+ *  so the figure is never cut off (getquin's mobile lists). */
+function VenueCards({ rows, onOpen, nestedName }) {
+  return (
+    <ul className="mt-2 divide-y divide-line">
+      {rows.map((v) => {
+        const c = checkMark(v);
+        return (
+          <li key={v.key}>
+            <button type="button" onClick={() => onOpen(v)} className="w-full text-left px-4 py-3 hover:bg-inset/60">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[14px] text-fg font-semibold flex items-center gap-1.5">
+                    <span title={c.label} aria-label={c.label}>{c.mark}</span>
+                    <span className="truncate">{v.name}</span>
+                  </div>
+                  <div className="text-[12px] text-muted"><span className="font-mono">{shortAddr(v.address)}</span> · {v.chain}{v.token_symbol || v.tvl_symbol ? ` · ${v.token_symbol || v.tvl_symbol}` : ''}</div>
+                </div>
+                <div className="shrink-0 max-w-[48%] text-right" title={v.tvl_basis}>
+                  <div className="text-[14px] tabular-nums text-fg">{fmtUsd0(v.tvl_usd)}</div>
+                  <TvlNote v={v} />
+                </div>
+              </div>
+              {v.manager && <div className="mt-1 text-[12px] text-muted truncate">Manager: {v.manager}</div>}
+              {nestingLines(v, nestedName).map((l) => <div key={l} className="text-[11px] text-muted">{l}</div>)}
+              {(v.notes || []).length > 0 && <div className="text-[11px] text-warn line-clamp-2">{v.notes[0]}{v.notes.length > 1 ? ` (+${v.notes.length - 1} more)` : ''}</div>}
+              {v.lends_against && <div className="text-[11px] text-muted line-clamp-2">Lends against: {v.lends_against}</div>}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function VenueTable({ p, rows, onOpen, compact, nestedName, cols }) {
   const [page, setPage] = useState(0);
   const pages = Math.max(1, Math.ceil(rows.length / ROWS_PER_PAGE));
@@ -82,6 +127,7 @@ function VenueTable({ p, rows, onOpen, compact, nestedName, cols }) {
     <div className="mt-6 first:mt-2">
       <h3 className="px-4 text-[15px] font-semibold text-fg">{p.platform}</h3>
       <div className="mt-1"><PlatformLine p={p} /></div>
+      {compact ? <VenueCards rows={view} onOpen={onOpen} nestedName={nestedName} /> : (
       <div className="overflow-x-auto">
         {/* Fixed widths, so every venue's table lines up with the others. */}
         <table className={`w-full mt-2 text-[13px] ${compact ? '' : 'table-fixed min-w-[900px]'}`}>
@@ -106,7 +152,6 @@ function VenueTable({ p, rows, onOpen, compact, nestedName, cols }) {
             {view.map((v) => {
               const c = checkMark(v);
               const r = v.return_30d?.pct;
-              const parent = (v.nested_in || [])[0];
               return (
                 <tr key={v.key} className="cursor-pointer hover:bg-inset/60" onClick={() => onOpen(v)}>
                   <td className="px-4 py-2.5">
@@ -116,8 +161,7 @@ function VenueTable({ p, rows, onOpen, compact, nestedName, cols }) {
                       <span className="truncate">{v.name}</span>
                     </div>
                     <div className="text-[12px] text-muted font-mono">{shortAddr(v.address)}{compact ? ` · ${v.chain}` : ''}</div>
-                    {parent && <div className="text-[11px] text-muted">Partly inside {parent.name || nestedName(parent.address)}</div>}
-                    {(v.contains_nested || []).length > 0 && <div className="text-[11px] text-muted">Holds part of {v.contains_nested.map((n) => n.name || shortAddr(n.address)).join(', ')}</div>}
+                    {nestingLines(v, nestedName).map((l) => <div key={l} className="text-[11px] text-muted">{l}</div>)}
                     {/* What the stablecoin is lent against: one line here, in
                         full on hover and on the vault's page. */}
                     {(v.notes || []).length > 0 && <div className="text-[11px] text-warn truncate max-w-[320px]" title={v.notes.join('\n')}>{v.notes[0]}{v.notes.length > 1 ? ` (+${v.notes.length - 1} more)` : ''}</div>}
@@ -148,6 +192,7 @@ function VenueTable({ p, rows, onOpen, compact, nestedName, cols }) {
           </tbody>
         </table>
       </div>
+      )}
       {pages > 1 && (
         <div className="px-4 py-2 flex items-center justify-end gap-3 text-[12px] text-muted">
           <span>{page * ROWS_PER_PAGE + 1}–{Math.min(rows.length, (page + 1) * ROWS_PER_PAGE)} of {rows.length}</span>
