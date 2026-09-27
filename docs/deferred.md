@@ -28,6 +28,7 @@ Contents:
 12. [Jupiter: not used](#12-jupiter-not-used)
 13. [Other deferred items already recorded elsewhere in these docs](#13-other-deferred-items-already-recorded-elsewhere-in-these-docs)
 14. [Budget index: a free BSC fallback after the QuickNode trial](#14-budget-index-a-free-bsc-fallback-after-the-quicknode-trial)
+15. [Before commercial launch: written permission from DefiLlama, LI.FI (Earn data display), CoinGecko, the logo sources and any other third-party data source](#15-before-commercial-launch-written-permission)
 
 ---
 
@@ -713,4 +714,43 @@ as in option 2 would be closer still.
    source recorded here. That is not a finding that the terms allow it.
 3. A paid plan: QuickNode after the trial, or a keyed free tier (Ankr,
    NodeReal, Alchemy) under a key held as a server secret.
+
+---
+
+## 15. Before commercial launch: written permission
+
+From DefiLlama, LI.FI (Earn data display), CoinGecko, the logo sources and
+any other third-party data source.
+
+**Owner's decision, 2026-09-27**, in her words: "Tnega isn't commercial yet;
+it's in the proof-of-concept phase. Use every usable, helpful source now; I'll
+get written permission when we move to commercial use."
+
+What that changed:
+
+- The DefiLlama removal is cancelled; `backend/adapters/defillama.py` stays.
+  DefiLlama's free API (api.llama.fi, no key) may also be used where it helps,
+  for example per-protocol TVL by token as a second source in vault due
+  diligence.
+- LI.FI Earn figures may be displayed now; the display-rights flag is
+  dropped.
+- The same applies to other useful free sources, including CoinGecko's free
+  API if something needs it.
+- Every figure still carries its source label, and chain reads stay the
+  primary source wherever we have them.
+
+**Status.** Deferred to the move to commercial use. In the proof-of-concept
+phase these sources are used with a source label on every figure.
+
+**What unblocks it.** A written reply from each source, filed here.
+
+| Source | Where it is used (as of 2026-09-27) | What needs permission |
+|---|---|---|
+| DefiLlama | `backend/adapters/defillama.py` (api.llama.fi/protocols); `backend/adapters/native_staking.py` (yields.llama.fi/pools, api.llama.fi/protocols); planned as a second TVL source in vault due diligence; browser reads in `frontend/src/yieldHistory.js` (yields.llama.fi/chart) and `frontend/src/tradingAgent.js` (coins.llama.fi/percentage) | DefiLlama terms 8.6, 8.7 and 8.10, as the owner named them (quote the clause text from defillama.com/terms when this entry is filed) |
+| LI.FI (Earn data display) | Vault figures from LI.FI Earn, when the vault work shows them (entry 9) | Display of Earn data |
+| CoinGecko | `backend/core/status_checks.py` and any later use; the BNB price moved to our own on-chain average on 2026-09-25 (`backend/core/bnb_usd.py`) | Re-serving or displaying its data |
+| xStocks token images | `frontend/scripts/build_logos.py` fetches the `logo` of each xStocks token from api.xstocks.fi/api/v2/public/assets once and the site serves its own copies (`frontend/public/logos/v/`); shown for an xStocks version only. This is a use of the xStocks API that entry 6 holds back for figures; it is an image, not a figure, and is covered by the decision above. | Display of the issuer's token images |
+| Wikimedia Commons company logos | The same script, through Wikidata (P414 listing on a US exchange, P154 logo); files marked public domain or under a free licence only, each with its licence, author and trademark note in `frontend/public/logos/sources.json`, listed on the Data sources page | Commons files carry their own licences; the logos are trademarks of the companies, shown to identify them. Ask each company before commercial use of its mark. |
+| Not used: financialmodelingprep.com logos | Checked 2026-09-27 and rejected: its terms forbid displaying its data on a website without a specific agreement ("Data Display") | Not applicable |
+| Any other third-party source added in this phase | Add a row when it is added | Its own terms |
 

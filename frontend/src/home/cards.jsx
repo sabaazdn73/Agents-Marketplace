@@ -92,7 +92,7 @@ export function VersionsCard({ data, compact = false }) {
         {rows.map((v) => (
           <li key={v.key} className="py-2.5">
             <div className="flex items-start gap-3">
-              <SymbolTile symbol={v.symbol} />
+              <SymbolTile symbol={v.symbol} underlying={data.ticker} issuer={v.issuer} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[14px] font-semibold text-fg truncate">{v.symbol}</span>
@@ -270,6 +270,7 @@ export function BasketCard({ basket, source, onOpen }) {
         {basket.legs.map((l, i) => (
           <li key={l.ticker || l.symbol} className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" />
+            <SymbolTile size="sm" underlying={l.ticker} symbol={l.symbol} issuer={l.issuer} />
             <span className="text-fg flex-1">{l.ticker || l.symbol}{l.ticker && l.symbol && l.symbol !== l.ticker ? <span className="text-muted"> · {l.symbol}</span> : null}</span>
             <span className="tabular-nums text-muted">{(l.weight_bps / 100).toFixed(0)}%</span>
           </li>
@@ -525,7 +526,7 @@ export function InstrumentList({ title, state, group, onGroup, onOpen, onSeeAll,
             <tr key={r.best?.key || r.underlying} className={onOpen ? 'cursor-pointer hover:bg-inset/60' : ''} onClick={onOpen ? () => onOpen(r) : undefined}>
               <td className="px-4 py-2.5">
                 <div className="flex items-center gap-3">
-                  <SymbolTile symbol={r.underlying} />
+                  <SymbolTile underlying={r.underlying} />
                   <div className="min-w-0">
                     <div className="text-fg font-semibold truncate">{r.name}</div>
                     <div className="text-[12px] text-muted truncate">

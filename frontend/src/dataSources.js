@@ -281,4 +281,25 @@ export const DATA_SOURCES = [
     status: 'live',
     statusNote: 'Two collectors: historicalOrders over REST, and the orderUpdates WebSocket at seconds resolution. Typed rejection statuses are stored as returned rather than collapsed into one.',
   },
+  // Added 2026-09-27 with the instrument logos (frontend/scripts/build_logos.py).
+  // Both are fetched once by that script and served from this site; a
+  // visitor's browser calls neither. The owner's proof-of-concept decision
+  // of 2026-09-27 covers them; written permission is listed before
+  // commercial launch in docs/deferred.md.
+  {
+    name: 'xStocks token images',
+    url: 'https://api.xstocks.fi/api/v2/public/assets',
+    logo: 'https://xstocks.fi/favicon.ico',
+    description: 'The token image xStocks publishes for each of its own tokens, shown for an xStocks version only.',
+    status: 'live',
+    statusNote: 'From the issuer\u2019s public asset list, field `logo`. Not shown for another issuer\u2019s version of the same stock. Display during the proof-of-concept phase; written permission is to be asked before commercial launch.',
+  },
+  {
+    name: 'Wikimedia Commons, through Wikidata',
+    url: 'https://commons.wikimedia.org',
+    logo: 'https://commons.wikimedia.org/static/favicon/commons.ico',
+    description: 'Company logos for the stocks listed, found through each company\u2019s Wikidata item (its US stock-exchange listing and its logo, property P154).',
+    status: 'live',
+    statusNote: 'Only files Commons marks as public domain or under a free licence are used; each file\u2019s licence, author and trademark note are listed below. Company logos are trademarks of their owners and shown only to identify the company.',
+  },
 ];

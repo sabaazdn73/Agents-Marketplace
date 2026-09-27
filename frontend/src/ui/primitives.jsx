@@ -9,6 +9,7 @@
 
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import LOGOS from '../te/logos.json';
 
 /** `pad` false drops the 16px padding, for a card whose table runs edge to
  *  edge and pads its own cells. */
@@ -217,11 +218,41 @@ export function GroupChip({ group }) {
   );
 }
 
-/** A two-letter tile standing in for a logo we do not ship. */
-export function SymbolTile({ symbol }) {
-  const t = String(symbol || '?').slice(0, 2).toUpperCase();
+// The logos this site serves itself (scripts/build_logos.py writes them to
+// public/logos/ and this index): `v`, token images an issuer publishes for
+// its own versions (xStocks only), keyed by token symbol; `u`, company logos
+// from Wikimedia Commons, keyed by ticker. Every one is a file on this site,
+// so a visitor's browser calls no logo host. Sources and licences:
+// public/logos/sources.json, listed on the Data sources page.
+const LOGO_V = new Set(LOGOS.v);
+const LOGO_U = new Set(LOGOS.u);
+
+/** Which logo file stands for this instrument, or null. A version shows its
+ *  issuer's own token image when the issuer publishes one; otherwise, and for
+ *  a stock as a whole, the company's logo. */
+export function logoFor({ symbol, underlying, issuer }) {
+  if (symbol && /xstocks/i.test(issuer || '') && LOGO_V.has(symbol)) return `/logos/v/${symbol}.webp`;
+  const t = underlying || symbol;
+  return t && LOGO_U.has(t) ? `/logos/${t}.webp` : null;
+}
+
+const TILE = { md: 'w-9 h-9 text-[11px]', sm: 'w-5 h-5 text-[8px]' };
+
+/** The instrument's logo, or a two-letter circle when there is none (or it
+ *  fails to load). `underlying` is the stock's ticker, `symbol` the token's,
+ *  `issuer` the version's issuer; pass what the row knows. */
+export function SymbolTile({ symbol, underlying, issuer, size = 'md' }) {
+  const [failed, setFailed] = React.useState(false);
+  const src = failed ? null : logoFor({ symbol, underlying, issuer });
+  if (src) {
+    return (
+      <img src={src} alt="" aria-hidden="true" loading="lazy" decoding="async" onError={() => setFailed(true)}
+        className={`${TILE[size]} shrink-0 rounded-[6px] border border-line object-cover`} />
+    );
+  }
+  const t = String(underlying || symbol || '?').slice(0, 2).toUpperCase();
   return (
-    <span className="w-9 h-9 shrink-0 rounded-full bg-inset text-fg text-[11px] font-semibold flex items-center justify-center" aria-hidden="true">
+    <span className={`${TILE[size]} shrink-0 rounded-full bg-inset text-fg font-semibold flex items-center justify-center`} aria-hidden="true">
       {t}
     </span>
   );

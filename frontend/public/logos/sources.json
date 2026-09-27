@@ -1,0 +1,872 @@
+{
+ "generated_at": "2026-09-27T20:12:33Z",
+ "underlyings": {
+  "AAPL": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Apple logo black.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Apple_logo_black.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Original:  Rob Janoff",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "AMC": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "AMC Theatres logo (2).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:AMC_Theatres_logo_(2).svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "AMC Theatres",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "AMD": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "AMD Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:AMD_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Advanced Micro Devices, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "AMZN": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Amazon 2024.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Amazon_2024.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Amazon.com, Inc., Koto, and NaN (typeface creator)",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "ASML": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "ASML Holding N.V. logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:ASML_Holding_N.V._logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "ASML Holding",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "AVGO": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Broadcom logo (2016-present).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Broadcom_logo_(2016-present).svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Unknown authorUnknown author",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "BA": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Boeing full logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Boeing_full_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Boeing, Richard Burch Eiber",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "BABA": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Alibaba en logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Alibaba_en_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Alibaba Group Holding Limited",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "BB": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Blackberry Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Blackberry_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Research In Motion",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "BE": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Bloom Energy logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Bloom_Energy_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Unknown authorUnknown author",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "COIN": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Coinbase.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Coinbase.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Coinbase",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "COST": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Costco Wholesale logo 2010-10-26.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Costco_Wholesale_logo_2010-10-26.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Costco Wholesale",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "CRM": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Salesforce.com logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Salesforce.com_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "™/®Salesforce.com",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "DIS": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "The Walt Disney Company Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:The_Walt_Disney_Company_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "\nFirst file vector graphics logo by TutterMouse",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "DJT": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Trump Media & Technology Group logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Trump_Media_%26_Technology_Group_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Trump Media &amp; Technology Group",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "F": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Ford logo flat.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Ford_logo_flat.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Ford Motor Company",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "FIG": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Figma-logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Figma-logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Figma",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "GME": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "GameStop Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:GameStop_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "McGarrah Jessee",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "GOOGL": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Alphabet Inc Logo 2015.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Alphabet_Inc_Logo_2015.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "{{Lejonta Jones is Owner]|original|Alphabet Inc.}}",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "HOOD": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Robinhood (company) logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Robinhood_(company)_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "",
+   "restrictions": "",
+   "attribution_required": false
+  },
+  "IBM": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "IBM logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:IBM_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Paul Rand",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "INTC": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Intel logo 2023.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Intel_logo_2023.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Intel",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "JNJ": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "JNJ Logo New.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:JNJ_Logo_New.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Johnson &amp; Johnson Services, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "LLY": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Eli Lilly and Company.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Eli_Lilly_and_Company.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Eli Lilly and Company, converted to PNG by Huwmanbeing",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "LMT": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Lockheed Martin logo (2011–2022).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Lockheed_Martin_logo_(2011%E2%80%932022).svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Lockheed Martin",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "LULU": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Lululemon Athletica logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Lululemon_Athletica_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Lululemon Athletica.\nThe original uploader was Esrever at English Wikipedia..\n\nLater version(s) were uploaded by KarimKoueider at en.wikipedia.",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "META": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Meta Platforms Inc. logo (cropped).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Meta_Platforms_Inc._logo_(cropped).svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Meta Platforms",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "MRNA": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Moderna logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Moderna_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Moderna",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "MSFT": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Microsoft icon.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Microsoft_icon.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Ariesk47 \n\nOriginal:  Microsoft",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "MSTR": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Microstrategy-logo.gif",
+   "page": "https://commons.wikimedia.org/wiki/File:Microstrategy-logo.gif",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "MicroStrategy",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "MU": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Micron Technology logo 2024.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Micron_Technology_logo_2024.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Micron Technology, Inc.",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "NET": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Cloudflare Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Cloudflare_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Cloudflare",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "NFLX": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Netflix 2014 logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Netflix_2014_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Netflix",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "NOK": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Nokia 2023.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Nokia_2023.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Lippincott Studio, per source",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "NU": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Nubank logo 2021.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Nubank_logo_2021.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Nubank",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "NVDA": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "NVIDIA logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:NVIDIA_logo.svg",
+   "licence": "Apache License 2.0",
+   "licence_url": "http://www.apache.org/licenses/LICENSE-2.0",
+   "author": "Nvidia",
+   "restrictions": "trademarked",
+   "attribution_required": true
+  },
+  "ON": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Onsemi logo 2021.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Onsemi_logo_2021.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "onsemi",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "ORCL": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Oracle logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Oracle_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Oracle Corporation",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "PFE": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Pfizer (2021).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Pfizer_(2021).svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Pfizer, Team",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "PLTR": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Cib-palantir (CoreUI Icons v1.0.0).svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Cib-palantir_(CoreUI_Icons_v1.0.0).svg",
+   "licence": "CC BY 4.0",
+   "licence_url": "https://creativecommons.org/licenses/by/4.0",
+   "author": "CoreUI",
+   "restrictions": "",
+   "attribution_required": true
+  },
+  "QCOM": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Qualcomm-Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Qualcomm-Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Original:  Qualcomm",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "RIVN": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Rivian logo and wordmark.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Rivian_logo_and_wordmark.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Rivian, LLC",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "SHOP": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Shopify logo 2018.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Shopify_logo_2018.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "[[:w:|]]",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "SNAP": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Snap Inc. logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Snap_Inc._logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Snap Inc.",
+   "restrictions": "",
+   "attribution_required": false
+  },
+  "SNDK": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "SanDisk 2024 logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:SanDisk_2024_logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Sandisk",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "SNOW": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Snowflake Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Snowflake_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Snowflake",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "SPCX": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "SpaceX logo black.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:SpaceX_logo_black.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "SpaceX",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "TSLA": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Tesla T symbol.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Tesla_T_symbol.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Tesla (logo), Fry1989 eh? (vectorization)",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "TSM": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "TSMC wordmark.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:TSMC_wordmark.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Taiwan Semiconductor Manufacturing Company Limited",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "TTWO": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Take-Two Interactive Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Take-Two_Interactive_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "Take-Two Interactive",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "UPS": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "United Parcel Service logo 2014.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:United_Parcel_Service_logo_2014.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "United Parcel Service (UPS)",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  },
+  "XOM": {
+   "source": "Wikimedia Commons (via Wikidata P154)",
+   "file": "Exxon Mobil Logo.svg",
+   "page": "https://commons.wikimedia.org/wiki/File:Exxon_Mobil_Logo.svg",
+   "licence": "Public domain",
+   "licence_url": "",
+   "author": "The original uploader was KUsam at English Wikipedia.",
+   "restrictions": "trademarked",
+   "attribution_required": false
+  }
+ },
+ "versions": {
+  "AAPLx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/AAPLx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "AMDx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/AMDx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "AMZNx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/AMZNx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "ASMLx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/ASMLx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "AVGOx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/AVGOx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "BAx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/BAx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "BEx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/BEx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "BMNRx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/BMNRx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "CEGx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/CEGx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "COINx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/COINx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "CRCLx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/CRCLx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "CRMx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/CRMx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "CRWVx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/CRWVx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "DDOGx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/DDOGx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "DELLx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/DELLx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "DISx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/DISx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "DJTx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/DJTx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "FLNCx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/FLNCx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "Fx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/Fx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "GLDx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/GLDx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "GLXYx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/GLXYx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "GMEx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/GMEx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "GOOGLx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/GOOGLx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "HIMSx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/HIMSx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "HOODx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/HOODx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "IBMx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/IBMx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "INTCx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/INTCx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "JNJx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/JNJx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "LLYx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/LLYx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "LMTx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/LMTx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "LULUx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/LULUx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "METAx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/METAx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "MRNAx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/MRNAx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "MSFTx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/MSFTx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "MSTRx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/MSTRx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "MUx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/MUx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "NBISx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/NBISx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "NETx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/NETx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "NFLXx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/NFLXx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "NVDAx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/NVDAx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "ONx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/ONx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "ORCLx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/ORCLx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "PFEx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/PFEx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "PLTRx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/PLTRx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "QCOMx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/QCOMx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "QQQx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/QQQx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "QUBTx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/QUBTx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "RBLXx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/RBLXx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "RCATx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/RCATx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "RDDTx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/RDDTx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "RIVNx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/RIVNx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SGOVx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SGOVx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SKHYx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SKHYx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SLVx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SLVx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SNDKx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SNDKx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SNOWx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SNOWx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SOXXx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SOXXx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SPCXx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SPCXx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "SPYx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/SPYx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "STRCx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/STRCx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "TQQQx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/TQQQx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "TSLAx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/TSLAx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "TSMx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/TSMx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "TTWOx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/TTWOx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "UPSx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/UPSx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "USARx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/USARx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "VTIx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/VTIx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "WYFIx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/WYFIx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  },
+  "XOMx": {
+   "source": "xStocks (issuer)",
+   "url": "https://xstocks-metadata.backed.fi/logos/tokens/XOMx.png",
+   "list": "https://api.xstocks.fi/api/v2/public/assets"
+  }
+ }
+}

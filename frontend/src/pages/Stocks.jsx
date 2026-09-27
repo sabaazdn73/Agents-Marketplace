@@ -42,7 +42,7 @@ function SearchResults({ q, data, onNavigate }) {
             <li key={`${r.kind}-${r.underlying || r.symbol}`} className="py-3">
               <a href={stockPath(r.underlying || r.symbol)} onClick={(e) => { if (!onNavigate || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); onNavigate(stockPath(r.underlying || r.symbol)); }}
                 className="flex items-center gap-3 rounded hover:bg-inset/60 -mx-1 px-1">
-                <SymbolTile symbol={r.underlying || r.symbol} />
+                <SymbolTile underlying={r.underlying} symbol={r.symbol} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-semibold text-fg truncate">{r.name}</div>
                   <div className="text-[12px] text-muted truncate">

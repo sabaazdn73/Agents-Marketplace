@@ -123,7 +123,49 @@ export default function DataSourcesPage({ onBack }) {
             );
           })}
         </div>
+
+        <LogoCredits />
       </div>
     </div>
+  );
+}
+
+/** Every logo this site serves, with its source and licence, read from the
+ *  file the logo script writes next to the logos (public/logos/sources.json,
+ *  this site's own). */
+function LogoCredits() {
+  const [data, setData] = React.useState(null);
+  React.useEffect(() => {
+    let live = true;
+    fetch('/logos/sources.json').then((r) => (r.ok ? r.json() : null)).then((d) => { if (live) setData(d); }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+  if (!data) return null;
+  const u = Object.entries(data.underlyings || {});
+  const v = Object.entries(data.versions || {});
+  return (
+    <section className="mt-10">
+      <h2 className="text-[11px] uppercase tracking-wider font-semibold text-muted mb-1">Logo credits</h2>
+      <p className="text-[11px] text-muted mb-3">
+        {u.length} company logos from Wikimedia Commons and {v.length} xStocks token images, fetched {String(data.generated_at || '').slice(0, 10)} and served from this site.
+        Where there is no logo, the stock&apos;s initials are shown instead.
+      </p>
+      <details className="bg-surface rounded-2xl border border-line p-4 text-[12px]">
+        <summary className="cursor-pointer font-semibold">Company logos, file by file</summary>
+        <ul className="mt-3 space-y-1.5">
+          {u.map(([t, x]) => (
+            <li key={t}>
+              <span className="font-semibold">{t}</span>{' '}
+              <a href={x.page} target="_blank" rel="noreferrer" className="text-accent hover:underline">{x.file}</a>
+              <span className="text-muted"> · {x.licence}{x.author ? ` · ${x.author}` : ''}{x.restrictions ? ` · ${x.restrictions}` : ''}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+      <details className="mt-3 bg-surface rounded-2xl border border-line p-4 text-[12px]">
+        <summary className="cursor-pointer font-semibold">xStocks token images</summary>
+        <p className="mt-3 text-muted">{v.map(([sym]) => sym).join(', ')}</p>
+      </details>
+    </section>
   );
 }

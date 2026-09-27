@@ -30,7 +30,7 @@ import React, { useState } from 'react';
 import { useTe } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
 import { BUY_LIVE } from '../trade/buyLive';
-import { Card, DevTag, LineChart, GroupChip, fmtUsd } from '../ui/primitives';
+import { Card, DevTag, LineChart, GroupChip, SymbolTile, fmtUsd } from '../ui/primitives';
 import SizeStrip from '../ui/SizeStrip';
 import { Breadcrumb, CopyAddress, StatCard, SourceChip, TabbedCard, Field, shortAddr } from '../ui/detail';
 import BasketBreakdown, { CostAtSize, measuredNote, STOPS } from './BasketBreakdown';
@@ -55,7 +55,7 @@ function Weights({ legs }) {
         <thead><tr className="text-muted text-left text-[12px]"><th className="font-medium py-1.5">Stock or ETF</th><th className="font-medium py-1.5">Version at this size</th><th className="font-medium py-1.5 text-right">Weight</th></tr></thead>
         <tbody className="divide-y divide-line">{legs.map((l, i) => (
           <tr key={l.ticker}>
-            <td className="py-2"><span className="inline-flex items-center gap-2 text-fg"><span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" />{l.ticker}</span></td>
+            <td className="py-2"><span className="inline-flex items-center gap-2 text-fg"><span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" /><SymbolTile size="sm" underlying={l.ticker} />{l.ticker}</span></td>
             <td className="py-2 text-muted">{l.state === 'filled'
               ? <span className="inline-flex flex-wrap items-center gap-x-2"><span className="text-fg">{l.symbol}</span>{l.issuer} · {l.chain}<GroupChip group={l.group} />{measuredNote(l) ? <span className="text-[11px]">({measuredNote(l)})</span> : null}</span>
               : <span>none: {l.reason || 'does not fill at this size'}</span>}</td>

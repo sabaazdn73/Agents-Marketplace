@@ -17,7 +17,7 @@
 //   approvals are "up to": the server does not know the wallet's allowance.
 
 import React from 'react';
-import { Card, GroupChip, fmtUsd, fmtUsd0, fmtBps } from '../ui/primitives';
+import { Card, GroupChip, SymbolTile, fmtUsd, fmtUsd0, fmtBps } from '../ui/primitives';
 import { measuredLine, sentence } from '../te/costText';
 
 // The engine's 11 measured sizes (SPEC B.3); the baskets routes take these only.
@@ -98,7 +98,7 @@ function LegsTable({ legs }) {
         <tbody className="divide-y divide-line">
           {legs.map((l, i) => (
             <tr key={l.ticker} className="align-top">
-              <td className="py-2"><span className="inline-flex items-center gap-2 text-fg font-semibold"><span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" />{l.ticker}</span></td>
+              <td className="py-2"><span className="inline-flex items-center gap-2 text-fg font-semibold"><span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" /><SymbolTile size="sm" underlying={l.ticker} />{l.ticker}</span></td>
               <td className="py-2 text-muted"><VersionCell l={l} /></td>
               <td className="py-2 text-right tabular-nums text-fg">{pct(l.weight_bps)}</td>
               <td className="py-2 text-right tabular-nums pl-3">
@@ -122,7 +122,7 @@ function LegCards({ legs }) {
       {legs.map((l, i) => (
         <li key={l.ticker} className="py-2.5 text-[13px]">
           <div className="flex items-start justify-between gap-3">
-            <span className="inline-flex items-center gap-2 text-fg font-semibold"><span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" />{l.ticker} · {pct(l.weight_bps)}</span>
+            <span className="inline-flex items-center gap-2 text-fg font-semibold"><span className={`w-2 h-2 rounded-sm ${COLORS[i % COLORS.length]}`} aria-hidden="true" /><SymbolTile size="sm" underlying={l.ticker} />{l.ticker} · {pct(l.weight_bps)}</span>
             <span className="text-right tabular-nums">
               <span className="text-fg">{fmtUsd0(l.leg_usd)}</span>
               {l.state === 'filled' && Number.isFinite(l.leg_cost_bps) && <span className="block text-[11px] text-muted">{fmtBps(l.leg_cost_bps)}</span>}

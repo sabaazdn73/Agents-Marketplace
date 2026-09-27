@@ -127,7 +127,7 @@ function VersionsTable({ data, size, selected, onSelect }) {
               <tr key={v.key} className={on ? 'bg-inset/60' : ''}>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
-                    <SymbolTile symbol={v.symbol} />
+                    <SymbolTile symbol={v.symbol} underlying={data.ticker} issuer={v.issuer} />
                     <div className="min-w-0">
                       <div className="text-fg font-semibold">{v.symbol}</div>
                       <div className="text-[12px] text-muted">{v.issuer_name || v.issuer}</div>
@@ -171,7 +171,7 @@ function VersionCards({ data, size, selected, onSelect }) {
           return (
             <li key={v.key} className={`px-4 py-3 ${on ? 'bg-inset/60' : ''}`}>
               <div className="flex items-start gap-3">
-                <SymbolTile symbol={v.symbol} />
+                <SymbolTile symbol={v.symbol} underlying={data.ticker} issuer={v.issuer} />
                 <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-semibold text-fg">{v.symbol}</div>
                   <div className="text-[12px] text-muted flex items-center gap-1.5 flex-wrap">{v.issuer_name || v.issuer} · {v.chain}<GroupChip group={v.group} /></div>
@@ -328,7 +328,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
       <Breadcrumb parent="Stocks & ETFs" parentPath="/stocks" name={data?.name || T} onNavigate={onNavigate} />
       <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
         <div className="flex items-center gap-3">
-          <SymbolTile symbol={T} />
+          <SymbolTile underlying={T} />
           <div>
             <h1 className="text-[28px] md:text-[32px] font-bold tracking-[-0.02em] text-fg leading-tight">{data?.name || T}</h1>
             <div className="text-[13px] text-muted">
