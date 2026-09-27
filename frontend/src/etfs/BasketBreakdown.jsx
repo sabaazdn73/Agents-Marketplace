@@ -48,12 +48,24 @@ function legCap(l) {
   return l.cap_reason ? sentence(l.cap_reason) : null;
 }
 
+// A leg's dollars: where the leg's amount is itself a measured size, the
+// engine's own measured dollars (cost_usd_measured); only where it is not
+// (priced at the next size up, or costed from parts under $100) the served
+// leg_cost_usd, whose basis is named beneath. Never bps x size worked out
+// here.
+export function legDollars(l) {
+  if (l.state !== 'filled') return null;
+  if (l.size_exact !== false && !l.below_smallest_stop && Number.isFinite(l.cost_usd_measured)) return { usd: l.cost_usd_measured, measured: true };
+  return Number.isFinite(l.leg_cost_usd) ? { usd: l.leg_cost_usd, measured: false } : null;
+}
+
 function LegCost({ l }) {
   if (l.state !== 'filled' || !Number.isFinite(l.leg_cost_bps)) return null;
+  const d = legDollars(l);
   return (
     <>
       <span className="text-fg">{fmtBps(l.leg_cost_bps)}</span>
-      {Number.isFinite(l.leg_cost_usd) && <span className="block text-[11px] text-muted">{fmtUsd(l.leg_cost_usd)}</span>}
+      {d && <span className="block text-[11px] text-muted">{d.usd.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4 })}{d.measured ? ', measured' : ''}</span>}
       {l.leg_cost_basis && <span className="block text-[11px] text-muted max-w-[220px] ml-auto">{l.leg_cost_basis}</span>}
     </>
   );
