@@ -257,14 +257,25 @@ async def resolve(datasets: dict, args: dict) -> dict:
             hits = (await asyncio.to_thread(te_search.search, u, query, 3)).get("results") or []
         except Exception:  # noqa: BLE001  the universe file, not the query
             hits = []
+        # An exact ticker comes first (SPY before a name that merely contains
+        # it), and for a token address its own version comes before the
+        # underlying it belongs to.
+        q_up = query.upper()
+        hits.sort(key=lambda h: (str(h.get("underlying") or "").upper() != q_up, h.get("match") != "ticker"))
+        te_c: list[dict] = []
         for h in hits[:2]:
             for m in (h.get("matched_versions") or [])[:1]:
                 if m.get("key") and m.get("listed", True):
-                    candidates.append({"dataset": "tokenized_equities", "key": m["key"],
-                                       "why": f"{m.get('symbol')} by {m.get('issuer')} on {m.get('chain')}"})
+                    own = _ADDRESS.match(query) and str(m.get("address") or "").lower() == query.lower()
+                    te_c.insert(0 if own else len(te_c), {
+                        "dataset": "tokenized_equities", "key": m["key"],
+                        "why": f"{m.get('symbol')} by {m.get('issuer')} on {m.get('chain')}"})
             if h.get("underlying"):
-                candidates.append({"dataset": "tokenized_equities", "key": f"underlying/{h['underlying']}",
-                                   "why": f"{h.get('name') or h['underlying']}: every version side by side"})
+                te_c.append({"dataset": "tokenized_equities", "key": f"underlying/{h['underlying']}",
+                             "why": f"{h.get('name') or h['underlying']}: every version side by side"})
+        # Ahead of the agent datasets when the query is a ticker or name;
+        # after them for an address, which those datasets key on.
+        candidates = (candidates + te_c) if _ADDRESS.match(query) else (te_c + candidates)
     if "baskets.curated" in datasets:
         from core.te import baskets as te_baskets
         if te_baskets.CODE.fullmatch(query.lower()) and any(
@@ -412,6 +423,10 @@ async def list_(datasets: dict, args: dict) -> dict:
     page_cov = dict(cov)
     if page.get("partial"):
         page_cov["partial"] = True
+    # Which filters the dataset applied, echoed where a dataset reports them,
+    # so a caller can see its filter was used and not silently dropped.
+    if isinstance(page.get("filters"), dict):
+        page_cov["filters"] = page["filters"]
     return envelope.build(
         measured=f"a page of {dataset}",
         coverage=_coverage(page_cov, matched=total, returned=len(rows), offset=offset),
@@ -568,7 +583,8 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {"query": {"type": "string",
-                                     "description": "An address, token id, agent id or view name."}},
+                                     "description": "An address, token id, agent id, chain view name, stock or "
+                                                    "ETF ticker, company name, token address or basket code."}},
             "required": ["query"], "additionalProperties": False,
         },
         "handler": resolve,
