@@ -27,6 +27,9 @@ export const MAIN_TAB_PATHS = {
   '/my-etfs': 'my-etfs',
   '/dashboard': 'dashboard',
   '/ai': 'ai',
+  // Reached from the home page, the footer and each stock page, not from the
+  // header (shell/productNav.js ALL_EXTRA_PAGES); redirects while not live.
+  '/issuer-controls': 'issuer-controls',
   // Explore keeps /market, and the id 'market': shared links, the Chrome Web
   // Store listing and every `nav === 'market'` check read them.
   '/market': 'market',

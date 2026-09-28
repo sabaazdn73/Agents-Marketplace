@@ -22,7 +22,7 @@
 // The order is the owner's: Stocks & ETFs, Vaults, My ETFs, Dashboard, Use
 // with AI. The home page is "/" and is reached from the logo.
 
-import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal } from 'lucide-react';
+import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal, Lock } from 'lucide-react';
 
 import { DATA_LIVE } from '../dataLive.js';
 
@@ -37,13 +37,25 @@ export const ALL_PRODUCT_NAV = [
 /** The pages shown in the navigation: the live ones, in order. */
 export const PRODUCT_NAV = ALL_PRODUCT_NAV.filter((i) => i.live);
 
+// PRODUCT PAGES OUTSIDE THE MAIN NAVIGATION. Same switch, same shell, but
+// reached from the home page, the footer and the stock pages rather than the
+// header or the bottom bar (five tabs already share 390px there).
+// /issuer-controls reads /api/te/controls, so it is live with the other
+// tokenized-equity pages (dataLive.js).
+export const ALL_EXTRA_PAGES = [
+  { id: 'issuer-controls', path: '/issuer-controls', label: 'Issuer controls', icon: Lock, live: DATA_LIVE },
+];
+
+/** The extra pages that are live, for the footer. */
+export const EXTRA_PAGES = ALL_EXTRA_PAGES.filter((i) => i.live);
+
 /** Is this product page live? An id that is not a product page is not. */
 export function isLive(id) {
-  return PRODUCT_NAV.some((i) => i.id === id);
+  return PRODUCT_NAV.some((i) => i.id === id) || EXTRA_PAGES.some((i) => i.id === id);
 }
 
 /** The paths of the pages that are not live. routePaths.js sends each to "/". */
-export const HIDDEN_PRODUCT_PATHS = ALL_PRODUCT_NAV.filter((i) => !i.live).map((i) => i.path);
+export const HIDDEN_PRODUCT_PATHS = [...ALL_PRODUCT_NAV, ...ALL_EXTRA_PAGES].filter((i) => !i.live).map((i) => i.path);
 
 /** The top search opens Stocks & ETFs, so it shows only while that page is live. */
 export const SEARCH_LIVE = isLive('stocks');
@@ -51,4 +63,4 @@ export const SEARCH_LIVE = isLive('stocks');
 // The tabs the product pages own, and the home page. Explore and My Agents
 // are routes too, but they are reached from the footer and keep their own
 // layout.
-export const PRODUCT_PAGE_IDS = ['home', ...PRODUCT_NAV.map((i) => i.id)];
+export const PRODUCT_PAGE_IDS = ['home', ...PRODUCT_NAV.map((i) => i.id), ...EXTRA_PAGES.map((i) => i.id)];

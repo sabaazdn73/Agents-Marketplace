@@ -105,6 +105,7 @@ import Stocks from './pages/Stocks';
 import Vaults from './pages/Vaults';
 import MyEtfs from './pages/MyEtfs';
 import UseWithAi from './pages/UseWithAi';
+import IssuerControls from './pages/IssuerControls';
 import { BnbPriceSource } from './shell/DataAttribution';
 import WalletIdentity from './wallet/WalletIdentity';
 import { useConnectedWallet } from './wallet/useConnectedWallet';
@@ -892,6 +893,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           {nav === 'vaults' && isLive('vaults') && <Vaults layout="web" path={path} onNavigate={onNavigate} />}
           {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="web" path={path} onNavigate={onNavigate} />}
           {nav === 'ai' && <UseWithAi layout="web" />}
+          {nav === 'issuer-controls' && isLive('issuer-controls') && <IssuerControls layout="web" onNavigate={onNavigate} />}
 
           {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail

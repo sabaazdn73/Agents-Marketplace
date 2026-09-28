@@ -68,6 +68,10 @@ STATIC = [
     ("/stocks", "daily", "0.9"),
     ("/vaults", "daily", "0.9"),
     ("/my-etfs", "weekly", "0.7"),
+    # Issuer controls, one page for every programme's powers (2026-09-28),
+    # behind the same switch. Its ?token= opens one token's row on the same
+    # page, so those are not listed.
+    ("/issuer-controls", "weekly", "0.7"),
     ("/ai", "monthly", "0.8"),
     # Explore, reached from the footer now, and still where every agent page
     # below hangs from.

@@ -5,7 +5,8 @@
 // so all three list the same pages in the same order.
 //
 // COLUMNS (owner, 2026-09-26). No two links share a destination.
-//   Product  the pages of the main navigation that are live
+//   Product  the pages of the main navigation that are live, then Issuer
+//            controls (not in the header; reached from the home page too)
 //   Tools    Explore agents; Hyperliquid order-book readings
 //            (/chain/hyperliquid; its collector's last bucket is
 //            2026-09-19, read from /api/hyperliquid/overview on 2026-09-26,
@@ -23,7 +24,7 @@
 import React from 'react';
 import { Github, Linkedin } from 'lucide-react';
 import { CHROME_EXTENSION_URL } from './extensionLink';
-import { PRODUCT_NAV } from './shell/productNav';
+import { PRODUCT_NAV, EXTRA_PAGES } from './shell/productNav';
 import { weeklyLinks } from './weeklyUpdates';
 
 export const GITHUB_URL = 'https://github.com/sabaazdn73/Agents-Marketplace';
@@ -56,7 +57,9 @@ export function XMark({ size = 13, className = '' }) {
 }
 
 export const FOOTER_COLUMNS = () => [
-  { title: 'Product', links: PRODUCT_NAV.map((i) => ({ key: i.id, label: i.label, path: i.path })) },
+  // The main navigation's pages, then the live pages reached from elsewhere
+  // (Issuer controls, shell/productNav.js ALL_EXTRA_PAGES).
+  { title: 'Product', links: [...PRODUCT_NAV, ...EXTRA_PAGES].map((i) => ({ key: i.id, label: i.label, path: i.path })) },
   { title: 'Tools', links: [
     { key: 'market', label: 'Explore agents', path: '/market' },
     { key: 'hl-book', label: 'Hyperliquid order-book readings', note: 'collector suspended since 19 Sept', path: '/chain/hyperliquid' },

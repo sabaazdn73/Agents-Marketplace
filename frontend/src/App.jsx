@@ -33,6 +33,7 @@ const PAGE_META = {
   '/vaults': { title: 'Vaults', description: 'Real-asset vaults, read-only: who manages each, its audits and controls, and what it holds, read on chain.' },
   '/my-etfs': { title: 'My ETFs', description: 'Baskets of up to five tokenized stocks and ETFs, with the all-in cost and the largest size their thinnest leg allows.' },
   '/dashboard': { title: 'Dashboard', description: "Your wallet's tokenized equities, their value, cost and allocation, read from the chain." },
+  '/issuer-controls': { title: 'Issuer controls', description: 'Who can pause, freeze, burn or seize, and upgrade each tokenized stock and ETF we list, read on chain with the evidence for each, and who may hold it in the issuer\'s own words.' },
   '/ai': { title: 'Use with AI', description: "Point your own assistant at Tnega's MCP server: the endpoint, the one-line install, and the read-only tools it serves today." },
   '/signin': { title: 'Sign in', description: 'Connect a wallet and sign one message to show the wallet is yours. No account, no password, no funds moved.' },
   // Explore keeps its path: every shared link, the sitemap and the Chrome
