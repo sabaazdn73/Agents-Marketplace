@@ -257,25 +257,45 @@ async def resolve(datasets: dict, args: dict) -> dict:
             hits = (await asyncio.to_thread(te_search.search, u, query, 3)).get("results") or []
         except Exception:  # noqa: BLE001  the universe file, not the query
             hits = []
-        # An exact ticker comes first (SPY before a name that merely contains
-        # it), and for a token address its own version comes before the
-        # underlying it belongs to.
+        # Rank: an exact ticker first, then a token-symbol or address match,
+        # then a whole word of the name; a match that is only a substring of
+        # a name (kriSPY for SPY) comes after all of those, and for a query of
+        # four characters or fewer it is dropped as noise.
         q_up = query.upper()
-        hits.sort(key=lambda h: (str(h.get("underlying") or "").upper() != q_up, h.get("match") != "ticker"))
+        is_addr = bool(_ADDRESS.match(query))
+
+        def _rank(h: dict) -> int:
+            if str(h.get("underlying") or "").upper() == q_up:
+                return 0
+            if h.get("match") in ("symbol", "address") or h.get("matched_versions"):
+                return 1
+            words = re.findall(r"[A-Z0-9]+", str(h.get("name") or "").upper())
+            if q_up in words:
+                return 2
+            return 3
+
+        ranked = sorted(((_rank(h), i, h) for i, h in enumerate(hits)), key=lambda x: (x[0], x[1]))
+        ranked = [(r, h) for r, _, h in ranked if not (r == 3 and len(query) <= 4)]
         te_c: list[dict] = []
-        for h in hits[:2]:
+        for _, h in ranked[:2]:
             for m in (h.get("matched_versions") or [])[:1]:
                 if m.get("key") and m.get("listed", True):
-                    own = _ADDRESS.match(query) and str(m.get("address") or "").lower() == query.lower()
+                    own = is_addr and str(m.get("address") or "").lower() == query.lower()
                     te_c.insert(0 if own else len(te_c), {
-                        "dataset": "tokenized_equities", "key": m["key"],
+                        "dataset": "tokenized_equities", "key": m["key"], **({"match": "this token"} if own else {}),
                         "why": f"{m.get('symbol')} by {m.get('issuer')} on {m.get('chain')}"})
             if h.get("underlying"):
                 te_c.append({"dataset": "tokenized_equities", "key": f"underlying/{h['underlying']}",
                              "why": f"{h.get('name') or h['underlying']}: every version side by side"})
-        # Ahead of the agent datasets when the query is a ticker or name;
-        # after them for an address, which those datasets key on.
-        candidates = (candidates + te_c) if _ADDRESS.match(query) else (te_c + candidates)
+        # A token address's own version comes first of all, ahead of the
+        # datasets that merely accept an address as a key; the rest of the
+        # tokenized-equity candidates follow them. For a ticker or a name the
+        # tokenized-equity candidates lead.
+        if is_addr:
+            own_c = [c for c in te_c if c.get("match") == "this token"]
+            candidates = own_c + candidates + [c for c in te_c if c.get("match") != "this token"]
+        else:
+            candidates = te_c + candidates
     if "baskets.curated" in datasets:
         from core.te import baskets as te_baskets
         if te_baskets.CODE.fullmatch(query.lower()) and any(
