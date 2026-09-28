@@ -22,6 +22,7 @@ document, cached for a minute.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -274,15 +275,50 @@ async def _list_doc(store) -> dict | None:
 # records are written chain by chain, so between the two a count taken from
 # each could differ by the versions a chain had just rewritten. Counting the
 # records themselves, once per minute, removes that.
-_snapshot: dict = {"t": -1e9, "docs": None}
+#
+# A REFRESH NEVER HOLDS A REQUEST. Reading every record from the store takes
+# about 0.1 s locally and, measured on production on 2026-09-28, once 22 s;
+# the request that found the minute expired used to wait for it, and the
+# browser's 8 s header limit cancelled and retried it, so the home's counts
+# stayed empty. Now the first read of a process waits (there is nothing to
+# serve), and every later refresh runs in the background, one at a time,
+# while requests keep the snapshot they have. A refresh that fails keeps the
+# old snapshot and is tried again on the next request after the minute.
+_snapshot: dict = {"t": -1e9, "docs": None, "task": None}
 SNAPSHOT_SECONDS = 60
+
+
+async def _reload_snapshot(store) -> None:
+    try:
+        docs = await store.all_costs()
+        _snapshot["docs"] = docs
+        _snapshot["t"] = time.monotonic()
+    except Exception as e:  # noqa: BLE001  the store, not any record
+        log.warning("[te-cost] snapshot refresh failed (%s); keeping the previous one", type(e).__name__)
+        if _snapshot["docs"] is None:
+            raise
+
+
+def _refresh_task(store) -> asyncio.Task:
+    """The one refresh in flight on this event loop, started if none is."""
+    task = _snapshot["task"]
+    loop = asyncio.get_running_loop()
+    if task is None or task.done() or task.get_loop() is not loop:
+        task = loop.create_task(_reload_snapshot(store))
+        # A background refresh that fails has logged it; retrieving the
+        # exception here keeps asyncio from reporting it again.
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())
+        _snapshot["task"] = task
+    return task
 
 
 async def cost_snapshot(store) -> tuple[list[dict], str | None]:
     """Every per-version record, and the newest measurement time among them."""
-    if _snapshot["docs"] is None or time.monotonic() - _snapshot["t"] > SNAPSHOT_SECONDS:
-        _snapshot["docs"] = await store.all_costs()
-        _snapshot["t"] = time.monotonic()
+    stale = time.monotonic() - _snapshot["t"] > SNAPSHOT_SECONDS
+    if _snapshot["docs"] is None:
+        await asyncio.shield(_refresh_task(store))
+    elif stale:
+        _refresh_task(store)
     docs = _snapshot["docs"]
     return docs, (max((d.get("computed_at") or "" for d in docs), default="") or None)
 
