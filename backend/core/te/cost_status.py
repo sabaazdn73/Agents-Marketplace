@@ -54,18 +54,29 @@ async def status_view(cache: dict) -> tuple[int, dict]:
     except Exception as e:  # noqa: BLE001  the error class only, no message (it can carry a host)
         body["store_error"] = type(e).__name__
         return 503, body
-    from .cost_views import _chain_counts, _totals
-    _counts = _totals([_chain_counts(c) for c in ((ld or {}).get("counts") or {}).get("by_chain") or []]) if ld else {}
+    # TWO SOURCES, TWO SETS OF NAMES. `counts` is the per-version snapshot
+    # that /api/te/summary and the MCP datasets count (cost_views.
+    # cost_snapshot), with its own computed_at. `list` describes the list
+    # document the list endpoints serve; it is written after the last chain
+    # of a cycle, so between writes its counts can differ from the snapshot,
+    # and they carry list_doc_ names so no one name holds two numbers here.
+    from .cost_views import _chain_counts, _totals, measured_counts
+    _doc = _totals([_chain_counts(c) for c in ((ld or {}).get("counts") or {}).get("by_chain") or []]) if ld else {}
     body["list"] = {
         "exists": bool(ld),
-        "computed_at": (ld or {}).get("computed_at"),
+        "list_doc_computed_at": (ld or {}).get("computed_at"),
         "rows": len((ld or {}).get("rows") or []),
-        "versions_read": _counts.get("versions_read"),
-        "versions_searched": _counts.get("versions_searched"),
-        "versions_with_cost": _counts.get("versions_with_cost"),
+        "list_doc_versions_read": _doc.get("versions_read"),
+        "list_doc_versions_searched": _doc.get("versions_searched"),
+        "list_doc_versions_with_cost": _doc.get("versions_with_cost"),
         "writer_commit": (ld or {}).get("writer_commit"),
         "written_at": _iso((ld or {}).get("written_at")),
     }
+    snap = await measured_counts(store)
+    body["counts"] = ({k: snap.get(k) for k in ("versions_read", "versions_searched", "versions_not_searched",
+                                                  "versions_quoted", "versions_with_cost", "computed_at",
+                                                  "computed_at_basis")}
+                      if snap else None)
     held = cache.get("doc")
     body["web_started_at"] = _iso(STARTED)
     body["web_503_no_list"] = dict(last_unavailable)
