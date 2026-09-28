@@ -88,7 +88,24 @@ def _underlying_result(u: Universe, ticker: str, match: str, matched: list[dict]
     return res
 
 
-def search(u: Universe, q: str, limit: int = DEFAULT_LIMIT) -> dict:
+def _all_versions(u: Universe, results: list[dict]) -> None:
+    """Every listed version of each result's underlying, for a picker that
+    goes from a ticker to one token (the issuer controls page). Asked for
+    with versions=all; off by default, so the header search stays small."""
+    order = {c["name"]: n for n, c in enumerate(CHAINS.values())}
+    for r in results:
+        vs = [_version(u, i) for i in u.ticker_indices().get(r["underlying"], [])]
+        r["all_versions"] = sorted(vs, key=lambda v: (order.get(v["chain"], 99), v["issuer"], v["symbol"] or "", v["key"]))
+
+
+def search(u: Universe, q: str, limit: int = DEFAULT_LIMIT, versions: str | None = None) -> dict:
+    out = _search(u, q, limit)
+    if versions == "all":
+        _all_versions(u, out.get("results") or [])
+    return out
+
+
+def _search(u: Universe, q: str, limit: int = DEFAULT_LIMIT) -> dict:
     q = (q or "").strip()
     limit = max(1, min(int(limit or DEFAULT_LIMIT), MAX_LIMIT))
     base = {"q": q, "coverage": COVERAGE, "computed_at": u.source.get("generated_at")}

@@ -83,12 +83,15 @@ def build_router() -> APIRouter:
 
     @router.get("/api/te/search")
     async def te_search_route(q: str = Query("", max_length=te_search.MAX_Q * 2),
-                              limit: int = Query(te_search.DEFAULT_LIMIT, ge=1, le=te_search.MAX_LIMIT)):
+                              limit: int = Query(te_search.DEFAULT_LIMIT, ge=1, le=te_search.MAX_LIMIT),
+                              versions: str | None = Query(None)):
+        if versions not in (None, "all"):
+            return JSONResponse(status_code=400, content={"error": "bad_request", "reason": "versions must be all, or left out"})
         try:
             u = await _universe()
         except Exception as e:  # noqa: BLE001
             return _unavailable(e)
-        return _ok(await asyncio.to_thread(te_search.search, u, q, limit))
+        return _ok(await asyncio.to_thread(te_search.search, u, q, limit, versions))
 
     @router.get("/api/te/controls")
     async def te_controls_route(by: str = Query("issuer"), issuer: str | None = None,

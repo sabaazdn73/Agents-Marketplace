@@ -12,8 +12,11 @@
 //
 // The address carries the view, so a stock page, a shared link or Back can
 // open it as it was:
-//   ?token=<chainId>/<address> or solana/<mint>   that token's card on top,
-//                                                 its programme's row marked
+//   ?token=<chainId>/<address> or solana/<mint>   that token's card under
+//                                                 the picker, its programme's
+//                                                 row marked. The picker
+//                                                 (controls/TokenPicker.jsx)
+//                                                 sets it.
 //   ?issuer=<slug>&chain=<slug>&q=<text>          the filter
 //
 // One component for both apps. `layout` chooses a table (web) or one card
@@ -27,6 +30,7 @@ import { Card, CardTitle, DevTag } from '../ui/primitives';
 import { PageFrame } from './PageFrame';
 import { Cell, WhoMayHold } from '../controls/Cell';
 import TokenControls from '../controls/TokenControls';
+import TokenPicker from '../controls/TokenPicker';
 import { POWER_ICONS } from '../controls/ControlsSummary';
 import { POWERS, coverage, dayText, filterOptions, rowMatches, rowAnchor, rowForToken } from '../controls/model';
 
@@ -256,6 +260,13 @@ export default function IssuerControls({ layout = 'web', onNavigate }) {
     requestAnimationFrame(() => document.getElementById('your-token')?.scrollIntoView({ block: 'start' }));
   }, [params.token, tok.data]);
 
+  const pickToken = (key) => {
+    scrolled.current = false;
+    const p = { ...params, token: key, badToken: '' };
+    setParams(p);
+    writeParams({ token: key, ...f });
+  };
+
   const clearToken = () => {
     scrolled.current = false;
     const p = { ...params, token: '', badToken: '' };
@@ -269,7 +280,7 @@ export default function IssuerControls({ layout = 'web', onNavigate }) {
 
   return (
     <PageFrame layout={layout} title="Issuer controls" sub={sub} right={<DevTag data={all.data} />}>
-      <Intro mobile={mobile} />
+      <TokenPicker onPick={pickToken} current={params.token || null} mobile={mobile} />
 
       {params.badToken && (
         <Card><p className="text-[13px] text-muted">The link names a token as &quot;{params.badToken}&quot;, which is not a token key (chain id and address, or solana and the mint).</p></Card>
@@ -284,6 +295,8 @@ export default function IssuerControls({ layout = 'web', onNavigate }) {
           <button type="button" onClick={clearToken} className="text-[12px] text-muted underline underline-offset-2 hover:text-fg">Show every programme without this token</button>
         </div>
       )}
+
+      <Intro mobile={mobile} />
 
       {all.error && !rows.length && <ReadError error={all.error} body={all.errorBody} what="the issuer controls" />}
 

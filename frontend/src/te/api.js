@@ -49,7 +49,9 @@
 //       rows_not_ranked: { count, underlyings, reason },
 //       underlyings_without_type, lifi_fee_included, method, coverage,
 //       best_rule }
-//   GET /api/te/search?q=   (T2)
+//   GET /api/te/search?q=[&versions=all]   (T2; versions=all adds
+//     all_versions to each result: every listed version of its underlying,
+//     same fields as matched_versions; the issuer controls picker asks for it)
 //     { q, computed_at, total_matches?, reason? (e.g. "empty query"),
 //       coverage: { instruments, vaults: string|null, vaults_reason? },
 //       results: [{ kind: 'instrument', underlying, symbol, name, type,
