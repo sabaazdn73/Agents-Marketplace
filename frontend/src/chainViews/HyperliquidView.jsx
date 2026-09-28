@@ -41,8 +41,16 @@ import {
   AlertTriangle, Brain, ChevronDown, Database, ExternalLink, Info, Radio, Wifi, WifiOff,
 } from 'lucide-react';
 import { CHROME_EXTENSION_URL, CHROME_EXTENSION_NAME } from '../extensionLink';
+import { HEADERS_TIMEOUT_KEY } from '../apiRetry';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+// The overview is built per request and takes 12 to 13 s to its first byte
+// live (2026-09-28; about 18 s cold), past apiRetry.js's 8 s default, so the
+// tab showed "unavailable" while the data was there. The on-chain read takes
+// 5 to 8 s. Both get a longer wait for the headers.
+const OVERVIEW_HEADERS_MS = 30000;
+const CORE_HEADERS_MS = 15000;
 
 // This is the switch for what the Brain section says. The three cases were
 // written before the test ran so that a negative result had somewhere to land,
@@ -1278,7 +1286,7 @@ export default function HyperliquidView({ mutedBorder }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_BASE_URL}/api/hyperliquid/overview`)
+    fetch(`${API_BASE_URL}/api/hyperliquid/overview`, { [HEADERS_TIMEOUT_KEY]: OVERVIEW_HEADERS_MS })
       .then((r) => {
         if (!r.ok) throw new Error(`Backend returned ${r.status}`);
         return r.json();
@@ -1286,7 +1294,7 @@ export default function HyperliquidView({ mutedBorder }) {
       .then((d) => { if (!cancelled) { setData(d); setLoading(false); } })
       .catch((e) => { if (!cancelled) { setError(e.message); setLoading(false); } });
 
-    fetch(`${API_BASE_URL}/api/hyperliquid/core`)
+    fetch(`${API_BASE_URL}/api/hyperliquid/core`, { [HEADERS_TIMEOUT_KEY]: CORE_HEADERS_MS })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((d) => { if (!cancelled) { setCore(d); setCoreState('ready'); } })
       .catch(() => { if (!cancelled) setCoreState('failed'); });
