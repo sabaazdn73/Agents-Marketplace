@@ -16,7 +16,7 @@
 
 import ReadError from '../te/ReadError';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Crown, ExternalLink } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import { useTe, hasRows } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
 import { BUY_LIVE } from '../trade/buyLive';
@@ -31,6 +31,8 @@ import { updatePageMeta } from '../seoMeta';
 import { isBuyChain, addressUrl, parseKey } from '../trade/chains';
 import { referencePrice } from '../trade/lifi';
 import TradePanel from '../trade/TradePanel';
+import TokenControls from '../controls/TokenControls';
+import { tokenLink } from '../controls/model';
 
 // The engine's 11 sizes (SPEC B.3). The curve's own stops win when it
 // answers; these are the same numbers.
@@ -221,68 +223,7 @@ function Footnote({ data, size }) {
   );
 }
 
-const CONTROL_ROWS = [
-  ['pause', 'Pause'], ['freeze', 'Freeze or denylist'], ['burn', 'Burn or seize'],
-  ['upgrade', 'Upgrade'], ['mint', 'Mint'], ['allowlist', 'Allowlist'],
-];
-
-function Evidence({ e, chainId }) {
-  if (!e) return null;
-  const at = e.block_or_slot != null ? `${e.unit || 'block'} ${Number(e.block_or_slot).toLocaleString('en-US')}` : e.unit === 'source' ? 'verified source' : null;
-  const addr = /^0x[0-9a-fA-F]{40}$/.test(e.address || '') ? e.address : null;
-  return (
-    <li className="break-words">
-      {addr ? <a href={addressUrl(chainId, addr)} target="_blank" rel="noopener noreferrer" className="font-mono underline underline-offset-2 hover:text-fg">{addr}</a> : <span>{e.address}</span>}
-      {at ? `, ${at}` : ''}{e.method ? `: ${e.method}` : ''}
-      {e.url && <> (<a href={e.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-fg">document<ExternalLink size={10} aria-hidden="true" className="inline ml-0.5" /></a>)</>}
-    </li>
-  );
-}
-
-function ControlsCard({ state, v }) {
-  const d = state.data;
-  if (!d || !d.controls) {
-    if (d?.reason) return <Card><CardTitle>Issuer controls</CardTitle><p className="text-[13px] text-muted">{sentence(d.reason)}.</p></Card>;
-    return null;
-  }
-  const chainId = parseKey(v.key)?.chainId;
-  const rows = CONTROL_ROWS.filter(([k]) => d.controls[k]);
-  return (
-    <Card>
-      <CardTitle right={<DevTag data={d} />}>Issuer controls on {v.symbol}, {v.chain}</CardTitle>
-      <ul className="divide-y divide-line">
-        {rows.map(([k, label]) => {
-          const c = d.controls[k];
-          const evidence = [c.evidence, c.holder?.evidence].filter(Boolean);
-          return (
-            <li key={k} className="py-2.5 text-[13px]">
-              <div className="grid grid-cols-[120px_1fr] gap-x-3">
-                <span className="text-muted">{label}</span>
-                <div className="min-w-0">
-                  <div className="text-fg break-words">{c.text || c.state || 'not established'}</div>
-                  {c.detail && <div className="mt-0.5 text-[12px] text-muted break-words">{sentence(c.detail)}</div>}
-                  {c.upgrade_path?.text && <div className="mt-0.5 text-[12px] text-muted break-words">Upgrade path: {c.upgrade_path.text}</div>}
-                  {c.capability_note && <div className="mt-0.5 text-[12px] text-muted">{sentence(c.capability_note)}</div>}
-                  {evidence.length > 0 && (
-                    <details className="mt-1 text-[12px] text-muted">
-                      <summary className="cursor-pointer hover:text-fg">Evidence</summary>
-                      <ul className="mt-1 space-y-1">{evidence.map((e, i) => <Evidence key={i} e={e} chainId={chainId} />)}</ul>
-                    </details>
-                  )}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="mt-3 pt-3 border-t border-line text-[11px] text-muted">
-        Read on chain at the block named in each piece of evidence{d.computed_at ? `; assembled ${d.computed_at.slice(0, 10)}` : ''}. &quot;Single key (inferred)&quot; means the holder has no code; no code does not prove it is one person.
-      </p>
-    </Card>
-  );
-}
-
-function SelectedVersion({ v, data, size, compact }) {
+function SelectedVersion({ v, data, size, compact, onNavigate }) {
   const controls = useTe(DATA_LIVE && v ? `/api/te/controls?by=key&key=${encodeURIComponent(v.key)}` : null);
   if (!v) return null;
   const elig = v.eligibility || controls.data?.controls?.who_may_hold;
@@ -303,7 +244,10 @@ function SelectedVersion({ v, data, size, compact }) {
           <p className="mt-2 text-[11px] text-muted">The issuer&apos;s own words, linked and dated. Shown, not enforced: Tnega does not check who you are.</p>
         </Card>
       )}
-      <ControlsCard state={controls} v={v} />
+      {/* The same card /issuer-controls shows for ?token=, with the link to
+          that token's row among every issuer's. */}
+      <TokenControls data={controls.data} onNavigate={onNavigate}
+        link={{ href: tokenLink(v.key), label: 'Compare with every issuer' }} />
     </div>
   );
 }
@@ -372,7 +316,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
         )}
         {curve && <CostCurveCard data={curve} size={size} onSize={setSize} />}
         <div id="selected-version" className="scroll-mt-20">
-          {current && !u.stale && <SelectedVersion key={current.key} v={current} data={data} size={size} compact={mobile} />}
+          {current && !u.stale && <SelectedVersion key={current.key} v={current} data={data} size={size} compact={mobile} onNavigate={onNavigate} />}
         </div>
       </div>
     </div>

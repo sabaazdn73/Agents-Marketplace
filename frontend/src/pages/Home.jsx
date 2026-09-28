@@ -5,7 +5,8 @@
 //   proof line, hero, product shot (the popular list, framed),
 //   feature sections, alternating text and card: one stock many tokens (02),
 //     every chain (03), the real cost (04), the buy (06), My ETFs (07),
-//     vaults (08), issuer controls (09), use with AI (13),
+//     vaults (08), issuer controls (09, a summary; the table is on
+//     /issuer-controls), use with AI (13),
 //   the live lists: tokenized ETFs, curated ETFs, vaults.
 // The footer is the shell's. No reviews (there are no users yet) and nothing
 // about agents above the footer.
@@ -25,12 +26,13 @@ import { useTe, VAULT_LIST_HEADERS_MS } from '../te/api';
 import { Eyebrow, PrimaryButton, SecondaryButton, DevTag } from '../ui/primitives';
 import {
   VersionsCard, pricedCount, ChainsCard, CostCurveCard, BuyStepsCard, BasketCard,
-  VaultChecksCard, ControlsCard, AiCard, InstrumentList, VaultTable,
+  VaultChecksCard, AiCard, InstrumentList, VaultTable,
 } from '../home/cards';
 import { SECTION_LIVE, TOUR_VIDEO_URL, TOUR_POSTER_URL, FEATURE_TICKER } from '../home/sections';
 import { isLive } from '../shell/productNav';
 import { DATA_LIVE } from '../dataLive';
 import TourModal from '../home/TourModal';
+import ControlsSummary from '../controls/ControlsSummary';
 import { platformKeyOf } from '../vaults/model';
 
 // Film still 01's stocks, and vaults; each chip opens that stock's page (SPEC
@@ -215,8 +217,13 @@ export default function Home({ layout = 'web', onNavigate }) {
         <Feature layout={layout} icon={Lock} label="Issuer controls"
           title="Who can freeze your stock? Now you know."
           text="Pause, freeze, burn, upgrade and who may hold it, for every token we list."
-          cta={cta('stocks', 'Check a token', '/stocks')}
-          card={controls?.rows?.length ? <ControlsCard data={controls} compact={mobile} /> : null} />
+          cta={isLive('issuer-controls') ? (
+            <PrimaryButton as="a" href="/issuer-controls" onClick={(e) => {
+              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+              e.preventDefault(); go('/issuer-controls');
+            }}>Check a token</PrimaryButton>
+          ) : null}
+          card={controls?.rows?.length ? <ControlsSummary data={controls} onOpen={isLive('issuer-controls') ? go : undefined} /> : null} />
 
         {SECTION_LIVE.ai && (
           <Feature layout={layout} icon={Terminal} label="Use with AI" flip

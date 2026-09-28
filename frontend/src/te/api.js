@@ -83,10 +83,24 @@
 //                  block, computed_at }],
 //       chains_without_pool: [{ chain, chain_id, group, symbols, states,
 //                               state, reasons }] }
-//   GET /api/te/controls?by=issuer
-//     { computed_at, rows: [{ programme, issuer, chains: [string],
-//         pause, freeze, burn, upgrade: { text, state? },
-//         who_may_hold: { text, url, read_on } }] }
+//   GET /api/te/controls?by=issuer    (home summary, /issuer-controls)
+//     { computed_at, scope, source: { class, reads, ... },
+//       rows: [{ programme, issuer, issuer_slug, family, chains: [string],
+//         chain_slugs: [string], tokens,
+//         pause, freeze, burn, upgrade, mint, allowlist: CELL,
+//         who_may_hold: { text, url, read_on, also?: [url] } }] }
+//     CELL = { tokens, capability, state, text, holder?: { text, address?,
+//       kind?, threshold?, owners?, time_lock_s?, min_delay_s?, multisig?,
+//       owner?: holder, roles?: { NAME: { count, members: [{ address,
+//       kind, text }] } }, evidence? }, variants?: [{ text, state, tokens,
+//       chains, holder }], detail?, capability_note?, upgrade_path?: {
+//       delay_s, text }, simulation?, pattern?, beacon?, evidence: [{
+//       chain, address, block_or_slot, block_or_slot_to?, unit, method,
+//       tokens }] }. `text` starts with `state` (or its first words).
+//   GET /api/te/controls?by=key&key=<key>   (stock page, ?token= on
+//     /issuer-controls) { computed_at, key, symbol, issuer, issuer_slug,
+//     chain, chain_slug, controls: { pause, ..., who_may_hold } | null,
+//     reason? }; 404 when no token has the key.
 //   BASKETS (T7, branch te-baskets, c05df08). Every route takes size= (one of the
 //   11 measured stops, default 1000; anything else answers 400 with
 //   allowed_size). An error answers { error, reason, rule? } with 400

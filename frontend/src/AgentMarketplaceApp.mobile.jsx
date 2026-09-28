@@ -65,6 +65,7 @@ import Stocks from './pages/Stocks';
 import Vaults from './pages/Vaults';
 import MyEtfs from './pages/MyEtfs';
 import UseWithAi from './pages/UseWithAi';
+import IssuerControls from './pages/IssuerControls';
 import { useTheme } from './theme/ThemeProvider';
 import { ChainCardBadge } from './chainViews/chainMarks';
 import { resetChainChoice } from './chainViews/ChainViewTabs';
@@ -864,6 +865,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'vaults' && isLive('vaults') && <Vaults layout="mobile" path={path} onNavigate={onNavigate} />}
             {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="mobile" path={path} onNavigate={onNavigate} />}
             {nav === 'ai' && <UseWithAi layout="mobile" />}
+            {nav === 'issuer-controls' && isLive('issuer-controls') && <IssuerControls layout="mobile" onNavigate={onNavigate} />}
           </>
         ) : (
           <div className="p-5">

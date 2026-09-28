@@ -7,7 +7,7 @@
 // measure. Both apps render these; `compact` tightens them for a phone.
 
 import React, { useMemo, useState } from 'react';
-import { Check, Copy, Pause, Snowflake, Flame, ArrowUpCircle, Globe, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, Copy, Crown, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   Card, CardTitle, DevTag, GroupChip, SymbolTile, Sparkline, Pills,
   fmtUsd, fmtUsd0, fmtBps, fmtPct, BigMoney,
@@ -342,37 +342,8 @@ export function Eligibility({ e }) {
   );
 }
 
-/* 09 · Issuer controls. GET /api/te/controls?by=issuer */
-export function ControlsCard({ data, compact = false }) {
-  if (!data || !hasRows(data.rows)) return null;
-  const COLS = [['pause', 'Pause', Pause], ['freeze', 'Freeze', Snowflake], ['burn', 'Burn or seize', Flame], ['upgrade', 'Upgrade', ArrowUpCircle]];
-  const rows = compact ? data.rows.slice(0, 3) : data.rows;
-  return (
-    <Card className="overflow-x-auto">
-      <CardTitle right={<DevTag data={data} />}>Who holds each power</CardTitle>
-      <table className="w-full text-[12px] min-w-[520px]">
-        <thead>
-          <tr className="text-muted text-left">
-            <th className="font-medium pb-2 pr-3">Issuer</th>
-            {COLS.map(([k, label, Icon]) => (
-              <th key={k} className="font-medium pb-2 pr-3"><span className="inline-flex items-center gap-1"><Icon size={12} aria-hidden="true" />{label}</span></th>
-            ))}
-            <th className="font-medium pb-2"><span className="inline-flex items-center gap-1"><Globe size={12} aria-hidden="true" />Who may hold</span></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {rows.map((r) => (
-            <tr key={r.programme}>
-              <td className="py-2 pr-3 text-fg font-semibold">{r.issuer}<div className="font-normal text-muted">{(r.chains || []).join(', ')}</div></td>
-              {COLS.map(([k]) => <td key={k} className="py-2 pr-3 text-fg">{r[k]?.text || <span className="text-muted">not established</span>}</td>)}
-              <td className="py-2 text-fg"><Eligibility e={r.who_may_hold} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
+/* 09 · Issuer controls: the home's summary is controls/ControlsSummary.jsx,
+ * and the full table is the page /issuer-controls (pages/IssuerControls.jsx). */
 
 /* 13 · Use with AI. The MCP endpoint and the install, which are real today. */
 const MCP_URL = 'https://agents-marketplace-q3k4.onrender.com/mcp';
