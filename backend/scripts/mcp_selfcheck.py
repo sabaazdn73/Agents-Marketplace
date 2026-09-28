@@ -37,6 +37,7 @@ import asyncio
 import datetime as dt
 import decimal
 import json
+import os
 import re
 import sys
 import uuid
@@ -58,6 +59,7 @@ from mcp_server import envelope, protocol, registry, tools  # noqa: E402
 from mcp_server.router import Providers        # noqa: E402
 
 FAILURES: list[str] = []
+SKIPPED: list[str] = []
 
 # One event loop for the whole run.
 #
@@ -1416,18 +1418,33 @@ def check_live_datasets() -> None:
              "params": {"name": tool, "arguments": args}}, datasets)
         return json.loads(reply["result"]["content"][0]["text"])
 
+    # A DATASET THAT FAILS IS A FAILURE. This used to print "ok ... skipped,
+    # tool_failed", which read as a pass, and on gate5's run it hid the vault
+    # dataset failing on its Mongo store. A store that is deliberately absent
+    # on this machine is named in MCP_SELFCHECK_SKIP (comma separated dataset
+    # ids); those are printed as SKIP, listed at the end, and never as ok.
+    skip = {x.strip() for x in os.environ.get("MCP_SELFCHECK_SKIP", "").split(",") if x.strip()}
     for ds_id, d in sorted(datasets.items()):
         args = dict(d.example_filters or {})
+        if ds_id in skip:
+            print(f"  SKIP  {ds_id}  named in MCP_SELFCHECK_SKIP")
+            SKIPPED.append(ds_id)
+            continue
         if d.list is not None:
             try:
                 out = run(call("tnega_list", {"dataset": ds_id, "limit": 5, **args}))
             except Exception as e:  # noqa: BLE001
-                check(True, f"{ds_id} list unreachable here", f"skipped, {type(e).__name__}")
+                check(False, f"{ds_id} list raised", type(e).__name__)
                 continue
             rows = out.get("value") or []
-            if not rows:
+            if out.get("withheld_reason") == "tool_failed":
+                check(False, f"{ds_id} list failed", "tool_failed")
+            elif not rows:
+                # An empty store answers no_matches: a true answer about this
+                # store, printed as EMPTY, neither a pass nor a failure. The
+                # row checks below it did not run.
                 why = out.get("withheld_reason") or "empty"
-                check(True, f"{ds_id} list returned no rows", f"skipped, {why}")
+                print(f"  EMPTY {ds_id} list returned no rows here ({why}); its row checks did not run")
             else:
                 widest = max(len(json.dumps(r, separators=(",", ":")).encode())
                              for r in rows)
@@ -1438,8 +1455,10 @@ def check_live_datasets() -> None:
             try:
                 out = run(call("tnega_summary", {"dataset": ds_id, **args}))
             except Exception as e:  # noqa: BLE001
-                check(True, f"{ds_id} summary unreachable here", f"skipped, {type(e).__name__}")
+                check(False, f"{ds_id} summary raised", type(e).__name__)
                 continue
+            check(out.get("withheld_reason") != "tool_failed", f"{ds_id} summary did not fail",
+                  str(out.get("withheld_reason") or ""))
             check(out.get("withheld_reason") != "response_too_large",
                   f"{ds_id} summary fits its ceiling without trimming")
             check(not isinstance(out.get("value"), list),
@@ -1477,10 +1496,12 @@ def main() -> int:
     check_live_datasets()
 
     print()
+    if SKIPPED:
+        print(f"not checked here, by request: {', '.join(SKIPPED)}")
     if FAILURES:
         print(f"{len(FAILURES)} failed: {'; '.join(FAILURES)}")
         return 1
-    print("all checks passed")
+    print("all checks passed" + (f", {len(SKIPPED)} dataset(s) not checked" if SKIPPED else ""))
     return 0
 
 
