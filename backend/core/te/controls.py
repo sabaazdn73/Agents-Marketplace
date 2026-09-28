@@ -73,13 +73,13 @@ def _aggregate(u: Universe, idx: list[int], ckey: str) -> dict:
                 "capability_note": "no controls read for these tokens"}
 
     ev_list = []
-    for e in sorted(evidence.values(), key=lambda e: -e["tokens"]):
+    for e in sorted(evidence.values(), key=lambda e: (-e["tokens"], e["chain"], str(e["address"]))):
         if e["address"] == "@token":
             e["address"] = f"each token ({_fmt_int(e['tokens'])})"
         if e["block_or_slot_to"] == e["block_or_slot"]:
             e.pop("block_or_slot_to")
         ev_list.append(e)
-    variants = sorted(by_text.values(), key=lambda v: -v["tokens"])
+    variants = [v for _, v in sorted(by_text.items(), key=lambda kv: (-kv[1]["tokens"], str(kv[0])))]
     for v in variants:
         v["cell"] = _merge(list(v["cells"].values()))
     total = sum(v["tokens"] for v in variants)
@@ -159,7 +159,12 @@ def _merge(cells: list[dict]) -> dict:
 
 
 def _row(u: Universe, idx: list[int], programme: str, issuer: str, family: str) -> dict:
-    chains = sorted({u.row(i)["chain"] for i in idx}, key=lambda c: -sum(1 for i in idx if u.row(i)["chain"] == c))
+    # Most tokens first; a tie by the chain's name. The tie used to fall to
+    # the iteration order of a set of strings, which Python randomises per
+    # process, so two processes listed the same programme's chains in
+    # different orders.
+    chains = sorted({u.row(i)["chain"] for i in idx},
+                    key=lambda c: (-sum(1 for i in idx if u.row(i)["chain"] == c), CHAINS[c]["name"]))
     row = {
         "programme": programme,
         "issuer": ISSUER_NAMES.get(issuer, issuer),
