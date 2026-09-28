@@ -192,30 +192,40 @@ def build_list_doc(docs: list[dict], inputs: dict, discovery: dict | None = None
             "inputs": inputs.get("source")}
 
 
-# NOT MEASURED: a version whose pool search did not finish (not_searched) or
-# whose quote was held back (held: its share ratio is held after a change) has
-# no measurement of any kind. Every other state is one: a quote (measured), a
-# pool too thin or not a venue (its depth or fee was measured), or no pool
-# after every pool family was searched.
-NOT_MEASURED_STATES = ("not_searched", "held")
+# THE COUNTS, AND WHAT EACH WORD MEANS. One vocabulary, used by
+# /api/te/summary, /api/te/status and the MCP datasets.
+#   read          every version the cost engine read (its inputs)
+#   searched      the pool search finished for it: every state except
+#                 not_searched. A finished search that found no pool
+#                 (no_pool) is searched; so is a pool found too thin or not
+#                 a venue, and a quote held back (held).
+#   not_searched  the pool search did not finish
+#   quoted        a quote was run on a pool that passed the venue checks
+#                 (stored state "measured"; renamed here, since a no_pool
+#                 answer is a measurement of absence and not a quote)
+#   with_cost     quoted, and the best passing pool fills a $1,000 buy
+STATE_NAMES = {"measured": "quoted"}
 COUNTS_DEFINITION = (
-    "versions_read: versions the cost engine read; versions_measured: those with a measurement of any kind, "
-    "which is every state except not_searched (the pool search did not finish) and held (the quote was held "
-    "back); versions_with_cost: versions whose best passing pool fills a $1,000 buy at the refresh block (all "
-    "venue checks passed). Only EVM versions are read: Solana versions are listed but not measured yet.")
+    "versions_read: versions the cost engine read. versions_searched: those whose pool search finished (every "
+    "state except not_searched; a search that found no pool, state no_pool, is searched). versions_not_searched: "
+    "those whose pool search did not finish. versions_quoted: a quote was run on a pool that passed the venue "
+    "checks (by_state.quoted). versions_with_cost: quoted, and the best passing pool fills a $1,000 buy at the "
+    "refresh block. Only EVM versions are read: Solana versions are listed but not measured yet.")
 
 
 def _chain_counts(c: dict) -> dict:
-    read = sum((c.get("by_state") or {}).values())
-    unmeasured = sum((c.get("by_state") or {}).get(s, 0) for s in NOT_MEASURED_STATES)
-    return {**{k: v for k, v in c.items() if k not in ("versions_measured", "versions_read")},
-            "versions_read": read, "versions_measured": read - unmeasured}
+    st = {STATE_NAMES.get(k, k): v for k, v in (c.get("by_state") or {}).items()}
+    read = sum(st.values())
+    keep = ("chain_name", "chain_id", "versions_with_cost")
+    return {**{k: c[k] for k in keep if k in c}, "by_state": st, "versions_read": read,
+            "versions_searched": read - st.get("not_searched", 0),
+            "versions_not_searched": st.get("not_searched", 0),
+            "versions_quoted": st.get("quoted", 0)}
 
 
 def count_docs(docs: list[dict]) -> dict:
-    """The engine's own count: versions read, measured and with a measured
-    cost (filled at $1,000), by chain, and every version by state. One
-    function, so /api/te/summary and the MCP datasets count alike."""
+    """The engine's own counts, by chain and in total. One function, so
+    /api/te/summary and the MCP datasets count alike."""
     i1k = _i(1000)
     by_chain: dict[str, dict] = {}
     for d in docs:
@@ -228,10 +238,11 @@ def count_docs(docs: list[dict]) -> dict:
 
 
 def _totals(chains: list[dict]) -> dict:
-    return {"versions_with_cost": sum(c["versions_with_cost"] for c in chains),
-            "versions_measured": sum(c["versions_measured"] for c in chains),
-            "versions_read": sum(c["versions_read"] for c in chains),
-            "by_chain": sorted(chains, key=lambda c: -c["versions_with_cost"]),
+    total = lambda k: sum(c[k] for c in chains)  # noqa: E731
+    return {"versions_read": total("versions_read"), "versions_searched": total("versions_searched"),
+            "versions_not_searched": total("versions_not_searched"), "versions_quoted": total("versions_quoted"),
+            "versions_with_cost": total("versions_with_cost"),
+            "by_chain": sorted(chains, key=lambda c: (-c["versions_with_cost"], c["chain_id"])),
             "definition": COUNTS_DEFINITION}
 
 
@@ -257,15 +268,33 @@ async def _list_doc(store) -> dict | None:
     return _list_cache["doc"]
 
 
+# ONE SNAPSHOT of the per-version store, shared by /api/te/summary and the
+# MCP datasets, so both count the same records at the same time. The list
+# document is written after the last chain of a cycle; the per-version
+# records are written chain by chain, so between the two a count taken from
+# each could differ by the versions a chain had just rewritten. Counting the
+# records themselves, once per minute, removes that.
+_snapshot: dict = {"t": -1e9, "docs": None}
+SNAPSHOT_SECONDS = 60
+
+
+async def cost_snapshot(store) -> tuple[list[dict], str | None]:
+    """Every per-version record, and the newest measurement time among them."""
+    if _snapshot["docs"] is None or time.monotonic() - _snapshot["t"] > SNAPSHOT_SECONDS:
+        _snapshot["docs"] = await store.all_costs()
+        _snapshot["t"] = time.monotonic()
+    docs = _snapshot["docs"]
+    return docs, (max((d.get("computed_at") or "" for d in docs), default="") or None)
+
+
 async def measured_counts(store) -> dict | None:
-    """The cost engine's counts for /api/te/summary, or None before the first cycle."""
-    ld = await _list_doc(store)
-    if not ld or not ld.get("counts"):
+    """The cost engine's counts for /api/te/summary, from the shared snapshot,
+    with the time of that snapshot. None before the first cycle."""
+    docs, at = await cost_snapshot(store)
+    if not docs:
         return None
-    # Recounted from by_state, so a list document written before the
-    # definition changed reads the same as one written after it.
-    counts = _totals([_chain_counts(c) for c in ld["counts"].get("by_chain") or []])
-    return {**counts, "computed_at": ld.get("computed_at")}
+    return {**count_docs(docs), "computed_at": at,
+            "computed_at_basis": "the newest measurement among the per-version records counted"}
 
 
 def _elig(ld: dict, issuer_id: str) -> dict | None:

@@ -125,20 +125,13 @@ def build_te(providers=None) -> list[Dataset]:
     async def list_doc():
         return await cv._list_doc(get_store())
 
-    # ONE SNAPSHOT for coverage, list and summary: every per-version document,
-    # read once and kept for 60 seconds (the site's list cache time). The
-    # summary used to count from the list document and the list to read the
-    # per-version store, so the two could be a cycle apart and disagree by a
-    # version. Now both come from the same read, and as_of is the newest
-    # measurement in it: the time of what is actually served.
-    snap = {"t": -1e9, "docs": None}
-
+    # ONE SNAPSHOT for coverage, list and summary, and the same one
+    # /api/te/summary counts (core/te/cost_views.cost_snapshot): every
+    # per-version record, read once a minute. as_of is the newest
+    # measurement in it, the time of what is actually served.
     async def snapshot() -> list[dict]:
-        import time
-        if snap["docs"] is None or time.monotonic() - snap["t"] > 60:
-            snap["docs"] = await get_store().all_costs()
-            snap["t"] = time.monotonic()
-        return snap["docs"]
+        docs, _ = await cv.cost_snapshot(get_store())
+        return docs
 
     def _scope(read: int, listed: int, solana: int) -> str:
         return (f"The list holds only the EVM versions the cost engine reads: {read:,} of {listed:,} listed "
@@ -159,9 +152,11 @@ def build_te(providers=None) -> list[Dataset]:
         return {
             "instruments": s.get("versions_listed"),
             "instruments_read": counts.get("versions_read"),
-            "instruments_measured": counts.get("versions_measured"),
+            "instruments_searched": counts.get("versions_searched"),
+            "instruments_not_searched": counts.get("versions_not_searched"),
+            "instruments_quoted": counts.get("versions_quoted"),
             "instruments_with_a_measured_cost": counts.get("versions_with_cost"),
-            "measured_definition": cv.COUNTS_DEFINITION,
+            "counts_definition": cv.COUNTS_DEFINITION,
             "scope": _scope(counts.get("versions_read") or 0, s.get("versions_listed") or 0, solana),
             "underlyings": s.get("underlyings"),
             "chains": [c["name"] for c in s.get("chain_list") or []],
@@ -387,7 +382,9 @@ def build_te(providers=None) -> list[Dataset]:
             "filters": {"applied": applied},
             "instruments_listed": sum(c["tokens"] for c in listed),
             "instruments_read": counts["versions_read"],
-            "instruments_measured": counts["versions_measured"],
+            "instruments_searched": counts["versions_searched"],
+            "instruments_not_searched": counts["versions_not_searched"],
+            "instruments_quoted": counts["versions_quoted"],
             "instruments_with_a_measured_cost": counts["versions_with_cost"],
             "definition": counts["definition"],
             "by_chain": counts["by_chain"],

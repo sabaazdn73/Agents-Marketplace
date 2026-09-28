@@ -68,6 +68,11 @@ def build_router() -> APIRouter:
         except Exception as e:  # noqa: BLE001
             return _unavailable(e)
         body = dict(u.summary())
+        # The universe pass's own count of tokens whose pool discovery did not
+        # run is a different thing from the cost engine's not_searched, so it
+        # keeps its meaning under its own name, and versions_not_searched at
+        # the top is the engine's, the same figure as cost.versions_not_searched.
+        body["universe_pool_discovery_not_run"] = body.pop("versions_not_searched", None)
         # The cost engine's count beside the universe's pool count:
         # versions_with_pool means a pool was found; cost.versions_with_cost
         # means a $1,000 buy was measured on a pool that passed the venue checks.
@@ -76,6 +81,7 @@ def build_router() -> APIRouter:
                 "versions_with_cost": None, "reason": "the cost worker has not written a count yet"}
         except Exception as e:  # noqa: BLE001  the store, not any token
             body["cost"] = {"versions_with_cost": None, "reason": f"cost store unavailable ({type(e).__name__})"}
+        body["versions_not_searched"] = body["cost"].get("versions_not_searched")
         return _ok(body)
 
     @router.get("/api/te/search")

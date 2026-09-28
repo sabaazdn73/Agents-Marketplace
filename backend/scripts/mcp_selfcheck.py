@@ -678,7 +678,8 @@ PRODUCTION_COVERAGE = {
     # The three tokenized-equity datasets, from their coverage on the live
     # data of 2026-09-27 (a fresh cost cycle on public RPCs, the vault store).
     "tokenized_equities": {
-        "instruments": 7279, "instruments_measured": 1395, "instruments_with_a_measured_cost": 125,
+        "instruments": 7279, "instruments_read": 1395, "instruments_searched": 809, "instruments_not_searched": 586,
+        "instruments_quoted": 125, "instruments_with_a_measured_cost": 125,
         "underlyings": 1378, "underlyings_with_a_filled_version": 237,
         "chains": ["BNB Chain", "Ethereum", "Solana", "HyperEVM", "Arbitrum", "Robinhood Chain", "Base"],
         "issuers": ["Coinbase", "Ondo", "Robinhood", "bStocks", "xStocks"], "sizes_quoted_usd": [1000, 10000],
