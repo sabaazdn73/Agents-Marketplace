@@ -85,6 +85,7 @@ shows the snapshot date instead of nothing.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import math
@@ -229,7 +230,15 @@ async def collect_keys() -> dict:
     hyperliquid: set[str] = set()
     try:
         from core.hyperliquid import service
-        for row in service.all_known_addresses():
+        # OFF THE EVENT LOOP. Both reads below are synchronous SQL; the first
+        # (a UNION over hl_poll, every poll ever stored) took about 48 s on
+        # production on 2026-09-28. Run on the loop, that froze the whole web
+        # service, its health check failed and Render restarted it, so after
+        # any restart the first extension that asked for the filter took the
+        # site down again (502 on every route, 14:55 and 15:0x UTC).
+        known = await asyncio.to_thread(service.all_known_addresses)
+        board = await asyncio.to_thread(service.leaderboard_addresses)
+        for row in known:
             hyperliquid.add(f"h:{row.lower()}")
         # EVERY ADDRESS ON THE VENUE'S LEADERBOARD, added 2026-09-19.
         #
@@ -250,7 +259,7 @@ async def collect_keys() -> dict:
         # tell a measured address from a listed one; the server answers with
         # whichever payload is right, and a second prefix would put that
         # decision in two places.
-        for row in service.leaderboard_addresses():
+        for row in board:
             hyperliquid.add(f"h:{row.lower()}")
     except Exception:  # noqa: BLE001
         # The Hyperliquid store being unreachable must not produce a filter
@@ -276,14 +285,30 @@ _cache_built_at: float = 0.0
 _TTL_SECONDS = 24 * 3600
 
 
+# One build at a time. Every extension that finds the filter missing asks at
+# once after a restart, and each request used to start its own build.
+_build_lock: asyncio.Lock | None = None
+
+
 async def current(force: bool = False) -> dict:
     """The filter as served, cached for a day in this process."""
-    global _cache, _cache_built_at
+    global _cache, _cache_built_at, _build_lock
     if _cache is not None and not force and time.time() - _cache_built_at < _TTL_SECONDS:
         return _cache
+    if _build_lock is None:
+        _build_lock = asyncio.Lock()
+    async with _build_lock:
+        # Another request may have finished the build while this one waited.
+        if _cache is not None and not force and time.time() - _cache_built_at < _TTL_SECONDS:
+            return _cache
+        return await _build()
+
+
+async def _build() -> dict:
+    global _cache, _cache_built_at
     spaces = await collect_keys()
     keys = set().union(*spaces.values())
-    blob = build_filter(keys)
+    blob = await asyncio.to_thread(build_filter, keys)
     blob["built_at"] = time.time()
     blob["counts"] = {name: len(s) for name, s in spaces.items()}
     # A version a client can compare without downloading the body. The digest
