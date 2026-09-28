@@ -344,7 +344,32 @@ async def get(datasets: dict, args: dict) -> dict:
         as_of=as_of, withheld_reason=inner, caveats=list(d.caveats))
 
 
+# EVERY ARGUMENT IS EITHER USED OR REFUSED. The server validates nothing
+# against the input schemas (they are documentation to a client), so an
+# argument a schema does not declare, `issuer` or `platform` or a typo,
+# was dropped and the call answered as if it had not been given: a filter
+# the caller believed applied, silently not. These are the arguments each
+# tool reads; anything else is refused by name.
+LIST_ARGS = ("dataset", "key", "limit", "cursor", "chain_id", "category", "search", "verified", "sort")
+SUMMARY_ARGS = ("dataset", "chain_id", "category", "search")
+
+
+def _undeclared(tool: str, args: dict, accepted: tuple) -> dict | None:
+    extra = sorted(k for k in (args or {}) if k not in accepted)
+    if not extra:
+        return None
+    return envelope.withheld(
+        measured=f"what {tool} was asked", coverage={"partial": False},
+        reason="filter_not_supported",
+        explanation=f"{tool} does not accept {', '.join(extra)}. It accepts {', '.join(accepted)}; a dataset "
+                    f"may apply fewer, and says so. Nothing was filtered, so nothing is returned rather than an "
+                    f"answer that ignores the argument.")
+
+
 async def list_(datasets: dict, args: dict) -> dict:
+    refused = _undeclared("tnega_list", args, LIST_ARGS)
+    if refused:
+        return refused
     cursor = args.get("cursor")
     filters: dict = {}
     offset = 0
@@ -445,6 +470,9 @@ async def list_(datasets: dict, args: dict) -> dict:
 
 
 async def summary(datasets: dict, args: dict) -> dict:
+    refused = _undeclared("tnega_summary", args, SUMMARY_ARGS)
+    if refused:
+        return refused
     dataset = str(args.get("dataset") or "")
     d = datasets.get(dataset)
     if d is None or d.summary is None:
