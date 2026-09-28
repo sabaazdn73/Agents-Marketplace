@@ -439,7 +439,7 @@ def build_vaults(providers=None) -> list[Dataset]:
     from core.vaults.store import get_store
 
     async def coverage():
-        body = await service.list_vaults(get_store(), None, 1, 0)
+        body = await service.list_vaults(get_store(fast=True), None, 1, 0)
         if body is None:
             return {"vaults": 0, "partial": True, "note": "no vault read has been stored yet"}
         return {"vaults": body.get("total"),
@@ -466,7 +466,7 @@ def build_vaults(providers=None) -> list[Dataset]:
         if bad:
             return _refused("vaults.stablecoin", bad, VAULT_LIST_FILTERS)
         search = applied.get("search")
-        body = await service.list_vaults(get_store(), None, 1000, 0)
+        body = await service.list_vaults(get_store(fast=True), None, 1000, 0)
         if body is None:
             return {"rows": [], "total": None, "partial": True, "note": "no vault read has been stored yet",
                     "filters": {"applied": applied}}
@@ -492,7 +492,7 @@ def build_vaults(providers=None) -> list[Dataset]:
         parts = str(key).split("/")
         if len(parts) != 2:
             return None
-        d = await service.vault_detail(get_store(), parts[0], parts[1])
+        d = await service.vault_detail(get_store(fast=True), parts[0], parts[1])
         if d is None:
             return None
         row = d.get("row") or {}
@@ -514,7 +514,7 @@ def build_vaults(providers=None) -> list[Dataset]:
             return {"filters": {"not_supported": bad, "supported": []},
                     "note": f"vaults.stablecoin summary applies no filter; {', '.join(bad)} not applied, so no "
                             f"totals are given."}
-        body = await service.list_vaults(get_store(), None, 1000, 0)
+        body = await service.list_vaults(get_store(fast=True), None, 1000, 0)
         if body is None:
             return {"note": "no vault read has been stored yet"}
         vs = body.get("vaults") or []

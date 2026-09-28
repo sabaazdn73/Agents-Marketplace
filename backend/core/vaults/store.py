@@ -161,9 +161,17 @@ class MongoStore:
         return await self.c.find_one({"_id": f"{platform}:{address}"})
 
 
-def get_store():
+# How long a web request waits to reach the vault store before answering 503.
+READ_TIMEOUT_MS = 3000
+
+
+def get_store(fast: bool = False):
+    """The vault store. `fast` is for the web routes: a Mongo store that gives
+    up after READ_TIMEOUT_MS, so an unreachable database answers a quick 503
+    rather than a 500 after the driver's default 30 seconds. The worker keeps
+    the default."""
     path = os.environ.get("VAULTS_STORE_FILE", "").strip()
     if path:
         return FileStore(path)
-    from ..db import get_db
-    return MongoStore(get_db())
+    from ..db import get_db, get_db_fast
+    return MongoStore(get_db_fast(READ_TIMEOUT_MS) if fast else get_db())
