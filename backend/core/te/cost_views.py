@@ -442,7 +442,7 @@ async def curve_view(store, ticker: str) -> tuple[int, dict]:
         chains.append({"chain": nd["chain"], "chain_id": cid, "group": nd["group"], "symbol": named,
                        "issuer": ISSUER_NAMES.get(nd["issuer"], nd["issuer"]), "bps": bps, "pool_usd": pool_usd,
                        "keys": keys, "symbols": syms, "null_reason": why_null,
-                       "version_states": {x: sum(1 for d in ds if d["state"] == x) for x in sorted({d["state"] for d in ds})},
+                       "version_states": {STATE_NAMES.get(x, x): sum(1 for d in ds if d["state"] == x) for x in sorted({d["state"] for d in ds})},
                        "block": nd.get("block"), "computed_at": nd.get("computed_at")})
     return 200, {"ticker": ticker, "stops": SIZES, "computed_at": max((c["computed_at"] or "" for c in chains), default=None),
                  "chains": chains, "chains_without_pool": without, "rule": "per chain and stop, the best version by the rule in best_rule; bps is its cost_bps; null where no ranked version fills", "best_rule": BEST_RULE,

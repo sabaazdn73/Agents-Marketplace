@@ -23,8 +23,9 @@
 //       tokens), versions_with_pool (a pool FOUND, not a cost), issuers,
 //       chains, tokens (= versions; not a count of equities), computed_at,
 //       chain_list: [{ name, group: 'evm'|'nonevm', tokens }],
-//       versions_not_searched (the cost engine's: pool search unfinished),
-//       universe_pool_discovery_not_run,
+//       versions_without_pool, listed_versions_pool_search_not_run (the
+//       universe pass's; every top-level count is out of `tokens` except
+//       records_read, each defined in `definition`),
 //       cost: { versions_read, versions_searched (search finished,
 //               no_pool included), versions_not_searched, versions_quoted,
 //               versions_with_cost (best pool fills a $1,000 buy),
@@ -79,7 +80,8 @@
 //       chains: [{ chain, chain_id, group, symbol, issuer,
 //                  bps: [number|null] (cost_bps of the best ranked
 //                  version), pool_usd: [number|null], keys, symbols,
-//                  null_reason: [string|null], version_states,
+//                  null_reason: [string|null], version_states ({ quoted,
+//                  no_pool, too_thin, ... }: versions per state),
 //                  block, computed_at }],
 //       chains_without_pool: [{ chain, chain_id, group, symbols, states,
 //                               state, reasons }] }

@@ -126,14 +126,22 @@ DEFINITION = {
         "total supply above zero at the read block",
         "the chain is one of the seven chains the site covers",
     ],
+    # Every top-level count of /api/te/summary that this pass makes. All are
+    # out of the counted (listed) versions, `tokens`, except records_read.
+    "tokens": "counted versions (issuer-by-chain tokens) that pass every test in counted_when",
+    "versions_listed": "the same number as tokens, under the name the cost engine's counts use",
     "issuers": "distinct issuers with at least one counted token",
     "chains": "distinct chains with at least one counted token; chain_list sums to tokens",
     "underlyings": "distinct underlying tickers among the counted versions",
-    "versions_with_pool": "counted versions with at least one pool found against a listed quote asset "
-                          "(price-outlier pools not counted); a version without one is measured but has no "
-                          "on-chain venue we read",
+    "versions_with_pool": "counted versions with at least one pool found by the universe pass against a listed "
+                          "quote asset (price-outlier pools not counted)",
+    "versions_without_pool": "counted versions with no such pool found: tokens minus versions_with_pool; no "
+                             "on-chain venue we read",
+    "listed_versions_pool_search_not_run": "counted versions for which the universe pass's own pool search did "
+                                           "not run; a different count from cost.versions_not_searched, which "
+                                           "is the cost engine's and is out of cost.versions_read",
     "records_read": "every record the universe pass read: the verified and unverified token records plus the "
-                    "candidates it excluded",
+                    "candidates it excluded; the only top-level count not out of tokens",
 }
 
 LEFT_OUT_REASONS = {
@@ -474,7 +482,7 @@ class Universe:
             "underlyings": len(self._by_ticker),
             "versions_with_pool": with_pool,
             "versions_without_pool": tokens - with_pool,
-            "versions_not_searched": not_searched,
+            "listed_versions_pool_search_not_run": not_searched,
             "records_read": records_read,
             "issuers": len(per_issuer),
             "chains": len(chain_list),
