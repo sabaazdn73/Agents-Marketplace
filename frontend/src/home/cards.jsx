@@ -465,7 +465,7 @@ function CountsLine({ data, group, universe }) {
       <p>
         These counts cover only the {many} with at least one EVM version our cost engine reads, with or without a pool
         {rest != null && rest >= 0
-          ? <>: {measured.toLocaleString('en-US')} of the {universe.toLocaleString('en-US')} stocks and ETFs Tnega lists across all chains. The other {rest.toLocaleString('en-US')} ({universe.toLocaleString('en-US')} minus {measured.toLocaleString('en-US')}, worked out on this page from the served counts) are {other ? `${other}, or ` : ''}{many} with no EVM version the engine reads.</>
+          ? <>: {measured.toLocaleString('en-US')} of the {universe.toLocaleString('en-US')} stocks and ETFs Tnega lists across all chains. The other {rest.toLocaleString('en-US')} ({universe.toLocaleString('en-US')} minus {measured.toLocaleString('en-US')}, worked out on this page from the served counts) are {other ? `the ${other} (counted in their own list) and ` : ''}the stocks and ETFs with no EVM version the engine reads.</>
           : '.'}
       </p>
     </div>

@@ -32,7 +32,7 @@ import React, { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Card, DevTag, Sparkline, fmtUsd0 } from '../ui/primitives';
 import { SourceChip, shortAddr } from '../ui/detail';
-import { platformKeyOf, staleOf, tvlSourceLabel, tvlTime, checkMark, tvlTotal } from './model';
+import { platformKeyOf, staleOf, staleRuleWords, tvlSourceLabel, tvlTime, checkMark, tvlTotal } from './model';
 
 export { tvlSourceLabel, checkMark };
 
@@ -46,7 +46,7 @@ export function TvlNote({ v, align = 'right' }) {
     <div className={`mt-0.5 flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : ''}`} title={v.tvl_basis}>
       <SourceChip title={v.tvl_basis}>{tvlSourceLabel(v.tvl_source)}</SourceChip>
       {v.token_kind === 'synthetic dollar' && <SourceChip title={v.tvl_basis}>synthetic dollar</SourceChip>}
-      {tvlTime(v) && <SourceChip title={`${v.tvl_basis}${v.tvl_stale_rule ? ` (${v.tvl_stale_rule})` : ''}`}>{tvlTime(v).label} {tvlTime(v).at.slice(0, 10)}</SourceChip>}
+      {tvlTime(v) && <SourceChip title={`${v.tvl_basis}${staleRuleWords(v) ? ` (${staleRuleWords(v)})` : ''}`}>{tvlTime(v).label} {tvlTime(v).at.slice(0, 10)}</SourceChip>}
       {st && <span className="inline-flex items-center h-5 px-1.5 rounded border border-warn/60 text-warn text-[10px] font-semibold uppercase tracking-wide" title={st}>stale</span>}
       <span className="sr-only">{v.tvl_basis}</span>
     </div>
