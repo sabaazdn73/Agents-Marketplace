@@ -60,6 +60,25 @@ _TICKER = re.compile(r"^[A-Z0-9.\-]{1,12}$")
 LIST_FILTERS = ("key", "chain_id", "category", "search", "verified", "sort")
 
 
+# The cost counts under the names this server serves (instruments_*), which
+# are the REST summary's versions_* counts renamed; one definition each.
+MCP_COUNTS_DEFINITION = (
+    "instruments_read: tokenized versions the cost engine read. instruments_searched: those whose pool search "
+    "finished (every state except not_searched; a search that found no pool, state no_pool, is searched). "
+    "instruments_not_searched: those whose pool search did not finish. instruments_quoted: a quote was run on a "
+    "pool that passed the venue checks (by_state.quoted). instruments_with_a_measured_cost: quoted, and the best "
+    "passing pool fills a $1,000 buy at the refresh block. by_chain[] gives the same counts per chain under the "
+    "same names. Only EVM versions are read: Solana versions are listed but not measured yet.")
+
+_MCP_NAMES = {"versions_read": "instruments_read", "versions_searched": "instruments_searched",
+              "versions_not_searched": "instruments_not_searched", "versions_quoted": "instruments_quoted",
+              "versions_with_cost": "instruments_with_a_measured_cost"}
+
+
+def _mcp_chain(c: dict) -> dict:
+    return {_MCP_NAMES.get(k, k): v for k, v in c.items()}
+
+
 def _filters(given: dict, supported: tuple) -> tuple[dict, list[str]]:
     """(the filters applied, the ones given that this dataset cannot apply)."""
     given = {k: v for k, v in given.items() if k in LIST_FILTERS and v not in (None, "")}
@@ -156,7 +175,7 @@ def build_te(providers=None) -> list[Dataset]:
             "instruments_not_searched": counts.get("versions_not_searched"),
             "instruments_quoted": counts.get("versions_quoted"),
             "instruments_with_a_measured_cost": counts.get("versions_with_cost"),
-            "counts_definition": cv.COUNTS_DEFINITION,
+            "counts_definition": MCP_COUNTS_DEFINITION,
             "scope": _scope(counts.get("versions_read") or 0, s.get("versions_listed") or 0, solana),
             "underlyings": s.get("underlyings"),
             "chains": [c["name"] for c in s.get("chain_list") or []],
@@ -386,8 +405,8 @@ def build_te(providers=None) -> list[Dataset]:
             "instruments_not_searched": counts["versions_not_searched"],
             "instruments_quoted": counts["versions_quoted"],
             "instruments_with_a_measured_cost": counts["versions_with_cost"],
-            "definition": counts["definition"],
-            "by_chain": counts["by_chain"],
+            "definition": MCP_COUNTS_DEFINITION,
+            "by_chain": [_mcp_chain(c) for c in counts["by_chain"]],
             "tokens_by_chain": [{"chain": c["name"], "chain_id": c.get("chain_id"), "tokens": c["tokens"]} for c in listed],
             "measured_at": max((d.get("computed_at") or "" for d in docs), default="") or None,
             "source": COST_SOURCE,
