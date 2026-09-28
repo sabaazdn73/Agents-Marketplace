@@ -28,7 +28,7 @@ import { useTe } from '../te/api';
 import ReadError from '../te/ReadError';
 import { Card, CardTitle, DevTag } from '../ui/primitives';
 import { PageFrame } from './PageFrame';
-import { Cell, WhoMayHold } from '../controls/Cell';
+import { Cell, WhoMayHold, AddressPool, addressesIn } from '../controls/Cell';
 import TokenControls from '../controls/TokenControls';
 import TokenPicker from '../controls/TokenPicker';
 import { POWER_ICONS } from '../controls/ControlsSummary';
@@ -175,7 +175,8 @@ function ControlsTable({ rows, marked }) {
           {rows.map((r) => {
             const on = marked === rowAnchor(r);
             return (
-              <tr key={rowAnchor(r)} id={rowAnchor(r)} className={`align-top scroll-mt-24 ${on ? 'bg-inset' : ''}`}>
+              <AddressPool.Provider key={rowAnchor(r)} value={[...addressesIn(r)]}>
+              <tr id={rowAnchor(r)} className={`align-top scroll-mt-24 ${on ? 'bg-inset' : ''}`}>
                 <th scope="row" className={`px-4 py-3 font-normal ${on ? 'border-l-2 border-accent' : ''}`}>
                   <ProgrammeHead r={r} />
                   {on && <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-fg">Your token&apos;s programme</div>}
@@ -185,6 +186,7 @@ function ControlsTable({ rows, marked }) {
                 ))}
                 <td className="px-3 py-3"><WhoMayHold e={r.who_may_hold} clamp /></td>
               </tr>
+              </AddressPool.Provider>
             );
           })}
         </tbody>
@@ -199,7 +201,8 @@ function ControlsCards({ rows, marked }) {
       {rows.map((r) => {
         const on = marked === rowAnchor(r);
         return (
-          <Card key={rowAnchor(r)} id={rowAnchor(r)} className={`scroll-mt-20 ${on ? 'ring-2 ring-accent' : ''}`}>
+          <AddressPool.Provider key={rowAnchor(r)} value={[...addressesIn(r)]}>
+          <Card id={rowAnchor(r)} className={`scroll-mt-20 ${on ? 'ring-2 ring-accent' : ''}`}>
             <ProgrammeHead r={r} />
             {on && <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-fg">Your token&apos;s programme</div>}
             <dl className="mt-3 divide-y divide-line">
@@ -215,6 +218,7 @@ function ControlsCards({ rows, marked }) {
               </div>
             </dl>
           </Card>
+          </AddressPool.Provider>
         );
       })}
     </div>

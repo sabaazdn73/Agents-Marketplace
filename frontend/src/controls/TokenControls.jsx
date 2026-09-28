@@ -9,7 +9,7 @@ import React from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Card, CardTitle, DevTag } from '../ui/primitives';
 import { sentence } from '../te/costText';
-import { Cell, WhoMayHold } from './Cell';
+import { Cell, WhoMayHold, AddressPool, addressesIn } from './Cell';
 import { dayText } from './model';
 
 // The stock page listed these six before the page existed; who may hold is
@@ -33,6 +33,7 @@ export default function TokenControls({ data, withWhoMayHold = false, compact = 
     onNavigate(link.href);
   };
   return (
+    <AddressPool.Provider value={[...addressesIn(d.controls)]}>
     <Card>
       <CardTitle right={<DevTag data={d} />}>{title}</CardTitle>
       <ul className="divide-y divide-line">
@@ -62,5 +63,6 @@ export default function TokenControls({ data, withWhoMayHold = false, compact = 
         </a>
       )}
     </Card>
+    </AddressPool.Provider>
   );
 }

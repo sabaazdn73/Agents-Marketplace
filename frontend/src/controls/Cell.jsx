@@ -26,11 +26,14 @@ function Addr({ chain, address, children }) {
   if (chains.length > 1) {
     const links = chains.map((ch) => [ch, explorerUrl(ch, address)]).filter(([, u]) => u);
     if (!links.length) return <span className="font-mono break-all">{label}</span>;
+    // The address links to its first chain's explorer, named, and the other
+    // chains follow, each linked.
+    const [[ch0, u0], ...rest] = links;
     return (
       <span className="break-all">
-        <span className="font-mono">{label}</span>{' '}
-        <span>(on {links.map(([ch, u], i) => (
-          <React.Fragment key={ch}>{i > 0 ? ', ' : ''}<a href={u} target="_blank" rel="noopener noreferrer" className={linkCls}>{ch}</a></React.Fragment>
+        <a href={u0} target="_blank" rel="noopener noreferrer" className={`font-mono ${linkCls}`} title={`on ${ch0}`}>{label}</a>{' '}
+        <span>(<a href={u0} target="_blank" rel="noopener noreferrer" className={linkCls}>{ch0}</a>{rest.map(([ch, u]) => (
+          <React.Fragment key={ch}>, <a href={u} target="_blank" rel="noopener noreferrer" className={linkCls}>{ch}</a></React.Fragment>
         ))})</span>
       </span>
     );
@@ -40,38 +43,53 @@ function Addr({ chain, address, children }) {
   return <a href={url} target="_blank" rel="noopener noreferrer" className={`font-mono break-all ${linkCls}`}>{label}</a>;
 }
 
-/** Every full address inside a served holder (its own, its multisig, its
- *  owner's, its role members'). */
-function holderAddresses(h, out = []) {
-  if (!h || typeof h !== 'object') return out;
-  for (const k of ['address', 'multisig']) if (typeof h[k] === 'string') out.push(h[k]);
-  if (typeof h.owner === 'string') out.push(h.owner);
-  else holderAddresses(h.owner, out);
-  for (const r of Object.values(h.roles || {})) for (const m of r?.members || []) if (m?.address) out.push(m.address);
-  for (const p of h.parties || []) holderAddresses(p, out);
+// EVERY ADDRESS IN THE SERVED TEXT LINKS. The served prose shortens
+// addresses ("2 of 3 Safe multisig 0x4975…3a65"); the full forms are
+// elsewhere in the same record (a holder, its parties, its owner, the
+// evidence). AddressPool holds every full address in the record being shown
+// (controls/TokenControls.jsx for one token, a programme row on the issuer
+// controls page), and Rich links a short form only when exactly one full
+// address in that record matches its prefix and suffix. A full address in
+// the text links directly.
+const FULL_EVM = /^0x[0-9a-fA-F]{40}$/;
+const FULL_B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+/** Every full address anywhere in a served record. */
+export function addressesIn(o, out = new Set()) {
+  if (typeof o === 'string') {
+    if (FULL_EVM.test(o) || FULL_B58.test(o)) out.add(o);
+    for (const m of o.match(/0x[0-9a-fA-F]{40}/g) || []) out.add(m);
+  } else if (Array.isArray(o)) {
+    for (const v of o) addressesIn(v, out);
+  } else if (o && typeof o === 'object') {
+    for (const v of Object.values(o)) addressesIn(v, out);
+  }
   return out;
 }
 
-/** Prose with full addresses in it (an evidence method naming the caller
- *  and receiver of a simulated call): each full address is linked. */
-function FullLinked({ text, chain }) {
-  const parts = String(text).split(/(0x[0-9a-fA-F]{40})/);
-  return parts.map((part, i) => (i % 2 ? <Addr key={i} chain={chain} address={part} /> : <React.Fragment key={i}>{part}</React.Fragment>));
+export const AddressPool = React.createContext([]);
+
+const TOKENS = /(0x[0-9a-fA-F]{40}|0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4}|[1-9A-HJ-NP-Za-km-z]{4,8}…[1-9A-HJ-NP-Za-km-z]{4}|(?<![0-9A-Za-z])[1-9A-HJ-NP-Za-km-z]{32,44}(?![0-9A-Za-z]))/;
+
+function resolveShort(short, pool) {
+  const [a, b] = short.split('…');
+  const evm = a.startsWith('0x');
+  const hits = pool.filter((f) => (evm
+    ? f.toLowerCase().startsWith(a.toLowerCase()) && f.toLowerCase().endsWith(b.toLowerCase())
+    : f.startsWith(a) && f.endsWith(b)));
+  return hits.length === 1 ? hits[0] : null;
 }
 
-const SHORT = /(0x[0-9a-fA-F]{4}…[0-9a-fA-F]{4}|[1-9A-HJ-NP-Za-km-z]{6}…[1-9A-HJ-NP-Za-km-z]{4})/;
-
-/** The served text with each shortened address ("0x8768…fc50") linked to the
- *  full address it stands for, found in the served holder. A short form with
- *  no match stays text. */
-function Linked({ text, holder, chain }) {
-  const full = holderAddresses(holder);
-  const parts = String(text).split(SHORT);
+/** Served text with its addresses linked, full and shortened. */
+function Rich({ text, chain }) {
+  const pool = React.useContext(AddressPool);
+  if (text == null) return null;
+  const parts = String(text).split(TOKENS);
   return parts.map((part, i) => {
     if (i % 2 === 0) return <React.Fragment key={i}>{part}</React.Fragment>;
-    const [a, b] = part.split('…');
-    const hit = full.find((f) => f.toLowerCase().startsWith(a.toLowerCase()) && f.toLowerCase().endsWith(b.toLowerCase()));
-    return hit ? <Addr key={i} chain={chain} address={hit}>{part}</Addr> : <React.Fragment key={i}>{part}</React.Fragment>;
+    if (FULL_EVM.test(part) || FULL_B58.test(part)) return <Addr key={i} chain={chain} address={part} />;
+    const full = resolveShort(part, pool);
+    return full ? <Addr key={i} chain={chain} address={full}>{part}</Addr> : <React.Fragment key={i}>{part}</React.Fragment>;
   });
 }
 
@@ -91,8 +109,8 @@ export function CellHolders({ c, chain = null, className = '' }) {
             <li key={i} className="break-words">
               <span className="text-fg">{(v.chains || []).join(', ')}</span>
               {Number.isFinite(v.tokens) && <span> ({plural(v.tokens, 'token', 'tokens')})</span>}
-              {v.state && v.state !== c.state && <span>: {v.state}</span>}
-              {rest && <span>: <Linked text={rest} holder={v.holder} chain={(v.chains || []).length === 1 ? v.chains[0] : v.chains || []} /></span>}
+              {v.state && v.state !== c.state && <span>: <Rich text={v.state} chain={(v.chains || []).length === 1 ? v.chains[0] : v.chains || []} /></span>}
+              {rest && <span>: <Rich text={rest} chain={(v.chains || []).length === 1 ? v.chains[0] : v.chains || []} /></span>}
             </li>
           );
         })}
@@ -100,7 +118,7 @@ export function CellHolders({ c, chain = null, className = '' }) {
     );
   }
   const { rest } = splitCell(c);
-  return rest ? <p className={`break-words ${className}`}><Linked text={rest} holder={c.holder} chain={chain} /></p> : null;
+  return rest ? <p className={`break-words ${className}`}><Rich text={rest} chain={chain} /></p> : null;
 }
 
 function Holder({ h, chain }) {
@@ -112,7 +130,7 @@ function Holder({ h, chain }) {
       <ul className="space-y-1.5">
         {h.parties.map((p, i) => (
           <li key={i} className="break-words">
-            {p.text ? <Linked text={p.text} holder={p} chain={chain} /> : <Holder h={p} chain={chain} />}
+            {p.text ? <Rich text={p.text} chain={chain} /> : <Holder h={p} chain={chain} />}
           </li>
         ))}
       </ul>
@@ -160,7 +178,7 @@ function EvidenceItem({ e }) {
       {e.chain && <span className="text-fg">{e.chain}: </span>}
       {e.address && <Addr chain={e.chain} address={e.address} />}
       {at ? `, ${at}` : ''}
-      {e.method ? <>. <FullLinked text={sentence(e.method)} chain={e.chain} /></> : ''}
+      {e.method ? <>. <Rich text={sentence(e.method)} chain={e.chain} /></> : ''}
       {e.url && <> (<a href={e.url} target="_blank" rel="noopener noreferrer" className={linkCls}>document<ExternalLink size={10} aria-hidden="true" className="inline ml-0.5" /></a>)</>}
     </li>
   );
@@ -184,7 +202,7 @@ function Simulation({ s, chain }) {
           ))}
         </ul>
       )}
-      {s.reading && <p><FullLinked text={s.reading} chain={chain} /></p>}
+      {s.reading && <p><Rich text={s.reading} chain={chain} /></p>}
     </div>
   );
 }
@@ -211,8 +229,8 @@ export function CellDetails({ c, chain = null, withHolders = false }) {
   const variants = Array.isArray(c.variants) && c.variants.length > 1 ? c.variants : null;
   const parts = [
     withHolders && (splitCell(c).rest || variants) && <Sub key="r" title="Held by"><CellHolders c={c} chain={chain} /></Sub>,
-    c.detail && <Sub key="d" title="What the contract does"><p className="break-words"><FullLinked text={sentence(c.detail)} chain={chain} /></p></Sub>,
-    c.capability_note && <Sub key="n" title="Note"><p className="break-words"><FullLinked text={sentence(c.capability_note)} chain={chain} /></p></Sub>,
+    c.detail && <Sub key="d" title="What the contract does"><p className="break-words"><Rich text={sentence(c.detail)} chain={chain} /></p></Sub>,
+    c.capability_note && <Sub key="n" title="Note"><p className="break-words"><Rich text={sentence(c.capability_note)} chain={chain} /></p></Sub>,
     (c.pattern || c.beacon || c.varies_across_tokens) && (
       <Sub key="p" title="Contract">
         <p className="break-words">
@@ -236,7 +254,7 @@ export function CellDetails({ c, chain = null, withHolders = false }) {
       : c.holder && <Sub key="h" title="Who holds it"><Holder h={c.holder} chain={chain} /></Sub>,
     c.upgrade_path?.text && (
       <Sub key="u" title="Upgrade path">
-        <p className="break-words">{sentence(c.upgrade_path.text)}</p>
+        <p className="break-words"><Rich text={sentence(c.upgrade_path.text)} chain={chain} /></p>
       </Sub>
     ),
     c.simulation && <Sub key="s" title="Simulation (eth_call, nothing broadcast)"><Simulation s={c.simulation} chain={chain} /></Sub>,
@@ -266,7 +284,7 @@ export function Cell({ c, chain = null, holders = true }) {
   const { head } = splitCell(c);
   return (
     <div className="min-w-0 text-[13px] leading-snug">
-      <div className="text-fg break-words">{head ? sentence(head) : 'not established'}</div>
+      <div className="text-fg break-words">{head ? <Rich text={sentence(head)} chain={chain} /> : 'not established'}</div>
       {holders && <CellHolders c={c} chain={chain} className="mt-0.5 text-[12px] text-muted" />}
       <CellDetails c={c} chain={chain} withHolders={!holders} />
     </div>
