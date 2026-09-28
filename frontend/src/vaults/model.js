@@ -7,6 +7,16 @@
  *  carry platform_key; both are supported. */
 export const platformKeyOf = (v) => v?.platform_key || String(v?.key || '').split('/')[0] || null;
 
+/** The served stale rule names its fields ("tvl_recorded_at for a
+ *  vault-recorded figure, ..."). Readers get it in plain words, with the
+ *  day count taken from the served rule; no number is written here. */
+export function staleRuleWords(v) {
+  const rule = v?.tvl_stale_rule;
+  if (!rule) return null;
+  const days = /more than (\d+) days?/.exec(rule)?.[1];
+  return days ? `stale once the figure is more than ${days} days old` : rule;
+}
+
 /** Stale: T6 marks the TVL stale when the vault last wrote it more than its
  *  rule allows (tvl_stale, tvl_stale_rule), and the whole read stale when
  *  the latest chain read failed (read_stale). */
@@ -14,7 +24,7 @@ export function staleOf(v) {
   if (!v) return null;
   if (v.read_stale) return 'The latest chain read of this vault failed; these figures are from the previous read.';
   if (v.tvl_stale) {
-    const rule = v.tvl_stale_rule ? ` (${v.tvl_stale_rule})` : '';
+    const rule = staleRuleWords(v) ? ` (${staleRuleWords(v)})` : '';
     return v.tvl_source === 'vault_recorded'
       ? `The vault's recorded total is stale${rule}.`
       : `Our computed figure is stale${rule}.`;
