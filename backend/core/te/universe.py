@@ -129,7 +129,8 @@ DEFINITION = {
     # Every top-level count of /api/te/summary that this pass makes. All are
     # out of the counted (listed) versions, `tokens`, except records_read.
     "tokens": "counted versions (issuer-by-chain tokens) that pass every test in counted_when",
-    "versions_listed": "the same number as tokens, under the name the cost engine's counts use",
+    "versions_listed": "the same number as tokens under a second name, which the MCP tokenized_equities "
+                       "dataset reads; not a separate count",
     "issuers": "distinct issuers with at least one counted token",
     "chains": "distinct chains with at least one counted token; chain_list sums to tokens",
     "underlyings": "distinct underlying tickers among the counted versions",
