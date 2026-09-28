@@ -96,11 +96,22 @@ export default function Home({ layout = 'web', onNavigate }) {
   // the cost engine's count (summary.cost.versions_with_cost: versions whose
   // best pool fills a $1,000 buy); without it, T2's versions_with_pool is
   // only a pool found, and says so.
+  // The cost count and the lists below are read at different times (the
+  // count from every per-version record, each list from the list document
+  // written after a full cycle), so the count names its own time beside it,
+  // and each list states its own in its footer.
   const measuredCost = summary?.cost?.versions_with_cost;
+  const costAt = (() => {
+    const d = summary?.cost?.computed_at ? new Date(summary.cost.computed_at) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    const day = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    const hm = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+    return ` (as of ${day}, ${hm} UTC)`;
+  })();
   const proof = summary ? [
     [summary.underlyings, 'stocks and ETFs'],
     Number.isFinite(measuredCost)
-      ? [measuredCost, 'tokenized versions with a measured cost']
+      ? [measuredCost, `tokenized versions with a measured cost${costAt}`]
       : [summary.versions_with_pool, 'tokenized versions with a pool found'],
     [summary.issuers, 'issuers'],
     [summary.chains, 'chains'],
