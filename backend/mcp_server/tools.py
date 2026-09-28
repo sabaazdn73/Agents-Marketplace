@@ -48,7 +48,7 @@ _NUMERIC = re.compile(r"^\d+$")
 LIST_DEFAULT = 25
 LIST_MAX = 50
 SERIES_MAX = 200
-RESOLVE_MAX = 5
+RESOLVE_MAX = 12  # an xStocks address is one version on each of four EVM chains, plus the address datasets
 
 
 # ── cursors ──────────────────────────────────────────────────────────────────
@@ -278,22 +278,32 @@ async def resolve(datasets: dict, args: dict) -> dict:
         ranked = [(r, h) for r, _, h in ranked if not (r == 3 and len(query) <= 4)]
         te_c: list[dict] = []
         for _, h in ranked[:2]:
-            for m in (h.get("matched_versions") or [])[:1]:
-                if m.get("key") and m.get("listed", True):
-                    own = is_addr and str(m.get("address") or "").lower() == query.lower()
-                    te_c.insert(0 if own else len(te_c), {
-                        "dataset": "tokenized_equities", "key": m["key"], **({"match": "this token"} if own else {}),
-                        "why": f"{m.get('symbol')} by {m.get('issuer')} on {m.get('chain')}"})
+            listed = [m for m in (h.get("matched_versions") or []) if m.get("key") and m.get("listed", True)]
+            if is_addr:
+                # One address can be one token on several chains (xStocks
+                # deploys the same address on each EVM chain): every version
+                # at it comes back, one per chain, each named by its chain.
+                mine = [m for m in listed if str(m.get("address") or "").lower() == query.lower()]
+            else:
+                # A token symbol returns every version with that symbol; a
+                # prefix match only when nothing has the exact symbol.
+                exact = [m for m in listed if str(m.get("symbol") or "").upper() == q_up]
+                mine = exact or listed[:1]
+            for m in mine:
+                te_c.append({
+                    "dataset": "tokenized_equities", "key": m["key"],
+                    **({"match": f"this address on {m.get('chain')}"} if is_addr else {}),
+                    "why": f"{m.get('symbol')} by {m.get('issuer')} on {m.get('chain')}"})
             if h.get("underlying"):
                 te_c.append({"dataset": "tokenized_equities", "key": f"underlying/{h['underlying']}",
                              "why": f"{h.get('name') or h['underlying']}: every version side by side"})
-        # A token address's own version comes first of all, ahead of the
+        # A token address's own versions come first of all, ahead of the
         # datasets that merely accept an address as a key; the rest of the
-        # tokenized-equity candidates follow them. For a ticker or a name the
-        # tokenized-equity candidates lead.
+        # tokenized-equity candidates follow them. For a ticker, a symbol or
+        # a name the tokenized-equity candidates lead.
         if is_addr:
-            own_c = [c for c in te_c if c.get("match") == "this token"]
-            candidates = own_c + candidates + [c for c in te_c if c.get("match") != "this token"]
+            own_c = [c for c in te_c if str(c.get("match") or "").startswith("this address on ")]
+            candidates = own_c + candidates + [c for c in te_c if c not in own_c]
         else:
             candidates = te_c + candidates
     if "baskets.curated" in datasets:
@@ -625,7 +635,7 @@ TOOLS = [
             "Turns one string into the datasets that accept it: a 0x address, an "
             "ERC-8004 token id, an agent id, a chain view name, a stock or ETF "
             "ticker or company name, or a basket code. Returns up to "
-            "5 candidates under 2KB, from stored data only, with no live lookup. "
+            "12 candidates under 2KB, from stored data only, with no live lookup. "
             "Use it before tnega_get when you hold an identifier and do not know "
             "which dataset it belongs to.",
         "inputSchema": {
