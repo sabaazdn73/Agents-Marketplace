@@ -23,9 +23,15 @@
 //       tokens), versions_with_pool (a pool FOUND, not a cost), issuers,
 //       chains, tokens (= versions; not a count of equities), computed_at,
 //       chain_list: [{ name, group: 'evm'|'nonevm', tokens }],
-//       cost: { versions_with_cost (best pool fills a $1,000 buy),
-//               versions_measured, by_chain: [...], definition,
-//               computed_at } | { versions_with_cost: null, reason } }
+//       versions_not_searched (the cost engine's: pool search unfinished),
+//       universe_pool_discovery_not_run,
+//       cost: { versions_read, versions_searched (search finished,
+//               no_pool included), versions_not_searched, versions_quoted,
+//               versions_with_cost (best pool fills a $1,000 buy),
+//               by_chain: [{ ..., by_state: { quoted, no_pool, too_thin,
+//               not_a_venue, not_searched, held } }], definition,
+//               computed_at (newest record counted) }
+//             | { versions_with_cost: null, reason } }
 //   (eligibility and who_may_hold are always { text, url, read_on }: the
 //    issuer's own words, linked and dated, never shown without both.)
 //   GET /api/te/list?type=stock|etf&group=all|evm|nonevm&limit=&sort=&offset=   (T3a)
