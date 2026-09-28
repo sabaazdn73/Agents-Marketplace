@@ -218,6 +218,9 @@ async def resolve(datasets: dict, args: dict) -> dict:
     core/universal_search.py stay out: they spend a shared per-IP quota, and
     behind an unauthenticated endpoint that is a free proxy to someone else's
     rate budget."""
+    refused = _undeclared("tnega_resolve", args, RESOLVE_ARGS)
+    if refused:
+        return refused
     query = str(args.get("query") or "").strip()
     if not query:
         return envelope.withheld(
@@ -331,6 +334,9 @@ async def resolve(datasets: dict, args: dict) -> dict:
 
 
 async def get(datasets: dict, args: dict) -> dict:
+    refused = _undeclared("tnega_get", args, GET_ARGS)
+    if refused:
+        return refused
     dataset = str(args.get("dataset") or "")
     d = datasets.get(dataset)
     if d is None or d.get is None:
@@ -382,6 +388,8 @@ async def get(datasets: dict, args: dict) -> dict:
 # tool reads; anything else is refused by name.
 LIST_ARGS = ("dataset", "key", "limit", "cursor", "chain_id", "category", "search", "verified", "sort")
 SUMMARY_ARGS = ("dataset", "chain_id", "category", "search")
+GET_ARGS = ("dataset", "id")
+RESOLVE_ARGS = ("query",)
 
 
 def _undeclared(tool: str, args: dict, accepted: tuple) -> dict | None:
@@ -391,9 +399,9 @@ def _undeclared(tool: str, args: dict, accepted: tuple) -> dict | None:
     return envelope.withheld(
         measured=f"what {tool} was asked", coverage={"partial": False},
         reason="filter_not_supported",
-        explanation=f"{tool} does not accept {', '.join(extra)}. It accepts {', '.join(accepted)}; a dataset "
-                    f"may apply fewer, and says so. Nothing was filtered, so nothing is returned rather than an "
-                    f"answer that ignores the argument.")
+        explanation=f"{tool} does not accept {', '.join(extra)}. It accepts {', '.join(accepted)}"
+                    + ("; a dataset may apply fewer filters, and says so" if tool in ("tnega_list", "tnega_summary") else "")
+                    + ". Nothing is returned rather than an answer that ignores the argument.")
 
 
 async def list_(datasets: dict, args: dict) -> dict:
