@@ -1438,13 +1438,15 @@ def check_live_datasets() -> None:
                 continue
             rows = out.get("value") or []
             if out.get("withheld_reason") == "tool_failed":
-                check(False, f"{ds_id} list failed", "tool_failed")
+                check(False, f"{ds_id} list answers", "tool_failed")
             elif not rows:
-                # An empty store answers no_matches: a true answer about this
-                # store, printed as EMPTY, neither a pass nor a failure. The
-                # row checks below it did not run.
-                why = out.get("withheld_reason") or "empty"
-                print(f"  EMPTY {ds_id} list returned no rows here ({why}); its row checks did not run")
+                # AN EMPTY DATASET IS A FAILURE TOO. It used to print EMPTY,
+                # neither pass nor fail, so a cost store pointed at a missing
+                # directory, or one whose snapshot is [], ended in "all checks
+                # passed". A machine without a dataset's store names it in
+                # MCP_SELFCHECK_SKIP instead, and the run says it was skipped.
+                why = out.get("withheld_reason") or "no rows"
+                check(False, f"{ds_id} list returns rows", f"{why}; name it in MCP_SELFCHECK_SKIP if this machine has no store for it")
             else:
                 widest = max(len(json.dumps(r, separators=(",", ":")).encode())
                              for r in rows)
@@ -1457,7 +1459,7 @@ def check_live_datasets() -> None:
             except Exception as e:  # noqa: BLE001
                 check(False, f"{ds_id} summary raised", type(e).__name__)
                 continue
-            check(out.get("withheld_reason") != "tool_failed", f"{ds_id} summary did not fail",
+            check(out.get("withheld_reason") != "tool_failed", f"{ds_id} summary answers",
                   str(out.get("withheld_reason") or ""))
             check(out.get("withheld_reason") != "response_too_large",
                   f"{ds_id} summary fits its ceiling without trimming")
