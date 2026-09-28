@@ -41,7 +41,12 @@ export function CellHolders({ c, className = '' }) {
               <span className="text-fg">{(v.chains || []).join(', ')}</span>
               {Number.isFinite(v.tokens) && <span> ({plural(v.tokens, 'token', 'tokens')})</span>}
               {v.state && v.state !== c.state && <span>: {v.state}</span>}
-              {rest && <span>: {rest}</span>}
+              {rest && <span>: {(() => {
+                // The served text shortens the holder's address; link it to
+                // the full one on the chain's explorer when there is one.
+                const url = (v.chains || []).length === 1 ? explorerUrl(v.chains[0], v.holder?.address) : null;
+                return url ? <a href={url} target="_blank" rel="noopener noreferrer" className={linkCls}>{rest}</a> : rest;
+              })()}</span>}
             </li>
           );
         })}
@@ -102,20 +107,20 @@ function EvidenceItem({ e }) {
   );
 }
 
-function Simulation({ s }) {
+function Simulation({ s, chain }) {
   if (!s) return null;
   return (
     <div className="space-y-1 break-words">
       <p>
         {s.calldata_decoded || 'Simulated call'}
-        {s.token && <> on <Addr chain={null} address={s.token} /></>}
+        {s.token && <> on <Addr chain={chain} address={s.token} /></>}
         {Number.isFinite(s.block) && <>, block {s.block.toLocaleString('en-US')}</>}
       </p>
       {Array.isArray(s.calls) && (
         <ul className="space-y-0.5 pl-3">
           {s.calls.map((c, i) => (
             <li key={i}>
-              from <span className="font-mono break-all">{c.from}</span>: {c.error ? `reverted (${c.error.message || 'error'})` : `returned ${c.result}`}
+              from <Addr chain={chain} address={c.from} />: {c.error ? `reverted (${c.error.message || 'error'})` : `returned ${c.result}`}
             </li>
           ))}
         </ul>
@@ -138,7 +143,12 @@ function Sub({ title, children }) {
  *  when it has one, for the explorer links of role holders. */
 export function CellDetails({ c, chain = null, withHolders = false }) {
   if (!c) return null;
-  const evidence = [].concat(c.evidence || [], c.holder?.evidence ? [{ ...c.holder.evidence, chain: c.holder.evidence.chain || chain }] : []);
+  // A token's own answer (by=key) carries its evidence without a chain; the
+  // chain is the token's, passed in, so every address still links to its
+  // explorer, as the stock page's card did before it was shared. A
+  // programme's evidence names its chain on each item and keeps it.
+  const withChain = (e) => (e && !e.chain && chain ? { ...e, chain } : e);
+  const evidence = [].concat(c.evidence || [], c.holder?.evidence ? [c.holder.evidence] : []).filter(Boolean).map(withChain);
   const variants = Array.isArray(c.variants) && c.variants.length > 1 ? c.variants : null;
   const parts = [
     withHolders && (splitCell(c).rest || variants) && <Sub key="r" title="Held by"><CellHolders c={c} /></Sub>,
@@ -170,7 +180,7 @@ export function CellDetails({ c, chain = null, withHolders = false }) {
         <p className="break-words">{sentence(c.upgrade_path.text)}</p>
       </Sub>
     ),
-    c.simulation && <Sub key="s" title="Simulation (eth_call, nothing broadcast)"><Simulation s={c.simulation} /></Sub>,
+    c.simulation && <Sub key="s" title="Simulation (eth_call, nothing broadcast)"><Simulation s={c.simulation} chain={chain} /></Sub>,
     evidence.length > 0 && (
       <Sub key="e" title="Evidence">
         <ul className="space-y-1">{evidence.map((e, i) => <EvidenceItem key={i} e={e} />)}</ul>
