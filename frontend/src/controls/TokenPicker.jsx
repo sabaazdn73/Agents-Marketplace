@@ -4,10 +4,14 @@
 // pick the stock, then the version (issuer and chain). Choosing one calls
 // onPick(key), and the page shows that token's controls (?token=<key>).
 //
-// One read: GET /api/te/search?q=&versions=all (te/api.js), which returns
-// each matching underlying with every listed version of it. A symbol match
-// (NVDAx) puts the versions it matched first. Nothing is fetched until two
-// characters are typed, and a query waits 300 ms for typing to stop.
+// Reads: GET /api/te/search?q=&versions=all (te/api.js), which returns each
+// matching underlying with every listed version of it. A server without
+// versions=all answers without them; the open stock then reads
+// GET /api/te/underlying/<T> for its EVM versions, adds the versions a
+// symbol search matched, and says how many of its versions that is. A
+// symbol match (NVDAx) puts the versions it matched first. Nothing is
+// fetched until two characters are typed, and a query waits 300 ms for
+// typing to stop.
 
 import React, { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
@@ -35,16 +39,65 @@ function byChain(versions) {
   return out;
 }
 
+const listed = (vs) => (vs || []).filter((v) => v && v.key && v.listed !== false);
+
+/** One result's versions, by chain, the ones the search matched first. From
+ *  all_versions when the server sends it; otherwise from the underlying's
+ *  own read (its EVM versions) plus the versions a symbol search matched. */
+function Versions({ r, current, onPick, btn }) {
+  const u = useTe(r.partial ? `/api/te/underlying/${encodeURIComponent(r.underlying)}?size=1000` : null);
+  let versions;
+  if (!r.partial) versions = listed(r.all_versions);
+  else {
+    const seen = new Map();
+    for (const v of listed(r.matched_versions)) seen.set(v.key, v);
+    for (const v of listed(u.data?.versions)) if (!seen.has(v.key)) seen.set(v.key, { key: v.key, symbol: v.symbol, issuer: v.issuer_name || v.issuer, chain: v.chain });
+    versions = [...seen.values()];
+  }
+  const matched = new Set(listed(r.matched_versions).map((v) => v.key));
+  const ordered = [...versions.filter((v) => matched.has(v.key)), ...versions.filter((v) => !matched.has(v.key))];
+  const missing = Number.isFinite(r.versions) && versions.length < r.versions && !(r.partial && u.loading);
+  return (
+    <div className="px-3 pb-3 space-y-2">
+      {r.partial && u.loading && !versions.length && <p className="text-[12px] text-muted">Reading its versions...</p>}
+      {r.partial && u.error && !versions.length && <ReadError error={u.error} body={u.errorBody} what={`the versions of ${r.underlying}`} />}
+      {missing && (
+        <p className="text-[12px] text-muted">
+          {versions.length} of its {r.versions} versions are listed here.{' '}
+          <a href={`/stocks/${encodeURIComponent(r.underlying)}`} className="underline underline-offset-2 hover:text-fg">Every version of {r.underlying}</a> is on its stock page.
+        </p>
+      )}
+      {byChain(ordered).map((g) => (
+        <div key={g.chain}>
+          <div className="text-[12px] text-muted mb-1">{g.chain}</div>
+          <div className="flex flex-wrap gap-2">
+            {g.versions.map((v) => {
+              const on = current === v.key;
+              return (
+                <button key={v.key} type="button" onClick={() => onPick(v.key)} aria-pressed={on}
+                  className={`${btn} ${on ? 'border-accent bg-inset' : matched.has(v.key) ? 'border-line-strong' : 'border-line'}`}>
+                  <span className="font-semibold text-fg">{v.symbol}</span>
+                  <span className="text-muted"> · {v.issuer}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function TokenPicker({ onPick, current = null, mobile = false }) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState(null);
   const q = useDebounced(text.trim(), 300);
   const read = useTe(q.length >= 2 ? `/api/te/search?q=${encodeURIComponent(q)}&versions=all&limit=6` : null, { keep: true });
-  // all_versions comes with versions=all; a server that predates it answers
-  // without, and then only the matched versions (a symbol match) are offered,
-  // with the stock page for the rest.
+  // all_versions comes with versions=all. A server that predates it answers
+  // without; the open result then reads its versions from
+  // /api/te/underlying/<T> instead (Versions, below).
   const results = (read.data?.results || []).filter((r) => r.kind === 'instrument')
-    .map((r) => ({ ...r, all_versions: Array.isArray(r.all_versions) ? r.all_versions : (r.matched_versions || []).filter((v) => v.listed !== false), partial: !Array.isArray(r.all_versions) }));
+    .map((r) => ({ ...r, partial: !Array.isArray(r.all_versions) }));
   // One result opens by itself; a new query closes the previous choice.
   useEffect(() => { setOpen(results.length === 1 ? results[0].underlying : null); }, [read.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -57,7 +110,7 @@ export default function TokenPicker({ onPick, current = null, mobile = false }) 
         <Search size={15} className="text-muted shrink-0" aria-hidden="true" />
         <input
           type="search" value={text} onChange={(e) => setText(e.target.value)}
-          placeholder="NVDA, AAPLx, SPYon..." aria-label="Ticker or token symbol"
+          placeholder="NVDAx, AAPL, SPYon..." aria-label="Ticker or token symbol"
           autoComplete="off" spellCheck={false}
           className="flex-1 min-w-0 bg-transparent text-[14px] text-fg placeholder:text-muted outline-none"
         />
@@ -72,8 +125,6 @@ export default function TokenPicker({ onPick, current = null, mobile = false }) 
         <ul className={`mt-3 space-y-2 ${read.stale ? 'opacity-60' : ''}`} aria-live="polite">
           {results.map((r) => {
             const isOpen = open === r.underlying;
-            const matched = new Set((r.matched_versions || []).map((v) => v.key));
-            const ordered = matched.size ? [...r.all_versions.filter((v) => matched.has(v.key)), ...r.all_versions.filter((v) => !matched.has(v.key))] : r.all_versions;
             return (
               <li key={r.underlying} className="rounded border border-line">
                 <button type="button" onClick={() => setOpen(isOpen ? null : r.underlying)} aria-expanded={isOpen}
@@ -82,35 +133,9 @@ export default function TokenPicker({ onPick, current = null, mobile = false }) 
                     <span className="text-[14px] font-semibold text-fg">{r.underlying}</span>
                     <span className="ml-2 text-[13px] text-muted">{r.name}</span>
                   </span>
-                  {!r.partial && <span className="shrink-0 text-[12px] text-muted tabular-nums">{r.all_versions.length} {r.all_versions.length === 1 ? 'version' : 'versions'}</span>}
+                  {Number.isFinite(r.versions) && <span className="shrink-0 text-[12px] text-muted tabular-nums">{r.versions} {r.versions === 1 ? 'version' : 'versions'}</span>}
                 </button>
-                {isOpen && (
-                  <div className="px-3 pb-3 space-y-2">
-                    {r.partial && (
-                      <p className="text-[12px] text-muted">
-                        {r.all_versions.length ? 'Only the versions your search matched are listed here. ' : ''}
-                        <a href={`/stocks/${encodeURIComponent(r.underlying)}`} className="underline underline-offset-2 hover:text-fg">Every version of {r.underlying}</a> is on its stock page.
-                      </p>
-                    )}
-                    {byChain(ordered).map((g) => (
-                      <div key={g.chain}>
-                        <div className="text-[12px] text-muted mb-1">{g.chain}</div>
-                        <div className="flex flex-wrap gap-2">
-                          {g.versions.map((v) => {
-                            const on = current === v.key;
-                            return (
-                              <button key={v.key} type="button" onClick={() => onPick(v.key)} aria-pressed={on}
-                                className={`${btn} ${on ? 'border-accent bg-inset' : matched.has(v.key) ? 'border-line-strong' : 'border-line'}`}>
-                                <span className="font-semibold text-fg">{v.symbol}</span>
-                                <span className="text-muted"> · {v.issuer}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {isOpen && <Versions r={r} current={current} onPick={onPick} btn={btn} />}
               </li>
             );
           })}
