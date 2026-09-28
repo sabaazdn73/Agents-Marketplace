@@ -40,7 +40,11 @@ export default function TokenPicker({ onPick, current = null, mobile = false }) 
   const [open, setOpen] = useState(null);
   const q = useDebounced(text.trim(), 300);
   const read = useTe(q.length >= 2 ? `/api/te/search?q=${encodeURIComponent(q)}&versions=all&limit=6` : null, { keep: true });
-  const results = (read.data?.results || []).filter((r) => r.kind === 'instrument' && Array.isArray(r.all_versions));
+  // all_versions comes with versions=all; a server that predates it answers
+  // without, and then only the matched versions (a symbol match) are offered,
+  // with the stock page for the rest.
+  const results = (read.data?.results || []).filter((r) => r.kind === 'instrument')
+    .map((r) => ({ ...r, all_versions: Array.isArray(r.all_versions) ? r.all_versions : (r.matched_versions || []).filter((v) => v.listed !== false), partial: !Array.isArray(r.all_versions) }));
   // One result opens by itself; a new query closes the previous choice.
   useEffect(() => { setOpen(results.length === 1 ? results[0].underlying : null); }, [read.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -78,10 +82,16 @@ export default function TokenPicker({ onPick, current = null, mobile = false }) 
                     <span className="text-[14px] font-semibold text-fg">{r.underlying}</span>
                     <span className="ml-2 text-[13px] text-muted">{r.name}</span>
                   </span>
-                  <span className="shrink-0 text-[12px] text-muted tabular-nums">{r.all_versions.length} {r.all_versions.length === 1 ? 'version' : 'versions'}</span>
+                  {!r.partial && <span className="shrink-0 text-[12px] text-muted tabular-nums">{r.all_versions.length} {r.all_versions.length === 1 ? 'version' : 'versions'}</span>}
                 </button>
                 {isOpen && (
                   <div className="px-3 pb-3 space-y-2">
+                    {r.partial && (
+                      <p className="text-[12px] text-muted">
+                        {r.all_versions.length ? 'Only the versions your search matched are listed here. ' : ''}
+                        <a href={`/stocks/${encodeURIComponent(r.underlying)}`} className="underline underline-offset-2 hover:text-fg">Every version of {r.underlying}</a> is on its stock page.
+                      </p>
+                    )}
                     {byChain(ordered).map((g) => (
                       <div key={g.chain}>
                         <div className="text-[12px] text-muted mb-1">{g.chain}</div>
