@@ -153,6 +153,9 @@ def _unknown_dataset(tool: str, dataset: str, datasets: dict, verb: str | None =
 # ── the tools ────────────────────────────────────────────────────────────────
 
 async def catalogue(datasets: dict, args: dict) -> dict:
+    refused = _undeclared("tnega_catalogue", args, CATALOGUE_ARGS)
+    if refused:
+        return refused
     rows = []
     partial = False
     for d in sorted(datasets.values(), key=lambda x: x.id):
@@ -390,6 +393,8 @@ LIST_ARGS = ("dataset", "key", "limit", "cursor", "chain_id", "category", "searc
 SUMMARY_ARGS = ("dataset", "chain_id", "category", "search")
 GET_ARGS = ("dataset", "id")
 RESOLVE_ARGS = ("query",)
+SERIES_ARGS = ("dataset", "key", "limit", "before")
+CATALOGUE_ARGS: tuple = ()
 
 
 def _undeclared(tool: str, args: dict, accepted: tuple) -> dict | None:
@@ -399,7 +404,8 @@ def _undeclared(tool: str, args: dict, accepted: tuple) -> dict | None:
     return envelope.withheld(
         measured=f"what {tool} was asked", coverage={"partial": False},
         reason="filter_not_supported",
-        explanation=f"{tool} does not accept {', '.join(extra)}. It accepts {', '.join(accepted)}"
+        explanation=f"{tool} does not accept {', '.join(extra)}. It accepts "
+                    f"{', '.join(accepted) if accepted else 'no arguments'}"
                     + ("; a dataset may apply fewer filters, and says so" if tool in ("tnega_list", "tnega_summary") else "")
                     + ". Nothing is returned rather than an answer that ignores the argument.")
 
@@ -535,6 +541,9 @@ async def summary(datasets: dict, args: dict) -> dict:
 
 
 async def series(datasets: dict, args: dict) -> dict:
+    refused = _undeclared("tnega_series", args, SERIES_ARGS)
+    if refused:
+        return refused
     dataset = str(args.get("dataset") or "")
     d = datasets.get(dataset)
     if d is None or d.series is None:
