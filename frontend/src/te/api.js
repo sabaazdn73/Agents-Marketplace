@@ -289,7 +289,11 @@ export async function teRead(path, { method = 'GET', body, signal, headersTimeou
     }
     return { data: await r.json() };
   } catch (e) {
-    if (e?.name === 'AbortError' || signal?.aborted) return { aborted: true };
+    // Only the caller's own cancel is dropped. A request the browser cancels
+    // on its own (it also surfaces as an AbortError) is a failed read, so
+    // the page can say so or read again; dropping it left the home's counts
+    // waiting for an answer that never came.
+    if (signal?.aborted) return { aborted: true };
     return { error: e?.message || 'network error' };
   }
 }
@@ -312,8 +316,10 @@ export async function teRead(path, { method = 'GET', body, signal, headersTimeou
  *  `ever` is true once this hook has had an answer. A list shows its
  *  "Couldn't read" state only then (a failed filter change), never as the
  *  first thing a visitor sees. */
-export function useTe(path, { method = 'GET', body, keep = false, headersTimeoutMs } = {}) {
-  const key = path ? `${method} ${path} ${body ? JSON.stringify(body) : ''}` : null;
+// `attempt` reads the same path again when it changes (a retry); the answer
+// is keyed on it, so an earlier attempt's late answer is never shown.
+export function useTe(path, { method = 'GET', body, keep = false, headersTimeoutMs, attempt = 0 } = {}) {
+  const key = path ? `${method} ${path} ${body ? JSON.stringify(body) : ''} #${attempt}` : null;
   const [state, setState] = useState({ key: null, data: null, error: null, loading: false, heldFrom: null });
   const [ever, setEver] = useState(false);
   useEffect(() => {

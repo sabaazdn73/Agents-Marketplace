@@ -20,7 +20,7 @@
 // One component for both apps; `layout` changes spacing and columns only.
 
 import ReadError from '../te/ReadError';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Layers, Network, Gauge, PenLine, PieChart, ShieldCheck, Lock, Terminal, Search, Play } from 'lucide-react';
 import { useTe, VAULT_LIST_HEADERS_MS } from '../te/api';
 import { Eyebrow, PrimaryButton, SecondaryButton, DevTag } from '../ui/primitives';
@@ -68,8 +68,26 @@ export default function Home({ layout = 'web', onNavigate }) {
   // before then, the home is the hero and the footer, with no request that
   // can only fail.
   const te = (p) => (DATA_LIVE ? p : null);
-  const summaryRead = useTe(te('/api/te/summary'));
+  // THE COUNTS ARE READ AGAIN, ONCE, if the first read fails or has not
+  // answered in 10 s (a request cancelled right after load left the proof
+  // line empty), and again when a hidden tab comes back without them. While
+  // there is nothing to show, the line says so instead of standing blank.
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
+  const summaryRead = useTe(te('/api/te/summary'), { attempt: summaryAttempt });
   const summary = summaryRead.data;
+  const summaryFailed = !!summaryRead.error && !summary;
+  useEffect(() => {
+    if (!DATA_LIVE || summary || summaryAttempt >= 1) return undefined;
+    if (summaryFailed) { setSummaryAttempt(1); return undefined; }
+    const t = setTimeout(() => setSummaryAttempt(1), 10000);
+    return () => clearTimeout(t);
+  }, [summary, summaryFailed, summaryAttempt]);
+  useEffect(() => {
+    if (!DATA_LIVE || summary) return undefined;
+    const onVisible = () => { if (document.visibilityState === 'visible') setSummaryAttempt((n) => (n < 3 ? n + 1 : n)); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [summary]);
   const versions = useTe(te(`/api/te/underlying/${FEATURE_TICKER}?size=1000`)).data;
   const curve = useTe(te(`/api/te/curve/${FEATURE_TICKER}`)).data;
   const baskets = useTe(te('/api/baskets/curated'));
@@ -131,6 +149,11 @@ export default function Home({ layout = 'web', onNavigate }) {
               </span>
             ))}
             <DevTag data={summary} />
+          </p>
+        )}
+        {DATA_LIVE && !proof?.length && (
+          <p className="text-[14px] text-muted" aria-live="polite">
+            {summaryFailed && summaryAttempt >= 1 ? 'The live counts could not be read just now.' : 'Reading the live counts...'}
           </p>
         )}
         <h1 className={`${mobile ? 'text-[44px]' : 'text-[68px]'} mt-6 font-bold leading-[1.02] tracking-[-0.03em] text-fg`}>
