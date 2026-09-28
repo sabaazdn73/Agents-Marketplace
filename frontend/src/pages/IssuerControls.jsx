@@ -144,7 +144,9 @@ function ProgrammeHead({ r }) {
   );
 }
 
-const oneChain = (r) => ((r.chains || []).length === 1 ? r.chains[0] : null);
+// One chain name, or the list when the programme spans several: an address
+// that holds a power on each then links to each chain's explorer.
+const oneChain = (r) => ((r.chains || []).length === 1 ? r.chains[0] : r.chains || []);
 
 function ControlsTable({ rows, marked }) {
   return (
