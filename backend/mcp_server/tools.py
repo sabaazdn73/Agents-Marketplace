@@ -300,15 +300,15 @@ async def resolve(datasets: dict, args: dict) -> dict:
             if h.get("underlying"):
                 te_c.append({"dataset": "tokenized_equities", "key": f"underlying/{h['underlying']}",
                              "why": f"{h.get('name') or h['underlying']}: every version side by side"})
-        # A token address's own versions come first of all, ahead of the
-        # datasets that merely accept an address as a key; the rest of the
-        # tokenized-equity candidates follow them. For a ticker, a symbol or
-        # a name the tokenized-equity candidates lead.
-        if is_addr:
-            own_c = [c for c in te_c if str(c.get("match") or "").startswith("this address on ")]
-            candidates = own_c + candidates + [c for c in te_c if c not in own_c]
-        else:
-            candidates = te_c + candidates
+        # ONE ORDER FOR EVERY QUERY: the underlying first (every version side
+        # by side), then the labelled versions by chain id (Solana, which has
+        # none, last), then the other datasets that merely accept the string.
+        def _chain_order(c: dict) -> tuple:
+            head = str(c["key"]).split("/", 1)[0]
+            return (0, int(head)) if head.isdigit() else (1, 0)
+        und = [c for c in te_c if str(c["key"]).startswith("underlying/")]
+        ver = sorted((c for c in te_c if c not in und), key=_chain_order)
+        candidates = und + ver + candidates
     if "baskets.curated" in datasets:
         from core.te import baskets as te_baskets
         if te_baskets.CODE.fullmatch(query.lower()) and any(
