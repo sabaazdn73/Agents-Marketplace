@@ -54,11 +54,13 @@ function recordQuote(now = Date.now()) {
   writeStore(QUOTA_KEY, times);
 }
 
-export function quoteUrl({ fromChain, toChain, fromToken, toToken, fromAmount, fromAddress }) {
+// `slippage` is a fraction (0.005 is 0.5%). Left out, it is SLIPPAGE, which
+// is what the Buy panel always asks for; a signing link carries its own.
+export function quoteUrl({ fromChain, toChain, fromToken, toToken, fromAmount, fromAddress, slippage = SLIPPAGE }) {
   const q = new URLSearchParams({
     fromChain: String(fromChain), toChain: String(toChain),
     fromToken, toToken, fromAmount: String(fromAmount), fromAddress,
-    slippage: String(SLIPPAGE), order: 'CHEAPEST',
+    slippage: String(slippage), order: 'CHEAPEST',
     // Always. SPEC §0.1: no Jupiter, on any chain.
     denyExchanges: 'jupiter',
   });
@@ -120,11 +122,85 @@ export function jupiterIn(quote) {
 
 const lc = (a) => String(a || '').toLowerCase();
 
-/** Does the quote answer the question asked? A mismatch refuses it. */
+// LI.FI's own contract (its "diamond") on each chain a quote may start on:
+// the only address a quote may ask to be approved or called. From
+// li.quest/v1/chains (diamondAddress), the same pins the server holds in
+// backend/core/te/lifi_quote.py DIAMONDS. A chain missing here refuses
+// every quote that starts on it.
+export const LIFI_DIAMONDS = {
+  1: '0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae',
+  8453: '0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae',
+  42161: '0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae',
+  56: '0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae',
+  4663: '0xb477751b76cf82d00a686a1232f5fcd772414af3',
+  999: '0x0a0758d937d1059c356d4714e57f5df0239bce1a',
+};
+
+const NATIVE = /^0x(0{40}|e{40})$/i;
+const bigOr = (x) => {
+  try { return x == null || x === '' ? 0n : BigInt(String(x)); } catch { return null; }
+};
+
+/** Does the quote answer the question asked? A mismatch refuses it.
+ *  Besides the chains, tokens, amount and wallet, it checks where the value
+ *  goes: the route delivers to the wallet (p.toAddress, or the wallet
+ *  itself), every included step delivers to the wallet or to LI.FI's
+ *  contract, the transaction sends no native coin when an ERC-20 is paid,
+ *  and the contract called and the approval's spender are both LI.FI's
+ *  pinned contract on the paying chain. */
 export function quoteMismatch(quote, p) {
   const a = quote?.action || {};
   const tr = quote?.transactionRequest || {};
+  const e = quote?.estimate || {};
   const bad = [];
+  const wallet = lc(p.toAddress || p.fromAddress);
+  const diamond = LIFI_DIAMONDS[Number(p.fromChain)] || null;
+  if (lc(a.toAddress) !== wallet) bad.push('the recipient');
+  // A cross-chain route (the Buy panel's Arbitrum to Robinhood Chain) may
+  // also deliver a step to LI.FI's contract on the receiving chain.
+  const toDiamond = LIFI_DIAMONDS[Number(p.toChain)] || null;
+  // Every included step, at any depth. A step names where its tokens go
+  // (action.toAddress); one that names none is accepted only as LI.FI's
+  // "protocol" step (its fee collection), which moves no tokens to anyone.
+  // Any other step without a recipient, and any step type LI.FI does not
+  // document (swap, cross, lifi, protocol), refuses the route.
+  const KNOWN = new Set(['swap', 'cross', 'lifi', 'protocol']);
+  const steps = [];
+  let tooDeep = false;
+  const walk = (list, depth) => {
+    if (!Array.isArray(list)) return;
+    for (const st of list) {
+      steps.push(st);
+      const inner = st?.includedSteps;
+      if (Array.isArray(inner) && inner.length) {
+        // Past eight levels the route is not read further, so it is refused
+        // rather than passed unread.
+        if (depth >= 8) tooDeep = true;
+        else walk(inner, depth + 1);
+      }
+    }
+  };
+  walk(quote?.includedSteps, 0);
+  if (tooDeep) bad.push('a route nested too deep');
+  for (const st of steps) {
+    if (!st || typeof st !== 'object' || !KNOWN.has(st.type)) { bad.push("a step of a kind not known"); break; }
+    const to = lc(st.action?.toAddress);
+    if (!to) {
+      if (st.type !== 'protocol') { bad.push("a step with no recipient"); break; }
+      continue;
+    }
+    if (to !== wallet && to !== diamond && to !== toDiamond) { bad.push("a step's recipient"); break; }
+  }
+  const value = bigOr(tr.value);
+  if (value == null) bad.push("the transaction's value");
+  else if (NATIVE.test(String(p.fromToken || ''))) {
+    if (value !== bigOr(p.fromAmount)) bad.push("the transaction's value");
+  } else if (value !== 0n) bad.push("the transaction's value");
+  if (!diamond) bad.push('the chain (no LI.FI contract known for it)');
+  else {
+    if (lc(tr.to) !== diamond) bad.push('the contract called');
+    if (lc(e.approvalAddress) !== diamond) bad.push("the approval's spender");
+  }
   if (Number(a.fromChainId) !== Number(p.fromChain)) bad.push('the paying chain');
   if (Number(a.toChainId) !== Number(p.toChain)) bad.push("the stock's chain");
   if (lc(a.fromToken?.address) !== lc(p.fromToken)) bad.push('the token paid');

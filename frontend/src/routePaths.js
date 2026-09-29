@@ -101,6 +101,12 @@ const PRODUCT_DETAIL = [
   [/^\/my-etfs\/[a-z0-9-]{1,40}$/, 'my-etfs', '/my-etfs'],
 ];
 
+// A signing link, /sign/<id> (sign/SignOrderPage.jsx). Any id is served,
+// so a link cut short or changed shows the page's own "not valid" state
+// instead of the Dashboard; the page and the server check the id.
+export const SIGN_PATH = /^\/sign\/[^/]+$/;
+export const isSignPath = (pathname) => SIGN_PATH.test(pathname);
+
 /** The product tab a detail path belongs to, or null. */
 export function productDetail(pathname) {
   const hit = PRODUCT_DETAIL.find(([re]) => re.test(pathname));
@@ -124,6 +130,7 @@ function isServed(p) {
   return Object.prototype.hasOwnProperty.call(MAIN_TAB_PATHS, p)
     || STANDALONE_PATHS.includes(p)
     || p.startsWith('/docs/')
+    || isSignPath(p)
     || isExplorePath(p);
 }
 

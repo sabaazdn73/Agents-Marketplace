@@ -164,11 +164,17 @@ export default function PrivacyPage({ onBack }) {
           <p>
             What is kept in your browser, and by whom. Ours: tnega_theme (the theme you pick),
             tnega_welcomed (on a phone, that the welcome screen was shown, for this session only),
-            tnega_signin_v1:&lt;address&gt; (a signed sign-in message, for 24 hours), and the list of
+            tnega_signin_v1:&lt;address&gt; (a signed sign-in message, for 24 hours),
+            tnega_lifi_q_v1 (the times of the LI.FI quotes this browser asked for in the last two
+            hours, to stay inside LI.FI&apos;s limit), on a signing link tnega_tokmeta_v2:... in
+            this tab&apos;s session storage (a token&apos;s decimals, read once from the chain, gone
+            when the tab closes), and the list of
             your agent hires and their notifications (aam_notifications_v2, aam_tracked_jobs_v1 and
             aam_notifications_migrated_v1_to_v2).
             The wallet libraries, as they are written: wagmi.store and wagmi.recentConnectorId
-            (wagmi, the wallet you connected), rk-version (RainbowKit), @appkit/active_namespace,
+            (wagmi, the wallet you connected), and on a signing link tnega-sign.store and
+            tnega-sign.recentConnectorId (the same, for the wallet connected there, kept apart from
+            the rest of the site), rk-version (RainbowKit), @appkit/active_namespace,
             @appkit/active_caip_network_id and @appkit/connection_status (WalletConnect&apos;s
             AppKit), base-acc-sdk.store (Coinbase&apos;s Base Account SDK), a key named after this
             site&apos;s address, written when a wallet connects, and two IndexedDB databases,
@@ -549,6 +555,32 @@ export default function PrivacyPage({ onBack }) {
             of the buys it sent (the transaction hash, the chains, the token and the time), in its
             own storage only.
           </p>)}
+          {/* The signing page (sign/SignOrderPage.jsx) is live whatever the
+              Buy switch says, so this paragraph always shows. */}
+          <p>
+            A signing link (tnega.app/sign/...) is made by Tnega&apos;s MCP server when a tool you use
+            prepares an order there. The link itself carries the order: the token, the chain, the
+            amount, the wallet address and when it expires, signed by our server so it cannot be
+            changed. It is encoded, not hidden: anyone who has the link can read the wallet address
+            in it. Opening it sends the link to our server, which checks it and answers with the
+            order. Unlike the routes above, the address is in the web address itself, so our
+            server&apos;s access log records it with the path; the server writes the order nowhere
+            else. From there, when you press the button for a quote, your browser sends LI.FI
+            (li.quest) the wallet address, the chain, the two tokens and the amount. It reads both
+            tokens&apos; decimals, which sends no address, and the wallet&apos;s balance and
+            allowance, which sends the wallet address, from the chain&apos;s RPC provider: PublicNode on Ethereum, with eth.merkle.io as
+            a backup; Base&apos;s public endpoint on Base, with PublicNode, dRPC
+            (base.drpc.org), 1RPC (1rpc.io) and Blast (base-mainnet.public.blastapi.io) as
+            backups, in that order, each asked only when the ones before it do not answer;
+            Arbitrum&apos;s public endpoint on Arbitrum, with dRPC as a backup; bloXroute on BNB
+            Chain, with Infura as a backup where it is configured; Robinhood Chain&apos;s public
+            endpoint, with PublicNode as a backup; and Hyperliquid&apos;s public endpoint on
+            HyperEVM; and your
+            wallet signs; after you sign, it asks LI.FI for the transaction&apos;s status by its hash.
+            None of that goes to our server. After you sign the swap, your
+            browser sends our server the transaction hash with the link, so the link cannot be used
+            twice; the server keeps that in memory only, and forgets it when it restarts.
+          </p>
           <p>
             Signing in on the website is a signature from your wallet over a short message that
             moves no funds and approves nothing. For an ordinary wallet, such as MetaMask, it is

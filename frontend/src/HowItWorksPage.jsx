@@ -44,7 +44,7 @@
 //
 // WHAT IS NOT HERE
 // An on-site agent was here until 2026-09-17. It ran a bounded tool-calling
-// loop over the same six tools this page documents, and it rested on a model
+// loop over the six read tools this page documented then, and it rested on a model
 // quota that runs out, so nearly every turn ended in its refusal path. A way
 // in that is unavailable most of the time is worse than one that is absent,
 // and MCP is the better arrangement anyway: the caller brings their own model,
@@ -122,9 +122,10 @@ const MCP_CONFIG_HOMES = [
   { os: 'Windows', path: '%USERPROFILE%\\.claude.json' },
 ];
 
-// The six tools, one line each, in the order a caller meets them. Taken from
+// The nine tools, one line each, in the order a caller meets them. Taken from
 // the manifest in backend/mcp_server/tools.py, shortened to what a reader
-// needs to decide whether to call one.
+// needs to decide whether to call one. The last three prepare an order, or
+// read a wallet's holdings for one; none of them signs or sends anything.
 const MCP_TOOLS = [
   {
     name: 'tnega_catalogue',
@@ -149,6 +150,18 @@ const MCP_TOOLS = [
   {
     name: 'tnega_series',
     line: 'One measurement over time, newest first. Today that is Hyperliquid post-only rejection in 10 second buckets for one address.',
+  },
+  {
+    name: 'tnega_prepare_buy',
+    line: 'Prepares a buy of a tokenized stock for a dollar amount and a wallet: the version with the lowest measured all-in cost, a LI.FI quote, an approval for the exact amount, and a tnega.app/sign link. Nothing is signed or sent.',
+  },
+  {
+    name: 'tnega_prepare_sell',
+    line: 'Prepares a sale of a tokenized stock the wallet holds: a LI.FI quote checked against our measured pool price, an approval for the exact amount, and a tnega.app/sign link. Nothing is signed or sent.',
+  },
+  {
+    name: 'tnega_wallet_holdings',
+    line: 'Which listed tokenized stocks one wallet holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, read from the chains, with the chains that could not be read.',
   },
 ];
 
@@ -530,7 +543,7 @@ export function McpDetails({ compact }) {
       </div>
 
       <div>
-        <Label>The six tools</Label>
+        <Label>The nine tools</Label>
         <ul className="space-y-2">
           {MCP_TOOLS.map((t) => (
             <li key={t.name} className="border-l-2 border-line-strong pl-3">
@@ -540,9 +553,10 @@ export function McpDetails({ compact }) {
           ))}
         </ul>
         <p className="mt-2 text-[12px] text-muted">
-          The list is six and stays six. A new measurement becomes a row in
-          {' '}<code className="font-mono">tnega_catalogue</code>, not a seventh tool, so a client
-          that read this list a month ago is still correct.
+          A new measurement becomes a row in
+          {' '}<code className="font-mono">tnega_catalogue</code>, not a new tool. The two prepare
+          tools return a tnega.app/sign link; on that page you sign every transaction in your own
+          wallet, or nothing happens. Tnega never signs, and never holds funds or keys.
         </p>
       </div>
 

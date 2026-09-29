@@ -10,7 +10,7 @@ import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
 import CanaryTestingPanel from './CanaryTestingPanel.jsx';
 import { EcosystemBoundary, EcosystemFallback, hasWebGL } from './shell/EcosystemFallback.jsx';
-import { NAV_TO_PATH, resolvePath, tabForPath, isExplorePath } from './routePaths.js';
+import { NAV_TO_PATH, resolvePath, tabForPath, isExplorePath, isSignPath } from './routePaths.js';
 import { updatePageMeta } from './seoMeta.js';
 import { SITE_COPY } from './siteCopy.js';
 import MobileWelcome, { shouldWelcome } from './shell/MobileWelcome.jsx';
@@ -34,7 +34,7 @@ const PAGE_META = {
   '/my-etfs': { title: 'My ETFs', description: 'Baskets of up to five tokenized stocks and ETFs, with the all-in cost and the largest size their thinnest leg allows.' },
   '/dashboard': { title: 'Dashboard', description: "Your wallet's tokenized equities, their value, cost and allocation, read from the chain." },
   '/issuer-controls': { title: 'Issuer controls', description: 'Who can pause, freeze, burn or seize, and upgrade each tokenized stock and ETF we list, read on chain with the evidence for each, and who may hold it in the issuer\'s own words.' },
-  '/ai': { title: 'Use with AI', description: "Point your own assistant at Tnega's MCP server: the endpoint, the one-line install, and the read-only tools it serves today." },
+  '/ai': { title: 'Use with AI', description: "Point your own assistant at Tnega's MCP server: the endpoint, the one-line install, and the tools it serves today: measurements to read, and orders it prepares for you to sign in your own wallet." },
   '/signin': { title: 'Sign in', description: 'Connect a wallet and sign one message to show the wallet is yours. No account, no password, no funds moved.' },
   // Explore keeps its path: every shared link, the sitemap and the Chrome
   // Web Store listing point at /market.
@@ -52,12 +52,20 @@ const PAGE_META = {
   // ChainViewTabs.jsx reads the path and opens that tab; routePaths.js names
   // /chain/<view> as one of Explore's own addresses.
   '/chain/hyperliquid': { title: 'Hyperliquid', description: 'Post-only rejection measured across the tracked Hyperliquid makers, and the coverage behind each number.' },
+  // Every /sign/<id> takes this entry, with /sign as its canonical: the id
+  // is one order for one wallet, so it is never published as the page's
+  // address. The page also sets noindex, and vercel.json sends
+  // X-Robots-Tag: noindex for these paths; none is in the sitemap.
+  '/sign': { title: 'Sign an order', description: 'An order prepared through Tnega, shown in full and signed in your own wallet.' },
 };
 
 // Lazy-loaded: pulls in three.js/@react-three/fiber/drei (~800KB) only for
 // visitors who open /ecosystem, zero cost added to the
 // Marketplace's own default load. See EcosystemGlobePage.jsx for why.
 const EcosystemGlobePage = lazy(() => import('./EcosystemGlobePage.jsx'));
+// Lazy too: the signing page brings its own wallet config for the buy
+// chains (sign/signWagmi.js), which must not be created for any other page.
+const SignOrderPage = lazy(() => import('./sign/SignOrderPage.jsx'));
 
 /** No router library added for one standalone route, a plain
  * window.location.pathname check, matching this project's existing
@@ -127,17 +135,23 @@ function useIsMobile() {
 // THE PHONE WELCOME (shell/MobileWelcome.jsx) sits over whatever page the
 // address opens, once per session, on phones only. Decided once, when the
 // app mounts: a desktop window narrowed later does not get it.
-export default function App() {
-  const [welcome, setWelcome] = useState(() => shouldWelcome(typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT));
+// `tree` is which providers the page load mounted (main.jsx): 'site', the
+// site's; 'sign', a signing link's own (sign/SignRoot.jsx); 'site-fallback',
+// the site's after the signing providers failed to load.
+export default function App({ tree = 'site' }) {
+  // Not over a signing link: someone arriving to sign one order, with ten
+  // minutes on the clock, is not shown the welcome first.
+  const [welcome, setWelcome] = useState(() => shouldWelcome(typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT)
+    && !(typeof window !== 'undefined' && isSignPath(window.location.pathname.replace(/\/+$/, ''))));
   return (
     <>
-      <AppRoutes />
+      <AppRoutes tree={tree} />
       {welcome && <MobileWelcome onEnter={() => setWelcome(false)} />}
     </>
   );
 }
 
-function AppRoutes() {
+function AppRoutes({ tree }) {
   const isMobile = useIsMobile();
   const [path, navigate, search] = useRoute();
 
@@ -154,6 +168,7 @@ function AppRoutes() {
     // the rest with "/"). The ones without an entry are Explore's agent pages
     // and chain views, which take Explore's copy until the agent loads.
     const bare = path.split('#')[0];
+    if (isSignPath(bare)) { updatePageMeta({ ...PAGE_META['/sign'], path: '/sign' }); return; }
     const known = Object.prototype.hasOwnProperty.call(PAGE_META, bare);
     const detailParent = bare.startsWith('/stocks/') ? '/stocks' : bare.startsWith('/vaults/') ? '/vaults' : bare.startsWith('/my-etfs/') ? '/my-etfs' : null;
     const meta = known ? PAGE_META[bare] : PAGE_META[detailParent || (isExplorePath(bare) ? '/market' : '/')];
@@ -176,10 +191,44 @@ function AppRoutes() {
     updatePageMeta({ ...meta, path: bare });
   }, [path]);
 
+  // ONE PROVIDER TREE PER PAGE LOAD. The site's pages need the site's wallet
+  // providers (SignInProvider above all), and a signing link needs its own
+  // (sign/SignRoot.jsx). When the address moves from one to the other inside
+  // a page load (Back, Forward, a pushed address), the page is loaded again
+  // for the new address rather than drawn under the wrong providers.
+  const signHere = isSignPath(path.split('#')[0]);
+  const wrongTree = (tree === 'sign' && !signHere) || (tree === 'site' && signHere);
+  useEffect(() => {
+    if (wrongTree) window.location.reload();
+  }, [wrongTree, path]);
+  if (wrongTree) return null;
+
   // Sign-in renders outside the app shell: a split screen of its own, one
   // component for every width (pages/SignInPage.jsx).
   if (path === '/signin') {
     return <SignInPage navigate={navigate} />;
+  }
+
+  // A signing link (sign/SignOrderPage.jsx): one component for every width,
+  // with its own wallet providers, so it works while the site's Buy switch
+  // is off.
+  if (signHere && tree === 'site-fallback') {
+    return (
+      <div className="min-h-screen bg-page text-fg flex items-center justify-center p-6">
+        <div className="max-w-[480px] text-[14px]">
+          <h1 className="text-[20px] font-semibold">This page did not load fully</h1>
+          <p className="mt-2 text-muted">The part of the page that talks to your wallet did not load, so nothing is offered for signing. The link itself may be fine: reload the page.</p>
+          <button type="button" className="mt-4 h-10 px-4 rounded border border-line-strong text-[13px] font-semibold" onClick={() => window.location.reload()}>Reload the page</button>
+        </div>
+      </div>
+    );
+  }
+  if (signHere) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-page flex items-center justify-center"><Loader2 size={28} className="animate-spin text-accent" /></div>}>
+        <SignOrderPage id={path.split('#')[0].slice('/sign/'.length)} />
+      </Suspense>
+    );
   }
 
   // WHERE "BACK" GOES FROM A STANDALONE PAGE, IN ONE PLACE. The Dashboard,

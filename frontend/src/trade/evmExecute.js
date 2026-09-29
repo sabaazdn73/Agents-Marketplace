@@ -14,30 +14,35 @@
 //
 // Balances and allowances are read through the chain's public endpoint in
 // wagmiConfig.js, never through our API.
+//
+// `config` is the wagmi config to act through. Every caller on the site
+// leaves it out and gets the site's one config; the signing page
+// (sign/SignOrderPage.jsx) passes its own, which knows the buy chains while
+// the site's does not.
 
 import { readContract, writeContract, sendTransaction, switchChain, getChainId, waitForTransactionReceipt } from 'wagmi/actions';
 import { erc20Abi } from 'viem';
 import { wagmiConfig } from '../wagmiConfig';
 
-export async function readBalance({ chainId, token, owner }) {
-  return readContract(wagmiConfig, { chainId, address: token, abi: erc20Abi, functionName: 'balanceOf', args: [owner] });
+export async function readBalance({ chainId, token, owner, config = wagmiConfig }) {
+  return readContract(config, { chainId, address: token, abi: erc20Abi, functionName: 'balanceOf', args: [owner] });
 }
 
-export async function readAllowance({ chainId, token, owner, spender }) {
-  return readContract(wagmiConfig, { chainId, address: token, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] });
+export async function readAllowance({ chainId, token, owner, spender, config = wagmiConfig }) {
+  return readContract(config, { chainId, address: token, abi: erc20Abi, functionName: 'allowance', args: [owner, spender] });
 }
 
 /** Ask the wallet to move to `chainId` if it is elsewhere. */
-export async function ensureChain(chainId) {
-  if (getChainId(wagmiConfig) === chainId) return;
-  await switchChain(wagmiConfig, { chainId });
+export async function ensureChain(chainId, config = wagmiConfig) {
+  if (getChainId(config) === chainId) return;
+  await switchChain(config, { chainId });
 }
 
 /** approve(spender, amount) for exactly `amount`, then one confirmation. */
-export async function approveExact({ chainId, token, spender, amount }) {
-  await ensureChain(chainId);
-  const hash = await writeContract(wagmiConfig, { chainId, address: token, abi: erc20Abi, functionName: 'approve', args: [spender, amount] });
-  const receipt = await waitForTransactionReceipt(wagmiConfig, { chainId, hash, confirmations: 1 });
+export async function approveExact({ chainId, token, spender, amount, config = wagmiConfig }) {
+  await ensureChain(chainId, config);
+  const hash = await writeContract(config, { chainId, address: token, abi: erc20Abi, functionName: 'approve', args: [spender, amount] });
+  const receipt = await waitForTransactionReceipt(config, { chainId, hash, confirmations: 1 });
   if (receipt.status !== 'success') throw new Error(`The approval failed on chain (transaction ${hash}).`);
   return hash;
 }
@@ -54,10 +59,10 @@ export function swapRequest(tr, chainId) {
 }
 
 /** One signature: the swap, as LI.FI built it. */
-export async function sendSwap({ chainId, transactionRequest }) {
-  await ensureChain(chainId);
+export async function sendSwap({ chainId, transactionRequest, config = wagmiConfig }) {
+  await ensureChain(chainId, config);
   const req = swapRequest(transactionRequest, chainId);
-  return sendTransaction(wagmiConfig, req);
+  return sendTransaction(config, req);
 }
 
 /** A wallet's refusal, told apart from a failure, wherever in the error's

@@ -49,15 +49,15 @@ import { BUY_LIVE } from './trade/buyLive';
 // transport altana.js uses, see rpcTransport.js for the failover
 // logic and why this exists.
 
-const ARBITRUM_RPCS = ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.drpc.org'];
-const ROBINHOOD_RPCS = ['https://rpc.mainnet.chain.robinhood.com', 'https://robinhood-rpc.publicnode.com'];
+export const ARBITRUM_RPCS = ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.drpc.org'];
+export const ROBINHOOD_RPCS = ['https://rpc.mainnet.chain.robinhood.com', 'https://robinhood-rpc.publicnode.com'];
 // The buy flow's chains (SPEC C.1 step 1): a tokenized stock on Ethereum,
 // Base or HyperEVM is bought on that chain, so the wallet has to be able to
 // switch there. Public endpoints only, each answered eth_chainId on
 // 2026-09-27; Ethereum reads never go through the Infura key.
-const ETHEREUM_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://eth.merkle.io'];
-const BASE_RPCS = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'];
-const HYPEREVM_RPCS = ['https://rpc.hyperliquid.xyz/evm'];
+export const ETHEREUM_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://eth.merkle.io'];
+export const BASE_RPCS = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'];
+export const HYPEREVM_RPCS = ['https://rpc.hyperliquid.xyz/evm'];
 
 // THE BUY CHAINS ARE ADDED ONLY WHILE THE BUY PANEL IS SHOWN (trade/buyLive.js).
 // With it off the chain list is exactly bsc, arbitrum and robinhood, as
@@ -71,7 +71,7 @@ const HYPEREVM_RPCS = ['https://rpc.hyperliquid.xyz/evm'];
 // the visitor doing anything. Ethereum is therefore configured without its
 // ENS universal resolver: viem's getEnsName throws before any request, and
 // RainbowKit shows the plain address. Only Multicall3 is kept.
-const mainnetNoEns = { ...mainnet, contracts: { multicall3: mainnet.contracts.multicall3 } };
+export const mainnetNoEns = { ...mainnet, contracts: { multicall3: mainnet.contracts.multicall3 } };
 const BUY_CHAINS = BUY_LIVE ? [mainnetNoEns, base, hyperEvm] : [];
 const host = (url) => { try { return new URL(url).host; } catch { return url; } };
 
@@ -99,7 +99,7 @@ export const RPC_PROVIDER_NAMES = {
 // 2026-09-25 by loading every route with localStorage throwing on access.
 // Every touch of the store is now inside a try, and a blocked store behaves as
 // an empty one: nothing is remembered between loads, and everything else works.
-function tolerantLocalStorage() {
+export function tolerantLocalStorage() {
   let store = null;
   try {
     store = typeof window !== 'undefined' ? window.localStorage : null;
