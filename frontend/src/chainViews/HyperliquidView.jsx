@@ -1412,9 +1412,9 @@ export default function HyperliquidView({ mutedBorder }) {
       <Card mutedBorder={mutedBorder} className="p-4 sm:p-5">
         <div className="flex items-start gap-4 sm:gap-5">
           <img
-            src="/fendi-magnifier.png"
+            src="/fendi-magnifier-grip.png"
             alt="Fendi, Tnega's cat, holding a magnifying glass"
-            width={560} height={714}
+            width={560} height={680}
             className="w-20 sm:w-28 h-auto shrink-0 select-none pointer-events-none"
             loading="eager"
           />
