@@ -16,7 +16,9 @@ functions:
 
 THE SCOPE BOUNDARY (spec section 0), kept here:
 - Read-only. Nothing is signed, built, broadcast or held. The spec's unsigned
-  route (`.../for/<wallet>`) is not built, and asking for it says so.
+  route (`.../for/<wallet>`) is not built here; asking for it names the tools
+  that prepare an order (tnega_prepare_buy, tnega_prepare_sell), which sign
+  nothing either.
 - Side by side, never ranked. A row carries its own figures; no field names a
   best, a cheapest or a safest, and rows are in key order, not by cost. A
   caller comparing costs does the comparing.
@@ -204,8 +206,9 @@ def build_te(providers=None) -> list[Dataset]:
         s = _SOL.match(k)
         if m and m.group(3) == "for":
             return {"key": k, "withheld_reason": "not_built",
-                    "explanation": "The unsigned route for a wallet (spec section 9) is not built. Nothing is "
-                                   "signed or built here; the site's buy panel is where a route is quoted."}
+                    "explanation": "This dataset does not build routes. tnega_prepare_buy and tnega_prepare_sell "
+                                   "prepare an order for a wallet and return a link where the user signs every "
+                                   "transaction in their own wallet; nothing is signed here."}
         if (m and m.group(5)) or (s and s.group(2)):
             return {"key": k, "withheld_reason": "not_built",
                     "explanation": "The supply key (spec 4.8) is not built. Issuer-published supply is on the "
@@ -426,7 +429,8 @@ def build_te(providers=None) -> list[Dataset]:
         "shares_per_token is read.",
         "Issuer figures are not restated (E18) and no premium is served (E22). Eligibility is the issuer's own "
         "words, linked and dated.",
-        "Read-only: nothing is signed, built or held. The unsigned route of the spec is not built.",
+        "Read-only: nothing is signed, built or held by this dataset. An order for a wallet is prepared by "
+        "tnega_prepare_buy or tnega_prepare_sell, and signed by the user in their own wallet.",
         "Solana versions are listed but not measured yet.",
         "as_of is coverage.last_poll: the newest measurement among the versions served, and get, list and "
         "summary read the same snapshot. Each version carries its own block and measured_at, which can be "

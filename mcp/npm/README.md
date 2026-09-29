@@ -30,8 +30,9 @@ claims the path it has checked.
 
 ## What it connects you to
 
-Six tools over nine datasets. Start with `tnega_catalogue`, which lists every
-dataset, the keys each accepts, and its live coverage.
+Six tools over nine datasets, and three that prepare an order. Start with
+`tnega_catalogue`, which lists every dataset, the keys each accepts, and its
+live coverage.
 
 | | |
 |---|---|
@@ -49,12 +50,27 @@ No counts are printed here on purpose. They move, a README cannot re-read
 itself, and a figure that cannot be refreshed is the thing this project exists
 to argue against. `tnega_catalogue` carries the current ones.
 
+## Preparing an order, which you sign yourself
+
+`tnega_prepare_buy` and `tnega_prepare_sell` prepare an order for a tokenized
+stock on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain or HyperEVM:
+the version with the lowest measured all-in cost (or the one you name), a
+route quoted by LI.FI and labelled as LI.FI's with the time it was taken, an
+approval for the exact amount and never an unlimited one, and a link to
+tnega.app/sign. That page shows the whole order, asks LI.FI again, and asks
+your own wallet to sign each transaction; nothing happens unless you sign.
+The link expires after ten minutes. `tnega_wallet_holdings` reads which
+listed tokenized stocks a wallet holds, on chain.
+
 ## It reads, and the protocol says so
 
 Every tool declares `readOnlyHint: true` and `destructiveHint: false`, so a
 client can establish that this server writes nothing before it calls anything,
-rather than taking the claim from a page. The server holds no key, signs
-nothing, and cannot spend or hire.
+rather than taking the claim from a page. The server holds no user's key and
+no wallet, signs no transaction, and cannot spend or hire. The keys it does
+hold are its own: one that signs the order links so they cannot be edited,
+and optionally a LI.FI API key. The order tools prepare; only your wallet
+signs.
 
 `openWorldHint` is set per tool rather than defaulted: true where a call can
 reach the venue while answering, false on `tnega_resolve`, which reads stored

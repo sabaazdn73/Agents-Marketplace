@@ -65,6 +65,14 @@ tnega_summary     an aggregate, with its coverage
 tnega_series      a measurement over time
 ```
 
+Three more tools sit beside these six, added on 2026-09-29, and they are not a
+seventh way of answering about a dataset. `tnega_prepare_buy` and
+`tnega_prepare_sell` prepare an order for a tokenized stock and return a link
+to tnega.app/sign, where the user signs every transaction in their own wallet;
+`tnega_wallet_holdings` reads which listed tokenized stocks one wallet holds.
+None of them signs, sends, holds or stores anything, and each declares
+`readOnlyHint: true`. They are described in TOKENIZED-EQUITIES.md, section 9A.
+
 Why this split holds as the set behind it grows:
 
 The boundaries are about response shape, and response shapes do not multiply.
@@ -122,6 +130,8 @@ argument. Not capped by default, not reachable.
 | `tnega_list` | 25 compact rows | 32 KB | at about 200 bytes a row, 25 rows is 5 KB |
 | `tnega_summary` | one rollup | 8 KB | bounded by construction |
 | `tnega_series` | 200 points | 16 KB | 10 second Hyperliquid buckets, 200 is 33 minutes |
+| `tnega_prepare_buy`, `tnega_prepare_sell` | one order | 12 KB | measured 2026-09-29 as the text a client receives, with the link, over 9 tickers and every measured version: a buy by ticker 8,476 to 9,232 bytes, by version key 6,963 to 7,563, a sale 6,202 to 6,847; refused whole rather than cut |
+| `tnega_wallet_holdings` | nonzero balances | 16 KB | 185 to 203 bytes a balance measured (2026-09-28), up to about 230 with an 18-decimal balance, so about 70 balances; trimmed from the tail with the dropped rows named |
 
 Two rules make those hold as datasets arrive.
 
@@ -370,7 +380,7 @@ a package beside this document would not ship.
 
     backend/mcp_server/envelope.py   the envelope and the byte ceiling
     backend/mcp_server/registry.py   the datasets and how a new one is added
-    backend/mcp_server/tools.py      the six tools and their descriptions
+    backend/mcp_server/tools.py      the tools and their descriptions
     backend/mcp_server/protocol.py   JSON-RPC, and the gate
     backend/mcp_server/router.py     the mount server.py includes
     backend/scripts/mcp_selfcheck.py the checks

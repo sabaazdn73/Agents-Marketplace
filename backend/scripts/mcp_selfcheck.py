@@ -271,6 +271,18 @@ def check_transport_boundary() -> None:
 
 _LICENSED_CONSUMERS = {"adapters.zerion", "core.pnl", "core.onchain_pnl",
                        "core.onchain_history", "core.agent_evaluation"}
+
+# The one exception, by module and with its reason, so that it is a decision
+# that can be read and reversed rather than a hole in the scan. Everything
+# else in the closure is still scanned, and a module outside this map that
+# names LI.FI still fails.
+#   core.te.lifi_quote   the LI.FI quote in tnega_prepare_buy and
+#                        tnega_prepare_sell, served labelled as LI.FI's quote
+#                        with the time it was taken (owner, 2026-09-25: "LI.FI
+#                        is not E18: serve quotes labelled as LI.FI quotes with
+#                        the time taken"). No other LI.FI data, and no other
+#                        licensed source, passes.
+_LICENSED_ALLOWED = {"core.te.lifi_quote": "LI.FI quotes, labelled, in the order tools"}
 _LICENSED_MODULE_NAME = re.compile(r"zerion|jupiter|lifi|li_fi|coinbase", re.I)
 _LICENSED_LITERAL = re.compile(r"jup\.ag|li\.quest|api\.coinbase\.com|zerion", re.I)
 
@@ -358,6 +370,9 @@ def check_licensed_boundary() -> None:
     check(len(found) == 4, "the literal scan catches all four hosts and skips "
           "docstrings and comments", f"{len(found)} of 4")
 
+    for m, why in _LICENSED_ALLOWED.items():
+        print(f"  note  {m} is not scanned, by decision: {why}")
+
     root = Path(__file__).resolve().parent.parent
     for pkg in ("mcp_server", "publicapi", "telegram_bot"):
         starts = [f"{pkg}.{p.stem}" if p.stem != "__init__" else pkg
@@ -370,14 +385,16 @@ def check_licensed_boundary() -> None:
                 chain.append(closure[chain[-1]])
             return " <- ".join(chain)
 
-        hits = sorted((_LICENSED_CONSUMERS & set(closure))
-                      | {m for m in closure if _LICENSED_MODULE_NAME.search(m)})
+        hits = sorted(((_LICENSED_CONSUMERS & set(closure))
+                       | {m for m in closure if _LICENSED_MODULE_NAME.search(m)}) - set(_LICENSED_ALLOWED))
         check(not hits, f"{pkg}/ imports no licensed-source module",
               "; ".join(path_to(h) for h in hits)
               or f"{len(closure)} modules, clean")
 
         literal_hits = []
         for m in sorted(closure):
+            if m in _LICENSED_ALLOWED:
+                continue
             f = _modfile(root, m)
             if f is None:
                 continue
@@ -602,7 +619,10 @@ def check_tools() -> None:
     check(init["result"]["serverInfo"]["name"] == "tnega", "initialize answers")
     listed = run(protocol.handle(
         {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, datasets))
-    check(len(listed["result"]["tools"]) == 6, "six tools, no more")
+    names = sorted(t["name"] for t in listed["result"]["tools"])
+    check(names == sorted(["tnega_catalogue", "tnega_resolve", "tnega_get", "tnega_list", "tnega_summary",
+                           "tnega_series", "tnega_prepare_buy", "tnega_prepare_sell", "tnega_wallet_holdings"]),
+          "nine tools, no more: six that read, three that prepare an order", ", ".join(names))
     check(all("handler" not in t for t in listed["result"]["tools"]),
           "the handler does not go on the wire")
     note = run(protocol.handle(
@@ -880,7 +900,7 @@ def check_http() -> None:
               "the instructions carry no dashes of the long kind")
         r = post({"jsonrpc": "2.0", "id": 7, "method": "tools/list"},
                  **{"MCP-Protocol-Version": "2025-06-18"})
-        check(r.status_code == 200 and len(r.json()["result"]["tools"]) == 6,
+        check(r.status_code == 200 and len(r.json()["result"]["tools"]) == len(tools.TOOLS),
               "tools/list answers with a negotiated version header", str(r.status_code))
         r = post({"jsonrpc": "2.0", "id": 8, "method": "tools/call",
                   "params": {"name": "tnega_summary", "arguments": {"dataset": "agents.index"}}})

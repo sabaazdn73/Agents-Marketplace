@@ -4085,6 +4085,13 @@ from te.baskets_router import router as baskets_router  # noqa: E402
 app.include_router(te_router)
 app.include_router(baskets_router)  # /api/baskets/*: priced from the same stored costs
 
+# /api/sign/*: the signing page's read of an order prepared through MCP
+# (tnega_prepare_buy / tnega_prepare_sell). The order is in the id; nothing
+# is stored and nothing is signed here.
+from te.sign_router import router as sign_router  # noqa: E402
+
+app.include_router(sign_router)
+
 
 # ── the Telegram surface ─────────────────────────────────────────────────────
 #

@@ -387,7 +387,8 @@ fifth, the supply key, was added under E16 (4.8). It follows the form the
 route key already uses: the instrument key, then a fixed segment. `te_get`
 tells the two apart by that segment, `for` with a wallet after it or `supply`
 with nothing after it, so no key form is ambiguous and no handler changes.
-LI.FI quotes have no key form: they are on the site only (9.7, E26).
+LI.FI quotes have no key form: they are on the site only (9.7, E26), and in
+the order tools beside this dataset (9A).
 
 The id diverges from the dotted convention every other dataset uses. It is the
 owner's name and is kept. Escalation E1.
@@ -2423,6 +2424,187 @@ server-side cadence, precomputing quotes for every instrument, would need a
 key, which under E26 would be held server-side only, and a delivery path that
 keeps the quotes on the site and out of this dataset. Neither exists, and
 none is specified here.
+
+## 9A. Preparing an order: three tools beside this dataset (built 2026-09-29)
+
+Built, unlike most of this document. Section 9's unsigned route (the
+`/for/<wallet>` key) stays unbuilt: these tools return no calldata. They
+return an order and a link, and the user signs on the site.
+
+```
+tnega_prepare_buy(query, usd_amount, wallet, pay_with?, max_slippage_bps?)
+tnega_prepare_sell(query, token_amount, wallet, receive?, max_slippage_bps?)
+tnega_wallet_holdings(wallet)
+```
+
+WHAT HAPPENS. The order carries a link, `https://www.tnega.app/sign/<id>`.
+The page it opens shows the whole order (the token and its issuer, the
+chain, the amount, what is paid or received, the largest slippage allowed,
+LI.FI's fee, the issuer's transfer controls and eligibility words, and the
+wallet it was prepared for), asks the user to connect that wallet and no
+other, asks LI.FI again from the browser, and then asks the wallet to sign
+an approval for the exact amount, if the allowance is short, and the swap.
+Tnega signs nothing, sends nothing and holds nothing, and no tool accepts a
+signed transaction or a key: section 9.6 holds as written.
+
+WHICH VERSION, on a buy by ticker: the lowest measured all-in price per
+share-equivalent (the rule in `cost_views.BEST_RULE`) at the measured size
+nearest to the order, among the versions on the six EVM chains the site can
+buy on (Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain, HyperEVM) that
+fill that size, whose share ratio is read, that can be paid with the token
+asked for, and whose pause control was not read as paused. The answer says
+this in a sentence with the block and time of the measurement, lists the
+versions ranked and the ones not ranked with the reason for each, and uses
+no word that ranks beyond the figure itself. A version key instead of a
+ticker names the version outright. On a sell by ticker, the version the
+wallet holds most of.
+
+NO LINK WITHOUT A CHECKED QUOTE. A link is minted only for a route LI.FI
+quoted and this server checked:
+- the quote answers the question asked (chains, tokens, amount, sender),
+  delivers to the wallet (`action.toAddress`; an included step may deliver
+  only to the wallet or to LI.FI's own contract, which forwards), and names
+  LI.FI's own contract on that chain as both the approval's spender and the
+  contract called. Those contracts are pinned per chain in
+  `core/te/lifi_quote.py` (`DIAMONDS`), from LI.FI's chain list
+  (`GET https://li.quest/v1/chains`, `diamondAddress`, read 2026-09-29) and
+  seen in real quotes on Base and Robinhood Chain: `0x1231…4EaE` on
+  Ethereum, Base, Arbitrum and BNB Chain, `0xB477…4Af3` on Robinhood Chain,
+  `0x0a07…ce1A` on HyperEVM;
+- no step names Jupiter (`denyExchanges=jupiter` on every request);
+- the value check: the minimum the route enforces, priced at our own
+  measured figure, against what is paid. Refused when the loss on the
+  minimum exceeds the tolerance, when the minimum sits below the estimate
+  by more than the slippage plus 0.1%, or when it is worth more than 5%
+  above what is paid. ONE TOLERANCE for buys and sells, in one function
+  (`prepare.tolerance`):
+
+      limit = min(5%, max(2%, 3 x cost_ex_gas_bps))
+
+  where cost_ex_gas_bps is the version's measured cost without gas and the
+  L1 fee (the pool's price impact and fees, and LI.FI's fee) over the size,
+  at the measured size nearest the order's dollar value (a sale: tokens x
+  the reference price), else the nearest size the version filled. Gas is
+  paid by the wallet on top and is not taken out of the minimum a route
+  delivers, so it never widens the tolerance. It did, in the first build:
+  NVDAon on Ethereum measured 543 bps all-in at $100, nearly all of it gas,
+  which set its limit at 16%, and a route paying 6.4% under the mid got a
+  link. Without gas it is 55 bps and the limit is 2%.
+  A buy's reference is the version's measured price per token without gas
+  (what the pool paid out, with LI.FI's fee) at that size. A sale's is the
+  version's measured pool mid at that size; failing that, another version's
+  measured mid per share times this version's read share ratio, with that
+  version's tolerance, and the basis says so; failing both, the sale is
+  refused as `no_reference_price` before LI.FI is asked.
+  cost_ex_gas_bps is rounded half up to a whole number of bps, `b`, before
+  the limit is taken, and `b` is signed into the link:
+  limit = min(5%, max(2%, 3 x b / 10000)) (`sign_link.limit_from_b`). The
+  order carries the limit, its rule and its basis (`value_check.limit_pct`,
+  `limit_basis`, `cost_ex_gas_bps` = b, and `tolerance`); `GET
+  /api/sign/<id>` computes its limit from the link's `b`, not from the
+  store as it is now, and gives the page the same reference price; and the
+  page, reading `b` from the id, computes the same number. An id without
+  `b` is invalid.
+- the reference's age, the same limit the signing page applies: measured
+  more than 30 minutes ago, or dated more than 5 minutes ahead of the
+  server's clock, it is `reference_stale` and no link is made, before
+  LI.FI is asked. A buy by ticker passes over a stale version for the next
+  one; when none is left, or on a buy by key or a sale, the order is
+  refused.
+Beside the stored measurement the order carries `order_allin_per_token`
+(a sell, `order_usd_per_token`): the amount and LI.FI's gas estimate over
+the tokens expected, labelled as from the LI.FI quote.
+
+A buy tries at most two versions. No route, a 4xx from LI.FI, or a failed
+check moves to the next. When LI.FI cannot be asked (this server's budget)
+or does not answer (a network failure, a 5xx, a 429), the answer names the
+version it would have quoted and the reason, marks itself partial, and has
+no link.
+
+THE LINK. The order travels in the link's own id, signed by the server
+(HMAC-SHA256, the first 12 bytes, over compact JSON: side, chain, token, pay
+token, amount, wallet, expiry, nonce, slippage, and `b`, the cost without gas
+in whole bps). Nothing is stored. A link
+lasts ten minutes. `POST /api/sign/<id>/done` with a transaction hash marks
+the link used, in the web process's memory only, so the page does not offer
+the same order twice. "Used" means a hash was reported for the link; the
+hash is checked for its shape only, never on chain. It takes no signature or
+key and cannot move funds; on an expired link it answers 410 and marks
+nothing; an expired link reads as expired whether or not it was used; and a
+restart forgets the marks, so the expiry is what bounds a link.
+`backend/core/te/sign_link.py`.
+
+KEYS THE SERVER HOLDS. The link-signing key (`SIGN_LINK_SECRET`, or derived
+from a secret the service already holds; where it came from is logged once
+at startup, never the key) and, if the owner sets it, `LIFI_API_KEY`. No
+user's key, ever.
+
+LI.FI, AND WHERE THIS DEPARTS FROM 9.7. 9.7 keeps LI.FI quotes on the site
+and out of MCP. The two order tools do ask LI.FI, from the server, because a
+client with no browser has no other way to see the route, the fee and the
+contract the approval is for. Each quote is labelled `"source": "LI.FI
+quote"` with `quoted_at` and carries LI.FI's own fee as LI.FI sent it.
+Without a key every caller shares the server's one IP and LI.FI's keyless
+limit of about 75 quotes per two hours, so the process asks at most 6 a
+minute and 60 in two hours, stops after any 429 until LI.FI's reset, waits
+at most 8 s for an answer, and says in the answer when its own budget
+refused. `LIFI_API_KEY`, if set, is sent server-side only. The
+`tokenized_equities` dataset itself still serves no LI.FI figure. Whether
+the order tools keep asking LI.FI from the server is the owner's decision:
+E26 as written kept LI.FI quotes on the site only.
+
+AS_OF. As everywhere on this surface, `as_of` is when the data was measured:
+for an order, the stored measurement the version was chosen by (a buy) or
+the reference price was taken from (a sell). The quote's own time is
+`quote.quoted_at`, and `quotes_asked` counts only requests that reached
+LI.FI.
+
+REQUEST-TIME CHAIN READS, AND WHERE THIS DEPARTS FROM 4.2.2. The dataset
+makes none. The order tools do: one balance-and-allowance read per order.
+`tnega_wallet_holdings` reads balanceOf on every listed version on the six
+chains (5,909 on 2026-09-29) through Multicall3, 400 balances per
+aggregate3: 18 eth_calls, plus a block number and a block header per chain,
+30 requests in all, the chains in parallel, on the same public endpoints
+the cost engine uses and never a keyed one, under a 9 s deadline, cached
+per wallet for 60 seconds. MCP's one-call gate and per-minute cap bound how
+often a caller can ask. A chain that does not answer is named in
+`coverage.chains_failed` as a fact about the call; with none read the answer
+is `chains_unavailable`, and with some unread and nothing found it is
+`none_held_on_chains_read`. With all six read and nothing held, the answer is
+not withheld: it is an empty list, `withheld_reason` null, with the caveat
+"None held on the six chains read", because that is a measurement.
+
+LIMITS, SAID IN THE ANSWERS. A buy is $1 to $10,000 with at most two decimal
+places; a sale is above zero with at most 18 decimal places and fewer than
+19 whole digits; slippage is a whole number of bps from 10 to 300, 50 by
+default; the pay token is on the stock's own chain (USDC, USDT or USDG as
+each chain allows); Solana versions and chains outside the six are
+`chain_not_supported`.
+
+EVERY REFUSAL, each a `withheld_reason` with a sentence:
+- arguments: `bad_wallet`, `bad_amount`, `bad_slippage`, `bad_pay_token`,
+  `missing_argument`, `filter_not_supported` (an argument the tool does not
+  take);
+- the instrument: `unknown_instrument`, `chain_not_supported`, `not_listed`,
+  `not_buyable`, `no_buyable_version`, `paused`;
+- the route: `no_route` (no route, a 4xx, or a quote that fails the
+  recipient, contract or Jupiter check, with each version's reason),
+  `value_check_failed`, `no_reference_price`, `reference_stale` (the
+  measured price is over 30 minutes old, or dated more than 5 minutes
+  ahead; refused before LI.FI is asked);
+- the wallet: `not_held`, `not_held_on_chains_read`, `chains_unavailable`,
+  `holdings_unavailable`, `insufficient_balance`; and from
+  `tnega_wallet_holdings`: `none_held_on_chains_read`,
+  `chains_unavailable`, `bad_wallet` (an empty wallet with every chain read
+  is an empty list, not a refusal);
+- this server: `cost_store_unavailable`, `not_measured` (the cost worker
+  has not written), `tool_failed` (an exception, reported rather than
+  raised), `response_too_large`;
+- a partial order with no link: `quote_unavailable`, with the reason in
+  `quote_note`.
+
+Checked by `backend/scripts/sign_selfcheck.py` (offline; `--live` adds one
+real LI.FI quote and one real balance read).
 
 ---
 

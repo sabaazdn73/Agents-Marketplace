@@ -114,24 +114,89 @@ def _decode(kind: str, lg: dict, tokens: set[str], chain_id: int) -> dict | None
     return p
 
 
-def _deploy_block(rpc: ChainRpc, addr: str, head: int) -> int | None:
-    """First block at which `addr` has code, by bisection over eth_getCode.
-    None if the endpoint cannot answer old blocks."""
-    lo, hi = 0, head
+# THE FLOOR BISECTION, PERSISTED AND BOUNDED. It used to run whole, inside
+# the discovery share of one pass: on Base, ten tokens at about 27
+# eth_getCode calls each, some 280 calls at 0.3 s, against a discovery
+# deadline of 52 s (0.35 x 150). It never finished, the floor was never
+# stored, and every pass began it again: about 175 calls to mainnet.base.org
+# each cycle, measured as 279 to 281 on a pass run to completion, and the
+# back walk never ran. Now each address's bisection interval is kept in the
+# walk state (persisted with the chain's meta, so it survives a restart),
+# a pass spends at most BISECT_CALLS_PER_RUN calls on it, and it resumes
+# where it stopped.
+BISECT_CALLS_PER_RUN = 40
+
+
+def _state_error(msg: str) -> bool:
+    from .rpcclient import _state_error as se
+    return se(msg)
+
+
+# THE ONLY ANSWER THAT MARKS A TOKEN "none": the endpoint saying outright it
+# does not serve historical state at all (a method or mode it lacks), as
+# opposed to not holding one block right now. Anything else keeps the
+# progress and retries next pass.
+_NO_HISTORY_WORDS = ("method not found", "not supported", "does not support", "unsupported method")
+
+
+def _no_history(msg: str) -> bool:
+    m = msg.lower()
+    return any(w in m for w in _NO_HISTORY_WORDS)
+
+
+class _FloorPending(Exception):
+    """The back walk waits for the floor; not an error."""
+
+
+def _bisect(rpc: ChainRpc, addr: str, head: int, entry: dict, calls_left: int) -> int:
+    """Advances one address's deployment-block bisection in place. entry
+    ends as {"block": n}, or {"none": reason} when the endpoint has no code
+    there or cannot answer old blocks. Returns the calls spent."""
+    used = 0
+    if "block" in entry or "none" in entry:
+        return 0
     try:
-        if len(rpc.call("eth_getCode", [addr, hex(head)])) <= 2:
-            return None
-        while lo < hi:
-            mid = (lo + hi) // 2
+        if "hi" not in entry:
+            used += 1
+            if len(rpc.call("eth_getCode", [addr, hex(head)])) <= 2:
+                entry["none"] = "no code at the head"
+                return used
+            entry.update(lo=0, hi=head)
+        while entry["lo"] < entry["hi"] and used < calls_left:
+            mid = (entry["lo"] + entry["hi"]) // 2
+            used += 1
             if len(rpc.call("eth_getCode", [addr, hex(mid)])) > 2:
-                hi = mid
+                entry["hi"] = mid
             else:
-                lo = mid + 1
-        return lo
+                entry["lo"] = mid + 1
     except RpcError as e:
-        if e.kind == "deadline":
+        if e.kind in ("deadline", "transient") or _state_error(e.message) or not _no_history(e.message):
+            # Progress kept; resumed next pass. A state error ("header not
+            # found", "missing trie", pruned or archive wording) raised from
+            # the last endpoint is treated the same way: nodes answer it
+            # for a moment and then serve the block again, and the Base
+            # endpoints used here are full-history.
             raise
+        entry.clear()
+        entry["none"] = "the endpoint says it serves no historical state"
+        return used
+    if entry["lo"] >= entry["hi"]:
+        n = entry["lo"]
+        entry.clear()
+        entry["block"] = n
+    return used
+
+
+def _deploy_blocks(rpc: ChainRpc, addrs: list[str], head: int, st: dict, budget: list[int]) -> list[int] | None:
+    """Every address's deployment block, or None while any is unfinished."""
+    dep = st.setdefault("deploy", {})
+    for a in addrs:
+        e = dep.setdefault(a, {})
+        if budget[0] > 0:
+            budget[0] -= _bisect(rpc, a, head, e, budget[0])
+    if any("block" not in dep[a] and "none" not in dep[a] for a in addrs):
         return None
+    return [dep[a]["block"] for a in addrs if "block" in dep[a]]
 
 
 def _logs(rpc: ChainRpc, address, lo: int, hi: int, topics: list, depth: int = 0) -> list:
@@ -146,14 +211,22 @@ def _logs(rpc: ChainRpc, address, lo: int, hi: int, topics: list, depth: int = 0
         raise
 
 
-def _floor(cfg: dict, rpc: ChainRpc, mgrs: list[dict], toks: list[str], head: int) -> tuple[int, str]:
+def _floor(cfg: dict, rpc: ChainRpc, mgrs: list[dict], toks: list[str], head: int,
+           st: dict) -> tuple[int | None, str | None]:
+    """(floor, basis), or (None, None) while the bisection is still under way
+    (it resumes on the next pass; the back walk waits for it)."""
     how = cfg.get("floor")
+    budget = [BISECT_CALLS_PER_RUN]
     if how == "token" and len(toks) <= 20:
-        tb = [b for b in (_deploy_block(rpc, t, head) for t in toks) if b is not None]
+        tb = _deploy_blocks(rpc, toks, head, st, budget)
+        if tb is None:
+            return None, None
         if tb:
             return min(tb), "earliest listed token's deployment (bisected)"
     if how in ("manager", "token"):
-        mb = [b for b in (_deploy_block(rpc, m["manager"], head) for m in mgrs) if b is not None]
+        mb = _deploy_blocks(rpc, [m["manager"] for m in mgrs], head, st, budget)
+        if mb is None:
+            return None, None
         if mb:
             return min(mb), "pool manager's deployment (bisected)"
     return cfg["floor_fallback"], "a block before V4's launch on this chain (bisection unavailable)"
@@ -175,8 +248,13 @@ def scan(chain_id: int, tokens: list[str], state: dict | None, *, deadline: floa
     tokset = set(toks)
     st = state.setdefault("walk", {})
     st.update(endpoint=_ep(cfg["endpoint"]).label, managers=[m["kind"] + ":" + m["manager"] for m in mgrs])
-    rpc = ChainRpc(chain_id, [_ep(cfg["endpoint"])], min_interval=cfg["min_interval"], retries_per_endpoint=3,
-                   deadline=deadline)
+    # Rotating on Base: BASE_RPC_URL first when set (a paid endpoint can
+    # serve old log ranges and old state), mainnet.base.org as the public
+    # fallback. A 429 here cools mainnet.base.org for the whole process, so
+    # the refresh that follows starts on the next Base endpoint.
+    from .chains import discovery_endpoints, rotates
+    rpc = ChainRpc(chain_id, discovery_endpoints(chain_id) or [_ep(cfg["endpoint"])], min_interval=cfg["min_interval"],
+                   retries_per_endpoint=3, deadline=deadline, rotate=rotates(chain_id))
     addrs = [m["manager"] for m in mgrs]
     kinds = {m["manager"]: m["kind"] for m in mgrs}
     try:
@@ -196,7 +274,12 @@ def scan(chain_id: int, tokens: list[str], state: dict | None, *, deadline: floa
         # back: token-filtered, both currency slots, towards the floor
         if cfg.get("back"):
             if st.get("floor") is None:
-                st["floor"], st["floor_basis"] = _floor(cfg, rpc, mgrs, toks, head)
+                st["floor"], st["floor_basis"] = _floor(cfg, rpc, mgrs, toks, head, st)
+            if st.get("floor") is None:
+                st["floor_pending"] = "the deployment-block bisection is under way; resumed next pass"
+                raise _FloorPending
+            st.pop("floor_pending", None)
+            st.pop("deploy", None)
             chunks = [toks[i:i + 200] for i in range(0, len(toks), 200)] or [[]]
             per_window = 2 * len(chunks)
             while st["lo"] > st["floor"] and rpc.stats.calls + per_window <= max_calls:
@@ -210,6 +293,8 @@ def scan(chain_id: int, tokens: list[str], state: dict | None, *, deadline: floa
                             if p:
                                 found.append(p)
                 st["lo"] = lo
+        st.pop("error", None)
+    except _FloorPending:
         st.pop("error", None)
     except RpcError as e:
         st["error"] = public_reason(e)
@@ -239,7 +324,8 @@ def coverage(chain_id: int, state: dict | None) -> dict:
         out.update(from_block=st["lo"], floor_block=st.get("floor"), floor_basis=st.get("floor_basis"),
                    status="complete" if done else "in_progress")
         if not done:
-            out["reason"] = f"blocks {st.get('floor')} to {st['lo'] - 1} not yet read"
+            out["reason"] = (f"blocks {st.get('floor')} to {st['lo'] - 1} not yet read" if st.get("floor") is not None
+                             else st.get("floor_pending") or "the walk's floor is not established yet")
     else:
         out.update(from_block=st.get("started_at_block"), status="forward_only",
                    reason=f"not searched before block {st.get('started_at_block')}: {cfg['no_back_reason']}")

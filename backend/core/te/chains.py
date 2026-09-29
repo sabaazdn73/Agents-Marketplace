@@ -12,7 +12,8 @@ public endpoints on 2026-09-27:
   override; mevblocker also serves historical state (checked honest at
   head-500,000) and 10,000-block log ranges, so it is the archive and log
   endpoint. eth.llamarpc.com answered HTTP 525 or nothing and is not used.
-- 8453: mainnet.base.org (full history), then base-rpc.publicnode.com.
+- 8453: see BASE_ENDPOINTS below: a rotating list, since mainnet.base.org
+  alone answered "rate limited" for hours from production (2026-09-28).
 - 42161: arb1.arbitrum.io (about 30 minutes of state), then
   arbitrum-one-rpc.publicnode.com.
 - 56: bloXroute (about 110 blocks of state), then bsc-rpc.publicnode.com
@@ -39,8 +40,94 @@ from .rpcclient import ChainRpc, Endpoint
 NATIVE = "0x0000000000000000000000000000000000000000"
 
 
-def _ep(url: str) -> Endpoint:
-    return Endpoint(url.split("//", 1)[1].split("/", 1)[0], url)
+def _ep(url: str, window: int | None = None) -> Endpoint:
+    return Endpoint(url.split("//", 1)[1].split("/", 1)[0], url, window)
+
+
+# BASE, AND WHY IT HAS MORE THAN TWO ENDPOINTS. From 23:21 UTC on
+# 2026-09-28 the Base run failed with "rate limited by the provider":
+# mainnet.base.org is the only public Base endpoint the engine used for
+# pinned reads, the Base pool discovery spends up to 60 log queries a cycle
+# on the same host, and the one fallback, publicnode, holds under 100 blocks
+# of state, so a pinned read that failed over to it was refused.
+#
+# Measured from a residential IP on 2026-09-29 (scratchpad probe): each
+# endpoint ran eth_blockNumber, the engine's honesty check (an overridden
+# eth_call's TIMESTAMP against the header) at head-50, head-2,000 and
+# head-50,000, and the cost engine's own probe quote, a batch of 40 at one
+# pinned block, which every endpoint kept answered to the wei alike. Kept, in
+# this order, with the state window found:
+#   mainnet.base.org                 full (head-50,000 honest; quotes at head-20,000)
+#   base-mainnet.public.blastapi.io  full (same checks)
+#   base.gateway.tenderly.co         full (same checks)
+#   base.drpc.org                    full (same checks); no JSON-RPC batches,
+#                                    which the engine does not send
+#   base-rpc.publicnode.com          latest only: quotes at head-30 answered,
+#                                    head-100 refused ("Archive requests require
+#                                    a personal token"); window set to 50 blocks
+# Not kept: base.llamarpc.com (HTTP 525), base.meowrpc.com (no eth_call),
+# base.api.onfinality.io/public (429 at once), base-pokt.nodies.app (HTTP 403
+# on the probe's batch), 1rpc.io/base (429 from Nodies behind it; state
+# pruned before head-50,000), developer-access-mainnet.base.org (rate limited
+# after two calls, the same provider as mainnet.base.org).
+#
+# BASE_RPC_URL, if set, is tried first: a dedicated endpoint the owner
+# configures (any provider; a QuickNode Base URL works as a plain URL).
+# IT MUST BE AN ARCHIVE (FULL-HISTORY) ENDPOINT: the cost pass pins its reads
+# to a block, the honesty guard reads 50 blocks back, and pool discovery
+# reads logs and contract code from long before the head. A pruned node
+# still works, since each read it cannot serve falls through to the public
+# endpoints, but then it takes none of the load it was set up to take. Its
+# URL may hold a key, so it is never logged or served: its label is
+# "BASE_RPC_URL" and the provider's registrable domain only, and
+# rpcclient.redact() removes the whole value, and each path segment, query
+# value and subdomain of 8 characters or more, from any error text. Its state window is not
+# known, so a pinned read it cannot serve falls through to the next endpoint.
+BASE_PUBLIC = [
+    ("https://mainnet.base.org", None),
+    ("https://base-mainnet.public.blastapi.io", None),
+    ("https://base.gateway.tenderly.co", None),
+    ("https://base.drpc.org", None),
+    ("https://base-rpc.publicnode.com", 50),
+]
+
+
+def _base_endpoints() -> list[Endpoint]:
+    out = []
+    own = os.environ.get("BASE_RPC_URL", "").strip()
+    if own.startswith("https://"):
+        # The label is fixed text and the provider's registrable domain
+        # (alchemy.com, quiknode.pro), never the host: some providers put
+        # the key in a subdomain.
+        from urllib.parse import urlsplit
+        host = (urlsplit(own).hostname or "").lower()
+        # A two-label host IS its registrable domain and may itself carry
+        # the key, so it gets no domain at all.
+        domain = ".".join(host.split(".")[-2:]) if host.count(".") >= 2 else ""
+        out.append(Endpoint(f"BASE_RPC_URL ({domain})" if domain else "BASE_RPC_URL", own, None))
+    return out + [_ep(u, w) for u, w in BASE_PUBLIC]
+
+
+def discovery_endpoints(chain_id: int) -> list[Endpoint] | None:
+    """The pool discovery's endpoints where more than one is configured:
+    on Base, BASE_RPC_URL first when set, then mainnet.base.org, the only
+    public Base endpoint found to serve old log ranges (drpc, blastapi,
+    tenderly and publicnode refused them, 2026-09-29). None elsewhere: the
+    discovery uses its one configured endpoint."""
+    if chain_id != 8453:
+        return None
+    return [ep for ep in _base_endpoints() if ep.label.startswith("BASE_RPC_URL")] + [_ep("https://mainnet.base.org")]
+
+
+# Chains whose client rotates (rpcclient: per-endpoint cool-down on 429,
+# rate-limit, 5xx and timeouts; pinned reads only where the state window
+# covers them; exponential backoff with jitter). Base only: the other chains
+# keep the per-endpoint retry they have run on since T0, unchanged.
+ROTATING = frozenset({8453})
+
+
+def rotates(chain_id: int) -> bool:
+    return chain_id in ROTATING
 
 
 CHAINS: dict[int, dict] = {
@@ -115,7 +202,7 @@ def latest_endpoints(chain_id: int) -> list[Endpoint]:
     if chain_id == 1:
         eps = [_ep("https://ethereum-rpc.publicnode.com"), _ep("https://rpc.mevblocker.io")]
     elif chain_id == 8453:
-        eps = [_ep("https://mainnet.base.org"), _ep("https://base-rpc.publicnode.com")]
+        eps = _base_endpoints()
     elif chain_id == 42161:
         eps = [_ep("https://arb1.arbitrum.io/rpc"), _ep("https://arbitrum-one-rpc.publicnode.com")]
     elif chain_id == 56:
@@ -141,7 +228,7 @@ def archive_endpoints(chain_id: int) -> list[Endpoint]:
     HyperEVM (dRPC) hold long history; the rest hold minutes."""
     return {
         1: [_ep("https://rpc.mevblocker.io"), _ep("https://ethereum-rpc.publicnode.com")],
-        8453: [_ep("https://mainnet.base.org")],
+        8453: [ep for ep in _base_endpoints() if ep.window is None],
         42161: [_ep("https://arb1.arbitrum.io/rpc")],
         56: [_ep("https://bsc.rpc.blxrbdn.com"), _ep("https://bsc-rpc.publicnode.com")],
         4663: [_ep("https://rpc.mainnet.chain.robinhood.com")],
@@ -152,7 +239,7 @@ def archive_endpoints(chain_id: int) -> list[Endpoint]:
 def rpc_for(chain_id: int, *, archive: bool = False) -> ChainRpc:
     eps = archive_endpoints(chain_id) if archive else latest_endpoints(chain_id)
     return ChainRpc(chain_id, eps, min_interval=CHAINS[chain_id]["min_interval"],
-                    retries_per_endpoint=CHAINS[chain_id].get("retries", 3))
+                    retries_per_endpoint=CHAINS[chain_id].get("retries", 3), rotate=rotates(chain_id))
 
 
 def stable_by_address(chain_id: int) -> dict[str, tuple[str, int]]:

@@ -72,7 +72,8 @@ MODERN_VERSION = "2026-07-28"
 BUSY_CODE = -32029
 
 INSTRUCTIONS = (
-    "Measurements from Tnega, read only. agents.index is ERC-8004 agents on "
+    "Measurements from Tnega, read only, and orders prepared for the user to "
+    "sign. agents.index is ERC-8004 agents on "
     "BNB Chain; chains.agents is agents on Ethereum, Arbitrum, Robinhood "
     "Chain, Solana and Monad; jobs.erc8183 is ERC-8183 jobs on BNB Chain; "
     "budgets.escrow is spending budgets; hyperliquid.post_only is post-only "
@@ -80,7 +81,12 @@ INSTRUCTIONS = (
     "tokenized_equities is what a tokenized stock or ETF costs to buy, per "
     "issuer's version on each chain; vaults.stablecoin is stablecoin vaults "
     "read on chain; baskets.curated is fixed example baskets, priced. Start with "
-    "tnega_catalogue. Every response carries its coverage, and a measurement "
+    "tnega_catalogue. tnega_prepare_buy and tnega_prepare_sell prepare an "
+    "order for a tokenized stock and return a link to tnega.app/sign, where "
+    "the user signs every transaction in their own wallet; Tnega never signs "
+    "or holds funds. tnega_wallet_holdings reads a wallet's balances, read "
+    "only; a wallet read on every chain that holds none is an empty list, "
+    "not withheld. Every response carries its coverage, and a measurement "
     "with nothing behind it returns a withheld_reason rather than a zero. "
     "as_of is when the data was measured, or null where there is no such "
     "time; served_at is when you asked. Cite as_of. One call at a time: a "

@@ -1,4 +1,4 @@
-"""The six tools.
+"""The tools: six that read measurements, three that prepare an order.
 
 The surface is split by the shape of the answer, not by subject. Subject is a
 parameter whose valid values come from tnega_catalogue at run time. mcp/DESIGN.md
@@ -18,6 +18,16 @@ question is usually "this one or that one".
 The standard, from the Smithery survey: 99.7% of tools carry a description,
 median length 197 characters. scripts/mcp_selfcheck.py enforces the shape here:
 120 to 400 characters, at least one sibling named, and the cap stated.
+
+THE THREE THAT PREPARE AN ORDER
+-------------------------------
+tnega_prepare_buy and tnega_prepare_sell choose a version, ask LI.FI for a
+route, and return a link to tnega.app/sign where the user signs every
+transaction in their own wallet. tnega_wallet_holdings reads balances. None
+of them signs, sends, holds or stores anything: the order travels in the
+link's own signed id (core/te/sign_link.py), and the logic is in
+core/te/prepare.py and core/te/holdings.py, so these handlers only read and
+refuse arguments and wrap the answer.
 """
 
 from __future__ import annotations
@@ -594,6 +604,145 @@ async def series(datasets: dict, args: dict) -> dict:
         caveats=list(d.caveats))
 
 
+# ── preparing an order ───────────────────────────────────────────────────────
+
+PREPARE_BUY_ARGS = ("query", "usd_amount", "wallet", "pay_with", "max_slippage_bps")
+PREPARE_SELL_ARGS = ("query", "token_amount", "wallet", "receive", "max_slippage_bps")
+HOLDINGS_ARGS = ("wallet",)
+
+ORDER_CAVEATS = [
+    "Tnega prepared this; nothing is signed until you sign each transaction in your own wallet. Tnega never "
+    "signs, sends or holds funds.",
+    "quote is LI.FI's, as it answered at quoted_at, and nothing more. The signing page asks LI.FI again from "
+    "the browser right before anything is signed, and shows that quote.",
+    "The approval is for the exact amount sent, never unlimited. The link expires at expires_at, ten "
+    "minutes after it was prepared.",
+    "as_of is when the stored measurement behind the order was taken (value.as_of_basis says which); the "
+    "quote's own time is value.quote.quoted_at.",
+    "Costs in why are Tnega's stored measurements at a named block and size, not a promise of the price at "
+    "signing. Stablecoins are taken at $1, an assumption.",
+]
+
+
+def _missing(tool: str, args: dict, required: tuple) -> dict | None:
+    gone = [k for k in required if args.get(k) in (None, "")]
+    if not gone:
+        return None
+    return envelope.withheld(
+        measured=f"what {tool} was asked", coverage={"partial": False},
+        reason="missing_argument",
+        explanation=f"{tool} needs {', '.join(required)}; missing: {', '.join(gone)}.")
+
+
+def _order_envelope(tool: str, out: dict) -> dict:
+    measured = ("an order prepared for the user to sign in their own wallet; nothing is signed or sent")
+    if out.get("withheld_reason"):
+        cov = {"partial": False}
+        for k in ("size_usd", "not_ranked", "attempts", "chains_read", "quotes_asked"):
+            if out.get(k) is not None:
+                cov[k] = out[k]
+        return envelope.withheld(measured=measured, coverage=cov, reason=out["withheld_reason"],
+                                 explanation=out.get("explanation") or "")
+    why = out.get("why") or {}
+    value = {k: v for k, v in out.items() if k not in ("as_of", "partial")}
+    partial = bool(out.get("partial")) or not out.get("sign_url")
+    coverage = {
+        "versions_ranked": len(why.get("ranked") or []) if out.get("side") == "buy" else None,
+        "versions_not_ranked": (len(why.get("not_ranked") or []) + int(why.get("not_ranked_more") or 0))
+        if out.get("side") == "buy" else None,
+        "quotes_asked": out.get("quotes_asked"),
+        "quote_source": "LI.FI",
+        "chains": [c["name"] for c in _buy_chains().values()],
+        "partial": partial,
+    }
+    caveats = list(ORDER_CAVEATS)
+    if partial:
+        caveats.insert(0, "Partial: no link was made. " + (out.get("quote_note") or ""))
+    return envelope.build(
+        measured=measured,
+        coverage={k: v for k, v in coverage.items() if v is not None},
+        # When the figures the order rests on were measured; the quote's own
+        # time is value.quote.quoted_at.
+        as_of=out.get("as_of"),
+        withheld_reason=out.get("link_withheld_reason"),
+        value=value, caveats=caveats)
+
+
+def _buy_chains() -> dict:
+    from core.te.buy_chains import BUY_CHAINS
+    return BUY_CHAINS
+
+
+async def prepare_buy(datasets: dict, args: dict) -> dict:
+    refused = (_undeclared("tnega_prepare_buy", args, PREPARE_BUY_ARGS)
+               or _missing("tnega_prepare_buy", args, ("query", "usd_amount", "wallet")))
+    if refused:
+        return refused
+    from core.te import prepare
+    out = await prepare.prepare_buy(args.get("query"), args.get("usd_amount"), args.get("wallet"),
+                                    pay_with=args.get("pay_with"), max_slippage_bps=args.get("max_slippage_bps"))
+    return _order_envelope("tnega_prepare_buy", out)
+
+
+async def prepare_sell(datasets: dict, args: dict) -> dict:
+    refused = (_undeclared("tnega_prepare_sell", args, PREPARE_SELL_ARGS)
+               or _missing("tnega_prepare_sell", args, ("query", "token_amount", "wallet")))
+    if refused:
+        return refused
+    from core.te import prepare
+    out = await prepare.prepare_sell(args.get("query"), args.get("token_amount"), args.get("wallet"),
+                                     receive=args.get("receive"), max_slippage_bps=args.get("max_slippage_bps"))
+    return _order_envelope("tnega_prepare_sell", out)
+
+
+async def wallet_holdings(datasets: dict, args: dict) -> dict:
+    refused = (_undeclared("tnega_wallet_holdings", args, HOLDINGS_ARGS)
+               or _missing("tnega_wallet_holdings", args, HOLDINGS_ARGS))
+    if refused:
+        return refused
+    wallet = str(args.get("wallet") or "").strip()
+    measured = "tokenized stocks one wallet holds, read on chain"
+    if not _ADDRESS.match(wallet):
+        return envelope.withheld(measured=measured, coverage={"partial": False}, reason="bad_wallet",
+                                 explanation="wallet must be an EVM address: 0x followed by 40 hex characters.")
+    from core.te import holdings
+    h = await holdings.holdings(wallet)
+    cov = {**h["coverage"],
+           "blocks": [{"chain": c["chain"], "block": c.get("block"), "block_time": c.get("block_time")}
+                      for c in h["chains"] if c["status"] == "read"],
+           "held": len(h["holdings"])}
+    rows = [{k: r[k] for k in ("key", "symbol", "ticker", "issuer", "chain_id", "balance", "balance_raw", "decimals")}
+            for r in h["holdings"]]
+    caveats = ["Only nonzero balances are listed. A version not listed was read as zero, or is on a chain in "
+               "coverage.chains_failed, which is a fact about this call and not about the wallet.",
+               h["method"] + ". Read-only: nothing is signed.",
+               "as_of is the oldest block time among the chains read; each chain's block is in coverage.blocks."]
+    if h.get("cached_seconds"):
+        caveats.append(f"Answered from a read made {h['cached_seconds']} s ago (kept for 60 s).")
+    failed = ", ".join(f"{f['chain']} ({f['reason']})" for f in h["coverage"]["chains_failed"])
+    if h.get("status") == "unavailable":
+        return envelope.withheld(measured=measured, coverage=_coverage(cov), reason="chains_unavailable",
+                                 explanation=f"No chain could be read just now: {failed}. That is a fact about "
+                                             f"this call, not about the wallet; nothing is known about its "
+                                             f"balances. Try again shortly.")
+    if not rows:
+        if h["coverage"]["chains_failed"]:
+            return envelope.withheld(measured=measured, coverage=_coverage(cov), as_of=h.get("as_of"),
+                                     reason="none_held_on_chains_read",
+                                     explanation=f"No listed tokenized-stock version holds a balance for this "
+                                                 f"wallet on {', '.join(h['coverage']['chains_read'])}. Not read: "
+                                                 f"{failed}, so the wallet may hold versions there.")
+        # Every chain read and nothing held is a measurement, not an absence
+        # of one: an empty list with its coverage, not a withheld answer.
+        return envelope.build(measured=measured, coverage=_coverage(cov), as_of=h.get("as_of"), value=[],
+                              caveats=["None held on the six chains read: every listed tokenized-stock version "
+                                       "on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM was "
+                                       "read at the block in coverage.blocks, and none has a balance for this "
+                                       "wallet."] + caveats[1:])
+    return envelope.build(measured=measured, coverage=_coverage(cov), as_of=h.get("as_of"), value=rows,
+                          caveats=caveats)
+
+
 # ── the manifest ─────────────────────────────────────────────────────────────
 
 TOOLS = [
@@ -828,6 +977,88 @@ TOOLS = [
             "required": ["dataset", "key"], "additionalProperties": False,
         },
         "handler": series,
+    },
+    {
+        "name": "tnega_prepare_buy",
+        "annotations": {
+            "title": "Prepare a buy for the user to sign",
+            # True: nothing changes anywhere when this runs. It reads stored
+            # costs, asks LI.FI for a quote and reads the wallet's allowance;
+            # the order it returns travels in a signed link and is not
+            # stored. The user signs every transaction in their own wallet,
+            # on the page the link opens, or nothing happens.
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            # True: it asks LI.FI and public chain endpoints while answering.
+            "openWorldHint": True,
+        },
+        "description":
+            "Prepares a buy of a tokenized stock for the user to sign: picks the version with the lowest "
+            "measured all-in cost, quotes LI.FI (at most 2 quotes), and returns the route, fees, an exact "
+            "approval and a tnega.app/sign link, under 12KB. Tnega signs nothing. Give query, usd_amount (1 to "
+            "10000) and wallet. To sell use tnega_prepare_sell.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "A US ticker (NVDA) or a version key <chainId>/<token address>."},
+                "usd_amount": {"type": "number", "minimum": 1, "maximum": 10000,
+                               "description": "US dollars to spend, at most 2 decimal places."},
+                "wallet": {"type": "string", "description": "The EVM address that will sign and receive."},
+                "pay_with": {"type": "string", "description": "USDC, USDT or USDG, or <chainId>/<pay token address>. Default: the chain's first pay token."},
+                "max_slippage_bps": {"type": "integer", "minimum": 10, "maximum": 300, "description": "Default 50."},
+            },
+            "required": ["query", "usd_amount", "wallet"], "additionalProperties": False,
+        },
+        "handler": prepare_buy,
+    },
+    {
+        "name": "tnega_prepare_sell",
+        "annotations": {
+            "title": "Prepare a sale for the user to sign",
+            # True, for the reason given on tnega_prepare_buy: nothing is
+            # signed, sent or stored by this call.
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "openWorldHint": True,
+        },
+        "description":
+            "Prepares a sale of a tokenized stock the wallet holds for the user to sign: quotes LI.FI once, "
+            "checks the price against Tnega's measured pool mid, and returns the route, an exact approval and a "
+            "tnega.app/sign link, under 12KB. Give query, token_amount and wallet. Tnega signs nothing. Check "
+            "balances first with tnega_wallet_holdings.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "A version key <chainId>/<token address>, or a ticker: then the version the wallet holds most of."},
+                "token_amount": {"type": "string", "description": "Tokens to sell, as a plain decimal."},
+                "wallet": {"type": "string", "description": "The EVM address that holds the tokens and will sign."},
+                "receive": {"type": "string", "description": "USDC, USDT or USDG, or <chainId>/<token address>. Default: the chain's first pay token."},
+                "max_slippage_bps": {"type": "integer", "minimum": 10, "maximum": 300, "description": "Default 50."},
+            },
+            "required": ["query", "token_amount", "wallet"], "additionalProperties": False,
+        },
+        "handler": prepare_sell,
+    },
+    {
+        "name": "tnega_wallet_holdings",
+        "annotations": {
+            "title": "Tokenized stocks a wallet holds",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            # True: balances are read from public chain endpoints.
+            "openWorldHint": True,
+        },
+        "description":
+            "Reads which listed tokenized stocks one wallet holds on Ethereum, Base, Arbitrum, BNB Chain, "
+            "Robinhood Chain and HyperEVM: balanceOf on every version at one block per chain, nonzero balances "
+            "only, with the chains read and failed, under 16KB. Read-only. Give wallet. To sell one, use "
+            "tnega_prepare_sell.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"wallet": {"type": "string", "description": "An EVM address."}},
+            "required": ["wallet"], "additionalProperties": False,
+        },
+        "handler": wallet_holdings,
     },
 ]
 

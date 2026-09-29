@@ -26,6 +26,7 @@ The stablecoin side is taken at $1, a labelled assumption.
 from __future__ import annotations
 
 import hashlib
+import re
 
 from eth_abi import decode, encode
 from eth_utils import function_signature_to_4byte_selector as _sel
@@ -58,14 +59,39 @@ def _addr(word: str) -> str:
     return "0x" + word[-40:]
 
 
+# WHAT NEVER CHANGES, READ ONCE. A V3 pool's token0 and token1 and an
+# ERC-20's decimals are fixed at deployment, so they are read once per
+# process and kept: four calls fewer per refresh, on endpoints that rate
+# limit. Bounded; keyed by chain, contract and call data. The token
+# decimals and symbols of the tokenized stocks themselves come from the
+# universe file (read on chain by the universe pass), not from a call here.
+_IMMUTABLE: dict[tuple, str] = {}
+_IMMUTABLE_MAX = 512
+
+
+def immutable_call(rpc: ChainRpc, to: str, data: str, block: int | str = "latest") -> str:
+    k = (rpc.chain_id, to.lower(), data)
+    hit = _IMMUTABLE.get(k)
+    if hit is not None:
+        return hit
+    out = rpc.eth_call(to, data, block)
+    # Only a well-formed, non-zero 32-byte word is kept: an empty or short
+    # answer (a node that returned "0x" for a call it could not run) must be
+    # asked again next time, not remembered.
+    if (len(_IMMUTABLE) < _IMMUTABLE_MAX and isinstance(out, str)
+            and re.fullmatch(r"0x[0-9a-fA-F]{64}", out) and int(out, 16) != 0):
+        _IMMUTABLE[k] = out
+    return out
+
+
 def native_usd(rpc: ChainRpc, native: str, block: int | str = "latest") -> dict:
     """30-minute TWAP of the native asset in dollars, with its source."""
     ref = NATIVE_REF[native]
     pool = ref["pool"]
-    t0 = _addr(rpc.eth_call(pool, "0x0dfe1681", block))
-    t1 = _addr(rpc.eth_call(pool, "0xd21220a7", block))
-    d0 = int(rpc.eth_call(t0, "0x" + _DECIMALS.hex(), block), 16)
-    d1 = int(rpc.eth_call(t1, "0x" + _DECIMALS.hex(), block), 16)
+    t0 = _addr(immutable_call(rpc, pool, "0x0dfe1681", block))
+    t1 = _addr(immutable_call(rpc, pool, "0xd21220a7", block))
+    d0 = int(immutable_call(rpc, t0, "0x" + _DECIMALS.hex(), block), 16)
+    d1 = int(immutable_call(rpc, t1, "0x" + _DECIMALS.hex(), block), 16)
     raw = rpc.eth_call(pool, "0x" + (_OBSERVE + encode(["uint32[]"], [[TWAP_SECONDS, 0]])).hex(), block)
     tcs, _ = decode(["int56[]", "uint160[]"], bytes.fromhex(raw[2:]))
     tick = v3_oracle.mean_tick(tcs[0], tcs[1], TWAP_SECONDS)

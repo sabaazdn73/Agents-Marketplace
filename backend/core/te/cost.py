@@ -365,12 +365,76 @@ def unpack(x: list) -> dict:
 
 # ── Refresh: every size on the selected pools ────────────────────────────────
 
+GUARD_WAIT_MAX_S = 30.0
+
+
+def _guard_rotating(rpc: ChainRpc, chain_id: int, ep, block: int) -> tuple[bool | None, str | None]:
+    """The after-quotes honesty guard on one endpoint of a rotating client:
+    (True, None) honest, (False, None) DISHONEST, (None, why) not verified,
+    because the endpoint was rate limited or no longer holds the block. A
+    rate-limited endpoint is asked again once its cool-down ends, but only
+    when that wait is short (at most GUARD_WAIT_MAX_S, inside the deadline).
+    By guard time an endpoint that 429'd during the quotes has usually
+    struck several times and cools for more than 30 s, so in practice it is
+    returned unverified and the pass is re-run without it."""
+    from .rpcclient import cooling, public_reason
+    why = None
+    for _attempt in range(3):
+        one = ChainRpc(chain_id, [ep], min_interval=rpc.min_interval, retries_per_endpoint=rpc.retries,
+                       deadline=rpc.deadline, rotate=True)
+        try:
+            return bool(honesty_guard(one, block)["ok"]), None
+        except RpcError as e:
+            if e.kind == "deadline":
+                raise
+            why = public_reason(e)
+            if e.kind != "transient":
+                return None, why
+            wait = cooling().get(ep.label, 0.0) + 0.5
+            left = (rpc.deadline - time.monotonic() - 10.0) if rpc.deadline else GUARD_WAIT_MAX_S
+            if wait > min(left, GUARD_WAIT_MAX_S):
+                return None, why
+            time.sleep(wait)
+        finally:
+            one.close()
+    return None, why
+
+
+def after_guard(rpc: ChainRpc, chain_id: int, block: int) -> tuple[dict, dict]:
+    """The honesty guard again after the quotes, on every endpoint that
+    SERVED a result in this pass (stats.served; an endpoint that only
+    answered 429s served nothing and needs no guard). Returns (verdicts,
+    unverified). Raises on a dishonest answer, always. On a non-rotating
+    client any failure raises, as it always has; on a rotating one an
+    endpoint that could not be checked is returned in `unverified`."""
+    after, unverified = {}, {}
+    for ep in rpc.endpoints:
+        if not rpc.stats.served.get(ep.label):
+            continue
+        if not rpc.rotate:
+            one = ChainRpc(chain_id, [ep], min_interval=rpc.min_interval, deadline=rpc.deadline)
+            g = honesty_guard(one, block)
+            one.close()
+            ok, why = g["ok"], None
+        else:
+            ok, why = _guard_rotating(rpc, chain_id, ep, block)
+        if ok is False:
+            raise RpcError("rpc", f"{ep.label} did not execute on block {block}'s state after the quotes")
+        if ok is None:
+            unverified[ep.label] = why
+            after[ep.label] = f"not verified: {why}"
+        else:
+            after[ep.label] = True
+    return after, unverified
+
+
 def refresh_chain(chain_id: int, recs: list[dict], selection: dict[str, list[dict]], why: dict[str, dict],
                   native_px: dict, *, rpc: ChainRpc | None = None, search: dict | None = None,
-                  prev_ratios: dict | None = None) -> tuple[list[dict], dict]:
+                  prev_ratios: dict | None = None, _depth: int = 0) -> tuple[list[dict], dict]:
     """Quotes every selected pool of every version at every size at one
     pinned block and returns (one document per version, run report)."""
     rpc = rpc or rpc_for(chain_id)
+    selection_in = selection
     t_start = time.time()
     block = rpc.block_number()
     # A node that answers every tag with latest state passes a check at the
@@ -405,15 +469,30 @@ def refresh_chain(chain_id: int, recs: list[dict], selection: dict[str, list[dic
             for s in SIZES:
                 items.append(((rec["key"], i, s), build_req(rec, p, s), _family(p)))
     res = run_quotes(rpc, chain_id, items, block) if items else {}
-    guard["after"] = {}
-    for ep in rpc.endpoints:
-        if rpc.stats.by_endpoint.get(ep.label):
-            one = ChainRpc(chain_id, [ep], min_interval=rpc.min_interval, deadline=rpc.deadline)
-            g = honesty_guard(one, block)
-            one.close()
-            guard["after"][ep.label] = g["ok"]
-            if not g["ok"]:
-                raise RpcError("rpc", f"{ep.label} did not execute on block {block}'s state after the quotes")
+    guard["after"], unverified = after_guard(rpc, chain_id, block)
+    if unverified:
+        # Figures from an endpoint whose honesty could not be checked are not
+        # served. This is the usual outcome for an endpoint rate limited
+        # during the pass (its cool-down outlasts the short wait above). The
+        # pass is run again, whole, at a new block, on the
+        # endpoints that were not left unverified (a Base pass is about 20
+        # calls), and the report says so. Never for a dishonest answer: that
+        # raised above.
+        rest = [ep for ep in rpc.endpoints if ep.label not in unverified]
+        if not rest or _depth + 1 >= len(rpc.endpoints):
+            raise RpcError("transient", "no endpoint that served this pass could be verified afterwards: "
+                                        + "; ".join(f"{k}: {v}" for k, v in unverified.items()))
+        again = ChainRpc(chain_id, rest, min_interval=rpc.min_interval, retries_per_endpoint=rpc.retries,
+                         deadline=rpc.deadline, rotate=True)
+        try:
+            docs, report = refresh_chain(chain_id, recs, selection_in, why, native_px, rpc=again, search=search,
+                                         prev_ratios=prev_ratios, _depth=_depth + 1)
+        finally:
+            again.close()
+        report.setdefault("reruns", []).insert(0, {
+            "block": block, "not_verified": unverified, "guard": guard, "rpc": rpc.stats.as_dict(),
+            "why": "an endpoint that served this pass could not be checked afterwards; its figures were not used"})
+        return docs, report
     now = time.time()
     # the market flag is for the block the figures are from, not the clock
     open_, open_basis = us_market_open(dt.datetime.fromtimestamp(block_time, dt.timezone.utc))

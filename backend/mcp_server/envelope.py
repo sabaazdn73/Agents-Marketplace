@@ -65,6 +65,16 @@ CEILINGS = {
     "tnega_list": 32_768,
     "tnega_summary": 8_192,
     "tnega_series": 16_384,
+    # An order is one record, refused whole rather than cut if it grew past
+    # this. Measured 2026-09-29 as the text a client receives, over 9
+    # tickers and every measured version, each order with its link: a buy by
+    # ticker 8,476 to 9,232 bytes, a buy by version key 6,963 to 7,563, a
+    # sale 6,202 to 6,847. Most of it is the ranked versions, the controls
+    # and the issuer's eligibility words.
+    "tnega_prepare_buy": 12_288,
+    "tnega_prepare_sell": 12_288,
+    # A list of balances, trimmed from the tail with the dropped rows named.
+    "tnega_wallet_holdings": 16_384,
 }
 DEFAULT_CEILING = 8_192
 
