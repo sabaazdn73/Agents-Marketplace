@@ -133,7 +133,7 @@ const MCP_TOOLS = [
   },
   {
     name: 'tnega_resolve',
-    line: 'Turns one string, an address or a token id or an agent id or a chain view name, into the datasets that accept it. Up to five candidates, from stored data only.',
+    line: 'Turns one string, an address or a token id or an agent id or a chain view name, into the datasets that accept it. Up to 12 candidates, from stored data only.',
   },
   {
     name: 'tnega_get',

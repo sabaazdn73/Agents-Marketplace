@@ -1,52 +1,54 @@
 # Tnega
 
-Live: [https://tnega.app](https://tnega.app)
+Live: [https://www.tnega.app](https://www.tnega.app)
 
-Tnega is a mainnet-only house for AI agents on BNB Smart Chain. It sits on top of two Ethereum standards, ERC-8004 (on-chain agent identity) and ERC-8183 (job-escrow commerce), and adds a discovery layer, a hire flow, and a "Sell Your Agent" access market on top of them.
+Tnega lists every tokenized version of a stock or an ETF it can find across
+chains, and measures what each one really costs to buy. The same share, NVIDIA
+for example, is issued as separate tokens by different issuers on different
+chains; each sits in its own pools, with its own depth and its own fees, so
+$1,000 of one is not $1,000 of another. Tnega simulates the purchase on each
+version's pools at a range of order sizes and shows the result side by side.
 
-This is the technical documentation. If you're a first-time visitor to the app itself, the in-app Learn tab (linked from the header) explains the same concepts in plain, beginner-friendly language; this documentation assumes a developer/technical reader instead.
+On 30 September 2026 at 21:01 UTC the site listed 1,378 stocks and ETFs, from
+5 issuers (Robinhood, bStocks, xStocks, Ondo and Coinbase) on 7 chains
+(Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain, HyperEVM and Solana),
+and 120 tokenized versions had a measured cost (the counts in the home page's
+header at that time).
 
-## What problem this solves
+![The Tnega home page: the counts, the search, and the tokenized stocks ranked by cost to buy $1,000](images/site-home.png)
 
-People are building useful AI agents: trading assistants, research tools, auditors, generative-art bots. Today there's no simple, trustworthy way to discover one of these agents and pay for its work without either trusting a middleman with your money or trusting the agent's operator to do the right thing once you've paid upfront.
+## What is on the site
 
-Tnega addresses this with two mechanisms, not custom trust assumptions:
+- **What it costs to buy.** For each version, the all-in price per share at sizes from $100 to $250,000: the pool's price, price impact, the network fee, the L1 fee where there is one and LI.FI's 0.25% fee, over the tokens received, over the shares each token represents. Simulated on the pools, not quoted. See [Stocks & ETFs](stocks-and-etfs.md).
+- **Issuer controls.** Who can pause the token, freeze a wallet, burn or seize tokens, upgrade the contract or mint, each read from the contract on chain with the block it was read at; and who may hold the token, in the issuer's own words, linked and dated. See [Issuer controls](issuer-controls.md).
+- **Aave V4 collateral on Base.** For each Base version, whether the Aave V4 Equities Hub accepts it as collateral and at what maximum LTV, read on chain at a stated block. Shown on the stock pages.
+- **Vaults.** Vaults that take a stablecoin deposit, with their admin, timelock and total value computed from chain reads. See [Vaults](vaults.md).
+- **My ETFs.** Baskets of up to five stocks or ETFs, priced by the same cost engine, shared as a link. See [My ETFs](my-etfs.md).
+- **Dashboard.** What a connected wallet holds. See [Dashboard](dashboard.md).
+- **Use with AI.** An MCP server that gives your assistant every measurement here, and can prepare an order for you to sign. See [Buy a tokenized stock through your assistant](buy-with-your-assistant.md).
 
-- Discovery and reputation via ERC-8004: every agent has an on-chain identity (an ERC-721 token) and a discoverable profile, indexed here from the ERC-8004 registry.
-- Trustless payment via ERC-8183: hiring an agent escrows payment on-chain. The agent gets paid once it delivers and a 7-day review window passes with no dispute; settlement at that point is permissionless on-chain (confirmed live), so anyone can trigger it, not just the buyer. If it never delivers, you can reclaim your funds yourself after the deadline. Nobody, not the agent, not this platform, can touch escrowed funds outside those rules.
+Everything on the site is a measurement, not a recommendation. Tnega never
+holds funds or keys and never signs: an order prepared through Tnega is signed
+by you, in your own wallet, on a signing page, or nothing happens. Tnega takes
+no fee.
 
-On top of that, Tnega adds an AgentAccessMarket contract so agent creators can sell ongoing access to an agent they own (one-time license or subscription) without giving up the agent's on-chain identity.
+## Buying
 
-## Who it's for
+The site's own Buy button is switched off. Today a purchase is prepared by an
+assistant through Tnega's MCP server and signed by you on a
+`tnega.app/sign/…` page. The whole route, with screenshots of every step, is
+[Buy a tokenized stock through your assistant (step by step)](buy-with-your-assistant.md).
 
-- Buyers: anyone who wants to discover and hire an AI agent for a task, with their payment protected by on-chain escrow rather than trust. There is a second, opt-in funding path for agents that have to spend money to do the job at all: a drawable spending budget, which is not an escrow and carries no delivery protection. See [Drawable Budgets](budget-integration.md) before funding one.
-- Agent creators: anyone who's built an agent (via BNB Agent Studio or otherwise) and wants to list it for hire, or sell ongoing access to it, and get paid automatically.
-- Newcomers to Web3/AI agents: the in-app Learn tab exists specifically so someone with no crypto background can understand the whole flow in plain language before spending anything.
+## Also here
 
-## Documentation map
+- [On-chain agents](onchain-agents.md): Explore agents, the ERC-8004 agent registries Tnega reads on six chains. This is where the project started.
+- [Hyperliquid](hyperliquid-order-book.md): the order-book readings tab (post-only rejection per market and per maker) and the Chrome extension, with its practice mode on Hyperliquid's trading pages.
 
-| Section | What's in it |
-|---|---|
-| [Architecture](architecture.md) | System design: frontend, backend, contracts, how they connect, with diagrams |
-| [Core Concepts](core-concepts.md) | ERC-8004 identity and ERC-8183 commerce, explained technically |
-| [Features](features.md) | Everything shipped and live today |
-| [Integrations](integrations.md) | Every external data source/API this project depends on |
-| [Smart Contracts](smart-contracts.md) | Deployed addresses, what each contract does, BscScan links, live on-chain values |
-| [The Agent Studio](agent-studio.md) | The MultiAgents pipeline: two flows, the agents in each, how a run is driven and how one asks you a question |
-| [Payment Rails](payment-rails.md) | Every way money moves here, how each rail settles, and the spend cap in front of all of them |
-| [Native Agents](native-agents.md) | The agents this project wrote itself, including the four DeFi categories and what each reads on-chain |
-| [Competing Approaches](competing-approaches.md) | The other ways people are solving agent identity and agent payment, and where this sits |
-| [Regulatory Landscape](regulatory-landscape.md) | MiCA, the AI Act and the US stablecoin regime set against what this project actually does |
-| [Hire-Flow Audit](hire-flow-audit.md) | The full hire flow checked step-by-step against the ERC-8004/ERC-8183 spec text: bugs found and fixed, deliberate deviations, open questions |
-| [Full BSC Registry Analysis](full-registry-analysis.md) | A separate, complete-registry ingestion pipeline (independent of the curated house): pagination limits found, architecture, refresh schedule, findings |
-| [Tokenized Equity Measurements](tokenized-equity-measurements.md) | Every figure behind the tokenized-equity work, with what was measured, how, at what block, and whether it can be taken again today |
-| [Verification Methodology](verification-methodology.md) | Why a health check isn't proof of function (with independent academic backing), the four verification tiers, and the human-triggered canary probe system |
-| [Academic References](academic-references.md) | Verified publication status for every academic paper cited in this project's docs, never mislabeled as more formally reviewed than it is |
-| [Getting Started](getting-started.md) | Accurate local development setup |
-| [Known Limitations](limitations.md) | Current gaps, nothing hidden |
-| [Deferred Work](deferred.md) | What is blocked, what blocks it, what unblocks it, and the research already done; none of it is shown in the app |
-| [Hackathon Context](hackathon.md) | The tracks and partners this was built for |
+## Reference
 
-## A note on accuracy
+- [MCP tools](mcp-tools.md), [Data sources](data-sources.md), [Privacy](privacy.md), [Deployed contracts](deployments.md) and [Tokenized equity measurements and their provenance](tokenized-equity-measurements.md).
 
-This project's development process has had a consistent rule: never claim something works without checking it live, and never hide a gap to look more finished. That rule carries into this documentation: every claim below reflects something checked against the running system, not an aspiration. Where a feature is incomplete or unverified, [Known Limitations](limitations.md) says so plainly.
+Pages that describe earlier parts of the project, such as the agent studio,
+native agents, budgets and escrow, the investigations and the hackathon
+entries, are kept under **Archive** at the end of the navigation. They
+describe the project as it was when each was written, and are not updated.

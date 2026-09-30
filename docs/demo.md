@@ -12,7 +12,7 @@ that part properly. This page is the tour, not the reference.
 The front door. Six chain tabs, a live count under each, and the agents
 underneath.
 
-![The Tnega house on BNB Chain, showing the chain tabs, the header stats and the first row of agents in the top tier](images/house.jpg)
+(The screenshot meant for this spot, `images/house.jpg`, was never added to the repository. The current Explore agents page is shown on [On-chain agents](onchain-agents.md).)
 
 The screenshots on this page, and the ones in `extension-store/`, were captured before 2026-09-23 and still show the tier's old label, "Verified working". The pages themselves say "Buyer-funded, marked delivered". Recapturing them is a separate job; this note is here so the difference reads as stale images rather than as two different tiers.
 
