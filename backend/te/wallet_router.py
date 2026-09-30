@@ -2,7 +2,8 @@
 te/wallet_router.py
 
 POST /api/wallet/holdings: the tokenized stocks and ETFs one wallet holds on
-the six buy chains, for the Dashboard. Thin: the body is read and checked
+the six buy chains, and its coins and named stablecoins there, for the
+Dashboard. Thin: the body is read and checked
 here, and core/te/wallet_view.py does the rest (the read is
 core/te/holdings.py's, the one behind the MCP tool tnega_wallet_holdings).
 
@@ -12,7 +13,14 @@ with a byte cap and every malformed body gets one fixed 400 that repeats
 nothing. The address is not echoed in any answer. Public, rate limited and
 CORS-wrapped by the same middleware as every /api/* route; the route's own
 gate (wallet_view.py) answers 429 with Retry-After when it cannot admit a
-new read.
+new read, overall or for this client.
+
+ONLY application/json. Any other Content-Type (a form post, text/plain, none
+at all) is refused with 415 before the body is read. A cross-site page can
+send a form or text/plain POST without asking the browser first; a JSON POST
+needs a CORS preflight, which our CORS settings answer only for our own
+origins, so other sites cannot spend the shared read budget from their
+visitors' browsers.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ import asyncio
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from core import rate_limit as rate_limit_mod
 from core.safe_errors import describe
 from core.te import wallet_view
 
@@ -32,6 +41,21 @@ _BAD_BODY = (
     'Expected a JSON body of exactly {"address": "0x..."}, where the value is '
     "a 0x-prefixed 40 character hex address."
 )
+
+
+_IP_RULE = rate_limit_mod.ip_rule_from_env()[0]
+
+
+def _client(request: Request) -> str:
+    """The requester's key, chosen as the per-address rate limiter chooses
+    it (core/rate_limit.py). Kept in memory for a minute by the gate only."""
+    peer = request.client.host if request.client else None
+    return rate_limit_mod.client_key(request.scope.get("headers") or [], peer, _IP_RULE)[0]
+
+
+def _json_type(request: Request) -> bool:
+    ctype = (request.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+    return ctype == "application/json"
 
 
 def _err(status: int, error: str, detail: str, **extra) -> JSONResponse:
@@ -51,6 +75,8 @@ def _price_store():
 
 @router.post("/api/wallet/holdings")
 async def wallet_holdings(request: Request):
+    if not _json_type(request):
+        return _err(415, "unsupported_media_type", "Send the body as Content-Type: application/json.")
     raw = bytearray()
     async for chunk in request.stream():
         raw.extend(chunk)
@@ -60,7 +86,7 @@ async def wallet_holdings(request: Request):
     if address is None:
         return _err(400, "bad_request", _BAD_BODY)
     try:
-        body = await wallet_view.wallet_holdings(address, _price_store())
+        body = await wallet_view.wallet_holdings(address, _price_store(), client=_client(request))
     except wallet_view.Busy as b:
         return JSONResponse(status_code=429,
                             headers={"Retry-After": str(b.retry_after), **_NO_STORE},

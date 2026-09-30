@@ -36,6 +36,14 @@ export default {
         'chart-3': role('chart-3'),
         'chart-4': role('chart-4'),
         'chart-5': role('chart-5'),
+        // The Dashboard's asset classes, one colour each, used the same in a
+        // section card and its allocation slice (src/index.css says where
+        // each comes from). Fills and marks, not text.
+        'cls-stocks': role('cls-stocks'),
+        'cls-etfs': role('cls-etfs'),
+        'cls-vaults': role('cls-vaults'),
+        'cls-tokens': role('cls-tokens'),
+        'cls-other': role('cls-other'),
         gray: {
           // Per theme from here (src/index.css): stock in light, neutral in
           // dark, where stock gray-900 is navy.

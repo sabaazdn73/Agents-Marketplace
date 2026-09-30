@@ -254,22 +254,29 @@
 //     stored: false, stored_basis }. The backend accepts b padded or not,
 //     and refuses a JSON object with a repeated key. A 400 names what is
 //     wrong in `reason`, with `rule` or `allowed_size`.
-//   POST /api/wallet/holdings { address }   (the Dashboard's Stocks and ETFs;
+//   POST /api/wallet/holdings { address }   (the Dashboard's summary, Stocks,
+//     ETFs and Tokens; Content-Type must be application/json, anything else
+//     is 415;
 //     read by wallet/useEquityHoldings.js with fetch, not teRead, so the dev
 //     fixtures do not answer it. The address is in the body, never the URL,
 //     and is not echoed back.)
 //     200 { status: 'read'|'partial'|'unavailable', stocks: [HROW],
 //       etfs: [HROW], untyped: [HROW] (underlying with no type recorded),
+//       tokens: [TROW],
 //       totals: { stocks: { value_usd | null, rows, rows_priced },
-//                 etfs: { ... }, basis },
+//                 etfs, untyped, tokens, all: { ... }, basis },
 //       chains: [{ chain_id, chain, status: 'read'|'failed',
-//                  versions_checked, block?, block_time?, reason? (failed),
-//                  versions_unanswered?, note? }],
+//                  versions_checked (0 when failed), versions_listed,
+//                  tokens_checked, tokens_listed, block?, block_time?,
+//                  reason? (failed), versions_unanswered?,
+//                  tokens_unanswered?, note? }],
 //       coverage: { chains_read: [name], chains_failed: [{ chain, reason }],
 //                   versions_checked, versions_on_these_chains, partial,
+//                   tokens_checked, tokens_on_these_chains, tokens_scope,
 //                   scope },
 //       as_of (oldest block time read), as_of_basis, read_started_at,
-//       cached_seconds, method, type_basis, price_basis,
+//       cached_seconds, method, type_basis, price_basis, stable_basis,
+//       native_basis,
 //       reasons: { code: sentence } (every value_reason used), served_at }
 //     HROW = { key, symbol, name, ticker, issuer, chain, chain_id, address,
 //       decimals, balance (exact decimal string), balance_raw, block,
@@ -277,14 +284,29 @@
 //       ('no_measured_price'|'price_too_old'|'price_store_unavailable'),
 //       price: { price_usd, block, computed_at, age_seconds, source:
 //       'tnega_cost_engine', basis } | null }
+//     TROW = { key ('<chain>/native' or '<chain>/<address>'), kind:
+//       'native'|'pay'|'other', symbol, name, chain, chain_id, address
+//       (null for the coin), decimals, balance, balance_raw, block,
+//       type: 'token', value_usd | null, value_reason | null
+//       ('native_price_unavailable'|'no_price_source'), price:
+//       pay    { price_usd: 1, source: 'stablecoin_at_one_dollar',
+//                assumption: true, basis }
+//       native { price_usd, source: 'onchain_twap', pool_label, pool,
+//                pool_chain_id, block, window_seconds, read_at,
+//                age_seconds, basis } }
 //     Only nonzero balances are rows. A failed chain is in `chains` with its
-//     reason, never shown as holding nothing.
+//     reason, never shown as holding nothing; coverage.partial is true when a
+//     chain failed or some calls returned nothing.
 //     400 { error: 'bad_request', detail }  (one fixed sentence)
-//     429 { error: 'busy', detail, reason, retry_after_seconds } + Retry-After
+//     415 { error: 'unsupported_media_type', detail }
+//     429 { error: 'busy', detail, reason ('another_read_in_progress'|
+//       'route_rate_budget'|'client_rate_budget'), retry_after_seconds }
+//       + Retry-After
 //     504/500 { error, detail }
 //   POST /api/site/portfolio { addresses: [address] }   NOT CALLED: the
-//     backend does not serve it (the Dashboard stopped asking, 2026-09-30).
-//     The shape dashboard/cards.jsx and the dev fixture were built for:
+//     backend does not serve it (the Dashboard stopped asking, 2026-09-30;
+//     dashboard/cards.jsx now reads /api/wallet/holdings). The shape the
+//     dev fixture was built for:
 //     { total_usd, change_usd, change_pct, computed_at,
 //       series: { '1D'|'1W'|'1M'|'YTD'|'1Y'|'Max': [[t_ms, usd]] },
 //       positions: [{ key, symbol, name, issuer, chain, qty, buy_in_usd,

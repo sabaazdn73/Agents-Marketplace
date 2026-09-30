@@ -707,7 +707,13 @@ async def wallet_holdings(datasets: dict, args: dict) -> dict:
                                  explanation="wallet must be an EVM address: 0x followed by 40 hex characters.")
     from core.te import holdings
     h = await holdings.holdings(wallet)
-    cov = {**h["coverage"],
+    # The token balances the site's Dashboard reads in the same batch are not
+    # part of this tool's answer, so their coverage is not either.
+    # partial: a failed chain, or a version whose balance call returned
+    # nothing. A token call that returned nothing is not this tool's concern.
+    cov = {**{k: v for k, v in h["coverage"].items() if not k.startswith("tokens")},
+           "partial": bool(h["coverage"]["chains_failed"])
+           or any(c.get("versions_unanswered") for c in h["chains"] if c["status"] == "read"),
            "blocks": [{"chain": c["chain"], "block": c.get("block"), "block_time": c.get("block_time")}
                       for c in h["chains"] if c["status"] == "read"],
            "held": len(h["holdings"])}
@@ -715,7 +721,7 @@ async def wallet_holdings(datasets: dict, args: dict) -> dict:
             for r in h["holdings"]]
     caveats = ["Only nonzero balances are listed. A version not listed was read as zero, or is on a chain in "
                "coverage.chains_failed, which is a fact about this call and not about the wallet.",
-               h["method"] + ". Read-only: nothing is signed.",
+               holdings.VERSIONS_METHOD + ". Read-only: nothing is signed.",
                "as_of is the oldest block time among the chains read; each chain's block is in coverage.blocks."]
     if h.get("cached_seconds"):
         caveats.append(f"Answered from a read made {h['cached_seconds']} s ago (kept for 60 s).")

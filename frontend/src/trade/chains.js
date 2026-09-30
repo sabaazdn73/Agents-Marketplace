@@ -15,7 +15,7 @@
 //   Robinhood     USDG  6   block 73,857,028
 //   HyperEVM      USDC  6   block 47,018,166
 // Robinhood Chain pays with USDG only. The other USDC there
-// (0x80e0...6ca8, 341 tokens of supply when evmTokens.js was written) is the
+// (0x80e0...6ca8, 341 tokens of supply when it was read on 2026-09-25) is the
 // one LI.FI priced near zero in T0's route 14, which would have bought 0.74
 // NVDA for $1,000; it is never offered.
 //

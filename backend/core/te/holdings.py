@@ -15,6 +15,17 @@ why. A chain that failed is a fact about this call, not about the wallet.
 Versions outside the listed universe (a token Tnega does not list, a Solana
 version, a chain outside BUY_CHAINS) are not read, and the answer says so.
 
+TOKENS, IN THE SAME BATCH AND AT THE SAME BLOCK
+-----------------------------------------------
+Beside the versions, each chain's own coin (Multicall3.getEthBalance) and a
+short named list of tokens (tokens_on_chain): the pay tokens an order can be
+paid with on that chain (buy_chains.py, mirroring trade/chains.js), and the
+other named stablecoins the Dashboard used to read in the browser before
+2026-09-30 (OTHER_TOKENS below).
+They are listed under `tokens`, apart from `holdings`, so the MCP tool and
+prepare.py, which read `holdings`, are unchanged. Any other token the wallet
+holds is not read, and the answer says so.
+
 COST. About 5,900 balanceOf calls across six chains, in chunks of 400 per
 eth_call: about 16 calls, the chains in parallel threads, under a deadline.
 Answers are cached per wallet for 60 seconds in this process, at most
@@ -40,6 +51,7 @@ from .rpcclient import ChainRpc, RpcError, public_reason
 from .universe import ISSUER_NAMES, load_universe
 
 BALANCE_OF = _sel("balanceOf(address)")
+GET_ETH_BALANCE = _sel("getEthBalance(address)")
 CHUNK = 400
 # The whole read, every chain, inside one MCP call that holds the server's
 # one-call gate: measured at about 3 s on 2026-09-28, so 9 s leaves room for
@@ -86,8 +98,54 @@ def versions_on_buy_chains() -> dict[int, list[dict]]:
     return u.memo(("buy_chain_versions",), build)
 
 
+# Named tokens read beside the pay tokens: the ones the Dashboard read in the
+# browser until 2026-09-30 (frontend wallet/evmTokens.js, removed then) that
+# are not pay tokens. Each address was read on its own chain on 2026-09-25
+# with symbol(), name() and decimals(), and totalSupply() to check it is a
+# token in wide use: BNB Chain at block 123,932,916 (USD1, U), Arbitrum One
+# at 508,734,602 (USD\u20ae0), Robinhood Chain at 72,155,401 (USDe). Not
+# priced: Tnega has no price source for them.
+OTHER_TOKENS: dict[int, list[dict]] = {
+    56: [{"symbol": "USD1", "name": "World Liberty Financial USD",
+          "address": "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d", "decimals": 18},
+         {"symbol": "U", "name": "United Stables", "address": "0xce24439f2d9c6a2289f741120fe202248b666666",
+          "decimals": 18}],
+    42161: [{"symbol": "USD\u20ae0", "name": "USD\u20ae0", "address": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+             "decimals": 6}],
+    4663: [{"symbol": "USDe", "name": "USDe", "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+            "decimals": 18}],
+}
+NATIVE_DECIMALS = 18
+
+# How the versions are read, as the MCP tool tnega_wallet_holdings states it
+# (the tool lists versions only, not the tokens read in the same batch).
+VERSIONS_METHOD = "balanceOf(wallet) through Multicall3 (" + MULTICALL3 + ") at one block per chain, public RPCs"
+
+TOKEN_SCOPE = ("each chain's own coin, the tokens an order can be paid with there (USDC; USDT and USDC on BNB "
+               "Chain; USDG on Robinhood Chain), and USD1 and U on BNB Chain, USD\u20ae0 on Arbitrum and USDe on "
+               "Robinhood Chain; any other token is not read")
+
+
+def tokens_on_chain(chain_id: int) -> list[dict]:
+    """The chain's own coin, then its pay tokens, then the other named
+    tokens: kind ("native", "pay" or "other"), symbol, name, address (None
+    for the coin) and decimals."""
+    out = [{"kind": "native", "symbol": COST_CHAINS[chain_id]["native"], "name": None, "address": None,
+            "decimals": NATIVE_DECIMALS}]
+    out += [{"kind": "pay", "symbol": t["symbol"], "name": None, "address": t["address"],
+             "decimals": t["decimals"]} for t in BUY_CHAINS[chain_id]["pay"]]
+    out += [{"kind": "other", **t} for t in OTHER_TOKENS.get(chain_id, [])]
+    return out
+
+
 def _balance_call(token: str, wallet: str) -> tuple[str, bytes]:
     return token, BALANCE_OF + encode(["address"], [wallet])
+
+
+def _token_call(t: dict, wallet: str) -> tuple[str, bytes]:
+    if t["kind"] == "native":
+        return MULTICALL3, GET_ETH_BALANCE + encode(["address"], [wallet])
+    return _balance_call(t["address"], wallet)
 
 
 def read_at_block(chain_id: int, calls: list[tuple[str, bytes]], deadline: float) -> tuple[int, int | None, list]:
@@ -110,16 +168,18 @@ def read_at_block(chain_id: int, calls: list[tuple[str, bytes]], deadline: float
 
 def _read_chain(chain_id: int, versions: list[dict], wallet: str, deadline: float) -> dict:
     name = BUY_CHAINS[chain_id]["name"]
-    base = {"chain_id": chain_id, "chain": name, "versions_checked": len(versions)}
-    if not versions:
-        return {**base, "status": "read", "block": None, "block_time": None, "held": [],
-                "note": "no listed version on this chain"}
+    tokens = tokens_on_chain(chain_id)
+    # versions_checked counts only balances actually answered: a failed
+    # chain checked none, whatever it lists (versions_listed).
+    base = {"chain_id": chain_id, "chain": name, "versions_listed": len(versions), "tokens_listed": len(tokens)}
+    calls = [_balance_call(v["address"], wallet) for v in versions] + [_token_call(t, wallet) for t in tokens]
     try:
-        block, ts, res = read_at_block(chain_id, [_balance_call(v["address"], wallet) for v in versions], deadline)
+        block, ts, res = read_at_block(chain_id, calls, deadline)
     except Exception as e:  # noqa: BLE001  the endpoint, not the wallet
-        return {**base, "status": "failed", "reason": public_reason(e), "held": []}
+        return {**base, "status": "failed", "reason": public_reason(e), "versions_checked": 0,
+                "tokens_checked": 0, "held": [], "tokens": []}
     held, unread = [], 0
-    for v, data in zip(versions, res):
+    for v, data in zip(versions, res[:len(versions)]):
         if data is None or len(data) < 32:
             unread += 1
             continue
@@ -128,10 +188,29 @@ def _read_chain(chain_id: int, versions: list[dict], wallet: str, deadline: floa
             held.append({"key": v["key"], "symbol": v["symbol"], "ticker": v["ticker"], "issuer": v["issuer"],
                          "chain": name, "chain_id": chain_id, "address": v["address"], "decimals": v["decimals"],
                          "balance_raw": str(raw), "balance": fmt_units(raw, v["decimals"]), "block": block})
-    out = {**base, "status": "read", "block": block, "block_time": _iso(ts), "held": held}
+    toks, tok_unread = [], 0
+    for t, data in zip(tokens, res[len(versions):]):
+        if data is None or len(data) < 32:
+            tok_unread += 1
+            continue
+        raw = int.from_bytes(data[:32], "big")
+        if raw:
+            toks.append({**t, "chain": name, "chain_id": chain_id, "balance_raw": str(raw),
+                         "balance": fmt_units(raw, t["decimals"]), "block": block})
+    out = {**base, "status": "read", "block": block, "block_time": _iso(ts),
+           "versions_checked": len(versions) - unread, "tokens_checked": len(tokens) - tok_unread,
+           "held": held, "tokens": toks}
+    notes = []
+    if not versions:
+        notes.append("no listed version on this chain")
     if unread:
         out["versions_unanswered"] = unread
-        out["note"] = f"{unread} balanceOf calls reverted or returned nothing at this block; those versions are not read"
+        notes.append(f"{unread} balanceOf calls reverted or returned nothing at this block; those versions are not read")
+    if tok_unread:
+        out["tokens_unanswered"] = tok_unread
+        notes.append(f"{tok_unread} token balance calls returned nothing at this block; those tokens are not read")
+    if notes:
+        out["note"] = "; ".join(notes)
     return out
 
 
@@ -147,6 +226,7 @@ def wallet_holdings(wallet: str, *, deadline_s: float = DEADLINE_S) -> dict:
         chains = [futs[c].result() for c in BUY_CHAINS]
     held = [h for c in chains for h in c.pop("held")]
     held.sort(key=lambda h: (h["ticker"] or "", h["chain_id"], h["key"]))
+    tokens = [t for c in chains for t in c.pop("tokens")]
     read = [c for c in chains if c["status"] == "read"]
     failed = [c for c in chains if c["status"] == "failed"]
     times = [c["block_time"] for c in read if c.get("block_time")]
@@ -158,20 +238,25 @@ def wallet_holdings(wallet: str, *, deadline_s: float = DEADLINE_S) -> dict:
         "wallet": w,
         "status": status,
         "holdings": held,
+        "tokens": tokens,
         "chains": chains,
         "coverage": {
             "chains_read": [c["chain"] for c in read],
             "chains_failed": [{"chain": c["chain"], "reason": c["reason"]} for c in failed],
             "versions_checked": sum(c["versions_checked"] for c in read),
             "versions_on_these_chains": sum(len(v) for v in by_chain.values()),
-            "partial": bool(failed) or any(c.get("versions_unanswered") for c in read),
+            "partial": bool(failed) or any(c.get("versions_unanswered") or c.get("tokens_unanswered") for c in read),
+            "tokens_checked": sum(c["tokens_checked"] for c in read),
+            "tokens_on_these_chains": sum(c["tokens_listed"] for c in chains),
+            "tokens_scope": TOKEN_SCOPE,
             "scope": ("listed tokenized-stock versions on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and "
                       "HyperEVM; Solana versions and tokens Tnega does not list are not read"),
         },
         "read_started_at": _iso(started),
         "as_of": min(times) if times else None,
         "as_of_basis": "the oldest block time among the chains read; each chain carries its own block",
-        "method": "balanceOf(wallet) through Multicall3 (" + MULTICALL3 + ") at one block per chain, public RPCs",
+        "method": ("balanceOf(wallet), and getEthBalance(wallet) for each chain's own coin, through Multicall3 ("
+                   + MULTICALL3 + ") at one block per chain, public RPCs"),
     }
 
 
@@ -187,18 +272,40 @@ def cached_answer(wallet: str) -> dict | None:
     return None
 
 
-async def holdings(wallet: str) -> dict:
-    """wallet_holdings off the event loop, cached per wallet for a minute."""
-    w = wallet.lower()
+def _remember(w: str, out: dict) -> None:
     now = time.monotonic()
-    hit = cached_answer(w)
-    if hit is not None:
-        return hit
-    out = await asyncio.wait_for(asyncio.to_thread(wallet_holdings, w), timeout=DEADLINE_S + 1.5)
     with _cache_lock:
         for k in [k for k, (t, _) in _cache.items() if now - t >= CACHE_SECONDS]:
             del _cache[k]
         while len(_cache) >= CACHE_MAX:
             del _cache[min(_cache, key=lambda k: _cache[k][0])]
-        _cache[w] = (time.monotonic(), out)
+        _cache[w] = (now, out)
+
+
+async def holdings(wallet: str, *, thread_ended=None) -> dict:
+    """wallet_holdings off the event loop, cached per wallet for a minute.
+
+    The caller may stop waiting at DEADLINE_S + 1.5 s, but a thread cannot be
+    stopped from outside: it ends at its own deadline (every RPC call checks
+    it) or when a slow call returns. `thread_ended`, when given, is called
+    once, when the read thread has actually ended (or at once when no thread
+    was started), so a gate that counts running reads counts that thread
+    until it is gone. A read that finishes after its caller gave up is still
+    cached, so the next request gets it without reading again."""
+    w = wallet.lower()
+    hit = cached_answer(w)
+    if hit is not None:
+        if thread_ended is not None:
+            thread_ended()
+        return hit
+    work = asyncio.ensure_future(asyncio.to_thread(wallet_holdings, w))
+
+    def ended(f: asyncio.Future) -> None:
+        if not f.cancelled() and f.exception() is None:
+            _remember(w, f.result())
+        if thread_ended is not None:
+            thread_ended()
+
+    work.add_done_callback(ended)
+    out = await asyncio.wait_for(asyncio.shield(work), timeout=DEADLINE_S + 1.5)
     return {**out, "cached_seconds": 0.0}

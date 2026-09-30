@@ -186,9 +186,7 @@ export default function HabitCosts({ data, who }) {
   return (
     <section className="card p-4" aria-labelledby="habits-title">
       <h2 id="habits-title" className="text-title font-bold">What {who === 'your wallet' ? 'your' : "this address's"} habits cost</h2>
-      <p className="text-label text-muted mt-0.5 mb-4">
-        Measured from the venue&apos;s public record for this address on Hyperliquid. Nothing here is an estimate.
-      </p>
+      <p className="text-label text-muted mt-0.5 mb-3">From the venue&apos;s public record.</p>
       {/* One reason for every section (no account on the venue, for one) is
           said once, naming the sections it covers, rather than five times. */}
       {/* With no account on the venue, the Hyperliquid account card already
@@ -196,7 +194,7 @@ export default function HabitCosts({ data, who }) {
           printing the same sentence a second time. */}
       {sharedReason === 'no_account' && data.account?.exists === false ? (
         <p className="text-label text-muted">
-          Nothing to measure, for the reason given under Hyperliquid account. This covers fees paid, taker share, funding, post-only rejection and cancels per fill.
+          Nothing to measure: no Hyperliquid account.
         </p>
       ) : sharedReason ? (
         <>

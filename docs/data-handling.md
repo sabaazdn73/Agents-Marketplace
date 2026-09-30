@@ -295,12 +295,15 @@ order window and the newest order's age, for example "orders from 3 Sep to
 5 Sep, newest 19 days ago". The rule is one constant,
 `POST_ONLY_WITHHOLD_AFTER_SECONDS` in `core/hyperliquid/wallet_habits.py`.
 
-### `/api/wallet/holdings`, the visitor's own tokenized stocks and ETFs
+### `/api/wallet/holdings`, the visitor's own tokenized stocks, ETFs and tokens
 
-`POST /api/wallet/holdings` backs the Dashboard's Stocks and ETFs sections:
-which of the tokenized-stock and ETF versions Tnega lists the connected
-wallet holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and
-HyperEVM. The route is `backend/te/wallet_router.py`; the read is
+`POST /api/wallet/holdings` backs the Dashboard's summary (Portfolio,
+Positions, Allocation) and its Stocks, ETFs and Tokens sections: which of the
+tokenized-stock and ETF versions Tnega lists the connected wallet holds on
+Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, and on the
+same chains its own-coin balance and a named list of stablecoins (the pay
+tokens, plus USD1 and U on BNB Chain, USD₮0 on Arbitrum and USDe on Robinhood
+Chain). The route is `backend/te/wallet_router.py`; the read is
 `core/te/holdings.py`, the same one behind the MCP tool
 `tnega_wallet_holdings`, shaped by `core/te/wallet_view.py`.
 
@@ -314,17 +317,28 @@ retries by itself.
 
 The wallet is in the JSON body, `{"address": "0x..."}`, never in the URL, with
 the same 256-byte cap and one fixed 400 as `/api/wallet/habits`; a GET gets
-the framework's 405.
+the framework's 405. Any Content-Type other than `application/json` gets 415
+before the body is read: a JSON POST needs a CORS preflight, which only our
+own origins pass, so another site cannot make its visitors' browsers spend
+this route's read budget.
 
-What it reads: `balanceOf(wallet)` on every listed version on the six chains,
-through Multicall3 at one block per chain, so the address rides in the
-calldata of each `eth_call` to that chain's RPC provider (`core/te/chains.py`:
-the public endpoints, and on Base the server's own `BASE_RPC_URL` first when
-it is set). An uncached read is admitted only when fewer than three are
-running and fewer than twenty started in the last minute; otherwise a 429
-with a retry time, and nothing is read. A dollar value comes only from the
-cost store Tnega already keeps (a pool mid it measured, with its block and
-time); no price service receives anything.
+What it reads: `balanceOf(wallet)` on every listed version and named token on
+the six chains, and `getEthBalance(wallet)` for each chain's own coin, through
+Multicall3 at one block per chain, so the address rides in the calldata of
+each `eth_call` to that chain's RPC provider (`core/te/chains.py`: the public
+endpoints, and on Base the server's own `BASE_RPC_URL` first when it is set).
+An uncached read is admitted only when fewer than three are running (a read
+counts until its thread has ended, even after the caller stopped waiting),
+fewer than twenty started in the last minute, and the requester's network
+address (keyed as the rate limiter keys it) started fewer than six;
+otherwise a 429 with a retry time, and nothing is read. The per-address
+count is kept in memory for a minute, at most 4,096 entries. A stock or ETF
+value comes only from the cost store Tnega already keeps (a pool mid it
+measured, with its block and time); a pay stablecoin is counted at $1, a
+labelled assumption; a coin is valued with a 30-minute on-chain average from
+one pool (`core/te/gasusd.py`, the cost engine's own read), read at most once
+every five minutes per coin and carrying no address. No price service
+receives anything.
 
 What it keeps: `core/te/holdings.py`'s in-process cache of the answer, keyed
 by the lowercased address, for 60 seconds, at most 256 wallets. The address is
@@ -475,13 +489,10 @@ paragraph above says about memory-only and restart still applies, but this
 project's own pattern elsewhere is to cap a cache keyed by caller-supplied
 input, and these do not.
 
-The wallet page also reads balances from the browser, not through our
-server: the native coin and a named list of stablecoins on BNB Chain, Arbitrum
-and Robinhood Chain (`frontend/src/wallet/evmTokens.js` lists them, and the
-page says that any other token is not read). Those reads send the visitor's
-address, ABI-encoded in the request body, to each chain's public RPC provider,
-the same ones named under sign-in below. Nothing about them reaches our server
-or is stored.
+Until 2026-09-30 the Dashboard also read the own coin and a named list of
+stablecoins on BNB Chain, Arbitrum and Robinhood Chain from the browser. It no
+longer does: `/api/wallet/holdings` reads the same tokens on all six chains,
+so the Dashboard's only requests carrying the address are the two POSTs above.
 
 In the browser, wagmi's default storage keeps the connected wallet address
 in `localStorage` so the site can reconnect on reload. That is the visitor's

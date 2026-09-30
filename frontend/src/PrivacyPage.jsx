@@ -116,9 +116,9 @@ export default function PrivacyPage({ onBack }) {
             The pages are served by Vercel, which receives each request as any web host does. The
             figures come from our server at {API}, hosted on Render behind Cloudflare. Your browser
             asks it for lists and measurements; those requests carry nothing about you beyond what
-            any request carries (your IP address and browser). Three routes receive a wallet address,
-            and only when you connect one: they are described under &quot;Your wallet address on the
-            website&quot;, below.
+            any request carries (your IP address and browser). Three routes receive your wallet
+            address, and only when you connect one; pages about an agent send that agent&apos;s public
+            address. Both are described under &quot;Your wallet address on the website&quot;, below.
           </p>
           <p>
             Our server limits how often one network address may call it: a burst of 120 requests,
@@ -144,11 +144,13 @@ export default function PrivacyPage({ onBack }) {
             address on the website&quot;.
           </p>
                   <p>
-            Three routes on our server receive a wallet address, always in the body of the request,
-            never in the web address: My Agents, the Hyperliquid costs read
-            (POST /api/wallet/habits), and the stock and ETF holdings read
+            Three routes on our server receive your connected wallet&apos;s address, always in the
+            body of the request, never in the web address: My Agents (POST /api/my-jobs), the
+            Hyperliquid costs read (POST /api/wallet/habits), and the holdings read
             (POST /api/wallet/holdings). Each is described under &quot;Your wallet address on the
-            website&quot;.
+            website&quot;. Pages about an agent also put that agent&apos;s public owner address, not
+            yours, in the web address of the requests that fetch its figures; they are listed
+            there too.
           </p>
           <p>
             Some pages show other companies&apos; logos, loaded from each company&apos;s own site,
@@ -509,13 +511,20 @@ export default function PrivacyPage({ onBack }) {
 
         <Section id="website-wallet" title="Your wallet address on the website">
           <p>
-            Three routes on our server receive the address of a wallet you connect to the website.
-            All three take it in the body of the request, never in the web address, so it does not appear
-            in our server&apos;s access log, which records the path and not the body.
+            Three routes on our server receive the address of a wallet you connect to the website:
+            POST /api/my-jobs, POST /api/wallet/habits and POST /api/wallet/holdings. All three take
+            it in the body of the request, never in the web address, so it does not appear in our
+            server&apos;s access log, which records the path and not the body. One more request can
+            identify your wallet: when you hire an agent whose seller asks for proof of who funded the
+            job, POST /api/agents/notify-funded carries your wallet&apos;s signature over that job
+            (from which your address can be worked out), in the body; our server passes it to the
+            agent&apos;s own endpoint and keeps nothing. No other request from the website carries
+            your connected address to our server.
           </p>
           <p>
-            My Agents sends your connected wallet&apos;s address to list the agents you have hired. It
-            is used for that one request and is not stored.
+            My Agents, on the Explore agents pages, sends your connected wallet&apos;s address
+            (POST /api/my-jobs) to list the agents you have hired. It is used for that one request
+            and is not stored. The Dashboard does not call it.
           </p>
           <p>
             The wallet trading-costs route receives a wallet address and reads that address&apos;s
@@ -535,12 +544,13 @@ export default function PrivacyPage({ onBack }) {
             sends nothing.
           </p>
           <p>
-            The Dashboard also sends the connected address to the stock and ETF holdings route
+            The Dashboard also sends the connected address to the holdings route
             (POST /api/wallet/holdings) when you open it with a wallet connected, and again when you
             press Read again. That route reads which of the tokenized stocks and ETFs Tnega lists the
-            address holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. To do
-            that our server sends the address, inside each balance request, to each chain&apos;s RPC
-            provider: PublicNode, with MEV Blocker as a backup, on Ethereum; on Base, the Base
+            address holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, and on
+            the same chains its balance of each chain&apos;s own coin and of a named list of
+            stablecoins (USDC, USDT, USDG, USD1, U, USD₮0 and USDe). To do that our server sends the
+            address, inside each balance request, to each chain&apos;s RPC provider: PublicNode, with MEV Blocker as a backup, on Ethereum; on Base, the Base
             endpoint set in our server&apos;s configuration when there is one, then Base&apos;s
             public endpoint, Blast API, Tenderly, dRPC and PublicNode; Arbitrum&apos;s public
             endpoint, with PublicNode as a backup; bloXroute, with PublicNode as a backup, on BNB
@@ -548,15 +558,26 @@ export default function PrivacyPage({ onBack }) {
             code, and it is not returned in the answer. The answer is kept in the server&apos;s memory
             for up to one minute, looked up by the address, so that a second view in that time does
             not read the chains again; it is not written to disk, and it is gone when the server
-            restarts. The Vaults section sends no address: it reads the public vault list, which is
-            the same for everyone.
+            restarts. To share its limited reads fairly, the route also counts, in memory for one
+            minute, how many new reads each network address started (the same key as the request
+            limit above); that count holds no wallet address. The coin prices it uses are read from
+            on-chain pools and carry no address. The Vaults section sends no address: it reads the
+            public vault list, which is the same for everyone. The Dashboard reads no balance from
+            your browser directly and sends your address nowhere else.
           </p>
           <p>
-            The same page reads your balances on BNB Chain, Arbitrum and Robinhood Chain from your
-            browser, not through our server: the native coin and a short named list of stablecoins
-            on each chain. For that, your browser sends the address, inside each request, to the same
-            public RPC providers named below for sign-in. Those reads are not sent to our server and
-            nothing about them is stored.
+            Pages about an agent (Explore agents, and an agent&apos;s page) fetch its figures with
+            that agent&apos;s owner address in the web address, so our access log records it: GET
+            /api/agents/performance, /api/agents/revenue, /api/agents/pnl-summary,
+            /api/agents/onchain-performance, /api/agents/termix-performance,
+            /api/agents/wallet-portfolio, /api/agents/onchain-history and
+            /api/agents/escrow-compatibility, each ?owner_address=&lt;address&gt;;
+            /api/chain-agent/&lt;chain&gt;/&lt;id&gt;/evaluation?owner=&lt;address&gt;;
+            /api/budget-mode/status?owner=&lt;address&gt;; and, only when you open a job&apos;s agent
+            activity, /api/agents/activity?owner_address=&lt;address&gt;. That is the public address of
+            the agent you are looking at, not yours. The Dashboard calls none of these with an
+            address; it does ask /api/budget-mode/status with no address, the same request for
+            everyone.
           </p>
           {/* Shown while the Buy panel is (home/sections.js, dataLive.js). */}
           {BUY_SHOWN && (<p>

@@ -22,14 +22,30 @@ recorded chain answers with no network (and, with --live, on the chains).
   GATE      a cached answer spends nothing; two requests for one wallet share
             one read; at most MAX_CONCURRENT_READS new reads at once and
             READS_PER_MINUTE a minute, refused with 429 and Retry-After.
-  ROUTE     200, 400, 429 through the router with a test client; no-store.
+  TOKENS    each chain's own coin (getEthBalance through Multicall3), its pay
+            tokens and the other named tokens, read in the same batch: a pay
+            token valued at $1 and labelled an assumption; the coin valued
+            only with an own-coin price, else native_price_unavailable; any
+            other token no_price_source; totals per section and overall
+            count only valued rows (k of n).
+  COVERAGE  a failed chain reports versions_checked 0 (versions_listed
+            says how many it lists); calls that return nothing at the block
+            make the answer partial and are not counted as checked.
+  NATIVE    the own-coin price is read once per NATIVE_CACHE_SECONDS, a
+            failure is not retried for NATIVE_RETRY_SECONDS, and no price
+            older than NATIVE_MAX_AGE_SECONDS is used.
+  THREAD    a read whose caller stopped waiting keeps its slot until the
+            read thread itself ends; its answer is then cached.
+  ROUTE     200, 400, 415, 429 through the router with a test client;
+            no-store; one client past CLIENT_READS_PER_MINUTE gets 429
+            client_rate_budget.
 
 Run from backend/:
   ./venv/bin/python scripts/wallet_holdings_selfcheck.py
   ./venv/bin/python scripts/wallet_holdings_selfcheck.py --live
 --live reads 0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 on the six chains
 through the public endpoints (never a keyed one) and requires NVDAc on Base,
-0.0217831.
+0.0217831, and a USDC balance on Base.
 """
 
 from __future__ import annotations
@@ -44,6 +60,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.te import holdings as H  # noqa: E402
 from core.te import wallet_view as V  # noqa: E402
+from core.te.multicall import MULTICALL3  # noqa: E402
 from core.te.rpcclient import RpcError  # noqa: E402
 
 FAILURES: list[str] = []
@@ -69,25 +86,32 @@ def check(cond: bool, what: str) -> None:
         FAILURES.append(what)
 
 
-def recorded_reader(fail: set[int] = frozenset(), held: dict | None = None):
-    """A read_at_block that answers from RECORDED (plus `held`, token address
-    to raw balance) and raises for the chains in `fail`."""
+def recorded_reader(fail: set[int] = frozenset(), held: dict | None = None, silent: dict | None = None):
+    """A read_at_block that answers from RECORDED (plus `held`: (chain id,
+    target address) or target address to raw balance; the coin's target is
+    Multicall3) and raises for the chains in `fail`. `silent`: chain id to a
+    set of target addresses whose call returns nothing."""
     def read(chain_id, calls, deadline):
         if chain_id in fail:
             raise RpcError("transient", "request timed out")
         r = RECORDED[chain_id]
         extra = held or {}
+        quiet = (silent or {}).get(chain_id, set())
         out = []
         for token, _data in calls:
-            raw = r["held"].get(token.lower(), extra.get(token.lower(), 0))
+            t = token.lower()
+            if t in quiet:
+                out.append(None)
+                continue
+            raw = r["held"].get(t, extra.get((chain_id, t), extra.get(t, 0)))
             out.append(raw.to_bytes(32, "big"))
         return r["block"], r["ts"], out
     return read
 
 
-def run_read(fail=frozenset(), held=None) -> dict:
+def run_read(fail=frozenset(), held=None, silent=None) -> dict:
     orig = H.read_at_block
-    H.read_at_block = recorded_reader(fail, held)
+    H.read_at_block = recorded_reader(fail, held, silent)
     try:
         return H.wallet_holdings(OWNER)
     finally:
@@ -132,7 +156,8 @@ def read_checks() -> None:
     check(r.get("type") == "stock" and bool(r.get("name")) and r.get("name") != "NVDA",
           f"READ type stock and the universe's name ({r.get('name')})")
     check(r.get("block") == RECORDED[8453]["block"], "READ the row carries Base's block")
-    check(body["etfs"] == [] and body["untyped"] == [], "READ no ETF, nothing untyped")
+    check(body["etfs"] == [] and body["untyped"] == [] and body["tokens"] == [],
+          "READ no ETF, nothing untyped, no token (the recording holds none)")
     ch = {c["chain_id"]: c for c in body["chains"]}
     check(set(ch) == set(RECORDED) and all(c["status"] == "read" and c["block"] == RECORDED[i]["block"]
                                           and c.get("block_time") for i, c in ch.items()),
@@ -296,10 +321,42 @@ def route_checks() -> None:
             r = client.post("/api/wallet/holdings", json=bad)
             check(r.status_code == 400 and "0x123" not in r.text and OWNER.lower() not in r.text.lower(),
                   f"ROUTE 400 for {json.dumps(bad)[:30]}, nothing repeated")
-        r = client.post("/api/wallet/holdings", content=b"x" * 1000)
+        r = client.post("/api/wallet/holdings", content=b"x" * 1000, headers={"content-type": "application/json"})
         check(r.status_code == 400, "ROUTE 400 for a body over the cap")
         r = client.get("/api/wallet/holdings")
         check(r.status_code == 405, "ROUTE GET is not a form of this route (405)")
+        good = json.dumps({"address": OWNER})
+        for ctype in ("text/plain", "application/x-www-form-urlencoded", "multipart/form-data; boundary=x", None):
+            headers = {"content-type": ctype} if ctype else {}
+            r = client.post("/api/wallet/holdings", content=good.encode(), headers=headers)
+            check(r.status_code == 415 and OWNER.lower() not in r.text.lower(),
+                  f"ROUTE 415 for Content-Type {ctype or '(none)'}")
+        r = client.post("/api/wallet/holdings", content=good.encode(),
+                        headers={"content-type": "application/json; charset=utf-8"})
+        check(r.status_code == 200, "ROUTE application/json with a charset is accepted")
+        with H._cache_lock:
+            H._cache.clear()
+        V._started.clear()
+        V._client_started.clear()
+        codes = []
+        for i in range(V.CLIENT_READS_PER_MINUTE + 1):
+            r = client.post("/api/wallet/holdings", json={"address": "0x" + f"{i + 1:040x}"},
+                            headers={"true-client-ip": "203.0.113.7"})
+            codes.append(r.status_code)
+        last = r.json()
+        check(codes[:-1] == [200] * V.CLIENT_READS_PER_MINUTE and codes[-1] == 429
+              and last.get("reason") == "client_rate_budget" and r.headers.get("retry-after"),
+              f"ROUTE one client past {V.CLIENT_READS_PER_MINUTE} new reads a minute: 429 client_rate_budget")
+        r = client.post("/api/wallet/holdings", json={"address": "0x" + f"{1:040x}"},
+                        headers={"true-client-ip": "203.0.113.7"})
+        check(r.status_code == 200, "ROUTE the same client is still answered from the cache")
+        r = client.post("/api/wallet/holdings", json={"address": "0x" + "fe" * 20},
+                        headers={"true-client-ip": "198.51.100.9"})
+        check(r.status_code == 200, "ROUTE another client is not affected")
+        with H._cache_lock:
+            H._cache.clear()
+        V._started.clear()
+        V._client_started.clear()
         with H._cache_lock:
             H._cache.clear()
         V._started.extend([time.monotonic()] * V.READS_PER_MINUTE)
@@ -309,8 +366,165 @@ def route_checks() -> None:
     finally:
         wallet_router._price_store, H.read_at_block = orig_store, orig_read
         V._started.clear()
+        V._client_started.clear()
         with H._cache_lock:
             H._cache.clear()
+
+
+BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
+BSC_USD1 = "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d"
+ETH_PRICE = {"usd": 2500.0, "source": "Uniswap V3 USDC/WETH 0.05%, Ethereum", "pool": "0x88e6", "chain_id": 1,
+             "block": 26092800, "window_seconds": 1800, "read_at": "2026-09-30T20:50:00Z", "age_seconds": 30}
+
+
+def token_checks() -> None:
+    held = {(8453, BASE_USDC): 1_890_000, (8453, MULTICALL3): 10 ** 15, (56, BSC_USD1): 5 * 10 ** 18}
+    h = run_read(held=held)
+    kinds = {(t["chain_id"], t["kind"], t["symbol"]) for t in h["tokens"]}
+    check(kinds == {(8453, "pay", "USDC"), (8453, "native", "ETH"), (56, "other", "USD1")},
+          f"TOKENS three nonzero token balances read beside the versions ({sorted(kinds)})")
+    check(all(c.get("tokens_checked") == c.get("tokens_listed") and c["tokens_listed"] >= 2 for c in h["chains"]),
+          "TOKENS every chain read its coin and pay tokens")
+    body = V.shape(h, {}, True, native={"ETH": ETH_PRICE})
+    t = {r["symbol"]: r for r in body["tokens"]}
+    usdc, eth, usd1 = t.get("USDC", {}), t.get("ETH", {}), t.get("USD1", {})
+    check(usdc.get("balance") == "1.89" and usdc.get("value_usd") == 1.89
+          and (usdc.get("price") or {}).get("source") == "stablecoin_at_one_dollar"
+          and (usdc.get("price") or {}).get("assumption") is True, "TOKENS USDC 1.89 valued at $1, labelled an assumption")
+    check(eth.get("balance") == "0.001" and eth.get("value_usd") == 2.5
+          and (eth.get("price") or {}).get("source") == "onchain_twap" and eth["price"].get("block")
+          and eth["price"].get("read_at"), "TOKENS ETH 0.001 x 2500 = 2.5 from the on-chain average, with block and time")
+    check(usd1.get("value_usd") is None and usd1.get("value_reason") == "no_price_source"
+          and "no_price_source" in body["reasons"], "TOKENS USD1: balance, no value, no_price_source")
+    tt = body["totals"]["tokens"]
+    check(tt == {"value_usd": 4.39, "rows": 3, "rows_priced": 2}, f"TOKENS total 4.39, 2 of 3 valued ({tt})")
+    body = V.shape(h, {}, True, native={})
+    eth = next(r for r in body["tokens"] if r["symbol"] == "ETH")
+    check(eth["value_usd"] is None and eth["value_reason"] == "native_price_unavailable",
+          "TOKENS no own-coin price: the balance alone, native_price_unavailable")
+    # Everything together: NVDAc priced, tokens as above.
+    now = time.time()
+    fresh = {"key": NVDAC, "underlying": "NVDA", "state": "measured", "ref_mid_usd": 200.0,
+             "block": 52000000, "computed_at": iso(now - 120)}
+    body = V.shape(h, {NVDAC: fresh}, True, now, native={"ETH": ETH_PRICE})
+    al = body["totals"]["all"]
+    check(al == {"value_usd": 8.7466, "rows": 4, "rows_priced": 3},
+          f"TOKENS overall total 4.3566 + 1.89 + 2.5 = 8.7466, 3 of 4 valued ({al})")
+
+
+def coverage_checks() -> None:
+    h = run_read(fail={8453})
+    base = next(c for c in h["chains"] if c["chain_id"] == 8453)
+    check(base["versions_checked"] == 0 and base["versions_listed"] > 0 and base["tokens_checked"] == 0,
+          f"COVERAGE a failed chain checked 0 versions ({base['versions_listed']} listed), 0 tokens")
+    check(h["coverage"]["versions_checked"] == sum(c["versions_checked"] for c in h["chains"])
+          and h["coverage"]["versions_checked"] < h["coverage"]["versions_on_these_chains"]
+          and h["coverage"]["partial"] is True, "COVERAGE the failed chain's versions are not counted as checked")
+    v0 = H.versions_on_buy_chains()[1][0]["address"].lower()
+    h = run_read(silent={1: {v0, MULTICALL3}})
+    eth = next(c for c in h["chains"] if c["chain_id"] == 1)
+    body = V.shape(h, {}, True)
+    ce = next(c for c in body["chains"] if c["chain_id"] == 1)
+    check(h["status"] == "read" and h["coverage"]["partial"] is True
+          and eth["versions_unanswered"] == 1 and eth["versions_checked"] == eth["versions_listed"] - 1
+          and eth["tokens_unanswered"] == 1 and eth["tokens_checked"] == eth["tokens_listed"] - 1,
+          "COVERAGE calls answered with nothing: partial, not counted as checked")
+    check(ce.get("versions_unanswered") == 1 and ce.get("tokens_unanswered") == 1 and ce.get("note")
+          and body["coverage"]["partial"] is True, "COVERAGE the route carries the unanswered counts and the note")
+
+
+def native_checks() -> None:
+    calls = []
+
+    def fake(sym):
+        calls.append(sym)
+        if sym == "BNB":
+            raise RpcError("transient", "timed out")
+        return {**ETH_PRICE, "usd": 2500.0}
+
+    orig = V.read_native_price
+    V.read_native_price = fake
+    V._native_cache.clear()
+    V._native_failed.clear()
+    try:
+        a = asyncio.run(V.native_prices(["ETH", "BNB"]))
+        b = asyncio.run(V.native_prices(["ETH", "BNB"]))
+        check(a.get("ETH", {}).get("usd") == 2500.0 and "BNB" not in a and b.get("ETH") and "BNB" not in b,
+              "NATIVE ETH priced; BNB, whose read failed, has no price")
+        check(calls == ["ETH", "BNB"], f"NATIVE one read per coin: cached, and the failure not retried at once ({calls})")
+        with V._native_lock:
+            t, p = V._native_cache["ETH"]
+            V._native_cache["ETH"] = (t - V.NATIVE_MAX_AGE_SECONDS - 1, p)
+            V._native_failed["ETH"] = time.monotonic()  # and no refresh allowed right now
+        c = asyncio.run(V.native_prices(["ETH"]))
+        check("ETH" not in c, "NATIVE a price older than NATIVE_MAX_AGE_SECONDS is not used")
+    finally:
+        V.read_native_price = orig
+        V._native_cache.clear()
+        V._native_failed.clear()
+
+
+def thread_checks() -> None:
+    import threading
+    ended = threading.Event()
+
+    def slow_read(wallet, *, deadline_s=H.DEADLINE_S):
+        time.sleep(0.8)
+        ended.set()
+        return {"wallet": wallet, "status": "read", "holdings": [], "tokens": [], "chains": [], "coverage": {}}
+
+    orig_read, orig_deadline = H.wallet_holdings, H.DEADLINE_S
+    H.wallet_holdings, H.DEADLINE_S = slow_read, -1.2  # the caller gives up after 0.3 s
+    V._started.clear()
+    w = "0x" + "ab" * 20
+
+    async def go():
+        try:
+            await V.read(w)
+            check(False, "THREAD the caller times out")
+        except asyncio.TimeoutError:
+            check(True, "THREAD the caller stops waiting at the deadline")
+        check(V._running == 1 and not ended.is_set(), "THREAD the slot stays held while the thread still runs")
+        for _ in range(40):
+            if ended.is_set() and V._running == 0:
+                break
+            await asyncio.sleep(0.05)
+        await asyncio.sleep(0.05)
+        check(V._running == 0, "THREAD the slot is freed when the thread ends")
+        check(H.cached_answer(w) is not None, "THREAD the late answer is cached for the next request")
+    try:
+        asyncio.run(go())
+    finally:
+        H.wallet_holdings, H.DEADLINE_S = orig_read, orig_deadline
+        V._started.clear()
+        with H._cache_lock:
+            H._cache.clear()
+
+
+def mcp_checks() -> None:
+    """The MCP tool reads the same function: its method string is main's, and
+    a token call that returned nothing does not make its answer partial."""
+    from mcp_server import tools
+    v0 = H.versions_on_buy_chains()[1][0]["address"].lower()
+    for silent, want in (({1: {MULTICALL3}}, False), ({1: {v0}}, True)):
+        h = run_read(silent=silent)
+        with H._cache_lock:
+            H._cache[OWNER.lower()] = (time.monotonic(), h)
+        try:
+            out = asyncio.run(tools.wallet_holdings({}, {"wallet": OWNER}))
+        finally:
+            with H._cache_lock:
+                H._cache.clear()
+        text = json.dumps(out)
+        cov = out.get("coverage") or {}
+        check(cov.get("partial") is want and "tokens_scope" not in text and H.VERSIONS_METHOD in text
+              and "getEthBalance" not in text,
+              f"MCP {'a version' if want else 'only a token'} unanswered: partial {want}, main's method, no token fields")
+    b = V.shape(run_read(held={(56, MULTICALL3): 10 ** 18}), {}, True,
+                native={"BNB": {**ETH_PRICE, "usd": 700.0, "source": "PancakeSwap v3 WBNB/USDT, BNB Chain (core/bnb_usd.py)"}})
+    bnb = next(r for r in b["tokens"] if r["symbol"] == "BNB")
+    check(bnb["price"]["pool_label"] == "PancakeSwap v3 WBNB/USDT, BNB Chain",
+          f"TOKENS the pool label carries no internal file name ({bnb['price']['pool_label']})")
 
 
 def live_check() -> None:
@@ -330,6 +544,17 @@ def live_check() -> None:
         return
     check(row is not None and row["balance"] == "0.0217831" and row["chain"] == "Base" and row["type"] == "stock",
           f"LIVE NVDAc on Base 0.0217831 under stocks ({row and row['balance']})")
+    for t in body["tokens"]:
+        print(f"      token {t['chain']} {t['symbol']} {t['balance']} value {t['value_usd']} {t['value_reason'] or ''}")
+    usdc = next((t for t in body["tokens"] if t["chain_id"] == 8453 and t["symbol"] == "USDC"), None)
+    check(usdc is not None and float(usdc["balance"]) > 0 and usdc["value_usd"] == round(float(usdc["balance"]), 4),
+          f"LIVE USDC on Base read and valued at $1 ({usdc and usdc['balance']})")
+    t0 = time.monotonic()
+    prices = asyncio.run(V.native_prices(["ETH", "BNB", "HYPE"]))
+    print(f"      own-coin prices in {time.monotonic() - t0:.1f} s: "
+          + ", ".join(f"{k} {v['usd']:.2f} ({v['source']}, block {v['block']})" for k, v in prices.items()))
+    check(set(prices) == {"ETH", "BNB", "HYPE"} and all(v["usd"] > 0 for v in prices.values()),
+          "LIVE the three own-coin prices read on chain")
 
 
 def main() -> int:
@@ -339,6 +564,11 @@ def main() -> int:
     failed_checks()
     price_checks()
     gate_checks()
+    token_checks()
+    coverage_checks()
+    native_checks()
+    thread_checks()
+    mcp_checks()
     route_checks()
     if "--live" in sys.argv:
         live_check()

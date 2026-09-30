@@ -100,6 +100,19 @@
   --chart-4: 70 190 210;
   --chart-5: 170 200 255;
   --chart-baseline: 196 196 198;
+  /* The Dashboard's asset-class colours (tailwind cls-*), from the brand:
+     the logo blue (#3D7BFF, the charts' blue) for stocks, and the Fendi
+     badge / launch-film gradient, sampled from 05-dashboard-getquin-style
+     and fendi-head-512 and lifted to full strength: purple for ETFs, gold
+     for vaults, pink for tokens, orange for listed tokens with no type.
+     Fills, slices and marks only; text on them is never these colours. The
+     same in both themes: each is at least 3:1 against the dark card, and on
+     a light card it sits beside a label in --fg. */
+  --cls-stocks: 61 123 255;
+  --cls-etfs: 139 99 214;
+  --cls-vaults: 217 164 65;
+  --cls-tokens: 224 96 122;
+  --cls-other: 224 138 72;
   /* Tailwind's stock values; dark replaces them (see above). */
   --gray-500: 107 114 128;
   --gray-700: 55 65 81;
