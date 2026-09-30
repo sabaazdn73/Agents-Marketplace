@@ -134,6 +134,82 @@ def _powers(c: dict | None) -> dict | None:
             for p in POWERS if c.get(p)}
 
 
+# ── Aave V4 on Base, beside the Base versions (core/te/aave_v4.py) ──────────
+#
+# Read from the cache only: the snapshot the web process keeps, with its age.
+# Never a chain read in a tool call.
+
+def _aave_head(head: dict, versions: list[dict]) -> dict | None:
+    b = head.get("aave_v4_usdc_borrow")
+    if not b or not any(str(v.get("key", "")).startswith("8453/") for v in versions):
+        return None
+    if b.get("read") is False:
+        return {"status": b.get("status"), "reason": b.get("reason")}
+    # Short on purpose (the record's ceiling is 8KB): the fields are defined
+    # in aave_v4/base, named here.
+    return {"usdc_borrow_apr_pct": b.get("borrow_apr_pct"), "block": b.get("block"),
+            "age_seconds": b.get("age_seconds"), "status": b.get("status"), "detail_key": "aave_v4/base"}
+
+
+def _aave_instrument(key: str) -> dict:
+    from core.te import aave_v4
+    one = aave_v4.for_version(key)
+    if one is None:
+        return {}
+    # Compact for the 8KB ceiling: the notes and bases travel once, in the
+    # dataset's caveats and in aave_v4/base, not in every record.
+    one = {k: v for k, v in one.items() if k not in ("spoke", "hub", "oracle_price_source", "note",
+                                                     "supplied_label", "reserve_id", "status_reason")}
+    b = aave_v4.usdc_borrow()
+    b = {k: v for k, v in (b or {}).items() if k not in ("rate_basis", "utilization_basis", "block_time")}
+    return {"aave_v4": one, "aave_v4_usdc_borrow": b}
+
+
+def _aave_v4_all() -> dict:
+    """Every reserve of the MAG7 spoke and every Tnega Base version, compact:
+    the answer to "which version can I borrow against?" in one record."""
+    from core.te import aave_v4
+    s = aave_v4.snapshot()
+    d = s.get("snapshot")
+    if d is None:
+        return {"key": "aave_v4/base", "withheld_reason": s["status"], "explanation": s.get("reason")}
+    # Compact: one header, then a list per version (103 to 117 bytes each,
+    # measured 2026-09-29, against about 210 as objects). The whole answer
+    # was 6,120 bytes for 10 versions, so about 18 more fit under the 8 KB
+    # ceiling of tnega_get. Past it the envelope refuses the record whole
+    # (response_too_large) rather than cut it, and a version stays readable
+    # at its own key.
+    rows = []
+    for key, r in sorted(d["by_key"].items(), key=lambda kv: kv[1].get("symbol") or ""):
+        if r.get("listed") is False:
+            rows.append([r["symbol"], key, False, False, False, None, None, None, None, None])
+            continue
+        rows.append([r["symbol"], key, True, r["collateral"], r["accepts_new_collateral"], r["max_ltv_bps"] / 100,
+                     r["supplied_tokens"], r["add_cap_tokens"], r["oracle_price_usd"], r["collateral_risk_bps"]])
+    u = d.get("usdc_borrow") or {}
+    return {
+        "key": "aave_v4/base", "measured_at": d["block_time"], "block": d["block"],
+        "age_seconds": s.get("age_seconds"), "status": s["status"], **({"status_reason": s["reason"]}
+                                                                       if s.get("reason") else {}),
+        "market": f"Aave V4, Base: Equities Hub {d['hub']}, MAG7 Spoke {d['spoke']}",
+        "columns": ["symbol", "key", "listed", "collateral", "accepts_new_collateral", "max_ltv_pct", "supplied",
+                    "add_cap", "oracle_price_usd", "risk_bps"],
+        "versions": rows,
+        "usdc_borrow": {k: u.get(k) for k in ("borrow_apr_pct", "utilization_pct", "available_liquidity_tokens",
+                                              "draw_cap_tokens", "borrowable")} if u else None,
+        "fields": ("max_ltv_pct is V4's one collateral factor: borrowing up to it, liquidation from it, no buffer "
+                   "between. supplied is supplied to the market; V4 keeps collateral per user, so no market-wide "
+                   "collateral total exists. borrow_apr_pct is the hub's drawn rate, an APR (linear, 365 days); a "
+                   "borrower pays it x (1 + risk premium from risk_bps). Caps in whole tokens. listed is true when "
+                   "the version has a reserve on the MAG7 spoke; on an unlisted version the terms are null, because "
+                   "no reserve exists to read them from, not zero."),
+        "eligibility": {"text": d["eligibility"]["text"], "url": d["eligibility"]["url"],
+                        "published": d["eligibility"]["published"]},
+        "sources": {"addresses": d["sources"]["addresses"]["url"], "abi": f"{d['sources']['abi']['repo']}@"
+                    f"{d['sources']['abi']['commit']}", "full_snapshot": "GET /api/te/aave-v4"},
+    }
+
+
 def build_te(providers=None) -> list[Dataset]:
     from core.te import cost_views as cv
     from core.te import controls as te_controls
@@ -202,6 +278,8 @@ def build_te(providers=None) -> list[Dataset]:
             return await _underlying(t)
         if k.startswith("issuer/"):
             return await _issuer(k.split("/", 1)[1].lower())
+        if k.lower() in ("aave_v4/base", "aave-v4/base"):
+            return _aave_v4_all()
         m = _KEY.match(k)
         s = _SOL.match(k)
         if m and m.group(3) == "for":
@@ -250,13 +328,24 @@ def build_te(providers=None) -> list[Dataset]:
                         v["pool_depth_2pct_usd"] = _num(c.get("pool_usd"), 0)
                 else:
                     v[f"state_{tag}"] = c.get("state")
+            av = c1.get("aave_v4")
+            if isinstance(av, dict) and "listed" in av:
+                v["aave_v4_collateral"] = bool(av.get("collateral"))
+                if av.get("collateral"):
+                    v["aave_v4_max_ltv_pct"] = av["max_ltv_pct"]
+                    # Only when it is false (paused, frozen or halted), so
+                    # the usual record carries no extra bytes.
+                    if av.get("accepts_new_collateral") is False:
+                        v["aave_v4_accepts_new_collateral"] = False
             reasons = {c.get("reason") for c in (c1, c10) if c.get("state") != "filled" and c.get("reason")}
             if reasons:
                 v["reason"] = "; ".join(sorted(r[:180] for r in reasons))
             versions.append(v)
+        aave = _aave_head(head, versions)
         return {
             "key": f"underlying/{t}", "ticker": t, "name": head.get("name"), "type": head.get("type"),
             "versions": versions,
+            **({"aave_v4": aave} if aave else {}),
             "order": "by key; side by side, not ranked",
             "fields": ("allin_per_share_usd: all-in cost of one share's worth through this version (size, gas, "
                        "L1 fee, LI.FI's fee, over tokens received, over shares_per_token); it is the figure that "
@@ -305,6 +394,7 @@ def build_te(providers=None) -> list[Dataset]:
             "transfer_control_source": UNIVERSE_SOURCE + "; role members and evidence: "
                                        f"https://agents-marketplace-q3k4.onrender.com/api/te/controls?by=key&key={key}",
             "eligibility": cv._elig(ld, doc.get("issuer")),
+            **_aave_instrument(key),
             "premium": None,
             "premium_basis": "not served: a premium needs a reference price feed, and Chainlink figures are "
                              "held until written permission (E22)",
@@ -432,6 +522,8 @@ def build_te(providers=None) -> list[Dataset]:
         "Read-only: nothing is signed, built or held by this dataset. An order for a wallet is prepared by "
         "tnega_prepare_buy or tnega_prepare_sell, and signed by the user in their own wallet.",
         "Solana versions are listed but not measured yet.",
+        "Aave V4 fields: read on Base at a stated block; age_seconds says how old, stale past 11 minutes or "
+        "after a failed read. aave_v4/base defines each field; its as_of is that block's time.",
         "as_of is coverage.last_poll: the newest measurement among the versions served, and get, list and "
         "summary read the same snapshot. Each version carries its own block and measured_at, which can be "
         "older when a chain's read failed.",
@@ -443,10 +535,12 @@ def build_te(providers=None) -> list[Dataset]:
         title="Tokenized equities: cost to fill",
         measures="what it costs to buy a tokenized stock or ETF at 1,000 and 10,000 USD, per issuer's version "
                  "on each chain, simulated on the pools at a stated block, with transfer controls and "
-                 "eligibility",
+                 "eligibility, and whether Aave V4 on Base accepts a version as collateral (max LTV, caps, the "
+                 "USDC borrow APR); aave_v4/base answers which versions can be borrowed against",
         keys=["chain id/token address, as 4663/0x...",
               "underlying/<ticker>, which lists every token version side by side, as underlying/NVDA",
-              "issuer/<id>, as issuer/robinhood (xstocks, robinhood, bstocks, ondo, coinbase)"],
+              "issuer/<id>, as issuer/robinhood (xstocks, robinhood, bstocks, ondo, coinbase)",
+              "aave_v4/base: every Base version's Aave V4 collateral terms and the USDC borrow APR, read on chain"],
         example_filters={"search": "NVDA"},
         coverage=coverage, get=get, list=list_, summary=summary,
         as_of=lambda c: iso_utc(c.get("last_poll")),

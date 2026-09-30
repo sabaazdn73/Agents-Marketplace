@@ -1,9 +1,10 @@
 """
 te/router.py
 
-GET /api/te/list, /api/te/underlying/{ticker} and /api/te/curve/{ticker}, and
-GET /api/te/status (where the figures live and how fresh they are; nothing
-secret).
+GET /api/te/list, /api/te/underlying/{ticker} and /api/te/curve/{ticker},
+GET /api/te/aave-v4 (Aave V4 on Base, the last on-chain snapshot with its
+age; core/te/aave_v4.py), and GET /api/te/status (where the figures live
+and how fresh they are; nothing secret).
 Thin: each route checks its parameters and hands over to
 core/te/cost_views.py, which reads what the cost worker stored. Nothing is
 computed from the chain in a request; a figure is at most 15 minutes old
@@ -71,6 +72,27 @@ async def te_curve(ticker: str):
     if not _TICKER.match(t):
         return _bad("not a ticker")
     return _answer(*await curve_view(get_store(), t))
+
+
+@router.on_event("startup")
+async def _warm_aave_v4() -> None:
+    # Starts the first Aave V4 read in the background; never awaited, so a
+    # slow endpoint cannot hold the port closed.
+    from core.te import aave_v4
+    aave_v4.snapshot()
+
+
+@router.get("/api/te/aave-v4")
+async def te_aave_v4():
+    """Aave V4 on Base: the whole last snapshot (core/te/aave_v4.py), with
+    its age. No chain read in this request."""
+    from core.te import aave_v4
+    s = aave_v4.snapshot()
+    if s["snapshot"] is None:
+        return JSONResponse(status_code=503, content={"error": s["status"], "reason": s.get("reason"),
+                                                      "about": "this server's reads, not Aave"},
+                            headers={"Cache-Control": "no-store"})
+    return JSONResponse(content=s, headers={"Cache-Control": "public, max-age=60"})
 
 
 @router.get("/api/te/status")

@@ -423,10 +423,17 @@ async def underlying_view(store, ticker: str, size: int) -> tuple[int, dict]:
             c["pool_search"] = {**(d.get("pool_search") or {}),
                                 "initialize_logs": (ld.get("discovery") or {}).get(str(c["chain_id"])) or
                                 "not searched on this chain; pools found by factory construction in the universe pass"}
+    # Aave V4 on Base, beside each Base version (null elsewhere): the last
+    # snapshot of core/te/aave_v4.py, never a chain read in this request.
+    from . import aave_v4
+    snap = aave_v4.snapshot() if any(str(c["key"]).startswith("8453/") for c in cells) else None
+    for c in cells:
+        c["aave_v4"] = aave_v4.for_version(c["key"], snap) if snap else None
     b = _best(cells)
     cells.sort(key=lambda c: (STATE_ORDER.get(c["state"], 9), not c.get("comparable"), c.get("allin_per_share") or 0, c["key"]))
     blocks = sorted({(c["chain_id"], c["block"]) for c in cells if c.get("block")})
-    return 200, {
+    extra = {"aave_v4_usdc_borrow": aave_v4.usdc_borrow(snap)} if snap else {}
+    return 200, {**extra, 
         "ticker": ticker, "name": row["name"] or ticker, "name_basis": row.get("name_basis"), "type": row["type"],
         "type_basis": row.get("type_basis"), "size": size,
         "computed_at": max((c["computed_at"] or "" for c in cells), default=None),

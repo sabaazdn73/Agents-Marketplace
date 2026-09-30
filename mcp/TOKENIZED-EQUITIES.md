@@ -2606,6 +2606,134 @@ EVERY REFUSAL, each a `withheld_reason` with a sentence:
 Checked by `backend/scripts/sign_selfcheck.py` (offline; `--live` adds one
 real LI.FI quote and one real balance read).
 
+## 9B. Aave V4 on Base: collateral terms per Base version (built 2026-09-29)
+
+Built. For each tokenized-stock version on Base (8453), whether Aave V4
+accepts it as collateral and on what terms, and what borrowing USDC against
+it costs, read on chain. Read-only; facts, not advice.
+
+SOURCES
+- Addresses: Aave's address book, github.com/aave-dao/aave-address-book,
+  `src/AaveV4Base.sol` at commit `17567521ae51`
+  (https://github.com/aave-dao/aave-address-book/blob/17567521ae51/src/AaveV4Base.sol),
+  read 2026-09-29: `AaveV4BaseHubs.EQUITIES_HUB`
+  0xa4d5947Eb727A052bae69C593FfC84247EC9864E, `AaveV4BaseSpokes.MAG7_SPOKE`
+  0x17905Db0e4A3514467539956c084180616AE7B8D, `MAG7_SPOKE_ORACLE`
+  0xaBaf048fD7675Ea34a84332371ffd5D55E322A47, and the rate strategy of every
+  asset 0x3b0c5FbEff9d32fB6bB706bACc988c88b1871770. The oracle and the
+  strategy are read back from the chain on every pass (`MAG7_SPOKE.ORACLE()`,
+  `getAssetConfig(assetId).irStrategy`), and `oracle_matches_book` /
+  `ir_strategy_matches_book` say whether they still agree with the book.
+- ABI: github.com/aave/aave-v4 at commit `2524fe4018a4`, the commit the
+  address book's `lib/aave-v4` submodule pins (ISpoke, IHub, IHubBase,
+  IAaveOracle, IAssetInterestRateStrategy).
+- Aave's eligibility sentence, quoted whole with its link and date, never
+  restated: "Coinbase Tokenized Stocks are securities issued by Coinbase and
+  offered under Regulation S only to eligible non-U.S. persons in permitted
+  jurisdictions." (https://aave.com/blog/coinbase-tokenized-stocks, 25 Sep
+  2026).
+
+THE READ (`backend/core/te/aave_v4.py`). One pinned block, every call
+through Multicall3 on the Base endpoints of `core/te/chains.py` (rotation,
+`BASE_RPC_URL` first when set, public endpoints otherwise). The spoke's
+reserves are enumerated (`getReserveCount`, `getReserve`), never a fixed
+list, and each underlying is matched to Tnega's Base keys case-insensitively.
+A Base version with no reserve is checked with the hub's
+`isUnderlyingListed`. When this was written: AAPLc, AMZNc, GOOGLc, METAc,
+MSFTc, NVDAc and TSLAc are reserves; SNDKc, MSTRc and SPCXc have no reserve
+on the MAG7 spoke (enumerating the spoke's reserves finds none with their
+address), and `isUnderlyingListed` on the hub is false for them (the hub
+holds no asset for that token at all, so no spoke of this hub offers it);
+USDC is the one borrowable reserve.
+
+THE CACHE. The web process keeps the last snapshot and starts a new read in
+the background when it is over 10 minutes old; no request waits on a chain
+read. Reads run only when someone asks, so after a quiet spell the first
+answer can be old: an answer older than 11 minutes is marked `status:
+"stale"` with its age, and `age_seconds` always says how old it is. For
+`aave_v4/base`, `as_of` is the read's block time; that record's `coverage`
+describes the cost engine, not this read.
+- ONE READ AT A TIME, ON ITS OWN THREAD. A read runs on a single dedicated
+  thread (never the shared thread pool), and a new one starts only after the
+  previous one has finished.
+- A DEADLINE. The read's RPC client carries a 45-second deadline, so the
+  thread stops itself even when every Base endpoint hangs; it does not wait
+  out each request's own timeout.
+- A BACKOFF. After a failed read the next is not tried for 60 seconds,
+  doubling with each further failure up to 10 minutes, and reset by a
+  success. Measured on a simulated five-minute outage: reads at 0, 60 and
+  180 seconds, never more than one thread.
+- Before the first read the answer says "not read yet", with why (a read
+  running, or the last failure and when the next may start); `GET
+  /api/te/aave-v4` answers 503 with that reason. A failed read keeps the
+  last good snapshot, marked `status: "stale"` with the failure, its age and
+  when the next read may start; nothing is ever replaced by a zero.
+  `AAVE_V4_READS=0` switches the reads off, and the answer says so.
+
+WHAT EACH FIELD MEANS
+- `collateral_factor_bps`, served as `max_ltv_pct` and
+  `liquidation_threshold_pct`, the same number. V4 uses ONE collateral
+  factor: borrowing is allowed up to it and liquidation starts at it (no
+  buffer between; `Spoke._processUserAccountData`: borrowing needs a health
+  factor of at least 1, liquidation starts below 1). A position's factor is
+  the one stored at its last health-checked action (`dynamicConfigKey`); the
+  one served is the reserve's current key.
+- `supplied_tokens`: what is supplied to the market
+  (`getReserveSuppliedAssets`), labelled so. V4 keeps collateral per user
+  (`setUsingAsCollateral`); no market-wide collateral total exists to read,
+  so none is served.
+- `add_cap_tokens`, `draw_cap_tokens`: the hub's caps for the MAG7 spoke, in
+  WHOLE tokens; "no cap" is `MAX_ALLOWED_SPOKE_CAP` (2^40 - 1); a draw cap of
+  0 means nothing can be drawn. `add_cap_used_pct` is supplied over the add
+  cap.
+- `collateral_only`: a collateral reserve that cannot be borrowed.
+  `paused`, `frozen` (the reserve), `active`, `halted` (the hub's
+  registration of the spoke). `accepts_new_collateral` is collateral and
+  none of paused, frozen, inactive or halted.
+- `collateral_risk_bps`: the reserve's collateralRisk (0 on every reserve
+  when this was written). A borrower pays the drawn rate x (1 + risk
+  premium), the risk premium being the debt-weighted collateralRisk of the
+  collateral.
+- `oracle_price_usd`, `oracle_price_source`: the MAG7 spoke oracle's
+  `getReservePrice` (USD, scaled by the oracle's own `decimals()`, read in
+  the same pass; 8 when this was written) and the feed it reads.
+- USDC borrow: `borrow_apr_pct` is the hub's `getAssetDrawnRate` (RAY,
+  1e27) as a percent. It is an APR: interest accrues linearly over a
+  365-day year (`MathUtils.calculateLinearInterest`) and compounds only at
+  each accrual. `utilization_pct` is the strategy's own usage ratio at the
+  block, drawn / (liquidity + drawn + swept), from `getAssetOwed` (drawn),
+  `getAssetLiquidity` and `getAssetSwept`, as
+  `AssetInterestRateStrategy.calculateInterestRate` computes it. The rate
+  served, `getAssetDrawnRate`, is the strategy's rate for the hub's current
+  state, computed by the hub when it is called (`Hub.getAssetDrawnRate`), at
+  the snapshot's block. The strategy's parameters are
+  served (`ir_data_bps`), and the self-check reproduces the rate from them.
+- Every snapshot carries its `block` and `block_time`, and every answer its
+  `age_seconds` and `status`.
+
+WHERE IT IS SERVED
+- `GET /api/te/underlying/<T>`: `aave_v4` on every Base version (null on
+  versions outside Base), and `aave_v4_usdc_borrow` beside them.
+- `GET /api/te/aave-v4`: the whole snapshot, about 20 KB.
+- MCP `tokenized_equities`: `aave_v4/base` (every Base version's terms and
+  the USDC APR in one record: the answer to "which version can I borrow
+  against?"), in a compact form, one `columns` header and one list per
+  version (`listed` true when the version has a reserve on the MAG7 spoke;
+  an unlisted version's terms are null, never zero); on `underlying/<T>`, `aave_v4_collateral` and
+  `aave_v4_max_ltv_pct` per Base version and the USDC APR beside; on a Base
+  version key, `aave_v4` and `aave_v4_usdc_borrow`. All under the 8 KB
+  ceiling of `tnega_get`, measured 2026-09-29:
+  - `aave_v4/base` 6,120 bytes for 10 versions, 103 to 117 bytes a version,
+    so about 18 more fit. Past the ceiling the record would be refused whole
+    (`response_too_large`), and each version stays readable at its own key.
+  - the largest `underlying/<T>` of 14 tickers 7,617 bytes, 88 more than
+    without the Aave fields.
+
+Checked by `backend/scripts/aave_v4_selfcheck.py`: decoding against raw
+answers recorded from Base (`backend/data/te/aave_v4_recorded.json`), with
+the factors and caps compared to the activation spec's tables; the cache;
+the routes and the MCP records; `--live` reads Base.
+
 ---
 
 ## 10. The collector
