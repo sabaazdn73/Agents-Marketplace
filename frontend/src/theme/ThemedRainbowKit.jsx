@@ -10,11 +10,15 @@
 import React from 'react';
 import { RainbowKitProvider, lightTheme, darkTheme } from '@rainbow-me/rainbowkit';
 import { useTheme } from './ThemeProvider';
+import { useConnectChain } from '../wallet/connectChain';
 
 export default function ThemedRainbowKit({ children }) {
   const { dark } = useTheme();
   const theme = dark
     ? darkTheme({ accentColor: 'rgb(208, 164, 255)', accentColorForeground: 'rgb(24, 8, 40)', borderRadius: 'small' })
     : lightTheme({ accentColor: 'rgb(118, 40, 200)', accentColorForeground: 'white', borderRadius: 'small' });
-  return <RainbowKitProvider theme={theme}>{children}</RainbowKitProvider>;
+  // Undefined except while a stock page's Buy or Sell tab is on screen
+  // (wallet/connectChain.js), which asks to connect on the version's chain.
+  const initialChain = useConnectChain();
+  return <RainbowKitProvider theme={theme} initialChain={initialChain}>{children}</RainbowKitProvider>;
 }

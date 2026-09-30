@@ -245,7 +245,7 @@ export default function ChainViewTabs({ mutedBorder, children }) {
           broken rather than as scrollable, so above the phone breakpoint
           the strip wraps to a second row instead of running off the edge.
           Both behaviours keep the 44px target untouched. */}
-      <div className="flex gap-1 sm:gap-1.5 overflow-x-auto sm:overflow-visible sm:flex-wrap hide-scrollbar mb-3 sm:mb-4 -mx-1 px-1">
+      <div className="glass-bar flex max-w-full gap-1 sm:gap-1.5 overflow-x-auto sm:overflow-visible sm:flex-wrap hide-scrollbar mb-3 sm:mb-4">
         {tabs.map((t) => {
           const on = active === t.id;
           const short = SHORT_LABELS[t.id];
@@ -258,9 +258,7 @@ export default function ChainViewTabs({ mutedBorder, children }) {
               // visible text is shortened, so the tab is announced as
               // "Robinhood Chain" rather than "Robinhood".
               aria-label={t.label}
-              className={`shrink-0 flex items-center gap-1 sm:gap-1.5 min-h-11 px-2 sm:px-3 rounded-xl text-xs sm:text-sm font-semibold border transition-colors ${on
- ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 text-accent '
-                : 'border-line text-muted hover:bg-inset'}`}
+              className="glass-tab shrink-0 flex items-center gap-1 sm:gap-1.5 min-h-11 px-2 sm:px-3 text-xs sm:text-sm font-semibold"
             >
               <ChainMark viewId={t.id} size={12} />
               {short ? (
@@ -273,7 +271,7 @@ export default function ChainViewTabs({ mutedBorder, children }) {
                   zero. Rendering 0 next to Hyperliquid would read as an empty
                   chain rather than a different kind of tab. */}
               {t.count != null && t.kind !== 'venue' && (
-                <span className="hidden md:inline text-[10px] font-medium text-muted">
+                <span className={`hidden md:inline text-[10px] font-medium ${on ? 'text-fg opacity-80' : 'text-muted'}`}>
                   {compactCount(t.count)}
                 </span>
               )}

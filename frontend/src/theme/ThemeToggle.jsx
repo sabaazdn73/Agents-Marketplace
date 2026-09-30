@@ -47,7 +47,7 @@ export default function ThemeToggle({ labels = false, className = '' }) {
       aria-label="Theme"
       onKeyDown={onKeyDown}
       title={persisted ? undefined : 'This browser is not saving site data, so the theme resets on the next visit.'}
-      className={`inline-flex ${labels ? 'w-full' : 'shrink-0'} items-center gap-0.5 p-0.5 rounded-md border border-line bg-inset ${className}`}
+      className={`glass-bar ${labels ? 'w-full' : 'shrink-0'} ${className}`}
     >
       {OPTIONS.map(({ mode: m, label, title, Icon }) => {
         const on = mode === m;
@@ -62,9 +62,8 @@ export default function ThemeToggle({ labels = false, className = '' }) {
             data-mode={m}
             tabIndex={on ? 0 : -1}
             onClick={() => setMode(m)}
-            className={`inline-flex items-center justify-center gap-1.5 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent
-              ${labels ? 'flex-1 h-9 text-label font-medium' : 'w-7 h-7'}
-              ${on ? 'bg-surface text-fg shadow-[0_0_0_1px_rgb(var(--line-strong))]' : 'text-muted hover:text-fg'}`}
+            className={`glass-tab inline-flex items-center justify-center gap-1.5
+              ${labels ? `flex-1 h-9 text-label ${on ? 'font-semibold' : 'font-medium'}` : 'w-7 h-7'}`}
           >
             <Icon size={labels ? 15 : 14} aria-hidden="true" />
             {labels && <span>{label}</span>}

@@ -795,7 +795,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
   };
 
   return (
-    <div className="min-h-screen font-sans flex flex-col bg-page text-fg">
+    <div className="min-h-screen font-sans flex flex-col bg-page page-glow text-fg">
 
       {/* THE HEADER, following the reference dashboard (2026-09-25): the
           wordmark on the left, the search beside it, the pages on the right,

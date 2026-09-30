@@ -1,9 +1,10 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { createStorage } from 'wagmi';
-import { http, fallback } from 'viem';
+import { http, fallback, createPublicClient } from 'viem';
 import { bsc, arbitrum, robinhood, mainnet, base, hyperEvm } from 'wagmi/chains';
 import { getBscTransport, MAINNET_READ_RPC, HAS_BSC_BACKUP } from './rpcTransport';
 import { BUY_LIVE } from './trade/buyLive';
+import { TRADE_CHAIN_IDS } from './trade/tradeLive';
 
 // Adapted from OnChain Oversight's wagmiConfig.js: same wagmi/RainbowKit
 // pattern, only the `chains` array changes. Get a free WalletConnect
@@ -56,14 +57,14 @@ export const ROBINHOOD_RPCS = ['https://rpc.mainnet.chain.robinhood.com', 'https
 // switch there. Public endpoints only, each answered eth_chainId on
 // 2026-09-27; Ethereum reads never go through the Infura key.
 export const ETHEREUM_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://eth.merkle.io'];
-export const BASE_RPCS = ['https://mainnet.base.org', 'https://base-rpc.publicnode.com'];
 export const HYPEREVM_RPCS = ['https://rpc.hyperliquid.xyz/evm'];
 
 // THE BUY CHAINS ARE ADDED ONLY WHILE THE BUY PANEL IS SHOWN (trade/buyLive.js).
-// With it off the chain list is exactly bsc, arbitrum and robinhood, as
-// before the buy flow: the wallet's chain switcher and sign-in's accepted
-// chains (SignInProvider KNOWN_CHAIN_IDS) do not change, and no Ethereum
-// endpoint is called.
+// With it off the chain list is bsc, arbitrum and robinhood, as before the
+// buy flow, plus the chains the stock page's Buy and Sell tabs are switched
+// on for (trade/tradeLive.js, Base today, below). Sign-in's accepted chains
+// (SignInProvider KNOWN_CHAIN_IDS, read from SIGN_IN_CHAIN_IDS) do not
+// change, and no Ethereum endpoint is called.
 //
 // NO ENS LOOKUP. With chain 1 configured, RainbowKit's AccountModal (always
 // mounted) resolves the connected address's ENS name on Ethereum at every
@@ -73,6 +74,64 @@ export const HYPEREVM_RPCS = ['https://rpc.hyperliquid.xyz/evm'];
 // RainbowKit shows the plain address. Only Multicall3 is kept.
 export const mainnetNoEns = { ...mainnet, contracts: { multicall3: mainnet.contracts.multicall3 } };
 const BUY_CHAINS = BUY_LIVE ? [mainnetNoEns, base, hyperEvm] : [];
+
+// THE CHAINS SIGN-IN ACCEPTS (wallet/SignInProvider.jsx KNOWN_CHAIN_IDS):
+// exactly the list above, as before the stock page's Buy and Sell tabs. A
+// chain added below for those tabs only is not one sign-in issues a message
+// for: a wallet on it signs in with a message naming BNB Chain, as before.
+const SIGN_IN_CHAINS = [bsc, arbitrum, robinhood, ...BUY_CHAINS];
+export const SIGN_IN_CHAIN_IDS = SIGN_IN_CHAINS.map((c) => c.id);
+
+// THE BUY AND SELL TABS' CHAINS (trade/tradeLive.js, one switch per chain):
+// the wallet has to be able to switch to a chain before anything can be
+// approved or signed there, so each chain switched on is added to the list,
+// once. Only Base is on today; Base has no ENS, and Ethereum, if it is ever
+// switched on here, is the no-ENS copy above.
+const TRADE_CHAIN_OBJECTS = { [mainnet.id]: mainnetNoEns, [base.id]: base, [arbitrum.id]: arbitrum, [bsc.id]: bsc, [robinhood.id]: robinhood, [hyperEvm.id]: hyperEvm };
+const TRADE_CHAINS = TRADE_CHAIN_IDS
+  .map((id) => TRADE_CHAIN_OBJECTS[id])
+  .filter((c) => c && !SIGN_IN_CHAINS.some((x) => x.id === c.id));
+const ALL_CHAINS = [...SIGN_IN_CHAINS, ...TRADE_CHAINS];
+const has = (id) => ALL_CHAINS.some((c) => c.id === id);
+
+// BASE, WITH MORE THAN TWO ENDPOINTS. mainnet.base.org answers 429 ("rate
+// limited") under load, and a buy or a sale reads Base more than any other
+// page does (decimals, balance, allowance, the allowance again after an
+// approval). Each endpoint below answered eth_blockNumber and eth_call from
+// a browser page on https://www.tnega.app, with CORS, on 2026-09-29. Not
+// kept: base.llamarpc.com (no CORS answer) and base.meowrpc.com (429 on
+// eth_call at the time). The signing page (sign/signWagmi.js) reads the
+// same list.
+export const BASE_READ_RPCS = [
+  'https://mainnet.base.org',
+  'https://base-rpc.publicnode.com',
+  'https://base.drpc.org',
+  'https://1rpc.io/base',
+  'https://base-mainnet.public.blastapi.io',
+];
+
+// Each endpoint is asked once (retryCount 0 on the http transport); a 429 or
+// a failure moves the request to the next endpoint in order. When every
+// endpoint has failed, the whole list is tried again, up to 3 more times,
+// waiting 500 ms, 1 s, then 2 s (viem's fallback backs off exponentially
+// from retryDelay). In order, not ranked: the first endpoint is tried first
+// and the others only see traffic when it fails.
+export const manyTransport = (urls) => fallback(urls.map((u) => http(u, { retryCount: 0 })), { rank: false, retryCount: 3, retryDelay: 500 });
+
+// A second opinion: a read client for one chain whose endpoint list starts
+// at the SECOND endpoint (the first goes last), so a value the usual first
+// endpoint answered is checked against another. BNB Chain keeps its one
+// transport (rpcTransport.js); there the second read goes the same way.
+const READ_LISTS = {
+  [mainnet.id]: [mainnetNoEns, ETHEREUM_RPCS], [base.id]: [base, BASE_READ_RPCS], [arbitrum.id]: [arbitrum, ARBITRUM_RPCS],
+  [robinhood.id]: [robinhood, ROBINHOOD_RPCS], [hyperEvm.id]: [hyperEvm, HYPEREVM_RPCS], [bsc.id]: [bsc, null],
+};
+export function secondOpinionClient(chainId) {
+  const [chain, urls] = READ_LISTS[chainId] || [];
+  if (!chain) return null;
+  const transport = urls && urls.length > 1 ? manyTransport([...urls.slice(1), urls[0]]) : chainId === bsc.id ? getBscTransport() : manyTransport(urls || []);
+  return createPublicClient({ chain, transport });
+}
 const host = (url) => { try { return new URL(url).host; } catch { return url; } };
 
 // Who receives a read on each chain, named for people rather than for code.
@@ -83,11 +142,9 @@ export const RPC_PROVIDER_NAMES = {
   [bsc.id]: `${host(MAINNET_READ_RPC).includes('blxrbdn') ? `bloXroute (${host(MAINNET_READ_RPC)})` : host(MAINNET_READ_RPC)}${HAS_BSC_BACKUP ? ', with Infura as a backup' : ''}`,
   [arbitrum.id]: `Arbitrum's public endpoint (${host(ARBITRUM_RPCS[0])}), with dRPC as a backup`,
   [robinhood.id]: `Robinhood Chain's public endpoint (${host(ROBINHOOD_RPCS[0])}), with PublicNode as a backup`,
-  ...(BUY_LIVE ? {
-    [mainnet.id]: `PublicNode (${host(ETHEREUM_RPCS[0])}), with ${host(ETHEREUM_RPCS[1])} as a backup`,
-    [base.id]: `Base's public endpoint (${host(BASE_RPCS[0])}), with PublicNode as a backup`,
-    [hyperEvm.id]: `Hyperliquid's public HyperEVM endpoint (${host(HYPEREVM_RPCS[0])})`,
-  } : {}),
+  ...(has(mainnet.id) ? { [mainnet.id]: `PublicNode (${host(ETHEREUM_RPCS[0])}), with ${host(ETHEREUM_RPCS[1])} as a backup` } : {}),
+  ...(has(base.id) ? { [base.id]: `Base's public endpoint (${host(BASE_READ_RPCS[0])}), with PublicNode, dRPC, 1RPC and Blast as backups` } : {}),
+  ...(has(hyperEvm.id) ? { [hyperEvm.id]: `Hyperliquid's public HyperEVM endpoint (${host(HYPEREVM_RPCS[0])})` } : {}),
 };
 
 // wagmi's storage, with the store's absence survived rather than thrown.
@@ -120,8 +177,9 @@ export const wagmiConfig = getDefaultConfig({
   // Every chain the app can switch to. bsc for hiring and Sell Your Agent,
   // arbitrum and robinhood because AgentBudgetEscrow is deployed on both and
   // a budget there has to be opened on that chain. Ethereum, Base and
-  // HyperEVM for the buy flow (trade/), only while it is shown (above).
-  chains: [bsc, arbitrum, robinhood, ...BUY_CHAINS],
+  // HyperEVM for the buy flow (trade/), only while it is shown (above), and
+  // each chain the Buy and Sell tabs are switched on for (Base today).
+  chains: ALL_CHAINS,
   transports: {
     [bsc.id]: getBscTransport(),
     // These two get a plain single-URL transport rather than the shared
@@ -151,11 +209,9 @@ export const wagmiConfig = getDefaultConfig({
       http(ROBINHOOD_RPCS[0]),
       http(ROBINHOOD_RPCS[1]),
     ], { rank: false }),
-    ...(BUY_LIVE ? {
-      [mainnet.id]: fallback(ETHEREUM_RPCS.map((u) => http(u)), { rank: false }),
-      [base.id]: fallback(BASE_RPCS.map((u) => http(u)), { rank: false }),
-      [hyperEvm.id]: http(HYPEREVM_RPCS[0]),
-    } : {}),
+    ...(has(mainnet.id) ? { [mainnet.id]: fallback(ETHEREUM_RPCS.map((u) => http(u)), { rank: false }) } : {}),
+    ...(has(base.id) ? { [base.id]: manyTransport(BASE_READ_RPCS) } : {}),
+    ...(has(hyperEvm.id) ? { [hyperEvm.id]: http(HYPEREVM_RPCS[0]) } : {}),
   },
   ssr: false,
 });

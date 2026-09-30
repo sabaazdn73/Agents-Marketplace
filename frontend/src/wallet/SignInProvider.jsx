@@ -35,7 +35,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useSignMessage } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { bsc } from 'wagmi/chains';
-import { wagmiConfig, RPC_PROVIDER_NAMES } from '../wagmiConfig';
+import { wagmiConfig, RPC_PROVIDER_NAMES, SIGN_IN_CHAIN_IDS } from '../wagmiConfig';
 import {
   buildSignInMessage, createVerifier, messageChainId, PROOF_DEFECTS, verifySignIn,
 } from './siwe';
@@ -83,8 +83,10 @@ function clearOthers(keep) {
 // The chains the site issues sign-in messages for, which are the chains it can
 // reach: a message naming any other chain is refused, and a contract wallet's
 // signature is checked on the chain its message names, not on whatever chain
-// the wallet happens to be on now.
-const KNOWN_CHAIN_IDS = new Set(wagmiConfig.chains.map((c) => c.id));
+// the wallet happens to be on now. The sign-in list, not every chain the
+// config can switch to: a chain added only for the stock page's Buy and Sell
+// tabs (Base) does not change which chains sign-in names (wagmiConfig.js).
+const KNOWN_CHAIN_IDS = new Set(SIGN_IN_CHAIN_IDS);
 
 const verifier = createVerifier((chainId) => (
   KNOWN_CHAIN_IDS.has(chainId) ? getPublicClient(wagmiConfig, { chainId }) : null

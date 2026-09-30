@@ -56,10 +56,15 @@
 import React, { useEffect } from 'react';
 import StandaloneBar from './shell/StandaloneBar';
 import { BUY_LIVE } from './trade/buyLive';
+import { TRADE_CHAIN_IDS } from './trade/tradeLive';
+import { BUY_CHAINS } from './trade/chains';
 
 // The buy flow's paragraph, and the three chains it adds to sign-in, exist
 // only while the Buy panel is shown (trade/buyLive.js).
 const BUY_SHOWN = BUY_LIVE;
+// The Buy and Sell tabs on a stock's page, on the chains switched on in
+// trade/tradeLive.js (Base today), named from the same list.
+const TRADE_CHAIN_NAMES = TRADE_CHAIN_IDS.map((id) => BUY_CHAINS[id]?.name).filter(Boolean);
 
 const UPDATED = '30 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
@@ -168,7 +173,7 @@ export default function PrivacyPage({ onBack }) {
             tnega_welcomed (on a phone, that the welcome screen was shown, for this session only),
             tnega_signin_v1:&lt;address&gt; (a signed sign-in message, for 24 hours),
             tnega_lifi_q_v1 (the times of the LI.FI quotes this browser asked for in the last two
-            hours, to stay inside LI.FI&apos;s limit), on a signing link tnega_tokmeta_v2:... in
+            hours, to stay inside LI.FI&apos;s limit), on a signing link or a stock page&apos;s Buy and Sell tabs tnega_tokmeta_v2:... in
             this tab&apos;s session storage (a token&apos;s decimals, read once from the chain, gone
             when the tab closes), and the list of
             your agent hires and their notifications (aam_notifications_v2, aam_tracked_jobs_v1 and
@@ -592,6 +597,27 @@ export default function PrivacyPage({ onBack }) {
             quotes it asked for in the last two hours (to stay inside LI.FI&apos;s limit) and a list
             of the buys it sent (the transaction hash, the chains, the token and the time), in its
             own storage only.
+          </p>)}
+          {TRADE_CHAIN_NAMES.length > 0 && (<p>
+            Buying or selling a tokenized stock from the Buy and Sell tabs on a stock&apos;s page
+            (on {TRADE_CHAIN_NAMES.join(' and ')}) happens between your browser, your wallet and
+            LI.FI (li.quest). When you press the button for a quote, your browser first reads our
+            own stored measurements for that stock from our server, which sends no address, then
+            sends LI.FI your wallet address, the chain, the two tokens and the amount; LI.FI answers
+            with a route and the transaction for your wallet to sign. Nothing is sent to LI.FI
+            before you press it. Your browser reads both tokens&apos; decimals, which sends no
+            address, and your balance and your allowance to LI.FI&apos;s contract, which send your
+            wallet address, from the chain&apos;s public RPC providers. On Base each request goes
+            first to Base&apos;s public endpoint; if that fails or turns it away (for example when
+            it is rate limited), the same request goes to PublicNode, then dRPC (base.drpc.org),
+            then 1RPC (1rpc.io), then Blast (base-mainnet.public.blastapi.io); if all five fail,
+            the list is tried again, up to three more times. The stock token&apos;s decimals are
+            read a second time to check the first reading (and the stablecoin&apos;s, when its first
+            reading disagrees with this site&apos;s list), which sends no address: that request
+            starts at PublicNode and goes down the same list, with Base&apos;s public endpoint
+            last. After you sign, your browser asks LI.FI for the
+            transaction&apos;s status by its hash. None of this goes to our server. Your browser
+            keeps a count of the quotes it asked for in the last two hours, in its own storage only.
           </p>)}
           {/* The signing page (sign/SignOrderPage.jsx) is live whatever the
               Buy switch says, so this paragraph always shows. */}

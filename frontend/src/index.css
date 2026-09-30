@@ -36,6 +36,10 @@
    #212122 with a 1px #2B2B2C border, radius 4px, padding 16px, white text,
    #999999 secondary text, gains #59E184. No gradient, glow or tint on any
    surface. Light is the same layout on white cards over a light grey page.
+   ONE EXCEPTION, THE TAB BARS (owner, 2026-09-30): every tab bar and
+   segmented control is glass (.glass-bar, .glass-tab below), a translucent
+   face with a backdrop blur and a hairline edge, so the page or card behind
+   it shows through. Nothing else takes a tint.
 
    THE ACCENT IS THE FOREGROUND. Main buttons are white on dark and black on
    light, links and the active tab are the foreground colour, and the logo
@@ -126,6 +130,24 @@
   --indigo-900: 49 46 129;
   --purple-400: 192 132 252;
   --purple-500: 168 85 247;
+  /* Glass tabs: the bar's face and edge, the chosen tab's face and ring, and
+     the highlight along each top edge. Colour, then alpha. */
+  --glass: 255 255 255;
+  --glass-a: 0.55;
+  --glass-edge: 0 0 0;
+  --glass-edge-a: 0.08;
+  --glass-hi-a: 0.9;
+  --glass-on-a: 0.92;
+  --glass-ring: 118 118 120;
+  --glass-shadow-a: 0.08;
+  /* The page's soft glow (.page-glow): the logo blue with a touch of
+     Fendi's gold, pink and purple, sampled from the launch film's hero
+     frame. To take it away, set this to none. */
+  --page-glow:
+    radial-gradient(1100px 560px at 8% -8%, rgb(61 123 255 / 0.06), transparent 62%),
+    radial-gradient(900px 520px at 96% 4%, rgb(150 110 230 / 0.04), transparent 62%),
+    radial-gradient(900px 560px at 78% 108%, rgb(232 180 80 / 0.05), transparent 62%),
+    radial-gradient(760px 460px at -4% 96%, rgb(230 120 140 / 0.04), transparent 62%);
   color-scheme: light;
 }
 
@@ -164,6 +186,19 @@ html.dark {
   --indigo-900: 20 36 80;
   --purple-400: 100 145 255;
   --purple-500: 61 123 255;
+  --glass: 255 255 255;
+  --glass-a: 0.06;
+  --glass-edge: 255 255 255;
+  --glass-edge-a: 0.12;
+  --glass-hi-a: 0.12;
+  --glass-on-a: 0.2;
+  --glass-ring: 150 150 152;
+  --glass-shadow-a: 0.5;
+  --page-glow:
+    radial-gradient(1100px 560px at 8% -8%, rgb(61 123 255 / 0.11), transparent 62%),
+    radial-gradient(900px 520px at 96% 4%, rgb(150 110 230 / 0.07), transparent 62%),
+    radial-gradient(900px 560px at 78% 108%, rgb(232 180 80 / 0.04), transparent 62%),
+    radial-gradient(760px 460px at -4% 96%, rgb(230 120 140 / 0.04), transparent 62%);
   color-scheme: dark;
 }
 
@@ -204,6 +239,65 @@ html {
      monospace. */
   .figure {
     @apply font-sans tabular-nums;
+  }
+  /* The page's glow behind the app shells (web and mobile), so the glass
+     tabs have something to show through. One class, one token (--page-glow
+     above): drop the class from the two shells, or set the token to none,
+     and the page is flat again. */
+  .page-glow {
+    background-image: var(--page-glow);
+    background-attachment: fixed;
+  }
+  /* Glass tabs. The bar is a translucent face over whatever is behind it
+     (the page and its glow, or a card), blurred, with a hairline edge and a
+     highlight along its top; the chosen tab is a brighter pane of the same
+     glass with a ring and a bold label. A tab is chosen when it says so to
+     assistive technology: aria-selected (a tab), aria-pressed (a toggle
+     button) or aria-checked (a radio).
+     Contrast (WCAG 2), computed from the tokens composited over what is
+     behind, the page's glow at its strongest with all four colours stacked
+     (scratchpad check contrast.py; a blur over a flat colour does not
+     change it): tab text (muted) on the bar 5.40:1 or more light and 4.74:1
+     or more dark; the chosen tab's text (fg) 20.78:1 or more light and
+     7.10:1 or more dark. The chosen tab's ring (--glass-ring) is 3.96:1 or
+     more against the bar light and 4.57:1 or more dark, WCAG 1.4.11's 3:1
+     for a state indicator (its fill alone is not: in light the chosen pane
+     and the bar are both near white). Body text on the glowing page: muted
+     4.53:1 or more light, 5.68:1 or more dark. Recompute when a token
+     changes. */
+  .glass-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 8px;
+    background-color: rgb(var(--glass) / var(--glass-a));
+    border: 1px solid rgb(var(--glass-edge) / var(--glass-edge-a));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / var(--glass-hi-a));
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+  }
+  .glass-tab {
+    border-radius: 6px;
+    color: rgb(var(--muted));
+    transition: background-color 120ms, color 120ms, box-shadow 120ms;
+  }
+  .glass-tab:hover {
+    color: rgb(var(--fg));
+  }
+  .glass-tab:focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 1px;
+  }
+  .glass-tab[aria-selected='true'],
+  .glass-tab[aria-pressed='true'],
+  .glass-tab[aria-checked='true'] {
+    color: rgb(var(--fg));
+    background-color: rgb(var(--glass) / var(--glass-on-a));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / var(--glass-hi-a)),
+      0 0 0 1px rgb(var(--glass-ring)),
+      0 1px 3px rgb(0 0 0 / var(--glass-shadow-a));
   }
 }
 

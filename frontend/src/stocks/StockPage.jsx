@@ -14,9 +14,10 @@
 //                                      when the chosen version is on Base
 // Each version's Aave V4 collateral line (Base only) comes with the
 // underlying read (versions[].aave_v4, aave_v4_usdc_borrow): stocks/AaveV4.jsx.
-// The Buy panel (trade/TradePanel.jsx) quotes LI.FI in the browser, on the
-// visitor's click only; it shows only while the `buy` section switch is on
-// (home/sections.js) and only for a version on an EVM chain we can buy on.
+// The chosen version has three tabs, Details, Buy and Sell (?tab=). Buy and
+// Sell (trade/StockTrade.jsx) quote LI.FI in the browser, on the visitor's
+// click only, and only on a chain switched on in trade/tradeLive.js (Base
+// today); on any other chain the tab says so and offers no control.
 // Behind DATA_LIVE, like every tokenized-equity page.
 
 import ReadError from '../te/ReadError';
@@ -24,7 +25,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Crown } from 'lucide-react';
 import { useTe, hasRows } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
-import { BUY_LIVE } from '../trade/buyLive';
 import { CostCurveCard, Eligibility } from '../home/cards';
 import { Card, CardTitle, DevTag, GroupChip, SymbolTile, fmtUsd0 } from '../ui/primitives';
 import SizeStrip from '../ui/SizeStrip';
@@ -33,9 +33,9 @@ import {
   headline, tokensText, tiedWithBest, tieLine, priceText4, bpsText, depthText, blockText, refGap, stateText, measuredLine, sentence, shareRatioText,
 } from '../te/costText';
 import { updatePageMeta } from '../seoMeta';
-import { isBuyChain, addressUrl, parseKey } from '../trade/chains';
-import { referencePrice } from '../trade/lifi';
-import TradePanel from '../trade/TradePanel';
+import { addressUrl, parseKey } from '../trade/chains';
+import StockTrade from '../trade/StockTrade';
+import { GlassTabs } from '../ui/detail';
 import TokenControls from '../controls/TokenControls';
 import { tokenLink } from '../controls/model';
 import { AaveV4Inline, AaveV4Card } from './AaveV4';
@@ -44,11 +44,14 @@ import { AaveV4Inline, AaveV4Card } from './AaveV4';
 // answers; these are the same numbers.
 export const STOPS = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000];
 
+const TABS = [{ id: 'details', label: 'Details' }, { id: 'buy', label: 'Buy' }, { id: 'sell', label: 'Sell' }];
+
 function readQuery() {
   try {
     const p = new URLSearchParams(window.location.search);
-    return { v: p.get('v'), usd: Number(p.get('usd')) };
-  } catch { return { v: null, usd: NaN }; }
+    const tab = p.get('tab');
+    return { v: p.get('v'), usd: Number(p.get('usd')), tab: TABS.some((t) => t.id === tab) ? tab : 'details' };
+  } catch { return { v: null, usd: NaN, tab: 'details' }; }
 }
 
 function snap(usd) {
@@ -58,11 +61,12 @@ function snap(usd) {
 
 /** The address bar follows the size and the version, without a new history
  *  entry each time. */
-function writeQuery(v, usd) {
+function writeQuery(v, usd, tab) {
   try {
     const p = new URLSearchParams(window.location.search);
     if (v) p.set('v', v); else p.delete('v');
     p.set('usd', String(usd));
+    if (tab && tab !== 'details') p.set('tab', tab); else p.delete('tab');
     window.history.replaceState(window.history.state, '', `${window.location.pathname}?${p.toString()}${window.location.hash}`);
   } catch { /* not fatal */ }
 }
@@ -111,13 +115,6 @@ function StateCell({ v, size }) {
   ) : <span className="text-[12px] font-semibold text-fg">{st.label}</span>;
 }
 
-// A Buy button only where a quote can be checked: the Buy panel is shown
-// (trade/buyLive.js), the version is on an EVM chain we can buy on, and it
-// fills this size on our own measurement, so its measured all-in price per
-// token is what LI.FI's answer is held against (trade/lifi.js
-// referencePrice). Every other row opens the same details without a Buy.
-const buyable = (v) => BUY_LIVE && v.group === 'evm' && isBuyChain(v.chain_id) && !!referencePrice(v);
-
 function VersionsTable({ data, size, selected, onSelect }) {
   const bestKey = data.best?.key;
   const tied = new Set(tiedWithBest(data.versions, bestKey).map((x) => x.key));
@@ -164,8 +161,8 @@ function VersionsTable({ data, size, selected, onSelect }) {
                 <td className="py-2.5 pl-4 align-top pt-3"><StateCell v={v} size={size} /></td>
                 <td className="px-4 py-2.5 text-right whitespace-nowrap">
                   <button type="button" onClick={() => onSelect(v.key)} aria-pressed={on}
-                    className={`h-8 px-3 rounded text-[12px] font-semibold ${buyable(v) ? 'bg-accent text-accent-fg hover:opacity-90' : 'border border-line-strong text-fg hover:bg-inset'}`}>
-                    {buyable(v) ? 'Buy' : 'Details'}
+                    className="h-8 px-3 rounded text-[12px] font-semibold border border-line-strong text-fg hover:bg-inset">
+                    Details
                   </button>
                 </td>
               </tr>
@@ -207,8 +204,8 @@ function VersionCards({ data, size, selected, onSelect }) {
                 <AaveV4Inline v={v} />
                 <StateCell v={v} size={size} />
                 <button type="button" onClick={() => onSelect(v.key)} aria-pressed={on}
-                  className={`mt-2 h-9 px-3 rounded text-[12px] font-semibold ${buyable(v) ? 'bg-accent text-accent-fg' : 'border border-line-strong text-fg'}`}>
-                  {buyable(v) ? 'Buy' : 'Details'}
+                  className="mt-2 h-9 px-3 rounded text-[12px] font-semibold border border-line-strong text-fg">
+                  Details
                 </button>
               </div>
             </li>
@@ -231,7 +228,7 @@ function Footnote({ data, size }) {
   );
 }
 
-function SelectedVersion({ v, data, size, compact, onNavigate }) {
+function SelectedVersion({ v, data, size, tab, onTab, ticker, onNavigate }) {
   const controls = useTe(DATA_LIVE && v ? `/api/te/controls?by=key&key=${encodeURIComponent(v.key)}` : null);
   if (!v) return null;
   const elig = v.eligibility || controls.data?.controls?.who_may_hold;
@@ -242,21 +239,23 @@ function SelectedVersion({ v, data, size, compact, onNavigate }) {
         Token <a href={addressUrl(v.chain_id, parseKey(v.key)?.address)} target="_blank" rel="noopener noreferrer" className="font-mono underline underline-offset-2 hover:text-fg">{parseKey(v.key)?.address}</a>
         {' · '}{shareRatioText(v)}{blockText(v.block) ? ` · ${blockText(v.block)}` : ''}
       </div>
-      {buyable(v) && <TradePanel v={v} size={size} compact={compact} />}
-      {/* The Buy panel carries these words beside its checkbox; without it
-          they stand on their own. */}
-      {!buyable(v) && (
-        <Card>
-          <CardTitle>Who may hold {v.symbol}</CardTitle>
-          <div className="text-[13px] text-fg"><Eligibility e={elig} /></div>
-          <p className="mt-2 text-[11px] text-muted">The issuer&apos;s own words, linked and dated. Shown, not enforced: Tnega does not check who you are.</p>
-        </Card>
-      )}
-      {/* The same card /issuer-controls shows for ?token=, with the link to
-          that token's row among every issuer's. */}
-      <AaveV4Card v={v} borrow={data?.aave_v4_usdc_borrow} />
-      <TokenControls data={controls.data} onNavigate={onNavigate}
-        link={{ href: tokenLink(v.key), label: 'Compare with every issuer' }} />
+      <GlassTabs label={`${v.symbol}: details, buy or sell`} tabs={TABS} value={tab} onChange={onTab}>
+        {tab === 'details' && (
+          <div className="space-y-4">
+            <Card>
+              <CardTitle>Who may hold {v.symbol}</CardTitle>
+              <div className="text-[13px] text-fg"><Eligibility e={elig} /></div>
+              <p className="mt-2 text-[11px] text-muted">The issuer&apos;s own words, linked and dated. Shown, not enforced: Tnega does not check who you are.</p>
+            </Card>
+            {/* The same card /issuer-controls shows for ?token=, with the link to
+                that token's row among every issuer's. */}
+            <AaveV4Card v={v} borrow={data?.aave_v4_usdc_borrow} />
+            <TokenControls data={controls.data} onNavigate={onNavigate}
+              link={{ href: tokenLink(v.key), label: 'Compare with every issuer' }} />
+          </div>
+        )}
+        {tab !== 'details' && <StockTrade v={v} ticker={ticker} side={tab} size={size} />}
+      </GlassTabs>
     </div>
   );
 }
@@ -267,6 +266,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
   const initial = useMemo(readQuery, []);
   const [size, setSize] = useState(() => snap(initial.usd));
   const [selected, setSelected] = useState(initial.v || null);
+  const [tab, setTab] = useState(initial.tab);
   const u = useTe(DATA_LIVE && T ? `/api/te/underlying/${encodeURIComponent(T)}?size=${size}` : null, { keep: true });
   const curve = useTe(DATA_LIVE && T ? `/api/te/curve/${encodeURIComponent(T)}` : null).data;
   const data = u.data;
@@ -275,7 +275,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
   const versions = hasRows(data?.versions) ? data.versions : [];
   const current = versions.find((v) => v.key === selected) || versions.find((v) => v.key === data?.best?.key) || versions[0] || null;
 
-  useEffect(() => { writeQuery(current?.key || selected, size); }, [current?.key, selected, size]);
+  useEffect(() => { writeQuery(current?.key || selected, size, tab); }, [current?.key, selected, size, tab]);
   useEffect(() => {
     if (!data?.name) return;
     updatePageMeta({
@@ -325,7 +325,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
         )}
         {curve && <CostCurveCard data={curve} size={size} onSize={setSize} />}
         <div id="selected-version" className="scroll-mt-20">
-          {current && !u.stale && <SelectedVersion key={current.key} v={current} data={data} size={size} compact={mobile} onNavigate={onNavigate} />}
+          {current && !u.stale && <SelectedVersion key={current.key} v={current} data={data} size={size} tab={tab} onTab={setTab} ticker={T} onNavigate={onNavigate} />}
         </div>
       </div>
     </div>

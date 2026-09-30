@@ -19,6 +19,8 @@
 //   - the value check (valueCheck) is ours: tokens out times our own
 //     measured all-in price per token, against the dollars in.
 
+import { decodeFunctionData, parseAbi } from 'viem';
+
 export const LIFI = 'https://li.quest/v1';
 export const SLIPPAGE = 0.005;
 
@@ -141,6 +143,39 @@ const bigOr = (x) => {
   try { return x == null || x === '' ? 0n : BigInt(String(x)); } catch { return null; }
 };
 
+// LI.FI'S SWAP CALL, DECODED. The transaction a quote asks the wallet to
+// sign is a call to LI.FI's contract; on a same-chain swap it is one of
+// GenericSwapFacetV3's six functions. Their signatures, and LibSwap.SwapData,
+// are copied from LI.FI's published contracts:
+//   https://github.com/lifinance/contracts/blob/main/src/Facets/GenericSwapFacetV3.sol
+//   https://github.com/lifinance/contracts/blob/main/src/Libraries/LibSwap.sol
+// (read 2026-09-30). Selectors, worked out from these signatures by viem:
+//   0x4666fc80 swapTokensSingleV3ERC20ToERC20   0x5fd9ae2e swapTokensMultipleV3ERC20ToERC20
+//   0x733214a3 swapTokensSingleV3ERC20ToNative  0x2c57e884 swapTokensMultipleV3ERC20ToNative
+//   0xaf7060fd swapTokensSingleV3NativeToERC20  0x736eac0b swapTokensMultipleV3NativeToERC20
+// Every Base route quoted on 2026-09-30 (a buy and a sale of NVDAc) was
+// 0x5fd9ae2e. Any other call is refused: this page cannot read what it
+// would sign.
+const SWAP_DATA = 'struct SwapData { address callTo; address approveTo; address sendingAssetId; address receivingAssetId; uint256 fromAmount; bytes callData; bool requiresDeposit; }';
+const V3_HEAD = 'bytes32 _transactionId, string _integrator, string _referrer, address _receiver, uint256 _minAmountOut';
+export const GENERIC_SWAP_V3_ABI = parseAbi([
+  SWAP_DATA,
+  ...['SingleV3ERC20ToERC20', 'SingleV3ERC20ToNative', 'SingleV3NativeToERC20'].map((n) => `function swapTokens${n}(${V3_HEAD}, SwapData _swapData)`),
+  ...['MultipleV3ERC20ToERC20', 'MultipleV3ERC20ToNative', 'MultipleV3NativeToERC20'].map((n) => `function swapTokens${n}(${V3_HEAD}, SwapData[] _swapData)`),
+]);
+
+export const ROUTE_UNSUPPORTED = 'route type not supported here yet';
+
+/** The swap call's receiver, minimum and swaps, or null when the data is
+ *  not one of GenericSwapFacetV3's functions. */
+export function decodeSwapCall(data) {
+  try {
+    const d = decodeFunctionData({ abi: GENERIC_SWAP_V3_ABI, data });
+    const swaps = Array.isArray(d.args[5]) ? d.args[5] : [d.args[5]];
+    return { fn: d.functionName, receiver: d.args[3], minAmountOut: d.args[4], swaps };
+  } catch { return null; }
+}
+
 /** Does the quote answer the question asked? A mismatch refuses it.
  *  Besides the chains, tokens, amount and wallet, it checks where the value
  *  goes: the route delivers to the wallet (p.toAddress, or the wallet
@@ -148,7 +183,7 @@ const bigOr = (x) => {
  *  contract, the transaction sends no native coin when an ERC-20 is paid,
  *  and the contract called and the approval's spender are both LI.FI's
  *  pinned contract on the paying chain. */
-export function quoteMismatch(quote, p) {
+export function quoteMismatch(quote, p, { side = 'buy' } = {}) {
   const a = quote?.action || {};
   const tr = quote?.transactionRequest || {};
   const e = quote?.estimate || {};
@@ -182,6 +217,7 @@ export function quoteMismatch(quote, p) {
   };
   walk(quote?.includedSteps, 0);
   if (tooDeep) bad.push('a route nested too deep');
+  if (!steps.length) bad.push('a route with no steps');
   for (const st of steps) {
     if (!st || typeof st !== 'object' || !KNOWN.has(st.type)) { bad.push("a step of a kind not known"); break; }
     const to = lc(st.action?.toAddress);
@@ -203,13 +239,40 @@ export function quoteMismatch(quote, p) {
   }
   if (Number(a.fromChainId) !== Number(p.fromChain)) bad.push('the paying chain');
   if (Number(a.toChainId) !== Number(p.toChain)) bad.push("the stock's chain");
-  if (lc(a.fromToken?.address) !== lc(p.fromToken)) bad.push('the token paid');
-  if (lc(a.toToken?.address) !== lc(p.toToken)) bad.push('the token bought');
+  const sell = side === 'sell';
+  if (lc(a.fromToken?.address) !== lc(p.fromToken)) bad.push(sell ? 'the token sold' : 'the token paid');
+  if (lc(a.toToken?.address) !== lc(p.toToken)) bad.push(sell ? 'the stablecoin received' : 'the token bought');
   if (String(a.fromAmount) !== String(p.fromAmount)) bad.push('the amount');
   if (lc(a.fromAddress) !== lc(p.fromAddress)) bad.push('the wallet');
   if (!tr.to || !tr.data) bad.push('the transaction');
   if (tr.from && lc(tr.from) !== lc(p.fromAddress)) bad.push("the transaction's sender");
   if (tr.chainId != null && Number(tr.chainId) !== Number(p.fromChain)) bad.push("the transaction's chain");
+
+  // What the transaction itself says, decoded, against the quote: the
+  // receiver is the wallet, the minimum is the quote's toAmountMin, the
+  // first swap spends the token paid and the last delivers the token asked
+  // for. A call this page cannot decode is refused.
+  const call = tr.data ? decodeSwapCall(tr.data) : null;
+  if (!call) bad.push(ROUTE_UNSUPPORTED);
+  else {
+    if (lc(call.receiver) !== wallet) bad.push("the transaction's receiver");
+    if (String(call.minAmountOut) !== String(e.toAmountMin)) bad.push("the transaction's minimum");
+    const first = call.swaps[0];
+    const last = call.swaps[call.swaps.length - 1];
+    if (!first || lc(first.sendingAssetId) !== lc(p.fromToken)) bad.push('the token the transaction spends');
+    if (!last || lc(last.receivingAssetId) !== lc(p.toToken)) bad.push('the token the transaction delivers');
+    // A step's own approvalAddress is a contract LI.FI's contract approves
+    // from its own balance inside the transaction (its fee collector, a
+    // DEX router), never the wallet's approval (that is estimate's, above).
+    // It has to be LI.FI's contract or one of the approveTo addresses the
+    // transaction actually carries, so a step cannot name a spender the
+    // call does not use.
+    const approveTo = new Set(call.swaps.map((x) => lc(x.approveTo)));
+    for (const st of steps) {
+      const sp = lc(st?.estimate?.approvalAddress);
+      if (sp && sp !== diamond && !approveTo.has(sp)) { bad.push("a step's approval address"); break; }
+    }
+  }
   return bad;
 }
 

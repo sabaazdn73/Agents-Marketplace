@@ -31,7 +31,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useConfig, useDisconnect } from 'wagmi';
-import { formatUnits } from 'viem';
 import { Check, ExternalLink, Loader2 } from 'lucide-react';
 import { useConnectedWallet, shortAddress } from '../wallet/useConnectedWallet';
 import { Card, CardTitle, fmtUsd } from '../ui/primitives';
@@ -43,17 +42,15 @@ import { tokenLink } from '../controls/model';
 import { useTe } from '../te/api';
 import { setNoIndex, updatePageMeta } from '../seoMeta';
 import { BUY_CHAINS, addressUrl, txUrl } from '../trade/chains';
-import {
-  fetchQuote, fetchStatus, jupiterIn, quoteMismatch, quoteFacts,
-  quotaState, QUOTE_MAX_AGE_MS, QUOTA_LIMIT,
-} from '../trade/lifi';
+import { fetchQuote, fetchStatus, quotaState, QUOTE_MAX_AGE_MS, QUOTA_LIMIT } from '../trade/lifi';
+import { checkQuote } from '../trade/quoteCheck';
 import { readBalance, readAllowance, approveExact, sendSwap, ensureChain, walletErrorText } from '../trade/evmExecute';
 import {
-  readOrder, markDone, rawAmount, rawAgrees, quoteParams, orderCheck, decimalsMismatch, quotePrice,
-  REFERENCE_MAX_AGE_MS, REFERENCE_MAX_AHEAD_MS, REFERENCE_MAX_GAP,
+  readOrder, markDone, rawAmount, rawAgrees, quoteParams, decimalsMismatch, REFERENCE_MAX_AGE_MS,
 } from './order';
 import { signWagmiConfig, SIGN_CHAIN_IDS, secondOpinionClient } from './signWagmi';
 import { readDecimals, commitDecimals, forgetDecimals } from './tokenMeta';
+import { rawText, clockText } from '../trade/format';
 
 const config = signWagmiConfig;
 const lc = (a) => String(a || '').toLowerCase();
@@ -63,25 +60,6 @@ const amountText = (s) => {
   const n = Number(s);
   return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 8 }) : s;
 };
-// An exact amount from its smallest unit: every decimal the token has, with
-// trailing zeros trimmed, and thousands separated. "0.05", "10", "0.04357211".
-function rawText(raw, decimals) {
-  try {
-    if (raw == null || !Number.isInteger(decimals)) return null;
-    const [i, fr] = formatUnits(BigInt(String(raw)), decimals).split('.');
-    const int = BigInt(i).toLocaleString('en-US');
-    return fr ? `${int}.${fr}` : int;
-  } catch { return null; }
-}
-
-/** "14:05:09 UTC, 28 Sep 2026", to the second. */
-function clockText(ms) {
-  const d = new Date(ms);
-  if (Number.isNaN(d.getTime())) return null;
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' });
-  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-  return `${time} UTC, ${date}`;
-}
 const mmss = (ms) => {
   const s = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -332,56 +310,13 @@ function Order({ id, order }) {
     if (g !== gen.current) return;
     if (r.error) { setQ({ status: 'error', error: r.error }); return; }
     const quote = r.quote;
-    const facts = quoteFacts(quote);
+    // Every check, in the order the page has always run them, shared with
+    // the stock page's Buy and Sell tabs (trade/quoteCheck.js).
+    const c = checkQuote({ quote, params, side: order.side, amount: Number(order.amount), slippage: order.slippage, vc, symbol, noun: 'order' });
+    const facts = c.facts;
     const base = { quote, facts, quotedAt: r.quotedAt };
-    const mismatch = quoteMismatch(quote, params);
-    if (mismatch.length) { setQ({ status: 'refused', ...base, why: `LI.FI's answer does not match the order (${mismatch.join(', ')}), so it is not used.` }); return; }
-    const jup = jupiterIn(quote);
-    if (jup.length) { setQ({ status: 'refused', ...base, why: `This route goes through Jupiter (${jup.join(', ')}). Tnega does not use Jupiter, so the route is refused.` }); return; }
-
-    // The server's value check: its reference price and limit. Without
-    // them, or with a reference over 30 minutes old, nothing is signed.
-    if (!vc || vc.reason) {
-      setQ({ status: 'refused', ...base, why: `LI.FI's quote could not be checked against our own measured price: ${vc?.reason || 'none was sent with the order'}. It is not offered for signing.` });
-      return;
-    }
-    if (vc.measuredAt != null && vc.measuredAt - Date.now() > REFERENCE_MAX_AHEAD_MS) {
-      setQ({ status: 'refused', ...base, why: `Our measured price for ${symbol} is dated ${clockText(vc.measuredAt)}, in the future, so LI.FI's quote is not checked against it and is not offered for signing.` });
-      return;
-    }
-    if (vc.measuredAt == null || Date.now() - vc.measuredAt > REFERENCE_MAX_AGE_MS) {
-      setQ({ status: 'refused', ...base, why: `Our measured price for ${symbol} ${vc.measuredAt == null ? 'carries no time' : `was measured at ${clockText(vc.measuredAt)}, over 30 minutes ago`}, so LI.FI's quote is not checked against it and is not offered for signing. Try again once our measurement is refreshed.` });
-      return;
-    }
-    // Our reference against LI.FI's own dollar price for the token: more than
-    // 5% apart means one of the two is wrong, so neither is trusted.
-    const lp = quotePrice(quote, order.side, facts);
-    if (!lp) {
-      setQ({ status: 'refused', ...base, why: `LI.FI's quote carries no dollar price for ${symbol} to hold our measured price against, so it is not offered for signing.` });
-      return;
-    }
-    const gap = vc.price / lp.price - 1;
-    if (Math.abs(gap) > REFERENCE_MAX_GAP) {
-      setQ({ status: 'refused', ...base, why: `Our measured price, ${fmtUsd(vc.price)} per ${symbol}, is ${pct(Math.abs(gap))} ${gap > 0 ? 'above' : 'below'} ${lp.source}, ${fmtUsd(lp.price)}. More than 5% apart, one of the two is wrong, so the quote is not offered for signing.` });
-      return;
-    }
-    const out = facts.toAmount;
-    const outMin = facts.toAmountMin;
-    const amount = Number(order.amount);
-    const check = orderCheck({ side: order.side, out, outMin, amount, slippage: order.slippage, vc, lp });
-    const outSym = facts.toSymbol;
-    if (!check.ok) {
-      const lines = [];
-      if (check.why.includes('figures')) lines.push('LI.FI’s answer has no amount out.');
-      const outMinText = rawText(quote?.estimate?.toAmountMin, facts.toDecimals) || tok(outMin);
-      const outText = rawText(quote?.estimate?.toAmount, facts.toDecimals) || tok(out);
-      if (check.why.includes('min')) lines.push(`LI.FI's route guarantees at least ${outMinText} ${outSym}, ${pct(1 - check.minRatio)} below its estimate of ${outText}: more than the order's ${pct(order.slippage)} slippage plus 0.10%.`);
-      if (check.why.includes('loss')) lines.push(`Valued at our measured price, the minimum is worth ${fmtUsd(check.value.valueOut)} for ${fmtUsd(check.value.valueIn)}: ${pct(check.value.loss)} less, over this order's ${pct(check.value.limit)} limit.`);
-      if (check.why.includes('lossLifi')) lines.push(`Valued at ${check.lifi.source}, ${fmtUsd(check.lifi.price)} per token, the minimum is worth ${fmtUsd(check.lifi.valueOut)} for ${fmtUsd(check.lifi.valueIn)}: ${pct(check.lifi.loss)} less, over this order's ${pct(check.value.limit)} limit.`);
-      if (check.why.includes('gain')) lines.push(`Valued at our measured price or at LI.FI's, the minimum is worth more than 5% above what is given up. That points to a wrong token, decimals or price.`);
-      setQ({ status: 'refused', ...base, check, why: `Refused. ${lines.join(' ')}` });
-      return;
-    }
+    if (!c.ok) { setQ({ status: 'refused', ...base, ...(c.check ? { check: c.check } : {}), why: c.why }); return; }
+    const { check, lp, gap } = c;
     setQ({ status: 'ready', ...base, check, lp, lpGap: gap, at: Date.now() });
     setNow(Date.now());
     if (facts.approvalAddress) readAllowanceNow(facts.approvalAddress);

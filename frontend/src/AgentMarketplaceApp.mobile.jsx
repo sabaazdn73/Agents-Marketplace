@@ -614,7 +614,7 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
   }), [facets]);
 
   return (
-    <div className="relative flex flex-col h-[100dvh] font-sans bg-page text-fg">
+    <div className="relative flex flex-col h-[100dvh] font-sans bg-page page-glow text-fg">
 
       {/* The header, following the reference's phone layout: the wordmark
           on the left; search, the bell and the menu on the right, each a 44px

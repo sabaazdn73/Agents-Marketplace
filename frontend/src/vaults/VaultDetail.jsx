@@ -45,11 +45,11 @@ function Chart({ v }) {
   const cut = range === 'all' ? all : all.slice(-Number(range) - 1);
   return (
     <Card pad={false} className="min-w-0">
-      <div className="flex items-end justify-between gap-2 border-b border-line px-4">
-        <div role="tablist" className="flex gap-5 text-[13px]">
+      <div className="flex items-center justify-between gap-2 border-b border-line px-4">
+        <div role="tablist" className="glass-bar my-2 text-[13px]">
           {tabs.map(([k, l]) => (
             <button key={k} type="button" role="tab" aria-selected={cur === k} onClick={() => setTab(k)}
-              className={`py-3 -mb-px border-b-2 ${cur === k ? 'border-fg text-fg font-semibold' : 'border-transparent text-muted hover:text-fg'}`}>{l}</button>
+              className={`glass-tab h-8 px-3 ${cur === k ? 'font-semibold' : ''}`}>{l}</button>
           ))}
         </div>
         <div className="py-2"><Pills label="Range" value={range} onChange={setRange} options={RANGES.map(([id, label]) => ({ id, label }))} /></div>

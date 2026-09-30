@@ -87,14 +87,14 @@ export function TabbedCard({ tabs, right = null, className = '', pad = true }) {
   };
   return (
     <Card pad={false} className={`min-w-0 ${className}`}>
-      <div className="flex items-end justify-between gap-2 border-b border-line px-4 overflow-x-auto">
-        <div role="tablist" className="flex gap-5 text-[13px]" onKeyDown={onKey}>
+      <div className="flex items-center justify-between gap-2 border-b border-line px-4 overflow-x-auto">
+        <div role="tablist" className="glass-bar my-2 text-[13px]" onKeyDown={onKey}>
           {shown.map((t) => {
             const on = active.id === t.id;
             return (
               <button key={t.id} id={`${uid}-tab-${t.id}`} type="button" role="tab" aria-selected={on}
                 aria-controls={`${uid}-panel-${t.id}`} tabIndex={on ? 0 : -1} onClick={() => setCur(t.id)}
-                className={`py-3 -mb-px border-b-2 whitespace-nowrap ${on ? 'border-fg text-fg font-semibold' : 'border-transparent text-muted hover:text-fg'}`}>
+                className={`glass-tab h-8 px-3 whitespace-nowrap ${on ? 'font-semibold' : ''}`}>
                 {t.label}{Number.isFinite(t.count) ? ` (${t.count})` : ''}
               </button>
             );
@@ -107,6 +107,44 @@ export function TabbedCard({ tabs, right = null, className = '', pad = true }) {
         {active.render()}
       </div>
     </Card>
+  );
+}
+
+/** Glass tabs above a panel that is not a card (the stock page's Details,
+ *  Buy and Sell): a controlled ARIA tablist, arrow keys, Home and End move
+ *  between tabs, and the one panel below shows the chosen tab's content. */
+export function GlassTabs({ tabs, value, onChange, label, children }) {
+  const [uid] = useState(() => `gtabs${++tabSeq}`);
+  const onKey = (e) => {
+    const i = tabs.findIndex((t) => t.id === value);
+    let n = null;
+    if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+    else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+    else if (e.key === 'Home') n = 0;
+    else if (e.key === 'End') n = tabs.length - 1;
+    if (n === null) return;
+    e.preventDefault();
+    onChange(tabs[n].id);
+    document.getElementById(`${uid}-tab-${tabs[n].id}`)?.focus();
+  };
+  return (
+    <div>
+      <div role="tablist" aria-label={label} className="glass-bar text-[14px]" onKeyDown={onKey}>
+        {tabs.map((t) => {
+          const on = t.id === value;
+          return (
+            <button key={t.id} id={`${uid}-tab-${t.id}`} type="button" role="tab" aria-selected={on}
+              aria-controls={`${uid}-panel`} tabIndex={on ? 0 : -1} onClick={() => onChange(t.id)}
+              className={`glass-tab h-9 min-w-[76px] px-4 whitespace-nowrap ${on ? 'font-semibold' : 'font-medium'}`}>
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      <div id={`${uid}-panel`} role="tabpanel" aria-labelledby={`${uid}-tab-${value}`} className="mt-3">
+        {children}
+      </div>
+    </div>
   );
 }
 

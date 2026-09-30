@@ -17,11 +17,12 @@
 
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { createStorage } from 'wagmi';
-import { http, fallback, createPublicClient } from 'viem';
+import { http } from 'viem';
 import { bsc, arbitrum, robinhood, base, hyperEvm } from 'wagmi/chains';
 import { getBscTransport } from '../rpcTransport';
 import {
   mainnetNoEns, tolerantLocalStorage, ARBITRUM_RPCS, ROBINHOOD_RPCS, ETHEREUM_RPCS, HYPEREVM_RPCS,
+  BASE_READ_RPCS, manyTransport, secondOpinionClient,
 } from '../wagmiConfig';
 import { BUY_CHAINS } from '../trade/chains';
 
@@ -31,46 +32,13 @@ const CHAINS = [mainnetNoEns, base, arbitrum, bsc, robinhood, hyperEvm];
 // chain the wallet cannot be switched to; the page refuses such an order.
 export const SIGN_CHAIN_IDS = CHAINS.map((c) => c.id).filter((id) => Object.prototype.hasOwnProperty.call(BUY_CHAINS, id));
 
-// BASE, WITH MORE THAN TWO ENDPOINTS. mainnet.base.org answers 429 ("rate
-// limited") under load, and the signing page reads Base more than any other
-// page (decimals, balance, allowance, the allowance again after an
-// approval). Each endpoint below answered eth_blockNumber and eth_call from
-// a browser page on https://www.tnega.app, with CORS, on 2026-09-29
-// (scratchpad check base_rpcs.py). Not kept: base.llamarpc.com (no CORS
-// answer) and base.meowrpc.com (429 on eth_call at the time).
-// The site's own config (wagmiConfig.js) reads Base only while its Buy switch
-// is on, which it is not, so it is left as it is.
-export const SIGN_BASE_RPCS = [
-  'https://mainnet.base.org',
-  'https://base-rpc.publicnode.com',
-  'https://base.drpc.org',
-  'https://1rpc.io/base',
-  'https://base-mainnet.public.blastapi.io',
-];
-
-// Each endpoint is asked once (retryCount 0 on the http transport); a 429 or
-// a failure moves the request to the next endpoint in order. When every
-// endpoint has failed, the whole list is tried again, up to 3 more times,
-// waiting 500 ms, 1 s, then 2 s (viem's fallback backs off exponentially
-// from retryDelay). In order, not ranked: the first endpoint is tried first
-// and the others only see traffic when it fails.
-const many = (urls) => fallback(urls.map((u) => http(u, { retryCount: 0 })), { rank: false, retryCount: 3, retryDelay: 500 });
-
-// A second opinion: a read client for one chain whose endpoint list starts
-// at the SECOND endpoint (the first goes last), so a value the usual first
-// endpoint answered is checked against another. BNB Chain keeps its one
-// transport (rpcTransport.js); there the second read goes the same way.
-const RPC_LISTS = {
-  [mainnetNoEns.id]: ETHEREUM_RPCS, [base.id]: SIGN_BASE_RPCS, [arbitrum.id]: ARBITRUM_RPCS,
-  [robinhood.id]: ROBINHOOD_RPCS, [hyperEvm.id]: HYPEREVM_RPCS,
-};
-export function secondOpinionClient(chainId) {
-  const chain = CHAINS.find((c) => c.id === chainId);
-  if (!chain) return null;
-  const urls = RPC_LISTS[chainId];
-  const transport = urls && urls.length > 1 ? many([...urls.slice(1), urls[0]]) : chainId === bsc.id ? getBscTransport() : many(urls || []);
-  return createPublicClient({ chain, transport });
-}
+// Base's endpoint list (five, in order), the fallback transport and the
+// second-opinion read client are the site's own (wagmiConfig.js), shared so
+// the signing page and the stock page's Buy and Sell tabs read Base the same
+// way.
+export const SIGN_BASE_RPCS = BASE_READ_RPCS;
+const many = manyTransport;
+export { secondOpinionClient };
 
 export const signWagmiConfig = getDefaultConfig({
   storage: createStorage({ storage: tolerantLocalStorage(), key: 'tnega-sign' }),

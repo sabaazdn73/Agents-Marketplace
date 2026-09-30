@@ -192,14 +192,14 @@ export function Donut({ parts, size = 200, centerLabel, centerValue }) {
 /** A segmented pill row (1D 1W 1M, All EVM non-EVM). */
 export function Pills({ options, value, onChange, label }) {
   return (
-    <div role="tablist" aria-label={label} className="inline-flex items-center gap-1">
+    <div role="tablist" aria-label={label} className="glass-bar">
       {options.map((o) => {
         const id = typeof o === 'string' ? o : o.id;
         const text = typeof o === 'string' ? o : o.label;
         const on = id === value;
         return (
           <button key={id} type="button" role="tab" aria-selected={on} onClick={() => onChange(id)}
-            className={`h-8 px-3 rounded text-[12px] font-medium tabular-nums ${on ? 'bg-inset text-fg' : 'text-muted hover:text-fg'}`}>
+            className={`glass-tab h-8 px-3 text-[12px] tabular-nums ${on ? 'font-semibold' : 'font-medium'}`}>
             {text}
           </button>
         );
