@@ -76,7 +76,36 @@
 //                    allin_per_share, allin_per_token, tokens_per_1000,
 //                    cost_usd, cost_bps, paid_per_token, filled_fraction,
 //                    pool_usd (±2% depth; the fill for a partial),
-//                    eligibility, controls, pool_search? }] }
+//                    eligibility, controls, pool_search?,
+//                    aave_v4: AAVE_V4 | null (null outside Base) }],
+//       aave_v4_usdc_borrow?: USDC_BORROW (only when a version is on Base) }
+//     AAVE_V4, one of:
+//       { read: false, status: 'not_read_yet'|'off', reason }  (no figure)
+//       { listed: false, collateral: false, reason, AT }
+//       { listed: true, collateral, accepts_new_collateral, max_ltv_pct,
+//         liquidation_threshold_pct (= max_ltv_pct: one factor, no buffer),
+//         collateral_factor_bps, collateral_only, supplied_tokens (string),
+//         supplied_label ('supplied to the market'), add_cap_tokens,
+//         add_cap_used_pct, paused, frozen, halted, active,
+//         collateral_risk_bps, oracle_price_usd, oracle_price_source,
+//         reserve_id, spoke, hub, note, AT }
+//     AT = block, block_time, age_seconds, status: 'ok'|'stale',
+//          status_reason? (stale: the latest read failed; this is the last
+//          good one)
+//     USDC_BORROW = { borrow_apr_pct (APR, not compounded), rate_basis,
+//       utilization_pct, utilization_basis, borrowable, paused, frozen,
+//       spoke_halted, available_liquidity_tokens, total_owed_tokens,
+//       draw_cap_tokens, AT } | { read: false, status, reason }
+//   GET /api/te/aave-v4
+//     200 { snapshot: { protocol, chain_id, block, block_time, hub, spoke,
+//       spoke_name, hub_name, oracle, oracle_matches_book, reserves,
+//       by_key: { key: row }, borrow, usdc_borrow,
+//       eligibility: { text, url, published, class, note },
+//       notes: { single_factor, supplied, borrow_rate, caps },
+//       sources: { addresses: { repo, file, commit, url, read_on, names },
+//                  abi: { repo, commit, interfaces } }, method },
+//       status: 'ok'|'stale', age_seconds, read_at, reason? }
+//     503 { error: 'not_read_yet'|'off', reason, about } before a read
 //   GET /api/te/curve/{ticker}   (T3a)
 //     { ticker, stops: [usd], computed_at, best_rule, lifi_fee_included,
 //       chains: [{ chain, chain_id, group, symbol, issuer,

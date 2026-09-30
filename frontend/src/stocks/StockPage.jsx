@@ -9,6 +9,11 @@
 //   GET /api/te/curve/{T}              the cost at every stop, by chain
 //   GET /api/te/controls?by=key&key=   the chosen version's issuer controls,
 //                                      each with its evidence
+//   GET /api/te/aave-v4                Aave V4 on Base: the sources and
+//                                      Aave's eligibility wording, read only
+//                                      when the chosen version is on Base
+// Each version's Aave V4 collateral line (Base only) comes with the
+// underlying read (versions[].aave_v4, aave_v4_usdc_borrow): stocks/AaveV4.jsx.
 // The Buy panel (trade/TradePanel.jsx) quotes LI.FI in the browser, on the
 // visitor's click only; it shows only while the `buy` section switch is on
 // (home/sections.js) and only for a version on an EVM chain we can buy on.
@@ -33,6 +38,7 @@ import { referencePrice } from '../trade/lifi';
 import TradePanel from '../trade/TradePanel';
 import TokenControls from '../controls/TokenControls';
 import { tokenLink } from '../controls/model';
+import { AaveV4Inline, AaveV4Card } from './AaveV4';
 
 // The engine's 11 sizes (SPEC B.3). The curve's own stops win when it
 // answers; these are the same numbers.
@@ -146,6 +152,7 @@ function VersionsTable({ data, size, selected, onSelect }) {
                     <div className="min-w-0">
                       <div className="text-fg font-semibold">{v.symbol}</div>
                       <div className="text-[12px] text-muted">{v.issuer_name || v.issuer}</div>
+                      <AaveV4Inline v={v} />
                     </div>
                   </div>
                 </td>
@@ -197,6 +204,7 @@ function VersionCards({ data, size, selected, onSelect }) {
               </div>
               <div className="pl-12 mt-1">
                 {parts.length > 0 && <div className="text-[12px] text-muted">{parts.join(' · ')}</div>}
+                <AaveV4Inline v={v} />
                 <StateCell v={v} size={size} />
                 <button type="button" onClick={() => onSelect(v.key)} aria-pressed={on}
                   className={`mt-2 h-9 px-3 rounded text-[12px] font-semibold ${buyable(v) ? 'bg-accent text-accent-fg' : 'border border-line-strong text-fg'}`}>
@@ -246,6 +254,7 @@ function SelectedVersion({ v, data, size, compact, onNavigate }) {
       )}
       {/* The same card /issuer-controls shows for ?token=, with the link to
           that token's row among every issuer's. */}
+      <AaveV4Card v={v} borrow={data?.aave_v4_usdc_borrow} />
       <TokenControls data={controls.data} onNavigate={onNavigate}
         link={{ href: tokenLink(v.key), label: 'Compare with every issuer' }} />
     </div>

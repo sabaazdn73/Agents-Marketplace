@@ -52,6 +52,13 @@ import T4A from './fixtures/t4a-stock.dev.json' with { type: 'json' };
 // 400 and 404 bodies are the served ones or the route's own text. Any
 // other built basket answers 404 here, saying it is not in the fixture.
 import T7 from './fixtures/t7-baskets.dev.json' with { type: 'json' };
+// T9's REAL answers (branch aave-v4): NVDA and SNDK at $1,000 with each
+// Base version's aave_v4 (NVDAc listed, SNDKc not listed) and the body's
+// aave_v4_usdc_borrow, and GET /api/te/aave-v4, from that branch's routes
+// served locally with Aave V4 read live on Base. They take precedence over
+// T4A and T3A at those two keys; every other size keeps its older sample,
+// which has no aave_v4 (the page then shows nothing about Aave).
+import T9 from './fixtures/t9-aave.dev.json' with { type: 'json' };
 
 const T = '2026-01-01T12:00:00Z';
 const F = { _fixture: true, _marker: FIXTURE_MARKER, computed_at: T };
@@ -262,7 +269,8 @@ export function answer(path) {
     return b ? real(b) : { __status: 404, __body: T7.errors.not_found.body };
   }
   const ud = p.match(/^\/api\/te\/underlying\/([A-Z0-9.-]+)$/);
-  if (ud) { const k = `${ud[1]}:${q.get('size') || 1000}`; const b = T4A.underlying[k] || T3A.underlying[k]; return b ? real(b) : null; }
+  if (ud) { const k = `${ud[1]}:${q.get('size') || 1000}`; const b = T9.underlying[k] || T4A.underlying[k] || T3A.underlying[k]; return b ? real(b) : null; }
+  if (p === '/api/te/aave-v4') return real(T9.aave_v4);
   const cd = p.match(/^\/api\/te\/curve\/([A-Z0-9.-]+)$/);
   if (cd) { const b = T4A.curve[cd[1]] || T3A.curve[cd[1]]; return b ? real(b) : null; }
   if (p === '/api/te/controls' && q.get('by') === 'key') { const b = T4A.controls[q.get('key')]; return b ? real(b) : null; }
