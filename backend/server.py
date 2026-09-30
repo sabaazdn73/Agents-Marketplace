@@ -4092,6 +4092,13 @@ from te.sign_router import router as sign_router  # noqa: E402
 
 app.include_router(sign_router)
 
+# POST /api/wallet/holdings: the Dashboard's tokenized stocks and ETFs for the
+# connected address, read on chain by core/te/holdings.py (the MCP tool's
+# reader). The address is in the body, as for /api/wallet/habits.
+from te.wallet_router import router as wallet_holdings_router  # noqa: E402
+
+app.include_router(wallet_holdings_router)
+
 
 # ── the Telegram surface ─────────────────────────────────────────────────────
 #

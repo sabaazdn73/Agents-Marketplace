@@ -4,7 +4,9 @@
 // reference, dashboard-01 to 03): Portfolio with the big value and the
 // 1D to Max chart, Positions, Dividends; Allocation, Performance by year and
 // the cost breakdown on the right. All read one answer, POST
-// /api/site/portfolio (te/api.js documents the shape). Each card returns
+// /api/site/portfolio (te/api.js documents the shape), which the backend
+// does not serve yet, so no page renders these cards now (pages/Dashboard.jsx
+// says why). Each card returns
 // null when its part of the answer is missing: no zero stands in for a read
 // that did not happen.
 

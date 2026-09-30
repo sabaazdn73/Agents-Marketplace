@@ -175,14 +175,25 @@ def wallet_holdings(wallet: str, *, deadline_s: float = DEADLINE_S) -> dict:
     }
 
 
+def cached_answer(wallet: str) -> dict | None:
+    """The cached answer for this wallet while it is under a minute old, or
+    None. Spends nothing: the site's route asks this before it admits a new
+    read."""
+    now = time.monotonic()
+    with _cache_lock:
+        hit = _cache.get(wallet.lower())
+        if hit and now - hit[0] < CACHE_SECONDS:
+            return {**hit[1], "cached_seconds": round(now - hit[0], 1)}
+    return None
+
+
 async def holdings(wallet: str) -> dict:
     """wallet_holdings off the event loop, cached per wallet for a minute."""
     w = wallet.lower()
     now = time.monotonic()
-    with _cache_lock:
-        hit = _cache.get(w)
-        if hit and now - hit[0] < CACHE_SECONDS:
-            return {**hit[1], "cached_seconds": round(now - hit[0], 1)}
+    hit = cached_answer(w)
+    if hit is not None:
+        return hit
     out = await asyncio.wait_for(asyncio.to_thread(wallet_holdings, w), timeout=DEADLINE_S + 1.5)
     with _cache_lock:
         for k in [k for k, (t, _) in _cache.items() if now - t >= CACHE_SECONDS]:

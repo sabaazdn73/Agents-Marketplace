@@ -7,9 +7,11 @@
 // `layout` changes the arrangement, never the content.
 //
 // Web, following the reference dashboard's two stacks:
-//   left   Hyperliquid account value, Hyperliquid holdings, other chains
+//   left   Stocks, ETFs and Vaults (EquityHoldings.jsx), Hyperliquid account
+//          value, Hyperliquid holdings, other chains
 //   right  what the habits cost, then hires and budgets
-// Mobile, one column: value, holdings, habit costs, hires.
+// Mobile, one column: Stocks, ETFs, Vaults, value, holdings, habit costs,
+// hires.
 //
 // THE THREE STATES OF THE VISITOR
 //   disconnected  what the page shows and reads, and a way to connect
@@ -19,15 +21,18 @@
 // reads either way, and a connected but unsigned wallet triggers them too.
 //
 // INDEPENDENCE OF THE PARTS
-// The Hyperliquid half comes from our server's /api/wallet/habits; the other
-// chains and the hires come from chain reads in the browser. A failed or busy
-// server read never hides them, and they never wait for it.
+// The Hyperliquid half comes from our server's /api/wallet/habits; the stocks
+// and ETFs from our server's /api/wallet/holdings; the other chains and the
+// hires from chain reads in the browser. Each read is shown on its own: a
+// failed or busy one never hides the others, and none waits for another.
 
 import React, { useEffect, useState } from 'react';
 import { Loader2, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useSignIn } from './SignInProvider';
 import { useHabits } from './useHabits';
 import { useEvmHoldings } from './useEvmHoldings';
+import { useEquityHoldings } from './useEquityHoldings';
+import EquityHoldings from './EquityHoldings';
 import HabitCosts from './HabitCosts';
 import { HyperliquidPositions, HyperliquidValue } from './HyperliquidHoldings';
 import EvmHoldings from './EvmHoldings';
@@ -56,9 +61,10 @@ function Intro({ onSignIn, embedded = false }) {
         </div>
       </div>
       <div className="mt-4 space-y-3 text-body text-fg">
+        <p><span className="font-semibold">Stocks, ETFs and vaults.</span> The tokenized stocks and ETFs Tnega lists that it holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, each with its issuer, chain and balance, and a dollar value where Tnega has measured a pool price. The vaults Tnega lists are on Solana, so an EVM wallet is not checked for them, and the page says so.</p>
         <p><span className="font-semibold">Holdings.</span> Its Hyperliquid perp accounts and positions, its Hyperliquid spot balances, and its native coin and a short named list of stablecoins on BNB Chain, Arbitrum and Robinhood Chain.</p>
         <p><span className="font-semibold">What its habits cost.</span> Fees paid as maker and as taker, the share of volume it took rather than made, funding paid and received, how often its post-only orders were refused, and cancels per fill. Each figure carries the window and the number of records behind it, and where something could not be read the page says why instead of showing a zero. There are no estimates and no what-ifs.</p>
-        <p><span className="font-semibold">What is read, and by whom.</span> The address is sent to our server in the body of one request, which reads its public Hyperliquid record and keeps the answer in memory for five minutes; and from your browser to each chain&apos;s public RPC provider to read balances. Nothing is stored, and you do not need to sign anything to see the figures.</p>
+        <p><span className="font-semibold">What is read, and by whom.</span> The address is sent to our server in the body of two requests: one reads its public Hyperliquid record and keeps the answer in memory for five minutes, the other reads its tokenized-stock and ETF balances on six chains through public RPC providers and keeps the answer in memory for one minute; and from your browser to each chain&apos;s public RPC provider to read balances. Nothing is stored, and you do not need to sign anything to see the figures.</p>
       </div>
       <button type="button" onClick={onSignIn} className="mt-5 h-10 px-4 rounded-md bg-accent text-accent-fg text-body font-semibold hover:opacity-90 inline-flex items-center gap-2">
         <Wallet size={16} aria-hidden="true" /> Connect a wallet
@@ -200,6 +206,7 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
   const { status, address, openSignIn } = useSignIn();
   const habits = useHabits(status === 'disconnected' ? null : address);
   const evm = useEvmHoldings(status === 'disconnected' ? null : address);
+  const equities = useEquityHoldings(status === 'disconnected' ? null : address);
 
   if (status === 'disconnected') return <Intro embedded={embedded} onSignIn={onConnect || (() => openSignIn())} />;
 
@@ -212,6 +219,7 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
       <div>
         <Header status={status} address={address} habits={habits} openSignIn={() => openSignIn()} embedded={embedded} />
         <div className="space-y-3">
+          <EquityHoldings read={equities} layout="mobile" />
           {server}
           {data && <PartialNote data={data} />}
           {data && <HyperliquidValue data={data} compact />}
@@ -230,6 +238,7 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
       {data && <div className="mb-6"><PartialNote data={data} /></div>}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         <div className="lg:col-span-8 space-y-6 min-w-0">
+          <EquityHoldings read={equities} />
           {server}
           {data && <HyperliquidValue data={data} />}
           {data && <HyperliquidPositions data={data} layout="web" />}

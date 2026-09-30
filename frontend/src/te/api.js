@@ -254,7 +254,37 @@
 //     stored: false, stored_basis }. The backend accepts b padded or not,
 //     and refuses a JSON object with a repeated key. A 400 names what is
 //     wrong in `reason`, with `rule` or `allowed_size`.
-//   POST /api/site/portfolio { addresses: [address] }
+//   POST /api/wallet/holdings { address }   (the Dashboard's Stocks and ETFs;
+//     read by wallet/useEquityHoldings.js with fetch, not teRead, so the dev
+//     fixtures do not answer it. The address is in the body, never the URL,
+//     and is not echoed back.)
+//     200 { status: 'read'|'partial'|'unavailable', stocks: [HROW],
+//       etfs: [HROW], untyped: [HROW] (underlying with no type recorded),
+//       totals: { stocks: { value_usd | null, rows, rows_priced },
+//                 etfs: { ... }, basis },
+//       chains: [{ chain_id, chain, status: 'read'|'failed',
+//                  versions_checked, block?, block_time?, reason? (failed),
+//                  versions_unanswered?, note? }],
+//       coverage: { chains_read: [name], chains_failed: [{ chain, reason }],
+//                   versions_checked, versions_on_these_chains, partial,
+//                   scope },
+//       as_of (oldest block time read), as_of_basis, read_started_at,
+//       cached_seconds, method, type_basis, price_basis,
+//       reasons: { code: sentence } (every value_reason used), served_at }
+//     HROW = { key, symbol, name, ticker, issuer, chain, chain_id, address,
+//       decimals, balance (exact decimal string), balance_raw, block,
+//       type: 'stock'|'etf'|null, value_usd | null, value_reason | null
+//       ('no_measured_price'|'price_too_old'|'price_store_unavailable'),
+//       price: { price_usd, block, computed_at, age_seconds, source:
+//       'tnega_cost_engine', basis } | null }
+//     Only nonzero balances are rows. A failed chain is in `chains` with its
+//     reason, never shown as holding nothing.
+//     400 { error: 'bad_request', detail }  (one fixed sentence)
+//     429 { error: 'busy', detail, reason, retry_after_seconds } + Retry-After
+//     504/500 { error, detail }
+//   POST /api/site/portfolio { addresses: [address] }   NOT CALLED: the
+//     backend does not serve it (the Dashboard stopped asking, 2026-09-30).
+//     The shape dashboard/cards.jsx and the dev fixture were built for:
 //     { total_usd, change_usd, change_pct, computed_at,
 //       series: { '1D'|'1W'|'1M'|'YTD'|'1Y'|'Max': [[t_ms, usd]] },
 //       positions: [{ key, symbol, name, issuer, chain, qty, buy_in_usd,

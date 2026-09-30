@@ -61,7 +61,7 @@ import { BUY_LIVE } from './trade/buyLive';
 // only while the Buy panel is shown (trade/buyLive.js).
 const BUY_SHOWN = BUY_LIVE;
 
-const UPDATED = '27 September 2026';
+const UPDATED = '30 September 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
 const CONTACT = 'sabaazad93@gmail.com';
 
@@ -116,7 +116,7 @@ export default function PrivacyPage({ onBack }) {
             The pages are served by Vercel, which receives each request as any web host does. The
             figures come from our server at {API}, hosted on Render behind Cloudflare. Your browser
             asks it for lists and measurements; those requests carry nothing about you beyond what
-            any request carries (your IP address and browser). Two routes receive a wallet address,
+            any request carries (your IP address and browser). Three routes receive a wallet address,
             and only when you connect one: they are described under &quot;Your wallet address on the
             website&quot;, below.
           </p>
@@ -145,10 +145,10 @@ export default function PrivacyPage({ onBack }) {
           </p>
                   <p>
             Three routes on our server receive a wallet address, always in the body of the request,
-            never in the web address: My Agents, the Hyperliquid costs read, and the portfolio read
-            (POST /api/site/portfolio), which reads the tokenized stocks and ETFs an address holds.
-            The Dashboard calls the portfolio read only once that route is live; until then it sends
-            nothing to it. Each is described under &quot;Your wallet address on the website&quot;.
+            never in the web address: My Agents, the Hyperliquid costs read
+            (POST /api/wallet/habits), and the stock and ETF holdings read
+            (POST /api/wallet/holdings). Each is described under &quot;Your wallet address on the
+            website&quot;.
           </p>
           <p>
             Some pages show other companies&apos; logos, loaded from each company&apos;s own site,
@@ -535,6 +535,23 @@ export default function PrivacyPage({ onBack }) {
             sends nothing.
           </p>
           <p>
+            The Dashboard also sends the connected address to the stock and ETF holdings route
+            (POST /api/wallet/holdings) when you open it with a wallet connected, and again when you
+            press Read again. That route reads which of the tokenized stocks and ETFs Tnega lists the
+            address holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. To do
+            that our server sends the address, inside each balance request, to each chain&apos;s RPC
+            provider: PublicNode, with MEV Blocker as a backup, on Ethereum; on Base, the Base
+            endpoint set in our server&apos;s configuration when there is one, then Base&apos;s
+            public endpoint, Blast API, Tenderly, dRPC and PublicNode; Arbitrum&apos;s public
+            endpoint, with PublicNode as a backup; bloXroute, with PublicNode as a backup, on BNB
+            Chain; Robinhood Chain&apos;s public endpoint; and dRPC on HyperEVM. The address is not written to any database or to any log by our
+            code, and it is not returned in the answer. The answer is kept in the server&apos;s memory
+            for up to one minute, looked up by the address, so that a second view in that time does
+            not read the chains again; it is not written to disk, and it is gone when the server
+            restarts. The Vaults section sends no address: it reads the public vault list, which is
+            the same for everyone.
+          </p>
+          <p>
             The same page reads your balances on BNB Chain, Arbitrum and Robinhood Chain from your
             browser, not through our server: the native coin and a short named list of stablecoins
             on each chain. For that, your browser sends the address, inside each request, to the same
@@ -602,13 +619,6 @@ export default function PrivacyPage({ onBack }) {
             account, email address or password, and no login provider holding anything about you.
             Signing changes only how the site describes the address, as your wallet rather than this
             address; everything it shows for an address is public and readable without signing.
-          </p>
-          <p>
-            The portfolio read (POST /api/site/portfolio), once it is live, receives the connected
-            address from the Dashboard and reads, from each chain, the tokenized stocks and ETFs it
-            holds and their history. The address is not written to any database or log by our code.
-            The answer is kept in the server&apos;s memory for up to two minutes, looked up by the
-            address, and is gone when the server restarts.
           </p>
         </Section>
 

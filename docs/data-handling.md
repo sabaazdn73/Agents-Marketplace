@@ -295,6 +295,42 @@ order window and the newest order's age, for example "orders from 3 Sep to
 5 Sep, newest 19 days ago". The rule is one constant,
 `POST_ONLY_WITHHOLD_AFTER_SECONDS` in `core/hyperliquid/wallet_habits.py`.
 
+### `/api/wallet/holdings`, the visitor's own tokenized stocks and ETFs
+
+`POST /api/wallet/holdings` backs the Dashboard's Stocks and ETFs sections:
+which of the tokenized-stock and ETF versions Tnega lists the connected
+wallet holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and
+HyperEVM. The route is `backend/te/wallet_router.py`; the read is
+`core/te/holdings.py`, the same one behind the MCP tool
+`tnega_wallet_holdings`, shaped by `core/te/wallet_view.py`.
+
+Who calls it, and when: `frontend/src/wallet/useEquityHoldings.js`, when the
+Dashboard opens with a wallet connected, for the connected address, and again
+when the visitor presses Read again. The page keeps the answer for one minute
+(the route's own cache time). A connected wallet that has not signed in
+triggers it too. With no wallet connected the page sends nothing. On a 429
+the page shows the route's sentence and the Retry-After wait and never
+retries by itself.
+
+The wallet is in the JSON body, `{"address": "0x..."}`, never in the URL, with
+the same 256-byte cap and one fixed 400 as `/api/wallet/habits`; a GET gets
+the framework's 405.
+
+What it reads: `balanceOf(wallet)` on every listed version on the six chains,
+through Multicall3 at one block per chain, so the address rides in the
+calldata of each `eth_call` to that chain's RPC provider (`core/te/chains.py`:
+the public endpoints, and on Base the server's own `BASE_RPC_URL` first when
+it is set). An uncached read is admitted only when fewer than three are
+running and fewer than twenty started in the last minute; otherwise a 429
+with a retry time, and nothing is read. A dollar value comes only from the
+cost store Tnega already keeps (a pool mid it measured, with its block and
+time); no price service receives anything.
+
+What it keeps: `core/te/holdings.py`'s in-process cache of the answer, keyed
+by the lowercased address, for 60 seconds, at most 256 wallets. The address is
+not written to any database or file, not logged by this code, and not echoed
+in the response.
+
 ### Wallet addresses, written
 
 Most of these are public on-chain data this project deliberately indexes.
@@ -403,6 +439,7 @@ of it is shared between workers.
 | `core/hyperliquid/attribution.py` | wallet | 6 hours | 512, cleared entirely when full |
 | `core/hyperliquid/venuerole.py` | wallet | 6 hours | 4096, cleared entirely when full |
 | `core/hyperliquid/wallet_habits.py` | the visitor's own wallet, lowercased, holding the computed response as JSON bytes | 5 minutes | 128 answers and 4MB, cleared entirely when either is reached |
+| `core/te/holdings.py` | the visitor's own wallet, lowercased, from `/api/wallet/holdings` and the MCP tool `tnega_wallet_holdings`, holding the read's answer | 60 seconds | 256 wallets, oldest dropped first |
 | `core/hyperliquid/corestate.py` | wallet | 20 seconds | none |
 | `adapters/zerion.py`, three caches | wallet, holding portfolio, activity and PnL | 10 minutes | 256 per cache: every write drops every expired entry, then the oldest if the cache is still over 256 |
 | `adapters/contract_verification.py` | wallet or contract | 24 hours | none |
@@ -521,6 +558,7 @@ The site connects only to a wallet the visitor already has, through RainbowKit a
 | Hyperliquid info API and WebSocket | Tracked maker | POST body or subscription message | Not in a URL |
 | Hyperliquid info API | The visitor's own wallet, from `/api/wallet/habits` | POST body | Not in a URL |
 | HyperEVM, BSC and backup RPC providers | Wallet, ABI-encoded as calldata | POST body | Not in a URL |
+| The cost engine's RPC providers on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM (`core/te/chains.py`) | The visitor's own wallet, from `/api/wallet/holdings` (and the MCP tool `tnega_wallet_holdings`), in `balanceOf` calldata inside Multicall3 | POST body | Not in a URL |
 | BNB Chain, Arbitrum and Robinhood Chain RPC providers, from the browser | The visitor's own wallet on the wallet page, in `eth_getBalance` and `balanceOf` reads for the named tokens. And at sign-in: for a contract wallet the address, message and signature; for a signature that does not recover, the address alone. An ordinary wallet that signs correctly sends nothing | POST body | Not in a URL. See "Sign-in, checked on the visitor's side" |
 
 8004scan, TheGraph, DefiLlama and Crossmint receive no address from this
