@@ -478,9 +478,10 @@ function NoValue({ r, reasons }) {
   const why = r.value_reason ? (reasons?.[r.value_reason] || r.value_reason) : null;
   if (r.value_reason === 'price_on_hold') {
     // A tip, not a title: on a phone the row is a link and a title cannot be read.
-    // A tap on the tip must not also follow the row's link around it.
+    // A tap on the tip must not also follow the row's link around it. In the
+    // capture phase: the tip's own button stops the click from bubbling.
     const stay = (e) => { const a = e.target.closest('a'); if (!a || a.contains(e.currentTarget)) e.preventDefault(); };
-    return <span onClick={stay} className="inline-flex items-center gap-1 text-[12px] text-muted">price paused{why && <Tip label="Why the price is paused">{why}</Tip>}</span>;
+    return <span onClickCapture={stay} className="inline-flex items-center gap-1 text-[12px] text-muted">price paused{why && <Tip label="Why the price is paused">{why}</Tip>}</span>;
   }
   return <span className="text-[12px] text-muted" title={why || undefined}>no value</span>;
 }
