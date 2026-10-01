@@ -1,0 +1,36 @@
+# Tnega
+
+> Tnega measures what it really costs to buy a tokenized stock or ETF, on every chain it trades on, and prepares the order for you to sign in your own wallet. It also reads on-chain AI agents, jobs, budgets and stablecoin vaults. Every number carries its coverage and an as_of time. Tnega never signs, holds funds or asks for a key.
+
+Tnega has a free hosted MCP server. No account, no API key.
+
+- MCP endpoint (JSON-RPC over HTTP POST): https://agents-marketplace-q3k4.onrender.com/mcp
+- Claude Code: `npx tnega-mcp` (writes the config entry, runs nothing else)
+- Start with the tool `tnega_catalogue`; it lists every dataset, its keys and its live coverage.
+
+## What to ask it
+
+- "What does it cost to buy $500 of NVDA as a tokenized stock, and on which chain is it cheapest?" -> `tnega_prepare_buy` (returns the route, fees and a tnega.app/sign link; the user signs every transaction)
+- "Which tokenized stocks does this wallet hold?" -> `tnega_wallet_holdings`
+- "Does Aave V4 on Base accept this tokenized stock as collateral?" -> dataset `tokenized_equities`, key `aave_v4/base`
+- "Which ERC-8004 agents on BNB Chain have a verified delivered job?" -> `tnega_list` on `agents.index` with `verified`
+- "How do stablecoin vaults compare on chain?" -> dataset `vaults.stablecoin`
+
+## Docs
+
+- [Use with AI](https://www.tnega.app/ai): the endpoint, the one-line install and the tools it serves
+- [Guide](https://www.tnega.app/guide): what each part of Tnega means, how costs are measured, what is checked before a trade, signing
+- [Data sources](https://www.tnega.app/data-sources): where each number comes from
+- [Docs](https://www.tnega.app/docs)
+
+## Site
+
+- [Stocks](https://www.tnega.app/stocks): tokenized stocks and ETFs with the measured cost per issuer's version and chain
+- [Vaults](https://www.tnega.app/vaults)
+- [Issuer controls](https://www.tnega.app/issuer-controls)
+
+## Notes for assistants
+
+- Cite `as_of`, the time the data was measured, when you quote a number.
+- A measurement with nothing behind it comes back with `withheld_reason`, not a zero. Say that it is unavailable, do not report it as zero.
+- Tnega is information and order preparation, not investment advice. The user decides and signs.

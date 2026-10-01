@@ -43,7 +43,24 @@ from mcp_server import envelope, tools
 
 PROTOCOL_VERSION = "2025-06-18"
 SUPPORTED_VERSIONS = {"2025-06-18", "2025-03-26", "2024-11-05"}
-SERVER_INFO = {"name": "tnega", "version": "0.1.0"}
+SERVER_INFO = {
+    "name": "tnega",
+    "title": "Tnega: what a tokenized stock really costs to buy",
+    "version": "0.1.0",
+    "description": (
+        "Measured all-in cost of buying tokenized stocks and ETFs on every "
+        "chain, tokenized-stock balances for a wallet, on-chain AI agent and "
+        "vault data, and buy or sell orders prepared for you to sign in your "
+        "own wallet. Read only; Tnega never signs or holds funds."),
+    "websiteUrl": "https://www.tnega.app",
+    # Fendi, the Tnega cat. Served by the site (Vercel), so they exist whatever
+    # happens to this host. Clients that read icons from serverInfo use these;
+    # the rest read /favicon.ico on this host (server.py).
+    "icons": [
+        {"src": "https://www.tnega.app/app-icon-192.png", "mimeType": "image/png", "sizes": ["192x192"]},
+        {"src": "https://www.tnega.app/app-icon-512.png", "mimeType": "image/png", "sizes": ["512x512"]},
+    ],
+}
 
 # What the MCP-Protocol-Version header may say on a request after initialize.
 #

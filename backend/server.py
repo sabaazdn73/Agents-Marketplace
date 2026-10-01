@@ -1993,6 +1993,36 @@ async def health():
     return {"ok": True}
 
 
+# The API host's own icon. A client that lists connectors (Claude, Cursor, and
+# others) shows the icon of the host the MCP URL points at, and this host
+# answered 404, so it fell back to the hosting provider's logo. These are the
+# same Fendi files the site serves, copied unchanged into backend/assets.
+_ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+_ICONS = {
+    "/favicon.ico": ("favicon.ico", "image/x-icon"),
+    "/icon-192.png": ("icon-192.png", "image/png"),
+    "/icon-512.png": ("icon-512.png", "image/png"),
+}
+
+
+def _icon_route(path: str, fname: str, mime: str) -> None:
+    try:
+        with open(os.path.join(_ICON_DIR, fname), "rb") as fh:
+            body = fh.read()
+    except OSError:
+        return
+
+    async def serve() -> Response:
+        return Response(content=body, media_type=mime,
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+    app.add_api_route(path, serve, methods=["GET"], include_in_schema=False)
+
+
+for _p, (_f, _m) in _ICONS.items():
+    _icon_route(_p, _f, _m)
+
+
 # ── Public status page backing endpoint ──
 # Real, live, right-now reachability of every external integration this
 # project depends on (see core/status_checks.py for the honesty rules and
