@@ -85,7 +85,7 @@ const TELEGRAM_URL = 'https://t.me/Tnega_bot';
 // rather than derived from VITE_API_BASE_URL: a local dev build would
 // otherwise print http://localhost:8000/mcp on a page whose whole job is to
 // give a reader an address they can paste.
-const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
+export const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
 
 // ADDING THE SERVER, and the correction that produced this shape.
 //
@@ -111,9 +111,9 @@ const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
 // It asks the client's own CLI to write it rather than editing ~/.claude.json
 // itself, because this page once told people to edit ~/.claude/mcp.json, a
 // file that does not exist and nothing reads.
-const MCP_NPX_COMMAND = 'npx tnega-mcp';
+export const MCP_NPX_COMMAND = 'npx tnega-mcp';
 
-const MCP_ADD_COMMAND =
+export const MCP_ADD_COMMAND =
   'claude mcp add --transport http tnega https://agents-marketplace-q3k4.onrender.com/mcp';
 
 const MCP_CONFIG_HOMES = [
@@ -126,7 +126,7 @@ const MCP_CONFIG_HOMES = [
 // the manifest in backend/mcp_server/tools.py, shortened to what a reader
 // needs to decide whether to call one. The last three prepare an order, or
 // read a wallet's holdings for one; none of them signs or sends anything.
-const MCP_TOOLS = [
+export const MCP_TOOLS = [
   {
     name: 'tnega_catalogue',
     line: 'Every dataset this server holds, what each one measures, the keys it accepts and how current it is. Takes no arguments. Call it first.',
@@ -181,7 +181,7 @@ const MCP_CURL_SNIPPET = `curl -s ${MCP_ENDPOINT} \\
 /** A copyable block. The address and the config are things a reader has to
  *  move somewhere else, and retyping an endpoint by hand is how a wrong one
  *  ends up in a config file. */
-function CodeBlock({ text, label }) {
+export function CodeBlock({ text, label }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     // clipboard is unavailable on an insecure origin and in some embedded
@@ -334,7 +334,7 @@ function Pill({ tone = 'quiet', children }) {
  *  one's provenance and the terms it is shown under. If it fails to load the
  *  name stays: a missing image must not take a client off the list, because
  *  the list is the claim and the picture is decoration. */
-function ClientMark({ client, compact }) {
+export function ClientMark({ client, compact }) {
   const [failed, setFailed] = useState(false);
   const size = compact ? 15 : 17;
   const box = { width: size, height: size };
@@ -500,20 +500,20 @@ export const MCP_TITLE = 'The MCP server';
 export const MCP_LINE = 'Point your own assistant at this site and it can read every measurement here, '
   + 'with the coverage behind each one. No key, no account, no sign-up.';
 
-export function McpFront({ small, flush = false }) {
+export function McpFront({ small, flush = false, note = true }) {
   return (
     <div className={small || flush ? '' : 'pl-[52px]'}>
       <div className="flex flex-wrap gap-1.5">
         {MCP_CLIENTS.map((c) => <ClientMark key={c.name} client={c} compact={small} />)}
       </div>
-      <p className={`${small ? 'text-[10px]' : 'text-[11px]'} text-muted mt-1.5`}>
+      {note && <p className={`${small ? 'text-[10px]' : 'text-[11px]'} text-muted mt-1.5`}>
         Each one checked against its own documentation for remote servers over HTTP, because
         supporting MCP and reaching a server on the internet are not the same thing. A client
         missing from this list was either not checked or could not be confirmed against a
         server shaped like this one, and the two are not distinguished here. Some appear by
         name without a mark: either their trademark terms do not permit showing it here, or no
         asset of theirs could be verified.
-      </p>
+      </p>}
     </div>
   );
 }

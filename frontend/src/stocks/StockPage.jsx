@@ -26,7 +26,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Crown } from 'lucide-react';
 import { useTe, hasRows } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
-import { CostCurveCard, Eligibility } from '../home/cards';
+import { Eligibility } from '../home/cards';
+import { Tip } from '../dashboard/cards';
+import GuideLink from '../guide/GuideLink';
+import CostByChain from './CostByChain';
 import { Card, CardTitle, DevTag, GroupChip, SymbolTile, fmtUsd0 } from '../ui/primitives';
 import SizeStrip from '../ui/SizeStrip';
 import { Breadcrumb } from '../ui/detail';
@@ -120,12 +123,14 @@ function VersionsTable({ data, size, selected, onSelect }) {
   const bestKey = data.best?.key;
   const tied = new Set(tiedWithBest(data.versions, bestKey).map((x) => x.key));
   return (
-    <Card pad={false} className="overflow-x-auto">
+    <Card pad={false}>
       <div className="px-4 pt-4 flex items-center justify-between gap-2">
         <h2 className="text-[15px] font-semibold text-fg">Every version at {fmtUsd0(size)}</h2>
         <DevTag data={data} />
       </div>
       <TieNote data={data} size={size} />
+      {/* Only the table scrolls sideways, so the (i) under it can open below the card. */}
+      <div className="overflow-x-auto">
       <table className="w-full mt-2 text-[13px] min-w-[900px]">
         <thead>
           <tr className="text-muted text-left text-[12px]">
@@ -171,6 +176,7 @@ function VersionsTable({ data, size, selected, onSelect }) {
           })}
         </tbody>
       </table>
+      </div>
       <Footnote data={data} size={size} />
     </Card>
   );
@@ -218,13 +224,17 @@ function VersionCards({ data, size, selected, onSelect }) {
   );
 }
 
+// The measured time on the face; what the crown, all-in, bps and depth mean
+// behind the (i), and in full in the guide (/guide#stock-page, #costs).
 function Footnote({ data, size }) {
   const measured = measuredLine(data.computed_at, data.versions.map((v) => v.us_market_open));
   return (
-    <div className="px-4 py-3 border-t border-line space-y-1 text-[11px] leading-snug text-muted">
-      <p>The crown marks the lowest all-in price per share among versions that fill {fmtUsd0(size)} and whose share ratio is read. All-in is the size, gas, the L1 fee{data.lifi_fee_included ? ' and LI.FI’s 0.25% fee' : ''}, over the tokens received, over the shares per token.</p>
-      <p>Cost in bps is fees and price impact against each pool&apos;s own price, so it does not rank one version against another. Depth is the smaller side of the pool within ±2% of its price.</p>
-      {measured && <p>Simulated on the pools, not quoted. {measured}</p>}
+    <div className="relative px-4 py-3 border-t border-line flex items-center gap-1 text-[11px] text-muted">
+      <span>Simulated on the pools, not quoted.{measured ? ` ${measured}` : ''}</span>
+      <Tip label="What these figures mean" align="left" className="!static">
+        <p>The crown marks the lowest all-in price per share among versions that fill {fmtUsd0(size)} and whose share ratio is read. All-in is the size, gas, the L1 fee{data.lifi_fee_included ? ' and LI.FI’s 0.25% fee' : ''}, over the tokens received, over the shares per token.</p>
+        <p>Cost in bps is fees and price impact against each pool&apos;s own price, so it does not rank one version against another. Depth is the smaller side of the pool within ±2% of its price.</p>
+      </Tip>
     </div>
   );
 }
@@ -246,7 +256,7 @@ function SelectedVersion({ v, data, size, tab, onTab, ticker, onNavigate }) {
             <Card>
               <CardTitle>Who may hold {v.symbol}</CardTitle>
               <div className="text-[13px] text-fg"><Eligibility e={elig} /></div>
-              <p className="mt-2 text-[11px] text-muted">The issuer&apos;s own words, linked and dated. Shown, not enforced: Tnega does not check who you are.</p>
+              <p className="mt-2 text-[11px] text-muted">The issuer&apos;s words. Shown, not enforced: Tnega does not check who you are.</p>
             </Card>
             {/* The same card /issuer-controls shows for ?token=, with the link to
                 that token's row among every issuer's. */}
@@ -255,7 +265,7 @@ function SelectedVersion({ v, data, size, tab, onTab, ticker, onNavigate }) {
               link={{ href: tokenLink(v.key), label: 'Compare with every issuer' }} />
           </div>
         )}
-        {tab !== 'details' && <StockTrade v={v} ticker={ticker} side={tab} size={size} />}
+        {tab !== 'details' && <StockTrade v={v} ticker={ticker} side={tab} size={size} onNavigate={onNavigate} />}
       </GlassTabs>
     </div>
   );
@@ -295,7 +305,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
   return (
     <div className={mobile ? 'px-4 pt-5 pb-6' : 'w-full'}>
       <Breadcrumb parent="Stocks & ETFs" parentPath="/stocks" name={data?.name || T} onNavigate={onNavigate} />
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <SymbolTile underlying={T} />
           <div>
@@ -306,6 +316,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
             </div>
           </div>
         </div>
+        <GuideLink id="stock-page" onNavigate={onNavigate} />
       </div>
 
       <SizeStrip className="mt-4" ariaLabel="Order size" stops={stops} value={size} onChange={setSize} />
@@ -324,7 +335,7 @@ export default function StockPage({ ticker, layout = 'web', onNavigate }) {
               : <VersionsTable data={data} size={size} selected={current?.key} onSelect={pick} />}
           </div>
         )}
-        {curve && <CostCurveCard data={curve} size={size} onSize={setSize} />}
+        {curve && <CostByChain data={curve} size={size} onSize={setSize} />}
         <div id="selected-version" className="scroll-mt-20">
           {current && !u.stale && <SelectedVersion key={current.key} v={current} data={data} size={size} tab={tab} onTab={setTab} ticker={T} onNavigate={onNavigate} />}
         </div>

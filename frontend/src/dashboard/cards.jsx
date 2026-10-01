@@ -27,36 +27,88 @@ const HIDDEN = '••••';
 
 // ── small pieces ───────────────────────────────────────────────────────────
 
-/** An (i) that opens on hover, focus or tap, and closes on Escape or a tap
- *  elsewhere. Everything a card explains lives in one of these. */
+/** An (i) that opens on a mouse hover, on keyboard focus or on a tap, and
+ *  closes on Escape, a tap elsewhere, or a second tap or click.
+ *
+ *  On touch, one tap fires focus and then click; the click that follows an
+ *  open by focus or hover within 300 ms keeps the popover open (it pins it)
+ *  rather than closing it again. Hover opens only for a real mouse.
+ *
+ *  The popover is placed in the viewport (position: fixed), at most
+ *  min(320px, 100vw - 32px) wide, under the (i) and shifted left or right so
+ *  it never runs off either edge, whatever box the (i) sits in. It follows
+ *  scrolling and resizing while open. */
 export function Tip({ label = 'Details', children, align = 'right', className = '' }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const btn = useRef(null);
+  const pop = useRef(null);
+  const openedAt = useRef(0);
+  const pinned = useRef(false);
+  const show = () => { openedAt.current = Date.now(); setOpen(true); };
+  const hide = () => { pinned.current = false; setOpen(false); };
   useEffect(() => {
     if (!open) return undefined;
-    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    const key = (e) => { if (e.key === 'Escape') setOpen(false); };
+    const away = (e) => { if (ref.current && !ref.current.contains(e.target)) hide(); };
+    const key = (e) => { if (e.key === 'Escape') hide(); };
+    const place = () => {
+      const r = btn.current?.getBoundingClientRect();
+      if (!r) return;
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const width = Math.min(320, vw - 32);
+      const want = align === 'left' ? r.left : r.right - width;
+      const left = Math.max(16, Math.min(want, vw - 16 - width));
+      // Below the icon when it fits, above it when it does not; a popover
+      // taller than the screen is capped and scrolls on its own.
+      const vh = document.documentElement.clientHeight || window.innerHeight;
+      const h = Math.min(pop.current?.offsetHeight || 0, vh - 32);
+      const below = r.bottom + 6;
+      const top = below + h <= vh - 16 ? below : Math.max(16, r.top - 6 - h);
+      setPos({ left, top, width });
+    };
+    place();
+    // Again once the popover has its real height, and whenever its size
+    // changes (the first render is hidden, measured at its final width).
+    const raf = requestAnimationFrame(place);
+    const ro = typeof ResizeObserver !== 'undefined' && pop.current ? new ResizeObserver(place) : null;
+    if (ro) ro.observe(pop.current);
     document.addEventListener('mousedown', away);
     document.addEventListener('touchstart', away);
     document.addEventListener('keydown', key);
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
     return () => {
+      cancelAnimationFrame(raf);
+      if (ro) ro.disconnect();
       document.removeEventListener('mousedown', away);
       document.removeEventListener('touchstart', away);
       document.removeEventListener('keydown', key);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
     };
-  }, [open]);
+  }, [open, align]);
+  const click = (e) => {
+    e.stopPropagation();
+    if (!open) { show(); pinned.current = true; return; }
+    // The click that ends the tap or hover that just opened it keeps it open.
+    if (Date.now() - openedAt.current < 300 || !pinned.current) { pinned.current = true; return; }
+    hide();
+  };
   return (
     <span ref={ref} className={`relative inline-flex ${className}`}
-      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button type="button" aria-expanded={open} aria-label={label}
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-        onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse' && !open) show(); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse' && !pinned.current) setOpen(false); }}>
+      <button ref={btn} type="button" aria-expanded={open} aria-label={label}
+        onClick={click}
+        onFocus={() => { if (!open) show(); }} onBlur={hide}
         className="w-5 h-5 rounded-full inline-flex items-center justify-center text-muted hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-cls-stocks">
         <Info size={14} aria-hidden="true" />
       </button>
       {open && (
-        <span role="tooltip"
-          className={`absolute z-30 top-full mt-1.5 w-72 max-w-[calc(100vw-40px)] p-3 rounded-lg border border-line bg-surface shadow-xl text-[12px] leading-relaxed text-muted font-normal normal-case tracking-normal text-left space-y-1.5 ${align === 'left' ? 'left-0' : 'right-0'}`}>
+        <span role="tooltip" ref={pop}
+          style={pos ? { position: 'fixed', left: pos.left, top: pos.top, width: pos.width, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto' } : { position: 'fixed', visibility: 'hidden', maxHeight: 'calc(100vh - 32px)', left: 0, top: 0, width: Math.min(320, (document.documentElement.clientWidth || window.innerWidth) - 32) }}
+          className="z-[80] p-3 rounded-lg border border-line bg-surface shadow-xl text-[12px] leading-relaxed text-muted font-normal normal-case tracking-normal text-left space-y-1.5 whitespace-normal">
           {children}
         </span>
       )}

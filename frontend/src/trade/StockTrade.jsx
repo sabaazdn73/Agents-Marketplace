@@ -53,6 +53,8 @@ import { tradeOn } from './tradeLive';
 import { readDecimals, commitDecimals, forgetDecimals } from '../sign/tokenMeta';
 import { REFERENCE_MAX_AGE_MS } from '../sign/order';
 import { useAskConnectChain } from '../wallet/connectChain';
+import GuideLink from '../guide/GuideLink';
+import { switchedOnWords } from '../guide/trading';
 
 const lc = (a) => String(a || '').toLowerCase();
 const tok = (v, d = 4) => (typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : null);
@@ -110,13 +112,14 @@ function parseAmount(text, places) {
 }
 
 /** "Buying on Ethereum is not switched on yet", with no control. */
-export function NotSwitchedOn({ v, side }) {
+export function NotSwitchedOn({ v, side, onNavigate }) {
   return (
     <Card>
-      <p className="text-[14px] text-fg">{side === 'sell' ? 'Selling' : 'Buying'} on {v.chain} is not switched on yet.</p>
-      <p className="mt-1 text-[12px] text-muted">
-        Buy and Sell are switched on one chain at a time in this site's settings.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[14px] text-fg">{side === 'sell' ? 'Selling' : 'Buying'} on {v.chain} is not switched on yet.</p>
+        <GuideLink id="trading" onNavigate={onNavigate} label="How trading works" />
+      </div>
+      <p className="mt-1 text-[12px] text-muted">Switched on today: {switchedOnWords()}.</p>
     </Card>
   );
 }
@@ -126,27 +129,35 @@ export function NotSwitchedOn({ v, side }) {
 const MEASURED_STATES = ['filled', 'partial', 'failed'];
 
 /** "No measured pool price for NVDAx on Arbitrum", with no control. */
-export function NotMeasured({ v, side }) {
+export function NotMeasured({ v, side, onNavigate }) {
   // The reason's first clause; the Details tab and the table carry the rest.
   const why = String(v.reason || v.state || '').split(/[:;(]/)[0].trim();
   return (
     <Card>
-      <p className="text-[14px] text-fg">{side === 'sell' ? 'Selling' : 'Buying'} {v.symbol} on {v.chain} is not offered: there is no measured pool price to check a quote against.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[14px] text-fg">{side === 'sell' ? 'Selling' : 'Buying'} {v.symbol} on {v.chain} is not offered: there is no measured pool price to check a quote against.</p>
+        <GuideLink id="trading" onNavigate={onNavigate} label="How trading works" />
+      </div>
       {why && <p className="mt-1 text-[12px] text-muted">Our measurement: {why}. Nothing is asked of LI.FI or your wallet.</p>}
     </Card>
   );
 }
 
-export default function StockTrade({ v, ticker, side, size }) {
+export default function StockTrade({ v, ticker, side, size, onNavigate }) {
   const target = parseKey(v.key);
   const chainId = target?.chainId;
-  if (!target || v.group !== 'evm' || !BUY_CHAINS[chainId] || !tradeOn(chainId)) return <NotSwitchedOn v={v} side={side} />;
-  if (!MEASURED_STATES.includes(v.state)) return <NotMeasured v={v} side={side} />;
+  if (!target || v.group !== 'evm' || !BUY_CHAINS[chainId] || !tradeOn(chainId)) return <NotSwitchedOn v={v} side={side} onNavigate={onNavigate} />;
+  if (!MEASURED_STATES.includes(v.state)) return <NotMeasured v={v} side={side} onNavigate={onNavigate} />;
   // Remounted per version and side, so nothing carries over between them.
-  return <Trade key={`${v.key}:${side}`} v={v} ticker={ticker} side={side} size={size} chainId={chainId} token={target.address} />;
+  return <Trade key={`${v.key}:${side}`} v={v} ticker={ticker} side={side} size={size} chainId={chainId} token={target.address} onNavigate={onNavigate} />;
 }
 
-function Trade({ v, ticker, side, size, chainId, token }) {
+// SHORT ON THE FACE. Every line a trade is judged by stays on the panel (the
+// amount, the balance, LI.FI's estimate and minimum, the fees, the route,
+// the quote's age, the price check's result with our reference and the
+// limit, the spender and the exact approval); why each check exists and how
+// the limit is worked out are in the guide (/guide#trading).
+function Trade({ v, ticker, side, size, chainId, token, onNavigate }) {
   const buy = side === 'buy';
   const chain = BUY_CHAINS[chainId];
   const { address, chainId: walletChain, status: walletStatus } = useConnectedWallet();
@@ -389,12 +400,13 @@ function Trade({ v, ticker, side, size, chainId, token }) {
     <Card aria-label={`${buy ? 'Buy' : 'Sell'} ${symbol}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-[15px] font-semibold text-fg">{buy ? `Buy ${symbol} on ${chain.name}` : `Sell ${symbol} on ${chain.name}`}</h3>
-        <span className="text-[12px] text-muted">Routed by LI.FI in your browser. Your wallet signs; Tnega never holds funds.</span>
+        <GuideLink id="trading" onNavigate={onNavigate} label="What is checked" />
       </div>
+      <p className="mt-1 text-[12px] text-muted">Routed by LI.FI in your browser. Your wallet signs; Tnega never holds funds.</p>
 
       {!address ? (
         <div className="mt-3">
-          <p className="text-[13px] text-muted mb-2">Connect a wallet to read its balance and ask LI.FI for a route. Connecting signs nothing.</p>
+          <p className="text-[13px] text-muted mb-2">Connecting signs nothing.</p>
           <button type="button" className={btn} onClick={() => openConnectModal?.()} disabled={walletStatus === 'connecting' || walletStatus === 'reconnecting'}>Connect a wallet</button>
         </div>
       ) : (
@@ -430,9 +442,9 @@ function Trade({ v, ticker, side, size, chainId, token }) {
             </Row>
             <Row label="You receive">
               {toSymbol} on {chain.name}
-              <span className="block text-[12px] text-muted">How much is LI.FI&apos;s quote below, not a figure from Tnega.</span>
+              <span className="block text-[12px] text-muted">The amount is LI.FI&apos;s quote below.</span>
             </Row>
-            <Row label="Max slippage">{pct(SLIPPAGE)}<span className="block text-[12px] text-muted">The route has to guarantee at least the estimate less this.</span></Row>
+            <Row label="Max slippage">{pct(SLIPPAGE)}</Row>
           </dl>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -440,7 +452,7 @@ function Trade({ v, ticker, side, size, chainId, token }) {
               {q.status === 'quoting' && <Loader2 size={14} className="animate-spin" aria-hidden="true" />}
               {q.status === 'idle' ? 'Get a LI.FI quote' : 'Get a new quote'}
             </button>
-            <span className="text-[11px] text-muted">One request to li.quest from this browser, only when you press it. This browser has used {quota.used} of LI.FI&apos;s {QUOTA_LIMIT} per 2 hours.</span>
+            <span className="text-[11px] text-muted tabular-nums">{quota.used} of {QUOTA_LIMIT} LI.FI quotes used in 2 h</span>
           </div>
           {dec.bad && <p role="alert" className="mt-2 text-[13px] text-neg">The token decimals read on {chain.name} do not agree ({dec.bad.join('; ')}), so nothing is quoted or signed. Neither value was kept. <button type="button" className="underline" onClick={() => setDecTick((t) => t + 1)}>Read them again</button></p>}
           {dec.error && <p role="alert" className="mt-2 text-[13px] text-warn">The tokens&apos; decimals could not be read on {chain.name} ({dec.error}); nothing is quoted until they are. <button type="button" className="underline" onClick={() => setDecTick((t) => t + 1)}>Read them again</button></p>}
@@ -457,7 +469,7 @@ function Trade({ v, ticker, side, size, chainId, token }) {
           {q.status === 'ready' && (
             <dl className="mt-3 divide-y divide-line border-y border-line">
               <Row label="You receive, LI.FI's estimate">{outText} {f.toSymbol}</Row>
-              <Row label={`At least, after ${pct(SLIPPAGE)} slippage`}>{outMinText} {f.toSymbol}<span className="block text-[12px] text-muted">LI.FI&apos;s minimum: the swap reverts if it would receive less.</span></Row>
+              <Row label={`At least, after ${pct(SLIPPAGE)} slippage`}>{outMinText} {f.toSymbol}<span className="block text-[12px] text-muted">The swap reverts below this.</span></Row>
               <Row label={buy ? 'You pay' : 'You sell'}>{fromText} {fromSymbol}</Row>
               {f.fees.map((x) => (
                 <Row key={x.name} label={x.name}>
@@ -485,7 +497,7 @@ function Trade({ v, ticker, side, size, chainId, token }) {
                   );
                 })}
                 <span className="block text-[12px] text-muted">
-                  Ours is {vc.basis}, measured {clockText(vc.measuredAt)}{now - vc.measuredAt > REFERENCE_MAX_AGE_MS ? ' (now over 30 minutes old: get a new quote)' : ''}. The minimum has to pass at both prices. This trade&apos;s limit is {pct(vc.limit)}: the rule, the smaller of 5% and the larger of 2% and three times our measured cost without gas, gives {pct(vc.ruleLimit)} here ({vc.limitBasis}), and the Buy and Sell tabs use at most 2% until our reference comes signed. The two prices are {pct(Math.abs(q.lpGap))} apart, within 5%. The stablecoin is taken at $1.
+                  Ours: {vc.basis}, measured {clockText(vc.measuredAt)}{now - vc.measuredAt > REFERENCE_MAX_AGE_MS ? ' (now over 30 minutes old: get a new quote)' : ''}. Limit {pct(vc.limit)} (rule gives {pct(vc.ruleLimit)}, {vc.limitBasis}; capped at 2% here). Prices {pct(Math.abs(q.lpGap))} apart, within 5%. Stablecoin at $1.
                 </span>
               </Row>
               <Row label="Approval">
@@ -560,7 +572,7 @@ function Trade({ v, ticker, side, size, chainId, token }) {
         </>
       )}
       <p className="mt-3 text-[12px] text-muted">
-        The quote and the swap come from LI.FI; Tnega passes LI.FI&apos;s transaction to your wallet as LI.FI built it, after the checks above. LI.FI takes a 0.25% fee; Tnega takes none.
+        Fees: LI.FI 0.25%, Tnega none. LI.FI&apos;s transaction goes to your wallet as LI.FI built it, after the checks above.
       </p>
     </Card>
   );

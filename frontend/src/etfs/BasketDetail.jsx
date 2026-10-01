@@ -36,6 +36,7 @@ import SizeStrip from '../ui/SizeStrip';
 import { Breadcrumb, CopyAddress, StatCard, SourceChip, TabbedCard, Field, shortAddr } from '../ui/detail';
 import BasketBreakdown, { CostAtSize, measuredNote, STOPS } from './BasketBreakdown';
 import BasketBuy from '../trade/BasketBuy';
+import GuideLink from '../guide/GuideLink';
 
 
 function Creator({ b }) {
@@ -84,7 +85,7 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
     return null;
   }
   const r = b.return_since_creation_pct;
-  const note = 'A static list of tokens and weights. Each follower buys the tokens into their own wallet: one signature per token, plus an approval where a token needs one. No pooled funds, no lock-up, no profit share.';
+  const note = 'Each follower buys the tokens into their own wallet. No pooled funds.';
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -93,20 +94,21 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
           <h1 className={`${mobile ? 'text-[28px]' : 'text-[36px]'} mt-2 font-bold tracking-[-0.02em] text-fg`}>{b.name}</h1>
           <div className="mt-1 flex items-center gap-3 text-[13px] text-muted">Version {b.version}<DevTag data={b} /></div>
         </div>
+        <GuideLink id="my-etfs-basket" onNavigate={onNavigate} />
       </div>
 
       <SizeStrip ariaLabel="Basket size" stops={STOPS} value={size} onChange={pickSize} />
 
       <div className={`grid gap-4 ${mobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
         <StatCard label="Basket value" note="Not measured"
-          value={Number.isFinite(b.value_usd_indicative) ? <span className="text-[28px] font-light tabular-nums text-fg" title={b.value_basis}>{fmtUsd(b.value_usd_indicative)}</span> : null}
+          value={Number.isFinite(b.value_usd_indicative) ? <span className="text-[28px] font-semibold tracking-[-0.02em] tabular-nums text-fg" title={b.value_basis}>{fmtUsd(b.value_usd_indicative)}</span> : null}
           chip={Number.isFinite(b.value_usd_indicative) ? <SourceChip title={b.value_basis}>indicative</SourceChip> : null} />
         <StatCard label="Return since creation" note="Not measured"
-          value={Number.isFinite(r) ? <span className={`text-[28px] font-light tabular-nums ${r > 0 ? 'text-pos' : r < 0 ? 'text-neg' : 'text-fg'}`} title={b.return_basis}>{r > 0 ? '+' : ''}{r.toFixed(2)}%</span> : null}
+          value={Number.isFinite(r) ? <span className={`text-[28px] font-semibold tracking-[-0.02em] tabular-nums ${r > 0 ? 'text-pos' : r < 0 ? 'text-neg' : 'text-fg'}`} title={b.return_basis}>{r > 0 ? '+' : ''}{r.toFixed(2)}%</span> : null}
           chip={Number.isFinite(r) ? <SourceChip title={b.return_basis}>{b.return_source || 'indicative'}</SourceChip> : null} />
         <StatCard label="Your holding" value={null} note="Not read for this basket" />
         <StatCard label="Followers" note="Not counted"
-          value={Number.isFinite(b.followers_count) ? <span className="text-[28px] font-light tabular-nums text-fg">{b.followers_count}</span> : null} />
+          value={Number.isFinite(b.followers_count) ? <span className="text-[28px] font-semibold tracking-[-0.02em] tabular-nums text-fg">{b.followers_count}</span> : null} />
       </div>
 
       <div className={mobile ? 'space-y-4' : `grid gap-4 ${b.series?.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} items-start`}>
@@ -153,7 +155,7 @@ export default function BasketDetail({ code, layout = 'web', onNavigate }) {
       ]} />
       <div className={stale ? 'opacity-60' : ''}><BasketBreakdown b={b} compact={mobile} /></div>
       {BUY_LIVE && <BasketBuy key={`${code}-${b.size}`} b={b} runId={`c:${code}:v${b.version}:${b.size}`} />}
-      <p className="text-[12px] text-muted">{note} Not a recommendation.</p>
+      <p className="text-[12px] text-muted">{b.creator_kind === 'curated' ? 'A fixed example basket; not a recommendation.' : 'Not a recommendation.'}</p>
     </div>
   );
 }

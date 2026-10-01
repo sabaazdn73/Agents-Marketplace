@@ -26,7 +26,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useTe } from '../te/api';
 import ReadError from '../te/ReadError';
-import { Card, CardTitle, DevTag } from '../ui/primitives';
+import { Card, DevTag } from '../ui/primitives';
+import { Tip } from '../dashboard/cards';
+import GuideLink from '../guide/GuideLink';
 import { PageFrame } from './PageFrame';
 import { Cell, WhoMayHold, AddressPool, addressesIn } from '../controls/Cell';
 import TokenControls from '../controls/TokenControls';
@@ -64,36 +66,49 @@ function writeParams({ token, issuer, chain, text }) {
   try { window.history.replaceState(window.history.state, '', `/issuer-controls${s ? `?${s}` : ''}${window.location.hash}`); } catch { /* not fatal */ }
 }
 
-function Intro({ mobile }) {
+// The five powers as tiles: the name and the holder's question on the face,
+// what the power would do to a holder behind the (i). What is read and why
+// who holds a power matters are in the guide (/guide#issuer-controls).
+function Powers({ mobile }) {
+  if (mobile) {
+    // One row each on a phone, so the (i) sits at the right edge and its
+    // popover opens inside the screen.
+    return (
+      <Card pad={false}>
+        <ul className="divide-y divide-line">
+          {POWERS.map((p) => {
+            const Icon = POWER_ICONS[p.key];
+            return (
+              <li key={p.key} className="relative flex items-center gap-3 px-4 py-3">
+                <span className="w-8 h-8 shrink-0 rounded-full border border-line-strong flex items-center justify-center text-fg"><Icon size={15} aria-hidden="true" /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[14px] font-semibold text-fg">{p.label}</div>
+                  <p className="text-[12px] leading-snug text-muted">{p.ask}</p>
+                </div>
+                <Tip label={`What ${p.label.toLowerCase()} means`} className="!static"><p>{p.means}</p></Tip>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+    );
+  }
   return (
-    <Card>
-      <CardTitle>What each power means for you</CardTitle>
-      <p className="text-[14px] leading-relaxed text-muted max-w-[760px]">
-        A tokenized stock is a token an issuer controls through its contract. The powers below decide what can happen to your
-        tokens without your signature. For each programme we read the contract on chain: whether the power exists, who holds it
-        (one key, a multisig and how many of its signers must agree, a timelock and its delay) and the block or slot of the read.
-      </p>
-      <ul className={`mt-4 grid gap-3 ${mobile ? 'grid-cols-1' : 'grid-cols-2 lg:grid-cols-3'}`}>
-        {POWERS.map((p) => {
-          const Icon = POWER_ICONS[p.key];
-          return (
-            <li key={p.key} className="rounded border border-line p-3">
-              <div className="flex items-center gap-2">
-                <span className="w-7 h-7 shrink-0 rounded border border-line-strong flex items-center justify-center text-fg"><Icon size={14} aria-hidden="true" /></span>
-                <span className="text-[14px] font-semibold text-fg">{p.label}</span>
-              </div>
-              <p className="mt-2 text-[13px] font-medium text-fg">{p.ask}</p>
-              <p className="mt-1 text-[13px] leading-snug text-muted">{p.means}</p>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="mt-4 text-[13px] leading-relaxed text-muted max-w-[760px]">
-        Why it matters: who holds a power decides how quickly it can be used. One key can act alone; a multisig needs the stated
-        number of its signers to agree; a timelock makes a change wait for its delay, which gives holders time to see it coming.
-        These are readings of what the contracts allow, not a rating and not a recommendation.
-      </p>
-    </Card>
+    <ul className="grid gap-3 grid-cols-5">
+      {POWERS.map((p, i) => {
+        const Icon = POWER_ICONS[p.key];
+        return (
+          <li key={p.key} className="relative rounded border border-line bg-surface p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="w-8 h-8 shrink-0 rounded-full border border-line-strong flex items-center justify-center text-fg"><Icon size={15} aria-hidden="true" /></span>
+              <Tip label={`What ${p.label.toLowerCase()} means`} align={i < 3 ? 'left' : 'right'} className="!static"><p>{p.means}</p></Tip>
+            </div>
+            <div className="mt-2 text-[14px] font-semibold text-fg">{p.label}</div>
+            <p className="mt-0.5 text-[12px] leading-snug text-muted">{p.ask}</p>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -225,15 +240,20 @@ function ControlsCards({ rows, marked }) {
   );
 }
 
+// When it was read on the face; the reads, the source classes, the scope
+// and what "single key (inferred)" and "not established" mean behind the (i).
 function SourceNote({ data }) {
   const src = data?.source || {};
   const asOf = dayText(data?.computed_at);
   return (
-    <div className="text-[12px] leading-relaxed text-muted space-y-1 max-w-[860px]">
-      {asOf && <p className="text-fg">Read on chain, as of {asOf}.{src.reads ? ` ${src.reads.charAt(0).toUpperCase()}${src.reads.slice(1)}.` : ''}</p>}
-      {src.class && <p>Source classes: {src.class}. Each evidence line names what was read and how.</p>}
-      {data?.scope && <p>Scope: {data.scope}.</p>}
-      <p>&quot;Single key (inferred)&quot; means the holder address has no code; no code does not prove it is one person. &quot;Not established&quot; means our reads did not settle it; it does not mean the power is absent.</p>
+    <div className="relative flex items-center gap-1 text-[12px] text-muted">
+      <span>{asOf ? `Read on chain, as of ${asOf}.` : 'Read on chain.'}</span>
+      <Tip label="How these were read" align="left" className="!static">
+        {src.reads && <p>{src.reads.charAt(0).toUpperCase()}{src.reads.slice(1)}.</p>}
+        {src.class && <p>Source classes: {src.class}. Each evidence line names what was read and how.</p>}
+        {data?.scope && <p>Scope: {data.scope}.</p>}
+        <p>&quot;Single key (inferred)&quot; means the holder address has no code; no code does not prove it is one person. &quot;Not established&quot; means our reads did not settle it; it does not mean the power is absent.</p>
+      </Tip>
     </div>
   );
 }
@@ -285,7 +305,7 @@ export default function IssuerControls({ layout = 'web', onNavigate }) {
     : 'Pause, freeze, burn or seize, upgrade and who may hold, for every token we list.';
 
   return (
-    <PageFrame layout={layout} title="Issuer controls" sub={sub} right={<DevTag data={all.data} />}>
+    <PageFrame layout={layout} title="Issuer controls" sub={sub} right={<div className="flex items-center gap-2"><DevTag data={all.data} /><GuideLink id="issuer-controls" onNavigate={onNavigate} /></div>}>
       <TokenPicker onPick={pickToken} current={params.token || null} mobile={mobile} />
 
       {params.badToken && (
@@ -302,7 +322,7 @@ export default function IssuerControls({ layout = 'web', onNavigate }) {
         </div>
       )}
 
-      <Intro mobile={mobile} />
+      <Powers mobile={mobile} />
 
       {all.error && !rows.length && <ReadError error={all.error} body={all.errorBody} what="the issuer controls" />}
 

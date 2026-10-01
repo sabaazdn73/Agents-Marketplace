@@ -25,6 +25,8 @@ import { TvlNote } from './VaultList';
 import { staleOf, tvlTime } from './model';
 import { explorerUrl } from './venues';
 import DepositPanel from './DepositPanel';
+import { Tip } from '../dashboard/cards';
+import GuideLink from '../guide/GuideLink';
 
 const RANGES = [['7', '7D'], ['30', '30D'], ['all', 'All']];
 const cap = (x) => (x ? x[0].toUpperCase() + x.slice(1) : x);
@@ -90,7 +92,6 @@ function LendsAgainst({ v }) {
   return (
     <Field label="What it lends against" prov={provText(v.assets)}>
       {text && <p>{text}</p>}
-      <p className="mt-1 text-[11px] text-muted">Collateral names as each token&apos;s own metadata declares them; the tokens themselves are read on chain.</p>
       {markets.length > 0 && (
         <div className="mt-2 overflow-x-auto">
           <table className="w-full text-[12px]">
@@ -232,7 +233,8 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
           <h1 className={`${mobile ? 'text-[28px]' : 'text-[36px]'} mt-2 font-bold tracking-[-0.02em] text-fg`}>{v.name}</h1>
           <div className="mt-1 flex items-center gap-3"><CopyAddress address={v.address} /><DevTag data={v} /></div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <GuideLink id="vaults-detail" onNavigate={onNavigate} />
           <SecondaryButton onClick={() => setPanel('withdraw')}>Withdraw</SecondaryButton>
           <PrimaryButton arrow={false} onClick={() => setPanel('deposit')}>Deposit</PrimaryButton>
         </div>
@@ -242,24 +244,29 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
           vault does yet (the collector keeps its latest read, not a history),
           and a card of dashes says nothing. */}
       <div className={`grid gap-4 ${mobile ? 'grid-cols-2' : ['grid-cols-2', 'grid-cols-3', 'grid-cols-4'][Number(Number.isFinite(r?.pct)) + Number(Number.isFinite(v.age_days))]}`}>
-        <StatCard label="TVL" value={Number.isFinite(t.usd) ? <span className="text-[28px] font-light tabular-nums text-fg" title={t.basis}>{fmtUsd0(t.usd)}</span> : null}
+        <StatCard label={(
+          <span className="inline-flex items-center gap-1.5">TVL
+            {t.basis && (
+              <Tip label="About the TVL" align="left">
+                <span className="block">Basis: {t.basis}.</span>
+                {t.reconciliation && <span className="block">{cap(t.reconciliation)}.</span>}
+                {t.slot && <span className="block">Slot {Number(t.slot).toLocaleString('en-US')}.</span>}
+                {v.row?.nesting_note && <span className="block">{v.row.nesting_note}</span>}
+              </Tip>
+            )}
+          </span>
+        )} value={Number.isFinite(t.usd) ? <span className="text-[28px] font-semibold tracking-[-0.02em] tabular-nums text-fg" title={t.basis}>{fmtUsd0(t.usd)}</span> : null}
           chip={v.row ? <TvlNote v={v.row} align="left" /> : null} note="Not read" />
         {Number.isFinite(r?.pct) && (
           <StatCard label="30-day change"
-            value={<span className={`text-[28px] font-light tabular-nums ${r.pct > 0 ? 'text-pos' : r.pct < 0 ? 'text-neg' : 'text-fg'}`} title={r.basis}>{r.pct > 0 ? '+' : ''}{r.pct.toFixed(2)}%</span>}
+            value={<span className={`text-[28px] font-semibold tracking-[-0.02em] tabular-nums ${r.pct > 0 ? 'text-pos' : r.pct < 0 ? 'text-neg' : 'text-fg'}`} title={r.basis}>{r.pct > 0 ? '+' : ''}{r.pct.toFixed(2)}%</span>}
             chip={<SourceChip title={r.basis}>share price, chain</SourceChip>} />
         )}
         <StatCard label="Your position" value={null} note="Not read for this vault" />
-        {Number.isFinite(v.age_days) && <StatCard label="Age (days)" value={<span className="text-[28px] font-light tabular-nums text-fg">{v.age_days}</span>} note="Not read" />}
+        {Number.isFinite(v.age_days) && <StatCard label="Age (days)" value={<span className="text-[28px] font-semibold tracking-[-0.02em] tabular-nums text-fg">{v.age_days}</span>} note="Not read" />}
       </div>
 
-      {t.basis && (
-        <p className="text-[12px] text-muted">
-          TVL basis: {t.basis}.{t.reconciliation ? ` ${cap(t.reconciliation)}.` : ''}{t.slot ? ` Slot ${Number(t.slot).toLocaleString('en-US')}.` : ''}
-          {v.row?.nesting_note ? ` ${v.row.nesting_note}` : ''}
-          {staleOf(v.row) ? ` ${staleOf(v.row)}` : ''}
-        </p>
-      )}
+      {staleOf(v.row) && <p className="text-[12px] text-warn">{staleOf(v.row)}</p>}
 
       <div className={mobile ? 'space-y-4' : `grid gap-4 ${v.series ? 'grid-cols-2' : 'grid-cols-1'} items-start`}>
         <TabbedCard tabs={[
@@ -272,16 +279,18 @@ export default function VaultDetail({ platform, address, layout = 'web', onNavig
 
       <TabbedCard pad={false} tabs={[
         { id: 'holdings', label: 'Holdings', count: held.length, show: allocations.length > 0, render: () => (
-          <div className="overflow-x-auto"><table className="w-full text-[13px]">
+          <div><div className="overflow-x-auto"><table className="w-full text-[13px]">
             <thead><tr className="text-muted text-left text-[12px]"><th className="font-medium px-4 py-2">Reserve</th>{!mobile && <th className="font-medium py-2">Market</th>}{!mobile && <th className="font-medium py-2">Market owner</th>}<th className="font-medium px-4 py-2 text-right">Value ({v.token?.symbol || t.symbol})</th></tr></thead>
             <tbody className="divide-y divide-line">{held.map((a) => (
               <tr key={a.reserve}><td className="px-4 py-2 font-mono text-fg">{shortAddr(a.reserve)}</td>{!mobile && <td className="py-2 font-mono text-muted">{shortAddr(a.lending_market)}</td>}{!mobile && <td className="py-2 text-fg">{a.market_owner_text}</td>}<td className="px-4 py-2 text-right tabular-nums text-fg">{Number(a.value_tokens).toLocaleString('en-US', { maximumFractionDigits: 0 })}</td></tr>
-            ))}</tbody></table>
+            ))}</tbody></table></div>
             <p className="px-4 pt-2 text-[12px] text-fg">
               {held.length} {held.length === 1 ? 'reserve holds' : 'reserves hold'} something, in {marketsOf(held)} {marketsOf(held) === 1 ? 'market' : 'markets'}.
               {weighted.length !== held.length && (
-                <> The vault&apos;s own description counts {weighted.length} reserves in {marketsOf(weighted)} markets: the reserves with a target weight.
-                  {weightedEmpty.length > 0 && <> {weightedEmpty.length === 1 ? 'One has' : `${weightedEmpty.length} have`} a weight but {weightedEmpty.length === 1 ? 'holds' : 'hold'} nothing: {weightedEmpty.map((a) => `${shortAddr(a.reserve)} (market ${shortAddr(a.lending_market)})`).join(', ')}.</>}</>
+                <span className="inline-flex align-middle ml-1.5"><Tip label="About the reserve count" align="left">
+                  <span className="block">The vault&apos;s own description counts {weighted.length} reserves in {marketsOf(weighted)} markets: the reserves with a target weight.</span>
+                  {weightedEmpty.length > 0 && <span className="block">{weightedEmpty.length === 1 ? 'One has' : `${weightedEmpty.length} have`} a weight but {weightedEmpty.length === 1 ? 'holds' : 'hold'} nothing: {weightedEmpty.map((a) => `${shortAddr(a.reserve)} (market ${shortAddr(a.lending_market)})`).join(', ')}.</span>}
+                </Tip></span>
               )}
             </p>
             {emptySlots.length > 0 && (

@@ -30,6 +30,9 @@ export const MAIN_TAB_PATHS = {
   // Reached from the home page, the footer and each stock page, not from the
   // header (shell/productNav.js ALL_EXTRA_PAGES); redirects while not live.
   '/issuer-controls': 'issuer-controls',
+  // "Read before you start" (pages/Guide.jsx): every page's explanations,
+  // one section per topic, opened at /guide#<section>. Always served.
+  '/guide': 'guide',
   // Explore keeps /market, and the id 'market': shared links, the Chrome Web
   // Store listing and every `nav === 'market'` check read them.
   '/market': 'market',

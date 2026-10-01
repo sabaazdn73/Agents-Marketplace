@@ -26,6 +26,7 @@ import { MAX_LEGS, BPS, legsProblem, shareUrl, encodeB } from '../baskets/codec'
 import { BUY_LIVE } from '../trade/buyLive';
 import BasketBreakdown, { CostAtSize, STOPS } from './BasketBreakdown';
 import BasketBuy from '../trade/BasketBuy';
+import { Tip } from '../dashboard/cards';
 
 
 function useDebounced(v, ms) {
@@ -131,9 +132,15 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
   return (
     <div className="space-y-4">
       <Card>
-        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-          <h2 className="text-[15px] font-semibold text-fg">Build your own</h2>
-          <span className="text-[12px] text-muted">Up to {MAX_LEGS} stocks or ETFs, whole-percent weights summing to 100%. Priced by our cost engine; nothing is stored.</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h2 className="text-[15px] font-semibold text-fg flex items-center gap-1.5">
+            Build your own
+            <Tip label="About the builder" align="left">
+              <span className="block">Up to {MAX_LEGS} stocks or ETFs, whole-percent weights summing to 100%.</span>
+              <span className="block">Priced by Tnega&apos;s cost engine; nothing is stored. The basket lives in its link, with weights in basis points (100% = {BPS.toLocaleString('en-US')}).</span>
+            </Tip>
+          </h2>
+          <span className="text-[12px] text-muted">Up to {MAX_LEGS} legs · 100% total</span>
         </div>
         {linkError && <p role="alert" className="mb-3 text-[13px] text-warn">{linkError}</p>}
         <ul className="space-y-2">
@@ -165,7 +172,6 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
           <button type="button" onClick={evaluate} disabled={!!problem} className="h-10 px-4 rounded bg-accent text-accent-fg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed">Price this basket</button>
           {problem && touched && <span className="text-[12px] text-muted">{sentence(problem)}.</span>}
         </div>
-        <p className="mt-2 text-[11px] text-muted">Weights are stored in the link as basis points (100% = {BPS.toLocaleString('en-US')}).</p>
       </Card>
 
       {asked && !b && res.error && (
@@ -177,12 +183,11 @@ export default function BasketBuilder({ initialLegs = null, initialSize = 1000, 
         <div className={`space-y-4 ${res.stale ? 'opacity-60' : ''}`}>
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-[13px] text-muted">Your basket, priced at {`$${b.size.toLocaleString('en-US')}`}{b.stored === false ? '; not stored' : ''}. <DevTag data={b} /></div>
+              <div className="flex items-center gap-1.5 text-[13px] text-muted">Your basket, priced at {`$${b.size.toLocaleString('en-US')}`}{b.stored === false ? ', not stored' : ''}{b.stored_basis && <Tip label="About this price" align="left"><span className="block">{sentence(b.stored_basis)}</span></Tip>} <DevTag data={b} /></div>
               <button type="button" onClick={copy} className="inline-flex items-center gap-1.5 h-8 px-3 rounded border border-line-strong text-[12px] font-semibold text-fg hover:bg-inset">
                 {copied ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}{copied ? 'Link copied' : 'Copy the link'}
               </button>
             </div>
-            {b.stored_basis && <p className="mt-1 text-[11px] text-muted">{sentence(b.stored_basis)}</p>}
           </Card>
           <BasketBreakdown b={b} compact={compact} />
           {hasRows(b.cost_at_size?.stops) && <Card><h3 className="text-[15px] font-semibold text-fg mb-2">Cost at every measured size</h3><CostAtSize c={b.cost_at_size} size={b.size} /></Card>}

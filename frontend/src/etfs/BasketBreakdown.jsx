@@ -7,7 +7,7 @@
 // gap's own reason. One component for the curated page and the builder, in
 // both apps; `compact` draws the legs as cards on a phone.
 //
-// Each figure is the served one with its caveat beside it:
+// Each figure is the served one, its caveat beside it or behind its (i):
 //   a leg's dollars are leg_usd; when they are not themselves a measured
 //     size, the leg is priced at measured_at_usd and says so on the row;
 //   a leg that does not fill, or fills with no version the engine ranks,
@@ -19,6 +19,7 @@
 import React from 'react';
 import { Card, GroupChip, SymbolTile, fmtUsd, fmtUsd0, fmtBps } from '../ui/primitives';
 import { measuredLine, sentence } from '../te/costText';
+import { Tip } from '../dashboard/cards';
 
 // The engine's 11 measured sizes (SPEC B.3); the baskets routes take these only.
 export const STOPS = [100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000];
@@ -74,8 +75,8 @@ function LegCost({ l }) {
   return (
     <>
       <span className="text-fg">{fmtBps(l.leg_cost_bps)}</span>
-      {d && <span className="block text-[11px] text-muted" title={`${d.measured ? 'measured cost' : 'cost for this leg, from the measured size'}: $${d.usd}`}>{legDollarText(d.usd)}{d.measured ? ', measured' : ''}</span>}
-      {l.leg_cost_basis && <span className="block text-[11px] text-muted max-w-[220px] ml-auto">{l.leg_cost_basis}</span>}
+      {d && <span className="block text-[11px] text-muted" title={`${d.measured ? 'measured cost' : 'cost for this leg, from the measured size'}: $${d.usd}${l.leg_cost_basis ? `\n${l.leg_cost_basis}` : ''}`}>{legDollarText(d.usd)}{d.measured ? ', measured' : ''}</span>}
+      {l.leg_cost_basis && <span className="sr-only">{l.leg_cost_basis}</span>}
     </>
   );
 }
@@ -188,9 +189,7 @@ function Prompts({ b }) {
         <div className="text-fg">{n(p.chain_switches, 'chain switch', 'chain switches')}, plus one if your wallet starts on another chain.</div>
       )}
       {p.partial && hasMissing(p) && <div className="text-[12px] text-warn">Counted without {p.missing.join(', ')}: no priced version at this size.</div>}
-      {p.basis && (
-        <details className="mt-1 text-[12px] text-muted"><summary className="cursor-pointer hover:text-fg">How this is counted</summary><p className="mt-1">{sentence(p.basis)}</p></details>
-      )}
+      {p.basis && <span className="inline-flex align-middle"><Tip label="How this is counted" align="left"><span className="block">{sentence(p.basis)}</span></Tip></span>}
     </div>
   );
 }
@@ -223,7 +222,7 @@ export function CostAtSize({ c, size }) {
           </tr>
         ))}</tbody>
       </table>
-      {c.basis && <p className="mt-2 text-[11px] text-muted">{sentence(c.basis)}</p>}
+      {c.basis && <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted">How each size is measured <Tip label="About the sizes" align="left"><span className="block">{sentence(c.basis)}</span></Tip></p>}
     </div>
   );
 }
@@ -235,15 +234,33 @@ export default function BasketBreakdown({ b, compact = false }) {
   return (
     <div className="space-y-4">
       <Card>
-        <h3 className="text-[15px] font-semibold text-fg mb-2">The legs at {fmtUsd0(b.size)}</h3>
+        <h3 className="text-[15px] font-semibold text-fg mb-2 flex items-center gap-1.5">
+          The legs at {fmtUsd0(b.size)}
+          {b.size_exact === false && (
+            <Tip label="About the leg amounts" align="left">
+              <span className="block">Some legs&apos; amounts are not measured sizes; each of those is priced at the next measured size up, as its row says. Nothing is interpolated.</span>
+            </Tip>
+          )}
+        </h3>
         {compact ? <LegCards legs={b.legs} /> : <LegsTable legs={b.legs} />}
-        {b.size_exact === false && <p className="mt-2 text-[12px] text-muted">Some legs&apos; amounts are not measured sizes; each of those is priced at the next measured size up, as its row says. Nothing is interpolated.</p>}
       </Card>
       <Card>
+        <div className="flex items-center gap-1.5 mb-1 text-[15px] font-semibold text-fg">
+          Cost and size
+          {(b.size_basis || b.cap_basis || measured) && (
+            <Tip label="How these are measured" align="left">
+              {b.size_basis && <span className="block">{sentence(b.size_basis)}</span>}
+              {b.cap_basis && <span className="block">{sentence(b.cap_basis)}</span>}
+              {measured && <span className="block">Simulated on the pools, not quoted. {measured}</span>}
+            </Tip>
+          )}
+        </div>
         <dl>
           <Row label={`Cost to buy ${fmtUsd0(b.size)}`}>
             {Number.isFinite(b.cost_bps)
-              ? <span className="text-fg">{fmtBps(b.cost_bps)}{Number.isFinite(b.cost_usd) ? `, ${fmtUsd(b.cost_usd)}` : ''} <span className="text-muted">(fees and price impact against each pool&apos;s own price{b.lifi_fee_included ? ', with LI.FI’s 0.25% fee' : ''})</span></span>
+              ? <span className="text-fg inline-flex flex-wrap items-center gap-1.5">{fmtBps(b.cost_bps)}{Number.isFinite(b.cost_usd) ? `, ${fmtUsd(b.cost_usd)}` : ''}
+                <Tip label="About this cost" align="left"><span className="block">Fees and price impact against each pool&apos;s own price{b.lifi_fee_included ? ', with LI.FI’s 0.25% fee' : ''}.</span></Tip>
+              </span>
               : <span className="text-fg">{sentence(String(b.cost_reason || '').replace(/; see unfilled_legs$/, '')) || 'Not measured'}</span>}
             {unfilled.length > 0 && !unfilled.every((u) => String(b.cost_reason || '').includes(u.reason)) && (
               <ul className="mt-1 space-y-0.5 text-[12px] text-muted">
@@ -253,7 +270,7 @@ export default function BasketBreakdown({ b, compact = false }) {
           </Row>
           <Row label={`Largest basket under ${Number.isFinite(b.threshold_bps) ? `${b.threshold_bps} bps` : '1%'}`}>
             <span className="text-fg">{capText(b) || 'Not measured'}</span>
-            {b.cap_lower_bound && <span className="block text-[12px] text-muted">&quot;At least&quot;: a limiting leg is under the threshold even at the largest size measured.</span>}
+            {b.cap_lower_bound && <span className="inline-flex align-middle ml-1.5"><Tip label="About “at least”" align="left"><span className="block">&quot;At least&quot;: a limiting leg is under the threshold even at the largest size measured.</span></Tip></span>}
           </Row>
           <Row label="Signatures and chain switches"><Prompts b={b} /></Row>
           {Array.isArray(b.by_chain) && b.by_chain.length > 0 && (
@@ -268,11 +285,6 @@ export default function BasketBreakdown({ b, compact = false }) {
             </Row>
           )}
         </dl>
-        <div className="mt-3 pt-3 border-t border-line space-y-1 text-[11px] leading-snug text-muted">
-          {b.size_basis && <p>{sentence(b.size_basis)}</p>}
-          {b.cap_basis && <p>{sentence(b.cap_basis)}</p>}
-          {measured && <p>Simulated on the pools, not quoted. {measured}</p>}
-        </div>
       </Card>
     </div>
   );

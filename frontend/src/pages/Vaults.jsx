@@ -12,6 +12,7 @@ import { DATA_LIVE } from '../dataLive';
 import VaultList from '../vaults/VaultList';
 import VaultDetail from '../vaults/VaultDetail';
 import { PageFrame } from './PageFrame';
+import GuideLink from '../guide/GuideLink';
 
 export default function Vaults({ layout = 'web', path = '/vaults', onNavigate }) {
   const m = (path || '').split('#')[0].match(/^\/vaults\/([a-z]+)\/([A-Za-z0-9]+)$/);
@@ -24,7 +25,7 @@ export default function Vaults({ layout = 'web', path = '/vaults', onNavigate })
     );
   }
   return (
-    <PageFrame layout={layout} title="Vaults" sub="Vaults taking a stablecoin deposit, checked on chain. Tnega never holds funds.">
+    <PageFrame layout={layout} title="Vaults" sub="Stablecoin vaults, checked on chain." right={<GuideLink id="vaults" onNavigate={onNavigate} />}>
       <VaultList state={list} layout={layout} onNavigate={onNavigate} />
     </PageFrame>
   );

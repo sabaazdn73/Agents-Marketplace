@@ -51,6 +51,8 @@ import {
 import { signWagmiConfig, SIGN_CHAIN_IDS, secondOpinionClient } from './signWagmi';
 import { readDecimals, commitDecimals, forgetDecimals } from './tokenMeta';
 import { rawText, clockText } from '../trade/format';
+import { Tip } from '../dashboard/cards';
+import GuideLink from '../guide/GuideLink';
 
 const config = signWagmiConfig;
 const lc = (a) => String(a || '').toLowerCase();
@@ -415,7 +417,10 @@ function Order({ id, order }) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-[26px] md:text-[30px] font-bold tracking-[-0.02em] text-fg leading-tight">{title}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-[26px] md:text-[30px] font-bold tracking-[-0.02em] text-fg leading-tight">{title}</h1>
+          <GuideLink id="signing" newTab />
+        </div>
         <p className="mt-1 text-[14px] text-muted">
           {symbol}{issuer ? ` from ${issuer}` : ''} on {chainName}. Prepared through Tnega for wallet {shortAddress(order.wallet)}. Nothing is signed until you sign each transaction in your own wallet; Tnega never holds funds or keys.
         </p>
@@ -445,7 +450,10 @@ function Order({ id, order }) {
             {vc && !vc.reason ? (
               <>
                 Valued at our measured price, {fmtUsd(vc.price)} per {symbol}, LI.FI&apos;s minimum may be at most {pct(vc.limit)} below {buy ? 'what you pay' : 'the value of the tokens sold'}, and not over 5% above.
-                <span className="block text-[12px] text-muted">{vc.basis ? `${vc.basis}, ` : ''}measured {vc.measuredAt != null ? clockText(vc.measuredAt) : 'at a time not given'}. A measurement over 30 minutes old is not used.</span>
+                <span className="block text-[12px] text-muted">
+                  {vc.basis ? `${vc.basis}, ` : ''}measured {vc.measuredAt != null ? clockText(vc.measuredAt) : 'at a time not given'}.
+                  <span className="inline-flex align-middle ml-1"><Tip label="About the price check" align="left"><span className="block">Tnega&apos;s own measured price for this token, from its cost engine. A measurement over 30 minutes old is not used.</span></Tip></span>
+                </span>
                 {(vc.measuredAt == null || now - vc.measuredAt > REFERENCE_MAX_AGE_MS) && (
                   <span className="block text-[12px] text-warn">This measurement is {vc.measuredAt == null ? 'undated' : `${Math.floor((now - vc.measuredAt) / 60e3)} minutes old`}, so a quote is not checked against it and nothing can be signed until it is refreshed.</span>
                 )}
@@ -472,8 +480,12 @@ function Order({ id, order }) {
 
       <Card>
         <CardTitle>LI.FI&apos;s quote</CardTitle>
-        <p className="text-[13px] text-muted">
-          A route and a price from LI.FI (li.quest), asked by this browser for the order&apos;s wallet. It needs no wallet connected. Tnega checks it against the order and against our own measured price before it can be signed.
+        <p className="text-[13px] text-muted flex items-center gap-1.5">
+          Checked against the order and Tnega&apos;s measured price before it can be signed.
+          <Tip label="About the quote" align="left">
+            <span className="block">A route and a price from LI.FI (li.quest), asked by this browser for the order&apos;s wallet. It needs no wallet connected.</span>
+            <span className="block">Tnega checks it against the order and against our own measured price before it can be signed.</span>
+          </Tip>
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button type="button" className={q.status === 'ready' && !stale ? btn2 : btn} onClick={getQuote} disabled={!params || expired || q.status === 'quoting' || busy || !!tx}>
@@ -524,7 +536,14 @@ function Order({ id, order }) {
                 );
                 return <>{line(q.check.value, 'our measured price')}{line(q.check.lifi, q.check.lifi.source)}</>;
               })()}
-              <span className="block text-[12px] text-muted">Ours is {q.check.value.basis || 'our measured price'}, measured {clockText(vc.measuredAt)}. The minimum has to pass at both prices. The limit is the smaller of 5% and the larger of 2% and three times our measured cost without gas{q.check.value.limitBasis ? ` (${q.check.value.limitBasis})` : ''}. The two prices are {pct(Math.abs(q.lpGap))} apart, within 5%. The stablecoin is taken at $1.</span>
+              <span className="block text-[12px] text-muted">
+                Ours is {q.check.value.basis || 'our measured price'}, measured {clockText(vc.measuredAt)}. The two prices are {pct(Math.abs(q.lpGap))} apart, within 5%.
+                <span className="inline-flex align-middle ml-1"><Tip label="How the limit is set" align="left">
+                  <span className="block">The minimum has to pass at both prices.</span>
+                  <span className="block">The limit is the smaller of 5% and the larger of 2% and three times our measured cost without gas{q.check.value.limitBasis ? ` (${q.check.value.limitBasis})` : ''}.</span>
+                  <span className="block">The stablecoin is taken at $1.</span>
+                </Tip></span>
+              </span>
             </Row>
             <Row label="Approval">
               {f.approvalAddress ? <>LI.FI&apos;s contract <Ext href={addressUrl(order.chainId, f.approvalAddress)} mono>{f.approvalAddress}</Ext></> : 'none needed'}
@@ -617,7 +636,7 @@ function Order({ id, order }) {
       <TokenControls data={controls.data} link={{ href: tokenLink(order.key), label: 'Compare with every issuer' }} />
 
       <p className="text-[12px] text-muted">
-        Tnega prepared this; nothing is signed until you sign each transaction in your own wallet. The quote and the swap come from LI.FI; Tnega passes LI.FI&apos;s transaction to your wallet as LI.FI built it.
+        The quote and the swap come from LI.FI; Tnega passes LI.FI&apos;s transaction to your wallet as LI.FI built it.
       </p>
     </div>
   );

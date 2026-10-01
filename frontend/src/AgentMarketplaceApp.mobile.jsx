@@ -58,7 +58,7 @@ import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
-import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE, DOCS_NAV, isDocsPath } from './shell/productNav';
+import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE, DOCS_NAV, GUIDE_NAV, isDocsPath } from './shell/productNav';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
@@ -66,6 +66,7 @@ import Vaults from './pages/Vaults';
 import MyEtfs from './pages/MyEtfs';
 import UseWithAi from './pages/UseWithAi';
 import IssuerControls from './pages/IssuerControls';
+import Guide from './pages/Guide';
 import { useTheme } from './theme/ThemeProvider';
 import { ChainCardBadge } from './chainViews/chainMarks';
 import { resetChainChoice } from './chainViews/ChainViewTabs';
@@ -139,12 +140,15 @@ function StatSkeleton() {
 // sheet and at the foot of each page.
 const PRIMARY_NAV_ITEMS = PRODUCT_NAV;
 
-// The menu sheet: the wallet, the theme, Docs and the footer links. Every
-// product page is in the bottom bar; Docs is the one header link that is not
-// (shell/productNav.js DOCS_NAV), so the sheet carries it.
+// The menu sheet: the wallet, the theme, Docs, the guide and the footer
+// links. Every product page is in the bottom bar; Docs and the guide are the
+// header links that are not (shell/productNav.js DOCS_NAV, GUIDE_NAV), so
+// the sheet carries them.
 function MobileWalletSheet({ onClose, onNavigate, path }) {
   const DocsIcon = DOCS_NAV.icon;
   const docsOn = isDocsPath(path);
+  const GuideIcon = GUIDE_NAV.icon;
+  const guideOn = (path || '').split('#')[0] === GUIDE_NAV.path;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-h-[90dvh] overflow-y-auto bg-surface text-fg border-t border-line rounded-t-xl p-5 pb-10" onClick={e => e.stopPropagation()}>
@@ -177,6 +181,18 @@ function MobileWalletSheet({ onClose, onNavigate, path }) {
         >
           <DocsIcon size={18} aria-hidden="true" className="text-muted shrink-0" />
           <span>{DOCS_NAV.label}</span>
+        </a>
+        <a
+          href={GUIDE_NAV.href}
+          onClick={(e) => {
+            if (!onNavigate || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault(); onClose(); onNavigate(GUIDE_NAV.href);
+          }}
+          aria-current={guideOn ? 'page' : undefined}
+          className={`mt-2 flex items-center gap-2.5 h-11 px-3 rounded border border-line text-body font-medium ${guideOn ? 'text-fg bg-inset' : 'text-fg hover:bg-inset'}`}
+        >
+          <GuideIcon size={18} aria-hidden="true" className="text-muted shrink-0" />
+          <span>Read before you start</span>
         </a>
         <SiteLinks
           onNavigate={onNavigate ? (to) => { onClose(); onNavigate(to); } : undefined}
@@ -879,8 +895,9 @@ function AgentMarketplaceMobile({ onOpenEcosystem, onOpenDataSources, onOpenPart
             {nav === 'stocks' && isLive('stocks') && <Stocks layout="mobile" path={path} query={query} onNavigate={onNavigate} />}
             {nav === 'vaults' && isLive('vaults') && <Vaults layout="mobile" path={path} onNavigate={onNavigate} />}
             {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="mobile" path={path} onNavigate={onNavigate} />}
-            {nav === 'ai' && <UseWithAi layout="mobile" />}
+            {nav === 'ai' && <UseWithAi layout="mobile" onNavigate={onNavigate} />}
             {nav === 'issuer-controls' && isLive('issuer-controls') && <IssuerControls layout="mobile" onNavigate={onNavigate} />}
+            {nav === 'guide' && <Guide layout="mobile" path={path} onNavigate={onNavigate} />}
           </>
         ) : (
           <div className="p-5">

@@ -22,7 +22,7 @@
 // The order is the owner's: Stocks & ETFs, Vaults, My ETFs, Dashboard, Use
 // with AI. The home page is "/" and is reached from the logo.
 
-import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal, Lock, BookOpen } from 'lucide-react';
+import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal, Lock, BookOpen, Info } from 'lucide-react';
 
 import { DATA_LIVE } from '../dataLive.js';
 
@@ -46,8 +46,16 @@ export const PRODUCT_NAV = ALL_PRODUCT_NAV.filter((i) => i.live);
 // share 390px. `href` marks it as a link to a path rather than a tab.
 export const DOCS_NAV = { id: 'docs', path: '/docs', href: '/docs', label: 'Docs', icon: BookOpen };
 
-/** The web header's row: the product pages, then Docs. */
-export const HEADER_NAV = [...PRODUCT_NAV, DOCS_NAV];
+// THE GUIDE LINK. /guide, "Read before you start" (pages/Guide.jsx), is
+// where the product pages' explanations live: what each part means, how a
+// figure is measured, what is checked before a trade. Unlike /docs it opens
+// inside the shell, as a tab of its own (routePaths.js, id 'guide'), so the
+// header stays and marks it. It is shown right after Docs, in the header, its
+// More menu and the phone's menu sheet, and not in the bottom bar.
+export const GUIDE_NAV = { id: 'guide', path: '/guide', href: '/guide', label: 'Guide', icon: Info };
+
+/** The web header's row: the product pages, then Docs, then the guide. */
+export const HEADER_NAV = [...PRODUCT_NAV, DOCS_NAV, GUIDE_NAV];
 
 /** Is this path the docs (/docs, /docs/<page>, /docs#part)? */
 export const isDocsPath = (path) => path === '/docs' || path.startsWith('/docs/') || path.startsWith('/docs#');
@@ -75,7 +83,7 @@ export const HIDDEN_PRODUCT_PATHS = [...ALL_PRODUCT_NAV, ...ALL_EXTRA_PAGES].fil
 /** The top search opens Stocks & ETFs, so it shows only while that page is live. */
 export const SEARCH_LIVE = isLive('stocks');
 
-// The tabs the product pages own, and the home page. Explore and My Agents
+// The tabs the product pages own, the home page and the guide. Explore and My Agents
 // are routes too, but they are reached from the footer and keep their own
 // layout.
-export const PRODUCT_PAGE_IDS = ['home', ...PRODUCT_NAV.map((i) => i.id), ...EXTRA_PAGES.map((i) => i.id)];
+export const PRODUCT_PAGE_IDS = ['home', ...PRODUCT_NAV.map((i) => i.id), ...EXTRA_PAGES.map((i) => i.id), GUIDE_NAV.id];

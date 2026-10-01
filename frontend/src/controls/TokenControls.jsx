@@ -11,6 +11,7 @@ import { Card, CardTitle, DevTag } from '../ui/primitives';
 import { sentence } from '../te/costText';
 import { Cell, WhoMayHold, AddressPool, addressesIn } from './Cell';
 import { dayText } from './model';
+import { Tip } from '../dashboard/cards';
 
 // The stock page listed these six before the page existed; who may hold is
 // shown by the stock page beside its version, and by this card on the page.
@@ -35,7 +36,15 @@ export default function TokenControls({ data, withWhoMayHold = false, compact = 
   return (
     <AddressPool.Provider value={[...addressesIn(d.controls)]}>
     <Card>
-      <CardTitle right={<DevTag data={d} />}>{title}</CardTitle>
+      <CardTitle right={<DevTag data={d} />}>
+        <span className="relative inline-flex items-center gap-1">
+          {title}
+          <Tip label="How these were read" align="left" className="!static">
+            <p>Read on chain at the block or slot named in each piece of evidence (Show details){d.computed_at ? `; assembled ${dayText(d.computed_at)}` : ''}.</p>
+            <p>&quot;Single key (inferred)&quot; means the holder has no code; no code does not prove it is one person. &quot;Not established&quot; means our reads did not settle it.</p>
+          </Tip>
+        </span>
+      </CardTitle>
       <ul className="divide-y divide-line">
         {rows.map(([k, label]) => (
           <li key={k} className="py-2.5">
@@ -54,9 +63,7 @@ export default function TokenControls({ data, withWhoMayHold = false, compact = 
           </li>
         )}
       </ul>
-      <p className="mt-3 pt-3 border-t border-line text-[11px] text-muted">
-        Read on chain at the block or slot named in each piece of evidence{d.computed_at ? `; assembled ${dayText(d.computed_at)}` : ''}. &quot;Single key (inferred)&quot; means the holder has no code; no code does not prove it is one person.
-      </p>
+      {d.computed_at && <p className="mt-3 pt-3 border-t border-line text-[11px] text-muted">Read on chain; assembled {dayText(d.computed_at)}.</p>}
       {link && (
         <a href={link.href} onClick={go} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-fg underline-offset-2 hover:underline">
           {link.label}<ArrowRight size={14} aria-hidden="true" />

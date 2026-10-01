@@ -34,6 +34,7 @@ const PAGE_META = {
   '/my-etfs': { title: 'My ETFs', description: 'Baskets of up to five tokenized stocks and ETFs, with the all-in cost and the largest size their thinnest leg allows.' },
   '/dashboard': { title: 'Dashboard', description: "Your wallet's tokenized equities, their value, cost and allocation, read from the chain." },
   '/issuer-controls': { title: 'Issuer controls', description: 'Who can pause, freeze, burn or seize, and upgrade each tokenized stock and ETF we list, read on chain with the evidence for each, and who may hold it in the issuer\'s own words.' },
+  '/guide': { title: 'Read before you start', description: 'What each part of Tnega means: the stock lists and pages, how costs are measured, what is checked before a trade, issuer controls, vaults, My ETFs, the dashboard and signing.' },
   '/ai': { title: 'Use with AI', description: "Point your own assistant at Tnega's MCP server: the endpoint, the one-line install, and the tools it serves today: measurements to read, and orders it prepares for you to sign in your own wallet." },
   '/signin': { title: 'Sign in', description: 'Connect a wallet and sign one message to show the wallet is yours. No account, no password, no funds moved.' },
   // Explore keeps its path: every shared link, the sitemap and the Chrome
@@ -282,7 +283,9 @@ function AppRoutes({ tree }) {
   // (/agent/<id>, /chain-agent/...) and /chain/<view> open Explore, named
   // explicitly; a path the site does not serve never gets this far, because
   // useRoute has already replaced it with "/".
-  const initialNav = tabForPath(path, search);
+  // The hash is not part of the path that names a tab: /guide#costs opens
+  // the guide.
+  const initialNav = tabForPath(path.split('#')[0], search);
   const onNavChange = (id) => navigate(NAV_TO_PATH[id] || '/');
   const query = new URLSearchParams(search).get('q') || '';
   const shellProps = {

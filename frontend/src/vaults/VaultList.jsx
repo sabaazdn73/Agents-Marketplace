@@ -29,7 +29,8 @@
 
 import ReadError from '../te/ReadError';
 import React, { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
+import { Tip } from '../dashboard/cards';
 import { Card, DevTag, Sparkline, fmtUsd0 } from '../ui/primitives';
 import { SourceChip, shortAddr } from '../ui/detail';
 import { platformKeyOf, staleOf, staleRuleWords, tvlSourceLabel, tvlTime, checkMark, tvlTotal } from './model';
@@ -42,23 +43,31 @@ const ROWS_PER_PAGE = 10;
  *  hover and screen readers. */
 export function TvlNote({ v, align = 'right' }) {
   const st = staleOf(v);
+  const time = tvlTime(v);
+  const src = v.tvl_source === 'computed_from_chain' ? 'chain' : v.tvl_source === 'vault_recorded' ? 'vault record' : null;
+  const hover = [tvlSourceLabel(v.tvl_source), time && `${time.label} ${time.at}`, v.tvl_basis, staleRuleWords(v)].filter(Boolean).join(' · ');
   return (
-    <div className={`mt-0.5 flex flex-wrap gap-1 ${align === 'right' ? 'justify-end' : ''}`} title={v.tvl_basis}>
-      <SourceChip title={v.tvl_basis}>{tvlSourceLabel(v.tvl_source)}</SourceChip>
+    <div className={`mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted ${align === 'right' ? 'justify-end' : ''}`} title={hover}>
+      <span>{[src, time && time.at.slice(0, 10)].filter(Boolean).join(' · ')}</span>
       {v.token_kind === 'synthetic dollar' && <SourceChip title={v.tvl_basis}>synthetic dollar</SourceChip>}
-      {tvlTime(v) && <SourceChip title={`${v.tvl_basis}${staleRuleWords(v) ? ` (${staleRuleWords(v)})` : ''}`}>{tvlTime(v).label} {tvlTime(v).at.slice(0, 10)}</SourceChip>}
       {st && <span className="inline-flex items-center h-5 px-1.5 rounded border border-warn/60 text-warn text-[10px] font-semibold uppercase tracking-wide" title={st}>stale</span>}
-      <span className="sr-only">{v.tvl_basis}</span>
+      <span className="sr-only">{hover}</span>
     </div>
   );
 }
 
-function PlatformLine({ p }) {
-  if (!p) return null;
+/** A venue's served line (how many of its accounts were read and listed)
+ *  sits behind the (i) beside its name; a stale read stays on the face. */
+function PlatformTip({ p }) {
+  if (!p?.text) return null;
+  return <Tip label={`About ${p.platform}`} align="left"><span className="block">{p.text}</span></Tip>;
+}
+
+function PlatformStale({ p }) {
+  if (!p?.stale) return null;
   return (
-    <div className="px-4 text-[12px] text-muted">
-      {p.text}
-      {p.stale && <span className="ml-2 text-warn">Stale: {p.last_failure?.text || p.last_failure?.error || 'the latest read failed'}{p.last_failure?.at ? ` (${p.last_failure.at})` : ''}.</span>}
+    <div className="px-4 text-[12px] text-warn">
+      Stale: {p.last_failure?.text || p.last_failure?.error || 'the latest read failed'}{p.last_failure?.at ? ` (${p.last_failure.at})` : ''}.
     </div>
   );
 }
@@ -126,8 +135,10 @@ function VenueTable({ p, rows, onOpen, compact, nestedName, cols }) {
   const view = rows.slice(page * ROWS_PER_PAGE, (page + 1) * ROWS_PER_PAGE);
   return (
     <div className="mt-6 first:mt-2">
-      <h3 className="px-4 text-[15px] font-semibold text-fg">{p.platform}</h3>
-      <div className="mt-1"><PlatformLine p={p} /></div>
+      <h3 className="px-4 text-[15px] font-semibold text-fg flex items-center gap-1.5">
+        {p.platform}<span className="text-[12px] font-normal text-muted">{rows.length}</span><PlatformTip p={p} />
+      </h3>
+      <PlatformStale p={p} />
       {compact ? <VenueCards rows={view} onOpen={onOpen} nestedName={nestedName} /> : (
       <div className="overflow-x-auto">
         {/* Fixed widths, so every venue's table lines up with the others. */}
@@ -262,20 +273,38 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <Card className="max-w-[460px]">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[13px] text-muted">Total value locked, listed vaults</div>
-          <DevTag data={data} />
-        </div>
-        <div className="mt-1 text-[32px] font-light tabular-nums text-fg">{fmtUsd0(tot.total)}</div>
-        <div className="mt-1 text-[11px] text-muted leading-relaxed">
-          {filtering
-            ? (filtered.length === 1 ? 'The one vault matching your filter' : `Sum of the ${filtered.length} vaults matching your filter`)
-            : `Sum of the ${vaults.length} vaults shown${truncated ? `, the first ${vaults.length} of ${data.total}` : ''}`}: {tot.bySource.computed_from_chain || 0} computed from chain reads, {tot.bySource.vault_recorded || 0} as the vault records it.
-          {tot.nested > 0 ? ` Each dollar once: ${fmtUsd0(tot.nested)} held by ${tot.nestedRows === 1 ? 'one vault' : `${tot.nestedRows} vaults`} inside another listed vault is counted in that vault only.` : ''}
-          {tot.stale ? ` ${tot.stale} ${tot.stale === 1 ? 'is' : 'are'} stale.` : ''} Tokens at 1 USD each, face value. As of {data.as_of}.
-        </div>
-      </Card>
+      <div className={`grid gap-4 ${compact ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        <Card className={`min-w-0 ${compact ? 'col-span-2' : ''}`}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[13px] text-muted">
+              Total value locked
+              <Tip label="About this total" align="left">
+                <span className="block">
+                  {filtering
+                    ? (filtered.length === 1 ? 'The one vault matching your filter' : `Sum of the ${filtered.length} vaults matching your filter`)
+                    : `Sum of the ${vaults.length} vaults shown${truncated ? `, the first ${vaults.length} of ${data.total}` : ''}`}: {tot.bySource.computed_from_chain || 0} computed from chain reads, {tot.bySource.vault_recorded || 0} as the vault records it.
+                </span>
+                {tot.nested > 0 && <span className="block">Each dollar once: {fmtUsd0(tot.nested)} held by {tot.nestedRows === 1 ? 'one vault' : `${tot.nestedRows} vaults`} inside another listed vault is counted in that vault only.</span>}
+                {tot.stale > 0 && <span className="block">{tot.stale} {tot.stale === 1 ? 'is' : 'are'} stale.</span>}
+                <span className="block">Tokens at 1 USD each, face value. As of {data.as_of}.</span>
+              </Tip>
+            </div>
+            <DevTag data={data} />
+          </div>
+          <div className="mt-2 text-[32px] font-semibold tracking-[-0.02em] tabular-nums text-fg leading-none">{fmtUsd0(tot.total)}</div>
+          <div className="mt-2 text-[12px] text-muted">{filtering ? `${filtered.length} matching` : `${vaults.length} vaults`} · as of {String(data.as_of || '').slice(0, 10)}</div>
+        </Card>
+        <Card className="min-w-0">
+          <div className="text-[13px] text-muted">Vaults listed</div>
+          <div className="mt-2 text-[28px] font-semibold tabular-nums text-fg leading-none">{truncated ? `${vaults.length} of ${data.total}` : vaults.length}</div>
+          <div className="mt-2 text-[12px] text-muted">{chains.join(', ')}</div>
+        </Card>
+        <Card className="min-w-0">
+          <div className="text-[13px] text-muted">Venues with a listed vault</div>
+          <div className="mt-2 text-[28px] font-semibold tabular-nums text-fg leading-none">{listed.length}<span className="text-[15px] font-medium text-muted"> of {platforms.length} read</span></div>
+          <div className="mt-2 text-[12px] text-muted truncate" title={listed.map((p) => p.platform).join(', ')}>{listed.map((p) => p.platform).join(', ')}</div>
+        </Card>
+      </div>
 
       <Card pad={false}>
         <div className="p-4 flex flex-wrap items-center justify-between gap-3">
@@ -304,22 +333,26 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
         <Card className="border-warn/50"><ul className="text-[13px] text-fg space-y-1">{data.missing.map((m) => <li key={m}>{m}</li>)}</ul></Card>
       )}
 
-      <Card>
-        <h2 className="text-[15px] font-semibold text-fg">How a vault is listed</h2>
+      {/* The listing rule, the venues with nothing listed and every
+          published exclusion, as served: one card, folded until opened. */}
+      <details className="group bg-surface border border-line rounded-xl">
+        <summary className="list-none cursor-pointer flex items-center justify-between gap-3 p-4 text-[15px] font-semibold text-fg">
+          <span>Listing rule and exclusions</span>
+          <ChevronDown size={16} aria-hidden="true" className="text-muted transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="px-4 pb-4 space-y-6">
+      <div>
+        <h3 className="text-[14px] font-semibold text-fg">How a vault is listed</h3>
         <p className="mt-2 text-[13px] text-muted leading-relaxed">{data.rule}</p>
         {data.notice && <p className="mt-2 text-[12px] text-muted">{data.notice}</p>}
         {/* T6's deposits_note repeats the notice when the notice already
             speaks of deposits; show it only when it adds something. */}
         {data.deposits_note && !/deposit/i.test(data.notice || '') && <p className="mt-1 text-[12px] text-muted">{data.deposits_note}</p>}
-      </Card>
+      </div>
 
       {nonePlatforms.length > 0 && (
-        <Card>
-          <h2 className="text-[15px] font-semibold text-fg">Venues with nothing listed</h2>
-          <p className="mt-1 text-[12px] text-muted">
-            A venue appears here when it was read and none of its vaults meets the rule above; the reason is given under each.
-            {nonePlatforms.some((p) => p.status === 'read_failed') ? ' "Read failed" means the latest read of that venue did not complete; its earlier results are kept and marked stale.' : ''}
-          </p>
+        <div>
+          <h3 className="text-[14px] font-semibold text-fg">Venues with nothing listed</h3>
           <ul className="mt-2 divide-y divide-line">
             {nonePlatforms.map((p) => (
               <li key={p.platform_key} className="py-3">
@@ -334,24 +367,24 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
               </li>
             ))}
           </ul>
-        </Card>
+        </div>
       )}
 
-      <Card pad={false}>
-        <div className="p-4 pb-0"><h2 className="text-[15px] font-semibold text-fg">Published exclusions</h2>
-          <p className="mt-1 text-[13px] text-muted">Every vault account read on chain that is not listed, by reason.</p></div>
+      <div>
+        <div><h3 className="text-[14px] font-semibold text-fg">Published exclusions</h3>
+          <p className="mt-1 text-[12px] text-muted">Every vault account read and not listed, by reason.</p></div>
         <div className="overflow-x-auto">
           <table className="w-full mt-2 text-[13px]">
-            <thead><tr className="text-muted text-left text-[12px]"><th className="font-medium px-4 py-2">Venue</th><th className="font-medium py-2">Reason</th><th className="font-medium px-4 py-2 text-right">Vaults</th></tr></thead>
+            <thead><tr className="text-muted text-left text-[12px]"><th className="font-medium pr-4 py-2">Venue</th><th className="font-medium py-2">Reason</th><th className="font-medium pl-4 py-2 text-right">Vaults</th></tr></thead>
             <tbody className="divide-y divide-line">
               {platforms.flatMap((p) => (p.excluded || []).map((x) => (
-                <tr key={`${p.platform_key}-${x.reason}`}><td className="px-4 py-2 text-fg">{p.platform}</td><td className="py-2 text-fg">{x.reason}</td><td className="px-4 py-2 text-right tabular-nums text-fg">{x.count}</td></tr>
+                <tr key={`${p.platform_key}-${x.reason}`}><td className="pr-4 py-2 text-fg">{p.platform}</td><td className="py-2 text-fg">{x.reason}</td><td className="pl-4 py-2 text-right tabular-nums text-fg">{x.count}</td></tr>
               )))}
             </tbody>
           </table>
         </div>
         {platforms.some((p) => p.named_exclusions?.length) && (
-          <div className="p-4">
+          <div className="pt-4">
             <h3 className="text-[13px] font-semibold text-fg">Named exclusions</h3>
             <ul className="mt-2 space-y-2 text-[13px]">
               {platforms.flatMap((p) => (p.named_exclusions || []).map((x) => (
@@ -365,7 +398,9 @@ export default function VaultList({ state, layout = 'web', onNavigate }) {
             </ul>
           </div>
         )}
-      </Card>
+      </div>
+        </div>
+      </details>
     </div>
   );
 }

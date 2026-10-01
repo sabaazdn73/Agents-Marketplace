@@ -4,7 +4,8 @@
 // with the All, EVM and non-EVM filter, and search over GET /api/te/search
 // when the address carries ?q= (the header search and the home search land
 // here). Each list renders only with rows (te/api.js) and pages through
-// rows_total, 25 at a time. Every list row and every search result opens
+// rows_total, 25 at a time (stocks/StockList.jsx: short on the face, the
+// counts and the order behind an (i), the explanation in /guide#stocks). Every list row and every search result opens
 // the instrument page, /stocks/<ticker> (stocks/StockPage.jsx), which this
 // component renders when the path names a ticker; a matched version opens
 // it with that version chosen (?v=<key>).
@@ -12,7 +13,8 @@
 import ReadError from '../te/ReadError';
 import React, { useState } from 'react';
 import { useTe, hasRows } from '../te/api';
-import { InstrumentList } from '../home/cards';
+import StockList from '../stocks/StockList';
+import GuideLink from '../guide/GuideLink';
 import { Card, DevTag, GroupChip, SymbolTile } from '../ui/primitives';
 import { PageFrame } from './PageFrame';
 import StockPage from '../stocks/StockPage';
@@ -98,10 +100,10 @@ const PAGE = 25;
 export default function Stocks({ layout = 'web', path = '/stocks', query = '', onNavigate }) {
   const detail = (path || '').split('#')[0].match(/^\/stocks\/([A-Za-z0-9][A-Za-z0-9.-]{0,14})$/);
   if (detail) return <StockPage key={detail[1].toUpperCase()} ticker={detail[1]} layout={layout} onNavigate={onNavigate} />;
-  return <StockList layout={layout} query={query} onNavigate={onNavigate} />;
+  return <StockLists layout={layout} query={query} onNavigate={onNavigate} />;
 }
 
-function StockList({ layout, query, onNavigate }) {
+function StockLists({ layout, query, onNavigate }) {
   const mobile = layout === 'mobile';
   const q = (query || '').trim();
   // Each list pages on its own: the group and the offset go into the read,
@@ -120,11 +122,11 @@ function StockList({ layout, query, onNavigate }) {
   const groupE = (g) => { setEg(g); setEo(0); };
   const open = (r) => onNavigate?.(stockPath(r.underlying));
   return (
-    <PageFrame layout={layout} title="Stocks & ETFs">
+    <PageFrame layout={layout} title="Stocks & ETFs" sub="Tokenized stocks and ETFs on every chain, and what each costs to buy." right={<GuideLink id="stocks" onNavigate={onNavigate} />}>
       {q && !search && searchRead.error && <ReadError error={searchRead.error} body={searchRead.errorBody} what={`the results for "${q}"`} />}
       <SearchResults q={q} data={search} onNavigate={onNavigate} />
-      <InstrumentList title="Tokenized stocks" state={stocks} group={sg} onGroup={groupS} onOffset={setSo} onOpen={open} compact={mobile} universe={summary?.underlyings} />
-      <InstrumentList title="Tokenized ETFs" state={etfs} group={eg} onGroup={groupE} onOffset={setEo} onOpen={open} compact={mobile} universe={summary?.underlyings} />
+      <StockList title="Tokenized stocks" state={stocks} group={sg} onGroup={groupS} onOffset={setSo} onOpen={open} compact={mobile} universe={summary?.underlyings} />
+      <StockList title="Tokenized ETFs" state={etfs} group={eg} onGroup={groupE} onOffset={setEo} onOpen={open} compact={mobile} universe={summary?.underlyings} />
     </PageFrame>
   );
 }

@@ -77,6 +77,8 @@ STATIC = [
     # below hangs from.
     ("/market", "daily", "0.9"),
     ("/docs", "weekly", "0.7"),
+    # "Read before you start", every page's explanations (2026-10-01).
+    ("/guide", "monthly", "0.6"),
     ("/ecosystem", "monthly", "0.5"),
     ("/data-sources", "monthly", "0.4"),
     ("/partners", "monthly", "0.4"),

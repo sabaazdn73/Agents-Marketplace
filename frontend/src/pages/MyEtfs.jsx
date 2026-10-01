@@ -16,6 +16,7 @@ import BasketDetail from '../etfs/BasketDetail';
 import BasketBuilder from '../etfs/BasketBuilder';
 import { decodeLink } from '../baskets/codec';
 import { PageFrame } from './PageFrame';
+import GuideLink from '../guide/GuideLink';
 
 export default function MyEtfs({ layout = 'web', path = '/my-etfs', onNavigate }) {
   const mobile = layout === 'mobile';
@@ -43,7 +44,7 @@ export default function MyEtfs({ layout = 'web', path = '/my-etfs', onNavigate }
     );
   }
   return (
-    <PageFrame layout={layout} title="My ETFs" sub={data?.note || null}>
+    <PageFrame layout={layout} title="My ETFs" sub="Example baskets, or build your own of up to five stocks or ETFs." right={<GuideLink id="my-etfs" onNavigate={onNavigate} />}>
       {!data && curated.error && <ReadError error={curated.error} body={curated.errorBody} what="the curated baskets" />}
       {hasRows(data?.baskets) && (
         <div className={mobile ? 'space-y-3' : 'grid grid-cols-2 xl:grid-cols-4 gap-6'}>

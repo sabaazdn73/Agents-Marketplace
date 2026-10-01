@@ -106,6 +106,7 @@ import Vaults from './pages/Vaults';
 import MyEtfs from './pages/MyEtfs';
 import UseWithAi from './pages/UseWithAi';
 import IssuerControls from './pages/IssuerControls';
+import Guide from './pages/Guide';
 import { BnbPriceSource } from './shell/DataAttribution';
 import WalletIdentity from './wallet/WalletIdentity';
 import { useConnectedWallet } from './wallet/useConnectedWallet';
@@ -369,8 +370,9 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
 // behind `live: false` there is in neither. Explore
 // (/market) and My Agents (/my-agents) are still tabs of this component, and
 // are reached from the footer (SiteLinks.jsx).
-// The header adds Docs after the product pages (shell/productNav.js
-// HEADER_NAV); Docs opens the standalone /docs page rather than a tab.
+// The header adds Docs and the guide after the product pages
+// (shell/productNav.js HEADER_NAV); Docs opens the standalone /docs page
+// rather than a tab, and the guide is a tab of its own ('guide').
 const NAV_ITEMS = HEADER_NAV;
 
 export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, onNavigate, path = '/', query = '', initialNav, onNavChange } = {}) {
@@ -848,15 +850,16 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           </a>
 
           {/* The wide search in the middle. It opens Stocks & ETFs with the
-              words in the address (shell/TopSearch.jsx). */}
-          <div className="flex-1 min-w-0 xl:min-w-[266px] flex justify-center px-2">
+              words in the address (shell/TopSearch.jsx). Its floor leaves
+              the header row room for Docs and Guide at 1280. */}
+          <div className="flex-1 min-w-0 xl:min-w-[186px] flex justify-center px-2">
             {SEARCH_LIVE && (
               <>
                 <TopSearch
                   key={query}
                   initial={query}
                   onSearch={(to) => { dismissAgentDetail(); onNavigate?.(to); }}
-                  className="hidden xl:flex w-full max-w-[380px] min-w-[250px]"
+                  className="hidden xl:flex w-full max-w-[380px] min-w-[170px]"
                 />
                 <button
                   type="button"
@@ -871,7 +874,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
             )}
           </div>
 
-          <div className="flex min-w-[120px] shrink" style={{ width: 590 }}>
+          <div className="flex min-w-[120px] shrink" style={{ width: 616 }}>
             <HeaderNav items={NAV_ITEMS} active={isDocsPath(path) ? 'docs' : nav} onSelect={onHeaderSelect} align="end" />
           </div>
 
@@ -901,8 +904,9 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           {nav === 'stocks' && isLive('stocks') && <Stocks layout="web" path={path} query={query} onNavigate={onNavigate} />}
           {nav === 'vaults' && isLive('vaults') && <Vaults layout="web" path={path} onNavigate={onNavigate} />}
           {nav === 'my-etfs' && isLive('my-etfs') && <MyEtfs layout="web" path={path} onNavigate={onNavigate} />}
-          {nav === 'ai' && <UseWithAi layout="web" />}
+          {nav === 'ai' && <UseWithAi layout="web" onNavigate={onNavigate} />}
           {nav === 'issuer-controls' && isLive('issuer-controls') && <IssuerControls layout="web" onNavigate={onNavigate} />}
+          {nav === 'guide' && <Guide layout="web" path={path} onNavigate={onNavigate} />}
 
           {nav === 'market' && detailAgent && !hiring && (
             <AgentDetail

@@ -25,6 +25,7 @@ import { ExternalLink } from 'lucide-react';
 import { Card, CardTitle } from '../ui/primitives';
 import { useTe } from '../te/api';
 import { DATA_LIVE } from '../dataLive';
+import { Tip } from '../dashboard/cards';
 
 const num = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : (typeof x === 'string' && x.trim() !== '' && Number.isFinite(Number(x)) ? Number(x) : null));
 const pctText = (x, d = 0) => {
@@ -135,10 +136,10 @@ export function AaveV4Inline({ v }) {
   );
 }
 
-function Row({ label, children }) {
+function Row({ label, tip = null, children }) {
   return (
     <div className="grid grid-cols-[minmax(0,38%)_1fr] gap-x-3 py-2 text-[13px]">
-      <dt className="text-muted">{label}</dt>
+      <dt className="relative text-muted flex items-start gap-1">{label}{tip && <Tip label={`About ${label.toLowerCase()}`} align="left" className="!static">{tip}</Tip>}</dt>
       <dd className="text-fg min-w-0 break-words">{children}</dd>
     </div>
   );
@@ -179,14 +180,15 @@ export function AaveV4Card({ v, borrow }) {
 
       {listed && (
         <dl className="mt-2 divide-y divide-line border-t border-line">
-          <Row label="Collateral factor">
-            {pctText(a.max_ltv_pct) ? `Borrowing is allowed up to ${pctText(a.max_ltv_pct)} of the collateral's value; liquidation starts at the same ${pctText(a.liquidation_threshold_pct ?? a.max_ltv_pct)} (one collateral factor, no buffer).` : 'not read'}
-            <span className="block text-[12px] text-muted">A position keeps the factor stored at its last health-checked action; the one shown is the reserve&apos;s current one.</span>
+          <Row label="Collateral factor" tip={<>
+            {pctText(a.max_ltv_pct) && <p>Borrowing is allowed up to {pctText(a.max_ltv_pct)} of the collateral&apos;s value; liquidation starts at the same {pctText(a.liquidation_threshold_pct ?? a.max_ltv_pct)}: V4 has one collateral factor, so there is no buffer between the two.</p>}
+            <p>A position keeps the factor stored at its last health-checked action; the one shown is the reserve&apos;s current one.</p>
+          </>}>
+            {pctText(a.max_ltv_pct) ? `Max LTV ${pctText(a.max_ltv_pct)}; liquidation at ${pctText(a.liquidation_threshold_pct ?? a.max_ltv_pct)} (no buffer)` : 'not read'}
           </Row>
-          <Row label="Supplied to the market">
+          <Row label="Supplied to the market" tip={<p>What is supplied to the market. V4 turns collateral on per user, so no market-wide collateral total exists to read.</p>}>
             {tokens(a.supplied_tokens) != null ? `${tokens(a.supplied_tokens)} ${v.symbol}` : 'not read'}
             {num(a.add_cap_tokens) != null && <> of a {tokens(a.add_cap_tokens)} {v.symbol} cap{pctText(a.add_cap_used_pct, 1) ? ` (${pctText(a.add_cap_used_pct, 1)} used)` : ''}</>}
-            <span className="block text-[12px] text-muted">What is supplied to the market. V4 turns collateral on per user, so no market-wide collateral total exists to read.</span>
           </Row>
           {(a.paused || a.frozen || a.halted) && (
             <Row label="State"><span className="text-warn">{[a.paused && 'paused', a.frozen && 'frozen', a.halted && 'halted'].filter(Boolean).join(', ')}</span></Row>
@@ -196,11 +198,11 @@ export function AaveV4Card({ v, borrow }) {
 
       {listed && (
         <dl className="divide-y divide-line border-b border-line">
-          <Row label="USDC borrow rate">
+          <Row label="USDC borrow rate" tip={<p>The hub&apos;s drawn rate, not compounded. A borrower pays it times one plus a risk premium that depends on the collateral.</p>}>
             {b && num(b.borrow_apr_pct) != null
               ? <>{pctText(b.borrow_apr_pct, 2)} APR{num(b.utilization_pct) != null ? ` (utilization ${pctText(b.utilization_pct, 1)})` : ''}</>
               : borrow?.read === false ? 'not read yet' : 'not read'}
-            <span className="block text-[12px] text-muted">The hub&apos;s drawn rate, not compounded. A borrower pays it times one plus a risk premium that depends on the collateral.{b && readAtText(b) && b.block !== a.block ? ` Read at ${readAtText(b)}.` : ''}</span>
+            {b && readAtText(b) && b.block !== a.block && <span className="block text-[12px] text-muted">Read at {readAtText(b)}.</span>}
           </Row>
         </dl>
       )}
@@ -212,12 +214,12 @@ export function AaveV4Card({ v, borrow }) {
         {listed && elig?.text && elig?.url && (
           <p>
             Who {v.symbol} is offered to, in Aave&apos;s words: &ldquo;{elig.text}&rdquo;{' '}
-            (<Ext href={elig.url}>Aave</Ext>{dayText(elig.published) ? `, ${dayText(elig.published)}` : ''}). Shown, not enforced: Tnega does not check who you are.
+            (<Ext href={elig.url}>Aave</Ext>{dayText(elig.published) ? `, ${dayText(elig.published)}` : ''}). Not enforced by Tnega.
           </p>
         )}
         {src?.url && (
           <p>
-            Sources: the Aave V4 Base addresses from <Ext href={src.url}>{src.file || 'the address book'} at {src.commit}</Ext>{src.read_on ? `, read ${src.read_on}` : ''}; every figure read on chain.
+            Sources: <Ext href={src.url}>{src.file || 'the address book'} at {src.commit}</Ext>{src.read_on ? `, read ${src.read_on}` : ''}; figures read on chain.
           </p>
         )}
       </div>
