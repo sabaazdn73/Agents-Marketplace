@@ -134,9 +134,10 @@ REASONS = {
     "no_measured_price": (
         "Tnega's cost engine has no measured pool price for this version, so no dollar value is shown."),
     "price_on_hold": (
-        "The issuer changed how many shares one token stands for, and Tnega does not price a version for "
-        "15 minutes after such a change. The value returns at the next price run after that (runs are "
-        "every 15 minutes). The balance is unaffected."),
+        "How many shares one token stands for has changed, or is about to, on chain. Tnega does not price "
+        "a version within 15 minutes of such a change, counted from when a price run first sees it; the "
+        "value returns at the first run after that, usually within 30 minutes (runs are about every 15 "
+        "minutes). The balance is unaffected."),
     "price_too_old": (
         "The last pool price measured for this version is more than a day old, so no dollar value is shown."),
     "price_store_unavailable": (
