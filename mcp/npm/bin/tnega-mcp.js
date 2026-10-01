@@ -28,7 +28,7 @@
 const { spawnSync } = require("node:child_process");
 
 const NAME = "tnega";
-const URL = "https://agents-marketplace-q3k4.onrender.com/mcp";
+const URL = "https://mcp.tnega.app/mcp";
 
 const CONFIG_JSON = JSON.stringify(
   { mcpServers: { [NAME]: { type: "http", url: URL } } }, null, 2);
