@@ -697,7 +697,7 @@ function Stat({ label, value, tone = 'text-fg', title, note = null }) {
     <div className="min-w-0 rounded-lg bg-inset/60 px-3 py-2" title={title}>
       <span className="block text-[11px] uppercase tracking-wider text-muted truncate">{label}</span>
       <span className={`block text-[15px] font-semibold tabular-nums truncate ${tone}`}>{value}</span>
-      {note && <span className="block text-[11px] text-muted truncate">{note}</span>}
+      {note && <span className="block text-[11px] leading-snug text-muted whitespace-normal break-words">{note}</span>}
     </div>
   );
 }

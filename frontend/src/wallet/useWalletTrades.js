@@ -11,7 +11,9 @@
 // A first read of a wallet's history can take several steps: each request
 // reads for at most about 14 s and answers what it has, with `continues`
 // true while there is more. This hook asks again by itself while the answer
-// says so and the read is moving (`progress_calls` grows), and shows each
+// says so and the read is moving (`progress` grows: ranges settled,
+// receipts and block times read; a poll that only re-reads the head does not
+// count), and shows each
 // answer as it comes. It stops after STALL_ROUNDS answers in a row with no
 // progress, or after MAX_READ_MS in all. On a 429 it shows the route's
 // sentence and the wait, then asks again by itself once the Retry-After time
@@ -108,7 +110,7 @@ export function useWalletTrades(address) {
         return;
       }
       const more = !!next.data.continues;
-      const progress = Number(next.data.progress_calls) || 0;
+      const progress = Number(next.data.progress) || 0;
       stalls = progress > lastProgress ? 0 : stalls + 1;
       lastProgress = Math.max(lastProgress, progress);
       const going = more && stalls < STALL_ROUNDS && Date.now() - started < MAX_READ_MS;

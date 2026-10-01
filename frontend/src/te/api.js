@@ -311,18 +311,22 @@
 //     history is hundreds of chain calls read in steps, while the holdings
 //     read stays about 28; backend/core/te/trades_view.py.)
 //     200 { status: 'complete'|'partial', continues (true: ask again, the
-//       read goes on from where it stopped; the hook does while
-//       progress_calls grows, waiting out any 429), progress_calls (calls
-//       spent on the wallet so far, across chains),
+//       read goes on from where it stopped; the hook does while progress
+//       grows, waiting out any 429), progress (ranges settled, receipts and
+//       block times read so far, across chains; head re-reads do not count),
 //       positions: [PROW], totals: TOTALS,
 //       trades: [TRADE] (newest first, at most 200), trades_total,
 //       chains: [{ chain_id, chain, mode: 'bisect'|'logs'|'held'|'none',
 //                  method, status: 'complete'|'partial'|'failed'|
-//                  'not_started'|'not_read', reason?, note?, from_block?,
+//                  'not_started'|'not_read' (BNB Chain, or
+//                  too_many_transfers: true past 2,000 transfers)|'limited'
+//                  (read as far as it goes, with round-trip ranges left
+//                  unsearched: its positions' P/L is not shown), reason?,
+//                  note?, progress?, from_block?,
 //                  to_block?, remaining?: { holdings_changes,
 //                  round_trip_checks, receipts }, calls?, transfers_found?,
-//                  receipts_read?, receipts_missing? (a chain is complete
-//                  only at 0), round_trip_ranges_not_searched? (ranges left
+//                  receipts_read?, receipts_missing? (receipts or block times
+//                  not read; a chain is complete only at 0), round_trip_ranges_not_searched? (ranges left
 //                  when the round-trip check limit was reached; named in
 //                  note) }],
 //       holdings_status, holdings_as_of,
@@ -345,7 +349,8 @@
 //       pnl: 'known'|'realized_only'|'unknown',
 //       reason | null ('chain_not_read'|'history_partial'|
 //         'no_purchase_found'|'transfer_in_without_price'|
-//         'left_without_price'|
+//         'left_without_price'|'holding_began_with_transfer'|
+//         'ranges_not_searched'|
 //         'quantity_mismatch'|'sold_more_than_found'|'held_only_search'),
 //       unrealized_reason | null ('no_current_value') }
 //       Every listed version held now, and every one traded and no longer

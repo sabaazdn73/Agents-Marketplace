@@ -34,8 +34,11 @@ written to any store, not logged, not echoed.
 THE GATE
 At most MAX_CONCURRENT_STEPS steps run at once, STEPS_PER_MINUTE start in a
 minute, one client starts at most CLIENT_STEPS_PER_MINUTE and one wallet at
-most WALLET_STEPS_PER_MINUTE (counted under a digest of the address, kept a
-minute); otherwise 429
+most WALLET_STEPS_PER_MINUTE (counted under a keyed digest of the address:
+blake2b with a random key made when the process starts and never stored or
+served, so the stored value cannot be matched against a candidate address
+from outside; a timer drops every count older than a minute, every
+PRUNE_SECONDS); otherwise 429
 with Retry-After before anything is spent. A step counts as running until
 its thread ends. A second request for a wallet already being stepped waits
 for that step.
@@ -46,6 +49,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import datetime as dt
+import secrets
 import threading
 import time
 from collections import deque
@@ -123,7 +127,8 @@ class Gate:
                 raise Busy("route_rate_budget", WINDOW_SECONDS - (now - self.started[0]) + 1)
             self.running += 1
             if wallet is not None:
-                # Kept a minute, keyed by a digest of the address, not the address.
+                # Keyed by wallet_key(address), never the address; the timer
+                # below drops it once it is a minute old.
                 self.wallets.setdefault(wallet, deque()).append(now)
                 if len(self.wallets) > CLIENTS_MAX:
                     for k in [k for k, q in self.wallets.items() if not q or now - q[-1] >= WINDOW_SECONDS]:
@@ -143,8 +148,37 @@ class Gate:
         with self.lock:
             self.running = max(0, self.running - 1)
 
+    def prune(self, now: float) -> None:
+        """Every per-client and per-wallet count older than the window."""
+        with self.lock:
+            for table in (self.clients, self.wallets):
+                for k in list(table):
+                    self._prune(table[k], now)
+                    if not table[k]:
+                        del table[k]
+
 
 gate = Gate(MAX_CONCURRENT_STEPS, STEPS_PER_MINUTE, CLIENT_STEPS_PER_MINUTE)
+
+# The per-wallet count's key: random per process, held only here.
+_WALLET_KEY = secrets.token_bytes(32)
+PRUNE_SECONDS = 15
+
+
+def wallet_key(address: str) -> str:
+    return hashlib.blake2b(address.lower().encode(), key=_WALLET_KEY, digest_size=16).hexdigest()
+
+
+def _prune_loop() -> None:
+    while True:
+        time.sleep(PRUNE_SECONDS)
+        try:
+            gate.prune(time.monotonic())
+        except Exception:  # noqa: BLE001  never let the timer die
+            pass
+
+
+threading.Thread(target=_prune_loop, name="trades-gate-prune", daemon=True).start()
 _inflight: dict[str, asyncio.Future] = {}
 
 
@@ -158,7 +192,10 @@ def snapshot(job: trades.Job) -> dict:
             found += trades.trades_of(c, job.wallet)
         # Oldest first by block time across chains (block numbers of
         # different chains do not compare); within a chain by block and log.
-        found.sort(key=lambda t: (t.get("time") or "", t["chain_id"], t["block"], t.get("log_index") or 0, t["key"]))
+        # For display: newest first by block time across chains (done in
+        # shape). The cost walk in pnl.py orders each version's trades by
+        # block and log index itself, so this order never changes a cost.
+        found.sort(key=lambda t: (t.get("time") or "9999", t["chain_id"], t["block"], t.get("log_index") or 0, t["key"]))
         return {"chains": chains, "trades": found, "stepped_at": job.stepped_at,
                 "read_started_at": job.read_started_at}
 
@@ -180,7 +217,7 @@ async def _step(job: trades.Job, h: dict, client: str | None, stepper=None) -> N
     if running is not None:
         await asyncio.shield(running)
         return
-    gate.admit(time.monotonic(), client, hashlib.blake2b(w.encode(), digest_size=12).hexdigest())
+    gate.admit(time.monotonic(), client, wallet_key(w))
     held = held_by_chain(h)
     work = asyncio.ensure_future(asyncio.to_thread(stepper or trades.step, job, held))
 
@@ -218,9 +255,9 @@ def shape(h: dict, snap: dict, native: dict[str, dict], now: float | None = None
     return {
         "status": "complete" if complete else "partial",
         "continues": continues and not complete,
-        # Calls spent on this wallet so far across chains: grows while the
-        # read moves, so a client can tell progress from a stall.
-        "progress_calls": sum(c.get("calls") or 0 for c in readable),
+        # Real progress only: ranges settled, receipts and block times read.
+        # A poll that only re-reads the head does not move it.
+        "progress": sum(c.get("progress") or 0 for c in readable),
         "positions": rows,
         "totals": tot,
         "trades": recent,

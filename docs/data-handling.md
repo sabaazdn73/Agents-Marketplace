@@ -377,15 +377,22 @@ valued with the 30-minute on-chain coin average the holdings route already
 uses. A step is admitted only when fewer than two run, fewer than twelve
 started in the last minute, the requester's network address started fewer
 than six and the wallet's own read started fewer than three (counted under a
-blake2b digest of the address, kept a minute); otherwise 429 with Retry-After
-and nothing is read.
+keyed blake2b digest of the address, with a random 32-byte key made when the
+process starts and never stored or served, so a candidate address cannot be
+matched against it from outside; a timer drops each count once it is a minute
+old, checking every 15 seconds); otherwise 429 with Retry-After and nothing
+is read. Past 2,000 transfers of listed versions on one chain (a pool, a
+router, a market maker) that chain is not read and what was kept for it is
+freed; across all jobs at most 30,000 transfers are kept, the least recently
+asked-for jobs dropped first. Receipts are kept trimmed to the wallet's own
+Transfer logs and the gas fields.
 
 What it keeps: `core/te/trades.py`'s per-wallet job in process memory, keyed
 by the lowercased address: how far the read got, the Transfer logs and
 receipts of the transactions found, block times, and short digests of
 balances at a few blocks, for at most 30 minutes after the last request (29
 minutes, dropped by a timer that runs every minute whether or not another
-request comes), at most 128 wallets, oldest dropped first. Not written to any database or file, not
+request comes), at most 128 wallets and 30,000 transfers, oldest dropped first. Not written to any database or file, not
 logged, not echoed. A stored index of Transfer logs per wallet would make
 long histories one query, but needs a collection, which this route does not
 create.

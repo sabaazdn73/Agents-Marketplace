@@ -107,6 +107,7 @@ class FakeChain:
     def __init__(self, chain_id: int, head: int, txs: list[dict], max_range: int | None = None, ts_of=None):
         self.chain_id, self.head, self.max_range = chain_id, head, max_range
         self.ts_of = ts_of or (lambda b: 1_790_000_000 + b * 2 - 104_000_000)
+        self.fail_headers: set[int] = set()
         self.txs = sorted(txs, key=lambda t: t["block"])
         for i, t in enumerate(self.txs):
             t["hash"] = h32(0xfeed0000 + chain_id * 1000 + i)
@@ -195,6 +196,9 @@ class FakeRpc:
             return r
         if method == "eth_getBlockByNumber":
             b = int(params[0], 16)
+            if b in c.fail_headers:
+                c.fail_headers.discard(b)          # fails once, answers next time
+                raise RpcError("transient", "request timed out")
             return {"timestamp": hex(c.ts_of(b))}
         raise RpcError("rpc", f"not simulated: {method}")
 
@@ -526,10 +530,136 @@ def busy_wallet_checks() -> None:
     install({8453: chain})
     b = run(w, holdings_answer([held_row(v["key"], one, int(v["decimals"]), 60.0)]), rounds=10)
     base = next(c for c in b["chains"] if c["chain_id"] == 8453)
-    check(b["status"] == "complete" and base["round_trip_ranges_not_searched"] > 0 and "not searched" in (base.get("note") or "")
-          and len(b["trades"]) == 1,
-          f"BUSY round-trip checks capped at {T.ROUND_TRIP_CALLS} calls: complete, {base['round_trip_ranges_not_searched']} "
-          f"ranges reported not searched, the buy found ({base['calls']} calls)")
+    p = next((r for r in b["positions"] if r["key"] == v["key"]), {})
+    check(base["status"] == "limited" and not b["continues"] and base["round_trip_ranges_not_searched"] > 0
+          and "not searched" in (base.get("note") or "") and len(b["trades"]) == 1,
+          f"BUSY round-trip checks capped at {T.ROUND_TRIP_CALLS} calls: Base 'limited', not complete, "
+          f"{base['round_trip_ranges_not_searched']} ranges reported not searched, the buy found ({base['calls']} calls)")
+    check(p.get("pnl") == "unknown" and p.get("reason") == "ranges_not_searched" and b["totals"]["positions_counted"] == 0,
+          f"BUSY its position's P/L is not shown while ranges are unsearched ({p.get('pnl')}, {p.get('reason')})")
+
+
+def time_order_checks() -> None:
+    """A block time that failed to read: the chain stays unread until it is
+    read again, and the cost follows block order, never time."""
+    from core.te import pnl
+    w = "0x00000000000000000000000000000000000ca5f1"
+    v = base_versions(1)[0]
+    one = 10 ** int(v["decimals"])
+    chain = FakeChain(8453, BASE_HEAD, [
+        {"block": 30_000_000, "sender": w, "transfers": [(USDC_BASE, w, LIFI, 1_000_000_000), (v["address"], LIFI, w, 10 * one)]},
+        {"block": 30_001_000, "sender": w, "transfers": [(v["address"], w, LIFI, 5 * one), (USDC_BASE, LIFI, w, 750_000_000)]},
+        {"block": 30_002_000, "sender": w, "transfers": [(USDC_BASE, w, LIFI, 1_000_000_000), (v["address"], LIFI, w, 5 * one)]},
+    ], max_range=2_000)
+    chain.fail_headers = {30_002_000}
+    install({8453: chain})
+    h = holdings_answer([held_row(v["key"], 10 * one, int(v["decimals"]), 160.0)])
+
+    async def hold(_w):
+        return h
+    gate_reset()
+    first = asyncio.run(TV.wallet_trades(w, None, holdings=hold, natives=_natives))
+    base = next(c for c in first["chains"] if c["chain_id"] == 8453)
+    p = next((r for r in first["positions"] if r["key"] == v["key"]), {})
+    check(base["status"] == "partial" and base["receipts_missing"] == 1 and first["continues"] and p.get("pnl") == "unknown",
+          f"TIME a block time not read: Base partial, 1 unread, P/L not shown yet ({base['status']}, {base['receipts_missing']})")
+    b = run(w, h)
+    p = next((r for r in b["positions"] if r["key"] == v["key"]), {})
+    # Buy 10 for 1,000 (avg 100); sell 5 for 750 (realized 750 - 500 = 250);
+    # buy 5 for 1,000: basis 500 + 1,000 = 1,500 on 10, avg 150.
+    check(b["status"] == "complete" and p.get("avg_buy_price_usd") == 150.0 and p.get("realized_usd") == 250.0,
+          f"TIME header read again next step: complete, average 150, realized 250 ({p.get('avg_buy_price_usd')}, {p.get('realized_usd')})")
+    # The cost walk ignores the order it is given: trades handed over in a
+    # wrong order (the last one with no time, sorted first) cost the same.
+    ts = sorted(b["trades"], key=lambda t: (t["block"] != 30_002_000, t["block"]))
+    ts[0] = {**ts[0], "time": None}
+    rows, _tot = pnl.positions(ts, h["stocks"], {8453: {"status": "complete"}}, {})
+    check(rows[0]["avg_buy_price_usd"] == 150.0 and rows[0]["realized_usd"] == 250.0,
+          f"TIME cost in block order whatever the input order ({rows[0]['avg_buy_price_usd']})")
+
+
+def overflow_checks() -> None:
+    """Too many transfers for an ordinary wallet: not read, memory freed."""
+    w = "0x00000000000000000000000000000000000ca5f2"
+    v = base_versions(1)[0]
+    one = 10 ** int(v["decimals"])
+    txs = [{"block": 30_000_000 + i * 100, "sender": OTHER, "transfers": [(v["address"], OTHER, w, one)]} for i in range(60)]
+    chain = FakeChain(8453, BASE_HEAD, txs, max_range=2_000)
+    install({8453: chain})
+    saved = T.MAX_TRANSFERS
+    T.MAX_TRANSFERS = 40
+    try:
+        b = run(w, holdings_answer([held_row(v["key"], 60 * one, int(v["decimals"]), 1.0)]))
+    finally:
+        T.MAX_TRANSFERS = saved
+    base = next(c for c in b["chains"] if c["chain_id"] == 8453)
+    job = T._jobs.get(w)
+    held = sum(len(c.logs) + len(c.receipts) for c in job.chains.values()) if job else -1
+    p = next((r for r in b["positions"] if r["key"] == v["key"]), {})
+    check(base["status"] == "not_read" and base.get("too_many_transfers") and "too many" in base["reason"] and held == 0
+          and p.get("reason") == "chain_not_read" and not b["continues"],
+          f"OVERFLOW past the cap: Base not read with the reason, nothing held ({held}), P/L not shown")
+    saved_total = T.TOTAL_TRANSFERS
+    T.TOTAL_TRANSFERS = 5
+    try:
+        for i, ww in enumerate(("0x00000000000000000000000000000000000ca5f3", "0x00000000000000000000000000000000000ca5f4")):
+            install_keep = {8453: FakeChain(8453, BASE_HEAD, [
+                {"block": 30_000_000 + k * 100, "sender": ww, "transfers": [(USDC_BASE, ww, LIFI, 1_000_000), (v["address"], LIFI, ww, one)]}
+                for k in range(4)], max_range=2_000)}
+            T.make_rpc = (lambda chains: (lambda cid, role, dl: FakeRpc(chains.get(cid) or FakeChain(cid, 1_000_000, []))))(install_keep)
+            run(ww, holdings_answer([held_row(v["key"], 4 * one, int(v["decimals"]), 1.0)]))
+        total = sum(T.held_transfers(j) for j in T._jobs.values())
+        check(total <= 5 and "0x00000000000000000000000000000000000ca5f4" in T._jobs
+              and "0x00000000000000000000000000000000000ca5f3" not in T._jobs,
+              f"OVERFLOW across jobs at most TOTAL_TRANSFERS kept, the older job dropped ({total})")
+    finally:
+        T.TOTAL_TRANSFERS = saved_total
+
+
+def progress_checks() -> None:
+    """Progress counts real work only: a poll of a finished read does not
+    move it, so the page's stall test can fire."""
+    w = "0x00000000000000000000000000000000000ca5f5"
+    v = base_versions(1)[0]
+    one = 10 ** int(v["decimals"])
+    install({8453: FakeChain(8453, BASE_HEAD, [
+        {"block": 30_000_000, "sender": w, "transfers": [(USDC_BASE, w, LIFI, 1_000_000), (v["address"], LIFI, w, one)]}],
+        max_range=2_000)})
+    h = holdings_answer([held_row(v["key"], one, int(v["decimals"]), 1.0)])
+    b1 = run(w, h)
+    b2 = run(w, h)            # the job is stepped again (run() clears stepped_at between rounds only)
+    with T._jobs_lock:
+        for j in T._jobs.values():
+            j.stepped_at = None
+    b3 = run(w, h)
+    check(b1["progress"] > 0 and b1["progress"] == b2["progress"] == b3["progress"],
+          f"PROGRESS a poll that finds nothing new does not move it ({b1['progress']}, {b2['progress']}, {b3['progress']})")
+
+
+def realized_loss_checks() -> None:
+    """A realized loss stays negative; and a holding that began with a
+    transfer after earlier buys says so."""
+    w = "0x00000000000000000000000000000000000ca5f6"
+    v1, v2 = base_versions(2)
+    o1, o2 = (10 ** int(v["decimals"]) for v in (v1, v2))
+    install({8453: FakeChain(8453, BASE_HEAD, [
+        {"block": 30_000_000, "sender": w, "transfers": [(USDC_BASE, w, LIFI, 1_000_000_000), (v1["address"], LIFI, w, 10 * o1)]},
+        {"block": 30_001_000, "sender": w, "transfers": [(v1["address"], w, LIFI, 4 * o1), (USDC_BASE, LIFI, w, 300_000_000)]},
+        {"block": 30_002_000, "sender": w, "transfers": [(USDC_BASE, w, LIFI, 50_000_000), (v2["address"], LIFI, w, 2 * o2)]},
+        {"block": 30_003_000, "sender": w, "transfers": [(v2["address"], w, LIFI, 2 * o2), (USDC_BASE, LIFI, w, 60_000_000)]},
+        {"block": 30_004_000, "sender": OTHER, "transfers": [(v2["address"], OTHER, w, 1 * o2)]},
+    ], max_range=2_000)})
+    b = run(w, holdings_answer([held_row(v1["key"], 6 * o1, int(v1["decimals"]), 90.0),
+                                held_row(v2["key"], 1 * o2, int(v2["decimals"]), 30.0)]))
+    p1 = next((r for r in b["positions"] if r["key"] == v1["key"]), {})
+    p2 = next((r for r in b["positions"] if r["key"] == v2["key"]), {})
+    # Buy 10 for 1,000 (avg 100), sell 4 for 300: realized 300 - 400 = -100;
+    # 6 left at 600, worth 540: unrealized -60, total -160.
+    check(p1.get("realized_usd") == -100.0 and p1.get("unrealized_usd") == -60.0 and p1.get("total_usd") == -160.0,
+          f"LOSS realized -100, unrealized -60, total -160 ({p1.get('realized_usd')}, {p1.get('unrealized_usd')})")
+    check(p2.get("pnl") == "unknown" and p2.get("reason") == "holding_began_with_transfer"
+          and "began with tokens that arrived without a purchase" in b["reasons"].get("holding_began_with_transfer", ""),
+          f"REASON the holding began with a transfer in after earlier buys ({p2.get('reason')})")
 
 
 def order_checks() -> None:
@@ -727,6 +857,10 @@ def main() -> int:
         receipts_checks()
         order_checks()
         busy_wallet_checks()
+        time_order_checks()
+        overflow_checks()
+        progress_checks()
+        realized_loss_checks()
         loss_checks()
         notread_checks()
         route_checks()

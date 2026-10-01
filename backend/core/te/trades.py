@@ -116,6 +116,14 @@ STEP_SECONDS = 14.0
 # not searched, never as searched. Measured 2026-10-01: an active Base wallet
 # spent about 2,400 calls on them, a buy-and-hold wallet under 100.
 ROUND_TRIP_CALLS = 300
+# An ordinary wallet has a few dozen transfers of listed versions on a chain;
+# a pool, a router or a market maker has tens of thousands (one such address
+# grew a job to 72,000 transfers and the server by about 110 MB, 2026-10-01).
+# Past MAX_TRANSFERS on one chain the read stops there, says so, and frees
+# what it held; across all jobs at most TOTAL_TRANSFERS are kept, the least
+# recently asked-for jobs dropped first.
+MAX_TRANSFERS = 2_000
+TOTAL_TRANSFERS = 30_000
 RECEIPTS_FIRST = 40          # receipts read at the start of a step, before searching on
 CALLS_PER_STEP = 400
 # 29 minutes, so with the timer below (every minute) no job outlives 30.
@@ -215,9 +223,19 @@ class ChainJob:
         self.started = False
         self.rt_calls = 0                     # calls spent on round-trip checks
         self.rt_skipped: list[tuple[int, int]] = []   # round-trip ranges left unsearched
+        self.overflow = False                 # past MAX_TRANSFERS: not read, nothing kept
+        self.progress = 0                     # ranges settled and receipts and headers read
 
     def missing_receipts(self) -> int:
-        return len({k[0] for k in self.logs} - set(self.receipts))
+        """Transactions found whose receipt, or whose block's time, is not
+        read yet. A trade is costed in block order on its chain, but a trade
+        with no time cannot be placed among other chains' trades, so it
+        counts as unread."""
+        txs = {k[0] for k in self.logs}
+        no_receipt = txs - set(self.receipts)
+        no_time = {t for t in txs & set(self.receipts)
+                   if int(self.receipts[t]["blockNumber"], 16) not in self.block_times}
+        return len(no_receipt) + len(no_time)
 
     def remaining(self) -> dict:
         changes = sum(1 for k, *_ in self.pending if k == 0)
@@ -226,7 +244,14 @@ class ChainJob:
 
     def complete(self) -> bool:
         return (self.started and not self.pending and self.error is None and self.mode != "none"
-                and self.missing_receipts() == 0)
+                and not self.overflow and self.missing_receipts() == 0)
+
+    def drop(self) -> None:
+        """Too many transfers: everything held is freed, and the chain is
+        reported as not read."""
+        self.overflow = True
+        self.logs, self.receipts, self.block_times, self.states = {}, {}, {}, {}
+        self.pending, self.rt_skipped = [], []
 
 
 def _state(rpc: ChainRpc, chain_id: int, wallet: str, versions: list[dict], block: int) -> tuple:
@@ -284,11 +309,19 @@ def _windows(job: ChainJob, lo: int, hi: int, kind: int = 0) -> None:
         top = bottom
 
 
+class TooManyTransfers(Exception):
+    pass
+
+
 def _keep_logs(job: ChainJob, logs: list, listed: set[str]) -> None:
     for lg in logs:
         if (lg.get("address") or "").lower() not in listed or lg.get("removed"):
             continue
-        job.logs[(lg["transactionHash"].lower(), int(lg["logIndex"], 16))] = lg
+        # Only what the pairing needs is kept: the log itself is re-read from
+        # the receipt.
+        job.logs[(lg["transactionHash"].lower(), int(lg["logIndex"], 16))] = {"blockNumber": lg.get("blockNumber")}
+        if len(job.logs) > MAX_TRANSFERS:
+            raise TooManyTransfers()
 
 
 def _step_bisect(job: ChainJob, srpc: ChainRpc, lrpc: ChainRpc, wallet: str, versions: list[dict],
@@ -321,6 +354,7 @@ def _step_bisect(job: ChainJob, srpc: ChainRpc, lrpc: ChainRpc, wallet: str, ver
             job.rt_skipped.append((lo, hi))
             continue
         spent_before = budget[0]
+        job.progress += 1
         try:
             if leaf and hi - lo > job.window:
                 _windows(job, lo, hi, kind)
@@ -348,9 +382,11 @@ def _step_bisect(job: ChainJob, srpc: ChainRpc, lrpc: ChainRpc, wallet: str, ver
                 job.window = max(1, (hi - lo) // 2)
                 _windows(job, lo, hi, kind)
                 continue
+            job.progress -= 1
             _push(job, kind, lo, hi, leaf)
             raise
         except BaseException:
+            job.progress -= 1
             _push(job, kind, lo, hi, leaf)
             raise
         finally:
@@ -393,6 +429,7 @@ def _step_logs(job: ChainJob, rpc: ChainRpc, wallet: str, listed: set[str], budg
                     _keep_logs(job, _get_logs(rpc, lo + 1, hi, wallet, address=a), listed)
             else:
                 _keep_logs(job, _get_logs(rpc, lo + 1, hi, wallet), listed)
+            job.progress += 1
         except RpcError as e:
             if _should_split(e) and hi - lo > min_w:
                 mid = (lo + hi) // 2
@@ -408,22 +445,39 @@ def _step_logs(job: ChainJob, rpc: ChainRpc, wallet: str, listed: set[str], budg
             budget[0] -= rpc.stats.calls - before
 
 
-def _receipts(job: ChainJob, rpc: ChainRpc, budget: list[int]) -> None:
+def _trim_receipt(r: dict, wallet: str) -> dict:
+    """The receipt with only what the pairing reads: the Transfer logs to or
+    from the wallet, the sender, status, block and gas fields."""
+    wt = _topic(wallet)
+    logs = [{"address": lg.get("address"), "topics": (lg.get("topics") or [])[:3], "data": lg.get("data"),
+             "logIndex": lg.get("logIndex")}
+            for lg in r.get("logs") or []
+            if len(lg.get("topics") or []) >= 3 and lg["topics"][0].lower() == TRANSFER
+            and wt in (lg["topics"][1].lower(), lg["topics"][2].lower())]
+    keep = {k: r.get(k) for k in ("from", "status", "blockNumber", "gasUsed", "effectiveGasPrice", "l1Fee") if k in r}
+    return {**keep, "logs": logs}
+
+
+def _receipts(job: ChainJob, rpc: ChainRpc, budget: list[int], wallet: str | None = None) -> None:
+    """Receipts not read yet, then block times not read yet (a header read
+    that failed is tried again on the next step)."""
     for tx in sorted({k[0] for k in job.logs}):
-        if tx in job.receipts:
-            continue
         if budget[0] <= 0:
             return
         before = rpc.stats.calls
         try:
-            r = rpc.call("eth_getTransactionReceipt", [tx])
-            if isinstance(r, dict):
-                job.receipts[tx] = r
-                b = int(r["blockNumber"], 16)
-                if b not in job.block_times:
-                    blk = rpc.call("eth_getBlockByNumber", [hex(b), False])
-                    if isinstance(blk, dict) and blk.get("timestamp"):
-                        job.block_times[b] = int(blk["timestamp"], 16)
+            if tx not in job.receipts:
+                r = rpc.call("eth_getTransactionReceipt", [tx])
+                if not isinstance(r, dict):
+                    continue
+                job.receipts[tx] = _trim_receipt(r, wallet) if wallet else r
+                job.progress += 1
+            b = int(job.receipts[tx]["blockNumber"], 16)
+            if b not in job.block_times:
+                blk = rpc.call("eth_getBlockByNumber", [hex(b), False])
+                if isinstance(blk, dict) and blk.get("timestamp"):
+                    job.block_times[b] = int(blk["timestamp"], 16)
+                    job.progress += 1
         finally:
             budget[0] -= rpc.stats.calls - before
 
@@ -431,7 +485,7 @@ def _receipts(job: ChainJob, rpc: ChainRpc, budget: list[int]) -> None:
 def step_chain(job: ChainJob, wallet: str, held: list[str], deadline: float) -> None:
     """One bounded step on one chain. Errors are kept on the job (a short
     public category), never raised."""
-    if job.mode == "none":
+    if job.mode == "none" or job.overflow:
         return
     cid = job.chain_id
     versions = versions_on_buy_chains().get(cid) or []
@@ -443,14 +497,16 @@ def step_chain(job: ChainJob, wallet: str, held: list[str], deadline: float) -> 
     try:
         # Receipts of transfers already found come first, so a chain's trades
         # show while the rest of its history is still being searched.
-        _receipts(job, lrpc, [RECEIPTS_FIRST])
+        _receipts(job, lrpc, [RECEIPTS_FIRST], wallet)
         if job.mode == "bisect":
             _step_bisect(job, srpc, lrpc, wallet, versions, listed, budget)
         else:
             _step_logs(job, lrpc, wallet, listed, budget,
                        addresses=[a.lower() for a in held] if job.mode == "held" else None)
         budget[0] = max(budget[0], 60)   # receipts get their own small share
-        _receipts(job, lrpc, budget)
+        _receipts(job, lrpc, budget, wallet)
+    except TooManyTransfers:
+        job.drop()
     except RpcError as e:
         job.error = public_reason(e)
     except Exception as e:  # noqa: BLE001  the endpoint, not the wallet
@@ -599,7 +655,7 @@ def job_for(wallet: str) -> Job:
 
 def is_fresh(job: Job) -> bool:
     return (job.stepped_at is not None and time.monotonic() - job.stepped_at < FRESH_SECONDS
-            and all(c.complete() or c.mode == "none" for c in job.chains.values()))
+            and all(c.complete() or c.mode == "none" or c.overflow for c in job.chains.values()))
 
 
 def step(job: Job, held_by_chain: dict[int, list[str]], *, step_s: float = STEP_SECONDS) -> None:
@@ -623,6 +679,25 @@ def step(job: Job, held_by_chain: dict[int, list[str]], *, step_s: float = STEP_
             list(ex.map(lambda c: step_chain(c, job.wallet, held_by_chain.get(c.chain_id) or [], deadline), work))
         job.stepped_at = time.monotonic()
         job.touched = job.stepped_at
+    _bound_total(job)
+
+
+def held_transfers(job: Job) -> int:
+    return sum(len(c.logs) for c in job.chains.values())
+
+
+def _bound_total(keep: Job) -> None:
+    """At most TOTAL_TRANSFERS kept across all jobs: the least recently
+    asked-for other jobs are dropped until it fits."""
+    with _jobs_lock:
+        total = sum(held_transfers(j) for j in _jobs.values())
+        for k in sorted(_jobs, key=lambda k: _jobs[k].touched):
+            if total <= TOTAL_TRANSFERS:
+                break
+            if _jobs[k] is keep:
+                continue
+            total -= held_transfers(_jobs[k])
+            del _jobs[k]
 
 
 def chain_report(c: ChainJob) -> dict:
@@ -631,15 +706,23 @@ def chain_report(c: ChainJob) -> dict:
            "method": MODE_TEXT[c.mode]}
     if c.mode == "none":
         return {**out, "status": "not_read", "reason": m["reason"]}
+    if c.overflow:
+        return {**out, "status": "not_read", "too_many_transfers": True,
+                "reason": (f"Over {MAX_TRANSFERS:,} transfers of listed tokens on this chain: too many for an ordinary "
+                           "wallet (a pool, a router or a market maker), so its trades are not read here.")}
     if not c.started:
         return {**out, "status": "failed" if c.error else "not_started", "reason": c.error}
     rem = c.remaining()
     status = "complete" if c.complete() else (
         "failed" if c.error and not c.pending and not c.missing_receipts() else "partial")
+    if status == "complete" and c.rt_skipped:
+        # Read as far as it will go, with ranges left unsearched: not
+        # "complete", and its positions' P/L is not shown (pnl.py).
+        status = "limited"
     out.update(status=status, from_block=c.floor, to_block=c.covered_to, remaining=rem, calls=c.calls,
                transfers_found=len(c.logs), receipts_read=len(c.receipts),
                receipts_missing=c.missing_receipts(),
-               round_trip_ranges_not_searched=len(c.rt_skipped))
+               round_trip_ranges_not_searched=len(c.rt_skipped), progress=c.progress)
     if c.error:
         out["reason"] = c.error
     if c.mode == "held":

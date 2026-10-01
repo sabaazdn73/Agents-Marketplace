@@ -608,8 +608,13 @@ export default function PrivacyPage({ onBack }) {
             not read the chains again; it is not written to disk, and it is gone when the server
             restarts. Like the holdings route, it counts in memory for one minute how many new reads
             each network address started, which holds no wallet address, and how many steps each
-            wallet&apos;s read started, under a one-way digest of the address, so that one long
-            history cannot take the whole budget.
+            wallet&apos;s read started, so that one long history cannot take the whole budget. That
+            count is filed under a keyed digest of the address: the key is random, made when the
+            server starts, and never stored or sent anywhere, so the digest cannot be matched
+            against an address from outside the server; a timer clears each count once it is a
+            minute old, checking every fifteen seconds. A wallet with more than 2,000 transfers of
+            listed tokens on one chain (a pool or a router, not an ordinary wallet) is not read on
+            that chain, and what was read there is dropped at once.
           </p>
           <p>
             Pages about an agent (Explore agents, and an agent&apos;s page) fetch its figures with

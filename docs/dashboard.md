@@ -99,7 +99,12 @@ windows; Robinhood Chain only for the versions held now (one sold in full
 there is not found); BNB Chain not at all (no public endpoint serves its
 history). For a very active wallet, the checks for a buy and a sale of the
 same size inside a range where its holdings did not change are capped; the
-ranges left are named on the card ("some ranges not searched").
+ranges left are named on the card ("some ranges not searched"), and the P/L
+of the positions on that chain is not shown, since a trade could be missing.
+An address with more than 2,000 transfers of listed tokens on one chain (a
+pool or a router) is not read on that chain. Each version's trades are
+costed in the chain's own order (block, then position in the block); the
+times only order the list of recent trades across chains.
 
 **Dividends.** Says "Not measured yet": it would need each token's
 multiplier changes for the wallet, which Tnega does not read yet. The value

@@ -69,6 +69,11 @@ REASONS = {
                              "is not known."),
     "no_current_value": ("Tnega has no current measured price for this version, so its unrealized P/L is not "
                          "shown."),
+    "ranges_not_searched": ("Some block ranges of this chain's history were not searched (the read's limit for an "
+                            "active wallet was reached), so a buy and a sale inside them could be missing and the "
+                            "P/L is not shown."),
+    "holding_began_with_transfer": ("The current holding began with tokens that arrived without a purchase (a "
+                                    "transfer, a reward or a bridge), not with a buy, so its cost is not known."),
     "held_only_search": ("On this chain only the versions held now are searched; this one is not held, so its "
                          "history may be incomplete."),
     "cycles_left_out": ("Earlier holdings of this token, sold or sent out in full, are left out of the figures: "
@@ -136,10 +141,12 @@ def cycle_why(c: dict) -> str:
 
 
 def walk(trades: list[dict]) -> dict[str, dict]:
-    """The average-cost walk in holding cycles, per version key, over trades
-    oldest first."""
+    """The average-cost walk in holding cycles, per version key. Each
+    version is on one chain, and its trades are costed strictly in chain
+    order (block, then log index), whatever order they arrive in: block times
+    order the display across chains, never the cost."""
     out: dict[str, dict] = {}
-    for t in trades:
+    for t in sorted(trades, key=lambda t: (t.get("chain_id") or 0, t.get("block") or 0, t.get("log_index") or 0)):
         k = t["key"]
         p = out.setdefault(k, {
             "open": None, "closed": [], "trades": 0, "buys": 0, "sells": 0, "transfers": 0,
@@ -267,12 +274,16 @@ def positions(trades: list[dict], held: list[dict], chain_status: dict[int, dict
         reason = None
         if cs.get("status") == "not_read":
             reason = "chain_not_read"
+        elif cs.get("status") == "limited":
+            reason = "ranges_not_searched"
         elif cs.get("status") != "complete":
             reason = "history_partial"
         elif not w or w["buys"] == 0:
             reason = "no_purchase_found"
         elif open_qty != balance:
             reason = "held_only_search" if cs.get("mode") == "held" and not h else "quantity_mismatch"
+        elif o is not None and o["buys"] == 0:
+            reason = "holding_began_with_transfer"
         elif o is not None and not cycle_known(o):
             reason = cycle_why(o)
         elif not known_closed and o is None:

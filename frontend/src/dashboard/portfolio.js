@@ -175,6 +175,6 @@ export function tradeGaps(trades) {
     reading: chains.filter((c) => c.status === 'partial' || c.status === 'not_started'),
     notRead: chains.filter((c) => c.status === 'not_read'),
     failed: chains.filter((c) => c.status === 'failed'),
-    gapped: chains.filter((c) => c.status === 'complete' && c.round_trip_ranges_not_searched > 0),
+    gapped: chains.filter((c) => c.status === 'limited'),
   };
 }
