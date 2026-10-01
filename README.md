@@ -49,7 +49,7 @@ BNB Chain, Robinhood Chain, HyperEVM and Solana; universe read on 26 September
   supplies the quote at buying time. Every source is listed in
   [Data sources](docs/data-sources.md) and on the site's
   [Data sources page](https://www.tnega.app/data-sources).
-- **MCP server**: `https://agents-marketplace-q3k4.onrender.com/mcp`, JSON-RPC
+- **MCP server**: `https://mcp.tnega.app/mcp`, JSON-RPC
   over POST, no key. `npx tnega-mcp` adds it to a client
   ([mcp/npm](mcp/npm/README.md)). Tools and datasets:
   [MCP tools](docs/mcp-tools.md).

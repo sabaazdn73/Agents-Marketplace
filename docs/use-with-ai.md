@@ -12,7 +12,7 @@ The screenshot is this page as built from this documentation's branch, taken on
 
 What the page holds:
 
-- **The endpoint**, `https://agents-marketplace-q3k4.onrender.com/mcp`, JSON-RPC over POST, no authentication.
+- **The endpoint**, `https://mcp.tnega.app/mcp`, JSON-RPC over POST, no authentication.
 - **The nine tools**, one line each. They are listed in full on [MCP tools](mcp-tools.md).
 - **The one command**, `npx tnega-mcp`, which writes one config entry through the client's own command line and does nothing else, and what it runs underneath.
 - **The config entry for other clients**, and each client's own config shape with the date it was read from that client's documentation.

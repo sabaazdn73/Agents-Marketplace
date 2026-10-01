@@ -346,7 +346,7 @@ export function Eligibility({ e }) {
  * and the full table is the page /issuer-controls (pages/IssuerControls.jsx). */
 
 /* 13 · Use with AI. The MCP endpoint and the install, which are real today. */
-const MCP_URL = 'https://agents-marketplace-q3k4.onrender.com/mcp';
+const MCP_URL = 'https://mcp.tnega.app/mcp';
 export function AiCard() {
   const [copied, setCopied] = useState(false);
   const cmd = 'npx tnega-mcp';

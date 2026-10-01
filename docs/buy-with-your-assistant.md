@@ -53,7 +53,7 @@ the Docs link; everything under the header is as taken on 30 September.
 The endpoint:
 
 ```text
-https://agents-marketplace-q3k4.onrender.com/mcp
+https://mcp.tnega.app/mcp
 ```
 
 In Claude Code, one command writes the config entry and does nothing else:
@@ -66,7 +66,7 @@ What that command runs underneath, if you would rather run it yourself (the
 same on macOS, Windows and Linux):
 
 ```bash
-claude mcp add --transport http tnega https://agents-marketplace-q3k4.onrender.com/mcp
+claude mcp add --transport http tnega https://mcp.tnega.app/mcp
 ```
 
 For any other MCP client, add the endpoint as a remote HTTP server in that

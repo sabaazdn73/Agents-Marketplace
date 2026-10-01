@@ -85,7 +85,7 @@ const TELEGRAM_URL = 'https://t.me/Tnega_bot';
 // rather than derived from VITE_API_BASE_URL: a local dev build would
 // otherwise print http://localhost:8000/mcp on a page whose whole job is to
 // give a reader an address they can paste.
-export const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
+export const MCP_ENDPOINT = 'https://mcp.tnega.app/mcp';
 
 // ADDING THE SERVER, and the correction that produced this shape.
 //
@@ -114,7 +114,7 @@ export const MCP_ENDPOINT = 'https://agents-marketplace-q3k4.onrender.com/mcp';
 export const MCP_NPX_COMMAND = 'npx tnega-mcp';
 
 export const MCP_ADD_COMMAND =
-  'claude mcp add --transport http tnega https://agents-marketplace-q3k4.onrender.com/mcp';
+  'claude mcp add --transport http tnega https://mcp.tnega.app/mcp';
 
 const MCP_CONFIG_HOMES = [
   { os: 'macOS', path: '~/.claude.json' },

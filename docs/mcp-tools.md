@@ -4,7 +4,7 @@ Tnega's MCP server gives an assistant the measurements on this site. It is
 hosted, needs no key or account, and speaks JSON-RPC over POST at:
 
 ```text
-https://agents-marketplace-q3k4.onrender.com/mcp
+https://mcp.tnega.app/mcp
 ```
 
 How to connect it is on [Use with AI](use-with-ai.md) and in step 1 of
@@ -64,7 +64,7 @@ then retry.
 Anything that can POST JSON can call it. This lists the tools:
 
 ```bash
-curl -s https://agents-marketplace-q3k4.onrender.com/mcp \
+curl -s https://mcp.tnega.app/mcp \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
@@ -72,7 +72,7 @@ curl -s https://agents-marketplace-q3k4.onrender.com/mcp \
 This is the call behind the buying guide's example:
 
 ```bash
-curl -s https://agents-marketplace-q3k4.onrender.com/mcp \
+curl -s https://mcp.tnega.app/mcp \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"tnega_prepare_buy","arguments":{"query":"NVDA","usd_amount":5,"wallet":"0x000000000000000000000000000000000000dEaD","pay_with":"USDC"}}}'
 ```
