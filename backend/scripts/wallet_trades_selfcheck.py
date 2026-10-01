@@ -304,6 +304,7 @@ def invented_checks() -> None:
     check(p.get("realized_usd") == 0.0 and b["totals"]["total_usd"] == p.get("unrealized_usd")
           and b["totals"]["invested_usd"] == 7.0 and b["totals"]["buys"] == 1,
           "INVENTED totals: realized 0, total = unrealized, invested 7, one buy")
+    check(b.get("holdings") == h, "INVENTED the answer carries the holdings read its P/L was valued with")
     check(STAND_IN[2:] not in json.dumps(b).lower(), "INVENTED the wallet address is nowhere in the answer")
     check(b["trades"][0].get("tx_url", "").startswith("https://basescan.org/tx/0x"), "INVENTED explorer link")
 
@@ -662,6 +663,43 @@ def realized_loss_checks() -> None:
           f"REASON the holding began with a transfer in after earlier buys ({p2.get('reason')})")
 
 
+def head_error_checks() -> None:
+    """A chain read in full stays complete when only a later head read fails."""
+    w = "0x00000000000000000000000000000000000ca5f7"
+    v = base_versions(1)[0]
+    one = 10 ** int(v["decimals"])
+    chain = FakeChain(8453, BASE_HEAD, [
+        {"block": 30_000_000, "sender": w, "transfers": [(USDC_BASE, w, LIFI, 1_000_000), (v["address"], LIFI, w, one)]}],
+        max_range=2_000)
+    install({8453: chain})
+    h = holdings_answer([held_row(v["key"], one, int(v["decimals"]), 1.0)])
+    b1 = run(w, h)
+    orig = FakeRpc.call
+
+    def failing(self, method, params, **k):
+        if method == "eth_blockNumber":
+            raise RpcError("transient", "request timed out")
+        return orig(self, method, params, **k)
+    FakeRpc.call = failing
+    try:
+        with T._jobs_lock:
+            for j in T._jobs.values():
+                j.stepped_at = None
+        gate_reset()
+
+        async def hold(_w):
+            return h
+        b2 = asyncio.run(TV.wallet_trades(w, None, holdings=hold, natives=_natives))
+    finally:
+        FakeRpc.call = orig
+    c1 = next(c for c in b1["chains"] if c["chain_id"] == 8453)
+    c2 = next(c for c in b2["chains"] if c["chain_id"] == 8453)
+    p2 = next((r for r in b2["positions"] if r["key"] == v["key"]), {})
+    check(c1["status"] == "complete" and c2["status"] == "complete" and "head_read" in c2 and b2["status"] == "complete"
+          and p2.get("pnl") == "known",
+          f"HEAD a failed head read keeps a fully read chain complete ({c1['status']} -> {c2['status']}, {c2.get('head_read')})")
+
+
 def order_checks() -> None:
     """4: recent trades in time order across chains."""
     w = "0x00000000000000000000000000000000000ca5ec"
@@ -829,6 +867,9 @@ def live_check() -> None:
           f"{p.get('unrealized_usd')} ({p.get('unrealized_pct')}%), gas ${p.get('gas_usd')}")
     print(f"      totals: {json.dumps(body['totals'])}")
     only_buys = nv and len(nv) == len([t for t in base if t.get("key") == NVDAC_KEY])
+    if p.get("unrealized_reason") == "no_current_value" or p.get("value_usd") is None:
+        print("      no measured price for NVDAc on Base right now (held or missing): P/L not checked")
+        return
     if only_buys:
         paid = sum(Decimal(t["usd"]) for t in nv)
         qty = sum(Decimal(t["quantity"]) for t in nv)
@@ -857,6 +898,7 @@ def main() -> int:
         receipts_checks()
         order_checks()
         busy_wallet_checks()
+        head_error_checks()
         time_order_checks()
         overflow_checks()
         progress_checks()

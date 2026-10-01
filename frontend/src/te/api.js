@@ -329,7 +329,10 @@
 //                  not read; a chain is complete only at 0), round_trip_ranges_not_searched? (ranges left
 //                  when the round-trip check limit was reached; named in
 //                  note) }],
-//       holdings_status, holdings_as_of,
+//       holdings_status, holdings_as_of, holdings (the whole
+//       /api/wallet/holdings answer the P/L was valued with; the Dashboard
+//       shows whichever holdings read began later, its own or this one, in
+//       every card, so values and P/L always come from one read),
 //       gas_prices: { ETH|HYPE: { price_usd, pool_label, block, read_at } },
 //       method, trade_basis, return_basis, gas_basis, stable_basis,
 //       price_basis, reasons: { code: sentence }, read_started_at,

@@ -186,6 +186,14 @@ function HyperliquidHead({ habits }) {
   );
 }
 
+/** The later of two holdings answers, by when each read began. */
+export function newestHoldings(own, viaTrades) {
+  if (!viaTrades || typeof viaTrades !== 'object' || !viaTrades.chains) return own;
+  if (!own) return viaTrades;
+  const t = (x) => Date.parse(x?.read_started_at || '') || 0;
+  return t(viaTrades) > t(own) ? viaTrades : own;
+}
+
 const HIDE_KEY = 'tnega_dashboard_hide_amounts';
 
 /** The eye on the Portfolio card: amounts shown or dotted out, remembered in
@@ -212,7 +220,12 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
   const equities = useEquityHoldings(status === 'disconnected' ? null : address);
   const trades = useWalletTrades(status === 'disconnected' ? null : address);
   const [hidden, toggleHidden] = useHideAmounts();
-  const holdings = equities.status === 'ok' ? equities.data : null;
+  // One holdings read for every card: the trades answer carries the holdings
+  // read its P/L was valued with, which can be newer than the one this page
+  // asked for itself (the server re-reads holdings at most once a minute).
+  // Whichever began later is shown everywhere, so the Positions values and
+  // the P/L always come from the same read.
+  const holdings = newestHoldings(equities.status === 'ok' ? equities.data : null, trades.data?.holdings);
   const d = useMemo(() => derive(holdings), [holdings]);
 
   if (status === 'disconnected') return <Intro embedded={embedded} onSignIn={onConnect || (() => openSignIn())} />;

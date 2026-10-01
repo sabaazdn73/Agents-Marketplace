@@ -265,6 +265,10 @@ def shape(h: dict, snap: dict, native: dict[str, dict], now: float | None = None
         "chains": snap["chains"],
         "holdings_status": h.get("status"),
         "holdings_as_of": h.get("as_of"),
+        # The holdings answer these positions were valued with, whole: the
+        # Dashboard shows its balances and values from whichever holdings
+        # read is newer, so the P/L and the Positions card never disagree.
+        "holdings": h,
         "gas_prices": gas_prices,
         "method": pnl.METHOD,
         "trade_basis": ("A trade is a transaction in which this wallet's balance of one listed version and of the "

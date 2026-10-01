@@ -223,6 +223,7 @@ class ChainJob:
         self.started = False
         self.rt_calls = 0                     # calls spent on round-trip checks
         self.rt_skipped: list[tuple[int, int]] = []   # round-trip ranges left unsearched
+        self.head_error: str | None = None    # the last head read that failed on a complete chain
         self.overflow = False                 # past MAX_TRANSFERS: not read, nothing kept
         self.progress = 0                     # ranges settled and receipts and headers read
 
@@ -493,6 +494,7 @@ def step_chain(job: ChainJob, wallet: str, held: list[str], deadline: float) -> 
     budget = [CALLS_PER_STEP]
     lrpc = make_rpc(cid, "logs", deadline)
     srpc = make_rpc(cid, "state", deadline) if job.mode == "bisect" else lrpc
+    was_complete = job.complete()
     job.error = None
     try:
         # Receipts of transfers already found come first, so a chain's trades
@@ -512,6 +514,14 @@ def step_chain(job: ChainJob, wallet: str, held: list[str], deadline: float) -> 
     except Exception as e:  # noqa: BLE001  the endpoint, not the wallet
         job.error = public_reason(e)
     finally:
+        if job.error and was_complete and not job.pending and job.missing_receipts() == 0:
+            # A chain read in full stays complete when only the read of the
+            # new head failed: nothing found is left unfinished, and its
+            # history stands to to_block. The next step tries the head again.
+            job.head_error = job.error
+            job.error = None
+        elif not job.error:
+            job.head_error = None
         job.calls += lrpc.stats.calls + (srpc.stats.calls if srpc is not lrpc else 0)
         lrpc.close()
         if srpc is not lrpc:
@@ -725,6 +735,8 @@ def chain_report(c: ChainJob) -> dict:
                round_trip_ranges_not_searched=len(c.rt_skipped), progress=c.progress)
     if c.error:
         out["reason"] = c.error
+    if c.head_error:
+        out["head_read"] = f"the newest blocks were not read this time ({c.head_error}); read to block {c.covered_to}"
     if c.mode == "held":
         out["note"] = ("Only the versions held now are searched here; a version bought and sold in full on this "
                        "chain is not found.")
