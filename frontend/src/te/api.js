@@ -332,7 +332,8 @@
 //       holdings_status, holdings_as_of, holdings (the whole
 //       /api/wallet/holdings answer the P/L was valued with; the Dashboard
 //       shows whichever holdings read began later, its own or this one, in
-//       every card, so values and P/L always come from one read),
+//       every card, so values and P/L come from one read; after "Read again"
+//       on a finished trades read the P/L can briefly lag the values),
 //       gas_prices: { ETH|HYPE: { price_usd, pool_label, block, read_at } },
 //       method, trade_basis, return_basis, gas_basis, stable_basis,
 //       price_basis, reasons: { code: sentence }, read_started_at,
