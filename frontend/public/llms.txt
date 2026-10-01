@@ -4,7 +4,7 @@
 
 Tnega has a free hosted MCP server. No account, no API key.
 
-- MCP endpoint (JSON-RPC over HTTP POST): https://agents-marketplace-q3k4.onrender.com/mcp
+- MCP endpoint (JSON-RPC over HTTP POST): https://mcp.tnega.app/mcp
 - Claude Code: `npx tnega-mcp` (writes the config entry, runs nothing else)
 - Start with the tool `tnega_catalogue`; it lists every dataset, its keys and its live coverage.
 

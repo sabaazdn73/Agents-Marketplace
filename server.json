@@ -7,6 +7,6 @@
   "websiteUrl": "https://www.tnega.app",
   "repository": { "url": "https://github.com/sabaazdn73/Agents-Marketplace", "source": "github" },
   "remotes": [
-    { "type": "streamable-http", "url": "https://agents-marketplace-q3k4.onrender.com/mcp" }
+    { "type": "streamable-http", "url": "https://mcp.tnega.app/mcp" }
   ]
 }

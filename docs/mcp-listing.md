@@ -18,7 +18,7 @@ Short (under 100 characters): `Real cost of buying tokenized stocks on every cha
 | Field | Value |
 |---|---|
 | Name | Tnega |
-| Endpoint | `https://agents-marketplace-q3k4.onrender.com/mcp` (streamable HTTP, JSON-RPC over POST) |
+| Endpoint | `https://mcp.tnega.app/mcp` (streamable HTTP, JSON-RPC over POST) |
 | Auth | none |
 | Install (Claude Code) | `npx tnega-mcp` |
 | npm | `tnega-mcp` |
@@ -51,7 +51,7 @@ asks the publisher to authenticate with GitHub. That login is hers to do.
   "websiteUrl": "https://www.tnega.app",
   "repository": { "url": "https://github.com/sabaazdn73/Agents-Marketplace", "source": "github" },
   "remotes": [
-    { "type": "streamable-http", "url": "https://agents-marketplace-q3k4.onrender.com/mcp" }
+    { "type": "streamable-http", "url": "https://mcp.tnega.app/mcp" }
   ]
 }
 ```
@@ -81,7 +81,9 @@ Render's. This branch makes that host answer `/favicon.ico` (and
 `/icon-192.png`, `/icon-512.png`) with Fendi and adds `icons` to `serverInfo`.
 Clients that cache the old icon may need a reconnect.
 
-The lasting fix is a domain of Tnega's own, for example `mcp.tnega.app`, pointed
-at the Render service. Then the connector shows Fendi everywhere, directories look
+The lasting fix is a domain of Tnega's own. `mcp.tnega.app` was added to the Render
+service (free) and a CNAME `mcp` -> `agents-marketplace-q3k4.onrender.com` to
+Namecheap on 2026-10-01; verified, HTTPS and `/mcp` answer. The old onrender.com
+URL keeps working, and `npx tnega-mcp` 0.1.2 still writes it until the package is republished. Then the connector shows Fendi everywhere, directories look
 more serious, and the URL survives a change of host. That is a DNS record and a
 Render custom-domain setting, both the owner's.
