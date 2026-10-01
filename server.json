@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sabaazdn73/tnega",
+  "title": "Tnega",
+  "description": "Real cost of buying tokenized stocks on every chain, then sign in your own wallet. Read only.",
+  "version": "0.1.0",
+  "websiteUrl": "https://www.tnega.app",
+  "repository": { "url": "https://github.com/sabaazdn73/Agents-Marketplace", "source": "github" },
+  "remotes": [
+    { "type": "streamable-http", "url": "https://agents-marketplace-q3k4.onrender.com/mcp" }
+  ]
+}

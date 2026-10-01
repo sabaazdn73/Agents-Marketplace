@@ -1,6 +1,6 @@
 # Listing the MCP server so assistants can find it
 
-Drafted 2026-10-01. Nothing here has been submitted. Every submission is a public
+Drafted 2026-10-01; deploy and icons verified live the same evening. Nothing here has been submitted. Every submission is a public
 act under the owner's name, so each one waits for her yes.
 
 ## The one-paragraph description (use everywhere)
@@ -36,7 +36,7 @@ Short (under 100 characters): `Real cost of buying tokenized stocks on every cha
 4. List ERC-8004 agents on BNB Chain that have a verified delivered job.
 5. Compare the stablecoin vaults Tnega reads on chain.
 
-## Official MCP Registry (server.json draft)
+## Official MCP Registry (`server.json` at the repo root, ready)
 
 The registry namespaces GitHub-owned servers as `io.github.<user>/<name>` and
 asks the publisher to authenticate with GitHub. That login is hers to do.
@@ -56,8 +56,14 @@ asks the publisher to authenticate with GitHub. That login is hers to do.
 }
 ```
 
-Check the current schema URL and field names at the registry's quickstart before
-publishing; the schema revises often.
+The file is `server.json` in the repo root; its schema URL and `remotes` shape match
+the registry's remote-servers page as of 2026-10-01. To publish (hers, GitHub login):
+
+```
+brew install mcp-publisher        # or the release binary from the registry repo
+mcp-publisher login github        # opens a device-code page, she approves
+mcp-publisher publish             # run in the repo root
+```
 
 ## Other directories (each is a form or a pull request)
 
