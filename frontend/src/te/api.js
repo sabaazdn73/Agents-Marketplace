@@ -281,7 +281,7 @@
 //     HROW = { key, symbol, name, ticker, issuer, chain, chain_id, address,
 //       decimals, balance (exact decimal string), balance_raw, block,
 //       type: 'stock'|'etf'|null, value_usd | null, value_reason | null
-//       ('no_measured_price'|'price_too_old'|'price_store_unavailable'),
+//       ('no_measured_price'|'price_on_hold'|'price_too_old'|'price_store_unavailable'),
 //       price: { price_usd, block, computed_at, age_seconds, source:
 //       'tnega_cost_engine', basis } | null }
 //     TROW = { key ('<chain>/native' or '<chain>/<address>'), kind:

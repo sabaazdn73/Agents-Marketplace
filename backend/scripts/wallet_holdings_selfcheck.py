@@ -237,6 +237,12 @@ def price_checks() -> None:
     failed = {**fresh, "state": "failed"}
     body = V.shape(h, {NVDAC: failed}, True, now)
     check(body["stocks"][0]["value_reason"] == "no_measured_price", "PRICE an unmeasured record: no value")
+    held = {**fresh, "state": "held",
+            "reason": "a multiplier change was first seen at 2026-10-01T16:58:27Z, within 15 minutes of this block"}
+    body = V.shape(h, {NVDAC: held}, True, now)
+    check(body["stocks"][0]["value_usd"] is None and body["stocks"][0]["value_reason"] == "price_on_hold"
+          and "15 minutes" in body["reasons"]["price_on_hold"],
+          "PRICE a record on hold after a multiplier change: no value, price_on_hold explained")
     docs, ok = asyncio.run(V.stored_prices(Store(broken=True), ["NVDA"]))
     body = V.shape(h, docs, ok, now)
     check(not ok and body["stocks"][0]["value_reason"] == "price_store_unavailable"

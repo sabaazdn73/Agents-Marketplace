@@ -476,7 +476,7 @@ function rowLink(r) {
 
 function NoValue({ r, reasons }) {
   const why = r.value_reason ? (reasons?.[r.value_reason] || r.value_reason) : null;
-  return <span className="text-[12px] text-muted" title={why || undefined}>no value</span>;
+  return <span className="text-[12px] text-muted" title={why || undefined}>{r.value_reason === 'price_on_hold' ? 'price paused' : 'no value'}</span>;
 }
 
 export function PositionsCard({ d, data, read, hidden, compact = false }) {

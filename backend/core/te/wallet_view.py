@@ -133,6 +133,10 @@ PRICE_BASIS = ("balance x the pre-trade mid of this version's deepest measured p
 REASONS = {
     "no_measured_price": (
         "Tnega's cost engine has no measured pool price for this version, so no dollar value is shown."),
+    "price_on_hold": (
+        "The issuer changed how many shares one token stands for, and Tnega does not price a version for "
+        "15 minutes after such a change. The value returns at the next price run after that (runs are "
+        "every 15 minutes). The balance is unaffected."),
     "price_too_old": (
         "The last pool price measured for this version is more than a day old, so no dollar value is shown."),
     "price_store_unavailable": (
@@ -364,6 +368,8 @@ def _parse_iso(s: str | None) -> float | None:
 
 def price_of(doc: dict | None, now: float) -> tuple[dict | None, str | None]:
     """(price, None) or (None, reason code) for one stored cost record."""
+    if doc and doc.get("state") == "held":
+        return None, "price_on_hold"
     if not doc or doc.get("state") not in ("measured", "partial"):
         return None, "no_measured_price"
     mid = doc.get("ref_mid_usd")
