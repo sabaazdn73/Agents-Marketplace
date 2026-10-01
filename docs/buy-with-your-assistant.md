@@ -25,7 +25,7 @@ by you, in your wallet, on the signing page.
 
 ## Two routes: the site or your assistant
 
-- **On the site, Base only.** A stock's page has Buy and Sell tabs. On a Base version they ask LI.FI for a quote in your browser and you sign in your own wallet, with the same checks as the signing page below; on every other chain they say "not switched on yet". See [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell).
+- **On the site, all six chains.** A stock's page has Buy and Sell tabs. They ask LI.FI for a quote in your browser and you sign in your own wallet, with the same checks as the signing page below; a version with no measured pool price is refused with a short message. See [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell).
 - **Through your assistant, every chain an order can be prepared on** (Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM). The assistant prepares the order through Tnega's MCP server and you sign it on a `tnega.app/sign/…` page. That is the route this page follows.
 
 Either way you sign in your own wallet, LI.FI takes 0.25%, and Tnega takes no

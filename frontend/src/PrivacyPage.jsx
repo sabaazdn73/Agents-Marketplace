@@ -63,10 +63,27 @@ import { BUY_CHAINS } from './trade/chains';
 // only while the Buy panel is shown (trade/buyLive.js).
 const BUY_SHOWN = BUY_LIVE;
 // The Buy and Sell tabs on a stock's page, on the chains switched on in
-// trade/tradeLive.js (Base today), named from the same list.
-const TRADE_CHAIN_NAMES = TRADE_CHAIN_IDS.map((id) => BUY_CHAINS[id]?.name).filter(Boolean);
+// trade/tradeLive.js, named from the same list.
+// In the order the site lists chains elsewhere, not by number.
+const TRADE_ORDER = [1, 8453, 42161, 56, 4663, 999];
+const TRADE_IDS = TRADE_ORDER.filter((id) => TRADE_CHAIN_IDS.includes(id));
+const TRADE_CHAIN_NAMES = TRADE_IDS.map((id) => BUY_CHAINS[id]?.name).filter(Boolean);
+// Who the tabs' reads go to on each chain: the endpoint lists in wagmiConfig.js
+// (ETHEREUM_RPCS, BASE_READ_RPCS, ARBITRUM_RPCS, the BNB Chain transport in
+// rpcTransport.js, ROBINHOOD_RPCS, HYPEREVM_RPCS), in the order they are asked.
+const TRADE_RPC_WORDS = {
+  1: 'on Ethereum, PublicNode (ethereum-rpc.publicnode.com), with eth.merkle.io as a backup',
+  8453: 'on Base, Base\'s public endpoint, then, when it fails or turns a request away (for example when it is rate limited), PublicNode, dRPC (base.drpc.org), 1RPC (1rpc.io) and Blast (base-mainnet.public.blastapi.io) in that order, the whole list tried up to three more times if all five fail',
+  42161: 'on Arbitrum, Arbitrum\'s public endpoint (arb1.arbitrum.io), with dRPC (arbitrum.drpc.org) as a backup',
+  56: 'on BNB Chain, bloXroute, with Infura as a backup where it is configured',
+  4663: 'on Robinhood Chain, Robinhood Chain\'s public endpoint, with PublicNode as a backup',
+  999: 'on HyperEVM, Hyperliquid\'s public endpoint (rpc.hyperliquid.xyz), with no backup',
+};
+const TRADE_RPC_LIST = TRADE_IDS.map((id) => TRADE_RPC_WORDS[id]).filter(Boolean);
+/** "a, b and c". */
+const listText = (xs, sep = ', ') => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(sep)}${sep === ', ' ? ' and ' : '; and '}${xs[xs.length - 1]}`);
 
-const UPDATED = '30 September 2026';
+const UPDATED = '1 October 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
 const CONTACT = 'sabaazad93@gmail.com';
 
@@ -600,22 +617,22 @@ export default function PrivacyPage({ onBack }) {
           </p>)}
           {TRADE_CHAIN_NAMES.length > 0 && (<p>
             Buying or selling a tokenized stock from the Buy and Sell tabs on a stock&apos;s page
-            (on {TRADE_CHAIN_NAMES.join(' and ')}) happens between your browser, your wallet and
+            (on {listText(TRADE_CHAIN_NAMES)}) happens between your browser, your wallet and
             LI.FI (li.quest). When you press the button for a quote, your browser first reads our
             own stored measurements for that stock from our server, which sends no address, then
             sends LI.FI your wallet address, the chain, the two tokens and the amount; LI.FI answers
             with a route and the transaction for your wallet to sign. Nothing is sent to LI.FI
             before you press it. Your browser reads both tokens&apos; decimals, which sends no
             address, and your balance and your allowance to LI.FI&apos;s contract, which send your
-            wallet address, from the chain&apos;s public RPC providers. On Base each request goes
-            first to Base&apos;s public endpoint; if that fails or turns it away (for example when
-            it is rate limited), the same request goes to PublicNode, then dRPC (base.drpc.org),
-            then 1RPC (1rpc.io), then Blast (base-mainnet.public.blastapi.io); if all five fail,
-            the list is tried again, up to three more times. The stock token&apos;s decimals are
-            read a second time to check the first reading (and the stablecoin&apos;s, when its first
-            reading disagrees with this site&apos;s list), which sends no address: that request
-            starts at PublicNode and goes down the same list, with Base&apos;s public endpoint
-            last. After you sign, your browser asks LI.FI for the
+            wallet address, from the public RPC providers of the stock&apos;s chain, and only while
+            a Buy or Sell tab for that chain is open: {listText(TRADE_RPC_LIST, '; ')}. A backup
+            receives the same request when the ones before it do not answer. The stock
+            token&apos;s decimals are read a second time to check the first reading (and the
+            stablecoin&apos;s, when its first reading disagrees with this site&apos;s list), which
+            sends no address: where a chain has a backup, that request starts at the second
+            provider and goes down the same list, with the first one last; on BNB Chain and
+            HyperEVM it goes where the first reading went. A version with no measured pool price
+            reads nothing and asks LI.FI nothing. After you sign, your browser asks LI.FI for the
             transaction&apos;s status by its hash. None of this goes to our server. Your browser
             keeps a count of the quotes it asked for in the last two hours, in its own storage only.
           </p>)}

@@ -37,8 +37,8 @@ no fee.
 ## Buying
 
 There are two routes. On the site, a stock's page has Buy and Sell tabs,
-switched on for Base versions only: LI.FI quotes in your browser and you sign
-in your own wallet (see [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell)).
+switched on for all six chains (a version with no measured pool is refused):
+LI.FI quotes in your browser and you sign in your own wallet (see [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell)).
 On every chain an order can be prepared on, an assistant prepares the purchase
 through Tnega's MCP server and you sign it on a `tnega.app/sign/…` page. That
 route, with screenshots of every step, is

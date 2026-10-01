@@ -6,11 +6,12 @@
 // their own panel reads this file: the chains the site's wallet config can
 // switch to (wagmiConfig.js) and the privacy page's paragraph.
 //
-// Base is on: the one chain with a real run through the signing page's
-// checks (2026-09-30: 5 USDC to 0.0217831 NVDAc, an exact approval to
-// LI.FI's contract). A chain is switched on here only after a real buy and a
-// real sale have been run on it with a brand-new test wallet. Base: the buy
-// ran on 2026-09-30; the real sale is still to run.
+// Every chain is on: switched on by the owner's decision on 2026-10-01, so
+// that the owner can run real tests from the site. Base is the one chain with
+// a real run so far (2026-09-30: a buy of 5 USDC to 0.0217831 NVDAc, with an
+// exact approval to LI.FI's contract; the real sale is still to run). No real
+// buy or sale has run yet on Ethereum, Arbitrum, BNB Chain, Robinhood Chain or
+// HyperEVM.
 //
 // This is not the site's older Buy switch (trade/buyLive.js, home/sections.js
 // `buy`), which stays off: it governs the basket buys and the home section.
@@ -18,12 +19,12 @@
 import { DATA_LIVE } from '../dataLive.js';
 
 export const TRADE_SWITCH = {
-  1: false, // Ethereum
+  1: true, // Ethereum
   8453: true, // Base
-  42161: false, // Arbitrum
-  56: false, // BNB Chain
-  4663: false, // Robinhood Chain
-  999: false, // HyperEVM
+  42161: true, // Arbitrum
+  56: true, // BNB Chain
+  4663: true, // Robinhood Chain
+  999: true, // HyperEVM
 };
 
 /** Buy and Sell are offered for a version on this chain. */

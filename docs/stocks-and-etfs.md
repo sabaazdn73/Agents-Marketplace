@@ -78,22 +78,46 @@ Details is the part described above. Buy and Sell trade that version from your
 own wallet, routed by LI.FI in your browser. The tab is kept in the address
 (`?tab=buy`, `?tab=sell`).
 
-**Buy and Sell are switched on for Base only**, the one chain where a real buy
-has been run (5 USDC to NVDAc through the signing page, 30 September
-2026); no real sale has been run yet. On any other chain the tab says so and
-offers no control:
+**Buy and Sell are switched on for every chain a stock can be bought on
+here**: Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. The
+owner switched them on on 1 October 2026 so that real trades can be tested
+from the site. Only Base has had a real trade so far: a buy of 5 USDC to
+NVDAc through the signing page on 30 September 2026. No real sale has been
+run on any chain yet.
 
-![The Buy tab for NVDAB on BNB Chain: "Buying on BNB Chain is not switched on yet. Buy and Sell are switched on one chain at a time, after a real trade has been run there. Today that is Base."](images/stock-page-not-switched-on.png)
+What each tab pays with, or receives on a sale:
 
-On Base, Buy pays USDC and receives the stock token; Sell gives up the stock
-token (Max fills in the balance read on chain) and receives USDC. Each asks
+| Chain | Stablecoin |
+|---|---|
+| Ethereum, Base, Arbitrum, HyperEVM | USDC |
+| BNB Chain | USDT or USDC (a choice on the tab) |
+| Robinhood Chain | USDG |
+
+A version with no measured pool price (any version not marked filled: no pool found, too thin, not searched, or not a venue)
+has no measured price to check a quote against, so its tab says so in one
+line and offers no control. It reads nothing from the chain and asks LI.FI
+nothing. Today that is every version on Arbitrum and HyperEVM, and the versions
+elsewhere not marked filled (for example most xStocks versions on Ethereum,
+which are not a venue). Taken on 1 October 2026 at 13:33 UTC from
+this documentation's branch against the live API, with no wallet connected:
+
+![The Buy tab for NVDAx on Arbitrum: "Buying NVDAx on Arbitrum is not offered: there is no measured pool price to check a quote against. Our measurement: no pool against a dollar stablecoin found. Nothing is asked of LI.FI or your wallet."](images/stock-page-no-measured-pool.png)
+
+LI.FI chooses the route. A route the page cannot decode is refused before
+anything is offered for signing; a sale on Robinhood Chain, for example, may
+be routed through "LI.FI Intents", which the page does not read, and is then
+refused with a short note.
+
+Buy pays the stablecoin and receives the stock token; Sell gives up the stock
+token (Max fills in the balance read on chain) and receives the stablecoin.
+Connecting a wallet from a tab connects it on that tab's chain. Each tab asks
 LI.FI for a quote only when you press "Get a LI.FI quote", and shows LI.FI's
 estimate, the minimum after 0.50% slippage, LI.FI's 0.25% fee, the network
 fee, the route and when it was quoted.
 
 Before anything is offered for signing, the tab checks:
 
-- **The quote matches the trade.** The chains, tokens, amount and wallet; the recipient, which must be the connected wallet, at every step of the route; and the transaction's own receiver and minimum, decoded from its calldata. A route the page cannot decode is not used, and a route through Jupiter is refused.
+- **The quote matches the trade.** The chains, tokens, amount and wallet; the recipient, which must be the connected wallet, at every step of the route; every step, and the route itself, of a kind LI.FI documents (no bridge step on a trade within one chain); and the transaction's own receiver and minimum, decoded from its calldata. A route the page cannot decode is not used, and a route through Jupiter is refused.
 - **LI.FI's contract.** The contract called and the approval's spender must both be LI.FI's contract on that chain, pinned in the site's code.
 - **An exact approval.** The approval is for exactly the amount, never an unlimited one, as its own wallet prompt.
 - **The price, at two prices.** Our reference is Tnega's own measured price for that version (the pool's price and fees, and LI.FI's fee, on a buy; the pool's mid price on a sale). LI.FI's own dollar price for the token must be within 5% of ours. Then the minimum the route guarantees, valued at our price and at LI.FI's, must be within the trade's limit of what is given up. On the tabs that limit is at most 2%.
@@ -131,10 +155,12 @@ The same tabs in the dark theme:
 
 ![The Sell tab in the dark theme](images/stock-page-sell-tab-dark.png)
 
-![The "not switched on yet" card for a BNB Chain version, in the dark theme](images/stock-page-not-switched-on-dark.png)
+The card for a version with no measured pool, in the dark theme:
 
-For other chains, an order can still be prepared through an assistant and
-signed on a signing page: see [Buy a tokenized stock through your assistant](buy-with-your-assistant.md#two-routes-the-site-or-your-assistant).
+![The no-measured-pool card for NVDAx on Arbitrum, in the dark theme](images/stock-page-no-measured-pool-dark.png)
+
+An order can also be prepared through an assistant and signed on a signing
+page: see [Buy a tokenized stock through your assistant](buy-with-your-assistant.md#two-routes-the-site-or-your-assistant).
 
 The same page in the dark theme (the theme switch is in the header):
 

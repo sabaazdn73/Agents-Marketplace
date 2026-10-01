@@ -198,8 +198,16 @@ export function quoteMismatch(quote, p, { side = 'buy' } = {}) {
   // (action.toAddress); one that names none is accepted only as LI.FI's
   // "protocol" step (its fee collection), which moves no tokens to anyone.
   // Any other step without a recipient, and any step type LI.FI does not
-  // document (swap, cross, lifi, protocol), refuses the route.
-  const KNOWN = new Set(['swap', 'cross', 'lifi', 'protocol']);
+  // document (swap, cross, lifi, protocol), refuses the route; a missing type
+  // is an unknown one. The quote itself is a step too: every real quote read
+  // so far (Ethereum, Base, BNB Chain, Robinhood Chain, both sides) is a
+  // "lifi" step holding one "protocol" (the fee) and one "swap" step. On one
+  // chain a "cross" step (a bridge) has no place, at the top or below, so a
+  // same-chain route that names one is refused.
+  const sameChain = Number(p.fromChain) === Number(p.toChain);
+  const KNOWN = new Set(sameChain ? ['swap', 'lifi', 'protocol'] : ['swap', 'cross', 'lifi', 'protocol']);
+  const TOP = new Set(sameChain ? ['lifi', 'swap'] : ['lifi', 'cross', 'swap']);
+  if (!quote || typeof quote !== 'object' || !TOP.has(quote.type)) bad.push('a route of a kind not known');
   const steps = [];
   let tooDeep = false;
   const walk = (list, depth) => {

@@ -62,9 +62,9 @@ export const HYPEREVM_RPCS = ['https://rpc.hyperliquid.xyz/evm'];
 // THE BUY CHAINS ARE ADDED ONLY WHILE THE BUY PANEL IS SHOWN (trade/buyLive.js).
 // With it off the chain list is bsc, arbitrum and robinhood, as before the
 // buy flow, plus the chains the stock page's Buy and Sell tabs are switched
-// on for (trade/tradeLive.js, Base today, below). Sign-in's accepted chains
+// on for (trade/tradeLive.js, below). Sign-in's accepted chains
 // (SignInProvider KNOWN_CHAIN_IDS, read from SIGN_IN_CHAIN_IDS) do not
-// change, and no Ethereum endpoint is called.
+// change, and no Ethereum endpoint is called except by those tabs.
 //
 // NO ENS LOOKUP. With chain 1 configured, RainbowKit's AccountModal (always
 // mounted) resolves the connected address's ENS name on Ethereum at every
@@ -85,8 +85,10 @@ export const SIGN_IN_CHAIN_IDS = SIGN_IN_CHAINS.map((c) => c.id);
 // THE BUY AND SELL TABS' CHAINS (trade/tradeLive.js, one switch per chain):
 // the wallet has to be able to switch to a chain before anything can be
 // approved or signed there, so each chain switched on is added to the list,
-// once. Only Base is on today; Base has no ENS, and Ethereum, if it is ever
-// switched on here, is the no-ENS copy above.
+// once. Every buy chain is on since 2026-10-01 (Ethereum, Base, Arbitrum, BNB
+// Chain, Robinhood Chain, HyperEVM); Base has no ENS, and Ethereum is the
+// no-ENS copy above. A chain's endpoints are called only by a trade tab open
+// for a version on that chain (and by the wallet itself).
 const TRADE_CHAIN_OBJECTS = { [mainnet.id]: mainnetNoEns, [base.id]: base, [arbitrum.id]: arbitrum, [bsc.id]: bsc, [robinhood.id]: robinhood, [hyperEvm.id]: hyperEvm };
 const TRADE_CHAINS = TRADE_CHAIN_IDS
   .map((id) => TRADE_CHAIN_OBJECTS[id])
@@ -178,7 +180,8 @@ export const wagmiConfig = getDefaultConfig({
   // arbitrum and robinhood because AgentBudgetEscrow is deployed on both and
   // a budget there has to be opened on that chain. Ethereum, Base and
   // HyperEVM for the buy flow (trade/), only while it is shown (above), and
-  // each chain the Buy and Sell tabs are switched on for (Base today).
+  // each chain the Buy and Sell tabs are switched on for (all six since
+  // 2026-10-01).
   chains: ALL_CHAINS,
   transports: {
     [bsc.id]: getBscTransport(),

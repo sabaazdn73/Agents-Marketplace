@@ -6,8 +6,11 @@
 //         stock token;
 //   sell  part with the stock token the connected wallet holds, receive the
 //         chain's stablecoin. Max fills in the balance read on chain.
-// Shown only on a chain switched on in trade/tradeLive.js (Base today);
-// elsewhere the tab says so and offers no control.
+// Shown only on a chain switched on in trade/tradeLive.js (every buy chain
+// since 2026-10-01); elsewhere the tab says so and offers no control. A
+// version with no measured pool (no pool, too thin, not searched) cannot have
+// a quote checked against our own price, so its tab says that in one line,
+// before any wallet, endpoint or LI.FI request.
 //
 // THE SIGNING PAGE'S PROTECTIONS, the same code wherever it can be shared:
 //   - both tokens' decimals read on chain (sign/tokenMeta.js), the
@@ -112,8 +115,24 @@ export function NotSwitchedOn({ v, side }) {
     <Card>
       <p className="text-[14px] text-fg">{side === 'sell' ? 'Selling' : 'Buying'} on {v.chain} is not switched on yet.</p>
       <p className="mt-1 text-[12px] text-muted">
-        Buy and Sell are switched on one chain at a time, after a real trade has been run there. Today that is Base.
+        Buy and Sell are switched on one chain at a time in this site's settings.
       </p>
+    </Card>
+  );
+}
+
+// The states with a measurement behind them at some size (trade/measuredRef.js
+// reads the nearest one at the quote); any other state has none at any size.
+const MEASURED_STATES = ['filled', 'partial', 'failed'];
+
+/** "No measured pool price for NVDAx on Arbitrum", with no control. */
+export function NotMeasured({ v, side }) {
+  // The reason's first clause; the Details tab and the table carry the rest.
+  const why = String(v.reason || v.state || '').split(/[:;(]/)[0].trim();
+  return (
+    <Card>
+      <p className="text-[14px] text-fg">{side === 'sell' ? 'Selling' : 'Buying'} {v.symbol} on {v.chain} is not offered: there is no measured pool price to check a quote against.</p>
+      {why && <p className="mt-1 text-[12px] text-muted">Our measurement: {why}. Nothing is asked of LI.FI or your wallet.</p>}
     </Card>
   );
 }
@@ -122,6 +141,7 @@ export default function StockTrade({ v, ticker, side, size }) {
   const target = parseKey(v.key);
   const chainId = target?.chainId;
   if (!target || v.group !== 'evm' || !BUY_CHAINS[chainId] || !tradeOn(chainId)) return <NotSwitchedOn v={v} side={side} />;
+  if (!MEASURED_STATES.includes(v.state)) return <NotMeasured v={v} side={side} />;
   // Remounted per version and side, so nothing carries over between them.
   return <Trade key={`${v.key}:${side}`} v={v} ticker={ticker} side={side} size={size} chainId={chainId} token={target.address} />;
 }

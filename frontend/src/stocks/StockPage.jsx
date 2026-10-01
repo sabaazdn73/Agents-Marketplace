@@ -16,8 +16,9 @@
 // underlying read (versions[].aave_v4, aave_v4_usdc_borrow): stocks/AaveV4.jsx.
 // The chosen version has three tabs, Details, Buy and Sell (?tab=). Buy and
 // Sell (trade/StockTrade.jsx) quote LI.FI in the browser, on the visitor's
-// click only, and only on a chain switched on in trade/tradeLive.js (Base
-// today); on any other chain the tab says so and offers no control.
+// click only, and only on a chain switched on in trade/tradeLive.js (every
+// buy chain since 2026-10-01); on any other chain, or for a version with no
+// measured pool, the tab says so and offers no control.
 // Behind DATA_LIVE, like every tokenized-equity page.
 
 import ReadError from '../te/ReadError';
