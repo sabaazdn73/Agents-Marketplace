@@ -224,7 +224,7 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
   // read its P/L was valued with, which can be newer than the one this page
   // asked for itself (the server re-reads holdings at most once a minute).
   // Whichever began later is shown everywhere, so the Positions values and
-  // the P/L come from the same read, except briefly after "Read again" on a
+  // the P/L come from the same read, except after "Read again" on a
   // finished trades read: the P/L stays on the earlier read until trades are
   // read again.
   const holdings = newestHoldings(equities.status === 'ok' ? equities.data : null, trades.data?.holdings);

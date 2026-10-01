@@ -359,8 +359,9 @@ export function PortfolioCard({ d, data, read, hidden, onToggleHidden, trades: t
           {pl && pl.total_usd != null && (
             <p className={`mt-2 text-[14px] font-semibold tabular-nums ${toneOf(pl.total_usd)}`}
               title={`Total P/L of the ${pl.positions_counted} of ${pl.positions} positions whose cost is known, by average cost; the others are not counted. Details in the P/L card.`}>
+              {/* The coverage first, so the return does not read as the whole portfolio's. */}
+              <span className="mr-1.5 text-[12px] font-normal text-muted">P/L on {coverageWords(pl)}:</span>
               {hidden ? HIDDEN : signedUsd(pl.total_usd)}{pl.return_pct != null && !hidden ? ` ${signedPct(pl.return_pct)}` : ''}
-              <span className="ml-1.5 text-[12px] font-normal text-muted">P/L · {coverageWords(pl)}</span>
             </p>
           )}
           {d.unavailable
@@ -516,7 +517,10 @@ function pnlCell(r, p, tr) {
   const reasons = tr.data.reasons || {};
   if (p.pnl !== 'known') {
     if (p.reason === 'history_partial' && tr.reading) return { reading: true, why: reasons.history_partial };
-    return { why: reasons[p.reason] || reasons[p.unrealized_reason] || 'Not known.' };
+    // Cost known, current value not (e.g. the price is paused): the buy-in
+    // still shows; only the P/L waits for a value.
+    const b = p.pnl === 'realized_only' && p.avg_buy_price_usd != null ? p : undefined;
+    return { b, why: reasons[p.reason] || reasons[p.unrealized_reason] || 'Not known.' };
   }
   return { p };
 }
@@ -582,7 +586,7 @@ export function PositionsCard({ d, data, read, hidden, trades: tr = null, compac
               const href = rowLink(r);
               const Name = href ? 'a' : 'span';
               const cell = pnlCell(r, byKey[r.key], tr);
-              const p = cell.p;
+              const p = cell.p || cell.b;
               return (
                 <tr key={r.key} className="border-t border-line">
                   <td className="pl-4 md:pl-5 py-3 max-w-0 w-full">

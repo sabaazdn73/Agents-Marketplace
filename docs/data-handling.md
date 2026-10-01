@@ -359,9 +359,10 @@ own cache or read.
 
 Who calls it, and when: `frontend/src/wallet/useWalletTrades.js`, when the
 Dashboard opens with a wallet connected, again by itself while the answer
-says the read goes on (`continues`, at most eight times), and when the
-visitor presses Read trades again. On a 429 it shows the wait and does not
-retry by itself.
+says the read goes on (`continues`) and the read keeps making progress
+(it stops after three answers in a row with none, or after 15 minutes),
+and when the visitor presses Read trades again. On a 429 it shows the wait,
+waits out the Retry-After time and asks again by itself.
 
 What it reads: `eth_getLogs` for ERC-20 Transfer events with the wallet as
 the sender or receiver topic, so the address is a filter in the body of
