@@ -138,7 +138,7 @@ ESCROW_ADDRESS = {
 # The block of BudgetOpened for budget #1 on each chain, read from chain
 # 2026-09-11. An exact floor, not an estimate: see the note above.
 # Ethereum has no budget #1 yet, so its floor is the contract's own creation
-# block (25957217, tx 0x5e2d3149..., creator 0x48cE74cd...), read from
+# block (25957217), read from
 # Etherscan rather than guessed. No log can predate the contract, so this is
 # an exact floor by construction, the same guarantee the other three get from
 # budget #1's block.

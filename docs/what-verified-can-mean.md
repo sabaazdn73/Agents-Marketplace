@@ -117,7 +117,7 @@ Added 2026-09-18, from reading chain 4663 through Blockscout's gateway.
 
 Robinhood Chain holds exactly one budget opened through this project's
 AgentBudgetEscrow. Its client, the address that funded it, is
-`0x48cE74cd…`. The same address is the `creator_address_hash` of the escrow
+`<owner wallet>`. The same address is the `creator_address_hash` of the escrow
 contract itself: whoever deployed the contract funded the only budget on it.
 
 That is our own address and our own deployment, so it is not a finding about

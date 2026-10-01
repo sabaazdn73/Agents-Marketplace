@@ -10,7 +10,7 @@ The whole checklist below was run against it on mainnet and passed:
   `out/AgentBudgetEscrow.sol/AgentBudgetEscrow.json` rather than trusting
   the explorer's verification badge). The live contract is the exact code
   the 33 adversarial tests ran against.
-- Constructor read back correct: owner `0x48ce74cd…92e9`, feeWallet
+- Constructor read back correct: owner `<owner wallet>`, feeWallet
   `0xbfe58070…4293`, feeBps 250, MAX_FEE_BPS 1000, MAX_DURATION 365 days,
   NATIVE + USDT accepted, an unrelated address correctly NOT accepted.
 - `drawableNow` returned the per-draw cap rather than the total, which is

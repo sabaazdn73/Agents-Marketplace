@@ -36,7 +36,7 @@ const bands=new Set(g.orders.map(o=>`${o.tickLower}:${o.tickUpper}`));
 ok(bands.size===g.orders.length, "no two orders share a tick band");
 
 console.log("\nBATCH ASSEMBLY");
-const calls = buildGridCalls({ orders:g.orders, totals:g.totals, recipient:'0x48ce74cdC366E8347f17F7187FBf2AB9240692e9', allowances:{usdt:0n,wbnb:0n} });
+const calls = buildGridCalls({ orders:g.orders, totals:g.totals, recipient:'0x000000000000000000000000000000000000dEaD', allowances:{usdt:0n,wbnb:0n} });
 console.log(`  ${calls.length} calls for ${g.orders.length} orders`);
 calls.slice(0,3).forEach(c=>console.log(`   ${c.functionName.padEnd(8)} -> ${c.to.slice(0,10)}  ${c._label}`));
 const approves=calls.filter(c=>c.functionName==='approve');
@@ -53,7 +53,7 @@ const sumU=mints.reduce((s,c)=>s+c.args[0].amount0Desired,0n);
 const sumW=mints.reduce((s,c)=>s+c.args[0].amount1Desired,0n);
 ok(sumU===g.totals.usdt && sumW===g.totals.wbnb, `approval totals match the mints (${formatUnits(sumU,18,2)} USDT, ${formatUnits(sumW,18,4)} WBNB)`);
 
-const partial = buildGridCalls({ orders:g.orders, totals:g.totals, recipient:'0x48ce74cdC366E8347f17F7187FBf2AB9240692e9', allowances:{usdt:g.totals.usdt, wbnb:g.totals.wbnb} });
+const partial = buildGridCalls({ orders:g.orders, totals:g.totals, recipient:'0x000000000000000000000000000000000000dEaD', allowances:{usdt:g.totals.usdt, wbnb:g.totals.wbnb} });
 ok(partial.filter(c=>c.functionName==='approve').length===0, "sufficient allowance skips both approvals");
 
 console.log("\nREFUSALS");

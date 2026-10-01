@@ -94,7 +94,7 @@ def _pay_to_address() -> str:
         On-chain destination only; nothing in this project ever signs
         with it, and its key is deliberately not stored anywhere here.
 
-      PAYBOX_PAY_TO (0x48cE...92E9)
+      PAYBOX_PAY_TO (the owner wallet)
         The address registered with B402 as this app's payTo. That
         registration is WRITE-ONCE and cannot be changed, so this value
         is fixed by an external system rather than by our config. It is

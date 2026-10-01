@@ -8,7 +8,7 @@
 //
 // Every chain is on: switched on by the owner's decision on 2026-10-01, so
 // that the owner can run real tests from the site. Base is the one chain with
-// a real run so far (2026-09-30: a buy of 5 USDC to 0.0217831 NVDAc, with an
+// a real run so far (a small buy of NVDAc, with an
 // exact approval to LI.FI's contract; the real sale is still to run). No real
 // buy or sale has run yet on Ethereum, Arbitrum, BNB Chain, Robinhood Chain or
 // HyperEVM.

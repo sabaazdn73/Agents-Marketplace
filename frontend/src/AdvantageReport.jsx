@@ -171,8 +171,8 @@ export default function AdvantageReport() {
             Approve and mint on BSC mainnet, run through the Skill's direct-connected-wallet path (the user's own already-connected wallet signed both transactions directly), not the Altana passkey session path, which wasn't used for this particular run. Two earlier attempts had hit an intermittent outside data-provider issue; this run went through cleanly.
           </p>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
-            <a href="https://bscscan.com/tx/0x6354cfe161f120ba1d6e821e93822f5fb7291c1a6efe5051b64a4434ced7df26" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Approve tx (block 118745395, 09:42:11 UTC) <ExternalLink size={10} /></a>
-            <a href="https://bscscan.com/tx/0xefa008163cbe13f5debfc960b90b3bb7bd69341f52c064eb2cfe53e137634a58" target="_blank" rel="noreferrer" className="text-[11px] text-indigo-500 hover:underline inline-flex items-center gap-1">Mint tx (block 118745407, 09:42:17 UTC) <ExternalLink size={10} /></a>
+            <span className="text-[11px] text-gray-400">Approve tx (block 118745395, 09:42:11 UTC)</span>
+            <span className="text-[11px] text-gray-400">Mint tx (block 118745407, 09:42:17 UTC)</span>
           </div>
         </Side>
         <Side label="Without an agent (estimated, not independently timed)">

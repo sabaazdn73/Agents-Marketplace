@@ -23,7 +23,7 @@ Shared properties of all four escrow deployments:
 
 | | |
 |---|---|
-| Owner | `0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9` |
+| Owner | `<owner wallet>` |
 | `feeBps` | 250, which is 2.5% |
 | `MAX_FEE_BPS` | 1000, fixed in the code, so the owner cannot raise the fee past 10% |
 

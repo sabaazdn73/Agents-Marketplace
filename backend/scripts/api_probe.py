@@ -17,12 +17,14 @@ OUT = os.environ.get("PROBE_OUT", "/tmp/api_probe.tsv")
 # waits on; the cheap one separates "backend down" from "this route slow".
 # my-jobs is a POST with the wallet in the body: the GET form, which put the
 # address in the query string and so in access logs, now answers 410.
+# The my-jobs wallet comes from PROBE_WALLET; without it that route is skipped.
+PROBE_WALLET = os.environ.get("PROBE_WALLET", "").strip()
 ENDPOINTS = [
     ("status", "/api/status", None),
     ("agents", "/api/agents", None),
-    ("my-jobs", "/api/my-jobs",
-     {"client_address": "0x48ce74cdc366e8347f17f7187fbf2ab9240692e9"}),
-]
+] + ([("my-jobs", "/api/my-jobs", {"client_address": PROBE_WALLET.lower()})] if PROBE_WALLET else [])
+if not PROBE_WALLET:
+    print("PROBE_WALLET not set: the my-jobs route is not probed", file=sys.stderr)
 INTERVAL = 20
 TIMEOUT = 45
 

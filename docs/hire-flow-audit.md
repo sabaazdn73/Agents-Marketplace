@@ -133,8 +133,8 @@ By 2026-08-27, job #56620's dispute window HAD elapsed (still unsettled, confirm
 
 ```
 settle(56620, "0x") on EvaluatorRouter (0x51895229E12F9876011789B04f8698af06cCD6DA):
-  from job.client (0x48ce74cdc366e8347f17f7187fbf2ab9240692e9)        → result 0x (succeeds)
-  from a random, unrelated address (0x000...dEaD)                     → result 0x (succeeds)
+  from job.client (<owner wallet>)                                      → result 0x (succeeds)
+  from a random, unrelated address (0x000...dEaD)                       → result 0x (succeeds)
   from the provider itself (0x08cef8b3ec5d33529dfe6700ccbffc97158cb5dd) → result 0x (succeeds)
 
 settle(56646, "0x"), job #56646, still WITHIN its window at check time:

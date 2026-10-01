@@ -13,7 +13,7 @@ Total running time about 9 minutes.
 
 | Thing | State needed |
 |---|---|
-| Wallet | Connected. The site showed `0x48cE...92E9`, which is also the contract `owner()` on all four escrow deployments, so the owner address is on screen in the sidebar throughout. Nothing secret, but know it is visible. |
+| Wallet | Connected. The site showed `<owner wallet>`, which is also the contract `owner()` on all four escrow deployments, so the owner address is on screen in the sidebar throughout. Nothing secret, but know it is visible. |
 | My Agents | Needs that same wallet. It currently shows three real jobs past deadline with refunds available. That state is the whole point of step 5, so check it still reads that way before a take. |
 | Home video | Autoplays muted with a speaker toggle top right. Leave it muted, you are narrating over it. |
 | Chain tab | Start on BNB Chain, which is the default. |

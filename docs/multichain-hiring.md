@@ -107,7 +107,7 @@ the Arbitrum and Robinhood Chain work; Ethereum got the same contract on
 [Deployed Contracts](deployments.md).
 
 All four escrow deployments share one owner,
-`0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9`, and `feeBps` returns 250 on each
+`<owner wallet>`, and `feeBps` returns 250 on each
 with `MAX_FEE_BPS` fixed at 1000. Compiled with solc `0.8.24+commit.e11b9ed9`,
 optimizer on at 200 runs, creation bytecode 8,380 bytes and runtime 7,396,
 identical across all four.

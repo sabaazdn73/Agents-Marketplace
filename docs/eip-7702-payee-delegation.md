@@ -223,7 +223,7 @@ way on the same day.
 |---|---|---|
 | `0xF7cB0edb9C996C1f4D795cE6018F313D7095Ff7D` | agent on budgets 1 and 2 | `0x` |
 | `0x55b9A2Df9f6E160D1757eB7da1f2efda1a3b908F` | agent on budget 3 | `0x` |
-| `0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9` | client on all three | `0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b` |
+| `<owner wallet>` | client on all three | `0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b` |
 
 The client address carries a 7702 delegation, to
 `0x63c0c19a282a1b52b07dd5a65b58948a07dae32b`. That delegate holds 11,185 bytes

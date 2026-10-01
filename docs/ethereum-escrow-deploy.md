@@ -8,7 +8,7 @@ turn it on.
 
 | Check | Value at time of writing |
 |---|---|
-| Wallet | `0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9` |
+| Wallet | `<owner wallet>` (`$OWNER_WALLET` in the commands below) |
 | Balance | 0.000468 ETH, being topped up to 0.01 |
 | Nonce on mainnet | **0**, this wallet has never transacted on Ethereum |
 | Base fee | 0.0635 gwei, block 25,956,888 |
@@ -57,7 +57,7 @@ forge create src/AgentBudgetEscrow.sol:AgentBudgetEscrow \
   --broadcast \
   --constructor-args \
     "[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0xdAC17F958D2ee523a2206206994597C13D831ec7]" \
-    0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 \
+    "$OWNER_WALLET" \
     250
 ```
 
@@ -122,7 +122,7 @@ forge create src/AgentBudgetEscrow.sol:AgentBudgetEscrow \
   --etherscan-api-key "$ETHERSCAN_API_KEY" \
   --constructor-args \
     "[0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,0xdAC17F958D2ee523a2206206994597C13D831ec7]" \
-    0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 \
+    "$OWNER_WALLET" \
     250
 ```
 

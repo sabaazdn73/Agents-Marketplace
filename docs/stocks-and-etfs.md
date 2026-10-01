@@ -81,8 +81,8 @@ own wallet, routed by LI.FI in your browser. The tab is kept in the address
 **Buy and Sell are switched on for every chain a stock can be bought on
 here**: Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. The
 owner switched them on on 1 October 2026 so that real trades can be tested
-from the site. Only Base has had a real trade so far: a buy of 5 USDC to
-NVDAc through the signing page on 30 September 2026. No real sale has been
+from the site. Only Base has had a real trade so far: a small buy of
+NVDAc through the signing page. No real sale has been
 run on any chain yet.
 
 What each tab pays with, or receives on a sale:

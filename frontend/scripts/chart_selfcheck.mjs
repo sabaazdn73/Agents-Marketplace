@@ -95,7 +95,7 @@ if (tick != null) {
 section('3. HEALTH FACTOR, Aave and Venus (live on BSC)');
 const AAVE = '0x6807dc923806fE8Fd134338EABCA509979a7e0cB';
 const VENUS = '0xfD36E2c2a6789Db23113685031d7F16329158384';
-const PROBE = '0x48ce74cdc366e8347f17f7187fbf2ab9240692e9';
+const PROBE = '0x000000000000000000000000000000000000dead'; // stand-in: any address answers
 try {
   const r = await ethCall(AAVE, '0xbf92857c' + '0'.repeat(24) + PROBE.slice(2));
   const words = r.slice(2).match(/.{64}/g).map((w) => BigInt('0x' + w));

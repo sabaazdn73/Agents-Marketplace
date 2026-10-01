@@ -262,7 +262,7 @@ Selling works the same way, in the other direction.
 - `tnega_wallet_holdings` reads which listed tokenized stocks one wallet holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM: `balanceOf` on every version at one block per chain, nonzero balances only, with the chains that were read and the ones that failed.
 - `tnega_prepare_sell` takes a version key (or a ticker, then the version the wallet holds most of), a token amount and the wallet. It quotes LI.FI once, checks the price against Tnega's measured pool mid price, and returns the route, an exact approval of the tokens being sold and a signing link. What you receive is the chain's stablecoin unless you ask for another.
 
-For example: "What tokenized stocks does 0x… hold?", then "Sell 0.0217 NVDAc
+For example: "What tokenized stocks does 0x… hold?", then "Sell 0.01 NVDAc
 from that wallet for USDC."
 
 ## What the signing page refuses, and why

@@ -141,7 +141,7 @@ Checked by reading deployed bytecode at each address on each network,
 | Multicall3 | yes | yes | yes | yes | yes |
 
 All four AgentBudgetEscrow deployments share one owner,
-`0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9`, and `feeBps = 250` with
+`<owner wallet>`, and `feeBps = 250` with
 `MAX_FEE_BPS = 1000`.
 
 ## Which hire path works where
@@ -243,7 +243,7 @@ same fee wallet.
 | `feeBps()` | `250` (2.5%) | `250` (2.5%) |
 | `MAX_FEE_BPS()` | `1000` (10%) | `1000` (10%) |
 | `feeWallet()` | `0xBfE58070b39F0F2E1c46A4EF80690B6045934293` | `0xBfE58070b39F0F2E1c46A4EF80690B6045934293` |
-| `owner()` | `0x48ce74cdc366e8347f17f7187fbf2ab9240692e9` | `0x48ce74cdc366e8347f17f7187fbf2ab9240692e9` |
+| `owner()` | `<owner wallet>` | `<owner wallet>` |
 | `paused()` | not applicable | `false` |
 | `budgetCounter()` | not applicable | `3` |
 
