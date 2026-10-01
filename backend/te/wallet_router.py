@@ -3,7 +3,10 @@ te/wallet_router.py
 
 POST /api/wallet/holdings: the tokenized stocks and ETFs one wallet holds on
 the six buy chains, and its coins and named stablecoins there, for the
-Dashboard. Thin: the body is read and checked
+Dashboard. POST /api/wallet/trades: that wallet's buys and sells of them,
+read on chain, and the P/L by average cost (core/te/trades_view.py says why
+it is a route of its own). Both take the same body and follow the same
+rules below. Thin: the body is read and checked
 here, and core/te/wallet_view.py does the rest (the read is
 core/te/holdings.py's, the one behind the MCP tool tnega_wallet_holdings).
 
@@ -32,7 +35,7 @@ from fastapi.responses import JSONResponse
 
 from core import rate_limit as rate_limit_mod
 from core.safe_errors import describe
-from core.te import wallet_view
+from core.te import trades_view, wallet_view
 
 router = APIRouter()
 
@@ -96,4 +99,38 @@ async def wallet_holdings(request: Request):
         return _err(504, "timeout", "The chain reads did not finish in time. That is about the call, not the address.")
     except Exception as e:  # noqa: BLE001  describe(): the class name only
         return _err(500, "unavailable", f"Couldn't read holdings right now: {describe(e)}")
+    return JSONResponse(content=body, headers=_NO_STORE)
+
+
+async def _body_address(request: Request):
+    """(address, None) or (None, the error answer), as for the holdings route."""
+    if not _json_type(request):
+        return None, _err(415, "unsupported_media_type", "Send the body as Content-Type: application/json.")
+    raw = bytearray()
+    async for chunk in request.stream():
+        raw.extend(chunk)
+        if len(raw) > wallet_view.MAX_BODY_BYTES:
+            return None, _err(400, "bad_request", _BAD_BODY)
+    address = wallet_view.parse_body(bytes(raw))
+    if address is None:
+        return None, _err(400, "bad_request", _BAD_BODY)
+    return address, None
+
+
+@router.post("/api/wallet/trades")
+async def wallet_trades(request: Request):
+    address, bad = await _body_address(request)
+    if bad is not None:
+        return bad
+    try:
+        body = await trades_view.wallet_trades(address, _price_store(), client=_client(request))
+    except (wallet_view.Busy, trades_view.Busy) as b:
+        return JSONResponse(status_code=429,
+                            headers={"Retry-After": str(b.retry_after), **_NO_STORE},
+                            content={"error": "busy", "detail": b.detail, "reason": b.reason,
+                                     "retry_after_seconds": b.retry_after})
+    except asyncio.TimeoutError:
+        return _err(504, "timeout", "The chain reads did not finish in time. That is about the call, not the address.")
+    except Exception as e:  # noqa: BLE001  describe(): the class name only
+        return _err(500, "unavailable", f"Couldn't read trades right now: {describe(e)}")
     return JSONResponse(content=body, headers=_NO_STORE)

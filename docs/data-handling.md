@@ -345,6 +345,51 @@ by the lowercased address, for 60 seconds, at most 256 wallets. The address is
 not written to any database or file, not logged by this code, and not echoed
 in the response.
 
+### `/api/wallet/trades`, the visitor's own trades and P/L
+
+`POST /api/wallet/trades` backs the Dashboard's Buy-in and P/L columns in
+Positions, its P/L card and the P/L line under the Portfolio total: the
+connected wallet's buys and sells of listed tokenized-stock and ETF versions,
+read on chain, and the profit or loss by average cost. The route is in
+`backend/te/wallet_router.py`, with the same body rules as the holdings route
+(JSON only, 415 otherwise, the 256-byte cap, one fixed 400); the read is
+`core/te/trades.py`, the maths `core/te/pnl.py`, and `core/te/trades_view.py`
+ties them to the holdings answer, which it takes from the holdings route's
+own cache or read.
+
+Who calls it, and when: `frontend/src/wallet/useWalletTrades.js`, when the
+Dashboard opens with a wallet connected, again by itself while the answer
+says the read goes on (`continues`, at most eight times), and when the
+visitor presses Read trades again. On a 429 it shows the wait and does not
+retry by itself.
+
+What it reads: `eth_getLogs` for ERC-20 Transfer events with the wallet as
+the sender or receiver topic, so the address is a filter in the body of
+those requests; on Ethereum, Base and HyperEVM also the wallet's
+`eth_getTransactionCount` and Multicall3 `balanceOf(wallet)` at past blocks,
+to narrow the history before reading logs; then the receipt and block header
+of each transaction found (no address in those requests). Providers: MEV
+Blocker on Ethereum; on Base `BASE_RPC_URL` when set, then mainnet.base.org
+for logs and the full-history public endpoints for balances; arb1.arbitrum.io
+on Arbitrum; Robinhood Chain's own RPC; dRPC on HyperEVM. BNB Chain is not
+read: no public endpoint serves its history. The gas of those transactions is
+valued with the 30-minute on-chain coin average the holdings route already
+uses. A step is admitted only when fewer than two run, fewer than twelve
+started in the last minute, the requester's network address started fewer
+than six and the wallet's own read started fewer than three (counted under a
+blake2b digest of the address, kept a minute); otherwise 429 with Retry-After
+and nothing is read.
+
+What it keeps: `core/te/trades.py`'s per-wallet job in process memory, keyed
+by the lowercased address: how far the read got, the Transfer logs and
+receipts of the transactions found, block times, and short digests of
+balances at a few blocks, for at most 30 minutes after the last request (29
+minutes, dropped by a timer that runs every minute whether or not another
+request comes), at most 128 wallets, oldest dropped first. Not written to any database or file, not
+logged, not echoed. A stored index of Transfer logs per wallet would make
+long histories one query, but needs a collection, which this route does not
+create.
+
 ### Wallet addresses, written
 
 Most of these are public on-chain data this project deliberately indexes.
@@ -454,6 +499,7 @@ of it is shared between workers.
 | `core/hyperliquid/venuerole.py` | wallet | 6 hours | 4096, cleared entirely when full |
 | `core/hyperliquid/wallet_habits.py` | the visitor's own wallet, lowercased, holding the computed response as JSON bytes | 5 minutes | 128 answers and 4MB, cleared entirely when either is reached |
 | `core/te/holdings.py` | the visitor's own wallet, lowercased, from `/api/wallet/holdings` and the MCP tool `tnega_wallet_holdings`, holding the read's answer | 60 seconds | 256 wallets, oldest dropped first |
+| `core/te/trades.py` | the visitor's own wallet, lowercased, from `/api/wallet/trades`, holding how far its trade read got, the Transfer logs and receipts found, block times and balance digests | at most 30 minutes after the last request (a timer drops it) | 128 wallets, oldest dropped first |
 | `core/hyperliquid/corestate.py` | wallet | 20 seconds | none |
 | `adapters/zerion.py`, three caches | wallet, holding portfolio, activity and PnL | 10 minutes | 256 per cache: every write drops every expired entry, then the oldest if the cache is still over 256 |
 | `adapters/contract_verification.py` | wallet or contract | 24 hours | none |
@@ -570,6 +616,7 @@ The site connects only to a wallet the visitor already has, through RainbowKit a
 | Hyperliquid info API | The visitor's own wallet, from `/api/wallet/habits` | POST body | Not in a URL |
 | HyperEVM, BSC and backup RPC providers | Wallet, ABI-encoded as calldata | POST body | Not in a URL |
 | The cost engine's RPC providers on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM (`core/te/chains.py`) | The visitor's own wallet, from `/api/wallet/holdings` (and the MCP tool `tnega_wallet_holdings`), in `balanceOf` calldata inside Multicall3 | POST body | Not in a URL |
+| MEV Blocker, mainnet.base.org (or `BASE_RPC_URL`), Blast API, Tenderly and dRPC on Base, arb1.arbitrum.io, Robinhood Chain's RPC, dRPC on HyperEVM | The visitor's own wallet, from `/api/wallet/trades`: a topic filter in `eth_getLogs`, and the argument of `eth_getTransactionCount` and of `balanceOf` inside Multicall3 at past blocks | POST body | Not in a URL |
 | BNB Chain, Arbitrum and Robinhood Chain RPC providers, from the browser | The visitor's own wallet on the wallet page, in `eth_getBalance` and `balanceOf` reads for the named tokens. And at sign-in: for a contract wallet the address, message and signature; for a signature that does not recover, the address alone. An ordinary wallet that signs correctly sends nothing | POST body | Not in a URL. See "Sign-in, checked on the visitor's side" |
 
 8004scan, TheGraph, DefiLlama and Crossmint receive no address from this

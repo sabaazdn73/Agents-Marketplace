@@ -166,10 +166,10 @@ export default function PrivacyPage({ onBack }) {
             address on the website&quot;.
           </p>
                   <p>
-            Three routes on our server receive your connected wallet&apos;s address, always in the
+            Four routes on our server receive your connected wallet&apos;s address, always in the
             body of the request, never in the web address: My Agents (POST /api/my-jobs), the
-            Hyperliquid costs read (POST /api/wallet/habits), and the holdings read
-            (POST /api/wallet/holdings). Each is described under &quot;Your wallet address on the
+            Hyperliquid costs read (POST /api/wallet/habits), the holdings read
+            (POST /api/wallet/holdings) and the trades read (POST /api/wallet/trades). Each is described under &quot;Your wallet address on the
             website&quot;. Pages about an agent also put that agent&apos;s public owner address, not
             yours, in the web address of the requests that fetch its figures; they are listed
             there too.
@@ -533,8 +533,9 @@ export default function PrivacyPage({ onBack }) {
 
         <Section id="website-wallet" title="Your wallet address on the website">
           <p>
-            Three routes on our server receive the address of a wallet you connect to the website:
-            POST /api/my-jobs, POST /api/wallet/habits and POST /api/wallet/holdings. All three take
+            Four routes on our server receive the address of a wallet you connect to the website:
+            POST /api/my-jobs, POST /api/wallet/habits, POST /api/wallet/holdings and
+            POST /api/wallet/trades. All four take
             it in the body of the request, never in the web address, so it does not appear in our
             server&apos;s access log, which records the path and not the body. One more request can
             identify your wallet: when you hire an agent whose seller asks for proof of who funded the
@@ -585,7 +586,30 @@ export default function PrivacyPage({ onBack }) {
             limit above); that count holds no wallet address. The coin prices it uses are read from
             on-chain pools and carry no address. The Vaults section sends no address: it reads the
             public vault list, which is the same for everyone. The Dashboard reads no balance from
-            your browser directly and sends your address nowhere else.
+            your browser directly and sends your address nowhere else than these routes.
+          </p>
+          <p>
+            The Dashboard also sends the connected address to the trades route
+            (POST /api/wallet/trades) when you open it with a wallet connected, again while that
+            read is still going on, and when you press Read trades again. That route finds the
+            address&apos;s buys and sells of the tokenized stocks and ETFs Tnega lists, to show the
+            buy-in and profit or loss. To do that our server sends the address to each chain&apos;s
+            RPC provider: as a filter in requests for the token transfers to and from it, and in
+            requests for its balances and its count of sent transactions at past blocks. The
+            providers are MEV Blocker on Ethereum; on Base, the Base endpoint set in our
+            server&apos;s configuration when there is one, then Base&apos;s public endpoint, Blast
+            API, Tenderly and dRPC; Arbitrum&apos;s public endpoint; Robinhood Chain&apos;s public
+            endpoint; and dRPC on HyperEVM. Trades on BNB Chain are not read. The address is not
+            written to any database or to any log by our code, and it is not returned in the answer.
+            What the read has found so far (the transfers, their transactions and how far back it has
+            read) is kept in the server&apos;s memory for at most thirty minutes after your last
+            request, looked up by the address (a timer clears it every minute, whether or not
+            anyone asks again), so that the read can go on where it stopped and a second view does
+            not read the chains again; it is not written to disk, and it is gone when the server
+            restarts. Like the holdings route, it counts in memory for one minute how many new reads
+            each network address started, which holds no wallet address, and how many steps each
+            wallet&apos;s read started, under a one-way digest of the address, so that one long
+            history cannot take the whole budget.
           </p>
           <p>
             Pages about an agent (Explore agents, and an agent&apos;s page) fetch its figures with

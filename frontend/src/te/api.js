@@ -303,6 +303,79 @@
 //       'route_rate_budget'|'client_rate_budget'), retry_after_seconds }
 //       + Retry-After
 //     504/500 { error, detail }
+//   POST /api/wallet/trades { address }   (the Dashboard's Buy-in and P/L
+//     columns in Positions, the P/L card and the P/L line under the
+//     Portfolio total; read by wallet/useWalletTrades.js with fetch. Same
+//     body rules as /api/wallet/holdings: JSON only (415 otherwise), the
+//     address in the body, never echoed. A separate route because a trade
+//     history is hundreds of chain calls read in steps, while the holdings
+//     read stays about 28; backend/core/te/trades_view.py.)
+//     200 { status: 'complete'|'partial', continues (true: ask again, the
+//       read goes on from where it stopped; the hook does while
+//       progress_calls grows, waiting out any 429), progress_calls (calls
+//       spent on the wallet so far, across chains),
+//       positions: [PROW], totals: TOTALS,
+//       trades: [TRADE] (newest first, at most 200), trades_total,
+//       chains: [{ chain_id, chain, mode: 'bisect'|'logs'|'held'|'none',
+//                  method, status: 'complete'|'partial'|'failed'|
+//                  'not_started'|'not_read', reason?, note?, from_block?,
+//                  to_block?, remaining?: { holdings_changes,
+//                  round_trip_checks, receipts }, calls?, transfers_found?,
+//                  receipts_read?, receipts_missing? (a chain is complete
+//                  only at 0), round_trip_ranges_not_searched? (ranges left
+//                  when the round-trip check limit was reached; named in
+//                  note) }],
+//       holdings_status, holdings_as_of,
+//       gas_prices: { ETH|HYPE: { price_usd, pool_label, block, read_at } },
+//       method, trade_basis, return_basis, gas_basis, stable_basis,
+//       price_basis, reasons: { code: sentence }, read_started_at,
+//       served_at }
+//     PROW = { key, symbol, ticker, issuer, chain, chain_id, name, type,
+//       balance (on chain now), value_usd | null, quantity_from_trades,
+//       cost_basis_usd | null, avg_buy_price_usd | null,
+//       unrealized_usd | null, unrealized_pct | null, realized_usd | null,
+//       total_usd | null, total_pct | null, counted_bought_usd | null
+//       (the buys of the holding cycles counted), bought_usd (every buy),
+//       bought_quantity,
+//       sold_usd, sold_quantity, transferred_in, transferred_out, trades,
+//       buys, sells, transfers, gas: [{ symbol, amount }], gas_usd | null,
+//       counted_gas: [{ symbol, amount }], counted_gas_usd | null,
+//       cycles_counted, cycles_left_out, cycles_left_out_reasons: [code],
+//       first_trade, last_trade,
+//       pnl: 'known'|'realized_only'|'unknown',
+//       reason | null ('chain_not_read'|'history_partial'|
+//         'no_purchase_found'|'transfer_in_without_price'|
+//         'left_without_price'|
+//         'quantity_mismatch'|'sold_more_than_found'|'held_only_search'),
+//       unrealized_reason | null ('no_current_value') }
+//       Every listed version held now, and every one traded and no longer
+//       held (balance '0', unrealized 0 when known). Stablecoins and coins
+//       are never rows: they carry no P/L.
+//     TOTALS = { unrealized_usd, realized_usd, total_usd, invested_usd,
+//       return_pct (all null when no position is counted),
+//       gas_counted: [{ symbol, amount }], gas_counted_usd (the gas of the
+//       counted cycles' trades; what all_in_usd subtracts), gas: [{ symbol,
+//       amount }], gas_usd (every trade found), all_in_usd, trades, buys,
+//       sells, transfers, positions, positions_counted,
+//       positions_not_counted, sells_not_counted, buys_not_counted (in
+//       positions not counted), cycles_left_out (in counted positions),
+//       basis }
+//       Holding cycles: from zero back to zero; one with a transfer in or
+//       out (no stablecoin leg) or no buy is left out of every figure.
+//     TRADE = { chain_id, chain, key, symbol, ticker, issuer,
+//       side: 'buy'|'sell'|'transfer_in'|'transfer_out', quantity (exact
+//       decimal string), quantity_raw, usd (stablecoins paid or received,
+//       exact decimal string) | null, reason? ('no_stablecoin_leg'|
+//       'several_versions'), pay: [{ symbol, amount, direction }], gas:
+//       { symbol, amount, wei, l1_fee_wei } | null (null when another
+//       address sent the transaction, or on the second row of a
+//       transaction that moved several versions), gas_shared, block, time,
+//       tx, tx_url, log_index }
+//     TRADE lists come newest first by block time across chains.
+//     400, 415, 504/500 as for /api/wallet/holdings; 429 { error: 'busy',
+//       detail, reason (also 'wallet_rate_budget': one wallet's read runs at
+//       most 3 steps a minute), retry_after_seconds } + Retry-After, from
+//       either the holdings gate or this route's own.
 //   POST /api/site/portfolio { addresses: [address] }   NOT CALLED: the
 //     backend does not serve it (the Dashboard stopped asking, 2026-09-30;
 //     dashboard/cards.jsx now reads /api/wallet/holdings). The shape the

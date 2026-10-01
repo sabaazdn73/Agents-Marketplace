@@ -129,3 +129,52 @@ export function listWords(xs) {
   if (!xs.length) return '';
   return xs.length > 1 ? `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}` : xs[0];
 }
+
+// ── P/L (POST /api/wallet/trades; shape in te/api.js) ──────────────────────
+
+/** The trades answer's positions by version key. */
+export function pnlByKey(trades) {
+  return Object.fromEntries((trades?.positions || []).map((p) => [p.key, p]));
+}
+
+/** "+$1.20", "−$0.01", "$0.00": a signed dollar figure, to the cent, compact
+ *  from a million up. */
+export function signedUsd(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return '';
+  const c = compactUsd(Math.abs(v));
+  const body = c || `$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const cents = Math.round(Math.abs(v) * 100);
+  if (cents === 0 && !c) return body;
+  return `${v < 0 ? '−' : '+'}${body}`;
+}
+
+/** "+18.18%", "−0.26%". */
+export function signedPct(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return '';
+  const body = `${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+  return v === 0 ? body : `${v < 0 ? '−' : '+'}${body}`;
+}
+
+/** A price per token: cents from $1 up, four significant digits below. */
+export function priceUsd(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return '';
+  if (Math.abs(v) >= 1) return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${v.toLocaleString('en-US', { maximumSignificantDigits: 4 })}`;
+}
+
+/** Green for a gain, red for a loss, muted for none. */
+export function toneOf(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v) || Math.round(v * 100) === 0) return 'text-muted';
+  return v > 0 ? 'text-pos' : 'text-neg';
+}
+
+/** The trade read's chains: still being read, not read at all, failed. */
+export function tradeGaps(trades) {
+  const chains = trades?.chains || [];
+  return {
+    reading: chains.filter((c) => c.status === 'partial' || c.status === 'not_started'),
+    notRead: chains.filter((c) => c.status === 'not_read'),
+    failed: chains.filter((c) => c.status === 'failed'),
+    gapped: chains.filter((c) => c.status === 'complete' && c.round_trip_ranges_not_searched > 0),
+  };
+}

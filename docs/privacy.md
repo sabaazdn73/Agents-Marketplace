@@ -2,7 +2,7 @@
 
 The full privacy notice, for the website and for the Chrome extension, is on
 the site at [tnega.app/privacy](https://www.tnega.app/privacy) (last updated
-30 September 2026 when this page was written). This page summarises it; where
+1 October 2026 when this page was last changed). This page summarises it; where
 the two differ, the site's notice is the one that applies.
 
 ## The website
@@ -10,7 +10,7 @@ the two differ, the site's notice is the one that applies.
 - There is no account, no email address and no password. The site sets no cookies of its own and runs no analytics or advertising script.
 - Pages are served by Vercel. Figures come from Tnega's server (`agents-marketplace-q3k4.onrender.com`, on Render behind Cloudflare). The server limits each network address to a burst of 120 requests, then two a second, keeping only the address and one number in memory.
 - Connecting a wallet uses RainbowKit and WalletConnect; WalletConnect's servers receive your IP address, and a phone wallet's connection passes through WalletConnect's relay.
-- Three routes on Tnega's server receive a connected wallet's address, always in the body of the request, never in the web address: My Agents (POST /api/my-jobs), the Hyperliquid costs read (POST /api/wallet/habits) and the stock and ETF holdings read (POST /api/wallet/holdings). The Dashboard calls the last two when you open it with a wallet connected. The address is not written to any database or to any log by Tnega's code; the answers are kept in the server's memory only, for up to five minutes (habits) and one minute (holdings).
+- Four routes on Tnega's server receive a connected wallet's address, always in the body of the request, never in the web address: My Agents (POST /api/my-jobs), the Hyperliquid costs read (POST /api/wallet/habits), the stock and ETF holdings read (POST /api/wallet/holdings) and the trades read (POST /api/wallet/trades), which finds the address's buys and sells on chain for the buy-in and P/L. The Dashboard calls the last three when you open it with a wallet connected. The address is not written to any database or to any log by Tnega's code; what is read is kept in the server's memory only, for up to five minutes (habits), one minute (holdings) and at most thirty minutes after the last request (trades, cleared by a timer). The trades read sends the address to each chain's RPC provider as a filter for its token transfers and in balance reads at past blocks.
 - What the site keeps in your browser (the theme, a sign-in signature for 24 hours, the times of recent LI.FI quotes, and the wallet libraries' own keys) is listed by name on the notice. None of it is sent to Tnega's server.
 
 ## A signing link

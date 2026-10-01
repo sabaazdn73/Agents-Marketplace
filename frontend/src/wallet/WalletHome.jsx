@@ -7,8 +7,9 @@
 //
 // Web
 //   left   Portfolio (the valued total), Positions
-//   right  Allocation (the donut, one colour per asset class), Dividends and
-//          Performance (not measured yet)
+//   right  Allocation (the donut, one colour per asset class), Dividends (not
+//          measured yet) and P/L (the wallet's trades read on chain, by
+//          average cost)
 //   then   one card per asset class: Stocks, ETFs, Vaults, Tokens
 //   then   Hyperliquid: account value, holdings, what its habits cost
 // Mobile, one column in the same order, Allocation straight after Portfolio.
@@ -21,9 +22,11 @@
 // reads either way, and a connected but unsigned wallet triggers them too.
 //
 // WHAT IS READ, AND WHERE THE ADDRESS GOES
-// Two requests to our server, each with the address in the POST body, never
+// Three requests to our server, each with the address in the POST body, never
 // the URL: /api/wallet/holdings (stocks, ETFs and tokens on six chains, read
-// on chain by the server) and /api/wallet/habits (the Hyperliquid record).
+// on chain by the server), /api/wallet/trades (its buys and sells of them,
+// read on chain by the server, and the P/L) and /api/wallet/habits (the
+// Hyperliquid record).
 // The vault list (GET /api/vaults) carries no address. Nothing else is read
 // with the address from this page: the agent hires panel is not on the
 // Dashboard ("/" carries nothing about agents, owner 2026-09-26), and the
@@ -36,12 +39,13 @@ import { Loader2, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useSignIn } from './SignInProvider';
 import { useHabits } from './useHabits';
 import { useEquityHoldings } from './useEquityHoldings';
+import { useWalletTrades } from './useWalletTrades';
 import HabitCosts from './HabitCosts';
 import { HyperliquidPositions, HyperliquidValue } from './HyperliquidHoldings';
 import { fmtAge, fmtUtc, reasonText, sectionName } from './format';
 import { derive } from '../dashboard/portfolio';
 import {
-  AllocationCard, ClassCard, DividendsCard, PerformanceCard, PortfolioCard, PositionsCard, Tip, VaultsCard,
+  AllocationCard, ClassCard, DividendsCard, PnlCard, PortfolioCard, PositionsCard, Tip, VaultsCard,
 } from '../dashboard/cards';
 
 // With no wallet connected. On the Dashboard (`embedded`) the page title is
@@ -206,6 +210,7 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
   const { status, address, openSignIn } = useSignIn();
   const habits = useHabits(status === 'disconnected' ? null : address);
   const equities = useEquityHoldings(status === 'disconnected' ? null : address);
+  const trades = useWalletTrades(status === 'disconnected' ? null : address);
   const [hidden, toggleHidden] = useHideAmounts();
   const holdings = equities.status === 'ok' ? equities.data : null;
   const d = useMemo(() => derive(holdings), [holdings]);
@@ -251,12 +256,12 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
       <div>
         <Header status={status} address={address} openSignIn={() => openSignIn()} embedded={embedded} />
         <div className="space-y-3">
-          <PortfolioCard {...common} onToggleHidden={toggleHidden} />
+          <PortfolioCard {...common} trades={trades} onToggleHidden={toggleHidden} />
           <AllocationCard {...common} />
           {classes}
-          <PositionsCard {...common} compact />
+          <PositionsCard {...common} trades={trades} compact />
+          <PnlCard trades={trades} hidden={hidden} />
           <DividendsCard />
-          <PerformanceCard />
           <div className="pt-3">{hyperliquid}</div>
         </div>
       </div>
@@ -268,13 +273,13 @@ export default function WalletHome({ layout = 'web', embedded = false, onConnect
       <Header status={status} address={address} openSignIn={() => openSignIn()} embedded={embedded} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         <div className="lg:col-span-8 space-y-4 min-w-0">
-          <PortfolioCard {...common} onToggleHidden={toggleHidden} />
-          <PositionsCard {...common} />
+          <PortfolioCard {...common} trades={trades} onToggleHidden={toggleHidden} />
+          <PositionsCard {...common} trades={trades} />
         </div>
         <div className="lg:col-span-4 space-y-4 min-w-0">
           <AllocationCard {...common} />
+          <PnlCard trades={trades} hidden={hidden} />
           <DividendsCard />
-          <PerformanceCard />
         </div>
       </div>
       <div className="mt-6">{classes}</div>

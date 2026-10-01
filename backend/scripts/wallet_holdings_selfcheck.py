@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """wallet_holdings_selfcheck.py -- POST /api/wallet/holdings, checked on
-recorded chain answers with no network (and, with --live, on the chains).
+invented chain answers with no network (and, with --live, on the chains).
 
   BODY      parse_body: one None for every malformed body, a lowercased
             address for a good one; the route's 400 repeats nothing sent.
-  READ      a recorded read (2026-09-30, every chain answered, one version
-            held: NVDAc on Base, 0.0217831) served through the real
-            holdings.py code with only read_at_block replaced: the row, its
+  READ      an invented read in the shape of a real one (every chain
+            answered, one version held: NVDAc on Base, 0.03141593) served
+            through the real holdings.py code with only read_at_block replaced: the row, its
             type from the universe file, its name, the six chains with their
             blocks, and no wallet address anywhere in the answer.
   TYPE      a version of an ETF held goes to `etfs`, a stock to `stocks`, an
@@ -42,10 +42,13 @@ recorded chain answers with no network (and, with --live, on the chains).
 
 Run from backend/:
   ./venv/bin/python scripts/wallet_holdings_selfcheck.py
-  ./venv/bin/python scripts/wallet_holdings_selfcheck.py --live
---live reads 0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9 on the six chains
-through the public endpoints (never a keyed one) and requires NVDAc on Base,
-0.0217831, and a USDC balance on Base.
+  HOLDINGS_SELFCHECK_WALLET=0x... ./venv/bin/python scripts/wallet_holdings_selfcheck.py --live
+--live reads the wallet given in HOLDINGS_SELFCHECK_WALLET on the six chains
+through the public endpoints (never a keyed one) and requires a positive NVDAc
+balance on Base under stocks (exactly HOLDINGS_SELFCHECK_NVDAC, a decimal
+string, when that is set) and a USDC balance on Base. The address and any
+expected balance are taken from the environment, never written here; the
+offline checks use a stand-in wallet and invented figures.
 """
 
 from __future__ import annotations
@@ -64,19 +67,22 @@ from core.te.multicall import MULTICALL3  # noqa: E402
 from core.te.rpcclient import RpcError  # noqa: E402
 
 FAILURES: list[str] = []
-OWNER = "0x48cE74cdC366E8347f17F7187FBf2Ab9240692E9"
+OWNER = "0x00000000000000000000000000000000000ca5e1"  # stand-in
 NVDAC = "8453/0xb20000000000000000000078ee7ce2fe4908108c"
 
-# Recorded 2026-09-30 20:52 UTC from the live read of OWNER: each chain's
-# block and block time, and the one nonzero balanceOf (by token address).
-RECORDED = {
-    1: {"block": 26092804, "ts": 1790801531, "held": {}},
-    8453: {"block": 52006098, "ts": 1790801543,
-           "held": {"0xb20000000000000000000078ee7ce2fe4908108c": 2178310}},
-    42161: {"block": 510456976, "ts": 1790801542, "held": {}},
-    56: {"block": 124975746, "ts": 1790801543, "held": {}},
-    4663: {"block": 76816691, "ts": 1790801542, "held": {}},
-    999: {"block": 47320771, "ts": 1790801543, "held": {}},
+# Invented figures in the shape of a live read: each chain's block and block
+# time, and the one nonzero balanceOf (by token address). None of them is a
+# real wallet's balance or the block of a real read. NVDAc has 8 decimals, so
+# 3_141_593 is 0.03141593.
+NVDAC_RAW = 3_141_593
+INVENTED = {
+    1: {"block": 20_000_101, "ts": 1_700_000_011, "held": {}},
+    8453: {"block": 40_000_202, "ts": 1_700_000_013,
+           "held": {"0xb20000000000000000000078ee7ce2fe4908108c": NVDAC_RAW}},
+    42161: {"block": 300_000_303, "ts": 1_700_000_012, "held": {}},
+    56: {"block": 90_000_404, "ts": 1_700_000_013, "held": {}},
+    4663: {"block": 50_000_505, "ts": 1_700_000_012, "held": {}},
+    999: {"block": 30_000_606, "ts": 1_700_000_013, "held": {}},
 }
 
 
@@ -86,15 +92,15 @@ def check(cond: bool, what: str) -> None:
         FAILURES.append(what)
 
 
-def recorded_reader(fail: set[int] = frozenset(), held: dict | None = None, silent: dict | None = None):
-    """A read_at_block that answers from RECORDED (plus `held`: (chain id,
+def invented_reader(fail: set[int] = frozenset(), held: dict | None = None, silent: dict | None = None):
+    """A read_at_block that answers from INVENTED (plus `held`: (chain id,
     target address) or target address to raw balance; the coin's target is
     Multicall3) and raises for the chains in `fail`. `silent`: chain id to a
     set of target addresses whose call returns nothing."""
     def read(chain_id, calls, deadline):
         if chain_id in fail:
             raise RpcError("transient", "request timed out")
-        r = RECORDED[chain_id]
+        r = INVENTED[chain_id]
         extra = held or {}
         quiet = (silent or {}).get(chain_id, set())
         out = []
@@ -111,7 +117,7 @@ def recorded_reader(fail: set[int] = frozenset(), held: dict | None = None, sile
 
 def run_read(fail=frozenset(), held=None, silent=None) -> dict:
     orig = H.read_at_block
-    H.read_at_block = recorded_reader(fail, held, silent)
+    H.read_at_block = invented_reader(fail, held, silent)
     try:
         return H.wallet_holdings(OWNER)
     finally:
@@ -147,19 +153,19 @@ def read_checks() -> None:
     h = run_read()
     body = V.shape(h, {}, True)
     rows = body["stocks"]
-    check(h["status"] == "read" and body["status"] == "read", "READ every recorded chain answered: status read")
+    check(h["status"] == "read" and body["status"] == "read", "READ every chain answered: status read")
     check(len(rows) == 1 and rows[0]["key"] == NVDAC, "READ one holding, NVDAc on Base, under stocks")
     r = rows[0] if rows else {}
-    check(r.get("balance") == "0.0217831" and r.get("balance_raw") == "2178310", "READ balance 0.0217831 exactly")
+    check(r.get("balance") == "0.03141593" and r.get("balance_raw") == str(NVDAC_RAW), "READ balance 0.03141593 exactly")
     check(r.get("symbol") == "NVDAc" and r.get("ticker") == "NVDA" and r.get("issuer") == "Coinbase"
           and r.get("chain") == "Base" and r.get("chain_id") == 8453, "READ symbol, ticker, issuer, chain")
     check(r.get("type") == "stock" and bool(r.get("name")) and r.get("name") != "NVDA",
           f"READ type stock and the universe's name ({r.get('name')})")
-    check(r.get("block") == RECORDED[8453]["block"], "READ the row carries Base's block")
+    check(r.get("block") == INVENTED[8453]["block"], "READ the row carries Base's block")
     check(body["etfs"] == [] and body["untyped"] == [] and body["tokens"] == [],
-          "READ no ETF, nothing untyped, no token (the recording holds none)")
+          "READ no ETF, nothing untyped, no token (the invented read holds none)")
     ch = {c["chain_id"]: c for c in body["chains"]}
-    check(set(ch) == set(RECORDED) and all(c["status"] == "read" and c["block"] == RECORDED[i]["block"]
+    check(set(ch) == set(INVENTED) and all(c["status"] == "read" and c["block"] == INVENTED[i]["block"]
                                           and c.get("block_time") for i, c in ch.items()),
           "READ six chains, each read with its block and block time")
     check(body["coverage"]["chains_failed"] == [] and len(body["coverage"]["chains_read"]) == 6,
@@ -206,7 +212,7 @@ def failed_checks() -> None:
           f"FAILED Base reported failed with a reason ({base.get('reason')}), no block")
     check(body["stocks"] == [] and any(f["chain"] == "Base" for f in body["coverage"]["chains_failed"]),
           "FAILED nothing listed from Base, and coverage names it failed")
-    h = run_read(fail=set(RECORDED))
+    h = run_read(fail=set(INVENTED))
     body = V.shape(h, {}, True)
     check(body["status"] == "unavailable" and body["coverage"]["chains_read"] == [],
           "FAILED every chain failing is unavailable")
@@ -216,16 +222,17 @@ def price_checks() -> None:
     now = time.time()
     h = run_read()
     fresh = {"key": NVDAC, "underlying": "NVDA", "state": "measured", "ref_mid_usd": 200.0,
-             "block": 52000000, "computed_at": iso(now - 120)}
+             "block": 40_000_000, "computed_at": iso(now - 120)}
     docs, ok = asyncio.run(V.stored_prices(Store([fresh]), ["NVDA"]))
     body = V.shape(h, docs, ok, now)
     r = body["stocks"][0]
-    check(ok and r["value_usd"] == 4.3566 and r["value_reason"] is None,
-          f"PRICE 0.0217831 x 200 = 4.3566 ({r['value_usd']})")
+    # 0.03141593 x 200 = 6.283186, served to four places: 6.2832
+    check(ok and r["value_usd"] == 6.2832 and r["value_reason"] is None,
+          f"PRICE 0.03141593 x 200 = 6.2832 ({r['value_usd']})")
     p = r["price"] or {}
-    check(p.get("source") == "tnega_cost_engine" and p.get("block") == 52000000 and p.get("computed_at")
+    check(p.get("source") == "tnega_cost_engine" and p.get("block") == 40_000_000 and p.get("computed_at")
           and p.get("basis"), "PRICE the value carries its source, block, time and basis")
-    check(body["totals"]["stocks"]["value_usd"] == 4.3566 and body["totals"]["etfs"]["value_usd"] is None,
+    check(body["totals"]["stocks"]["value_usd"] == 6.2832 and body["totals"]["etfs"]["value_usd"] is None,
           "PRICE totals: stocks summed, ETFs none (no zero)")
     legacy = {**fresh, "ref_mid_usd": None, "pool": [1, 0, 0], "mid_usd": [999.0, 230.5, 230.5]}
     body = V.shape(h, {NVDAC: legacy}, True, now)
@@ -246,7 +253,7 @@ def price_checks() -> None:
     docs, ok = asyncio.run(V.stored_prices(Store(broken=True), ["NVDA"]))
     body = V.shape(h, docs, ok, now)
     check(not ok and body["stocks"][0]["value_reason"] == "price_store_unavailable"
-          and body["stocks"][0]["balance"] == "0.0217831", "PRICE store down: balance kept, value withheld")
+          and body["stocks"][0]["balance"] == "0.03141593", "PRICE store down: balance kept, value withheld")
 
 
 def gate_checks() -> None:
@@ -313,7 +320,7 @@ def route_checks() -> None:
     client = TestClient(app)
     orig_store, orig_read = wallet_router._price_store, H.read_at_block
     wallet_router._price_store = lambda: Store()
-    H.read_at_block = recorded_reader()
+    H.read_at_block = invented_reader()
     try:
         with H._cache_lock:
             H._cache.clear()
@@ -380,7 +387,7 @@ def route_checks() -> None:
 BASE_USDC = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 BSC_USD1 = "0x8d0d000ee44948fc98c9b98a4fa4921476f08b0d"
 ETH_PRICE = {"usd": 2500.0, "source": "Uniswap V3 USDC/WETH 0.05%, Ethereum", "pool": "0x88e6", "chain_id": 1,
-             "block": 26092800, "window_seconds": 1800, "read_at": "2026-09-30T20:50:00Z", "age_seconds": 30}
+             "block": 20_000_100, "window_seconds": 1800, "read_at": "2026-01-01T00:00:00Z", "age_seconds": 30}
 
 
 def token_checks() -> None:
@@ -411,11 +418,11 @@ def token_checks() -> None:
     # Everything together: NVDAc priced, tokens as above.
     now = time.time()
     fresh = {"key": NVDAC, "underlying": "NVDA", "state": "measured", "ref_mid_usd": 200.0,
-             "block": 52000000, "computed_at": iso(now - 120)}
+             "block": 40_000_000, "computed_at": iso(now - 120)}
     body = V.shape(h, {NVDAC: fresh}, True, now, native={"ETH": ETH_PRICE})
     al = body["totals"]["all"]
-    check(al == {"value_usd": 8.7466, "rows": 4, "rows_priced": 3},
-          f"TOKENS overall total 4.3566 + 1.89 + 2.5 = 8.7466, 3 of 4 valued ({al})")
+    check(al == {"value_usd": 10.6732, "rows": 4, "rows_priced": 3},
+          f"TOKENS overall total 6.2832 + 1.89 + 2.5 = 10.6732, 3 of 4 valued ({al})")
 
 
 def coverage_checks() -> None:
@@ -535,8 +542,15 @@ def mcp_checks() -> None:
 
 def live_check() -> None:
     os.environ.pop("INFURA_API_KEY", None)
+    wallet = os.environ.get("HOLDINGS_SELFCHECK_WALLET", "").strip()
+    if not wallet:
+        check(False, "LIVE set HOLDINGS_SELFCHECK_WALLET to the wallet to read")
+        return
+    if V.parse_body(json.dumps({"address": wallet}).encode()) is None:
+        check(False, "LIVE HOLDINGS_SELFCHECK_WALLET is not a 0x-prefixed 40 character hex address")
+        return
     t0 = time.monotonic()
-    h = H.wallet_holdings(OWNER)
+    h = H.wallet_holdings(wallet)
     body = V.shape(h, {}, False)
     took = time.monotonic() - t0
     print(f"      live: status {body['status']}, {took:.1f} s, chains read {body['coverage']['chains_read']}, "
@@ -548,8 +562,20 @@ def live_check() -> None:
     if base["status"] != "read":
         check(False, f"LIVE Base could not be read ({base.get('reason')}); rerun")
         return
-    check(row is not None and row["balance"] == "0.0217831" and row["chain"] == "Base" and row["type"] == "stock",
-          f"LIVE NVDAc on Base 0.0217831 under stocks ({row and row['balance']})")
+    want = os.environ.get("HOLDINGS_SELFCHECK_NVDAC", "").strip()
+    from decimal import Decimal, InvalidOperation
+    try:
+        held = row is not None and Decimal(row["balance"]) > 0
+    except InvalidOperation:
+        held = False
+    try:
+        # Compared as numbers: "0.50" and "0.5" are the same balance.
+        same = not want or (row is not None and Decimal(row["balance"]) == Decimal(want))
+    except InvalidOperation:
+        check(False, "LIVE HOLDINGS_SELFCHECK_NVDAC is not a decimal number")
+        return
+    check(held and row["chain"] == "Base" and row["type"] == "stock" and same,
+          f"LIVE NVDAc on Base, positive{' and ' + want if want else ''}, under stocks ({row and row['balance']})")
     for t in body["tokens"]:
         print(f"      token {t['chain']} {t['symbol']} {t['balance']} value {t['value_usd']} {t['value_reason'] or ''}")
     usdc = next((t for t in body["tokens"] if t["chain_id"] == 8453 and t["symbol"] == "USDC"), None)

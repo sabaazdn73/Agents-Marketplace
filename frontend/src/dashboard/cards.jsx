@@ -2,26 +2,34 @@
 //
 // The Dashboard's cards, laid out like getquin's dashboard (owner's
 // reference, 05-dashboard-getquin-style and getquin/dashboard-01 to 03):
-// Portfolio and Positions on the left, Allocation, Dividends and Performance
-// on the right, then one card per asset class (Stocks, ETFs, Vaults, Tokens).
+// Portfolio and Positions on the left, Allocation, Dividends and P/L on the
+// right, then one card per asset class (Stocks, ETFs, Vaults, Tokens).
 // Short on the face: a title, the figure, at most one muted line. Sources,
 // times, method and every "why not" sit behind the (i) beside a title and in
 // each figure's hover text.
 //
-// All figures come from one read, POST /api/wallet/holdings
-// (wallet/useEquityHoldings.js), summarised by dashboard/portfolio.js. Each
-// asset class has one colour (tailwind cls-*, src/index.css), the same in its
-// card and its allocation slice. What Tnega does not measure (a value
-// history, buy-in and P/L, dividends, performance) is said in one line and the
-// card stays in the layout.
+// The balances and values come from POST /api/wallet/holdings
+// (wallet/useEquityHoldings.js), summarised by dashboard/portfolio.js; the
+// buy-in, P/L and trades from POST /api/wallet/trades
+// (wallet/useWalletTrades.js): the wallet's buys and sells read on chain,
+// costed by average cost on the server (backend/core/te/pnl.py). Each asset
+// class has one colour (tailwind cls-*, src/index.css), the same in its card
+// and its allocation slice. What Tnega does not measure (a value history,
+// dividends) is said in one line and the card stays in the layout.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, Info, Loader2, RefreshCw, Layers, LineChart as LineIcon, Coins, Landmark, CandlestickChart, Boxes } from 'lucide-react';
+import {
+  Eye, EyeOff, Info, Loader2, RefreshCw, Layers, LineChart as LineIcon, Coins, Landmark, CandlestickChart, Boxes,
+  TrendingUp, ExternalLink,
+} from 'lucide-react';
 import { SymbolTile, fmtUsd } from '../ui/primitives';
 import { useTe, VAULT_LIST_HEADERS_MS } from '../te/api';
 import { readErrorText } from '../te/ReadError';
 import { fmtAge, fmtCount, fmtUtc } from '../wallet/format';
-import { CLASSES, listWords, shareText, compactNumber, compactUsd, exactUsd } from './portfolio';
+import {
+  CLASSES, listWords, shareText, compactNumber, compactUsd, exactUsd, signedUsd, signedPct, priceUsd, toneOf,
+  tradeGaps,
+} from './portfolio';
 
 const HIDDEN = '••••';
 
@@ -311,8 +319,9 @@ export function GapLine({ d, onRetry }) {
 
 // ── Portfolio ──────────────────────────────────────────────────────────────
 
-export function PortfolioCard({ d, data, read, hidden, onToggleHidden }) {
+export function PortfolioCard({ d, data, read, hidden, onToggleHidden, trades: tr = null }) {
   const all = d?.overall;
+  const pl = tr?.status === 'ok' ? tr.data?.totals : null;
   const bar = d?.slices || [];
   const sum = bar.reduce((a, s) => a + s.usd, 0);
   return (
@@ -347,6 +356,13 @@ export function PortfolioCard({ d, data, read, hidden, onToggleHidden }) {
               ? <Money value={all.usd} hidden={hidden} className="text-[40px] md:text-[48px] text-fg" />
               : <span className="text-[20px] font-semibold text-fg">{emptyWord(d, all.rows)}</span>}
           </div>
+          {pl && pl.total_usd != null && (
+            <p className={`mt-2 text-[14px] font-semibold tabular-nums ${toneOf(pl.total_usd)}`}
+              title={`Total P/L of the ${pl.positions_counted} of ${pl.positions} positions whose cost is known, by average cost; the others are not counted. Details in the P/L card.`}>
+              {hidden ? HIDDEN : signedUsd(pl.total_usd)}{pl.return_pct != null && !hidden ? ` ${signedPct(pl.return_pct)}` : ''}
+              <span className="ml-1.5 text-[12px] font-normal text-muted">P/L · {coverageWords(pl)}</span>
+            </p>
+          )}
           {d.unavailable
             ? <div className="mt-2"><NotReadLine d={d} onRetry={read.refresh}>No chain answered</NotReadLine></div>
             : (
@@ -486,16 +502,58 @@ function NoValue({ r, reasons }) {
   return <span className="text-[12px] text-muted" title={why || undefined}>no value</span>;
 }
 
-export function PositionsCard({ d, data, read, hidden, compact = false }) {
+/** What the Buy-in and P/L cells say for one row, from the trades answer. */
+function pnlCell(r, p, tr) {
+  if (r.type === 'token') {
+    return { why: 'A stablecoin or a chain\'s own coin: held as cash, so it has no buy-in or P/L.' };
+  }
+  const reading = tr?.status === 'loading' || (tr?.reading && !p);
+  if (!tr?.data || !p) {
+    if (reading) return { reading: true, why: 'Reading this wallet\'s trades on chain.' };
+    if (tr?.status === 'busy' || tr?.status === 'error') return { why: `Trades not read: ${tr.detail}` };
+    return { why: 'No trade of this token was found for this wallet.' };
+  }
+  const reasons = tr.data.reasons || {};
+  if (p.pnl !== 'known') {
+    if (p.reason === 'history_partial' && tr.reading) return { reading: true, why: reasons.history_partial };
+    return { why: reasons[p.reason] || reasons[p.unrealized_reason] || 'Not known.' };
+  }
+  return { p };
+}
+
+function buyInTitle(r, p, hidden) {
+  if (hidden || !p) return undefined;
+  const n = p.buys === 1 ? '1 buy' : `${p.buys} buys`;
+  return `Average buy price ${priceUsd(p.avg_buy_price_usd)}: cost basis ${fmtUsd(p.cost_basis_usd)} ÷ ${p.quantity_from_trades} ${r.symbol}, from ${n} read on ${r.chain}. Average-cost method; stablecoins counted at $1.`;
+}
+
+function plTitle(p, hidden) {
+  if (hidden || !p) return undefined;
+  const gas = (p.gas || []).map((g) => `${g.amount} ${g.symbol}`).join(' + ');
+  return [
+    `Unrealized ${signedUsd(p.unrealized_usd)}: value ${fmtUsd(p.value_usd)} − cost basis ${fmtUsd(p.cost_basis_usd)}.`,
+    p.sells ? `Realized ${signedUsd(p.realized_usd)} from ${p.sells} sale${p.sells === 1 ? '' : 's'}.` : null,
+    gas ? `Gas paid ${gas}${p.gas_usd != null ? ` (${fmtUsd(p.gas_usd)} at today's price)` : ''}, not in this figure.` : null,
+  ].filter(Boolean).join(' ');
+}
+
+function Dash({ cell }) {
+  if (cell.reading) {
+    return <Loader2 size={13} className="inline animate-spin text-muted" aria-label="Reading trades" />;
+  }
+  return <span className="text-muted cursor-help" title={cell.why}>—</span>;
+}
+
+export function PositionsCard({ d, data, read, hidden, trades: tr = null, compact = false }) {
   const rows = d?.positions || [];
-  const buyIn = 'Buy-in not read yet: Tnega does not read this wallet\'s purchase transactions, so there is no buy-in or P/L.';
+  const byKey = Object.fromEntries((tr?.data?.positions || []).map((p) => [p.key, p]));
   return (
     <Panel className="px-0 md:px-0 pb-2">
       <div className="px-4 md:px-5">
         <Title tip={(
           <Tip label="About positions">
             <span className="block">Every listed stock and ETF version, each chain&apos;s own coin and the named stablecoins, read on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. Other tokens and Solana are not read.</span>
-            <span className="block">{buyIn}</span>
+            <span className="block">Buy-in is the average price paid per token and P/L the value now minus that cost, from this wallet&apos;s buys and sells read on chain (average-cost method). Where the cost is not known the cell shows a dash; its hover says why.</span>
             {data && <span className="block">{readLine(data)}</span>}
           </Tip>
         )}>Positions</Title>
@@ -513,9 +571,9 @@ export function PositionsCard({ d, data, read, hidden, compact = false }) {
           <thead>
             <tr className="text-muted text-left text-[11px] uppercase tracking-wider">
               <th className="font-medium pl-4 md:pl-5 pb-2">Title</th>
-              {!compact && <th className="font-medium pb-2 pl-4 text-right whitespace-nowrap" title={buyIn}>Buy-in</th>}
+              {!compact && <th className="font-medium pb-2 pl-4 text-right whitespace-nowrap" title="Average buy price per token, and the cost basis below it">Buy-in</th>}
               <th className="font-medium pb-2 pl-6 pr-4 md:pr-0 text-right whitespace-nowrap">Position</th>
-              {!compact && <th className="font-medium pl-6 pr-4 md:pr-5 pb-2 text-right whitespace-nowrap" title={buyIn}>P/L</th>}
+              {!compact && <th className="font-medium pl-6 pr-4 md:pr-5 pb-2 text-right whitespace-nowrap" title="Unrealized P/L: value now minus the cost basis">P/L</th>}
             </tr>
           </thead>
           <tbody>
@@ -523,6 +581,8 @@ export function PositionsCard({ d, data, read, hidden, compact = false }) {
               const cls = CLASSES[r.type === 'token' ? 'tokens' : r.type === 'etf' ? 'etfs' : r.type === 'stock' ? 'stocks' : 'untyped'];
               const href = rowLink(r);
               const Name = href ? 'a' : 'span';
+              const cell = pnlCell(r, byKey[r.key], tr);
+              const p = cell.p;
               return (
                 <tr key={r.key} className="border-t border-line">
                   <td className="pl-4 md:pl-5 py-3 max-w-0 w-full">
@@ -542,7 +602,16 @@ export function PositionsCard({ d, data, read, hidden, compact = false }) {
                       </span>
                     </div>
                   </td>
-                  {!compact && <td className="py-3 pl-4 text-right text-muted whitespace-nowrap" title={buyIn}>—</td>}
+                  {!compact && (
+                    <td className="py-3 pl-4 text-right whitespace-nowrap">
+                      {p && p.avg_buy_price_usd != null ? (
+                        <span title={buyInTitle(r, p, hidden)}>
+                          <span className="block font-semibold tabular-nums text-fg">{hidden ? HIDDEN : priceUsd(p.avg_buy_price_usd)}</span>
+                          <span className="block text-[12px] text-muted tabular-nums">{hidden ? HIDDEN : fmtUsd(p.cost_basis_usd)}</span>
+                        </span>
+                      ) : <Dash cell={cell} />}
+                    </td>
+                  )}
                   <td className="py-3 pl-6 pr-4 md:pr-0 text-right whitespace-nowrap">
                     {Number.isFinite(r.value_usd)
                       ? <span className="block font-semibold tabular-nums text-fg" title={usdTitle(r.value_usd, hidden, valueSource(r))}>{usd(r.value_usd, hidden)}</span>
@@ -550,8 +619,31 @@ export function PositionsCard({ d, data, read, hidden, compact = false }) {
                     <span className="block ml-auto max-w-[11rem] truncate text-[12px] text-muted tabular-nums" title={hidden ? undefined : `${r.balance} ${r.symbol}, ${r.chain} block ${fmtCount(r.block)}`}>
                       {hidden ? HIDDEN : shortBalance(r.balance)} {r.symbol}
                     </span>
+                    {compact && r.type !== 'token' && (
+                      p && p.avg_buy_price_usd != null ? (
+                        <span className="block text-[12px] text-muted tabular-nums" title={buyInTitle(r, p, hidden)}>
+                          Buy-in {hidden ? HIDDEN : priceUsd(p.avg_buy_price_usd)}
+                        </span>
+                      ) : (
+                        <span className="block text-[12px] text-muted">Buy-in <Dash cell={cell} /></span>
+                      )
+                    )}
+                    {compact && p && p.unrealized_usd != null && (
+                      <span className={`block text-[12px] font-semibold tabular-nums ${toneOf(p.unrealized_usd)}`} title={plTitle(p, hidden)}>
+                        {hidden ? HIDDEN : signedUsd(p.unrealized_usd)}{p.unrealized_pct != null && !hidden ? ` ${signedPct(p.unrealized_pct)}` : ''}
+                      </span>
+                    )}
                   </td>
-                  {!compact && <td className="pl-6 pr-4 md:pr-5 py-3 text-right text-muted" title={buyIn}>—</td>}
+                  {!compact && (
+                    <td className="pl-6 pr-4 md:pr-5 py-3 text-right whitespace-nowrap">
+                      {p && p.unrealized_usd != null ? (
+                        <span title={plTitle(p, hidden)}>
+                          <span className={`block font-semibold tabular-nums ${toneOf(p.unrealized_usd)}`}>{hidden ? HIDDEN : signedUsd(p.unrealized_usd)}</span>
+                          <span className={`block text-[12px] tabular-nums ${toneOf(p.unrealized_usd)}`}>{p.unrealized_pct == null ? '' : hidden ? HIDDEN : signedPct(p.unrealized_pct)}</span>
+                        </span>
+                      ) : <Dash cell={cell} />}
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -581,11 +673,205 @@ export function DividendsCard() {
   );
 }
 
-export function PerformanceCard() {
+// ── P/L ────────────────────────────────────────────────────────────────────
+
+const SIDE = {
+  buy: { label: 'Buy', cls: 'bg-pos/15 text-pos' },
+  sell: { label: 'Sell', cls: 'bg-neg/15 text-neg' },
+  transfer_in: { label: 'In', cls: 'bg-inset text-muted' },
+  transfer_out: { label: 'Out', cls: 'bg-inset text-muted' },
+};
+
+function tradeTitle(t, hidden, reasons) {
+  if (hidden) return `${SIDE[t.side].label}, ${fmtUtc(t.time) || `block ${fmtCount(t.block)}`}, ${t.chain}.`;
+  const price = t.usd != null ? Number(t.usd) / Number(t.quantity) : null;
+  return [
+    `${SIDE[t.side].label} ${t.quantity} ${t.symbol} on ${t.chain}, ${fmtUtc(t.time) || ''} (block ${fmtCount(t.block)}).`,
+    t.usd != null ? `${t.side === 'buy' ? 'Paid' : 'Received'} ${t.usd} in stablecoins: ${priceUsd(price)} per token.` : (reasons?.[t.reason] || 'No price.'),
+    t.gas ? `Gas ${t.gas.amount} ${t.gas.symbol}.` : (t.side === 'transfer_in' ? null : 'Gas paid by another address.'),
+  ].filter(Boolean).join(' ');
+}
+
+function Stat({ label, value, tone = 'text-fg', title, note = null }) {
   return (
-    <NotMeasured title="Performance" icon={LineIcon}>
-      Returns by year, price gain and costs need this wallet&apos;s purchases and a price history. Tnega reads neither yet, so no return is shown.
-    </NotMeasured>
+    <div className="min-w-0 rounded-lg bg-inset/60 px-3 py-2" title={title}>
+      <span className="block text-[11px] uppercase tracking-wider text-muted truncate">{label}</span>
+      <span className={`block text-[15px] font-semibold tabular-nums truncate ${tone}`}>{value}</span>
+      {note && <span className="block text-[11px] text-muted truncate">{note}</span>}
+    </div>
+  );
+}
+
+/** "1 of 5 positions" (and the holding cycles left out), for the face. */
+function coverageWords(t) {
+  const base = `${t.positions_counted} of ${t.positions} position${t.positions === 1 ? '' : 's'}`;
+  return t.cycles_left_out ? `${base}, ${t.cycles_left_out} earlier holding${t.cycles_left_out === 1 ? '' : 's'} left out` : base;
+}
+
+/** The positions not counted, by reason, for the coverage hover. No amounts. */
+function coverageTitle(t, reasons, rows) {
+  const out = (rows || []).filter((r) => r.pnl !== 'known');
+  const by = {};
+  out.forEach((r) => { const k = r.reason || r.unrealized_reason || 'not_known'; by[k] = (by[k] || []).concat(r.symbol); });
+  const lines = Object.entries(by).map(([k, syms]) => `${syms.join(', ')}: ${reasons?.[k] || 'not known.'}`);
+  if (t.cycles_left_out) lines.push(reasons?.cycles_left_out || 'Some earlier holdings are left out.');
+  return [`The figures cover ${coverageWords(t)}.`, ...lines].join(' ');
+}
+
+const outsideSales = (t) => (t.sells_not_counted || 0) > 0;
+
+function gasTitle(t) {
+  const list = (g) => (g || []).map((x) => `${x.amount} ${x.symbol}`).join(' + ') || 'none';
+  const lines = [`Gas of the trades of the positions counted: ${list(t.gas_counted)}${t.gas_counted_usd != null ? ` (${fmtUsd(t.gas_counted_usd)} at today's coin price)` : ''}.`];
+  if (t.all_in_usd != null) lines.push(`P/L after that gas: ${signedUsd(t.all_in_usd)}.`);
+  lines.push(`Gas of every trade found: ${list(t.gas)}${t.gas_usd != null ? ` (${fmtUsd(t.gas_usd)})` : ''}.`);
+  return lines.join(' ');
+}
+
+/** Where the trade read is not finished or not possible, in one line. */
+function TradeGapLine({ tr }) {
+  const g = tradeGaps(tr.data);
+  const reading = tr.reading && g.reading.length > 0;
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[12px]">
+      {reading && (
+        <span className="inline-flex items-center gap-1.5 text-muted" role="status">
+          <Loader2 size={13} className="animate-spin" aria-hidden="true" /> Reading {listWords(g.reading.map((c) => c.chain))}…
+        </span>
+      )}
+      {!reading && g.reading.length > 0 && <span className="text-warn">{listWords(g.reading.map((c) => c.chain))} partly read</span>}
+      {g.failed.length > 0 && <span className="text-warn">{listWords(g.failed.map((c) => c.chain))} not read</span>}
+      {g.notRead.length > 0 && <span className="text-muted">{listWords(g.notRead.map((c) => c.chain))}: trades not read</span>}
+      {g.gapped.length > 0 && <span className="text-warn">{listWords(g.gapped.map((c) => c.chain))}: some ranges not searched</span>}
+      {(g.reading.length > 0 || g.failed.length > 0 || g.notRead.length > 0 || g.gapped.length > 0) && (
+        <Tip label="Which chains">
+          {(tr.data.chains || []).map((c) => (
+            <span key={c.chain_id} className="block">
+              {c.chain}: {c.status === 'complete' ? `read to block ${fmtCount(c.to_block)}` : c.status === 'not_read' ? c.reason
+                : `${c.status === 'partial' ? 'partly read' : 'not read'}${c.reason ? ` (${c.reason})` : ''}`}.
+              {c.note ? ` ${c.note}` : ''}
+            </span>
+          ))}
+        </Tip>
+      )}
+      {!tr.reading && (g.reading.length > 0 || g.failed.length > 0) && (
+        <button type="button" onClick={tr.refresh} className="font-semibold text-cls-stocks hover:underline">Continue</button>
+      )}
+    </div>
+  );
+}
+
+export function PnlCard({ trades: tr, hidden }) {
+  const data = tr?.status === 'ok' ? tr.data : null;
+  const t = data?.totals;
+  const recent = (data?.trades || []).slice(0, 5);
+  const money = (v) => (hidden ? HIDDEN : fmtUsd(v));
+  const left = useCountdown(tr?.status === 'busy' ? tr.retryAt : null);
+  const tip = (
+    <Tip label="About P/L">
+      <span className="block">From this wallet&apos;s buys and sells of listed stocks and ETFs, read on chain: a buy is a transaction in which the token arrived and stablecoins left the wallet, a sell the reverse. Tokens that arrived or left any other way (a transfer, a bridge, a sale for another asset) have no price: that holding is left out of every figure here, and the face says how many positions are covered.</span>
+      <span className="block">{data?.method || 'Average-cost method.'}</span>
+      {data && <span className="block">Return: {data.return_basis}</span>}
+      {data && <span className="block">Fees: {data.gas_basis}</span>}
+      {data && <span className="block">{data.stable_basis} Values now: {data.price_basis}</span>}
+      {data && t && t.positions_not_counted > 0 && <span className="block">{t.positions_not_counted} of {t.positions} positions are not counted: their cost is not known (see each one&apos;s hover in Positions).</span>}
+    </Tip>
+  );
+  return (
+    <Panel>
+      <Title icon={TrendingUp} tip={tip}
+        right={data && !tr.reading ? <IconButton onClick={tr.refresh} label="Read trades again"><RefreshCw size={14} aria-hidden="true" /></IconButton> : null}>
+        P/L
+      </Title>
+      {!data && (tr?.status === 'loading' || tr?.status === 'idle' || !tr) && (
+        <p className="flex items-center gap-2 text-[13px] text-muted" role="status">
+          <Loader2 size={14} className="animate-spin shrink-0" aria-hidden="true" /> Reading trade history…
+        </p>
+      )}
+      {!data && (tr?.status === 'busy' || tr?.status === 'error') && (
+        <p className="flex flex-wrap items-center gap-2 text-[13px] text-fg" role="status">
+          {tr.status === 'busy' ? (tr.reading ? `Server busy · retrying${left > 0 ? ` in ${left}s` : ''}` : 'Server busy') : 'Not read'}
+          <Tip label="Why">{tr.detail}</Tip>
+          {!tr.reading && <button type="button" onClick={tr.refresh} disabled={left > 0}
+            className="text-[12px] font-semibold text-cls-stocks hover:underline disabled:opacity-50 disabled:no-underline">
+            {left > 0 ? `Retry in ${left}s` : 'Retry'}
+          </button>}
+        </p>
+      )}
+      {data && (
+        <>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            {t.total_usd != null ? (
+              <>
+                <span className={`text-[32px] font-semibold tabular-nums leading-none tracking-[-0.02em] ${toneOf(t.total_usd)}`}
+                  title={hidden ? undefined : `Realized ${signedUsd(t.realized_usd)} + unrealized ${signedUsd(t.unrealized_usd)}, over ${t.positions_counted} position${t.positions_counted === 1 ? '' : 's'}.`}>
+                  {hidden ? HIDDEN : signedUsd(t.total_usd)}
+                </span>
+                {t.return_pct != null && (
+                  <span className={`text-[14px] font-semibold tabular-nums ${toneOf(t.total_usd)}`} title={data.return_basis}>{hidden ? HIDDEN : signedPct(t.return_pct)}</span>
+                )}
+              </>
+            ) : (
+              <span className="text-[17px] font-semibold text-fg">
+                {tr.reading ? 'Reading…' : t.trades === 0 ? 'No trades found' : 'Not known'}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[12px] text-muted">
+            Total P/L{t.total_usd != null ? ' · all time' : ''}
+            {t.trades > 0 && ` · ${t.buys} buy${t.buys === 1 ? '' : 's'}, ${t.sells} sale${t.sells === 1 ? '' : 's'}${t.transfers ? `, ${t.transfers} transfer${t.transfers === 1 ? '' : 's'}` : ''}`}
+          </p>
+          {t.positions > 0 && (
+            <p className={`mt-1 text-[12px] font-semibold ${t.positions_not_counted || t.cycles_left_out ? 'text-warn' : 'text-muted'}`}
+              title={coverageTitle(t, data.reasons, tr.data.positions)}>
+              Covers {coverageWords(t)}
+            </p>
+          )}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Stat label="Unrealized" value={t.unrealized_usd != null ? (hidden ? HIDDEN : signedUsd(t.unrealized_usd)) : '—'}
+              tone={toneOf(t.unrealized_usd)} title={hidden ? undefined : 'Value now minus the cost basis of what is held, by average cost.'} />
+            <Stat label="Realized"
+              value={outsideSales(t) && !t.realized_usd ? 'Not counted' : t.realized_usd != null ? (hidden ? HIDDEN : signedUsd(t.realized_usd)) : '—'}
+              tone={outsideSales(t) && !t.realized_usd ? 'text-muted' : toneOf(t.realized_usd)}
+              note={outsideSales(t) ? `${t.sells_not_counted} sale${t.sells_not_counted === 1 ? '' : 's'} not counted` : null}
+              title={`Sale proceeds minus the average cost of the units sold, in the positions counted.${outsideSales(t) ? ` ${t.sells_not_counted} sale${t.sells_not_counted === 1 ? ' is' : 's are'} in positions whose cost is not known, so not counted.` : ''}`} />
+            <Stat label="Paid for buys"
+              value={!t.invested_usd && t.buys_not_counted ? 'Not counted' : t.invested_usd != null ? money(t.invested_usd) : '—'}
+              tone={!t.invested_usd && t.buys_not_counted ? 'text-muted' : 'text-fg'}
+              note={t.buys_not_counted ? `${t.buys_not_counted} buy${t.buys_not_counted === 1 ? '' : 's'} not counted` : null}
+              title={`Stablecoins paid for the buys of the positions counted, fees inside.${t.buys_not_counted ? ` ${t.buys_not_counted} buy${t.buys_not_counted === 1 ? ' is' : 's are'} in positions whose P/L is not known, so not counted.` : ''}`} />
+            <Stat label="Gas paid" value={t.gas_counted_usd != null ? money(t.gas_counted_usd) : '—'}
+              note={t.gas_usd != null && t.gas_counted_usd != null && Math.round(t.gas_usd * 100) !== Math.round(t.gas_counted_usd * 100) ? `${hidden ? HIDDEN : fmtUsd(t.gas_usd)} on all trades` : null}
+              title={hidden ? undefined : gasTitle(t)} />
+          </div>
+          {recent.length > 0 && (
+            <>
+              <h4 className="mt-4 mb-1.5 text-[11px] uppercase tracking-wider text-muted">Recent trades</h4>
+              <ul className="space-y-1">
+                {recent.map((x) => (
+                  <li key={`${x.tx}-${x.key}`} className="flex items-center gap-2 min-w-0 text-[13px]" title={tradeTitle(x, hidden, data.reasons)}>
+                    <span className={`shrink-0 w-10 text-center rounded-md text-[11px] font-semibold py-0.5 ${SIDE[x.side].cls}`}>{SIDE[x.side].label}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      <span className="font-semibold text-fg">{x.symbol}</span>
+                      <span className="text-muted"> · {fmtUtc(x.time, { withTime: false }) || x.chain}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums text-fg">{x.usd != null ? money(Number(x.usd)) : <span className="text-muted">no price</span>}</span>
+                    {x.tx_url && (
+                      <a href={x.tx_url} target="_blank" rel="noopener noreferrer" aria-label={`Transaction on ${x.chain}'s explorer`}
+                        className="shrink-0 w-6 h-6 inline-flex items-center justify-center rounded text-muted hover:text-fg hover:bg-inset">
+                        <ExternalLink size={13} aria-hidden="true" />
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {data.trades_total > recent.length && <p className="mt-1 text-[12px] text-muted">+{data.trades_total - recent.length} earlier</p>}
+            </>
+          )}
+          <TradeGapLine tr={tr} />
+        </>
+      )}
+    </Panel>
   );
 }
 
