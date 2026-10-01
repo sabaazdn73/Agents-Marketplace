@@ -30,9 +30,12 @@ claims the path it has checked.
 
 ## What it connects you to
 
-Six tools over nine datasets, and three that prepare an order. Start with
-`tnega_catalogue`, which lists every dataset, the keys each accepts, and its
-live coverage.
+Nine tools. Six read the nine datasets below: `tnega_catalogue`,
+`tnega_resolve`, `tnega_get`, `tnega_list`, `tnega_summary` and
+`tnega_series`. Two prepare an order for you to sign, `tnega_prepare_buy` and
+`tnega_prepare_sell`, and one reads a wallet's holdings,
+`tnega_wallet_holdings`. Start with `tnega_catalogue`, which lists every
+dataset, the keys each accepts, and its live coverage.
 
 | | |
 |---|---|
@@ -86,16 +89,16 @@ worth more than a clean number.
 
 ## The rest of Tnega
 
-This package installs one surface of four. The others are not on npm:
+This package adds the MCP server to a client. The rest of Tnega is not on npm:
 
-- **The site**, [tnega.app](https://www.tnega.app), and its chain views
-- **A Chrome extension** that puts the same readings on nine sites: Hyperliquid,
+- **The site**, [tnega.app](https://www.tnega.app): tokenized stocks and ETFs
+  with what each version costs to buy, issuer controls, vaults, baskets (My
+  ETFs), a dashboard of a wallet's holdings, and Buy and Sell tabs signed in
+  your own wallet. [Use with AI](https://www.tnega.app/ai) covers this server.
+- **A Chrome extension** that puts Tnega's readings on nine sites: Hyperliquid,
   8004scan and seven block explorers. It also carries practice mode, a paper
   trading panel priced entirely from Hyperliquid's own book, fees, funding and
-  tick sizes, where the only thing that is not theirs is the money
-- **A Telegram bot**, for the same measurements in a chat
-
-[How it works](https://www.tnega.app/how-it-works) covers all four.
+  tick sizes, where the only thing that is not theirs is the money.
 
 ## Licence
 

@@ -1,4 +1,13 @@
-# Reference agent — drawable budgets
+# Reference agent — drawable budgets (earlier work)
+
+**Status, 1 October 2026: legacy.** This belongs to the on-chain agents part of
+Tnega (Explore agents, reached from the site's footer), not to the tokenized
+stocks and ETFs that are the product today. It is not a service in
+[`../render.yaml`](../render.yaml); it runs where someone starts it, and the
+backend lists it as draw-capable only when its address is set in
+`BUDGET_AGENT_ADDRESSES` or `REFERENCE_AGENT_ADDRESS` (`backend/core/budget_agents.py`). The contract it
+draws from, AgentBudgetEscrow, is listed in
+[docs/deployments.md](../docs/deployments.md).
 
 **This is a reference implementation, built by Tnega. It is not a
 third-party agent and must never be presented as adoption.**

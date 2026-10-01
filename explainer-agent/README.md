@@ -1,4 +1,19 @@
-# explainmainnet1a2b3c — A2A seller agent
+# Explainer agent (earlier work)
+
+**Status, 1 October 2026: legacy.** This is a BNB Agent Studio seller agent on
+BNB Chain, built during the agents-marketplace phase of Tnega to answer
+questions about the TermiX Advantage Report and settled through ERC-8183 jobs.
+Nothing on the current site uses it: its "Ask our explainer agent" widget and
+the backend route behind it were removed on 2026-08-20. It is still deployed as
+the Render service `explainer-agent` (defined in [`../render.yaml`](../render.yaml),
+built from this folder's `Dockerfile` and served by uvicorn, not through
+AgentCore), its `GET /ping` answered 200 on 1 October 2026, and
+`backend/server.py` keeps it warm with a ping every 10 minutes. It keeps its
+ERC-8004 registration so the jobs it completed stay verifiable.
+
+The rest of this page is the agent scaffold's own description, kept as written.
+
+## explainmainnet1a2b3c — A2A seller agent
 
 The valuable Agent and the **SOLE key-holder/signer** for the explainmainnet1a2b3c
 seller. Serves A2A directly on AgentCore (two skills: negotiate + notify_funded),
