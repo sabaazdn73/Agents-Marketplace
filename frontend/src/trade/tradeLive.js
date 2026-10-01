@@ -9,7 +9,8 @@
 // Base is on: the one chain with a real run through the signing page's
 // checks (2026-09-30: 5 USDC to 0.0217831 NVDAc, an exact approval to
 // LI.FI's contract). A chain is switched on here only after a real buy and a
-// real sale have been run on it with a brand-new test wallet.
+// real sale have been run on it with a brand-new test wallet. Base: the buy
+// ran on 2026-09-30; the real sale is still to run.
 //
 // This is not the site's older Buy switch (trade/buyLive.js, home/sections.js
 // `buy`), which stays off: it governs the basket buys and the home section.

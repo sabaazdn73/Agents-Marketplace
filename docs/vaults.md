@@ -6,7 +6,7 @@ reads. Tnega never holds funds and takes no deposit: deposits are made on each
 vault's own venue, signed in your own wallet. Nothing on the page is advice.
 
 The screenshot was taken on https://www.tnega.app on 30 September 2026 at
-21:05 UTC.
+21:05 UTC. Its header row was updated on 1 October 2026 to show the Docs link; everything under the header is as taken.
 
 ![Vaults: the total value locked across the listed vaults, the venue and chain filters, and the first vaults with their admin, asset, TVL and check](images/site-vaults.png)
 

@@ -98,7 +98,7 @@ import ThemeToggle from './theme/ThemeToggle';
 import HeaderNav from './shell/HeaderNav';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
-import { PRODUCT_NAV, isLive, SEARCH_LIVE } from './shell/productNav';
+import { HEADER_NAV, isLive, SEARCH_LIVE, isDocsPath } from './shell/productNav';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
@@ -369,7 +369,9 @@ function SortHeader({ label, hint, sortKey, sortState, onSort }) {
 // behind `live: false` there is in neither. Explore
 // (/market) and My Agents (/my-agents) are still tabs of this component, and
 // are reached from the footer (SiteLinks.jsx).
-const NAV_ITEMS = PRODUCT_NAV;
+// The header adds Docs after the product pages (shell/productNav.js
+// HEADER_NAV); Docs opens the standalone /docs page rather than a tab.
+const NAV_ITEMS = HEADER_NAV;
 
 export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources, onOpenPartners, onOpenDocs, onNavigate, path = '/', query = '', initialNav, onNavChange } = {}) {
   // The theme is the site's, not this component's: see theme/ThemeProvider.jsx.
@@ -794,6 +796,13 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
     setNav(id); setHiring(false); onNavChange?.(id);
   };
 
+  // The header row: the product tabs go through goTo; Docs is a path of its
+  // own (App.jsx renders DocsPage outside this shell).
+  const onHeaderSelect = (id) => {
+    if (id === 'docs') { dismissAgentDetail(); setHiring(false); onNavigate?.('/docs'); return; }
+    goTo(id);
+  };
+
   return (
     <div className="min-h-screen font-sans flex flex-col bg-page page-glow text-fg">
 
@@ -863,7 +872,7 @@ export default function AgentMarketplaceApp({ onOpenEcosystem, onOpenDataSources
           </div>
 
           <div className="flex min-w-[120px] shrink" style={{ width: 590 }}>
-            <HeaderNav items={NAV_ITEMS} active={nav} onSelect={goTo} align="end" />
+            <HeaderNav items={NAV_ITEMS} active={isDocsPath(path) ? 'docs' : nav} onSelect={onHeaderSelect} align="end" />
           </div>
 
           <div className="flex items-center gap-1 shrink-0">

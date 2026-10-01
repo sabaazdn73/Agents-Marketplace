@@ -83,6 +83,47 @@ export function shares(slices) {
   return out;
 }
 
+/** The legend's text for one class: its whole-number share, except that a
+ *  class with a value above zero never reads "0%" — under half a percent it
+ *  reads "<1%". The other shares keep their largest-remainder rounding, so
+ *  the numbers shown still add up to 100. */
+export function shareText(share, usd) {
+  const n = share ?? 0;
+  if (n === 0 && usd > 0) return '<1%';
+  return `${n}%`;
+}
+
+// LARGE AMOUNTS. From a million up, a figure is shown in compact notation
+// with one decimal ($12.7M, $12.7B, $1.2T) so it fits its box at any width;
+// the exact figure goes in the hover. Below a million nothing changes.
+export const COMPACT_FROM = 1e6;
+const UNITS = [[1e12, 'T'], [1e9, 'B'], [1e6, 'M']];
+
+/** "12.7B" for a number of a million or more, else null. Rounded to one
+ *  decimal, half up; a value that rounds up to 1,000 of a unit moves to the
+ *  next unit (999.96M is 1.0B). Past the trillions it stays in T. */
+export function compactNumber(n) {
+  if (typeof n !== 'number' || !Number.isFinite(n) || Math.abs(n) < COMPACT_FROM) return null;
+  const a = Math.abs(n);
+  let i = UNITS.findIndex(([u]) => a >= u);
+  let r = Math.round((a / UNITS[i][0]) * 10) / 10;
+  if (r >= 1000 && i > 0) { i -= 1; r = Math.round((a / UNITS[i][0]) * 10) / 10; }
+  const body = r.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return `${n < 0 ? '-' : ''}${body}${UNITS[i][1]}`;
+}
+
+/** "$12.7B" from a million dollars up, else null. */
+export function compactUsd(v) {
+  const c = compactNumber(v);
+  return c == null ? null : (c.startsWith('-') ? `-$${c.slice(1)}` : `$${c}`);
+}
+
+/** The exact dollar figure, to the cent: "$12,716,140,365.33". */
+export function exactUsd(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return '';
+  return `${v < 0 ? '-' : ''}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 /** "Base and BNB Chain". */
 export function listWords(xs) {
   if (!xs.length) return '';

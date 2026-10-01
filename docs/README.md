@@ -13,7 +13,8 @@ On 30 September 2026 at 21:01 UTC the site listed 1,378 stocks and ETFs, from
 5 issuers (Robinhood, bStocks, xStocks, Ondo and Coinbase) on 7 chains
 (Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain, HyperEVM and Solana),
 and 120 tokenized versions had a measured cost (the counts in the home page's
-header at that time).
+header at that time). The screenshot's header row was updated on 1 October
+2026 to show the Docs link; everything under the header is as taken.
 
 ![The Tnega home page: the counts, the search, and the tokenized stocks ranked by cost to buy $1,000](images/site-home.png)
 
@@ -24,19 +25,23 @@ header at that time).
 - **Aave V4 collateral on Base.** For each Base version, whether the Aave V4 Equities Hub accepts it as collateral and at what maximum LTV, read on chain at a stated block. Shown on the stock pages.
 - **Vaults.** Vaults that take a stablecoin deposit, with their admin, timelock and total value computed from chain reads. See [Vaults](vaults.md).
 - **My ETFs.** Baskets of up to five stocks or ETFs, priced by the same cost engine, shared as a link. See [My ETFs](my-etfs.md).
-- **Dashboard.** What a connected wallet holds. See [Dashboard](dashboard.md).
+- **Dashboard.** What a connected wallet holds: the total, the allocation by class and every position, read on six chains. See [Dashboard](dashboard.md).
 - **Use with AI.** An MCP server that gives your assistant every measurement here, and can prepare an order for you to sign. See [Buy a tokenized stock through your assistant](buy-with-your-assistant.md).
 
 Everything on the site is a measurement, not a recommendation. Tnega never
 holds funds or keys and never signs: an order prepared through Tnega is signed
-by you, in your own wallet, on a signing page, or nothing happens. Tnega takes
+by you, in your own wallet, on a signing page or a stock page's Buy or Sell
+tab, or nothing happens. Tnega takes
 no fee.
 
 ## Buying
 
-The site's own Buy button is switched off. Today a purchase is prepared by an
-assistant through Tnega's MCP server and signed by you on a
-`tnega.app/sign/…` page. The whole route, with screenshots of every step, is
+There are two routes. On the site, a stock's page has Buy and Sell tabs,
+switched on for Base versions only: LI.FI quotes in your browser and you sign
+in your own wallet (see [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell)).
+On every chain an order can be prepared on, an assistant prepares the purchase
+through Tnega's MCP server and you sign it on a `tnega.app/sign/…` page. That
+route, with screenshots of every step, is
 [Buy a tokenized stock through your assistant (step by step)](buy-with-your-assistant.md).
 
 ## Also here

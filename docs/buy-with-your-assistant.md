@@ -23,6 +23,14 @@ for a route, checks the price and writes the order into a signed link. It never
 holds funds or keys, never signs, and takes no fee. Every transaction is signed
 by you, in your wallet, on the signing page.
 
+## Two routes: the site or your assistant
+
+- **On the site, Base only.** A stock's page has Buy and Sell tabs. On a Base version they ask LI.FI for a quote in your browser and you sign in your own wallet, with the same checks as the signing page below; on every other chain they say "not switched on yet". See [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell).
+- **Through your assistant, every chain an order can be prepared on** (Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM). The assistant prepares the order through Tnega's MCP server and you sign it on a `tnega.app/sign/…` page. That is the route this page follows.
+
+Either way you sign in your own wallet, LI.FI takes 0.25%, and Tnega takes no
+fee.
+
 ## Step 0: what you need
 
 - **A wallet on one of the chains an order can be prepared on.** These are Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. The signing page works with any wallet RainbowKit can connect: a browser wallet such as MetaMask, or a phone wallet through WalletConnect.
@@ -38,6 +46,9 @@ be set between 0.10% and 3%.
 The server is hosted; there is nothing to run locally, no key and no account.
 
 ![The Use with AI page on tnega.app: the MCP server, the clients it was checked against, the endpoint and the nine tools](images/buy-01-use-with-ai.png)
+
+The Use with AI screenshot's header row was updated on 1 October 2026 to show
+the Docs link; everything under the header is as taken on 30 September.
 
 The endpoint:
 

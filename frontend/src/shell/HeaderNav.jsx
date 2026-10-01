@@ -31,6 +31,10 @@ import { ChevronDown } from 'lucide-react';
 
 const GAP = 2; // gap-0.5 between tabs, and ml-0.5 before More
 
+// A plain left click, with no key that asks for a new tab or window. An item
+// with an `href` (Docs) leaves the other clicks to the browser.
+const plainClick = (e) => e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+
 // The page you are on is in the foreground colour and the rest are muted,
 // with no underline: the current page is marked by colour alone. Both states
 // use one weight, so a tab does not change width when it becomes current and
@@ -173,6 +177,20 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
         {visible.map((item) => {
           const on = active === item.id;
           return (
+            item.href ? (
+              // A link to a path of its own (Docs): a real anchor, so a
+              // middle click or Cmd-click opens it in a new tab.
+              <a
+                key={item.id}
+                href={item.href}
+                onClick={(e) => { if (plainClick(e)) { e.preventDefault(); onSelect(item.id); } }}
+                aria-current={on ? 'page' : undefined}
+                className={tabClass(on)}
+              >
+                {item.icon && <item.icon size={14} aria-hidden="true" className="shrink-0" />}
+                <span>{item.label}</span>
+              </a>
+            ) : (
             <button
               key={item.id}
               type="button"
@@ -183,6 +201,7 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
               {item.icon && <item.icon size={14} aria-hidden="true" className="shrink-0" />}
               <span>{item.label}</span>
             </button>
+            )
           );
         })}
       </nav>
@@ -213,6 +232,26 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
             >
               {overflow.map((item) => {
                 const Icon = item.icon;
+                const cls = 'w-full flex items-center gap-2 px-3 h-9 text-body text-left text-fg hover:bg-inset focus:bg-inset focus:outline-none';
+                if (item.href) {
+                  return (
+                    <a
+                      key={item.id}
+                      href={item.href}
+                      role="menuitem"
+                      tabIndex={-1}
+                      aria-current={active === item.id ? 'page' : undefined}
+                      onClick={(e) => { setOpen(false); if (plainClick(e)) { e.preventDefault(); onSelect(item.id); } }}
+                      // A link answers Enter on its own; Space, which menu
+                      // items also answer, has to be added.
+                      onKeyDown={(e) => { if (e.key === ' ') { e.preventDefault(); setOpen(false); onSelect(item.id); } }}
+                      className={cls}
+                    >
+                      <Icon size={15} aria-hidden="true" className="text-muted" />
+                      <span>{item.label}</span>
+                    </a>
+                  );
+                }
                 return (
                   <button
                     key={item.id}
@@ -220,7 +259,7 @@ export default function HeaderNav({ items, active, onSelect, align = 'start' }) 
                     role="menuitem"
                     tabIndex={-1}
                     onClick={() => { setOpen(false); onSelect(item.id); }}
-                    className="w-full flex items-center gap-2 px-3 h-9 text-body text-left text-fg hover:bg-inset focus:bg-inset focus:outline-none"
+                    className={cls}
                   >
                     <Icon size={15} aria-hidden="true" className="text-muted" />
                     <span>{item.label}</span>

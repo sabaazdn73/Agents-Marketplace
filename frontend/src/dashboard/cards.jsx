@@ -21,7 +21,7 @@ import { SymbolTile, fmtUsd } from '../ui/primitives';
 import { useTe, VAULT_LIST_HEADERS_MS } from '../te/api';
 import { readErrorText } from '../te/ReadError';
 import { fmtAge, fmtCount, fmtUtc } from '../wallet/format';
-import { CLASSES, listWords } from './portfolio';
+import { CLASSES, listWords, shareText, compactNumber, compactUsd, exactUsd } from './portfolio';
 
 const HIDDEN = '••••';
 
@@ -103,6 +103,16 @@ function BrandBand() {
 function Money({ value, hidden, className = 'text-[36px]' }) {
   if (hidden) return <span className={`font-semibold tabular-nums leading-none ${className}`}>{HIDDEN}</span>;
   if (value == null || !Number.isFinite(value)) return null;
+  // From a million up: compact, one decimal, the exact figure on hover, so a
+  // large wallet's total fits its box (portfolio.js compactUsd).
+  const compact = compactUsd(value);
+  if (compact) {
+    return (
+      <span title={exactUsd(value)} className={`inline-block max-w-full truncate align-bottom font-semibold tabular-nums leading-none tracking-[-0.02em] ${className}`}>
+        {compact}
+      </span>
+    );
+  }
   // Rounded to the cent first, as fmtUsd does: $1.999 is $2.00.
   const inCents = Math.round(Math.abs(value) * 100);
   const whole = Math.floor(inCents / 100);
@@ -114,13 +124,25 @@ function Money({ value, hidden, className = 'text-[36px]' }) {
   );
 }
 
-const usd = (v, hidden) => (hidden ? HIDDEN : fmtUsd(v));
+const usd = (v, hidden) => (hidden ? HIDDEN : (compactUsd(v) || fmtUsd(v)));
+
+/** The hover for a dollar figure: the exact amount when it is shown compact,
+ *  then any other line; nothing at all while amounts are hidden. */
+const usdTitle = (v, hidden, extra = null) => {
+  if (hidden) return undefined;
+  const exact = compactUsd(v) ? exactUsd(v) : null;
+  return [exact, extra].filter(Boolean).join(' · ') || undefined;
+};
 
 /** A balance from the chain (an exact decimal string), shortened for the
  *  face to six significant digits; the exact figure is in the hover. */
 export function shortBalance(s) {
   if (typeof s !== 'string' || !/^\d+(\.\d+)?$/.test(s)) return s ?? '';
   const n = Number(s);
+  // From a million up, compact (16.5M, 1,000.0T): the exact balance is in
+  // the hover wherever this is shown.
+  const c = compactNumber(n);
+  if (c) return c;
   if (n >= 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
   if (n >= 1) return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
   return n.toLocaleString('en-US', { maximumSignificantDigits: 4 });
@@ -296,7 +318,7 @@ export function PortfolioCard({ d, data, read, hidden, onToggleHidden }) {
                   <li key={s.id} className="flex items-center gap-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${CLASSES[s.id].fill}`} aria-hidden="true" />
                     <span className="text-muted">{s.label}</span>
-                    <span className="font-semibold tabular-nums text-fg">{usd(s.usd, hidden)}</span>
+                    <span className="font-semibold tabular-nums text-fg" title={usdTitle(s.usd, hidden)}>{usd(s.usd, hidden)}</span>
                   </li>
                 ))}
               </ul>
@@ -354,7 +376,7 @@ export function AllocationCard({ d, data, read, hidden }) {
     const t = d.totals[k];
     if (!t.rows) return d.partial ? 'none on chains read' : 'none';
     if (!t.priced) return 'not valued';
-    const pct = `${d.shares[k] ?? 0}%`;
+    const pct = shareText(d.shares[k], t.usd);
     return t.priced < t.rows ? `${pct} · ${t.priced} of ${t.rows}` : pct;
   };
   return (
@@ -464,9 +486,9 @@ export function PositionsCard({ d, data, read, hidden, compact = false }) {
                   {!compact && <td className="py-3 pl-4 text-right text-muted whitespace-nowrap" title={buyIn}>—</td>}
                   <td className="py-3 pl-6 pr-4 md:pr-0 text-right whitespace-nowrap">
                     {Number.isFinite(r.value_usd)
-                      ? <span className="block font-semibold tabular-nums text-fg" title={hidden ? undefined : valueSource(r) || undefined}>{usd(r.value_usd, hidden)}</span>
+                      ? <span className="block font-semibold tabular-nums text-fg" title={usdTitle(r.value_usd, hidden, valueSource(r))}>{usd(r.value_usd, hidden)}</span>
                       : <NoValue r={r} reasons={data.reasons} />}
-                    <span className="block text-[12px] text-muted tabular-nums" title={hidden ? undefined : `${r.balance} ${r.symbol}, ${r.chain} block ${fmtCount(r.block)}`}>
+                    <span className="block ml-auto max-w-[11rem] truncate text-[12px] text-muted tabular-nums" title={hidden ? undefined : `${r.balance} ${r.symbol}, ${r.chain} block ${fmtCount(r.block)}`}>
                       {hidden ? HIDDEN : shortBalance(r.balance)} {r.symbol}
                     </span>
                   </td>
@@ -550,7 +572,7 @@ export function ClassCard({ k, d, data, read, hidden }) {
     </Tip>
   );
   const value = !data ? null : t.usd != null
-    ? <span title={`Sum of ${t.priced} valued row${t.priced === 1 ? '' : 's'}`}><Money value={t.usd} hidden={hidden} className="text-[28px] text-fg" /></span>
+    ? <span className="min-w-0" title={`${!hidden && compactUsd(t.usd) ? `${exactUsd(t.usd)}, the sum` : 'Sum'} of ${t.priced} valued row${t.priced === 1 ? '' : 's'}`}><Money value={t.usd} hidden={hidden} className="text-[28px] text-fg" /></span>
     : <span className="text-[15px] font-semibold text-fg">{empty || 'Not valued'}</span>;
   const sub = data && t.rows > 0
     ? <span className="text-[12px] text-muted whitespace-nowrap">{t.priced < t.rows ? `${t.priced} of ${t.rows} valued` : `${t.rows} held`}</span>
@@ -574,9 +596,9 @@ export function ClassCard({ k, d, data, read, hidden }) {
                   </span>
                   <span className="text-right shrink-0">
                     {Number.isFinite(r.value_usd)
-                      ? <span className="block text-[13px] font-semibold tabular-nums text-fg" title={hidden ? undefined : valueSource(r) || undefined}>{usd(r.value_usd, hidden)}</span>
+                      ? <span className="block text-[13px] font-semibold tabular-nums text-fg" title={usdTitle(r.value_usd, hidden, valueSource(r))}>{usd(r.value_usd, hidden)}</span>
                       : <NoValue r={r} reasons={data.reasons} />}
-                    <span className="block text-[11px] text-muted tabular-nums" title={hidden ? undefined : `${r.balance} ${r.symbol}, block ${fmtCount(r.block)}`}>{hidden ? HIDDEN : shortBalance(r.balance)}</span>
+                    <span className="block ml-auto max-w-[8rem] truncate text-[11px] text-muted tabular-nums" title={hidden ? undefined : `${r.balance} ${r.symbol}, block ${fmtCount(r.block)}`}>{hidden ? HIDDEN : shortBalance(r.balance)}</span>
                   </span>
                 </Tag>
               </li>

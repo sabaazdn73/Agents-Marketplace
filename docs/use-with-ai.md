@@ -6,7 +6,7 @@ behind each one. No key, no account, no sign-up. The server holds data and
 runs no model of its own.
 
 The screenshot is this page as built from this documentation's branch, taken on
-30 September 2026.
+30 September 2026. Its header row was updated on 1 October 2026 to show the Docs link; everything under the header is as taken.
 
 ![The Use with AI page: the MCP server, the clients it was checked against, the endpoint and the nine tools](images/buy-01-use-with-ai.png)
 

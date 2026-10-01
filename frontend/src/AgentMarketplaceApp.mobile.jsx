@@ -58,7 +58,7 @@ import { useSignIn } from './wallet/SignInProvider';
 import ThemeToggle from './theme/ThemeToggle';
 import Brand from './shell/Brand';
 import TopSearch from './shell/TopSearch';
-import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE } from './shell/productNav';
+import { PRODUCT_NAV, PRODUCT_PAGE_IDS, isLive, SEARCH_LIVE, DOCS_NAV, isDocsPath } from './shell/productNav';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Stocks from './pages/Stocks';
@@ -139,9 +139,12 @@ function StatSkeleton() {
 // sheet and at the foot of each page.
 const PRIMARY_NAV_ITEMS = PRODUCT_NAV;
 
-// The menu sheet: the wallet, the theme, and the footer links. Every product
-// page is in the bottom bar, so the sheet holds no navigation of its own.
+// The menu sheet: the wallet, the theme, Docs and the footer links. Every
+// product page is in the bottom bar; Docs is the one header link that is not
+// (shell/productNav.js DOCS_NAV), so the sheet carries it.
 function MobileWalletSheet({ onClose, onNavigate, path }) {
+  const DocsIcon = DOCS_NAV.icon;
+  const docsOn = isDocsPath(path);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-h-[90dvh] overflow-y-auto bg-surface text-fg border-t border-line rounded-t-xl p-5 pb-10" onClick={e => e.stopPropagation()}>
@@ -163,6 +166,18 @@ function MobileWalletSheet({ onClose, onNavigate, path }) {
           <h3 className="text-micro font-semibold uppercase tracking-wider text-muted mb-2 px-1">Theme</h3>
           <ThemeToggle labels />
         </div>
+        <a
+          href={DOCS_NAV.href}
+          onClick={(e) => {
+            if (!onNavigate || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault(); onClose(); onNavigate(DOCS_NAV.href);
+          }}
+          aria-current={docsOn ? 'page' : undefined}
+          className={`mt-2 flex items-center gap-2.5 h-11 px-3 rounded border border-line text-body font-medium ${docsOn ? 'text-fg bg-inset' : 'text-fg hover:bg-inset'}`}
+        >
+          <DocsIcon size={18} aria-hidden="true" className="text-muted shrink-0" />
+          <span>{DOCS_NAV.label}</span>
+        </a>
         <SiteLinks
           onNavigate={onNavigate ? (to) => { onClose(); onNavigate(to); } : undefined}
           activePath={path}

@@ -5,7 +5,7 @@ same cost engine as the stock pages, and gives it a link you can share. Nothing
 is stored: the weights live in the link.
 
 The screenshot was taken on https://www.tnega.app on 30 September 2026 at
-21:05 UTC.
+21:05 UTC. Its header row was updated on 1 October 2026 to show the Docs link; everything under the header is as taken.
 
 ![My ETFs: four example baskets with their weights, cost to buy $1,000, signatures needed and largest size under 1% cost, and the Build your own form](images/site-my-etfs.png)
 

@@ -22,7 +22,7 @@
 // The order is the owner's: Stocks & ETFs, Vaults, My ETFs, Dashboard, Use
 // with AI. The home page is "/" and is reached from the logo.
 
-import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal, Lock } from 'lucide-react';
+import { LayoutDashboard, LineChart, Landmark, PieChart, Terminal, Lock, BookOpen } from 'lucide-react';
 
 import { DATA_LIVE } from '../dataLive.js';
 
@@ -36,6 +36,21 @@ export const ALL_PRODUCT_NAV = [
 
 /** The pages shown in the navigation: the live ones, in order. */
 export const PRODUCT_NAV = ALL_PRODUCT_NAV.filter((i) => i.live);
+
+// THE DOCS LINK. /docs is a standalone page (App.jsx renders DocsPage outside
+// the shell), not a product page, so it is not in ALL_PRODUCT_NAV: it has no
+// tab id in routePaths.js, no `live` switch, no sitemap entry from here, and
+// isLive() and PRODUCT_PAGE_IDS do not count it. It is shown in the web
+// header after Use with AI (and in its More menu when the row folds) and in
+// the phone's menu sheet, but not in the bottom bar, where five tabs already
+// share 390px. `href` marks it as a link to a path rather than a tab.
+export const DOCS_NAV = { id: 'docs', path: '/docs', href: '/docs', label: 'Docs', icon: BookOpen };
+
+/** The web header's row: the product pages, then Docs. */
+export const HEADER_NAV = [...PRODUCT_NAV, DOCS_NAV];
+
+/** Is this path the docs (/docs, /docs/<page>, /docs#part)? */
+export const isDocsPath = (path) => path === '/docs' || path.startsWith('/docs/') || path.startsWith('/docs#');
 
 // PRODUCT PAGES OUTSIDE THE MAIN NAVIGATION. Same switch, same shell, but
 // reached from the home page, the footer and the stock pages rather than the

@@ -1,9 +1,10 @@
 # Stocks & ETFs, and a stock's page
 
-The screenshots on this page were taken on https://www.tnega.app on
+The screenshots on this page, except those of the Buy and Sell tabs (dated in
+their own section), were taken on https://www.tnega.app on
 30 September 2026 between 21:05 and 21:17 UTC. The figures in them are the
 ones the site served at that time, measured at 21:01 UTC with the US market
-closed.
+closed. Their header rows were updated on 1 October 2026 to show the Docs link; everything under the header is as taken.
 
 ## The list
 
@@ -41,7 +42,7 @@ For each version:
 | State | Fills the size; not ranked (and why); pool too thin; no pool found; or not searched on that chain |
 
 "Details" picks that version for the lower part of the page (see "One version
-in detail" below).
+in detail" below), where it has three tabs: Details, Buy and Sell.
 
 Costs are simulated, not quoted: each purchase is run against the pool's
 contracts inside an `eth_call` at a pinned block on a public RPC endpoint, so
@@ -69,6 +70,71 @@ hold it, in the issuer's words, linked and dated; and the issuer's controls on
 that token.
 
 ![A stock page's lower half: NVDA on Robinhood Chain, who may hold it in the issuer's words, and the issuer controls on it](images/site-stock-page-issuer.png)
+
+### Details, Buy and Sell
+
+The chosen version has three tabs, Details, Buy and Sell, on a glass tab bar.
+Details is the part described above. Buy and Sell trade that version from your
+own wallet, routed by LI.FI in your browser. The tab is kept in the address
+(`?tab=buy`, `?tab=sell`).
+
+**Buy and Sell are switched on for Base only**, the one chain where a real buy
+has been run (5 USDC to NVDAc through the signing page, 30 September
+2026); no real sale has been run yet. On any other chain the tab says so and
+offers no control:
+
+![The Buy tab for NVDAB on BNB Chain: "Buying on BNB Chain is not switched on yet. Buy and Sell are switched on one chain at a time, after a real trade has been run there. Today that is Base."](images/stock-page-not-switched-on.png)
+
+On Base, Buy pays USDC and receives the stock token; Sell gives up the stock
+token (Max fills in the balance read on chain) and receives USDC. Each asks
+LI.FI for a quote only when you press "Get a LI.FI quote", and shows LI.FI's
+estimate, the minimum after 0.50% slippage, LI.FI's 0.25% fee, the network
+fee, the route and when it was quoted.
+
+Before anything is offered for signing, the tab checks:
+
+- **The quote matches the trade.** The chains, tokens, amount and wallet; the recipient, which must be the connected wallet, at every step of the route; and the transaction's own receiver and minimum, decoded from its calldata. A route the page cannot decode is not used, and a route through Jupiter is refused.
+- **LI.FI's contract.** The contract called and the approval's spender must both be LI.FI's contract on that chain, pinned in the site's code.
+- **An exact approval.** The approval is for exactly the amount, never an unlimited one, as its own wallet prompt.
+- **The price, at two prices.** Our reference is Tnega's own measured price for that version (the pool's price and fees, and LI.FI's fee, on a buy; the pool's mid price on a sale). LI.FI's own dollar price for the token must be within 5% of ours. Then the minimum the route guarantees, valued at our price and at LI.FI's, must be within the trade's limit of what is given up. On the tabs that limit is at most 2%.
+- **Fresh figures.** The quote is signed only while it is under 60 seconds old, and our reference only while it is under 30 minutes old. If our reference is missing or too old, no quote is asked for from LI.FI.
+- **Token decimals** are read on chain, the stock token's twice from two endpoints, and must agree with LI.FI's figure.
+
+The issuer's words on who may hold the token are shown next to the Sign button,
+with a box to tick. They are shown, not enforced: Tnega does not check who you
+are.
+
+Tnega takes no fee. LI.FI takes 0.25%, and the network fee is paid by your
+wallet. Tnega passes LI.FI's transaction to your wallet as LI.FI built it,
+after the checks above; it never holds funds or keys and never signs.
+
+The screenshots below were taken on 1 October 2026 at 00:14 to 00:19 UTC from
+this documentation's branch, served under https://www.tnega.app against the
+live API. The connected wallet is a stand-in for an example address, the burn
+address, which no one controls:
+
+```text
+0x000000000000000000000000000000000000dEaD
+```
+
+The stand-in never sends anything; nothing was approved, signed or
+sent. The quotes are real LI.FI answers for that address: $10 of USDC on the
+Buy tab, and the address's whole NVDAc balance, 0.00276362, on the Sell tab.
+
+![The Buy tab for NVDAc on Base with the example address connected: $10 of USDC, LI.FI's estimate of 0.04343521 NVDAc, the minimum, the fees, the price check at our price and LI.FI's within the 2.00% limit, the exact approval to LI.FI's contract, and the steps to approve and sign](images/stock-page-buy-tab.png)
+
+![The Sell tab for NVDAc on Base with the example address connected: 0.00276362 NVDAc, LI.FI's estimate of 0.632638 USDC, the price check and the exact approval](images/stock-page-sell-tab.png)
+
+The same tabs in the dark theme:
+
+![The Buy tab in the dark theme](images/stock-page-buy-tab-dark.png)
+
+![The Sell tab in the dark theme](images/stock-page-sell-tab-dark.png)
+
+![The "not switched on yet" card for a BNB Chain version, in the dark theme](images/stock-page-not-switched-on-dark.png)
+
+For other chains, an order can still be prepared through an assistant and
+signed on a signing page: see [Buy a tokenized stock through your assistant](buy-with-your-assistant.md#two-routes-the-site-or-your-assistant).
 
 The same page in the dark theme (the theme switch is in the header):
 

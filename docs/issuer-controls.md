@@ -9,6 +9,7 @@ page.
 
 The screenshot was taken on https://www.tnega.app on 30 September 2026 at
 21:06 UTC. The page then covered 5 issuers, 7,279 listed tokens and 7 chains.
+Its header row was updated on 1 October 2026 to show the Docs link; everything under the header is as taken.
 
 ![Issuer controls: a box to check one token, what each power means, and the table of who holds each power by issuer and chain](images/site-issuer-controls.png)
 
