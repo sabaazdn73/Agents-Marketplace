@@ -2023,6 +2023,32 @@ for _p, (_f, _m) in _ICONS.items():
     _icon_route(_p, _f, _m)
 
 
+# The host's front door. A crawler that looks for this host's icon reads the page
+# at "/" for a <link rel="icon"> before it falls back to /favicon.ico, and a bare
+# 404 here left directories and favicon services with no icon for mcp.tnega.app.
+_ROOT_HTML = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Tnega MCP server</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Tnega's hosted MCP server: what a tokenized stock really costs to buy, on every chain. Read only, no key, no account.">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+</head><body style="font:16px/1.5 system-ui;max-width:34rem;margin:4rem auto;padding:0 1rem">
+<img src="/icon-192.png" width="96" height="96" alt="Tnega" style="border-radius:20px">
+<h1>Tnega MCP server</h1>
+<p>Endpoint: <code>https://mcp.tnega.app/mcp</code>. Free, read only, no key and no account.</p>
+<p><a href="https://www.tnega.app/ai">How to use it with your assistant</a></p>
+</body></html>"""
+
+
+@app.get("/", include_in_schema=False)
+async def _mcp_host_root() -> Response:
+    return Response(content=_ROOT_HTML, media_type="text/html; charset=utf-8",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
 # ── Public status page backing endpoint ──
 # Real, live, right-now reachability of every external integration this
 # project depends on (see core/status_checks.py for the honesty rules and
