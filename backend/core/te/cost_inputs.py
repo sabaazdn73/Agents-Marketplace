@@ -137,6 +137,55 @@ def load_inputs(universe=None) -> dict:
                                                  "of underlyings with at least one measurable pool"}}
 
 
+def solana_records(universe=None) -> tuple[list[dict], dict]:
+    """(the listed Solana versions, the underlyings among them with a name and
+    type), in the record shape the Solana pass reads (core/te/solana_cost.py).
+    Every listed Solana version is kept, whatever pool the universe pass did
+    or did not find: Jupiter routes over venues the pass does not search, so
+    the quote, not the pool search, says whether there is a way to buy it."""
+    from .universe import iter_listed, load_universe
+
+    u = universe or load_universe()
+    recs, tickers = [], set()
+    for r in iter_listed(u):
+        if r.get("chain") != "solana":
+            continue
+        full = u.record(r["key"], controls=True) or {}
+        words, block = _control_words(full.get("controls"))
+        recs.append({"key": r["key"], "chain_id": None, "chain": "solana", "address": r["address"],
+                     "symbol": r["symbol"], "decimals": r["decimals"], "underlying": r["underlying"],
+                     "issuer": r["issuer"], "pools": [], "controls": words, "controls_block": block})
+        tickers.add(r["underlying"])
+    over = _type_overrides()
+    unders = {}
+    for t in sorted(tickers):
+        info = u.underlying(t) or {}
+        unders[t] = {"name": info.get("name"), "name_basis": info.get("name_basis"), "type": info.get("type"),
+                     "type_basis": info.get("type_basis")}
+        if not info.get("name") and t in (over.get("names") or {}):
+            n = over["names"][t]
+            unders[t].update(name=n["security_name"], name_basis=f"{over['source']}: security name")
+        if not info.get("type") and t in over["types"]:
+            o = over["types"][t]
+            unders[t].update(type=o["type"], type_basis=f"{over['source']}: ETF column = {o['etf_flag']} ({o['security_name']})")
+    return sorted(recs, key=lambda r: (r["underlying"], r["issuer"], r["key"])), unders
+
+
+def add_solana(inputs: dict, universe=None) -> dict:
+    """`inputs` with the Solana versions added, so the list document the
+    worker writes keeps their rows. The EVM chains' runs filter on chain_id
+    and never see these records. Idempotent."""
+    if any(r.get("chain") == "solana" for r in inputs["records"]):
+        return inputs
+    recs, unders = solana_records(universe)
+    out = dict(inputs)
+    out["records"] = list(inputs["records"]) + recs
+    out["underlyings"] = {**unders, **inputs["underlyings"]}
+    out["source"] = {**(inputs.get("source") or {}),
+                     "solana": f"{len(recs)} listed Solana versions, quoted through Jupiter's public quote API"}
+    return out
+
+
 def by_underlying(inputs: dict) -> dict[str, list[dict]]:
     out: dict[str, list[dict]] = {}
     for r in inputs["records"]:

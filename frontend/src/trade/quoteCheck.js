@@ -19,31 +19,17 @@
 
 import { fmtUsd } from '../ui/primitives';
 import { jupiterIn, quoteMismatch, quoteFacts, ROUTE_UNSUPPORTED } from './lifi';
-import { orderCheck, quotePrice, REFERENCE_MAX_AGE_MS, REFERENCE_MAX_AHEAD_MS, REFERENCE_MAX_GAP } from '../sign/order';
-import { rawText, clockText } from './format';
+import { quotePrice } from '../sign/order';
+import { orderCheck, referenceProblem, REFERENCE_MAX_GAP } from '../sign/orderMath.js';
+import { rawText } from './format';
+
+// referenceProblem lives in sign/orderMath.js (shared with the Solana order).
+// The stock page's tabs ask it BEFORE any request to LI.FI, so a quote that
+// could not pass is never asked for and no address is sent.
+export { referenceProblem };
 
 const pct = (x, d = 2) => `${(x * 100).toFixed(d)}%`;
 const tok = (v, d = 4) => (typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : null);
-
-/** Why our reference cannot be used to check a quote, in words, or null.
- *  The stock page's tabs ask this BEFORE any request to LI.FI, so a quote
- *  that could not pass is never asked for and no address is sent. */
-export function referenceProblem({ vc, symbol, noun = 'order', now = Date.now(), before = false }) {
-  // `before`: asked before any quote, so the words say none was asked for.
-  const tail = before ? 'so no quote is asked for from LI.FI' : "so LI.FI's quote is not checked against it and is not offered for signing";
-  if (!vc || vc.reason) {
-    return before
-      ? `There is no measured price to check a quote against: ${vc?.reason || 'none was read'}. No quote is asked for from LI.FI.`
-      : `LI.FI's quote could not be checked against our own measured price: ${vc?.reason || `none was sent with the ${noun}`}. It is not offered for signing.`;
-  }
-  if (vc.measuredAt != null && vc.measuredAt - now > REFERENCE_MAX_AHEAD_MS) {
-    return `Our measured price for ${symbol} is dated ${clockText(vc.measuredAt)}, in the future, ${tail}.`;
-  }
-  if (vc.measuredAt == null || now - vc.measuredAt > REFERENCE_MAX_AGE_MS) {
-    return `Our measured price for ${symbol} ${vc.measuredAt == null ? 'carries no time' : `was measured at ${clockText(vc.measuredAt)}, over 30 minutes ago`}, ${tail}. Try again once our measurement is refreshed.`;
-  }
-  return null;
-}
 
 /** { ok: true, facts, check, lp, gap } or { ok: false, facts, why, check? }.
  *    quote     LI.FI's answer, as it came

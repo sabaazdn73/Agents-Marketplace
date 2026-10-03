@@ -22,6 +22,12 @@ import { parseUnits } from 'viem';
 import { BUY_CHAINS } from '../trade/chains';
 import { units as lifiUnits } from '../trade/lifi';
 import { teRead } from '../te/api';
+import { isSolanaData, normaliseSolanaOrder, payloadMismatchSolana } from './solanaOrder.js';
+import { decimalKey, limitFor, orderCheck, REFERENCE_MAX_AGE_MS, REFERENCE_MAX_AHEAD_MS, REFERENCE_MAX_GAP } from './orderMath.js';
+
+// Shared with the Solana order (sign/solanaQuote.js); kept exported from here
+// so every existing import of them keeps working.
+export { decimalKey, limitFor, orderCheck, REFERENCE_MAX_AGE_MS, REFERENCE_MAX_AHEAD_MS, REFERENCE_MAX_GAP };
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
@@ -47,9 +53,14 @@ export async function readOrder(id) {
   if (!Number.isInteger(payload.b) || payload.b < 0) return { state: 'invalid', reason: 'The link does not carry the measured cost its price check is based on.' };
   const r = await teRead(`/api/sign/${id}`);
   if (r.data) {
-    const n = normaliseOrder(r.data);
+    // A Solana order is read and checked by sign/solanaOrder.js; the rest of
+    // this function (the link's cost, the countdown, the value check) is the
+    // same for both families.
+    const solana = isSolanaData(r.data);
+    const n = solana ? normaliseSolanaOrder(r.data) : normaliseOrder(r.data);
+    if (n.expired) return { state: 'expired' };
     if (n.error) return { state: 'invalid', reason: n.error };
-    const diff = payloadMismatch(payload, n.order);
+    const diff = solana ? payloadMismatchSolana(payload, n.order) : payloadMismatch(payload, n.order);
     if (diff.length) return { state: 'invalid', reason: `The server's answer does not match the order in the link (${diff.join(', ')}), so nothing is offered for signing.` };
     const raw = r.data?.order || r.data;
     // The countdown. seconds_left comes unsigned, so it may only shorten the
@@ -85,14 +96,6 @@ export function idPayload(id) {
     const p = JSON.parse(new TextDecoder().decode(bytes));
     return p && typeof p === 'object' && !Array.isArray(p) ? p : null;
   } catch { return null; }
-}
-
-/** "10.50" and "10.5" are one amount; "010" is "10". */
-export function decimalKey(x) {
-  const m = /^0*(\d*?)(?:\.(\d*?)0*)?$/.exec(String(x ?? '').trim());
-  if (!m) return null;
-  const int = m[1] || '0';
-  return m[2] ? `${int}.${m[2]}` : int;
 }
 
 /** Where the server's order differs from the one in the id: [] when none. */
@@ -278,7 +281,8 @@ export function readValueCheck(o, side, signedCostBps) {
   if (typeof vc.cost_ex_gas_bps !== 'number' || vc.cost_ex_gas_bps !== cost) return { reason: `the server's measured cost (${JSON.stringify(vc.cost_ex_gas_bps ?? null)} bps) is not the ${cost} bps signed into the link` };
   const ours = limitFor(cost);
   if (!Number.isFinite(limit) || Math.abs(limit - ours) > 1e-9) return { reason: `the server's limit (${Number.isFinite(limit) ? `${(limit * 100).toFixed(2)}%` : 'not a number'}) is not the one the rule gives for a measured cost of ${cost} bps (${(ours * 100).toFixed(2)}%)` };
-  const at = side === 'sell' ? first(obj(o.sell_reference).measured_at, obj(o.reference).computed_at) : first(obj(o.reference).computed_at, obj(o.sell_reference).measured_at);
+  // A Solana order's reference (sign/solanaOrder.js) names its time measured_at.
+  const at = side === 'sell' ? first(obj(o.sell_reference).measured_at, obj(o.reference).computed_at, obj(o.reference).measured_at) : first(obj(o.reference).computed_at, obj(o.sell_reference).measured_at, obj(o.reference).measured_at);
   const measuredAt = Date.parse(at);
   return {
     limit, price,
@@ -287,18 +291,6 @@ export function readValueCheck(o, side, signedCostBps) {
     rule: vc.rule || null,
     measuredAt: Number.isFinite(measuredAt) ? measuredAt : null,
   };
-}
-
-/** A reference older than this is not used to check a quote. */
-export const REFERENCE_MAX_AGE_MS = 30 * 60e3;
-/** A reference dated further ahead than this (clock skew allowed) is not
- *  used either. */
-export const REFERENCE_MAX_AHEAD_MS = 5 * 60e3;
-
-/** The owner's rule (2026-09-29): min(5%, max(2%, 3 x our measured cost
- *  without gas at the size nearest the order)), as a fraction. */
-export function limitFor(costExGasBps) {
-  return Math.min(0.05, Math.max(0.02, (3 * costExGasBps) / 10000));
 }
 
 /** LI.FI's own dollar price per stock token, from the quote: the token's
@@ -314,40 +306,4 @@ export function quotePrice(quote, side, facts) {
   const units = side === 'buy' ? facts?.toAmount : lifiUnits(a.fromAmount, Number(a.fromToken?.decimals));
   if (usd > 0 && units > 0) return { price: usd / units, source: `LI.FI's dollar value of the quote (${side === 'buy' ? 'toAmountUSD' : 'fromAmountUSD'}) over its token amount` };
   return null;
-}
-export const REFERENCE_MAX_GAP = 0.05;
-
-/** The quote against the order, valued twice, before anything is offered
- *  for signing. Refused when:
- *    the minimum sits below the estimate by more than the order's slippage
- *    plus 0.1% for rounding;
- *    the loss exceeds the order's limit valued at EITHER price:
- *      our reference (the server's value check), or
- *      LI.FI's own price for the stock token (lp, quotePrice), so a
- *      reference nudged within the 5% agreement band cannot make a worse
- *      route pass;
- *      buy   1 - (minimum tokens x price) / dollars paid
- *      sell  1 - minimum dollars / (tokens sold x price);
- *    the value is more than 5% ABOVE what is given up at either price: that
- *    points to a wrong token, decimals or price, not a bargain. */
-export function orderCheck({ side, out, outMin, amount, slippage, vc, lp }) {
-  if (!(out > 0) || !(outMin > 0) || !(amount > 0) || !vc || !(vc.limit > 0) || !(vc.price > 0) || !lp || !(lp.price > 0)) return { ok: false, why: ['figures'] };
-  const minRatio = outMin / out;
-  const why = [];
-  if (minRatio < 1 - (slippage + 0.001)) why.push('min');
-  const at = (price) => {
-    const valueIn = side === 'buy' ? amount : amount * price;
-    const valueOut = side === 'buy' ? outMin * price : outMin;
-    return { valueIn, valueOut, loss: 1 - valueOut / valueIn };
-  };
-  const ours = at(vc.price);
-  const theirs = at(lp.price);
-  if (ours.loss > vc.limit) why.push('loss');
-  if (theirs.loss > vc.limit) why.push('lossLifi');
-  if (-ours.loss > 0.05 || -theirs.loss > 0.05) why.push('gain');
-  return {
-    ok: why.length === 0, why, minRatio,
-    value: { ...ours, limit: vc.limit, price: vc.price, basis: vc.basis, limitBasis: vc.limitBasis },
-    lifi: { ...theirs, price: lp.price, source: lp.source },
-  };
 }
