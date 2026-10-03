@@ -692,6 +692,20 @@ export default function PrivacyPage({ onBack }) {
             twice; the server keeps that in memory only, and forgets it when it restarts.
           </p>
           <p>
+            A signing link for an order on Solana works the same way, with Jupiter in place of LI.FI.
+            When you press the button for a quote, your browser sends Jupiter (lite-api.jup.ag, and
+            api.jup.ag if the first does not answer) the two token mints and the amount, and then the
+            wallet address so Jupiter can build the transaction. It reads both tokens&apos; mints, which
+            sends no address, and the wallet&apos;s token and SOL balances, which sends the wallet
+            address, from Solana&apos;s public RPC provider: PublicNode (solana-rpc.publicnode.com), with
+            api.mainnet-beta.solana.com as a backup. Your Solana wallet signs and sends the
+            transaction itself, through its own connection, and your browser then asks the same RPC
+            providers for the transaction&apos;s status by its signature. None of that goes to our
+            server, which receives only the transaction signature with the link, so the link cannot be
+            used twice. Connecting a Solana wallet to the signing page stores the name of the wallet
+            you picked in your browser&apos;s own storage and nothing else.
+          </p>
+          <p>
             Signing in on the website is a signature from your wallet over a short message that
             moves no funds and approves nothing. For an ordinary wallet, such as MetaMask, it is
             checked in your browser and the signature is not sent anywhere. A contract wallet (a

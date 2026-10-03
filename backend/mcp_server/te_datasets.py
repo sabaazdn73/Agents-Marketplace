@@ -70,7 +70,9 @@ MCP_COUNTS_DEFINITION = (
     "instruments_not_searched: those whose pool search did not finish. instruments_quoted: a quote was run on a "
     "pool that passed the venue checks (by_state.quoted). instruments_with_a_measured_cost: quoted, and the best "
     "passing pool fills a $1,000 buy at the refresh block. by_chain[] gives the same counts per chain under the "
-    "same names. Only EVM versions are read: Solana versions are listed but not measured yet.")
+    "same names. EVM versions are read on their pools; Solana versions are quoted through Jupiter's public quote API "
+    "(a route and its price impact, not a pool read), a few hundred at a time, so a Solana version not yet quoted is "
+    "listed but not counted as read.")
 
 _MCP_NAMES = {"versions_read": "instruments_read", "versions_searched": "instruments_searched",
               "versions_not_searched": "instruments_not_searched", "versions_quoted": "instruments_quoted",
@@ -114,6 +116,11 @@ def _cost_cell(c: dict) -> dict:
             "pool_depth_2pct_usd": _num(c.get("pool_usd"), 0),
             "cost_parts_usd": c.get("cost_parts"),
         })
+        if c.get("cost_basis"):
+            # Solana: the cost is Jupiter's price impact and the depth is a
+            # proxy; each says so in the record that carries the figure.
+            out["cost_basis"] = c["cost_basis"]
+            out["pool_depth_basis"] = c.get("pool_usd_basis")
     else:
         out.update({"filled_fraction": c.get("filled_fraction"), "reason": c.get("reason")})
         if c.get("state") in ("partial", "too_thin"):
@@ -230,13 +237,15 @@ def build_te(providers=None) -> list[Dataset]:
         docs, _ = await cv.cost_snapshot(get_store())
         return docs
 
-    def _scope(read: int, listed: int, solana: int) -> str:
-        return (f"The list holds only the EVM versions the cost engine reads: {read:,} of {listed:,} listed "
-                f"versions. The engine reads listed tokens on its six EVM chains (Ethereum, Base, Arbitrum, BNB "
-                f"Chain, Robinhood Chain, HyperEVM), for the underlyings that have at least one pool it can "
-                f"simulate, every version of such an underlying, pool or not. Absent: the {solana:,} Solana "
-                f"versions (listed, not measured yet) and the EVM versions of underlyings with no pool it can "
-                f"simulate.")
+    def _scope(read: int, listed: int, solana: int, solana_read: int) -> str:
+        return (f"The list holds the versions the cost engine reads: {read:,} of {listed:,} listed versions, "
+                f"{solana_read:,} of them on Solana. EVM versions are read on the six EVM chains (Ethereum, Base, "
+                f"Arbitrum, BNB Chain, Robinhood Chain, HyperEVM) on their pools, for the underlyings that have at "
+                f"least one pool the engine can simulate, every version of such an underlying, pool or not. Solana "
+                f"versions ({solana:,} listed) are quoted through Jupiter's public quote API a few hundred at a "
+                f"time: a route and its price impact at $1,000 and $10,000, not a pool read; each carries its own "
+                f"measurement time, and one with no route says no_route. Absent: the Solana versions not quoted "
+                f"yet and the EVM versions of underlyings with no pool the engine can simulate.")
 
     # ── coverage ─────────────────────────────────────────────────────────────
     async def coverage():
@@ -254,7 +263,8 @@ def build_te(providers=None) -> list[Dataset]:
             "instruments_quoted": counts.get("versions_quoted"),
             "instruments_with_a_measured_cost": counts.get("versions_with_cost"),
             "counts_definition": MCP_COUNTS_DEFINITION,
-            "scope": _scope(counts.get("versions_read") or 0, s.get("versions_listed") or 0, solana),
+            "scope": _scope(counts.get("versions_read") or 0, s.get("versions_listed") or 0, solana,
+                            next((c["versions_read"] for c in counts.get("by_chain") or [] if c.get("chain_name") == "Solana"), 0)),
             "underlyings": s.get("underlyings"),
             "chains": [c["name"] for c in s.get("chain_list") or []],
             "issuers": sorted(ISSUER_NAMES.values()),
@@ -292,8 +302,7 @@ def build_te(providers=None) -> list[Dataset]:
                     "explanation": "The supply key (spec 4.8) is not built. Issuer-published supply is on the "
                                    "issuer's page and is not restated here (E18)."}
         if s:
-            return {"key": k, "withheld_reason": "not_covered",
-                    "explanation": "Solana versions are listed but their cost is not measured yet."}
+            return await _instrument(f"solana/{s.group(1)}")
         if not m:
             return None
         return await _instrument(f"{m.group(1)}/{m.group(2).lower()}")
@@ -318,6 +327,8 @@ def build_te(providers=None) -> list[Dataset]:
             c1, c10 = cells[key].get(1000) or {}, cells[key].get(10000) or {}
             v = {"key": key, "symbol": c1.get("symbol"), "issuer": c1.get("issuer"), "chain_id": c1.get("chain_id"),
                  "shares_per_token": _num(c1.get("share_ratio"), 6), "block": c1.get("block")}
+            if c1.get("chain_id") is None and c1.get("chain"):
+                v["chain"] = c1["chain"]          # Solana has no chain id; "block" is a slot there
             for size, c in ((1000, c1), (10000, c10)):
                 tag = "1k" if size == 1000 else "10k"
                 if c.get("state") == "filled":
@@ -360,7 +371,8 @@ def build_te(providers=None) -> list[Dataset]:
     async def _instrument(key: str):
         from core.te.cost_views import _cell
         store = get_store()
-        chain_id = int(key.split("/")[0])
+        solana = key.startswith("solana/")
+        chain_id = None if solana else int(key.split("/")[0])
         ld = await list_doc()
         if ld is None:
             return {"key": key, "withheld_reason": "not_measured", "explanation": "the cost worker has not written yet"}
@@ -379,12 +391,14 @@ def build_te(providers=None) -> list[Dataset]:
         c0 = cells[SIZES[0]]
         return {
             "key": key, "measured_at": doc.get("computed_at"),
-            "chain_id": chain_id, "token_address": key.split("/")[1], "symbol": doc.get("symbol"),
+            "chain_id": chain_id, **({"chain": "solana"} if solana else {}), "token_address": key.split("/")[1],
+            "symbol": doc.get("symbol"),
             "issuer": ISSUER_NAMES.get(doc.get("issuer"), doc.get("issuer")), "issuer_key": f"issuer/{doc.get('issuer')}",
             "underlying_key": f"underlying/{doc.get('underlying')}",
             "shares_per_token": _num(doc.get("share_ratio"), 6),
             "shares_per_token_basis": doc.get("share_ratio_basis"),
-            "quote_basis": {"block": doc.get("block"), "measured_at": doc.get("computed_at"),
+            "quote_basis": {"block": doc.get("block"), **({"block_unit": "slot"} if solana else {}),
+                            "measured_at": doc.get("computed_at"),
                             "staleness_bound_seconds": STALENESS_BOUND_S,
                             "us_market_open": doc.get("us_market_open")},
             "cost_to_fill": [{"notional_usd": size, "side": "buy", **_cost_cell(cells[size])} for size in SIZES],
@@ -521,13 +535,16 @@ def build_te(providers=None) -> list[Dataset]:
         "words, linked and dated.",
         "Read-only: nothing is signed, built or held by this dataset. An order for a wallet is prepared by "
         "tnega_prepare_buy or tnega_prepare_sell, and signed by the user in their own wallet.",
-        "Solana versions are listed but not measured yet.",
+        "Solana versions are quoted through Jupiter's public quote API (a route and its price impact at $1,000 and "
+        "$10,000, no network fee or LI.FI fee), not simulated on a pool: total_cost_bps is Jupiter's reported price "
+        "impact, pool_depth_2pct_usd is a proxy extrapolated from it, and block is a slot. A version with no route "
+        "says no_route; one not yet quoted has no record. Each carries its own measured_at.",
         "Aave V4 fields: read on Base at a stated block; age_seconds says how old, stale past 11 minutes or "
         "after a failed read. aave_v4/base defines each field; its as_of is that block's time.",
         "as_of is coverage.last_poll: the newest measurement among the versions served, and get, list and "
         "summary read the same snapshot. Each version carries its own block and measured_at, which can be "
         "older when a chain's read failed.",
-        "Only EVM versions the engine reads are listed: see coverage.scope for how many and why the rest are "
+        "Only the versions the engine reads are listed: see coverage.scope for how many and why the rest are "
         "absent. Row field source: cost engine means " + COST_SOURCE + ".",
     ]
     return [Dataset(

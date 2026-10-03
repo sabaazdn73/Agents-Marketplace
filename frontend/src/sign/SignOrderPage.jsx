@@ -28,10 +28,10 @@
 // /sign/<id> gets its own wallet config (sign/signWagmi.js) through
 // sign/SignRoot.jsx, in place of the site's (main.jsx).
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { useConfig, useDisconnect } from 'wagmi';
-import { Check, ExternalLink, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useConnectedWallet, shortAddress } from '../wallet/useConnectedWallet';
 import { Card, CardTitle, fmtUsd } from '../ui/primitives';
 import { Eligibility } from '../home/cards';
@@ -53,41 +53,25 @@ import { readDecimals, commitDecimals, forgetDecimals } from './tokenMeta';
 import { rawText, clockText } from '../trade/format';
 import { Tip } from '../dashboard/cards';
 import GuideLink from '../guide/GuideLink';
+import { tok, pct, amountText, mmss, Row, Ext, btn, btn2, ASK_AGAIN, Step } from './signUi';
+
+// A Solana order is drawn by its own view, loaded only when the order is one:
+// @solana/web3.js and the wallet adapter are in that chunk, so a page for an
+// EVM order (and every other page of the site) never downloads them.
+const SolanaOrderView = lazy(() => import('./SolanaOrderView.jsx'));
+
+class SolanaLoadGuard extends React.Component {
+  constructor(p) { super(p); this.state = { failed: false }; }
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    return this.state.failed
+      ? <Ended state="setup" onRetry={() => window.location.reload()} />
+      : this.props.children;
+  }
+}
 
 const config = signWagmiConfig;
 const lc = (a) => String(a || '').toLowerCase();
-const tok = (v, d = 4) => (typeof v === 'number' && Number.isFinite(v) ? v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : null);
-const pct = (x, d = 2) => `${(x * 100).toFixed(d)}%`;
-const amountText = (s) => {
-  const n = Number(s);
-  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 8 }) : s;
-};
-const mmss = (ms) => {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
-
-function Row({ label, children }) {
-  return (
-    <div className="grid grid-cols-[minmax(0,38%)_1fr] gap-x-3 py-2 text-[13px]">
-      <dt className="text-muted">{label}</dt>
-      <dd className="text-fg min-w-0 break-words">{children}</dd>
-    </div>
-  );
-}
-
-function Ext({ href, children, mono = false }) {
-  if (!href) return <span className={mono ? 'font-mono' : ''}>{children}</span>;
-  return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className={`underline underline-offset-2 hover:text-fg break-all ${mono ? 'font-mono' : ''}`}>
-      {children}<ExternalLink size={11} aria-hidden="true" className="inline ml-1 align-baseline" />
-    </a>
-  );
-}
-
-const btn = 'h-10 px-4 rounded bg-accent text-accent-fg text-[13px] font-semibold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
-const btn2 = 'h-10 px-4 rounded border border-line-strong text-fg text-[13px] font-semibold hover:bg-inset disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2';
-
 /** The frame every state of the page shares: the mark, the theme control,
  *  one column. */
 function Frame({ children }) {
@@ -102,8 +86,6 @@ function Frame({ children }) {
     </div>
   );
 }
-
-const ASK_AGAIN = 'Ask your assistant to prepare a new order.';
 
 /** Expired, invalid, used or unreadable: what happened, and what to do. */
 function Ended({ state, reason, onRetry }) {
@@ -144,20 +126,6 @@ function Ended({ state, reason, onRetry }) {
   );
 }
 
-function Step({ n, done, active, title, children }) {
-  return (
-    <li className="flex gap-3 py-3">
-      <span aria-hidden="true" className={`mt-0.5 w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[12px] font-semibold ${done ? 'bg-pos text-page' : active ? 'bg-accent text-accent-fg' : 'border border-line-strong text-muted'}`}>
-        {done ? <Check size={13} /> : n}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className={`text-[14px] font-semibold ${active || done ? 'text-fg' : 'text-muted'}`}>{title}</div>
-        {children && <div className="mt-1 text-[13px] text-muted">{children}</div>}
-      </div>
-    </li>
-  );
-}
-
 export default function SignOrderPage({ id }) {
   // Under the site's providers (sign/SignRoot.jsx failed to load), the
   // wallet could not be switched to most order chains: nothing is offered.
@@ -187,6 +155,17 @@ function SignOrder({ id }) {
     return <Frame><div className="flex items-center gap-2 text-[14px] text-muted"><Loader2 size={16} className="animate-spin" aria-hidden="true" />Reading the order</div></Frame>;
   }
   if (load.state !== 'ok') return <Frame><Ended state={load.state} reason={load.reason} onRetry={() => setAttempt((a) => a + 1)} /></Frame>;
+  if (load.order.family === 'solana') {
+    return (
+      <Frame>
+        <SolanaLoadGuard>
+          <Suspense fallback={<div className="flex items-center gap-2 text-[14px] text-muted"><Loader2 size={16} className="animate-spin" aria-hidden="true" />Loading the Solana wallet tools</div>}>
+            <SolanaOrderView id={id} order={load.order} />
+          </Suspense>
+        </SolanaLoadGuard>
+      </Frame>
+    );
+  }
   if (!SIGN_CHAIN_IDS.includes(load.order.chainId)) return <Frame><Ended state="invalid" reason={`This page cannot switch a wallet to chain ${load.order.chainId}.`} /></Frame>;
   return <Frame><Order id={id} order={load.order} /></Frame>;
 }

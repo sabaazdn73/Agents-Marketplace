@@ -33,16 +33,24 @@ log = logging.getLogger("te.cost")
 
 # States with no quote at all. no_pool: every pool family was searched and
 # none holds a dollar pool; not_searched: a family was not (fully) searched.
-NO_QUOTE_STATES = ("no_pool", "not_searched", "too_thin", "not_a_venue", "held")
-STATE_ORDER = {"held": 7, "filled": 0, "partial": 1, "too_thin": 2, "not_a_venue": 3, "failed": 4, "not_searched": 5, "no_pool": 6}
+NO_QUOTE_STATES = ("no_pool", "not_searched", "too_thin", "not_a_venue", "held", "no_route")
+STATE_ORDER = {"held": 7, "filled": 0, "partial": 1, "too_thin": 2, "not_a_venue": 3, "failed": 4, "not_searched": 5, "no_pool": 6,
+               "no_route": 6, "not_measured": 8}
 LIST_SIZES = {"popular": 1000, "cost1k": 1000, "cost10k": 10000}
 GROUPS = ("all", "evm", "nonevm")
 COVERAGE_NOTE = ("EVM versions on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, measured on "
-                 "their pools. Solana versions are not measured yet. Versions on chains outside the product's scope "
-                 "(Optimism, Mantle, Ink, X Layer, TON, Tron) are not listed.")
+                 "their pools. Solana versions are quoted through Jupiter's public quote API at $1,000 and $10,000 "
+                 "(the route and its price impact, not a pool read), a few hundred at a time, so each carries its own "
+                 "measurement time; one not yet quoted, or with no route, says so. Versions on chains outside the "
+                 "product's scope (Optimism, Mantle, Ink, X Layer, TON, Tron) are not listed.")
 SPARK_REASON = "price history is not built yet"
 POPULAR_REASON = ("ordering by 7-day swap volume needs our swap-volume reads, which are not built yet; "
                   "ordered by cost at $1,000 instead")
+
+
+def _method_solana() -> str:
+    from .solana_cost import METHOD as SOLANA_METHOD
+    return SOLANA_METHOD
 
 
 def _i(size: int) -> int:
@@ -63,6 +71,9 @@ def _cell(d: dict, size: int) -> dict:
                 "filled_fraction": None, "pool_usd": d.get("pool_usd") if d["state"] == "too_thin" else None,
                 "reason": d.get("reason")}
     i = _i(size)
+    if d.get("venue") == "jupiter":
+        from . import solana_cost
+        return solana_cost.cell(d, size, base)
     st = d["status"][i]
     if st == "filled":
         pools = d.get("pools") or []
@@ -211,7 +222,9 @@ COUNTS_DEFINITION = (
     "state except not_searched; a search that found no pool, state no_pool, is searched). versions_not_searched: "
     "those whose pool search did not finish. versions_quoted: a quote was run on a pool that passed the venue "
     "checks (by_state.quoted). versions_with_cost: quoted, and the best passing pool fills a $1,000 buy at the "
-    "refresh block. Only EVM versions are read: Solana versions are listed but not measured yet.")
+    "refresh block. EVM versions are read on their pools; Solana versions are quoted through Jupiter's public quote "
+    "API (a route and its price impact), and a Solana quote that found a route counts as quoted. A Solana version "
+    "not yet quoted has no record and is not counted as read.")
 
 
 def _chain_counts(c: dict) -> dict:
@@ -243,7 +256,7 @@ def _totals(chains: list[dict]) -> dict:
     return {"versions_read": total("versions_read"), "versions_searched": total("versions_searched"),
             "versions_not_searched": total("versions_not_searched"), "versions_quoted": total("versions_quoted"),
             "versions_with_cost": total("versions_with_cost"),
-            "by_chain": sorted(chains, key=lambda c: (-c["versions_with_cost"], c["chain_id"])),
+            "by_chain": sorted(chains, key=lambda c: (-c["versions_with_cost"], c["chain_id"] is None, c["chain_id"] or 0)),
             "definition": COUNTS_DEFINITION}
 
 
@@ -391,11 +404,12 @@ async def list_view(store, *, type_: str, group: str, limit: int, sort: str, off
                                 "reason": "a version in this group fills the size, but none has a read share ratio "
                                           "(Ondo); shown with the stock's other versions, not ranked here"},
             "underlyings_without_type": untyped, "lifi_fee_included": True, "method": METHOD.format(block="n"),
-            "coverage": COVERAGE_NOTE, "best_rule": BEST_RULE}
+            "coverage": COVERAGE_NOTE, "best_rule": BEST_RULE, "method_solana": _method_solana()}
     if sort == "popular":
         body["sort_reason"] = POPULAR_REASON
     if group == "nonevm":
-        body["group_note"] = "no non-EVM version is measured yet"
+        body["group_note"] = ("non-EVM means Solana here: quoted through Jupiter's public quote API, a route and its "
+                              "price impact rather than a pool read; see method_solana")
     return 200, body
 
 
@@ -419,7 +433,9 @@ async def underlying_view(store, ticker: str, size: int) -> tuple[int, dict]:
         c["eligibility"] = _elig(ld, c["issuer_id"])
         c["controls"] = d.get("controls")
         c["controls_basis"] = f"read at block {d.get('controls_block')} (universe pass)"
-        if c["state"] in NO_QUOTE_STATES:
+        if c["state"] in NO_QUOTE_STATES and d.get("venue") == "jupiter":
+            c["pool_search"] = d.get("pool_search")
+        elif c["state"] in NO_QUOTE_STATES:
             c["pool_search"] = {**(d.get("pool_search") or {}),
                                 "initialize_logs": (ld.get("discovery") or {}).get(str(c["chain_id"])) or
                                 "not searched on this chain; pools found by factory construction in the universe pass"}
@@ -431,7 +447,7 @@ async def underlying_view(store, ticker: str, size: int) -> tuple[int, dict]:
         c["aave_v4"] = aave_v4.for_version(c["key"], snap) if snap else None
     b = _best(cells)
     cells.sort(key=lambda c: (STATE_ORDER.get(c["state"], 9), not c.get("comparable"), c.get("allin_per_share") or 0, c["key"]))
-    blocks = sorted({(c["chain_id"], c["block"]) for c in cells if c.get("block")})
+    blocks = sorted({(c["chain_id"], c["block"]) for c in cells if c.get("block") and c["chain_id"] is not None})
     extra = {"aave_v4_usdc_borrow": aave_v4.usdc_borrow(snap)} if snap else {}
     return 200, {**extra, 
         "ticker": ticker, "name": row["name"] or ticker, "name_basis": row.get("name_basis"), "type": row["type"],
@@ -439,8 +455,11 @@ async def underlying_view(store, ticker: str, size: int) -> tuple[int, dict]:
         "computed_at": max((c["computed_at"] or "" for c in cells), default=None),
         "versions": cells, "best": b and {"key": b["key"], "cost_bps": b["cost_bps"]},
         "best_rule": BEST_RULE,
-        "blocks": [{"chain_id": c, "block": n} for c, n in blocks],
+        "blocks": [{"chain_id": c, "block": n} for c, n in blocks]
+                  + [{"chain_id": None, "chain": "Solana", "slot": n}
+                     for n in sorted({c["block"] for c in cells if c.get("block") and c["chain_id"] is None})],
         "lifi_fee_included": True, "method": METHOD.format(block="n (per version)"), "coverage": COVERAGE_NOTE,
+        "method_solana": _method_solana(),
     }
 
 
@@ -457,7 +476,7 @@ async def curve_view(store, ticker: str) -> tuple[int, dict]:
     for d in docs:
         by_chain.setdefault(d["chain_id"], []).append(d)
     chains, without = [], []
-    for cid, ds in sorted(by_chain.items()):
+    for cid, ds in sorted(by_chain.items(), key=lambda kv: (kv[0] is None, kv[0] or 0)):
         if all(d.get("state") in NO_QUOTE_STATES for d in ds):
             states = sorted({d["state"] for d in ds})
             without.append({"chain": ds[0]["chain"], "chain_id": cid, "group": ds[0]["group"],
@@ -479,7 +498,9 @@ async def curve_view(store, ticker: str) -> tuple[int, dict]:
                 st = sorted({c["state"] for c in cells})
                 why_null.append("filled, but no version with a read share ratio" if "filled" in st else
                                 "partial fill" if "partial" in st else "failed: every quote failed at this block"
-                                if "failed" in st else "no quotable pool: " + ", ".join(st))
+                                if "failed" in st else
+                                "not quoted at this size: Solana versions are quoted at $1,000 and $10,000"
+                                if st == ["not_measured"] else "no quotable pool: " + ", ".join(st))
         named = next((syms[i] for i in (_i(10000), _i(1000)) if syms[i]), next((x for x in syms if x), ds[0]["symbol"]))
         nd = next(d for d in ds if d["symbol"] == named) if any(d["symbol"] == named for d in ds) else ds[0]
         chains.append({"chain": nd["chain"], "chain_id": cid, "group": nd["group"], "symbol": named,

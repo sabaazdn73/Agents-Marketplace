@@ -21,7 +21,7 @@ import socket
 import time
 
 from .chains import CHAINS, rpc_for
-from .cost_inputs import load_inputs
+from .cost_inputs import add_solana, load_inputs
 from .cost_job import decode_pools, pools_doc, run_chain
 from .cost_views import build_list_doc
 from .gasusd import NATIVE_REF, native_usd
@@ -129,7 +129,7 @@ async def run_cycle(store, *, chains=CHAIN_ORDER, inputs: dict | None = None, ow
 
 async def _run_cycle(store, chains, inputs) -> dict:
     t0 = time.time()
-    inputs = inputs or await asyncio.to_thread(load_inputs)
+    inputs = inputs or await asyncio.to_thread(lambda: add_solana(load_inputs()))
     prices = await asyncio.wait_for(asyncio.to_thread(_native_prices), 120)
     summary = {}
     for ch in chains:
@@ -163,3 +163,92 @@ async def write_list(store, inputs: dict) -> None:
     doc["writer_commit"] = os.environ.get("RENDER_GIT_COMMIT", "").strip()[:12] or None
     doc["written_at"] = time.time()
     await store.put_meta("list", doc)
+
+
+# ── Solana: Jupiter quotes, a few hundred versions a pass ───────────────────
+#
+# A separate pass, with its own lease, because it shares nothing with the EVM
+# chains' pinned-block reads and must not take their 15-minute cycle's time:
+# the free Jupiter endpoint allows about 60 requests a minute, and a version
+# takes two (one, when the first finds no route). The versions never quoted
+# go first, then the oldest measurement, so every version is revisited in
+# turn and each document carries its own time. A version whose quote fails for
+# a reason that is about the call (rate limit, timeout, outage) keeps its
+# previous document: a measurement is not replaced by a fact about this call.
+
+SOLANA_BUDGET_S = int(os.environ.get("TE_SOLANA_BUDGET_S", "600"))
+SOLANA_FLUSH_EVERY = 20
+SOLANA_LEASE_SECONDS = 20 * 60
+
+
+async def run_solana_cycle(store, *, inputs: dict | None = None, owner: str | None = None, client=None,
+                           rpc=None, budget_seconds: float | None = None, limit: int | None = None) -> dict:
+    from . import solana_cost
+    owner = owner or lease_owner("solana")
+    if not await store.acquire_lease("te_solana_cycle", owner, SOLANA_LEASE_SECONDS):
+        return {"skipped": "another process holds the solana-cycle lease"}
+    try:
+        return await _run_solana(store, inputs, client or solana_cost.default_client(), rpc or solana_cost.rpc_call,
+                                 budget_seconds if budget_seconds is not None else SOLANA_BUDGET_S, limit)
+    finally:
+        await store.release_lease("te_solana_cycle", owner)
+
+
+async def _run_solana(store, inputs, client, rpc, budget, limit) -> dict:
+    from . import solana_cost
+    t0 = time.monotonic()
+    deadline = t0 + budget
+    inputs = inputs or await asyncio.to_thread(lambda: add_solana(load_inputs()))
+    recs = [r for r in inputs["records"] if r.get("chain") == "solana"]
+    have = {d["_id"]: d for d in await store.all_costs() if str(d.get("_id", "")).startswith("solana/")}
+    # never measured first, then the oldest measurement
+    recs.sort(key=lambda r: ((have.get(r["key"]) or {}).get("computed_at") or "", r["key"]))
+    todo = recs[:limit] if limit else recs
+    stats = {"attempted": 0, "kept_previous": 0, "by_state": {}, "calls_before": dict(client.stats)}
+    meta = await store.get_meta("chain:solana") or {}
+    meta["last_run"] = {"started": time.time(), "versions_listed": len(recs)}
+    pending: list[dict] = []
+    done = 0
+    for lo in range(0, len(todo), 100):
+        if time.monotonic() >= deadline:
+            break
+        part = todo[lo:lo + 100]
+        ratios = await asyncio.to_thread(solana_cost.read_multipliers, {r["address"]: r["issuer"] for r in part}, rpc)
+        for rec in part:
+            if time.monotonic() >= deadline:
+                break
+            now = time.time()
+            doc, note = await asyncio.to_thread(solana_cost.measure_version, client, rec, ratios.get(rec["address"]), now,
+                                                time.monotonic() + 60)
+            stats["attempted"] += 1
+            if doc is None:
+                stats["kept_previous"] += 1
+                stats["last_transient"] = note.get("reason")
+                if stats["kept_previous"] >= 8 and stats["kept_previous"] == stats["attempted"]:
+                    break              # eight in a row failed for the call's own reasons: stop spending the budget
+                continue
+            stats["by_state"][doc["state"]] = stats["by_state"].get(doc["state"], 0) + 1
+            pending.append(doc)
+            done += 1
+            if len(pending) >= SOLANA_FLUSH_EVERY:
+                await store.put_costs(pending)
+                pending = []
+        else:
+            continue
+        break
+    if pending:
+        await store.put_costs(pending)
+    after = dict(client.stats)
+    meta["last_run"].update(
+        seconds=round(time.monotonic() - t0, 1), attempted=stats["attempted"], written=done,
+        kept_previous=stats["kept_previous"], by_state=stats["by_state"],
+        jupiter={k: after[k] - stats["calls_before"].get(k, 0) for k in after},
+        **({"last_transient": stats["last_transient"]} if stats.get("last_transient") else {}),
+        method_id=solana_cost.METHOD_ID)
+    await store.put_meta("chain:solana", meta)
+    if done:
+        await write_list(store, inputs)
+    log.info("[te-cost] solana: %s attempted, %s written %s, %s kept, %ss", stats["attempted"], done,
+             stats["by_state"], stats["kept_previous"], meta["last_run"]["seconds"])
+    return {"attempted": stats["attempted"], "written": done, "kept_previous": stats["kept_previous"],
+            "by_state": stats["by_state"], "seconds": meta["last_run"]["seconds"]}
