@@ -269,6 +269,31 @@ async def te_cost_loop() -> None:
         await asyncio.sleep(max(60.0, TE_COST_INTERVAL_SECONDS - (time.time() - started)))
 
 
+# ── Solana tokenized-equity cost ──
+#
+# Jupiter's free public quote API, a few hundred versions per pass (the free
+# endpoint allows about 60 requests a minute), each version revisited in turn
+# (core/te/cost_worker.run_solana_cycle). Runs only where the EVM refresh does
+# (TE_COST_ENABLED=1); TE_SOLANA_ENABLED=0 turns it off alone.
+TE_SOLANA_PAUSE_SECONDS = 120
+
+
+async def te_solana_loop() -> None:
+    if os.environ.get("TE_COST_ENABLED") != "1" or os.environ.get("TE_SOLANA_ENABLED") == "0":
+        log.info("[te-cost] Solana cost loop idle (needs TE_COST_ENABLED=1, and TE_SOLANA_ENABLED not 0).")
+        return
+    from core.te.cost_store import get_store
+    from core.te.cost_worker import run_solana_cycle
+    log.info("[te-cost] Solana cost loop starting.")
+    while True:
+        try:
+            summary = await run_solana_cycle(get_store())
+            log.info("[te-cost] solana pass done: %s", summary)
+        except Exception:
+            log.exception("[te-cost] solana pass failed")
+        await asyncio.sleep(TE_SOLANA_PAUSE_SECONDS)
+
+
 # ── Vaults ──
 #
 # Read-only vault due diligence (core/vaults). One pass reads Kamino, Voltr
@@ -315,7 +340,7 @@ async def vaults_loop() -> None:
 async def main() -> None:
     log.info("Worker starting: escrow-compat audit + full-registry ingestion + full-registry analysis + budget index "
              "+ tokenized-equity cost refresh (if enabled) + vaults (if enabled), concurrently.")
-    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop(), budget_index_loop(), te_cost_loop(), vaults_loop())
+    await asyncio.gather(audit_loop(), ingest_loop(), analysis_loop(), budget_index_loop(), te_cost_loop(), te_solana_loop(), vaults_loop())
 
 
 if __name__ == "__main__":

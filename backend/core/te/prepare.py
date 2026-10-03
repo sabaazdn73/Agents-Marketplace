@@ -206,6 +206,10 @@ async def resolve(query) -> dict:
                                                  f"{q[:80]}. tnega_resolve turns a ticker or an address into keys.")
         # The chain first: a Solana or Optimism version is refused for where
         # it is, whatever else is true of it.
+        if rec.get("chain") == "solana":
+            return _refuse("chain_not_supported", f"{rec['symbol']} is on Solana. An order for it needs a Solana "
+                                                  f"wallet (a base58 address), which is how this tool tells the two "
+                                                  f"apart.")
         if rec.get("chain_id") not in BUY_CHAINS:
             return _refuse("chain_not_supported", f"{rec['symbol']} is on {rec['chain_name']}; an order can be "
                                                   f"prepared on {', '.join(c['name'] for c in BUY_CHAINS.values())} only.")
@@ -457,6 +461,9 @@ def _order_price(side: str, amount: Decimal, quoted: dict, symbol: str) -> dict 
 
 
 async def prepare_buy(query, usd_amount, wallet, pay_with=None, max_slippage_bps=None) -> dict:
+    from . import prepare_solana
+    if prepare_solana.is_solana_wallet(wallet):
+        return await prepare_solana.prepare_buy(query, usd_amount, wallet, pay_with, max_slippage_bps)
     w = _wallet(wallet)
     if isinstance(w, dict):
         return w
@@ -695,7 +702,7 @@ async def _sell_reference(ticker: str, key: str, symbol: str, amount: Decimal = 
                       + ("" if own else " (no stored measurement)")
                       + ", and its shares per token are not read, so no other version's price can stand in")
     others = [d for d in docs if d.get("key") != key and d.get("comparable") and d.get("share_ratio")
-              and _mid_near(d, 1000)]
+              and d.get("venue") != "jupiter" and _mid_near(d, 1000)]
     if not others:
         return None, f"no version of {ticker} has a measured pool price with a read share ratio"
     d = max(others, key=lambda x: (x.get("pool_usd") or 0, x["key"]))
@@ -711,6 +718,9 @@ async def _sell_reference(ticker: str, key: str, symbol: str, amount: Decimal = 
 
 
 async def prepare_sell(query, token_amount, wallet, receive=None, max_slippage_bps=None) -> dict:
+    from . import prepare_solana
+    if prepare_solana.is_solana_wallet(wallet):
+        return await prepare_solana.prepare_sell(query, token_amount, wallet, receive, max_slippage_bps)
     w = _wallet(wallet)
     if isinstance(w, dict):
         return w
@@ -855,6 +865,9 @@ async def order_view(link_id: str) -> tuple[int, dict]:
     if sign_link.is_used(link_id):
         return 409, {"reason": "used"}
     p = d.payload
+    if p["c"] == sign_link.SOLANA:
+        from . import prepare_solana
+        return await prepare_solana.order_view(link_id, d)
     u = await asyncio.to_thread(load_universe)
     key = f"{p['c']}/{p['t']}"
     rec = u.record(key, controls=False)
@@ -951,6 +964,12 @@ def mark_done(link_id: str, tx) -> tuple[int, dict | None]:
         return 404, {"reason": "invalid"}
     if d.status == "expired":
         return 410, {"reason": "expired", "expired_at": _iso(d.payload["e"])}
+    if d.payload["c"] == sign_link.SOLANA:
+        from . import prepare_solana
+        if not prepare_solana.valid_signature(tx):
+            return 400, {"reason": "bad_tx", "explanation": "tx is a Solana transaction signature: base58, 87 or 88 characters"}
+        sign_link.mark_used(link_id, d.payload["e"])
+        return 204, None
     if not isinstance(tx, str) or not re.fullmatch(r"0x[0-9a-fA-F]{64}", tx):
         return 400, {"reason": "bad_tx", "explanation": "tx is a transaction hash: 0x followed by 64 hex characters"}
     sign_link.mark_used(link_id, d.payload["e"])

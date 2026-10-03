@@ -253,156 +253,13 @@ def check_transport_boundary() -> None:
           ", ".join(reaches_back) or "clean")
 
 
-# ── 3b. no licensed third-party data behind MCP or the public API ────────────
+# ── 3b. licensed third-party data: rule lifted ──────────────────────────────
 #
-# The owner's decision, 2026-09-25: Zerion data is shown in Tnega's own
-# frontend only; nothing Zerion-sourced goes through MCP or any public API
-# unless Zerion agrees in writing. Jupiter, LI.FI and Coinbase data are held
-# to the same rule. Checked two ways over the import closure:
-#
-#   modules   no module known to call one of them, and no module named for
-#             one, so a dataset reaching Zerion through core/pnl.py is caught
-#             as surely as one importing it directly.
-#   literals  no string literal in any module of the closure names one of
-#             their hosts or Zerion, which is what a new adapter's base URL,
-#             or a sentence served to a caller, would look like. Docstrings
-#             and comments are not literals a caller can receive and are not
-#             scanned, so a file may still explain where its data comes from.
-
-_LICENSED_CONSUMERS = {"adapters.zerion", "core.pnl", "core.onchain_pnl",
-                       "core.onchain_history", "core.agent_evaluation"}
-
-# The one exception, by module and with its reason, so that it is a decision
-# that can be read and reversed rather than a hole in the scan. Everything
-# else in the closure is still scanned, and a module outside this map that
-# names LI.FI still fails.
-#   core.te.lifi_quote   the LI.FI quote in tnega_prepare_buy and
-#                        tnega_prepare_sell, served labelled as LI.FI's quote
-#                        with the time it was taken (owner, 2026-09-25: "LI.FI
-#                        is not E18: serve quotes labelled as LI.FI quotes with
-#                        the time taken"). No other LI.FI data, and no other
-#                        licensed source, passes.
-_LICENSED_ALLOWED = {"core.te.lifi_quote": "LI.FI quotes, labelled, in the order tools"}
-_LICENSED_MODULE_NAME = re.compile(r"zerion|jupiter|lifi|li_fi|coinbase", re.I)
-_LICENSED_LITERAL = re.compile(r"jup\.ag|li\.quest|api\.coinbase\.com|zerion", re.I)
-
-
-def _import_closure(starts: list[str]) -> dict:
-    import ast
-    root = Path(__file__).resolve().parent.parent
-
-    def modfile(m):
-        f = root / (m.replace(".", "/") + ".py")
-        if f.exists():
-            return f
-        f = root / m.replace(".", "/") / "__init__.py"
-        return f if f.exists() else None
-
-    def imports_of(m):
-        f = modfile(m)
-        if not f:
-            return set()
-        pkg = m if f.name == "__init__.py" else m.rpartition(".")[0]
-        out = set()
-        for n in ast.walk(ast.parse(f.read_text())):
-            if isinstance(n, ast.Import):
-                out.update(a.name for a in n.names)
-            elif isinstance(n, ast.ImportFrom):
-                base = n.module or ""
-                if n.level:
-                    parts = pkg.split(".")
-                    parts = parts[:len(parts) - n.level + 1] if n.level > 1 else parts
-                    base = ".".join(parts + ([base] if base else []))
-                out.add(base)
-                out.update(f"{base}.{a.name}" for a in n.names)
-        return {o for o in out if modfile(o)}
-
-    parent: dict = {}
-    stack = [(s, None) for s in starts]
-    while stack:
-        m, via = stack.pop()
-        if m in parent:
-            continue
-        parent[m] = via
-        stack.extend((i, m) for i in imports_of(m))
-    return parent
-
-
-def _licensed_literals(source: str) -> list[tuple[int, str]]:
-    """String literals naming a licensed source, with their line numbers.
-
-    Docstrings are skipped: an expression statement that is only a string is
-    documentation, not a value anything returns.
-    """
-    import ast
-    tree = ast.parse(source)
-    docstrings = {id(n.value) for n in ast.walk(tree)
-                  if isinstance(n, ast.Expr) and isinstance(n.value, ast.Constant)
-                  and isinstance(n.value.value, str)}
-    hits = []
-    for n in ast.walk(tree):
-        if (isinstance(n, ast.Constant) and isinstance(n.value, str)
-                and id(n) not in docstrings and _LICENSED_LITERAL.search(n.value)):
-            hits.append((n.lineno, n.value[:60]))
-    return hits
-
-
-def _modfile(root: Path, m: str) -> Path | None:
-    f = root / (m.replace(".", "/") + ".py")
-    if f.exists():
-        return f
-    f = root / m.replace(".", "/") / "__init__.py"
-    return f if f.exists() else None
-
-
-def check_licensed_boundary() -> None:
-    print("\nlicensed-source boundary (Zerion, Jupiter, LI.FI, Coinbase)")
-
-    # The scanner catches what it is for, and ignores what it is not for. A
-    # check that cannot fail is decoration.
-    planted = ('"""Reads from Zerion."""\n'
-               '# zerion is the source\n'
-               'URL = "https://api.zerion.io/v1"\n'
-               'Q = "https://li.quest/v1/quote"\n'
-               'J = "https://lite-api.jup.ag/price"\n'
-               'C = "https://api.coinbase.com/v2/prices"\n')
-    found = _licensed_literals(planted)
-    check(len(found) == 4, "the literal scan catches all four hosts and skips "
-          "docstrings and comments", f"{len(found)} of 4")
-
-    for m, why in _LICENSED_ALLOWED.items():
-        print(f"  note  {m} is not scanned, by decision: {why}")
-
-    root = Path(__file__).resolve().parent.parent
-    for pkg in ("mcp_server", "publicapi", "telegram_bot"):
-        starts = [f"{pkg}.{p.stem}" if p.stem != "__init__" else pkg
-                  for p in (root / pkg).glob("*.py")]
-        closure = _import_closure(starts)
-
-        def path_to(h):
-            chain = [h]
-            while closure.get(chain[-1]):
-                chain.append(closure[chain[-1]])
-            return " <- ".join(chain)
-
-        hits = sorted(((_LICENSED_CONSUMERS & set(closure))
-                       | {m for m in closure if _LICENSED_MODULE_NAME.search(m)}) - set(_LICENSED_ALLOWED))
-        check(not hits, f"{pkg}/ imports no licensed-source module",
-              "; ".join(path_to(h) for h in hits)
-              or f"{len(closure)} modules, clean")
-
-        literal_hits = []
-        for m in sorted(closure):
-            if m in _LICENSED_ALLOWED:
-                continue
-            f = _modfile(root, m)
-            if f is None:
-                continue
-            for line, text in _licensed_literals(f.read_text()):
-                literal_hits.append(f"{f.relative_to(root)}:{line} {text!r}")
-        check(not literal_hits,
-              f"{pkg}/ closure holds no string naming a licensed source",
-              "; ".join(literal_hits) or "clean")
+# The owner (Saba) lifted the 2026-09-25 rule on 2026-10-03: while Tnega is a
+# proof of concept and not a business, data from every source it can reach
+# (Zerion, Jupiter, LI.FI, Coinbase and the rest) may be served through MCP and
+# the public API. Written permission from each source is to be obtained before
+# any commercial use. The scan that enforced the old rule was removed.
 
 
 # ── 4. the envelope ──────────────────────────────────────────────────────────
@@ -1504,7 +1361,6 @@ def main() -> int:
     check_encoder()
     check_one_encoder()
     check_transport_boundary()
-    check_licensed_boundary()
     check_envelope()
     check_ceilings()
     datasets = check_tools()

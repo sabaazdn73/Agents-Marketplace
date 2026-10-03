@@ -29,6 +29,25 @@ function Body() {
         ]} />
       </Q>
 
+      <Q q="What is different for an order on Solana?">
+        <p>
+          A Solana order is for a tokenized stock on Solana, paid or received in USDC. The quote and
+          the transaction come from Jupiter (jup.ag), asked by your browser, and you connect a
+          Solana wallet such as Phantom or Solflare instead of an EVM one. There is no approval step
+          and no chain switch: the swap moves the tokens by your one signature.
+        </p>
+        <p>
+          The quote has to pass the same price check against Tnega&apos;s measured price. Jupiter
+          carries no price of its own to hold ours against, so there is one price check, not two.
+          Before your wallet is asked, Tnega also reads the transaction Jupiter built: it must be
+          signed by the order&apos;s wallet alone, call only Jupiter&apos;s swap, the compute budget and
+          the creation of the wallet&apos;s own token accounts, and spend exactly the order&apos;s
+          amount. A first purchase of a Token-2022 token such as an xStock creates the wallet&apos;s
+          account for it, which holds a rent deposit of about 0.002 SOL that is yours to close.
+          The signature and a Solscan link follow.
+        </p>
+      </Q>
+
       <Q q="What is checked before you can sign?">
         <p>
           The quote is refused if it does not match the order, if the minimum sits further below the
