@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/chain_contracts_selfcheck.mjs && node scripts/csp_hash_selfcheck.mjs && vite build",
+    "build": "node scripts/chain_contracts_selfcheck.mjs && node scripts/csp_hash_selfcheck.mjs && node scripts/solana_selfcheck.mjs && vite build",
     "preview": "vite preview",
     "check:chains": "node scripts/chain_contracts_selfcheck.mjs",
-    "check:csp": "node scripts/csp_hash_selfcheck.mjs"
+    "check:csp": "node scripts/csp_hash_selfcheck.mjs",
+    "check:solana": "node scripts/solana_selfcheck.mjs"
   },
   "dependencies": {
     "@altananetwork/sdk": "^0.9.0",
@@ -16,6 +17,9 @@
     "@rainbow-me/rainbowkit": "^2.1.6",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "@solana/wallet-adapter-base": "^0.9.28",
+    "@solana/wallet-adapter-react": "^0.15.40",
+    "@solana/web3.js": "^1.99.0",
     "@tanstack/react-query": "^5.56.0",
     "lucide-react": "^0.383.0",
     "mermaid": "^11.17.2",

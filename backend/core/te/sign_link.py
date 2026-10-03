@@ -13,13 +13,14 @@ the id instead, and the id is signed:
     payload = compact JSON, sorted keys:
       v  1
       s  "b" buy | "s" sell
-      c  chain id (one of buy_chains.BUY_CHAINS)
-      t  the tokenized stock's address, lower case
+      c  chain id (one of buy_chains.BUY_CHAINS), or the string "solana"
+      t  the tokenized stock's address, lower case; on Solana the mint, base58,
+         case kept
       p  the pay token's address, lower case (what is paid on a buy, what is
-         received on a sell)
+         received on a sell); on Solana the USDC mint
       a  a buy: US dollars as a decimal string; a sell: the token amount as a
          decimal string
-      w  the wallet the order is for, lower case
+      w  the wallet the order is for, lower case; on Solana the base58 address
       e  unix expiry (prepared + 600 s)
       n  8 hex characters of nonce
       m  the largest slippage allowed, in basis points
@@ -94,6 +95,16 @@ _ADDRESS = re.compile(r"^0x[0-9a-f]{40}$")
 _NONCE = re.compile(r"^[0-9a-f]{8}$")
 _AMOUNT = re.compile(r"^(0|[1-9]\d{0,17})(\.\d{1,18})?$")
 _FIELDS = frozenset("vsctpawenmb")
+
+# SOLANA. The same signed payload with c = "solana": the mint, the pay mint and
+# the wallet are base58 and keep their case (a base58 address is case
+# sensitive, so it is never lower-cased), the pay token is USDC only, and
+# amounts, expiry, nonce, slippage and "b" mean what they mean on EVM. An EVM
+# order is minted and verified exactly as before.
+SOLANA = "solana"
+USDC_MINT_SOLANA = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+_PUBKEY = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")
+_SYSTEM_PROGRAM = "1" * 32
 B_MAX = 100_000
 
 # The value-check limit, from the signed "b". One definition for every
@@ -180,15 +191,25 @@ def check_fields(p: dict) -> str | None:
         return "version"
     if p["s"] not in ("b", "s"):
         return "side"
-    if not isinstance(p["c"], int) or isinstance(p["c"], bool) or p["c"] not in BUY_CHAINS:
-        return "chain"
-    for f in ("t", "w", "p"):
-        if not isinstance(p[f], str) or not _ADDRESS.match(p[f]):
-            return f"address {f}"
-    if pay_token(p["c"], p["p"]) is None:
-        return "pay token"
-    if p["w"] == "0x" + "0" * 40:
-        return "wallet"
+    if p["c"] == SOLANA:
+        from .solana_cost import is_pubkey
+        for f in ("t", "w", "p"):
+            if not isinstance(p[f], str) or not _PUBKEY.match(p[f]) or not is_pubkey(p[f]):
+                return f"address {f}"
+        if p["p"] != USDC_MINT_SOLANA:
+            return "pay token"
+        if p["w"] == _SYSTEM_PROGRAM or p["t"] == p["p"]:
+            return "wallet"
+    else:
+        if not isinstance(p["c"], int) or isinstance(p["c"], bool) or p["c"] not in BUY_CHAINS:
+            return "chain"
+        for f in ("t", "w", "p"):
+            if not isinstance(p[f], str) or not _ADDRESS.match(p[f]):
+                return f"address {f}"
+        if pay_token(p["c"], p["p"]) is None:
+            return "pay token"
+        if p["w"] == "0x" + "0" * 40:
+            return "wallet"
     if amount_ok(p["s"], p["a"]):
         return "amount"
     if not isinstance(p["e"], int) or isinstance(p["e"], bool):
@@ -202,13 +223,16 @@ def check_fields(p: dict) -> str | None:
     return None
 
 
-def mint(*, side: str, chain_id: int, token: str, pay: str, amount: str, wallet: str, cost_ex_gas_bps: int,
+def mint(*, side: str, chain_id: int | str, token: str, pay: str, amount: str, wallet: str, cost_ex_gas_bps: int,
          max_slippage_bps: int = DEFAULT_SLIPPAGE_BPS, ttl: int = TTL_SECONDS,
          now: float | None = None) -> tuple[str, dict]:
     """(id, payload). Raises ValueError on a field decode() would refuse, so a
     link is never minted that its own page would call invalid."""
-    p = {"v": VERSION, "s": side, "c": int(chain_id), "t": str(token).lower(), "p": str(pay).lower(),
-         "a": str(amount), "w": str(wallet).lower(), "e": int((time.time() if now is None else now) + ttl),
+    sol = chain_id == SOLANA
+    p = {"v": VERSION, "s": side, "c": SOLANA if sol else int(chain_id),
+         "t": str(token) if sol else str(token).lower(), "p": str(pay) if sol else str(pay).lower(),
+         "a": str(amount), "w": str(wallet) if sol else str(wallet).lower(),
+         "e": int((time.time() if now is None else now) + ttl),
          "n": secrets.token_hex(4), "m": int(max_slippage_bps), "b": cost_ex_gas_bps}
     bad = check_fields(p)
     if bad:

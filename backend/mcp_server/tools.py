@@ -634,6 +634,18 @@ def _missing(tool: str, args: dict, required: tuple) -> dict | None:
         explanation=f"{tool} needs {', '.join(required)}; missing: {', '.join(gone)}.")
 
 
+SOLANA_ORDER_CAVEATS = [
+    "Tnega prepared this; nothing is signed until you sign in your own wallet. Tnega never signs, sends or holds funds.",
+    "quote is Jupiter's, as it answered at quoted_at, and nothing more. The signing page asks Jupiter again from "
+    "the browser right before anything is signed, and refuses a route that fails value_check.",
+    "The link expires at expires_at, ten minutes after it was prepared. order is what the signing page reads: "
+    "mint, pay_mint (USDC), amount (dollars for a buy, tokens for a sale), slippage_bps, wallet, and "
+    "reference_price_usd with the limit it is checked against.",
+    "as_of is when Jupiter's route for this order was measured, at prepare time. The price impact is Jupiter's "
+    "own figure; no Solana network fee or account rent is included. USDC is taken at $1, an assumption.",
+]
+
+
 def _order_envelope(tool: str, out: dict) -> dict:
     measured = ("an order prepared for the user to sign in their own wallet; nothing is signed or sent")
     if out.get("withheld_reason"):
@@ -651,11 +663,11 @@ def _order_envelope(tool: str, out: dict) -> dict:
         "versions_not_ranked": (len(why.get("not_ranked") or []) + int(why.get("not_ranked_more") or 0))
         if out.get("side") == "buy" else None,
         "quotes_asked": out.get("quotes_asked"),
-        "quote_source": "LI.FI",
-        "chains": [c["name"] for c in _buy_chains().values()],
+        "quote_source": out.get("quote_source") or "LI.FI",
+        "chains": ["Solana"] if out.get("chain") == "solana" else [c["name"] for c in _buy_chains().values()],
         "partial": partial,
     }
-    caveats = list(ORDER_CAVEATS)
+    caveats = list(SOLANA_ORDER_CAVEATS if out.get("chain") == "solana" else ORDER_CAVEATS)
     if partial:
         caveats.insert(0, "Partial: no link was made. " + (out.get("quote_note") or ""))
     return envelope.build(
@@ -1006,10 +1018,10 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "A US ticker (NVDA) or a version key <chainId>/<token address>."},
+                "query": {"type": "string", "description": "A US ticker (NVDA) or a version key <chainId>/<token address>, or solana/<mint> with a Solana wallet."},
                 "usd_amount": {"type": "number", "minimum": 1, "maximum": 10000,
                                "description": "US dollars to spend, at most 2 decimal places."},
-                "wallet": {"type": "string", "description": "The EVM address that will sign and receive."},
+                "wallet": {"type": "string", "description": "The address that will sign and receive: an EVM address (0x...) for an EVM version, or a Solana address (base58) for a Solana version, paid in USDC through Jupiter."},
                 "pay_with": {"type": "string", "description": "USDC, USDT or USDG, or <chainId>/<pay token address>. Default: the chain's first pay token."},
                 "max_slippage_bps": {"type": "integer", "minimum": 10, "maximum": 300, "description": "Default 50."},
             },
@@ -1035,9 +1047,9 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "A version key <chainId>/<token address>, or a ticker: then the version the wallet holds most of."},
+                "query": {"type": "string", "description": "A version key <chainId>/<token address>, or a ticker: then the version the wallet holds most of. On Solana the key solana/<mint> is required."},
                 "token_amount": {"type": "string", "description": "Tokens to sell, as a plain decimal."},
-                "wallet": {"type": "string", "description": "The EVM address that holds the tokens and will sign."},
+                "wallet": {"type": "string", "description": "The address that holds the tokens and will sign: EVM (0x...) or, for a Solana version, a Solana address (base58)."},
                 "receive": {"type": "string", "description": "USDC, USDT or USDG, or <chainId>/<token address>. Default: the chain's first pay token."},
                 "max_slippage_bps": {"type": "integer", "minimum": 10, "maximum": 300, "description": "Default 50."},
             },
