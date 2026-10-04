@@ -12,6 +12,14 @@
 // share both changed between the first draft of week 1 and its publication.
 export const WEEKLY_UPDATES = [
   {
+    week: 3,
+    // The owner's recorded report for the third week, on YouTube. Like week
+    // 2, the video is the report: no deck and no figures.
+    video: 'https://www.youtube.com/watch?v=57qS9hNloGA',
+    title: 'Week 3 report',
+    line: 'The third week\u2019s progress report, recorded as a video.',
+  },
+  {
     week: 2,
     // The owner's recorded report for the second week, on YouTube ("Report2"
     // on her channel). No deck and no figures are listed for it here: the
