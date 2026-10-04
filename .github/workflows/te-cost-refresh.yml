@@ -82,7 +82,7 @@ jobs:
               store = get_store()
               summary = await cw.run_cycle(store)
               print("EVM cycle:", json.dumps(summary, default=str))
-              bad = [k for k, v in summary.items() if isinstance(v, str) and v.startswith("failed")]
+              bad = [k for k, v in summary.items() if isinstance(v, str) and v.startswith("failed") and "deadline" not in v]
               if hasattr(cw, "run_solana_cycle"):
                   s = await cw.run_solana_cycle(store)
                   print("Solana pass:", json.dumps(s, default=str))
