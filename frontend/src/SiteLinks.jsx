@@ -22,7 +22,7 @@
 // navigation without a reload.
 
 import React from 'react';
-import { Github, Linkedin } from 'lucide-react';
+import { Github, Linkedin, Youtube } from 'lucide-react';
 import { CHROME_EXTENSION_URL } from './extensionLink';
 import { PRODUCT_NAV, EXTRA_PAGES } from './shell/productNav';
 import { weeklyLinks } from './weeklyUpdates';
@@ -30,6 +30,7 @@ import { weeklyLinks } from './weeklyUpdates';
 export const GITHUB_URL = 'https://github.com/sabaazdn73/Agents-Marketplace';
 export const LINKEDIN_URL = 'https://www.linkedin.com/in/saba-azadegan-2974b622a';
 export const X_URL = 'https://x.com/SabaAzadegan';
+export const YOUTUBE_URL = 'https://www.youtube.com/@sabaazadegan';
 // The recorded walkthrough of the site. Lives here rather than in either
 // app, so web and mobile cannot end up pointing at different videos.
 export const DEMO_VIDEO_URL = 'https://www.youtube.com/watch?v=AlatZXpy6Vo';
@@ -107,6 +108,7 @@ export default function SiteLinks({
       <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={mark} aria-label="GitHub" title="GitHub"><Github size={15} className="shrink-0" /></a>
       <a href={LINKEDIN_URL} target="_blank" rel="noreferrer" className={mark} aria-label="LinkedIn" title="LinkedIn"><Linkedin size={15} className="shrink-0" /></a>
       <a href={X_URL} target="_blank" rel="noreferrer" className={mark} aria-label="X" title="X"><XMark size={14} className="shrink-0" /></a>
+      <a href={YOUTUBE_URL} target="_blank" rel="noreferrer" className={mark} aria-label="YouTube" title="YouTube"><Youtube size={16} className="shrink-0" /></a>
     </span>
   );
 
