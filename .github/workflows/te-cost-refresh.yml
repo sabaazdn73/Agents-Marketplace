@@ -50,7 +50,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install --quiet motor httpx python-dotenv certifi eth-abi eth-utils
+        run: pip install --quiet motor httpx python-dotenv certifi eth-abi eth-utils "eth-hash[pycryptodome]"
 
       - name: Check the secret is present
         env:
@@ -65,7 +65,7 @@ jobs:
         working-directory: backend
         env:
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          MONGODB_DB_NAME: ${{ secrets.MONGODB_DB_NAME }}
+          MONGODB_DB_NAME: ${{ secrets.MONGODB_DB_NAME || secrets.MONGO_DB_NAME }}
           TE_SOLANA_RPC: ${{ secrets.TE_SOLANA_RPC }}
           TE_COST_ENABLED: "1"
           # Longer than the worker's 600 s: this job runs three times a day,
