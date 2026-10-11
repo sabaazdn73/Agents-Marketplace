@@ -187,3 +187,29 @@ export const MCP_CLIENTS = [
       + 'Assistant 2026.2; read 2026-09-17 at jetbrains.com/help/ai-assistant',
   },
 ];
+
+// THE HOME PAGE ROW, "Works with the AI tools you already use" (2026-10-11,
+// after the owner's reference, Agensi's skill pages). The clients above,
+// named the way a reader knows them and held to the same five rules, plus
+// one: this row sits on the home page, outside any instructions for
+// connecting, so a mark appears here only where its terms allow that too.
+// Microsoft's brand page limits the VS Code icon to documentation, so VS Code
+// is named here without it. Claude, ChatGPT and JetBrains have no mark
+// anywhere on this site (see their entries above). `clients` points at the
+// entries above, which carry each mark and what each one supports.
+export const WORKS_WITH = [
+  { name: 'Claude', clients: ['Claude Code', 'Claude apps'], showMark: false },
+  {
+    name: 'ChatGPT',
+    clients: ['OpenAI'],
+    showMark: false,
+    note: 'In developer mode, ChatGPT adds a remote MCP server by URL',
+  },
+  { name: 'Cursor', clients: ['Cursor'], showMark: true },
+  { name: 'VS Code', clients: ['VS Code'], showMark: false },
+  { name: 'Windsurf', clients: ['Windsurf, now Devin Desktop'], showMark: true },
+  { name: 'Zed', clients: ['Zed'], showMark: true },
+  { name: 'Cline', clients: ['Cline'], showMark: true },
+  { name: 'goose', clients: ['goose'], showMark: true },
+  { name: 'JetBrains', clients: ['JetBrains IDEs'], showMark: false },
+];

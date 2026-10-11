@@ -2,7 +2,8 @@
 //
 // "/", following getquin.com's home (owner's reference, home-01 to home-11)
 // with the launch film's content and order:
-//   proof line, hero, product shot (the popular list, framed),
+//   proof line, hero (closing on the AI tools row, home/WorksWith.jsx),
+//   product shot (the popular list, framed),
 //   feature sections, alternating text and card: one stock many tokens (02),
 //     every chain (03), the real cost (04), the buy (06), My ETFs (07),
 //     vaults (08), issuer controls (09, a summary; the table is on
@@ -32,6 +33,7 @@ import { SECTION_LIVE, TOUR_VIDEO_URL, TOUR_POSTER_URL, FEATURE_TICKER } from '.
 import { isLive } from '../shell/productNav';
 import { DATA_LIVE } from '../dataLive';
 import TourModal from '../home/TourModal';
+import WorksWith from '../home/WorksWith';
 import ControlsSummary from '../controls/ControlsSummary';
 import { platformKeyOf } from '../vaults/model';
 
@@ -190,6 +192,13 @@ export default function Home({ layout = 'web', onNavigate }) {
             <SecondaryButton onClick={() => setTour(true)}><Play size={14} aria-hidden="true" />Watch the tour</SecondaryButton>
           )}
         </div>
+        {/* The assistants that reach the MCP server (home/WorksWith.jsx),
+            shown only while /ai, where it leads, is live. */}
+        {isLive('ai') && (
+          <div className={`${mobile ? 'mt-8' : 'mt-10'} mx-auto max-w-[760px]`}>
+            <WorksWith onOpen={() => go('/ai')} />
+          </div>
+        )}
       </section>
 
       {/* PRODUCT SHOT, home-02: the live popular list, framed. It is the
