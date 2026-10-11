@@ -15,6 +15,7 @@
 import { createHash } from 'node:crypto';
 import {
   PublicKey, Keypair, TransactionMessage, VersionedTransaction, SystemProgram, ComputeBudgetProgram, TransactionInstruction,
+  AddressLookupTableAccount,
 } from '@solana/web3.js';
 import { base58Decode, isSolanaAddress, isSolanaSignature } from '../src/sign/base58.js';
 import {
@@ -24,7 +25,7 @@ import {
 import { quoteRequest, quoteUrl, swapBody, fetchJupiterQuote, fetchJupiterSwap, jupiterErrorText } from '../src/sign/jupiter.js';
 import { checkJupiterQuote, quoteMismatchJup, unitsOf, rawText } from '../src/sign/solanaQuote.js';
 import {
-  inspectSwapTx, ataAddress, jupiterTail, JUPITER_PROGRAM, ATA_PROGRAM, COMPUTE_BUDGET_PROGRAM, JUP_ROUTE, JUP_SHARED_ROUTE,
+  inspectSwapTx, lookupTableAddresses, ataAddress, jupiterTail, JUPITER_PROGRAM, ATA_PROGRAM, COMPUTE_BUDGET_PROGRAM, JUP_ROUTE, JUP_SHARED_ROUTE,
 } from '../src/sign/solanaTx.js';
 import { solanaErrorText, signatureOutcome } from '../src/sign/solanaStatus.js';
 import { limitFor, orderCheck, referenceProblem, decimalKey } from '../src/sign/orderMath.js';
@@ -265,6 +266,74 @@ refuses('not a route instruction', [...good().slice(0, 3), jupIx([TOKEN_PROGRAM,
 refuses('no Jupiter instruction', good().slice(0, 3), {}, /0 Jupiter/);
 refuses('two Jupiter instructions', [...good(), good()[3]], {}, /2 Jupiter/);
 check('garbage is refused, not thrown', inspectSwapTx({ txBase64: 'AAAA', order: ok.order, quote: sellQuote(), req: sellReq, mints }).ok === false);
+
+section('swap transaction reading, accounts named through an address lookup table');
+// Jupiter's v0 transactions name the mint, the token programs and most route
+// accounts through a lookup table. Until 2026-10-11 the page read only the
+// message's own keys, so a real first buy of a Token-2022 xStock was refused
+// ("instruction 2 creates a token account that is not the wallet's
+// associated account"): the mint and Token-2022 sat in the table.
+const ALT_KEY = new PublicKey(pk(77));
+const altOf = (addresses, key = ALT_KEY) => new AddressLookupTableAccount({ key, state: { deactivationSlot: 2n ** 64n - 1n, lastExtendedSlot: 0, lastExtendedSlotStartIndex: 0, authority: undefined, addresses: addresses.map((a) => new PublicKey(a)) } });
+const tableAddrs = [STOCK, USDC_MINT, TOKEN_2022_PROGRAM, TOKEN_PROGRAM, stockAta, usdcAta, OTHER, '11111111111111111111111111111111'];
+const altGood = altOf(tableAddrs);
+function buildAlt(ixs, tables) {
+  const msg = new TransactionMessage({ payerKey: walletKey, recentBlockhash: new PublicKey(pk(99)).toBase58(), instructions: ixs }).compileToV0Message(tables);
+  return Buffer.from(new VersionedTransaction(msg).serialize()).toString('base64');
+}
+const altTx = buildAlt(good(), [altGood]);
+check('the constructed transaction really uses the table', lookupTableAddresses(altTx).length === 1 && lookupTableAddresses(altTx)[0] === ALT_KEY.toBase58());
+const inspectAlt = (tx, tables) => inspectSwapTx({ txBase64: tx, order: ok.order, quote: sellQuote(), req: sellReq, mints, lookupTables: tables });
+{
+  const r = inspectAlt(altTx, [altGood]);
+  check('a sound swap naming accounts through a table passes', r.ok === true, JSON.stringify(r.why));
+  check('...and still reports the Token-2022 account it creates', r.ok && r.facts.createdAtas.length === 1 && r.facts.createdAtas[0].mint === STOCK && r.facts.createdAtas[0].tokenProgram === TOKEN_2022_PROGRAM);
+}
+{
+  const r = inspectAlt(altTx, []);
+  check('refused: the table was not read', !r.ok && r.why.some((w) => /address table/.test(w)), JSON.stringify(r.why));
+}
+{
+  const r = inspectAlt(altTx, [altOf(tableAddrs, new PublicKey(pk(78)))]);
+  check('refused: a table at another address is not used', !r.ok && r.why.some((w) => /address table/.test(w)), JSON.stringify(r.why));
+}
+{
+  // The same transaction read against a table holding a different mint at the
+  // mint's index: the account it creates is then not the wallet's stock account.
+  const swapped = [...tableAddrs]; swapped[0] = OTHER;
+  const r = inspectAlt(altTx, [altOf(swapped)]);
+  check('refused: what the table holds is what is checked', !r.ok, JSON.stringify(r.why));
+}
+{
+  const r = inspectAlt(altTx, [altOf(tableAddrs.slice(0, 2))]);
+  check('refused: an index the table does not hold', !r.ok && r.why.some((w) => /does not hold|address table/.test(w)), JSON.stringify(r.why));
+}
+{
+  // A real Jupiter transaction (lite-api.jup.ag, 11 Oct 2026): $4 of USDC to
+  // AAPLx for KN9H7Z...zkqG, one table, the mint and Token-2022 read from it.
+  // The table is rebuilt from its on-chain entries at the indexes this
+  // transaction uses (placeholders elsewhere; only those indexes are read).
+  const REAL_TX = 'AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAQAFCgS0XFfCVH+Fs6dKBTYxIezrU/UoagbdHeQGo66gXEnDG9l/FxgHXpyPFbSIs0DMf7MSfHQVwajFNTKIfxHFPGwudrUC7CNcg0bA9GElTjAJcesRcJRDRLohTem1UPjVTeJ1HZhFL8uRKa6JXEtgr1sYr/A0dlrLCeCg7Yx6xJGk5Ctrgj7XbaPPRcgSwWeVcjXoBiY/sZvxHtyru1WzDycAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMGRm/lIRcy/+ytunLDm+e8jOW7xfcSayxDmzpAAAAABHnVW/IxwG7udMVuzmgVB/2xst6j9I5RArHNola8E4+MlyWPTiSJ8bs9ECkUjg2DC1oTmdr/EIQEjnvY2+n4WbQ/+if11/ZKdMCbHylYed5LCas238ndUUsyGqezjOXosP+FJdfjPcBxko4Gm2figb2TMIpnpqKXxQviIAWfu8cDBgAFAq96AQAIBgABABMFEgEBBxwSAAMBBxMHCQcUABUOAwELDAoREhAWEw0EAg8HI+UXy5d6460qAQAAAChkAAEACT0AAAAAAMcVEgAAAAAAMgAAAad98Kpf9X01WG421wPgR1KfDd/2ZRTUOLHbkWiXTgblBpCZkZWUsgcLBwiSCpYc';
+  const REAL_TABLE = 'CGpU7yBFzm5RHjdf5VELCvRKzYiWdp2cz4URxAdMXSmz';
+  const entries = { 7: TOKEN_PROGRAM, 8: TOKEN_2022_PROGRAM, 10: 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK', 11: 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr', 28: USDC_MINT, 144: '2awJDHp8rrwx335V34xQswF1sqZuGbASu1CPt7by66fs', 145: '69u6oEwRayMozqCWF9Vny6qiYN5f18pZVUtboaDJkXuj', 146: 'XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp', 148: 'ApniVWuZbZoruTAJdyJcLBA4AVw4DKGdV5fHxo6qrAZT', 149: '8ubgr7huZE1Z7ji2U7JZBrfZuq4wKiM4TRCeXVcWcPFC', 150: 'DrdecJVzkaRsf1TQu1g7iFncaokikVTHqpzPjenjRySY', 153: '3zBLzabogNNQ4s2zcuioXncdbTPED4jPx1x2J3Jn8Ezt', 178: 'EsY5gY7EqTqsmCdCvRNjSDSdJDopBNzCH1qd84YRuUQ2' };
+  const realTable = altOf(Array.from({ length: 244 }, (_, i) => entries[i] || '11111111111111111111111111111111'), new PublicKey(REAL_TABLE));
+  const realWallet = 'KN9H7Zc9nmcCjcz8MeURTmXKfMRyDYhfkHXTyoKzkqG';
+  const AAPLX = 'XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp';
+  const realOrder = { ...ok.order, side: 'buy', wallet: realWallet, token: { ...ok.order.token, address: AAPLX, symbol: 'AAPLx' }, pay: { ...ok.order.pay, address: USDC_MINT } };
+  const realMints = { token: { ...stock22, owner: TOKEN_2022_PROGRAM }, pay: usdcMint };
+  const msg = VersionedTransaction.deserialize(Buffer.from(REAL_TX, 'base64')).message;
+  const jupData0 = msg.compiledInstructions.find((ix) => msg.staticAccountKeys[ix.programIdIndex].toBase58() === JUPITER_PROGRAM).data;
+  const tail = jupiterTail(jupData0);
+  const realReq = { amount: '4000000', slippageBps: 50 };
+  const realQuote = { outAmount: String(tail.quotedOut) };
+  const before = inspectSwapTx({ txBase64: REAL_TX, order: realOrder, quote: realQuote, req: realReq, mints: realMints });
+  check('the real transaction, without its table, is refused and says why', !before.ok && before.why.some((w) => /address table/.test(w)), JSON.stringify(before.why));
+  const r = inspectSwapTx({ txBase64: REAL_TX, order: realOrder, quote: realQuote, req: realReq, mints: realMints, lookupTables: [realTable] });
+  check('the real AAPLx buy, read through its table, passes', r.ok === true, JSON.stringify(r.why));
+  check('...creating the wallet\'s AAPLx account under Token-2022', r.ok && r.facts.createdAtas.length === 1 && r.facts.createdAtas[0].mint === AAPLX && r.facts.createdAtas[0].tokenProgram === TOKEN_2022_PROGRAM && r.facts.createdAtas[0].ata === ataAddress(realWallet, AAPLX, TOKEN_2022_PROGRAM));
+  const wrongAmount = inspectSwapTx({ txBase64: REAL_TX, order: realOrder, quote: realQuote, req: { ...realReq, amount: '3000000' }, mints: realMints, lookupTables: [realTable] });
+  check('...and is still refused when it spends more than the order', !wrongAmount.ok && wrongAmount.why.some((w) => /spends/.test(w)));
+}
 
 section('error and status words');
 check('user rejection', /declined/.test(solanaErrorText(Object.assign(new Error('User rejected the request.'), { name: 'WalletSignTransactionError' }))));
