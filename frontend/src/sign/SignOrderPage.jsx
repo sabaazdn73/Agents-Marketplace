@@ -151,6 +151,17 @@ function SignOrder({ id }) {
     return () => { live = false; };
   }, [id, attempt]);
 
+  // The Solana page asks again for the order when its measured price is
+  // missing or stale (a transient failure on our server's side when the page
+  // was opened): the link is the same signed one; only the server's
+  // reference, measured on each read, can change.
+  const refreshOrder = useCallback(async () => {
+    const r = await readOrder(id);
+    if (!r.order) return null;
+    setLoad({ state: 'ok', order: r.order });
+    return r.order;
+  }, [id]);
+
   if (load.state === 'loading') {
     return <Frame><div className="flex items-center gap-2 text-[14px] text-muted"><Loader2 size={16} className="animate-spin" aria-hidden="true" />Reading the order</div></Frame>;
   }
@@ -160,7 +171,7 @@ function SignOrder({ id }) {
       <Frame>
         <SolanaLoadGuard>
           <Suspense fallback={<div className="flex items-center gap-2 text-[14px] text-muted"><Loader2 size={16} className="animate-spin" aria-hidden="true" />Loading the Solana wallet tools</div>}>
-            <SolanaOrderView id={id} order={load.order} />
+            <SolanaOrderView id={id} order={load.order} refreshOrder={refreshOrder} />
           </Suspense>
         </SolanaLoadGuard>
       </Frame>

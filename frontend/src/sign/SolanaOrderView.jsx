@@ -59,20 +59,20 @@ const LOW_SOL_LAMPORTS = 5_000_000;
 const POLL_MS = 2500;
 const POLL_MAX_MS = 5 * 60e3;
 
-export default function SolanaOrderView({ id, order }) {
+export default function SolanaOrderView({ id, order, refreshOrder }) {
   const [walletError, setWalletError] = useState(null);
   // wallets={[]}: the wallet standard's own discovery lists what the browser
   // has (Phantom, Solflare, Backpack...); no adapter package is bundled.
   return (
     <ConnectionProvider endpoint={SOLANA_RPCS[0]}>
       <WalletProvider wallets={[]} autoConnect={false} localStorageKey="tnega-sign-solana-wallet" onError={(e) => setWalletError(solanaErrorText(e))}>
-        <SolanaOrder id={id} order={order} walletError={walletError} clearWalletError={() => setWalletError(null)} />
+        <SolanaOrder id={id} order={order} refreshOrder={refreshOrder} walletError={walletError} clearWalletError={() => setWalletError(null)} />
       </WalletProvider>
     </ConnectionProvider>
   );
 }
 
-function SolanaOrder({ id, order, walletError, clearWalletError }) {
+function SolanaOrder({ id, order, refreshOrder, walletError, clearWalletError }) {
   const buy = order.side === 'buy';
   const { wallets, wallet, publicKey, connected, connecting, select, connect, disconnect, sendTransaction } = useWallet();
   const address = connected && publicKey ? publicKey.toBase58() : null;
@@ -88,16 +88,20 @@ function SolanaOrder({ id, order, walletError, clearWalletError }) {
   const vc = order.valueCheck;
 
   // The two mints, ALWAYS read on chain before anything is quoted.
+  const tokenMint = order.token.address;
+  const payMint = order.pay.address;
   const [mints, setMints] = useState({ status: 'loading' });
   const [mintTick, setMintTick] = useState(0);
   useEffect(() => {
     let live = true;
     setMints({ status: 'loading' });
-    readMints(order)
+    // Keyed on the two addresses, not the order object: asking the server
+    // again for the order (a fresh measured price) does not re-read the mints.
+    readMints({ token: { address: tokenMint }, pay: { address: payMint } })
       .then((m) => { if (live) setMints({ status: 'ok', ...m }); })
       .catch((e) => { if (live) setMints({ status: 'error', error: e?.message || 'read failed' }); });
     return () => { live = false; };
-  }, [order, mintTick]);
+  }, [tokenMint, payMint, mintTick]);
   const mintsRead = mints.status === 'ok';
   const mintBad = mintsRead ? mintsMismatch(order, mints) : [];
   const tokenDecimals = mintsRead && !mints.token.error ? mints.token.decimals : null;
@@ -174,10 +178,21 @@ function SolanaOrder({ id, order, walletError, clearWalletError }) {
     clearWalletError();
     if (wal.status === 'error') setWal({ status: 'idle' });
     setQ({ status: 'quoting' });
+    // Our measured price is read with the order. If it is missing or too old
+    // (our server could not reach Jupiter when the page was opened, or the
+    // page has been open a long time), ask the server again first, so a
+    // passing failure does not leave the order unsignable.
+    let vcNow = vc;
+    if (refreshOrder && (!vc || vc.reason || vc.measuredAt == null || Date.now() - vc.measuredAt > REFERENCE_MAX_AGE_MS)) {
+      let fresh = null;
+      try { fresh = await refreshOrder(); } catch { fresh = null; }
+      if (g !== gen.current) return;
+      if (fresh?.valueCheck) vcNow = fresh.valueCheck;
+    }
     const r = await fetchJupiterQuote(req);
     if (g !== gen.current) return;
     if (r.error) { setQ({ status: 'error', error: r.error }); return; }
-    const c = checkJupiterQuote({ quote: r.quote, req, side: order.side, amount: Number(order.amount), slippage: order.slippage, vc, symbol: symbolForWords, tokenDecimals });
+    const c = checkJupiterQuote({ quote: r.quote, req, side: order.side, amount: Number(order.amount), slippage: order.slippage, vc: vcNow, symbol: symbolForWords, tokenDecimals });
     if (!c.ok) { setQ({ status: 'refused', why: c.why, facts: c.facts, quotedAt: r.quotedAt, ...(c.check ? { check: c.check } : {}) }); return; }
     setQ({ status: 'building', facts: c.facts });
     const s = await fetchJupiterSwap(r.quote, order.wallet, { base: r.base });
@@ -291,11 +306,11 @@ function SolanaOrder({ id, order, walletError, clearWalletError }) {
                   <span className="inline-flex align-middle ml-1"><Tip label="About the price check" align="left"><span className="block">Tnega&apos;s own measured price for this token, from its cost engine. A measurement over 30 minutes old is not used.</span></Tip></span>
                 </span>
                 {(vc.measuredAt == null || now - vc.measuredAt > REFERENCE_MAX_AGE_MS) && (
-                  <span className="block text-[12px] text-warn">This measurement is {vc.measuredAt == null ? 'undated' : `${Math.floor((now - vc.measuredAt) / 60e3)} minutes old`}, so a quote is not checked against it and nothing can be signed until it is refreshed.</span>
+                  <span className="block text-[12px] text-warn">This measurement is {vc.measuredAt == null ? 'undated' : `${Math.floor((now - vc.measuredAt) / 60e3)} minutes old`}, so a quote is not checked against it. Getting a quote asks our server to measure it again first.</span>
                 )}
               </>
             ) : (
-              <span className="text-warn">No measured price to check a quote against ({vc?.reason || 'none sent'}), so this order cannot be signed here.</span>
+              <span className="text-warn">No measured price to check a quote against yet ({vc?.reason || 'none sent'}). Getting a quote asks our server to measure it again first; nothing can be signed until it has one.</span>
             )}
           </Row>
           <Row label="Fees">
