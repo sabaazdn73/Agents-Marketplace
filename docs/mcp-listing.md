@@ -1,7 +1,11 @@
 # Listing the MCP server so assistants can find it
 
-Drafted 2026-10-01; deploy and icons verified live the same evening. Nothing here has been submitted. Every submission is a public
-act under the owner's name, so each one waits for her yes.
+Drafted 2026-10-01; deploy and icons verified live the same evening. Status on
+11 October 2026: submitted to Claude's connector directory and in review; the
+Agent Skill is listed, free, on Agensi
+(https://www.agensi.io/skills/tnega-tokenized-stock-costs). Nothing else here
+has been submitted. Every submission is a public act under the owner's name,
+so each one waits for her yes.
 
 ## The one-paragraph description (use everywhere)
 

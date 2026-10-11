@@ -25,9 +25,11 @@ on Ethereum. These figures move; the site and the API carry the current ones.
 
 ## Solana
 
-- **Costs.** Every listed Solana version is quoted through Jupiter's public
-  quote API at $1,000 and $10,000: the route and its price impact at a stated
-  slot. Shares per token come from the Token-2022 scaled-UI ratio (xStocks).
+- **Costs.** Every listed Solana version is asked of Jupiter's public quote
+  API at $1,000, and at $10,000 when the $1,000 quote fills: the route and its
+  price impact at a stated slot. On 11 October 2026, 38 of the 1,370 had a
+  route that fills $1,000; 1,190 had no route and 139 too thin a one. Shares
+  per token come from the Token-2022 scaled-UI ratio (xStocks).
 - **Buying and selling.** An assistant prepares a buy or a sale of a Solana
   version through Tnega's MCP server, paid in USDC through Jupiter, and the
   user signs it on a `tnega.app/sign/…` page in their own Solana wallet. Before
@@ -36,6 +38,9 @@ on Ethereum. These figures move; the site and the API carry the current ones.
   lookup tables and inspects every instruction of the swap. On 11 October
   2026 a 4 USDC AAPLx buy went through this route on mainnet
   ([transaction](https://explorer.solana.com/tx/4rbGusmyTGCKNtqUr46b5Q55rp4FgHGQw6qeBGC12nbF2wUCZ2uvPVrQaEP9jWjZH72jQgqF6yfpCEmKjNMkPPqw)).
+  A sale is refused for now when the token scales balances by a multiplier
+  (xStocks use one for dividends), because the amount would be signed in the
+  wrong units; no Solana sale has been run yet.
   A stock page's own Buy and Sell tabs cover the six EVM chains.
 - **Receipts.** The Tnega Receipt program on Solana devnet
   ([`6Nzn82QG…LrxP`](https://explorer.solana.com/address/6Nzn82QGVZTiU3iv26ZT9UKQFfyYyjyCoWqUZJ5LLrxP?cluster=devnet))
@@ -50,7 +55,7 @@ on Ethereum. These figures move; the site and the API carry the current ones.
 
 | Page | What it shows |
 |---|---|
-| [Stocks & ETFs](https://www.tnega.app/stocks) (`/stocks`, `/stocks/<ticker>`) | Every version of a stock or ETF and its measured cost to buy. EVM versions: the all-in price per share at sizes from $100 to $250,000, simulated on the version's pools (pool price, price impact, network fee, L1 fee where there is one, and LI.FI's 0.25% fee). Solana versions: Jupiter's route and price impact at $1,000 and $10,000. A stock's page has Details, Buy and Sell tabs; Buy and Sell are on for Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, quoted by LI.FI in the browser and signed in the user's wallet; Solana versions are bought and sold through an assistant (below). A version with no measured pool price is refused; on 11 Oct 2026 no Arbitrum or HyperEVM version had one, so none can be bought or sold there yet (`/api/te/summary`). For Base versions, whether the Aave V4 Equities Hub accepts the token as collateral and at what maximum LTV, read on chain at a stated block. [Docs](docs/stocks-and-etfs.md) |
+| [Stocks & ETFs](https://www.tnega.app/stocks) (`/stocks`, `/stocks/<ticker>`) | Every version of a stock or ETF and its measured cost to buy. EVM versions: the all-in price per share at sizes from $100 to $250,000, simulated on the version's pools (pool price, price impact, network fee, L1 fee where there is one, and LI.FI's 0.25% fee). Solana versions: Jupiter's route and price impact at $1,000, and at $10,000 when $1,000 fills. A stock's page has Details, Buy and Sell tabs; Buy and Sell are on for Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, quoted by LI.FI in the browser and signed in the user's wallet; Solana versions are bought through an assistant (above), and sold that way unless the token scales balances by a multiplier. A version with no measured pool price is refused; on 11 Oct 2026 no Arbitrum or HyperEVM version had one, so none can be bought or sold there yet (`/api/te/summary`). For Base versions, whether the Aave V4 Equities Hub accepts the token as collateral and at what maximum LTV, read on chain at a stated block. [Docs](docs/stocks-and-etfs.md) |
 | [Issuer controls](https://www.tnega.app/issuer-controls) | Who can pause, freeze, burn or seize, upgrade or mint each token, read from the contract with the block it was read at; who may hold it, in the issuer's own words, linked and dated. [Docs](docs/issuer-controls.md) |
 | [Vaults](https://www.tnega.app/vaults) | Vaults that take a stablecoin deposit, with their admin, timelock, what they lend against and total value, from chain reads. Deposits happen on each vault's own venue. [Docs](docs/vaults.md) |
 | [My ETFs](https://www.tnega.app/my-etfs) | Baskets of up to five stocks or ETFs priced by the same cost engine, shared as a link; nothing is stored. [Docs](docs/my-etfs.md) |

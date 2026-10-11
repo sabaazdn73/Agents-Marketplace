@@ -49,10 +49,11 @@ against the pool's contracts inside an `eth_call` at a pinned block on a public
 RPC endpoint, so nothing is sent and the result is the pool's own answer at
 that block.
 
-On Solana, each version is quoted through Jupiter's public quote API at $1,000
-and $10,000: the route Jupiter would take and its price impact, at a stated
-slot, with no network fee and no LI.FI fee. That is a quote, not a pool read,
-so other sizes show "quoted at $1,000 and $10,000 only". Shares per token come
+On Solana, each version is asked of Jupiter's public quote API at $1,000, and
+at $10,000 when the $1,000 quote fills: the route Jupiter would take and its
+price impact, at a stated slot, with no network fee and no LI.FI fee. That is a
+quote, not a pool read, so other sizes show "quoted at $1,000 and $10,000
+only". Shares per token come
 from the Token-2022 scaled-UI ratio on xStocks versions; Ondo's ratio is not
 read, so an Ondo version on Solana is shown but not ranked. A quote with more
 than 10% impact is too thin, and a version Jupiter finds no route for says no

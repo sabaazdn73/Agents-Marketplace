@@ -26,7 +26,7 @@ header at that time). The screenshot's header row was updated on 1 October
 
 ## What is on the site
 
-- **What it costs to buy.** For each EVM version, the all-in price per share at sizes from $100 to $250,000: the pool's price, price impact, the network fee, the L1 fee where there is one and LI.FI's 0.25% fee, over the tokens received, over the shares each token represents, simulated on the pools, not quoted. For each Solana version, Jupiter's route and price impact at $1,000 and $10,000, at a stated slot. See [Stocks & ETFs](stocks-and-etfs.md).
+- **What it costs to buy.** For each EVM version, the all-in price per share at sizes from $100 to $250,000: the pool's price, price impact, the network fee, the L1 fee where there is one and LI.FI's 0.25% fee, over the tokens received, over the shares each token represents, simulated on the pools, not quoted. For each Solana version, Jupiter's route and price impact at $1,000, and at $10,000 when $1,000 fills, at a stated slot. See [Stocks & ETFs](stocks-and-etfs.md).
 - **Issuer controls.** Who can pause the token, freeze a wallet, burn or seize tokens, upgrade the contract or mint, each read from the contract on chain with the block it was read at; and who may hold the token, in the issuer's own words, linked and dated. See [Issuer controls](issuer-controls.md).
 - **Aave V4 collateral on Base.** For each Base version, whether the Aave V4 Equities Hub accepts it as collateral and at what maximum LTV, read on chain at a stated block. Shown on the stock pages.
 - **Vaults.** Vaults that take a stablecoin deposit, with their admin, timelock and total value computed from chain reads. See [Vaults](vaults.md).
