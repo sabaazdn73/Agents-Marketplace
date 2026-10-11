@@ -270,7 +270,10 @@ export function readValueCheck(o, side, signedCostBps) {
   const vc = obj(o.value_check);
   const limit = Number(vc.limit);
   const price = Number(vc.reference_price_usd);
-  if (vc.limit == null || vc.reference_price_usd == null) return { reason: vc.reason || o.reference_reason || obj(o.sell_reference).reason || 'the server sent no measured price and limit to check a quote against' };
+  if (vc.limit == null || vc.reference_price_usd == null) {
+    const why = [vc.reason, o.reference_reason, obj(o.sell_reference).reason].filter((x) => typeof x === 'string' && x).join('; ');
+    return { reason: why || 'the server sent no measured price and limit to check a quote against' };
+  }
   if (!(price > 0) || !Number.isFinite(price)) return { reason: 'the server sent a reference price that is not a positive number' };
   // The limit is worked out here, by the owner's rule, from the cost SIGNED
   // into the link (b), never from the answer. The answer's cost must be that
