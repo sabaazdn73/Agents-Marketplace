@@ -1,0 +1,39 @@
+[package]
+name = "tnega-receipt"
+version = "0.1.0"
+description = "On-chain purchase receipts for Tnega, modelled on TrustCycle"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "tnega_receipt"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+
+[dependencies]
+anchor-lang = { version = "1.1.2" }
+# The instructions sysvar (read the Ed25519 instruction before issue_receipt)
+# and the Ed25519 program's id. Both are already in Cargo.lock through anchor-lang.
+solana-instructions-sysvar = "3.0.0"
+solana-sdk-ids = "3.1.0"
+
+[dev-dependencies]
+litesvm = { version = "0.16.0", features = ["precompiles"] }
+solana-message = "~4.4"
+solana-transaction = "~4.1.6"
+solana-signer = "3.0.0"
+solana-keypair = "3.0.1"
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

@@ -15,7 +15,13 @@ confirmed against the explorer that holds it, not copied from another page.
 | AgentBudgetEscrow | Robinhood Chain (4663) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | [Blockscout](https://robinhoodchain.blockscout.com/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Yes, via Sourcify, `exact_match` |
 | HyperCoreReader | HyperEVM (999) | `0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333` | [HyperEVMScan](https://hyperevmscan.io/address/0x9dbA8EbB17FA4aC5c9Da083632e9294845Ad1333) | Yes, Etherscan V2, source verified |
 
-All five compile with solc `0.8.24+commit.e11b9ed9`, optimizer on at 200
+On Solana:
+
+| Program | Cluster | Address | Explorer | Source |
+|---|---|---|---|---|
+| Tnega Receipt (Anchor), version 2 since 2026-10-11 | Devnet | `6Nzn82QGVZTiU3iv26ZT9UKQFfyYyjyCoWqUZJ5LLrxP` | [Solana Explorer](https://explorer.solana.com/address/6Nzn82QGVZTiU3iv26ZT9UKQFfyYyjyCoWqUZJ5LLrxP?cluster=devnet) | [`solana/tnega-receipt/`](https://github.com/sabaazdn73/Agents-Marketplace/tree/main/solana/tnega-receipt); what it does: [Tnega Receipt on Solana](receipt.md) |
+
+All five EVM contracts compile with solc `0.8.24+commit.e11b9ed9`, optimizer on at 200
 runs. Every AgentBudgetEscrow deployment has runtime bytecode of 7,396 bytes,
 identical across the four chains.
 

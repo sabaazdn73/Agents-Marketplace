@@ -44,9 +44,20 @@ For each version:
 "Details" picks that version for the lower part of the page (see "One version
 in detail" below), where it has three tabs: Details, Buy and Sell.
 
-Costs are simulated, not quoted: each purchase is run against the pool's
-contracts inside an `eth_call` at a pinned block on a public RPC endpoint, so
-nothing is sent and the result is the pool's own answer at that block.
+On the EVM chains, costs are simulated, not quoted: each purchase is run
+against the pool's contracts inside an `eth_call` at a pinned block on a public
+RPC endpoint, so nothing is sent and the result is the pool's own answer at
+that block.
+
+On Solana, each version is quoted through Jupiter's public quote API at $1,000
+and $10,000: the route Jupiter would take and its price impact, at a stated
+slot, with no network fee and no LI.FI fee. That is a quote, not a pool read,
+so other sizes show "quoted at $1,000 and $10,000 only". Shares per token come
+from the Token-2022 scaled-UI ratio on xStocks versions; Ondo's ratio is not
+read, so an Ondo version on Solana is shown but not ranked. A quote with more
+than 10% impact is too thin, and a version Jupiter finds no route for says no
+route. Quotes run a few hundred versions at a time, so each version carries its
+own time.
 
 ### Aave V4 collateral on Base
 
@@ -78,12 +89,19 @@ Details is the part described above. Buy and Sell trade that version from your
 own wallet, routed by LI.FI in your browser. The tab is kept in the address
 (`?tab=buy`, `?tab=sell`).
 
-**Buy and Sell are switched on for every chain a stock can be bought on
+**Buy and Sell are switched on for every EVM chain a stock can be bought on
 here**: Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. The
 owner switched them on on 1 October 2026 so that real trades can be tested
-from the site. Only Base has had a real trade so far: a small buy of
-NVDAc through the signing page. No real sale has been
-run on any chain yet.
+from the site. A Solana version's tabs say that buying on Solana is not
+switched on on this page: a Solana version is bought or sold through an
+assistant, which prepares the order through Tnega's MCP server for you to sign
+on a `tnega.app/sign/…` page (see
+[Buy a tokenized stock through your assistant](buy-with-your-assistant.md)).
+
+Real trades so far: a small buy of NVDAc on Base, and on 11 October 2026 a
+4 USDC buy of AAPLx on Solana, both through the signing page; the Solana one
+has an on-chain [receipt](receipt.md). No real sale has been run on any chain
+yet.
 
 What each tab pays with, or receives on a sale:
 

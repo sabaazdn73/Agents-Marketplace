@@ -39,7 +39,7 @@ dataset, the keys each accepts, and its live coverage.
 
 | | |
 |---|---|
-| `tokenized_equities` | tokenized stocks and ETFs, every issuer's version on each chain side by side, with what a 1,000 or 10,000 USD buy costs, simulated on the pools at a stated block; transfer controls and who may hold each, in the issuer's own words |
+| `tokenized_equities` | tokenized stocks and ETFs, every issuer's version on each chain side by side, with what a 1,000 or 10,000 USD buy costs, simulated on the pools at a stated block on the EVM chains and quoted through Jupiter at a stated slot on Solana; transfer controls and who may hold each, in the issuer's own words |
 | `vaults.stablecoin` | vaults taking a stablecoin deposit, read on chain: TVL, who controls them, what they lend against, fees, lockup and audits |
 | `baskets.curated` | fixed example baskets of tokenized stocks and ETFs, each leg priced from the same measurements; not recommendations |
 | `agents.index` | ERC-8004 agents on BNB Chain, ranked by what they have delivered rather than what they claim |
@@ -56,12 +56,14 @@ to argue against. `tnega_catalogue` carries the current ones.
 ## Preparing an order, which you sign yourself
 
 `tnega_prepare_buy` and `tnega_prepare_sell` prepare an order for a tokenized
-stock on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain or HyperEVM:
-the version with the lowest measured all-in cost (or the one you name), a
-route quoted by LI.FI and labelled as LI.FI's with the time it was taken, an
-approval for the exact amount and never an unlimited one, and a link to
-tnega.app/sign. That page shows the whole order, asks LI.FI again, and asks
-your own wallet to sign each transaction; nothing happens unless you sign.
+stock on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain or HyperEVM, or
+on Solana: the version with the lowest measured all-in cost (or the one you
+name), a route quoted by LI.FI (or by Jupiter on Solana, paid in USDC) and
+labelled with its source and the time it was taken, an approval for the exact
+amount where one is needed and never an unlimited one, and a link to
+tnega.app/sign. That page shows the whole order, quotes again, checks the
+transaction before offering it, and asks your own wallet to sign; nothing
+happens unless you sign.
 The link expires after ten minutes. `tnega_wallet_holdings` reads which
 listed tokenized stocks a wallet holds, on chain.
 

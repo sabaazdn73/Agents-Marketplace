@@ -10,11 +10,15 @@ Tnega has a free hosted MCP server. No account, no API key.
 
 ## What to ask it
 
-- "What does it cost to buy $500 of NVDA as a tokenized stock, and on which chain is it cheapest?" -> `tnega_prepare_buy` (returns the route, fees and a tnega.app/sign link; the user signs every transaction)
+- "What does it cost to buy $500 of NVDA as a tokenized stock, and on which chain is it cheapest?" -> `tnega_prepare_buy` (returns the route, fees and a tnega.app/sign link; the user signs every transaction). On Solana, give a Solana wallet address: the order is paid in USDC through Jupiter.
 - "Which tokenized stocks does this wallet hold?" -> `tnega_wallet_holdings`
 - "Does Aave V4 on Base accept this tokenized stock as collateral?" -> dataset `tokenized_equities`, key `aave_v4/base`
 - "Which ERC-8004 agents on BNB Chain have a verified delivered job?" -> `tnega_list` on `agents.index` with `verified`
 - "How do stablecoin vaults compare on chain?" -> dataset `vaults.stablecoin`
+
+## Receipts
+
+- An optional on-chain receipt of a purchase, on Solana devnet, written only with the buyer's own signature and re-checked in the browser: https://www.tnega.app/docs/receipt
 
 ## Docs
 

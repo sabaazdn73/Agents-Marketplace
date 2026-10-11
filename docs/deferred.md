@@ -381,8 +381,14 @@ need), read through `SOLANA_RPC_URL`, the same method planned for MCP (entry
 11), and EVM to Solana moves as unsigned LI.FI proposals. Jupiter is not used
 (entry 12).
 
-**Status.** Plan only, written 2026-09-25. Nothing is built. Phase 5 no longer
-includes anything from entry 1.
+**Status.** Plan written 2026-09-25; partly built since, in a different way.
+Built: Solana costs from Jupiter's public quote API (not our own pool
+simulation; see entry 12 for the decision that allowed it), buying and selling
+Solana versions through an assistant and the signing page, with the Solana
+wallet standard there, and the Tnega Receipt program on devnet
+([receipt.md](receipt.md)). Not built: reading Solana wallets' holdings, the
+stock page's Buy and Sell tabs on Solana, Sign in with Solana, and the pool
+simulation described above. Phase 5 no longer includes anything from entry 1.
 
 **What blocks it.** Completion of the web version, and the owner's approval of
 the plan.
@@ -554,13 +560,22 @@ yet.
 
 ---
 
-## 12. Jupiter: not used
+## 12. Jupiter: dropped on 2026-09-25, used again since the 2026-10-03 decision
 
 **What it is.** Jupiter's Swap API and SDK, once considered as the source of
 Solana execution cost in phase 5.
 
-**Status.** Dropped by the owner on 2026-09-25, not deferred. No worker,
-script or test calls any Jupiter endpoint.
+**Update, 2026-10-03.** The owner lifted the 2026-09-25 rule for the
+proof-of-concept phase: while Tnega is not commercial, data from every source
+may be used, and written permission is to be obtained from each source before
+any commercial use. Jupiter's public quote API is now used for Solana costs, by
+the cost refresh, by the MCP server when an order is prepared and by the
+signing page. The clauses
+below still stand for commercial use: before Tnega charges anything, Jupiter's
+written permission, or a licence that covers this use, is needed.
+
+**Status before that update.** Dropped by the owner on 2026-09-25, not
+deferred. No worker, script or test called any Jupiter endpoint.
 
 **Why.** The owner's decision, in the owner's words: "drop Jupiter entirely. I
 read the licence myself: §5.1 allows access only with issued keys, §3.2(g)

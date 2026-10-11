@@ -11,6 +11,7 @@
 * [My ETFs](my-etfs.md)
 * [Dashboard](dashboard.md)
 * [Use with AI](use-with-ai.md)
+* [Tnega Receipt on Solana](receipt.md)
 
 ## On-chain agents
 
