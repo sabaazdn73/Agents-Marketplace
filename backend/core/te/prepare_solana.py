@@ -48,6 +48,7 @@ PAY = {"symbol": "USDC", "mint": solana_cost.USDC_MINT, "address": solana_cost.U
        "decimals": solana_cost.USDC_DECIMALS}
 QUOTE_DEADLINE_S = 25.0
 VIEW_CACHE_S = 60.0
+REFERENCE_RETRY_S = 1.5   # pause before the one retry of the page's reference quote
 VIEW_CACHE_MAX = 500
 RANK_SIZES = solana_cost.MEASURED_SIZES
 
@@ -419,15 +420,27 @@ async def _reference(p: dict, rec: dict) -> tuple[dict | None, str | None]:
         return hit[1], None
     client = solana_cost.default_client()
     dec = rec["decimals"]
+    deadline = client.clock() + QUOTE_DEADLINE_S
+
+    async def measure():
+        if p["s"] == "b":
+            return await asyncio.to_thread(solana_cost.quote_buy, client, p["t"], dec, float(p["a"]), slippage_bps=p["m"],
+                                           deadline=deadline)
+        return await asyncio.to_thread(solana_cost.quote_sell, client, p["t"], dec, Decimal(p["a"]), slippage_bps=p["m"],
+                                       deadline=deadline)
+
+    live = await measure()
+    # One more try after a passing failure (Jupiter busy or rate-limited),
+    # inside the same deadline: without a reference the page offers nothing
+    # for signing, so a single 429 should not decide that.
+    if live.get("kind") != "filled" and live.get("transient") and client.clock() + REFERENCE_RETRY_S < deadline:
+        await asyncio.sleep(REFERENCE_RETRY_S)
+        live = await measure()
     if p["s"] == "b":
-        live = await asyncio.to_thread(solana_cost.quote_buy, client, p["t"], dec, float(p["a"]), slippage_bps=p["m"],
-                                       deadline=client.clock() + QUOTE_DEADLINE_S)
         price = live.get("paid_per_token")
         basis = "Jupiter's route for this order, measured when the page was opened: the price paid per token without a network fee"
         compare = "the route's minimum tokens out x reference_price_usd against the dollars paid"
     else:
-        live = await asyncio.to_thread(solana_cost.quote_sell, client, p["t"], dec, Decimal(p["a"]), slippage_bps=p["m"],
-                                       deadline=client.clock() + QUOTE_DEADLINE_S)
         price = live.get("mid_usd")
         basis = "the pre-trade price per token of Jupiter's route for this order, measured when the page was opened"
         compare = "the route's minimum dollars out against tokens sold x reference_price_usd"
