@@ -35,15 +35,26 @@ export async function readMints(order) {
   return { token: one(infos[0]), pay: one(infos[1]) };
 }
 
-/** The wallet's balance of `mint` in its smallest unit (BigInt), summed over
- *  every token account it has for it, under either token program. */
+const ATA_PROGRAM = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+const TOKEN_PROGRAMS = ['TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'].map((k) => new PublicKey(k));
+
+/** The wallet's balance of `mint` in its smallest unit (BigInt): its
+ *  associated token account under either token program, read as plain
+ *  accounts. getParsedTokenAccountsByOwner is refused (403) by the public
+ *  endpoints this page uses, so it is not called. A balance held outside the
+ *  associated account is not counted. */
 export async function readTokenBalance(owner, mint) {
-  const res = await withRpc((c) => c.getParsedTokenAccountsByOwner(new PublicKey(owner), { mint: new PublicKey(mint) }, 'confirmed'));
+  const o = new PublicKey(owner);
+  const m = new PublicKey(mint);
+  const atas = TOKEN_PROGRAMS.map((p) => PublicKey.findProgramAddressSync([o.toBuffer(), p.toBuffer(), m.toBuffer()], ATA_PROGRAM)[0]);
+  const infos = await withRpc((c) => c.getMultipleAccountsInfo(atas, 'confirmed'));
   let total = 0n;
-  for (const { account } of res.value) {
-    const amt = account?.data?.parsed?.info?.tokenAmount?.amount;
-    if (/^\d+$/.test(String(amt))) total += BigInt(amt);
-  }
+  infos.forEach((info, i) => {
+    if (!info || !info.owner.equals(TOKEN_PROGRAMS[i]) || info.data.length < 72) return;
+    const d = new Uint8Array(info.data);
+    // Token account: mint(32) owner(32) amount u64 LE at byte 64.
+    total += new DataView(d.buffer, d.byteOffset, d.byteLength).getBigUint64(64, true);
+  });
   return total;
 }
 
