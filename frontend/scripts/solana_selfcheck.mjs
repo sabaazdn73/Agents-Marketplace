@@ -19,7 +19,7 @@ import {
 import { base58Decode, isSolanaAddress, isSolanaSignature } from '../src/sign/base58.js';
 import {
   rawAgreesSolana, USDC_MINT, TOKEN_PROGRAM, TOKEN_2022_PROGRAM, isSolanaData, normaliseSolanaOrder, payloadMismatchSolana,
-  rawAmountSolana, parseMint, mintsMismatch, solscanTx,
+  rawAmountSolana, parseMint, mintsMismatch, effectiveMultiplier, solscanTx,
 } from '../src/sign/solanaOrder.js';
 import { quoteRequest, quoteUrl, swapBody, fetchJupiterQuote, fetchJupiterSwap, jupiterErrorText } from '../src/sign/jupiter.js';
 import { checkJupiterQuote, quoteMismatchJup, unitsOf, rawText } from '../src/sign/solanaQuote.js';
@@ -129,7 +129,17 @@ check('order without decimals is refused', mintsMismatch({ ...ok.order, token: {
 check('a non-token-program owner is an error', !!parseMint(OTHER, mintData({})).error);
 check('uninitialised mint is an error', !!parseMint(TOKEN_PROGRAM, new Uint8Array(82)).error);
 check('scaled UI multiplier 1 passes', mintsMismatch(ok.order, { token: parseMint(TOKEN_2022_PROGRAM, mintData({ decimals: 8, ext: scaled(1) })), pay: usdcMint }).length === 0);
-check('scaled UI multiplier != 1 is refused', mintsMismatch(ok.order, { token: parseMint(TOKEN_2022_PROGRAM, mintData({ decimals: 8, ext: scaled(1.05) })), pay: usdcMint }).length === 1);
+check('scaled UI multiplier != 1 is refused on a sale', mintsMismatch(ok.order, { token: parseMint(TOKEN_2022_PROGRAM, mintData({ decimals: 8, ext: scaled(1.05) })), pay: usdcMint }).length === 1);
+{
+  const scaledMint = parseMint(TOKEN_2022_PROGRAM, mintData({ decimals: 8, ext: scaled(1.05) }));
+  const buyOrder = { ...ok.order, side: 'buy' };
+  check('scaled UI multiplier != 1 is accepted on a buy (quoted in raw units)', mintsMismatch(buyOrder, { token: scaledMint, pay: usdcMint }).length === 0);
+  check('effective multiplier of a scaled mint is read', effectiveMultiplier(scaledMint.scaledUi, 0) === 1.05);
+  check('effective multiplier is 1 without the extension', effectiveMultiplier(null) === 1);
+  check('the new multiplier applies after its effective time', effectiveMultiplier({ multiplier: 1.05, newMultiplier: 1.1, effectiveAt: 100 }, 200) === 1.1);
+  check('the current multiplier applies before the effective time', effectiveMultiplier({ multiplier: 1.05, newMultiplier: 1.1, effectiveAt: 300 }, 200) === 1.05);
+  check('an unusable multiplier is refused on a buy', mintsMismatch(buyOrder, { token: { ...scaledMint, scaledUi: { multiplier: 0, newMultiplier: 0, effectiveAt: 0 } }, pay: usdcMint }).length === 1);
+}
 check('USDC owned by Token-2022 is refused', mintsMismatch(ok.order, { token: stock22, pay: parseMint(TOKEN_2022_PROGRAM, mintData({ decimals: 6 })) }).length === 1);
 
 // ------------------------------------------------------ value check

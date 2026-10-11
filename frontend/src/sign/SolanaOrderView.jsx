@@ -42,7 +42,7 @@ import { clockText } from '../trade/format';
 import { markDone, REFERENCE_MAX_AGE_MS } from './order';
 import { Row, Ext, Step, btn, btn2, tok, pct, amountText, mmss, ASK_AGAIN } from './signUi';
 import SolanaConnectModal from './SolanaConnectModal';
-import { rawAmountSolana, rawAgreesSolana, mintsMismatch, solscanTx, solscanAccount, solscanToken } from './solanaOrder';
+import { rawAmountSolana, rawAgreesSolana, mintsMismatch, effectiveMultiplier, solscanTx, solscanAccount, solscanToken } from './solanaOrder';
 import { quoteRequest, fetchJupiterQuote, fetchJupiterSwap } from './jupiter';
 import { checkJupiterQuote, rawText } from './solanaQuote';
 import { inspectSwapTx, ATA_RENT_LAMPORTS_APPROX } from './solanaTx';
@@ -101,6 +101,9 @@ function SolanaOrder({ id, order, walletError, clearWalletError }) {
   const mintsRead = mints.status === 'ok';
   const mintBad = mintsRead ? mintsMismatch(order, mints) : [];
   const tokenDecimals = mintsRead && !mints.token.error ? mints.token.decimals : null;
+  // xStocks scale displayed balances (raw x multiplier); the order is quoted
+  // and checked in raw units, and the wallet's view is shown beside it.
+  const uiMultiplier = mintsRead && !mints.token.error ? effectiveMultiplier(mints.token.scaledUi) : 1;
   const computedRaw = mintsRead && !mintBad.length ? rawAmountSolana(order, tokenDecimals) : null;
   // Two workings of one amount (ours from the chain's decimals, the server's
   // from_amount_raw); if they differ, nothing is quoted or signed.
@@ -342,7 +345,7 @@ function SolanaOrder({ id, order, walletError, clearWalletError }) {
         )}
         {ready && (
           <dl className="mt-3 divide-y divide-line border-y border-line">
-            <Row label="You receive, Jupiter's estimate">{rawText(f.outRaw, f.outDecimals)} {f.outSymbol}</Row>
+            <Row label="You receive, Jupiter's estimate">{rawText(f.outRaw, f.outDecimals)} {f.outSymbol}{buy && uiMultiplier != null && uiMultiplier !== 1 && /^\d+$/.test(String(f.outRaw)) && Number.isInteger(f.outDecimals) && <span className="block text-[12px] text-muted">Your wallet will show about {(Number(f.outRaw) / 10 ** f.outDecimals * uiMultiplier).toFixed(Math.min(f.outDecimals, 8))} {f.outSymbol}: the issuer scales balances by {uiMultiplier} for dividends and splits. Prices on this page are per unscaled token.</span>}</Row>
             <Row label={`At least, after ${pct(order.slippage)} slippage`}>{rawText(f.outMinRaw, f.outDecimals)} {f.outSymbol}<span className="block text-[12px] text-muted">Jupiter&apos;s minimum: the swap fails and nothing is exchanged if it would receive less.</span></Row>
             <Row label={buy ? 'You pay' : 'You sell'}>{rawFrom} {fromSymbol}</Row>
             <Row label="Route">{f.routes.join(', ') || 'not named'}{f.steps ? `, ${f.steps} step${f.steps === 1 ? '' : 's'}` : ''}{f.priceImpactPct != null ? `. Jupiter reports a price impact of ${f.priceImpactPct}.` : ''}</Row>
