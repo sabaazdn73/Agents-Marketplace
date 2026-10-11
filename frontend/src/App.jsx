@@ -10,7 +10,7 @@ import HackathonPartnersPage from './HackathonPartnersPage.jsx';
 import DocsPage from './DocsPage.jsx';
 import CanaryTestingPanel from './CanaryTestingPanel.jsx';
 import { EcosystemBoundary, EcosystemFallback, hasWebGL } from './shell/EcosystemFallback.jsx';
-import { NAV_TO_PATH, resolvePath, tabForPath, isExplorePath, isSignPath } from './routePaths.js';
+import { NAV_TO_PATH, resolvePath, tabForPath, isExplorePath, isSignPath, isReceiptPath } from './routePaths.js';
 import { updatePageMeta } from './seoMeta.js';
 import { SITE_COPY } from './siteCopy.js';
 import MobileWelcome, { shouldWelcome } from './shell/MobileWelcome.jsx';
@@ -67,6 +67,9 @@ const EcosystemGlobePage = lazy(() => import('./EcosystemGlobePage.jsx'));
 // Lazy too: the signing page brings its own wallet config for the buy
 // chains (sign/signWagmi.js), which must not be created for any other page.
 const SignOrderPage = lazy(() => import('./sign/SignOrderPage.jsx'));
+// Lazy as well: a receipt page loads @solana/web3.js and the Solana wallet
+// adapter for itself (receipt/ReceiptPage.jsx).
+const ReceiptPage = lazy(() => import('./receipt/ReceiptPage.jsx'));
 
 /** No router library added for one standalone route, a plain
  * window.location.pathname check, matching this project's existing
@@ -170,6 +173,7 @@ function AppRoutes({ tree }) {
     // and chain views, which take Explore's copy until the agent loads.
     const bare = path.split('#')[0];
     if (isSignPath(bare)) { updatePageMeta({ ...PAGE_META['/sign'], path: '/sign' }); return; }
+    if (isReceiptPath(bare)) return; // receipt/ReceiptPage.jsx sets its own
     const known = Object.prototype.hasOwnProperty.call(PAGE_META, bare);
     const detailParent = bare.startsWith('/stocks/') ? '/stocks' : bare.startsWith('/vaults/') ? '/vaults' : bare.startsWith('/my-etfs/') ? '/my-etfs' : null;
     const meta = known ? PAGE_META[bare] : PAGE_META[detailParent || (isExplorePath(bare) ? '/market' : '/')];
@@ -235,6 +239,16 @@ function AppRoutes({ tree }) {
   // WHERE "BACK" GOES FROM A STANDALONE PAGE, IN ONE PLACE. The Dashboard,
   // since 2026-09-25; it was Explore while "/" was the agent listing.
   const backHome = () => navigate('/');
+
+  // A Tnega Receipt (receipt/ReceiptPage.jsx): standalone, its own Solana
+  // wallet providers, outside the app shell.
+  if (isReceiptPath(path.split('#')[0])) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-page flex items-center justify-center"><Loader2 size={28} className="animate-spin text-accent" /></div>}>
+        <ReceiptPage hash={path.split('#')[0].slice('/receipt/'.length)} onBack={backHome} />
+      </Suspense>
+    );
+  }
 
   if (path === '/status') {
     return <StatusPage onBack={backHome} />;

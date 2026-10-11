@@ -110,6 +110,11 @@ const PRODUCT_DETAIL = [
 export const SIGN_PATH = /^\/sign\/[^/]+$/;
 export const isSignPath = (pathname) => SIGN_PATH.test(pathname);
 
+// A Tnega Receipt, /receipt/<content_hash> (receipt/ReceiptPage.jsx): the
+// SHA-256 of its public record, 64 lowercase hex characters.
+export const RECEIPT_PATH = /^\/receipt\/[0-9a-f]{64}$/;
+export const isReceiptPath = (pathname) => RECEIPT_PATH.test(pathname);
+
 /** The product tab a detail path belongs to, or null. */
 export function productDetail(pathname) {
   const hit = PRODUCT_DETAIL.find(([re]) => re.test(pathname));
@@ -134,6 +139,7 @@ function isServed(p) {
     || STANDALONE_PATHS.includes(p)
     || p.startsWith('/docs/')
     || isSignPath(p)
+    || isReceiptPath(p)
     || isExplorePath(p);
 }
 
