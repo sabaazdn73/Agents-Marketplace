@@ -26,6 +26,18 @@
 //     arguments equal the quote's: the amount in, the quoted amount out, the
 //     slippage, and no platform fee;
 //   * a System Program instruction anywhere is refused (nothing here wraps SOL).
+//
+// ADDRESS LOOKUP TABLES
+//   Jupiter's v0 transactions name most accounts through an address lookup
+//   table, so an instruction's account index can point past the message's
+//   own keys. Those addresses are read from the tables on chain (the caller
+//   passes them in, solanaRpc.js readLookupTables) and every check below runs
+//   on the resolved list, exactly as the runtime resolves it: the message's
+//   keys, then every table's writable entries, then every table's read-only
+//   entries. A table that could not be read, or an index it does not hold,
+//   refuses the transaction. An entry in a table never changes once written
+//   (tables are extended, not edited), so what is read is what runs.
+//   Programs must be among the message's own keys, as the runtime requires.
 // Anything else is refused with the reason, and nothing is offered for
 // signing. The list of programs is the constant ALLOWED below, in one place.
 //
@@ -97,12 +109,39 @@ export function jupiterTail(data) {
  *    req        the quote request (sign/jupiter.js quoteRequest)
  *    mints      { token, pay } as parseMint returns them (owner = token program)
  *  Resolves { ok: true, tx, facts } or { ok: false, why: [..] }. */
-export function inspectSwapTx({ txBase64, order, quote, req, mints }) {
+/** The address lookup tables a transaction names, as base58 strings, or []
+ *  when it cannot be read (inspectSwapTx then says so). */
+export function lookupTableAddresses(txBase64) {
+  try {
+    const msg = VersionedTransaction.deserialize(b64ToBytes(txBase64)).message;
+    return (msg.addressTableLookups || []).map((l) => l.accountKey.toBase58());
+  } catch { return []; }
+}
+
+/** Every account the message names, resolved: its own keys, then each
+ *  table's writable entries, then each table's read-only entries. */
+function resolvedKeys(msg, lookupTables) {
+  const lookups = msg.addressTableLookups || [];
+  if (!lookups.length) return { keys: msg.staticAccountKeys.map((k) => k.toBase58()) };
+  const tables = lookups.map((l) => (lookupTables || []).find((t) => t && t.key.equals(l.accountKey)));
+  const missing = lookups.filter((l, i) => !tables[i]).map((l) => l.accountKey.toBase58());
+  if (missing.length) return { error: `the address table it uses could not be read (${missing.join(', ')})` };
+  try {
+    const ak = msg.getAccountKeys({ addressLookupTableAccounts: tables });
+    const all = [...ak.staticAccountKeys, ...(ak.accountKeysFromLookups?.writable || []), ...(ak.accountKeysFromLookups?.readonly || [])];
+    return { keys: all.map((k) => k.toBase58()) };
+  } catch { return { error: 'it names an address its address table does not hold' }; }
+}
+
+export function inspectSwapTx({ txBase64, order, quote, req, mints, lookupTables = [] }) {
   const why = [];
   let tx;
   try { tx = VersionedTransaction.deserialize(b64ToBytes(txBase64)); } catch { return { ok: false, why: ['the transaction could not be read'] }; }
   const msg = tx.message;
-  const keys = msg.staticAccountKeys.map((k) => k.toBase58());
+  const staticCount = msg.staticAccountKeys.length;
+  const resolved = resolvedKeys(msg, lookupTables);
+  if (resolved.error) return { ok: false, why: [resolved.error] };
+  const keys = resolved.keys;
   const ixs = msg.compiledInstructions;
   const wallet = order.wallet;
 
@@ -118,7 +157,7 @@ export function inspectSwapTx({ txBase64, order, quote, req, mints }) {
   const programsSeen = new Set();
 
   ixs.forEach((ix, n) => {
-    if (ix.programIdIndex >= keys.length) { why.push(`instruction ${n + 1} names its program through an address table`); return; }
+    if (ix.programIdIndex >= staticCount) { why.push(`instruction ${n + 1} names its program through an address table`); return; }
     const program = keys[ix.programIdIndex];
     const data = ix.data;
     const acct = (i) => (ix.accountKeyIndexes[i] != null && ix.accountKeyIndexes[i] < keys.length ? keys[ix.accountKeyIndexes[i]] : null);

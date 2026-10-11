@@ -45,9 +45,9 @@ import SolanaConnectModal from './SolanaConnectModal';
 import { rawAmountSolana, rawAgreesSolana, mintsMismatch, effectiveMultiplier, solscanTx, solscanAccount, solscanToken } from './solanaOrder';
 import { quoteRequest, fetchJupiterQuote, fetchJupiterSwap } from './jupiter';
 import { checkJupiterQuote, rawText } from './solanaQuote';
-import { inspectSwapTx, ATA_RENT_LAMPORTS_APPROX } from './solanaTx';
+import { inspectSwapTx, lookupTableAddresses, ATA_RENT_LAMPORTS_APPROX } from './solanaTx';
 import { solanaErrorText, outcomeText } from './solanaStatus';
-import { primaryConnection, readMints, readTokenBalance, readSol, lookAtSignature, SOLANA_RPCS } from './solanaRpc';
+import { primaryConnection, readMints, readTokenBalance, readSol, lookAtSignature, readLookupTables, SOLANA_RPCS } from './solanaRpc';
 
 /** A quote is signed only while it is under 60 s old, as on the EVM page:
  *  Jupiter's transaction carries a blockhash that lives about as long. */
@@ -183,7 +183,11 @@ function SolanaOrder({ id, order, walletError, clearWalletError }) {
     const s = await fetchJupiterSwap(r.quote, order.wallet, { base: r.base });
     if (g !== gen.current) return;
     if (s.error) { setQ({ status: 'error', error: s.error }); return; }
-    const ins = inspectSwapTx({ txBase64: s.swap.tx, order, quote: r.quote, req, mints });
+    let lookupTables;
+    try { lookupTables = await readLookupTables(lookupTableAddresses(s.swap.tx)); } catch { lookupTables = null; }
+    if (g !== gen.current) return;
+    if (!lookupTables) { setQ({ status: 'error', error: 'The address table Jupiter\'s transaction uses could not be read from Solana, so the transaction could not be checked. Get a new quote to try again.' }); return; }
+    const ins = inspectSwapTx({ txBase64: s.swap.tx, order, quote: r.quote, req, mints, lookupTables });
     if (!ins.ok) {
       setQ({ status: 'refused', why: `Refused. The transaction Jupiter built is not the swap in this order, so it is not offered for signing: ${ins.why.join('; ')}.`, facts: c.facts, quotedAt: r.quotedAt });
       return;

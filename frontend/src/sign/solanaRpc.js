@@ -6,7 +6,7 @@
 // key. Sending is not here: the wallet sends the transaction it signs
 // (sign/SolanaOrderView.jsx). Loaded by the Solana view only.
 
-import { Connection, PublicKey } from '@solana/web3.js';
+import { AddressLookupTableAccount, Connection, PublicKey } from '@solana/web3.js';
 import { parseMint } from './solanaOrder.js';
 import { signatureOutcome } from './solanaStatus.js';
 
@@ -56,6 +56,23 @@ export async function readTokenBalance(owner, mint) {
     total += new DataView(d.buffer, d.byteOffset, d.byteLength).getBigUint64(64, true);
   });
   return total;
+}
+
+const LOOKUP_TABLE_PROGRAM = new PublicKey('AddressLookupTab1e1111111111111111111111111');
+
+/** The address lookup tables at `addresses`, read on chain, in the same
+ *  order; null for one that does not exist or is not a lookup table. The
+ *  swap transaction is read against these (solanaTx.js). */
+export async function readLookupTables(addresses) {
+  if (!addresses.length) return [];
+  const keys = addresses.map((a) => new PublicKey(a));
+  const infos = await withRpc((c) => c.getMultipleAccountsInfo(keys, 'confirmed'));
+  return infos.map((info, i) => {
+    if (!info || !info.owner.equals(LOOKUP_TABLE_PROGRAM)) return null;
+    try {
+      return new AddressLookupTableAccount({ key: keys[i], state: AddressLookupTableAccount.deserialize(new Uint8Array(info.data)) });
+    } catch { return null; }
+  });
 }
 
 export async function readSol(owner) {
