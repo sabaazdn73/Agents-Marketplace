@@ -25,8 +25,8 @@ anything.
 | `tnega_list` | A filtered page of compact rows from one dataset, up to 50, with a cursor for the next page | `dataset`, optional filters, `limit`, `cursor` |
 | `tnega_summary` | One aggregate over one dataset (counts, breakdowns, totals) with the coverage behind it. Never a list of records | `dataset`, optional filters |
 | `tnega_series` | One measurement over time, newest first. Today: Hyperliquid post-only rejection in 10-second buckets for one address | `dataset`, `key`, `limit`, `before` |
-| `tnega_prepare_buy` | Prepares a buy of a tokenized stock for you to sign: picks the version with the lowest measured all-in cost, quotes LI.FI (at most 2 quotes), and returns the route, fees, an exact approval and a `tnega.app/sign` link | `query` (a ticker or `<chainId>/<token address>`), `usd_amount` (1 to 10,000), `wallet`, optional `pay_with` (USDC, USDT, USDG or `<chainId>/<address>`), `max_slippage_bps` (10 to 300, default 50) |
-| `tnega_prepare_sell` | Prepares a sale of a tokenized stock the wallet holds: quotes LI.FI once, checks the price against Tnega's measured pool mid price, and returns the route, an exact approval and a `tnega.app/sign` link | `query`, `token_amount`, `wallet`, optional `receive`, `max_slippage_bps` |
+| `tnega_prepare_buy` | Prepares a buy of a tokenized stock for you to sign: picks the version with the lowest measured all-in cost, quotes LI.FI on an EVM chain or Jupiter on Solana (at most 2 quotes), and returns the route, fees, an exact approval where one is needed and a `tnega.app/sign` link | `query` (a ticker, `<chainId>/<token address>`, or `solana/<mint>` with a Solana wallet), `usd_amount` (1 to 10,000), `wallet` (a 0x address, or a Solana address for Solana versions, paid in USDC), optional `pay_with` (USDC, USDT, USDG or `<chainId>/<address>`), `max_slippage_bps` (10 to 300, default 50) |
+| `tnega_prepare_sell` | Prepares a sale of a tokenized stock the wallet holds: quotes LI.FI once on an EVM chain, or Jupiter on Solana, checks the price against Tnega's measured price, and returns the route, an exact approval where one is needed and a `tnega.app/sign` link | `query` (on Solana, the `solana/<mint>` key), `token_amount`, `wallet`, optional `receive`, `max_slippage_bps` |
 | `tnega_wallet_holdings` | Which listed tokenized stocks one wallet holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM: `balanceOf` on every version at one block per chain, nonzero balances only, with the chains read and the ones that failed | `wallet` |
 
 A new measurement becomes a dataset in `tnega_catalogue`, not a new tool.
@@ -37,7 +37,7 @@ From `tnega_catalogue` on 30 September 2026 at 21:28 UTC:
 
 | Dataset | What it measures |
 |---|---|
-| `tokenized_equities` | What it costs to buy a tokenized stock or ETF, per issuer's version on each chain, simulated on the pools at a stated block |
+| `tokenized_equities` | What it costs to buy a tokenized stock or ETF, per issuer's version on each chain: simulated on the pools at a stated block on the EVM chains, quoted through Jupiter at a stated slot on Solana |
 | `baskets.curated` | Tnega's fixed example baskets of tokenized stocks and ETFs, priced |
 | `vaults.stablecoin` | Vaults taking a stablecoin deposit, read on chain: TVL, who controls them, what they lend against |
 | `hyperliquid.post_only` | The share of an address's post-only orders the matching engine refused instead of resting on the book |

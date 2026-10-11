@@ -1,58 +1,99 @@
 # Tnega
 
-Live: [https://www.tnega.app](https://www.tnega.app) · Docs: [docs/](docs/README.md), also on the site at [/docs](https://www.tnega.app/docs)
+Live: [https://www.tnega.app](https://www.tnega.app) · Docs: [docs/](docs/README.md), also on the site at [/docs](https://www.tnega.app/docs) · Demo video: [YouTube](https://www.youtube.com/watch?v=AlatZXpy6Vo)
 
 Tnega lists the tokenized versions of stocks and ETFs across chains and
 measures what each one costs to buy. The same share is issued as separate
 tokens by different issuers on different chains, each in its own pools with its
-own depth and fees. Tnega simulates the purchase on each version's pools at a
-range of order sizes and shows the results side by side.
+own depth and fees. Tnega simulates the purchase on each EVM version's pools at
+a range of order sizes, quotes each Solana version through Jupiter, and shows
+the results side by side.
 
 Tnega never holds funds or a user's keys and never signs a transaction. A purchase or a sale is signed
 by the user, in their own wallet, or nothing happens. Everything on the site is
 a measurement, not a recommendation. Tnega is in its proof-of-concept phase and
 is not yet commercial.
 
-As of 1 October 2026 at 14:51 UTC, the live API's `/api/te/summary` reported
-1,378 stocks and ETFs in 7,279 tokenized versions, from 5 issuers (xStocks,
-Ondo, Robinhood, bStocks and Coinbase) on 7 chains (Ethereum, Base, Arbitrum,
-BNB Chain, Robinhood Chain, HyperEVM and Solana; universe read on 26 September
-2026), and 118 versions with a measured cost to buy $1,000 (cost records up to
-14:48 UTC). These figures move; the site and the API carry the current ones.
+As of 11 October 2026 at 06:32 UTC, the live data (`/api/te/summary`, or the
+MCP tool `tnega_summary`) held 1,378 stocks and ETFs in 7,279 tokenized
+versions, from 5 issuers (xStocks, Ondo, Robinhood, bStocks and Coinbase) on 7
+chains (Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain, HyperEVM and
+Solana; universe read on 26 September 2026). The cost engine reads 2,765 of
+those versions, 1,370 of them on Solana, and 158 had a measured cost to buy
+$1,000: 64 on Robinhood Chain, 38 on BNB Chain, 38 on Solana, 10 on Base and 8
+on Ethereum. These figures move; the site and the API carry the current ones.
+
+## Solana
+
+- **Costs.** Every listed Solana version is quoted through Jupiter's public
+  quote API at $1,000 and $10,000: the route and its price impact at a stated
+  slot. Shares per token come from the Token-2022 scaled-UI ratio (xStocks).
+- **Buying and selling.** An assistant prepares a buy or a sale of a Solana
+  version through Tnega's MCP server, paid in USDC through Jupiter, and the
+  user signs it on a `tnega.app/sign/…` page in their own Solana wallet. Before
+  offering the transaction, the page reads both mints on chain, re-quotes
+  Jupiter, checks the price against Tnega's reference, reads Jupiter's address
+  lookup tables and inspects every instruction of the swap. On 11 October
+  2026 a 4 USDC AAPLx buy went through this route on mainnet
+  ([transaction](https://explorer.solana.com/tx/4rbGusmyTGCKNtqUr46b5Q55rp4FgHGQw6qeBGC12nbF2wUCZ2uvPVrQaEP9jWjZH72jQgqF6yfpCEmKjNMkPPqw)).
+  A stock page's own Buy and Sell tabs cover the six EVM chains.
+- **Receipts.** The Tnega Receipt program on Solana devnet
+  ([`6Nzn82QG…LrxP`](https://explorer.solana.com/address/6Nzn82QGVZTiU3iv26ZT9UKQFfyYyjyCoWqUZJ5LLrxP?cluster=devnet))
+  writes an optional record of a purchase: what it was quoted, what it cost
+  and what Tnega measured on the other versions, only with the buyer's own
+  Ed25519 signature, checked in the same transaction. The first one is the
+  AAPLx buy above: [its card and checks](https://www.tnega.app/receipt/b029c6c2622bdcec5d2a3e9c49cf56608bbfac136198a21052b7aba8963a8a07).
+  Source and tests in [`solana/tnega-receipt/`](solana/tnega-receipt/README.md);
+  how to read one in [docs/receipt.md](docs/receipt.md).
 
 ## What is on the site
 
 | Page | What it shows |
 |---|---|
-| [Stocks & ETFs](https://www.tnega.app/stocks) (`/stocks`, `/stocks/<ticker>`) | Every version of a stock or ETF and, where a pool was measured, its all-in price per share at sizes from $100 to $250,000 (only EVM versions are measured; Solana versions are listed): pool price, price impact, network fee, L1 fee where there is one, and LI.FI's 0.25% fee. A stock's page has Details, Buy and Sell tabs; Buy and Sell are on for Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, quoted by LI.FI in the browser and signed in the user's wallet. A version with no measured pool price is refused; on 1 Oct 2026 at 14:49 UTC no Arbitrum or HyperEVM version had one, so none can be bought or sold there yet (`/api/te/summary` `cost.by_chain`). For Base versions, whether the Aave V4 Equities Hub accepts the token as collateral and at what maximum LTV, read on chain at a stated block. [Docs](docs/stocks-and-etfs.md) |
+| [Stocks & ETFs](https://www.tnega.app/stocks) (`/stocks`, `/stocks/<ticker>`) | Every version of a stock or ETF and its measured cost to buy. EVM versions: the all-in price per share at sizes from $100 to $250,000, simulated on the version's pools (pool price, price impact, network fee, L1 fee where there is one, and LI.FI's 0.25% fee). Solana versions: Jupiter's route and price impact at $1,000 and $10,000. A stock's page has Details, Buy and Sell tabs; Buy and Sell are on for Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM, quoted by LI.FI in the browser and signed in the user's wallet; Solana versions are bought and sold through an assistant (below). A version with no measured pool price is refused; on 11 Oct 2026 no Arbitrum or HyperEVM version had one, so none can be bought or sold there yet (`/api/te/summary`). For Base versions, whether the Aave V4 Equities Hub accepts the token as collateral and at what maximum LTV, read on chain at a stated block. [Docs](docs/stocks-and-etfs.md) |
 | [Issuer controls](https://www.tnega.app/issuer-controls) | Who can pause, freeze, burn or seize, upgrade or mint each token, read from the contract with the block it was read at; who may hold it, in the issuer's own words, linked and dated. [Docs](docs/issuer-controls.md) |
 | [Vaults](https://www.tnega.app/vaults) | Vaults that take a stablecoin deposit, with their admin, timelock, what they lend against and total value, from chain reads. Deposits happen on each vault's own venue. [Docs](docs/vaults.md) |
 | [My ETFs](https://www.tnega.app/my-etfs) | Baskets of up to five stocks or ETFs priced by the same cost engine, shared as a link; nothing is stored. [Docs](docs/my-etfs.md) |
 | [Dashboard](https://www.tnega.app/dashboard) | What a connected wallet holds on six EVM chains: total, allocation by class and every position, read on chain. [Docs](docs/dashboard.md) |
-| [Use with AI](https://www.tnega.app/ai) | The MCP server: nine tools that read every measurement above and prepare a buy or sale for the user to sign on a `tnega.app/sign/…` page. [Docs](docs/use-with-ai.md), [step by step](docs/buy-with-your-assistant.md) |
+| [Use with AI](https://www.tnega.app/ai) | The MCP server: nine tools that read every measurement above and prepare a buy or sale, on the EVM chains through LI.FI and on Solana through Jupiter, for the user to sign on a `tnega.app/sign/…` page. [Docs](docs/use-with-ai.md), [step by step](docs/buy-with-your-assistant.md) |
+| [Receipt](https://www.tnega.app/receipt/b029c6c2622bdcec5d2a3e9c49cf56608bbfac136198a21052b7aba8963a8a07) (`/receipt/<content_hash>`) | An optional record of a purchase on Solana devnet, written only with the buyer's signature, with every check re-run in the browser against public endpoints. [Docs](docs/receipt.md) |
 
 ## How it is built
 
 - **Frontend**: Vite and React in [`frontend/`](frontend/README.md), deployed on
-  Vercel. Wallet connection through wagmi and RainbowKit; trade routes from
-  LI.FI, requested by the browser.
+  Vercel. Wallet connection through wagmi and RainbowKit on the EVM chains, and
+  through the Solana wallet standard on the signing and receipt pages; trade
+  routes from LI.FI (EVM) and Jupiter (Solana), requested by the browser.
 - **Backend**: FastAPI in [`backend/`](backend/README.md), on Render as a web
   service (`server.py`: the REST API under `/api/*` and the MCP server at
-  `POST /mcp`) and a background worker (`worker.py`: the cost refresh, the
-  vault reads and the agent-registry loops). Stores are MongoDB and, for the
-  Hyperliquid series, CockroachDB.
-- **Data**: chain reads come first. Costs are swaps simulated on each pool by
-  the `TnegaSwapProbe` contract inside `eth_call` at a pinned block on public
-  RPC endpoints; it is never deployed and nothing is sent. Issuer controls,
-  supply and Aave V4 collateral are chain reads; eligibility is the issuer's own
-  terms, linked and dated. Vaults are read on Solana through Helius. LI.FI
-  supplies the quote at buying time. Every source is listed in
+  `POST /mcp`) and a background worker (`worker.py`: the cost refresh on the
+  EVM pools and through Jupiter, the vault reads and the agent-registry loops).
+  A GitHub Actions workflow also refreshes the costs every eight hours. Stores
+  are MongoDB and, for the Hyperliquid series, CockroachDB.
+- **Data**: chain reads come first. EVM costs are swaps simulated on each pool
+  by the `TnegaSwapProbe` contract inside `eth_call` at a pinned block on
+  public RPC endpoints; it is never deployed and nothing is sent. Solana costs
+  are Jupiter quotes at a stated slot. Issuer controls, supply and Aave V4
+  collateral are chain reads; eligibility is the issuer's own terms, linked and
+  dated. Vaults are read on Solana through Helius. LI.FI (EVM) and Jupiter
+  (Solana) supply the quote at buying time. Every source is listed in
   [Data sources](docs/data-sources.md) and on the site's
   [Data sources page](https://www.tnega.app/data-sources).
 - **MCP server**: `https://mcp.tnega.app/mcp`, JSON-RPC
   over POST, no key. `npx tnega-mcp` adds it to a client
   ([mcp/npm](mcp/npm/README.md)). Tools and datasets:
-  [MCP tools](docs/mcp-tools.md).
+  [MCP tools](docs/mcp-tools.md). Submitted to Claude's connectors directory
+  (in review on 11 October 2026), and listed as a free agent skill on
+  [Agensi](https://www.agensi.io/skills/tnega-tokenized-stock-costs).
+- **Receipt program**: Anchor on Solana devnet, in
+  [`solana/tnega-receipt/`](solana/tnega-receipt/README.md), with an attestor
+  script and 33 LiteSVM tests. The receipt page reads it from the browser.
+
+## Pricing
+
+Tnega is free while it is a proof of concept: no account, and no fee of its own
+on top of what a route costs. Once it works at scale, the plan is a
+subscription of 20 USDC (or $20) a month.
 
 ## Repository
 
@@ -61,6 +102,7 @@ BNB Chain, Robinhood Chain, HyperEVM and Solana; universe read on 26 September
 | [`frontend/`](frontend/README.md) | The site (Vite, React); also the docs viewer, which renders `docs/*.md` |
 | [`backend/`](backend/README.md) | API, MCP server, worker loops, selfcheck scripts and the static data files |
 | [`contracts/`](contracts/README.md) | Solidity (Foundry): the swap probe used by the cost engine, and the contracts of the earlier agents work |
+| [`solana/tnega-receipt/`](solana/tnega-receipt/README.md) | The Tnega Receipt program (Anchor, Solana devnet), its LiteSVM tests and the attestor script |
 | [`docs/`](docs/README.md) | The documentation shown at `/docs`; earlier pages are kept under Archive in [`docs/SUMMARY.md`](docs/SUMMARY.md) |
 | [`mcp/`](mcp/) | The npm package `tnega-mcp` ([`mcp/npm/`](mcp/npm/README.md)) and the design notes written before the MCP server was built ([`DESIGN.md`](mcp/DESIGN.md), [`TOKENIZED-EQUITIES.md`](mcp/TOKENIZED-EQUITIES.md)) |
 | [`extension/`](extension/) | The Chrome extension (Manifest V3) |
@@ -102,13 +144,18 @@ npm run dev
 `VITE_API_BASE_URL` defaults to `http://localhost:8000`. To read the
 tokenized-equity data from the live API in a dev server instead, start it with
 `TE_API=https://agents-marketplace-q3k4.onrender.com npm run dev`. Wallet
-connection needs `VITE_WALLETCONNECT_PROJECT_ID`. `npm run build` runs two
-selfchecks (`check:chains`, `check:csp`) before `vite build`.
+connection needs `VITE_WALLETCONNECT_PROJECT_ID`. `npm run build` runs three
+selfchecks (`check:chains`, `check:csp`, `check:solana`) before `vite build`;
+`node scripts/receipt_selfcheck.mjs` checks how the receipt page reads the
+chain.
 
 Extension: load `extension/` unpacked in Chrome, or package it with
 `python3 extension-store/build.py --out <folder>`.
 
 Contracts (from `contracts/`): see [contracts/README.md](contracts/README.md).
+
+Receipt program (from `solana/tnega-receipt/`, Anchor 1.1.2): `anchor build &&
+cargo test`; see [its README](solana/tnega-receipt/README.md) for devnet.
 
 ## Selfchecks
 

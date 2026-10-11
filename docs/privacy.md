@@ -2,7 +2,7 @@
 
 The full privacy notice, for the website and for the Chrome extension, is on
 the site at [tnega.app/privacy](https://www.tnega.app/privacy) (last updated
-1 October 2026 when this page was last changed). This page summarises it; where
+11 October 2026 when this page was last changed). This page summarises it; where
 the two differ, the site's notice is the one that applies.
 
 ## The website
@@ -23,8 +23,19 @@ in it.
 
 - Opening it sends the link to Tnega's server, which checks it and answers with the order. The server's access log records the path, and so the address; the server writes the order nowhere else.
 - "Get a LI.FI quote" sends LI.FI (li.quest) the wallet address, the chain, the two tokens and the amount, from your browser.
+- On Solana, the quote comes from Jupiter (lite-api.jup.ag, with api.jup.ag as a fallback), which receives the two tokens and the amount, and, when it builds the swap, the wallet address. The mints, your balances and Jupiter's address lookup tables are read from a public Solana RPC endpoint, which receives the wallet address.
 - The wallet's balance and allowance are read from the chain's public RPC provider, which receives the wallet address.
 - After you sign the swap, your browser sends Tnega's server the transaction hash with the link, so the link cannot be used twice. The server keeps that in memory only.
+
+## A receipt page
+
+A receipt page (`tnega.app/receipt/<content_hash>`) shows a published record
+of a purchase (`tnega.app/receipts/<content_hash>.json`), which contains the
+buyer's wallet address and the purchase transaction. Your browser reads the
+receipt from Solana devnet and the purchase from Solana mainnet through public
+RPC endpoints, which receive the addresses read. Signing the receipt is a
+message in your own wallet, not a transaction; the signature is shown on the
+page, and only you decide to pass it on for the receipt to be written.
 
 ## Your assistant
 

@@ -1,0 +1,10 @@
+{
+  "name": "tnega-receipt-scripts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@noble/curves": "^1.9.7",
+    "@solana/web3.js": "^1.98.0",
+    "bs58": "^4.0.1"
+  }
+}

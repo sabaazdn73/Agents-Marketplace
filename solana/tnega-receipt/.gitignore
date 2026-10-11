@@ -1,0 +1,7 @@
+/target
+/node_modules
+.anchor
+test-ledger
+*-keypair.json
+*.key
+.env

@@ -25,15 +25,15 @@ by you, in your wallet, on the signing page.
 
 ## Two routes: the site or your assistant
 
-- **On the site, all six chains.** A stock's page has Buy and Sell tabs. They ask LI.FI for a quote in your browser and you sign in your own wallet, with the same checks as the signing page below; a version with no measured pool price is refused with a short message. See [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell).
-- **Through your assistant, every chain an order can be prepared on** (Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM). The assistant prepares the order through Tnega's MCP server and you sign it on a `tnega.app/sign/…` page. That is the route this page follows.
+- **On the site, all six EVM chains.** A stock's page has Buy and Sell tabs. They ask LI.FI for a quote in your browser and you sign in your own wallet, with the same checks as the signing page below; a version with no measured pool price is refused with a short message. See [Stocks & ETFs](stocks-and-etfs.md#details-buy-and-sell).
+- **Through your assistant, every chain an order can be prepared on**: Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM through LI.FI, and Solana through Jupiter. The assistant prepares the order through Tnega's MCP server and you sign it on a `tnega.app/sign/…` page. That is the route this page follows; the walkthrough below is on Base, and [On Solana](#on-solana) says what differs there.
 
-Either way you sign in your own wallet, LI.FI takes 0.25%, and Tnega takes no
-fee.
+Either way you sign in your own wallet and Tnega takes no fee. On the EVM
+chains LI.FI takes 0.25%; on Solana there is no LI.FI fee.
 
 ## Step 0: what you need
 
-- **A wallet on one of the chains an order can be prepared on.** These are Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM. The signing page works with any wallet RainbowKit can connect: a browser wallet such as MetaMask, or a phone wallet through WalletConnect.
+- **A wallet on one of the chains an order can be prepared on.** On Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM the signing page works with any wallet RainbowKit can connect: a browser wallet such as MetaMask, or a phone wallet through WalletConnect. On Solana it lists the Solana wallets your browser has (the Solana wallet standard), such as Phantom, Solflare or MetaMask.
 - **The pay token on that chain.** USDC on Ethereum, Base, Arbitrum and HyperEVM; USDT or USDC on BNB Chain; USDG on Robinhood Chain. The order is worked out with the pay token taken at $1.
 - **A little of the chain's gas token**, for two transactions: an approval and the swap. In the example below LI.FI estimated the swap's network fee on Base at 0.000003 ETH ($0.01).
 - **The right to hold the token.** Each issuer states who may hold its tokens. The signing page shows the issuer's own words, linked and dated, next to the Sign button. For the version chosen in this example, Coinbase's NVDAc on Base, they read: tokenized stocks are "only available to persons in eligible jurisdictions outside of the U.S." (Base documentation, read 2026-09-25). Tnega shows these terms and does not check who you are.
@@ -101,7 +101,8 @@ The assistant turns that into one call:
 
 With a ticker, Tnega chooses the version (see step 3). To buy one version in
 particular, on one chain, the query can be that version's key instead,
-`<chainId>/<token address>`. For NVDAc on Base that is:
+`<chainId>/<token address>` on an EVM chain or `solana/<mint>` on Solana (with
+a Solana wallet address). For NVDAc on Base that is:
 
 ```text
 8453/0xb20000000000000000000078ee7ce2fe4908108c
@@ -255,12 +256,21 @@ differ. The token's page on Basescan is
 Your assistant can also read what the wallet holds with `tnega_wallet_holdings`
 (see step 10).
 
+## On Solana
+
+The same three steps, with these differences:
+
+- **The wallet is a Solana address.** Give your assistant a Solana address instead of a 0x one, and a ticker or a `solana/<mint>` key. Tnega ranks the Solana versions by their stored all-in price per share (versions whose share ratio is not read, such as Ondo's, are skipped), quotes up to two of them on Jupiter, checks the price and writes the order into a signed link.
+- **Paid in USDC, one transaction.** There is no separate approval: the swap is one transaction, paid in USDC, with the network fee in SOL. A wallet short of USDC cannot sign; low SOL only warns.
+- **What the signing page checks before offering the swap.** The order's fields; both mints, read on chain (decimals and token program must match the order, and the amount worked out in your browser must equal the server's); your balances; a fresh Jupiter quote that must match the order (mints, amount, slippage, no platform fee) and whose minimum must be inside the order's limit at Tnega's reference price, which is asked for again when it is missing or over 30 minutes old. Then it reads Jupiter's address lookup tables and inspects the transaction Jupiter built: your wallet must be the only signer and the fee payer, and only the compute budget, token-account and one Jupiter route instruction are allowed. A quote can be signed only while it is under 60 seconds old, and only by the order's wallet.
+- **A real one.** On 11 October 2026, 4 USDC bought 0.01186472 AAPLx (Apple, xStocks) this way on Solana mainnet ([transaction](https://explorer.solana.com/tx/4rbGusmyTGCKNtqUr46b5Q55rp4FgHGQw6qeBGC12nbF2wUCZ2uvPVrQaEP9jWjZH72jQgqF6yfpCEmKjNMkPPqw)). Its quoted cost was 0.08% and it paid 0.10%. After a Solana purchase you can ask for a [receipt](receipt.md): an on-chain record written only with your signature.
+
 ## Step 10: selling, and reading what you hold
 
 Selling works the same way, in the other direction.
 
-- `tnega_wallet_holdings` reads which listed tokenized stocks one wallet holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM: `balanceOf` on every version at one block per chain, nonzero balances only, with the chains that were read and the ones that failed.
-- `tnega_prepare_sell` takes a version key (or a ticker, then the version the wallet holds most of), a token amount and the wallet. It quotes LI.FI once, checks the price against Tnega's measured pool mid price, and returns the route, an exact approval of the tokens being sold and a signing link. What you receive is the chain's stablecoin unless you ask for another.
+- `tnega_wallet_holdings` reads which listed tokenized stocks one wallet holds on Ethereum, Base, Arbitrum, BNB Chain, Robinhood Chain and HyperEVM: `balanceOf` on every version at one block per chain, nonzero balances only, with the chains that were read and the ones that failed. Solana wallets are not read yet.
+- `tnega_prepare_sell` takes a version key (or a ticker, then the version the wallet holds most of), a token amount and the wallet. On an EVM chain it quotes LI.FI once, checks the price against Tnega's measured pool mid price, and returns the route, an exact approval of the tokens being sold and a signing link. What you receive is the chain's stablecoin unless you ask for another. On Solana it needs the `solana/<mint>` key, refuses an amount above your balance, takes one Jupiter quote, checks it against the route's mid price and returns a signing link; you receive USDC.
 
 For example: "What tokenized stocks does 0x… hold?", then "Sell 0.01 NVDAc
 from that wallet for USDC."
@@ -291,9 +301,9 @@ The not-valid state is a made-up link that carries no order.
 
 ## Fees
 
-- LI.FI's fee: 0.25% of the amount, taken out of the amount paid (on a sale, out of the tokens sold, so out of what you receive).
-- The network fee for the approval and the swap, paid by your wallet in the chain's gas token.
-- Tnega: none.
+- LI.FI's fee, on the EVM chains: 0.25% of the amount, taken out of the amount paid (on a sale, out of the tokens sold, so out of what you receive).
+- The network fee for the approval and the swap, paid by your wallet in the chain's gas token. On Solana: the network fee in SOL for the one transaction, plus the rent of a token account if your wallet does not have one for that token yet. There is no LI.FI fee on Solana.
+- Tnega: none. Tnega is free while it is a proof of concept; once it works at scale, the plan is a subscription of 20 USDC (or $20) a month.
 
 The costs on Tnega's stock pages already include LI.FI's 0.25% fee and gas, so
 the figure the version was chosen by and the figure you pay are measured the
