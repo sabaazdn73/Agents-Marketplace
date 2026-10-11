@@ -206,14 +206,29 @@ export function mintsMismatch(order, mints) {
   if (mints.pay.decimals !== order.pay.decimals) bad.push(`USDC has ${mints.pay.decimals} decimals on chain, this site's list says ${order.pay.decimals}`);
   if (order.token.decimals == null) bad.push('the order does not state the stock token’s decimals');
   else if (mints.token.decimals !== order.token.decimals) bad.push(`${sym} has ${mints.token.decimals} decimals on chain, the order says ${order.token.decimals}`);
-  // A scaled-UI-amount mint shows balances as raw x multiplier, so "0.5
-  // tokens" on screen is not 0.5 x 10^decimals raw. Not handled: refused
-  // rather than signed with the wrong amount.
+  // A scaled-UI-amount mint (xStocks uses one for dividends and splits)
+  // shows balances as raw x multiplier. A buy is quoted, checked and signed
+  // in raw units, so the multiplier changes only what a wallet displays and
+  // the page shows it beside Jupiter's estimate. A sale's amount is in tokens
+  // as the user sees them, so a scaled mint is still refused on a sale rather
+  // than signed with the wrong amount.
   const s = mints.token.scaledUi;
-  if (s && (s.multiplier !== 1 || (s.newMultiplier !== 1 && s.newMultiplier !== 0 && Number.isFinite(s.newMultiplier)))) {
-    bad.push(`${sym} shows balances scaled by a multiplier (${s.multiplier}), which this page does not support yet`);
+  if (s) {
+    const m = effectiveMultiplier(s);
+    if (m == null) bad.push(`${sym} carries a balance multiplier this page cannot read`);
+    else if (order.side === 'sell' && m !== 1) bad.push(`${sym} shows balances scaled by a multiplier (${m}), which this page does not support for a sale yet`);
   }
   return bad;
+}
+
+/** The multiplier a scaled-UI-amount mint applies to balances now: the new
+ *  one once its effective time has passed, else the current one. 1 for a
+ *  mint without the extension; null when the stored value is unusable. */
+export function effectiveMultiplier(s, nowSec = Date.now() / 1000) {
+  if (!s) return 1;
+  const ok = (x) => Number.isFinite(x) && x > 0;
+  if (ok(s.newMultiplier) && Number.isFinite(s.effectiveAt) && s.effectiveAt > 0 && nowSec >= s.effectiveAt) return s.newMultiplier;
+  return ok(s.multiplier) ? s.multiplier : null;
 }
 
 export const solscanTx = (sig) => (sig ? `https://solscan.io/tx/${sig}` : null);
