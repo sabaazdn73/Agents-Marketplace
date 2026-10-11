@@ -83,7 +83,7 @@ const TRADE_RPC_LIST = TRADE_IDS.map((id) => TRADE_RPC_WORDS[id]).filter(Boolean
 /** "a, b and c". */
 const listText = (xs, sep = ', ') => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(sep)}${sep === ', ' ? ' and ' : '; and '}${xs[xs.length - 1]}`);
 
-const UPDATED = '1 October 2026';
+const UPDATED = '11 October 2026';
 const API = 'https://agents-marketplace-q3k4.onrender.com';
 const CONTACT = 'sabaazad93@gmail.com';
 
@@ -126,7 +126,7 @@ export default function PrivacyPage({ onBack }) {
 
         <h1 className="text-2xl font-bold mb-1">Privacy</h1>
         <p className="text-sm text-muted mb-8">
-          For the website, tnega.app, and for the Chrome extension, Tnega. Last updated {UPDATED}.
+          For the website, tnega.app, the Chrome extension, Tnega, and the MCP server, mcp.tnega.app. Last updated {UPDATED}.
         </p>
 
         <Section id="website" title="The website">
@@ -726,6 +726,37 @@ export default function PrivacyPage({ onBack }) {
             account, email address or password, and no login provider holding anything about you.
             Signing changes only how the site describes the address, as your wallet rather than this
             address; everything it shows for an address is public and readable without signing.
+          </p>
+        </Section>
+
+        <Section id="mcp" title="The MCP server (mcp.tnega.app)">
+          <p>
+            Tnega&apos;s MCP server lets an AI assistant such as Claude call Tnega&apos;s tools. It
+            asks for no account, sign-in, key or cookie. It receives only the arguments the assistant
+            sends with each tool call: a ticker, a token or version key, a dataset name, an amount, a
+            wallet address. It never receives your conversation, the assistant&apos;s memory, your
+            files or anything else from your chat, and it does not ask the assistant for them.
+          </p>
+          <p>
+            A wallet address is used only for the call it came with. To read holdings
+            (tnega_wallet_holdings) the server reads the wallet&apos;s balances on the public RPC
+            endpoints of each chain it covers. To prepare an order (tnega_prepare_buy,
+            tnega_prepare_sell) it reads the wallet&apos;s balance on that chain&apos;s RPC
+            provider, asks LI.FI (li.quest) for a quote with the wallet as sender and receiver on an
+            EVM chain, or Jupiter for a route on Solana, and writes the order into a signed
+            tnega.app/sign link, described above. Tnega signs nothing, sends nothing and never holds
+            funds or keys: every transaction is signed in your own wallet.
+          </p>
+          <p>
+            Nothing from a tool call is written to a database or to disk. A holdings answer is kept in
+            the server&apos;s memory for 60 seconds so a repeated question is not read twice, and is
+            gone when the server restarts. The server&apos;s own log notes a few unusual
+            requests (an unsupported protocol version, an unknown web origin, a dropped connection)
+            with the method or path, the origin and the client&apos;s user agent, never a tool&apos;s
+            arguments. Our host, Render, keeps a standard access log of
+            each request (time, path, status and connecting address; arguments travel in the request
+            body, not the path) for its own log retention period, and we do not copy it anywhere.
+            Nothing is sold, shared for advertising or used to train a model.
           </p>
         </Section>
 
